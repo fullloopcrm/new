@@ -11,6 +11,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -116,7 +117,7 @@ export async function PATCH(request: Request, { params }: Params) {
           subject: `Job complete — ${title}`,
           kicker: 'Job complete',
           heading: `${title} is wrapped`,
-          bodyHtml: `<p style="margin:0"><strong>${title}</strong> was marked complete. Total <strong>${money}</strong>.</p>`,
+          bodyHtml: `<p style="margin:0"><strong>${escapeHtml(title)}</strong> was marked complete. Total <strong>${money}</strong>.</p>`,
           sms: `Job complete: ${title} (${money}).`,
         })
       }

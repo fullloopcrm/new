@@ -9,6 +9,7 @@ import { sendEmail } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -148,7 +149,7 @@ export async function POST(request: Request, { params }: Params) {
       subject: `Proposal sent — ${quote.quote_number}`,
       kicker: 'Proposal sent',
       heading: `${quote.quote_number} is out the door`,
-      bodyHtml: `<p style="margin:0 0 12px">Sent to ${quote.contact_name || 'the customer'} via ${sentVia}.</p><p style="margin:0"><strong>${formatCents(quote.total_cents)}</strong>${quote.deposit_cents > 0 ? ` · deposit ${formatCents(quote.deposit_cents)}` : ''}</p>`,
+      bodyHtml: `<p style="margin:0 0 12px">Sent to ${escapeHtml(quote.contact_name || 'the customer')} via ${escapeHtml(sentVia)}.</p><p style="margin:0"><strong>${formatCents(quote.total_cents)}</strong>${quote.deposit_cents > 0 ? ` · deposit ${formatCents(quote.deposit_cents)}` : ''}</p>`,
       sms: `Proposal ${quote.quote_number} (${formatCents(quote.total_cents)}) sent to ${quote.contact_name || 'customer'}.`,
     })
 
