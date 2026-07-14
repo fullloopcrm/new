@@ -7,17 +7,24 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 
+// Same gating as the sibling team-applications route: viewing/deciding hiring
+// applications requires team.view/team.edit, not just tenant membership —
+// otherwise a 'staff' role (team.view only, no team.edit) could approve/reject
+// management hires via a direct API call despite having no team permission.
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('team.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
     const { data, error } = await supabaseAdmin
       .from('management_applications')
       .select('*')
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenant.tenantId)
       .order('created_at', { ascending: false })
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data || [])
@@ -119,8 +126,10 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
+  const { tenant, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
     const { id, status } = await request.json()
     if (!id || !status) return NextResponse.json({ error: 'ID and status required' }, { status: 400 })
 
@@ -128,7 +137,7 @@ export async function PUT(request: Request) {
       .from('management_applications')
       .update({ status, reviewed_at: new Date().toISOString() })
       .eq('id', id)
-      .eq('tenant_id', tenantId)
+      .eq('tenant_id', tenant.tenantId)
       .select()
       .single()
 
