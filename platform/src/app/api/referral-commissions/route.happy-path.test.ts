@@ -110,7 +110,9 @@ vi.mock('@/lib/supabase', () => {
 })
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT }),
+  // role: 'owner' — POST /api/referrals now gates on requirePermission('referrals.create'),
+  // which needs a real role to resolve; this suite exercises a legitimate caller.
+  getTenantForRequest: async () => ({ tenantId: TENANT, role: 'owner', tenant: {} }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) { super(message); this.status = status }
