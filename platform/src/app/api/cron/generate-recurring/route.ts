@@ -10,7 +10,7 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
