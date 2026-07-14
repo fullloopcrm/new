@@ -4,6 +4,7 @@
  * trust + terms, and a single pay CTA. Previewed in admin before send.
  */
 import { PRICING } from './billing-pricing'
+import { escapeHtml, safeUrl } from './escape-html'
 
 export interface ProposalEmailOpts {
   businessName: string
@@ -23,12 +24,13 @@ const INCLUDED: { title: string; body: string }[] = [
 ]
 
 export function buildProposalEmail(o: ProposalEmailOpts): { subject: string; html: string } {
-  const greeting = o.contactName ? `Hi ${o.contactName.split(' ')[0]},` : 'Hi,'
+  const greeting = o.contactName ? `Hi ${escapeHtml(o.contactName.split(' ')[0])},` : 'Hi,'
+  const businessName = escapeHtml(o.businessName)
   const fmt = (n: number) => `$${n.toLocaleString()}`
   const firstYear = PRICING.setupFee + o.monthly * 12
 
   const cta = o.payUrl
-    ? `<a href="${o.payUrl}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:15px 30px;border-radius:8px;font-weight:600;font-size:15px;">Accept &amp; secure your setup →</a>`
+    ? `<a href="${safeUrl(o.payUrl)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:15px 30px;border-radius:8px;font-weight:600;font-size:15px;">Accept &amp; secure your setup →</a>`
     : `<a href="mailto:hello@fullloopcrm.com?subject=I accept — ${encodeURIComponent(o.businessName)}" style="display:inline-block;background:#0d9488;color:#fff;text-decoration:none;padding:15px 30px;border-radius:8px;font-weight:600;font-size:15px;">Accept — send my agreement →</a>`
 
   const row = (label: string, val: string, strong = false) =>
@@ -45,10 +47,10 @@ export function buildProposalEmail(o: ProposalEmailOpts): { subject: string; htm
 
   const territoryLine = o.territoryName
     ? `<p style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:14px 16px;color:#0f766e;font-size:14px;margin:0 0 22px;">
-        <strong>Your territory:</strong> Full Loop CRM is one-per-market. Accepting this locks <strong>${o.territoryName}</strong> to ${o.businessName} — no competitor on the platform can take it while you hold it.
+        <strong>Your territory:</strong> Full Loop CRM is one-per-market. Accepting this locks <strong>${escapeHtml(o.territoryName)}</strong> to ${businessName} — no competitor on the platform can take it while you hold it.
       </p>`
     : `<p style="background:#f0fdfa;border:1px solid #99f6e4;border-radius:10px;padding:14px 16px;color:#0f766e;font-size:14px;margin:0 0 22px;">
-        <strong>Exclusive territory:</strong> Full Loop CRM is one business per market. Accepting locks your territory to ${o.businessName} — no competitor on the platform can take it while you hold it.
+        <strong>Exclusive territory:</strong> Full Loop CRM is one business per market. Accepting locks your territory to ${businessName} — no competitor on the platform can take it while you hold it.
       </p>`
 
   const subject = `Your Full Loop CRM proposal — ${o.businessName}`
@@ -57,7 +59,7 @@ export function buildProposalEmail(o: ProposalEmailOpts): { subject: string; htm
 
     <div style="font-size:13px;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:#0d9488;margin-bottom:18px;">Full Loop CRM</div>
 
-    <h1 style="font-size:24px;line-height:1.25;margin:0 0 8px;">Everything ${o.businessName} needs to run itself.</h1>
+    <h1 style="font-size:24px;line-height:1.25;margin:0 0 8px;">Everything ${businessName} needs to run itself.</h1>
     <p style="color:#475569;margin:0 0 22px;font-size:15px;line-height:1.55;">${greeting} here's your setup. Full Loop CRM replaces the patchwork of tools, missed calls, and manual admin with one system that books the jobs, collects the money, pays the crew, and follows up — automatically.</p>
 
     ${territoryLine}
