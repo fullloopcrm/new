@@ -38,6 +38,7 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 const PHONE = '+15551234567'
 const REAL_CODE = '111111'
 const TENANT_ID = 'tenant-1'
+const TENANT_SLUG = 'test-tenant'
 const CLIENT_ID = 'client-1'
 
 function seed(overrides: Partial<Row> = {}) {
@@ -55,13 +56,15 @@ function seed(overrides: Partial<Row> = {}) {
     },
   ])
   fake._seed('clients', [{ id: CLIENT_ID, name: 'Test Client' }])
-  fake._seed('tenants', [{ id: TENANT_ID, name: 'Test Tenant', primary_color: null, logo_url: null }])
+  fake._seed('tenants', [
+    { id: TENANT_ID, slug: TENANT_SLUG, status: 'active', name: 'Test Tenant', primary_color: null, logo_url: null },
+  ])
 }
 
 function verifyReq(code: string) {
   return new Request('http://x/api/portal/auth', {
     method: 'POST',
-    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code }),
+    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code, tenant_slug: TENANT_SLUG }),
   })
 }
 
