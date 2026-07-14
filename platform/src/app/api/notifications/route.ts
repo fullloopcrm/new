@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 export async function POST(request: NextRequest) {
   try {
@@ -90,7 +91,10 @@ export async function GET(request: NextRequest) {
       .eq('recipient_type', 'admin')
       .is('metadata->read', null)
 
-    if (markRead === 'true') {
+    // A SameSite=Lax cookie is still attached on a cross-site top-level GET
+    // navigation, so skip the mark-read WRITE (not the read) when Sec-Fetch-Site
+    // says this GET was forged from another site — see csrf-guard.ts.
+    if (markRead === 'true' && !isCrossSiteRequest(request.headers)) {
       // Mark all as read by updating metadata
       const ids = (data || []).map((n) => n.id)
       if (ids.length > 0) {

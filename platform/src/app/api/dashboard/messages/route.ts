@@ -6,8 +6,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
     const db = tenantDb(tenantId)
@@ -20,11 +21,15 @@ export async function GET() {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
     // Mark admin→owner messages as read now that the owner has loaded the thread.
-    await db
-      .from('tenant_owner_messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('direction', 'out')
-      .is('read_at', null)
+    // Skipped on a forged cross-site GET (SameSite=Lax still sends cookies on
+    // top-level navigation) — see csrf-guard.ts.
+    if (!isCrossSiteRequest(request.headers)) {
+      await db
+        .from('tenant_owner_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('direction', 'out')
+        .is('read_at', null)
+    }
 
     return NextResponse.json({ messages: data || [] })
   } catch (e) {

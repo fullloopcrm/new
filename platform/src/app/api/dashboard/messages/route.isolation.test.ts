@@ -30,6 +30,8 @@ import { GET, POST } from './route'
 const postReq = (body: unknown) =>
   new NextRequest('http://x/api/dashboard/messages', { method: 'POST', body: JSON.stringify(body) })
 
+const getReq = () => new NextRequest('http://x/api/dashboard/messages')
+
 beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
@@ -45,7 +47,7 @@ beforeEach(() => {
 describe('GET /api/dashboard/messages — tenant isolation', () => {
   it("tenant A's thread never includes tenant B's messages", async () => {
     h.tenantId = 'tenant-A'
-    const res = await GET()
+    const res = await GET(getReq())
     const json = await res.json()
     expect(json.messages.map((m: { id: string }) => m.id)).toEqual(['msg-A1'])
     expect(JSON.stringify(json)).not.toContain('secret')
@@ -53,7 +55,7 @@ describe('GET /api/dashboard/messages — tenant isolation', () => {
 
   it("marking A's thread read does not touch B's unread out-message", async () => {
     h.tenantId = 'tenant-A'
-    await GET()
+    await GET(getReq())
     const bMsg = h.store.tenant_owner_messages.find((m) => m.id === 'msg-B1')
     expect(bMsg?.read_at).toBeNull()
     const aMsg = h.store.tenant_owner_messages.find((m) => m.id === 'msg-A1')
@@ -74,7 +76,7 @@ describe('POST /api/dashboard/messages — tenant isolation', () => {
     h.tenantId = 'tenant-A'
     await POST(postReq({ body: 'reply from A' }))
     h.tenantId = 'tenant-B'
-    const res = await GET()
+    const res = await GET(getReq())
     const json = await res.json()
     expect(json.messages.some((m: { body: string }) => m.body === 'reply from A')).toBe(false)
   })

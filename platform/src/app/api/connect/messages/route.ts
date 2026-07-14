@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 export async function GET(request: NextRequest) {
   try {
@@ -28,18 +29,21 @@ export async function GET(request: NextRequest) {
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
-    // Update read cursor
-    await db
-      .from('connect_read_cursors')
-      .upsert(
-        {
-          channel_id: channelId,
-          reader_type: 'owner',
-          reader_id: userId,
-          last_read_at: new Date().toISOString(),
-        },
-        { onConflict: 'channel_id,reader_type,reader_id' }
-      )
+    // Update read cursor. Skipped on a forged cross-site GET (SameSite=Lax
+    // still sends cookies on top-level navigation) — see csrf-guard.ts.
+    if (!isCrossSiteRequest(request.headers)) {
+      await db
+        .from('connect_read_cursors')
+        .upsert(
+          {
+            channel_id: channelId,
+            reader_type: 'owner',
+            reader_id: userId,
+            last_read_at: new Date().toISOString(),
+          },
+          { onConflict: 'channel_id,reader_type,reader_id' }
+        )
+    }
 
     return NextResponse.json({ messages: messages || [] })
   } catch (e) {

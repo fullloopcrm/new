@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 interface MsgRow {
   id: string
@@ -34,12 +35,15 @@ export async function GET(request: NextRequest) {
       .order('created_at', { ascending: true })
       .limit(500)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    // Mark inbound as read.
-    await db
-      .from('tenant_owner_messages')
-      .update({ read_at: new Date().toISOString() })
-      .eq('direction', 'in')
-      .is('read_at', null)
+    // Mark inbound as read. Skipped on a forged cross-site GET (SameSite=Lax
+    // still sends cookies on top-level navigation) — see csrf-guard.ts.
+    if (!isCrossSiteRequest(request.headers)) {
+      await db
+        .from('tenant_owner_messages')
+        .update({ read_at: new Date().toISOString() })
+        .eq('direction', 'in')
+        .is('read_at', null)
+    }
     return NextResponse.json({ messages: data || [] })
   }
 
