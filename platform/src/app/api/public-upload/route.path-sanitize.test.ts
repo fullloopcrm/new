@@ -20,6 +20,7 @@ import type { NextRequest } from 'next/server'
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: vi.fn(async () => ({ id: 'tenant-1' })),
 }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 60 }) }))
 
 const uploadCalls: Array<{ path: string }> = []
 vi.mock('@/lib/supabase', () => ({
@@ -49,7 +50,10 @@ function fakeFile(name: string, type = 'image/jpeg', size = 200) {
 function uploadReq(fileName: string, folder?: string): NextRequest {
   const fields = new Map<string, unknown>([['file', fakeFile(fileName)]])
   if (folder !== undefined) fields.set('folder', folder)
-  return { formData: async () => ({ get: (k: string) => fields.get(k) ?? null }) } as unknown as NextRequest
+  return {
+    headers: new Headers(),
+    formData: async () => ({ get: (k: string) => fields.get(k) ?? null }),
+  } as unknown as NextRequest
 }
 
 beforeEach(() => {
