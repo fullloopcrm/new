@@ -43,11 +43,15 @@ export async function PUT(request: NextRequest) {
         .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
         .eq('read', false)
     } else if (body.id) {
+      // Only mark read if this notification is actually addressed to the
+      // caller (or tenant-wide) — otherwise any team member could silently
+      // mark another member's personal notification as read.
       await supabaseAdmin
         .from('notifications')
         .update({ read: true })
         .eq('id', body.id)
         .eq('tenant_id', auth.tid)
+        .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
     }
   } catch {
     // Table may not exist yet
