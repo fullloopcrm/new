@@ -54,6 +54,17 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     if ('title' in body) updates.title_override = true
 
+    // Confirm a reassigned client_id belongs to this tenant -- otherwise a
+    // foreign client's name/email/phone gets pulled into this deal via the
+    // clients() join on this response and every later GET, a cross-tenant
+    // PII leak (same class already fixed on bookings/quotes/invoices in
+    // 534a5834/7907701b).
+    if ('client_id' in updates && updates.client_id) {
+      const { data: clientRow } = await supabaseAdmin
+        .from('clients').select('id').eq('id', updates.client_id as string).eq('tenant_id', tenantId).single()
+      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('deals')
       .update(updates)
