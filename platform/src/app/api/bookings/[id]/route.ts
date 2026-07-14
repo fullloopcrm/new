@@ -51,6 +51,33 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
 
+    // client_id/team_member_id are caller-supplied; verify each belongs to this
+    // tenant before writing it — the response (and every later GET) joins
+    // clients(name, phone, address, email) / team_members(name, phone), so a
+    // foreign id would otherwise leak another tenant's PII into this booking.
+    if (fields.client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('id', fields.client_id)
+        .single()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Invalid client_id' }, { status: 404 })
+      }
+    }
+    if (fields.team_member_id) {
+      const { data: ownedMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('id', fields.team_member_id)
+        .single()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
+      }
+    }
+
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
       // Get the booking's start_time (from update or existing record)
