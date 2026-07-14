@@ -196,10 +196,25 @@ export async function POST(request: Request) {
     }
 
     // ===== PRICING =====
+    // This is a PUBLIC, unauthenticated endpoint — body.hourly_rate/body.price
+    // are client-supplied and must never be trusted as-is. body.price used to
+    // be accepted verbatim as a direct total override with no floor; no real
+    // booking form actually sends it, so it's no longer trusted at all (always
+    // derived server-side from rate × hours below). hourly_rate legitimately
+    // varies per tenant (real observed rates: $49-$89/hr), so it's floored/
+    // capped rather than pinned to one value.
+    const MIN_HOURLY_RATE = 20
+    const MAX_HOURLY_RATE = 200
+    const rawHourlyRate = Number(body.hourly_rate)
     // Generic default; the NYC Maid tenant layers its supplies/emergency/
     // self-book rules on top (tenant-scoped parity, not global).
-    let bkHourlyRate = Number(body.hourly_rate) || 75
-    let bkPrice = applyRecurringDiscount(Number(body.price) || bkHourlyRate * (Number(body.estimated_hours) || 2) * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+    let bkHourlyRate = Number.isFinite(rawHourlyRate) && rawHourlyRate > 0
+      ? Math.min(MAX_HOURLY_RATE, Math.max(MIN_HOURLY_RATE, rawHourlyRate))
+      : 75
+    // Floored at 1hr — an unfloored fractional value (e.g. 0.001) would slip
+    // past the hourly-rate clamp above and still yield a near-zero total.
+    const bkEstimatedHours = Math.max(1, Number(body.estimated_hours) || 2)
+    let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
     let bkNotes = (body.notes as string) || ''
     const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
     let bkIsEmergency = false
@@ -217,7 +232,12 @@ export async function POST(request: Request) {
       const isUnder48 = hoursUntilBooking < 48
       const isMultiCleaner = bkTeamSize >= 2
       bkIsEmergency = isSameDay || (isUnder48 && isMultiCleaner)
-      const effectiveRate = bkIsEmergency ? 89 : (Number(body.hourly_rate) || 69)
+      // NYC Maid's only two legitimate non-emergency rates are the published
+      // supplies tiers. Anything else in the request is rejected in favor of
+      // the higher (we-bring) default, closing the direct "set hourly_rate=1"
+      // underpay exploit for this tenant precisely.
+      const NYCMAID_VALID_RATES = new Set([59, 69])
+      const effectiveRate = bkIsEmergency ? 89 : (NYCMAID_VALID_RATES.has(rawHourlyRate) ? rawHourlyRate : 69)
       const minHours = isMultiCleaner ? 4 : 2
       const billableHours = Math.max(Number(body.estimated_hours) || 2, minHours)
       bkHourlyRate = effectiveRate
