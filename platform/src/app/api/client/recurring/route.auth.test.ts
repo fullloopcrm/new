@@ -76,9 +76,9 @@ describe('POST /api/client/recurring — auth gate', () => {
     const res = await POST(req())
     expect(res.status).toBe(403)
 
-    const { data } = await fake.from('recurring_schedules').select('id')
+    const { data } = await fake.from('recurring_schedules').select('id') // tenant-scope-ok: fake in-memory store assertion, not a live tenant-scoped query
     expect((data as unknown[] | null) || []).toHaveLength(0)
-    const { data: bookings } = await fake.from('bookings').select('id')
+    const { data: bookings } = await fake.from('bookings').select('id') // tenant-scope-ok: fake in-memory store assertion, not a live tenant-scoped query
     expect((bookings as unknown[] | null) || []).toHaveLength(0)
   })
 })

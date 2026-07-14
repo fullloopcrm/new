@@ -105,7 +105,7 @@ describe('POST /api/team-portal/messages — auth gate', () => {
     const res = await POST(postReq({ team_member_id: VICTIM_MEMBER_ID, body: 'hi' }) as never)
     expect(res.status).toBe(401)
 
-    const { data } = await fake.from('comhub_messages').select('id')
+    const { data } = await fake.from('comhub_messages').select('id') // tenant-scope-ok: fake in-memory store assertion, not a live tenant-scoped query
     expect((data as unknown[] | null) || []).toHaveLength(0)
   })
 
@@ -115,7 +115,7 @@ describe('POST /api/team-portal/messages — auth gate', () => {
     const res = await POST(postReq({ team_member_id: VICTIM_MEMBER_ID, body: 'spoof attempt' }) as never)
     expect(res.status).toBe(200)
 
-    const { data: contacts } = await fake.from('comhub_contacts').select('id, team_member_id')
+    const { data: contacts } = await fake.from('comhub_contacts').select('id, team_member_id') // tenant-scope-ok: fake in-memory store assertion, not a live tenant-scoped query
     const ownContact = (contacts as { id: string; team_member_id: string }[] | null)?.find(c => c.team_member_id === OWN_MEMBER_ID)
     expect(ownContact).toBeTruthy()
     const victimContact = (contacts as { id: string; team_member_id: string }[] | null)?.find(c => c.team_member_id === VICTIM_MEMBER_ID)
