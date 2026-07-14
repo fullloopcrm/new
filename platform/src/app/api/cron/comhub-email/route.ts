@@ -7,6 +7,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -14,7 +15,6 @@ function escapeHtml(s: string): string {
 
 export const maxDuration = 60
 
-const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
 type Brand = { name: string; phone?: string | null; email?: string | null; address?: string | null; logoUrl?: string | null; primaryColor?: string | null }
@@ -278,12 +278,8 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
 // Polls every tenant's IMAP inbox (profile creds) + the nycmaid env fallback,
 // mirroring new mail into comhub_messages (tenant-scoped, deduped by Message-ID).
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get('authorization') || ''
-  const url = new URL(req.url)
-  const querySecret = url.searchParams.get('secret') || ''
-  const ok = (CRON_SECRET && (authHeader === `Bearer ${CRON_SECRET}` || querySecret === CRON_SECRET))
-            || req.headers.get('x-vercel-cron') === '1'
-  if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const cronAuthError = verifyCronSecret(req)
+  if (cronAuthError) return cronAuthError
 
   const accounts = await collectAccounts()
   if (accounts.length === 0) return NextResponse.json({ error: 'no mailboxes configured' }, { status: 500 })
