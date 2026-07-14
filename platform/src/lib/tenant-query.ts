@@ -5,6 +5,7 @@ import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/r
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import type { Tenant } from './tenant'
+import { beginAuditActor, setAuditActor, type AuditActorKind } from './audit-context'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
@@ -15,21 +16,59 @@ export type TenantContext = {
   role: string
 }
 
+type RequestMeta = {
+  path: string | null
+  method: string | null
+  ip: string | null
+  userAgent: string | null
+}
+
+async function getRequestMeta(): Promise<RequestMeta> {
+  const h = await headers()
+  return {
+    path: h.get('x-invoke-path') || h.get('referer') || null,
+    method: h.get('x-invoke-method') || null,
+    ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || null,
+    userAgent: h.get('user-agent'),
+  }
+}
+
+// Fills in the actor placeholder that beginAuditActor() already bound at the
+// top of getTenantForRequest(), so every subsequent supabaseAdmin write (in
+// this function's callers) gets attributed in tenant_audit_log. See
+// audit-context.ts for why this can't just be a single setAuditActor(actor)
+// call made from here directly.
+async function recordAuditActor(
+  actorKind: AuditActorKind,
+  actorId: string,
+  actorRole: string,
+  tenantId: string,
+): Promise<void> {
+  const meta = await getRequestMeta()
+  setAuditActor({
+    actorKind,
+    actorId,
+    actorRole,
+    tenantId,
+    ...meta,
+  })
+}
+
 async function logImpersonationEvent(
   actorKind: 'pin_admin' | 'clerk_super_admin',
   actorId: string,
   tenantId: string,
 ): Promise<void> {
   try {
-    const h = await headers()
+    const meta = await getRequestMeta()
     await supabaseAdmin.from('impersonation_events').insert({
       actor_kind: actorKind,
       actor_id: actorId,
       tenant_id: tenantId,
-      path: h.get('x-invoke-path') || h.get('referer') || null,
-      method: h.get('x-invoke-method') || null,
-      ip: h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || null,
-      user_agent: h.get('user-agent'),
+      path: meta.path,
+      method: meta.method,
+      ip: meta.ip,
+      user_agent: meta.userAgent,
     })
   } catch (e) {
     // Best-effort. Never block a request on audit log failure.
@@ -40,6 +79,9 @@ async function logImpersonationEvent(
 // Auth + tenant lookup — used by every API route
 // Supports admin impersonation via cookie (PIN auth or Clerk super admin)
 export async function getTenantForRequest(): Promise<TenantContext> {
+  // Must run before any await in this function — see audit-context.ts.
+  beginAuditActor()
+
   const cookieStore = await cookies()
   const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
 
@@ -55,6 +97,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
 
       if (tenant) {
         await logImpersonationEvent('pin_admin', 'admin', tenant.id)
+        await recordAuditActor('pin_admin', 'admin', 'owner', tenant.id)
         return {
           userId: 'admin',
           tenantId: tenant.id,
@@ -83,6 +126,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             .eq('id', headerTenantId)
             .single()
           if (tenant) {
+            await recordAuditActor('pin_admin', 'admin', 'owner', tenant.id)
             return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
           }
         }
@@ -95,6 +139,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             .eq('id', headerTenantId)
             .single()
           if (tenant) {
+            await recordAuditActor('tenant_member_pin', ta.memberId, ta.role, tenant.id)
             return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
           }
         }
@@ -118,6 +163,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
 
     if (tenant) {
       await logImpersonationEvent('clerk_super_admin', userId, tenant.id)
+      await recordAuditActor('clerk_super_admin', userId, 'owner', tenant.id)
       return {
         userId,
         tenantId: tenant.id,
@@ -147,6 +193,8 @@ export async function getTenantForRequest(): Promise<TenantContext> {
   if (!tenant) {
     throw new AuthError('Tenant not found', 404)
   }
+
+  await recordAuditActor('clerk_user', userId, membership.role, tenant.id)
 
   return {
     userId,
