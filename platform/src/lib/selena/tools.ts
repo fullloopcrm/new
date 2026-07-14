@@ -230,6 +230,15 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
   })
   // Return the FULL list (matching what Jeff sees in the admin dropdown), not just the
   // top picks — so Yinez can explain availability + conflicts + day-off reasons.
+  // UNLIKE the admin dropdown, this tool is reachable by ordinary CLIENTS
+  // (score_cleaners is a CLIENT_LOCAL_TOOL — it bypasses the owner-only gate
+  // above by design). scoreCleanersForBooking's raw `conflict` string can
+  // embed ANOTHER client's name (e.g. "Conflict: 2:00 PM (Sarah J)") and its
+  // `day_jobs` array is that other client's full day schedule (name +
+  // address + time) — the same cross-client PII the public
+  // /api/client/smart-schedule GET route explicitly strips out for this
+  // exact reason. Mirror that sanitization here: never forward day_jobs, and
+  // scrub the trailing "(name)" off conflict before it reaches the client.
   return JSON.stringify({
     slot: { date: input.date, time: startTime, duration_hours: input.duration_hours },
     cleaners: scores.map((s) => ({
@@ -237,11 +246,10 @@ async function handleScoreCleaners(input: { date: string; time: string; duration
       score: s.score,
       available: s.available,
       reason: s.reason,
-      conflict: s.conflict || null,
+      conflict: s.conflict ? s.conflict.replace(/\s*\([^)]*\)\s*$/, '') : null,
       zone_match: s.zone_match,
       has_car: s.has_car,
       home_by: s.home_by,
-      day_jobs: s.day_jobs,
     })),
   })
 }
