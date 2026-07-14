@@ -43,6 +43,11 @@ beforeEach(() => {
     { id: 'bk-b', tenant_id: B_ID, client_id: 'client-b', start_time: '2026-08-02T10:00:00.000Z', end_time: '2026-08-02T11:00:00.000Z', clients: { name: 'B Client' }, team_members: null },
   ])
   fake._seed('email_logs', [])
+  fake._seed('team_members', [
+    { id: 'tm-a-active', tenant_id: A_ID, active: true },
+    { id: 'tm-a-inactive', tenant_id: A_ID, active: false },
+    { id: 'tm-b', tenant_id: B_ID, active: true },
+  ])
 })
 
 function putReq(body: Record<string, unknown>): Request {
@@ -70,5 +75,24 @@ describe('client/reschedule PUT — tenantDb isolation', () => {
   it("LEAK CONTROL: fetching bookings by id ALONE (no tenant_id filter) WOULD find tenant B's booking — proves the route's tenantDb scoping above is load-bearing", async () => {
     const { data } = await supabaseAdmin.from('bookings').select('*').eq('id', 'bk-b').maybeSingle()
     expect((data as { tenant_id: string } | null)?.tenant_id).toBe(B_ID)
+  })
+
+  it("client CANNOT reassign their own booking to another tenant's team member — 400, team_member_id untouched", async () => {
+    const res = await PUT(putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', team_member_id: 'tm-b' }), paramsFor('bk-a'))
+    expect(res.status).toBe(400)
+    const aRow = fake._all('bookings').find((r) => r.id === 'bk-a')!
+    expect(aRow.team_member_id).toBeFalsy()
+  })
+
+  it("client CANNOT reassign to an inactive team member in their own tenant — 400", async () => {
+    const res = await PUT(putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', team_member_id: 'tm-a-inactive' }), paramsFor('bk-a'))
+    expect(res.status).toBe(400)
+  })
+
+  it("client CAN reassign to an active team member in their own tenant (positive control)", async () => {
+    const res = await PUT(putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', team_member_id: 'tm-a-active' }), paramsFor('bk-a'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.team_member_id).toBe('tm-a-active')
   })
 })
