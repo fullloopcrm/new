@@ -49,6 +49,20 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
 
+    // Confirm client_id/team_member_id belong to this tenant -- otherwise a
+    // foreign id gets its name pulled into this schedule (and every generated
+    // booking) via the clients()/team_members() joins on GET, a cross-tenant
+    // PII leak (same class already fixed on bookings/quotes/deals).
+    const { data: clientRow } = await supabaseAdmin
+      .from('clients').select('id').eq('id', v.client_id as string).eq('tenant_id', tenantId).single()
+    if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    if (v.team_member_id) {
+      const { data: memberRow } = await supabaseAdmin
+        .from('team_members').select('id').eq('id', v.team_member_id as string).eq('tenant_id', tenantId).single()
+      if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+
     // Create schedule
     const { data: schedule, error } = await supabaseAdmin
       .from('recurring_schedules')

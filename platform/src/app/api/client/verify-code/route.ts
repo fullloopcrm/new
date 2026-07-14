@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -11,12 +11,6 @@ export async function POST(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   try {
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = await rateLimitDb(`client-verify:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
-    if (!rl.allowed) {
-      return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
-    }
-
     const body = await request.json().catch(() => ({})) as { email?: string; code?: string; phone?: string }
     const { email, code, phone } = body
     if (!code || (!email && !phone)) {
@@ -28,12 +22,26 @@ export async function POST(request: Request) {
     if (email) lookupKeys.push(email.toLowerCase())
     if (phoneDigits) lookupKeys.push(`sms:${phoneDigits}`)
 
+    // Throttle code verification so a 6-digit code can't be brute-forced.
+    // Primary cap is per-identifier (email/phone): once wrong guesses land in
+    // the window, further attempts against THAT identifier's code are blocked
+    // regardless of source IP — rotating IPs can't bypass it. A looser per-IP
+    // cap adds defense against one host spraying codes across many
+    // identifiers. Mirrors portal/auth/route.ts and pin-reset/route.ts.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlIp = await rateLimitDb(`client-verify-ip:${tenant.id}:${ip}`, 30, 10 * 60 * 1000, { failClosed: true })
+    const rlIdentifiers = await Promise.all(
+      lookupKeys.map((key) => rateLimitDb(`client-verify:${tenant.id}:${key}`, 5, 10 * 60 * 1000, { failClosed: true })),
+    )
+    if (!rlIp.allowed || rlIdentifiers.some((r) => !r.allowed)) {
+      return NextResponse.json({ error: 'Too many attempts. Please wait 10 minutes.' }, { status: 429 })
+    }
+
     let verification = null
     for (const key of lookupKeys) {
-      const { data } = await supabaseAdmin
+      const { data } = await tenantDb(tenant.id)
         .from('verification_codes')
         .select('*')
-        .eq('tenant_id', tenant.id)
         .eq('identifier', key)
         .eq('code', code)
         .maybeSingle()
@@ -47,33 +55,37 @@ export async function POST(request: Request) {
 
     // Burn the code — both email + sms keys if both were sent.
     for (const key of lookupKeys) {
-      await supabaseAdmin
+      await tenantDb(tenant.id)
         .from('verification_codes')
         .delete()
-        .eq('tenant_id', tenant.id)
         .eq('identifier', key)
     }
 
     // Find existing client (phone match first, email fallback).
     let client = null as null | Record<string, unknown> & { id: string; do_not_service?: boolean; email?: string | null }
     if (phoneDigits.length >= 10) {
-      const { data: allClients } = await supabaseAdmin
+      const { data: allClients } = await tenantDb(tenant.id)
         .from('clients')
         .select('*')
-        .eq('tenant_id', tenant.id)
       if (allClients) {
+        // Exact match only. The old `endsWith` matching let a code verified for
+        // one phone resolve a DIFFERENT client whose number was a suffix (or
+        // superset) of it — e.g. "5551234" matching "+1 (800) 555-1234". Compare
+        // the full national number (last 10 digits, dropping a leading US "1")
+        // so 10- vs 11-digit stored formats still match, but partials never do.
+        const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+        const target = nat(phoneDigits)
         client = allClients.find(c => {
-          const cDigits = ((c as { phone?: string }).phone || '').replace(/\D/g, '')
-          return cDigits && (cDigits === phoneDigits || cDigits.endsWith(phoneDigits) || phoneDigits.endsWith(cDigits))
+          const cDigits = nat(((c as { phone?: string }).phone || '').replace(/\D/g, ''))
+          return cDigits.length >= 10 && cDigits === target
         }) as typeof client || null
       }
     }
 
     if (!client && email) {
-      const { data: emailMatches } = await supabaseAdmin
+      const { data: emailMatches } = await tenantDb(tenant.id)
         .from('clients')
         .select('*')
-        .eq('tenant_id', tenant.id)
         .ilike('email', email.trim())
         .order('created_at', { ascending: true })
         .limit(1)
@@ -82,19 +94,17 @@ export async function POST(request: Request) {
 
     // Update email on match if missing/different.
     if (client && email && (!client.email || String(client.email).toLowerCase() !== email.toLowerCase())) {
-      await supabaseAdmin
+      await tenantDb(tenant.id)
         .from('clients')
         .update({ email: email.toLowerCase() })
         .eq('id', client.id)
-        .eq('tenant_id', tenant.id)
     }
 
     // Create new client if still none — email flow only.
     if (!client && email) {
-      const { data: newClient, error: createError } = await supabaseAdmin
+      const { data: newClient, error: createError } = await tenantDb(tenant.id)
         .from('clients')
         .insert({
-          tenant_id: tenant.id,
           email: email.toLowerCase(),
           name: email.split('@')[0],
           phone: phone || '',
@@ -118,7 +128,18 @@ export async function POST(request: Request) {
     if (!client) return NextResponse.json({ error: 'Could not resolve account' }, { status: 500 })
     if (client.do_not_service) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
 
-    const response = NextResponse.json({ client, do_not_service: false })
+    // Only the fields the client-side UI needs — never the raw row. `clients`
+    // carries secrets (pin, the standalone login credential) and internal
+    // fields (selena_memory_summary, apology_credit_*, etc.) that must not
+    // cross the wire in a JSON response.
+    const safeClient = {
+      id: client.id,
+      name: client.name as string | undefined,
+      email: client.email,
+      phone: client.phone as string | undefined,
+    }
+
+    const response = NextResponse.json({ client: safeClient, do_not_service: false })
     const opts = clientSessionCookieOptions()
     response.cookies.set(opts.name, createClientSession(client.id, tenant.id), {
       httpOnly: opts.httpOnly,

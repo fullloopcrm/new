@@ -4,6 +4,8 @@ import "./globals.css";
 import Header from "@/app/site/fla-dumpster-rentals/_components/Header";
 import Footer from "@/app/site/fla-dumpster-rentals/_components/Footer";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/fla-dumpster-rentals/_lib/seo";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ConsentGate from "@/components/consent/ConsentGate";
 
 const inter = Inter({
   variable: "--font-inter",
@@ -67,9 +69,10 @@ export default function RootLayout({
         <Header />
         <main className="min-h-screen">{children}</main>
         <Footer />
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `
+        <ConsentGate>
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `
               var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
               (function(){
                 var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
@@ -80,8 +83,10 @@ export default function RootLayout({
                 s0.parentNode.insertBefore(s1,s0);
               })();
             `,
-          }}
-        />
+            }}
+          />
+        </ConsentGate>
+        <ConsentBanner />
       </body>
     </html>
   );

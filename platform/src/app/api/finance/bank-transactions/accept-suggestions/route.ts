@@ -45,6 +45,19 @@ export async function POST(request: Request) {
       const bankCoa = bankToCoa.get(t.bank_account_id)
       if (!bankCoa || !t.suggested_coa_id) { skipped++; continue }
 
+      // Atomic claim: the SELECT above doesn't lock rows, so a concurrent
+      // request (double-click, retry) can read the same 'pending' set. Guard
+      // the write with the status this request actually read (compare-and-
+      // swap) so only one caller posts a journal entry per transaction.
+      const { data: claim } = await supabaseAdmin
+        .from('bank_transactions')
+        .update({ status: 'posted', coa_id: t.suggested_coa_id })
+        .eq('id', t.id)
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle()
+      if (!claim) { skipped++; continue }
+
       const amount = Math.abs(t.amount_cents)
       const isOutflow = t.amount_cents < 0
       const lines = isOutflow
@@ -62,7 +75,7 @@ export async function POST(request: Request) {
         })
         await supabaseAdmin
           .from('bank_transactions')
-          .update({ coa_id: t.suggested_coa_id, status: 'posted', journal_entry_id: entryId })
+          .update({ journal_entry_id: entryId })
           .eq('id', t.id)
 
         // Bump pattern

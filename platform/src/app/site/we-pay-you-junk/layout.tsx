@@ -6,6 +6,8 @@ import { Header } from "@/app/site/we-pay-you-junk/_components/Header";
 import { Footer } from "@/app/site/we-pay-you-junk/_components/Footer";
 import { JsonLd } from "@/app/site/we-pay-you-junk/_components/JsonLd";
 import { localBusinessLd, websiteLd } from "@/app/site/we-pay-you-junk/_lib/schema";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ConsentGate from "@/components/consent/ConsentGate";
 
 const sora = Sora({ variable: "--font-sora", subsets: ["latin"] });
 const dmSans = DM_Sans({ variable: "--font-dm-sans", subsets: ["latin"] });
@@ -68,11 +70,12 @@ export default function RootLayout({
         <Header />
         <main>{children}</main>
         <Footer />
-        <Script
-          id="tawk-to"
-          strategy="afterInteractive"
-          dangerouslySetInnerHTML={{
-            __html: `
+        <ConsentGate>
+          <Script
+            id="tawk-to"
+            strategy="afterInteractive"
+            dangerouslySetInnerHTML={{
+              __html: `
 var Tawk_API=Tawk_API||{}, Tawk_LoadStart=new Date();
 (function(){
 var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];
@@ -83,8 +86,10 @@ s1.setAttribute('crossorigin','*');
 s0.parentNode.insertBefore(s1,s0);
 })();
             `,
-          }}
-        />
+            }}
+          />
+        </ConsentGate>
+        <ConsentBanner />
       </body>
     </html>
   );

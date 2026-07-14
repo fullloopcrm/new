@@ -103,7 +103,11 @@ export async function POST(request: Request) {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
   const ua = request.headers.get('user-agent') || 'unknown'
 
-  const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000)
+  // Gate for the super-admin (god-mode, ANY tenant) + tenant-admin PIN. This
+  // is the highest-privilege login in the platform, so it must fail closed:
+  // if the DB is unreachable the guard has to deny, not silently drop into
+  // unlimited PIN guessing against the one credential that unlocks everything.
+  const rl = await rateLimitDb(`admin_auth:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }

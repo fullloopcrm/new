@@ -77,14 +77,22 @@ export default function OnboardingProfilePage() {
 
   const submit = async () => {
     setSaving(true)
-    const res = await fetch('/api/dashboard/onboarding/profile', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ data: form }),
-    })
-    setSaving(false)
-    if (res.ok) router.push('/dashboard?onboarded=1')
-    else setMsg('Something went wrong saving. Your draft is safe — try again.')
+    try {
+      const res = await fetch('/api/dashboard/onboarding/profile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ data: form }),
+      })
+      if (res.ok) {
+        router.push('/dashboard?onboarded=1')
+        return
+      }
+      setMsg('Something went wrong saving. Your draft is safe — try again.')
+    } catch {
+      setMsg('Something went wrong saving. Your draft is safe — try again.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) return <p className="p-8 text-slate-500">Loading your profile…</p>

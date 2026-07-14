@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
@@ -30,10 +30,9 @@ export async function POST(request: Request) {
     }
 
     const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await tenantDb(tenant.id)
       .from('clients')
       .select('id, status')
-      .eq('tenant_id', tenant.id)
       .or(`phone.ilike.%${cleanPhone.slice(-10)}%`)
       .limit(1)
     const existingClient = existing?.[0]
@@ -43,10 +42,9 @@ export async function POST(request: Request) {
     if (referrer_phone) {
       const refPhone = referrer_phone.replace(/\D/g, '')
       if (refPhone.length >= 10) {
-        const { data: byPhone } = await supabaseAdmin
+        const { data: byPhone } = await tenantDb(tenant.id)
           .from('referrers')
           .select('id')
-          .eq('tenant_id', tenant.id)
           .ilike('phone', `%${refPhone.slice(-10)}%`)
           .eq('active', true)
           .limit(1)
@@ -62,10 +60,9 @@ export async function POST(request: Request) {
         }
       }
     } else if (referrer_name) {
-      const { data: byName } = await supabaseAdmin
+      const { data: byName } = await tenantDb(tenant.id)
         .from('referrers')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .ilike('name', `%${referrer_name.trim()}%`)
         .eq('active', true)
         .limit(1)
@@ -90,8 +87,8 @@ export async function POST(request: Request) {
     let data: { id: string; [k: string]: unknown }
 
     if (existingClient) {
-      const { data: updated, error } = await supabaseAdmin
-        .from('clients')  // tenant-scope-ok: tenant-scoped (id + tenant_id filter just below)
+      const { data: updated, error } = await tenantDb(tenant.id)
+        .from('clients')
         .update({
           name,
           email: email || null,
@@ -104,16 +101,14 @@ export async function POST(request: Request) {
           ...(pet_type ? { pet_type } : {}),
         })
         .eq('id', existingClient.id)
-        .eq('tenant_id', tenant.id)
         .select()
         .single()
       if (error || !updated) throw error || new Error('update failed')
       data = updated as typeof data
     } else {
-      const { data: inserted, error } = await supabaseAdmin
+      const { data: inserted, error } = await tenantDb(tenant.id)
         .from('clients')
         .insert({
-          tenant_id: tenant.id,
           name,
           email: email || null,
           phone,
@@ -175,7 +170,7 @@ export async function POST(request: Request) {
     // not here. Selena will send the next appropriate message on its next turn.
     if (convo_id) {
       try {
-        await supabaseAdmin
+        await tenantDb(tenant.id)
           .from('sms_conversations')
           .update({
             client_id: data.id,
@@ -183,7 +178,6 @@ export async function POST(request: Request) {
             updated_at: new Date().toISOString(),
           })
           .eq('id', convo_id)
-          .eq('tenant_id', tenant.id)
       } catch (e) {
         console.error('Conversation link error:', e)
       }

@@ -53,6 +53,13 @@ export async function POST(request: NextRequest) {
   }
   const memberRole = VALID_ROLES.includes(role) ? role : 'staff'
 
+  // Granting 'owner' is owner-only — 'admin' already holds settings.edit, so
+  // without this check any admin could mint themselves (or anyone) a fresh
+  // owner account and, from there, remove the real owner outright.
+  if (memberRole === 'owner' && tenant.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+  }
+
   // Generate a per-tenant-unique 6-digit PIN (retry on the rare collision).
   let pin = generateAdminPin()
   for (let i = 0; i < 5; i++) {
@@ -135,6 +142,10 @@ export async function PUT(request: NextRequest) {
   if (role) {
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+    }
+    // Granting 'owner' is owner-only — see POST for why this can't be left open.
+    if (role === 'owner' && tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
     }
     update.role = role
   }

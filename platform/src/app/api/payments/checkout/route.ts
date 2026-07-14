@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { createCheckoutSession } from '@/lib/stripe'
 
@@ -17,11 +18,10 @@ export async function POST(request: Request) {
   const { booking_id } = await request.json()
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
-  const { data: booking } = await supabaseAdmin
+  const { data: booking } = await tenantDb(tenant.tenantId)
     .from('bookings')
     .select('id, price, service_type, clients(email)')
     .eq('id', booking_id)
-    .eq('tenant_id', tenant.tenantId)
     .single()
 
   if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })

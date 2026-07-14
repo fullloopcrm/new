@@ -8,7 +8,7 @@ export const maxDuration = 120
 // Processes in batches of 500 to handle 1000+ tenants safely
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

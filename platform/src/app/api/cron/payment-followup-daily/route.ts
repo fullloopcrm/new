@@ -44,7 +44,7 @@ function etHour(now: Date): number {
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}` && request.headers.get('x-vercel-cron') !== '1') {
+  if ((!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) && request.headers.get('x-vercel-cron') !== '1') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

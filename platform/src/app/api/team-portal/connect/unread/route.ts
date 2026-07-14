@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -11,10 +12,9 @@ export async function GET(request: NextRequest) {
 
   try {
     // Get general channel
-    const { data: channel } = await supabaseAdmin
+    const { data: channel } = await tenantDb(auth.tid)
       .from('connect_channels')
       .select('id')
-      .eq('tenant_id', auth.tid)
       .eq('type', 'general')
       .single()
 

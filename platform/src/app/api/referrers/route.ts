@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { notify } from '@/lib/notify'
 
 // Rate limiting
 const attempts = new Map<string, { count: number; resetAt: number }>()
@@ -31,6 +32,16 @@ function isValidName(name: string): boolean {
   return vowels / alpha.length > 0.15
 }
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address (Postgres default LIKE escape char is backslash) — this endpoint
+// is unauthenticated, so an unescaped '%'/'_' in `email` lets a caller with
+// no prior knowledge enumerate every referrer's email/earnings/payout info
+// for the tenant instead of confirming a single known address. Same pattern
+// as lib/inbound-email-tenant.ts's escapeLike().
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
@@ -47,7 +58,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
@@ -59,9 +70,9 @@ export async function GET(request: NextRequest) {
   if (email) {
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
+      .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
-      .ilike('email', email)
+      .ilike('email', escapeLike(email))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
@@ -107,7 +118,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .single()
 
   if (existing) {
@@ -124,6 +135,12 @@ export async function POST(request: NextRequest) {
       email,
       phone: phone || null,
       referral_code: referralCode,
+      // Every tenant's own /referral portal page (and the client/book referrer
+      // lookup) key off this legacy nycmaid-parity column, not referral_code —
+      // keep both in sync so new signups aren't invisible to those code paths.
+      ref_code: referralCode,
+      zelle_email: zelle_email || email,
+      apple_cash_phone: apple_cash_phone || null,
       preferred_payout: preferred_payout || 'zelle',
       // Stored as a fraction (0.10 = 10%), matching the schema default and the
       // existing rows. The old code wrote `10` here (into the wrong table), which
@@ -139,6 +156,13 @@ export async function POST(request: NextRequest) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  await notify({
+    tenantId: tenant.id,
+    type: 'new_lead',
+    title: 'New Referrer Signup',
+    message: `${name} (${referralCode}) — ${email}${phone ? ` · ${phone}` : ''}`,
+  }).catch(() => {})
 
   return NextResponse.json({ referral: data }, { status: 201 })
 }

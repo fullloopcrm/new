@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
 import AddressAutocomplete from '@/components/address-autocomplete'
+import GdprDeletionPanel from './GdprDeletionPanel'
 
 type Client = {
   id: string
@@ -22,6 +23,9 @@ type Client = {
   status: string
   created_at: string
   preferred_team_member_id: string | null
+  deletion_requested_at?: string | null
+  deletion_purge_at?: string | null
+  deleted_at?: string | null
 }
 
 type TeamMemberOption = { id: string; name: string }
@@ -405,6 +409,15 @@ export default function ClientDetailPage() {
               </Link>
             </div>
           </div>
+
+          {/* PRIVACY & DATA (GDPR/CCPA deletion request) */}
+          <GdprDeletionPanel
+            clientId={id}
+            deletionRequestedAt={client.deletion_requested_at}
+            deletionPurgeAt={client.deletion_purge_at}
+            deletedAt={client.deleted_at}
+            onChange={(fields) => setClient({ ...client, ...fields })}
+          />
         </div>
       </div>
     </div>

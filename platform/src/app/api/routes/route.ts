@@ -53,14 +53,20 @@ export async function POST(request: Request) {
     let startLng: number | null = body.start_longitude ?? null
     let startAddress: string | null = body.start_address ?? null
 
-    if (body.team_member_id && (!startLat || !startLng)) {
+    // team_member_id is caller-supplied; verify it belongs to this tenant before
+    // it's written to the route (GET joins team_members(name, phone, home_lat/lng),
+    // so a foreign id would otherwise leak another tenant's staff PII).
+    if (body.team_member_id) {
       const { data: tm } = await supabaseAdmin
         .from('team_members')
         .select('home_latitude, home_longitude, address')
         .eq('tenant_id', tenantId)
         .eq('id', body.team_member_id)
         .single()
-      if (tm) {
+      if (!tm) {
+        return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
+      }
+      if (!startLat || !startLng) {
         startLat = tm.home_latitude
         startLng = tm.home_longitude
         startAddress = startAddress || tm.address

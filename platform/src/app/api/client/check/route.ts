@@ -1,31 +1,45 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address (Postgres default LIKE escape char is backslash) — this endpoint is
+// unauthenticated, so an unescaped '%'/'_' in the input let a caller with no
+// prior knowledge of any client turn a single-address lookup into a broad
+// enumeration of the tenant's client emails. Same pattern as the fix already
+// applied to /api/referrers (escapeLike) and lib/inbound-email-tenant.ts.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
 
 async function findClient(tenantId: string, input: string) {
   const trimmed = input.trim()
   if (!trimmed) return null
 
-  const { data: byEmail } = await supabaseAdmin
+  const { data: byEmail } = await tenantDb(tenantId)
     .from('clients')
     .select('id, phone, email, name')
-    .eq('tenant_id', tenantId)
-    .ilike('email', trimmed)
+    .ilike('email', escapeLike(trimmed))
     .maybeSingle()
   if (byEmail) return byEmail
 
+  // Phone must match in FULL (not a 7+ digit prefix/suffix substring) — the
+  // prior fuzzy match let a caller who only knew a partial number (e.g. an
+  // area code + a few guessed digits) confirm a real client and pull back
+  // their full name/phone/email with zero authentication. Requiring the
+  // complete number mirrors the email fix: this becomes "confirm an
+  // already-known identifier", not an enumeration primitive.
   const digits = trimmed.replace(/\D/g, '')
-  if (digits.length >= 7) {
-    const { data: clients } = await supabaseAdmin
+  if (digits.length >= 10) {
+    const { data: clients } = await tenantDb(tenantId)
       .from('clients')
       .select('id, phone, email, name')
-      .eq('tenant_id', tenantId)
     if (clients) {
       const match = clients.find(c => {
         const cDigits = (c.phone || '').replace(/\D/g, '')
-        if (!cDigits || cDigits.length < 7) return false
-        return cDigits === digits || cDigits.endsWith(digits) || digits.endsWith(cDigits)
+        if (!cDigits) return false
+        return cDigits === digits
       })
       if (match) return match
     }

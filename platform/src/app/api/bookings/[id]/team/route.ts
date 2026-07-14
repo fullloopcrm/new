@@ -61,6 +61,23 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
 
+  // lead_id/extra_team_member_ids are caller-supplied; verify every id belongs to
+  // this tenant before writing them — closeout-summary and other reads join
+  // team_members(name, phone, hourly_rate) off booking_team_members, so a foreign
+  // id would otherwise leak another tenant's staff PII into this booking's team.
+  const candidateIds = Array.from(new Set([...(newLead ? [newLead] : []), ...newExtras]))
+  if (candidateIds.length > 0) {
+    const { data: owned } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('tenant_id', ctx.tenantId)
+      .in('id', candidateIds)
+    const ownedIds = new Set((owned || []).map((r) => r.id))
+    if (candidateIds.some((cid) => !ownedIds.has(cid))) {
+      return NextResponse.json({ error: 'Invalid team member id' }, { status: 404 })
+    }
+  }
+
   // Snapshot the old team to figure out which extras are NEW (need notification).
   const { data: oldRows } = await supabaseAdmin
     .from('booking_team_members')

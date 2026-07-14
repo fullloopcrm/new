@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
-import { isOwner, type YinezResult } from '@/lib/selena/agent'
+import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
@@ -77,7 +77,7 @@ export async function runTool(
   // If the caller isn't the owner, refuse before the side-effect runs.
   // Returning an error string (not throwing) lets the model see "not allowed"
   // and recover with a normal client-facing reply instead of dumping ops data.
-  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !isOwner(phone)) {
+  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(await isOwnerOfTenant(phone, tid))) {
     console.warn('[Yinez:owner_tool_blocked]', { name, phone, conversationId })
     return JSON.stringify({
       error: 'owner_only_tool',
@@ -205,6 +205,21 @@ export async function runTool(
   }
 }
 
+// ── FK tenant-ownership guard (P3-5) ──
+// Owner tools take a referenced client_id / cleaner_id / deal_id and write it
+// verbatim into a tenant-scoped row (or pass it to a scorer). The row's own
+// tenant_id is always the caller's, but the FOREIGN KEY is not checked — so an
+// owner (or, for score_cleaners which bypasses the owner gate, any client) could
+// point a booking/deal/block/assignment at ANOTHER tenant's client or cleaner id.
+// Verify each referenced id resolves INSIDE the caller's tenant before the
+// side-effect runs; reject with a stable not-found error otherwise (do not
+// disclose that the id exists in some other tenant).
+async function idInTenant(table: 'clients' | 'cleaners' | 'deals' | 'bookings', id: string, tid: string): Promise<boolean> {
+  if (!id) return false
+  const { data } = await supabaseAdmin.from(table).select('id').eq('id', id).eq('tenant_id', tid).maybeSingle()
+  return !!data
+}
+
 // ── Smart scheduling visibility ──
 // Yinez runs the same scoring algorithm the admin UI shows in the cleaner dropdown — full
 // list of cleaners with availability, conflicts, day-off reasons, score + rationale.
@@ -213,6 +228,11 @@ export async function runTool(
 async function handleScoreCleaners(input: { date: string; time: string; duration_hours: number; client_address?: string; client_id?: string; exclude_booking_id?: string; hourly_rate?: number }, tid: string): Promise<string> {
   if (!input.date || !input.time || !input.duration_hours) {
     return JSON.stringify({ error: 'date, time (HH:MM), and duration_hours are required' })
+  }
+  // score_cleaners is client-callable (bypasses the owner gate), so a foreign
+  // client_id here would leak another tenant's address/zone match into scoring.
+  if (input.client_id && !(await idInTenant('clients', input.client_id, tid))) {
+    return JSON.stringify({ error: 'client not found' })
   }
   const { scoreCleanersForBooking } = await import('@/lib/nycmaid/smart-schedule')
   const [h, m] = input.time.replace(/[^\d:]/g, '').split(':').map(Number)
@@ -904,6 +924,18 @@ async function handleSearchMessages(query: string, tid: string): Promise<string>
 // ──────────────────────────────────────────────────────────────────────────
 
 async function handleAssignCleaner(input: { booking_id: string; cleaner_id: string }, tid: string): Promise<string> {
+  // The booking write is tenant-scoped, but cleaner_id is written verbatim —
+  // reject a cleaner id that belongs to another tenant before the update.
+  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
+  // booking_id must also resolve inside the caller's tenant. Without this check,
+  // a foreign-tenant booking_id just makes the .eq('tenant_id', tid) filter below
+  // match zero rows — Supabase returns no error, so the handler would falsely
+  // report ok:true while writing nothing.
+  if (!(await idInTenant('bookings', input.booking_id, tid))) {
+    return JSON.stringify({ error: 'booking not found' })
+  }
   const { error } = await supabaseAdmin
     .from('bookings')
     .update({ cleaner_id: input.cleaner_id, status: 'scheduled' })
@@ -981,6 +1013,14 @@ async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_cli
 }
 
 async function handleCreateManualBooking(input: { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string }, tid: string): Promise<string> {
+  // Both FKs are written into the booking row — validate each belongs to the
+  // caller's tenant before inserting a cross-tenant reference.
+  if (!(await idInTenant('clients', input.client_id, tid))) {
+    return JSON.stringify({ error: 'client not found' })
+  }
+  if (input.cleaner_id && !(await idInTenant('cleaners', input.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
   const startISO = `${input.date}T${parseTimeToISO(input.time)}`
   const startMs = new Date(startISO).getTime()
   const endISO = new Date(startMs + Math.round((input.estimated_hours || 2) * 3_600_000)).toISOString()
@@ -1193,6 +1233,10 @@ async function handleListDeals(input: { stage?: string }, tid: string): Promise<
 }
 
 async function handleCreateDeal(input: { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }, tid: string): Promise<string> {
+  // client_id is written into the deal row verbatim — reject a foreign client.
+  if (!(await idInTenant('clients', input.client_id, tid))) {
+    return JSON.stringify({ error: 'client not found' })
+  }
   const { data, error } = await supabaseAdmin
     .from('deals')
     .insert({
@@ -1404,6 +1448,10 @@ async function handleTriggerCron(input: { name: string }): Promise<string> {
 }
 
 async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid: string): Promise<string> {
+  // cleaner_id is written into the block row verbatim — reject a foreign cleaner.
+  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
   const { error } = await supabaseAdmin.from('cleaner_blocks').insert({
     tenant_id: tid,
     cleaner_id: input.cleaner_id,

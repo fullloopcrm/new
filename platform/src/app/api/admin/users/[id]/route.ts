@@ -25,6 +25,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (!validRoles.includes(body.role)) {
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }
+      // Granting 'owner' is owner-only — otherwise any member with settings.edit
+      // (e.g. the 'admin' role) could promote themselves to owner and, from
+      // there, remove the real owner outright (DELETE only blocks removing the
+      // LAST owner, not a non-last one).
+      if (body.role === 'owner' && tenant.role !== 'owner') {
+        return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+      }
       updates.role = body.role
     }
 

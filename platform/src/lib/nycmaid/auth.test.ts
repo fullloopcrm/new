@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { createHmac } from 'crypto'
 
 // auth.ts imports next/headers + supabase at module top for its async helpers.
@@ -111,5 +111,45 @@ describe('password hashing', () => {
 
   it('produces different hashes for different inputs', () => {
     expect(hashPassword('hunter2')).not.toBe(hashPassword('hunter3'))
+  })
+})
+
+describe('fail closed when ADMIN_PASSWORD is unset', () => {
+  const ORIG = process.env.ADMIN_PASSWORD
+
+  afterEach(() => {
+    process.env.ADMIN_PASSWORD = ORIG
+  })
+
+  it('hashPassword() throws instead of hashing with a fallback key', () => {
+    delete process.env.ADMIN_PASSWORD
+    expect(() => hashPassword('hunter2')).toThrow()
+  })
+
+  it('createSessionCookie() throws instead of issuing a forgeable session', () => {
+    delete process.env.ADMIN_PASSWORD
+    expect(() => createSessionCookie('user-1')).toThrow()
+  })
+
+  it('verifySessionCookie() rejects (fail-closed, no throw) a cookie that was validly signed while the secret WAS configured, once the secret is removed', () => {
+    const cookie = createSessionCookie('user-1') // signed while ADMIN_PASSWORD=SECRET
+    delete process.env.ADMIN_PASSWORD
+    expect(verifySessionCookie(cookie)).toEqual({ valid: false })
+  })
+
+  it('verifySessionCookie() rejects a cookie forged with the well-known empty-key HMAC (what the old fallback allowed)', () => {
+    delete process.env.ADMIN_PASSWORD
+    const ts = Date.now().toString(36)
+    const payload = `attacker-controlled-user.token123.${ts}`
+    const emptyKeySig = createHmac('sha256', '').update(payload).digest('hex')
+    expect(verifySessionCookie(`${payload}.${emptyKeySig}`)).toEqual({ valid: false })
+  })
+
+  it('verifyClientSession() rejects a client session forged with the well-known empty-key HMAC', () => {
+    delete process.env.ADMIN_PASSWORD
+    const ts = Date.now().toString()
+    const payload = `victim-client-id.${ts}`
+    const emptyKeySig = createHmac('sha256', '').update(payload).digest('hex')
+    expect(verifyClientSession(`${payload}.${emptyKeySig}`)).toBeNull()
   })
 })

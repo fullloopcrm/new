@@ -1,24 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
+import { verifyTelnyx } from '@/lib/webhook-verify'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').trim()
 
-// Bind to nycmaid tenant — single Telnyx voice connection (TELNYX_VOICE_CONNECTION_ID,
-// ADMIN_RING_LIST) is nycmaid's. Other tenants need their own voice routing config.
-const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+type VoiceTenantResolution =
+  | { ok: true; tenantId: string }
+  | { ok: false; status: number; reason: string }
 
-// Comma-separated E.164 list. We dial them one at a time, 25s each, until
-// someone picks up. If the list is exhausted with no pickup, drop the
-// caller into voicemail.
-const ADMIN_RING_LIST = (process.env.ADMIN_RING_LIST || process.env.ADMIN_FORWARD_PHONE || '')
-  .split(',')
-  .map(s => s.trim())
-  .filter(Boolean)
+// Resolve the tenant that owns the DID the customer dialed (payload.to),
+// mirroring the SMS webhook's telnyx_phone lookup. FAIL CLOSED: a DID that
+// maps to no tenant, or to more than one (shared-number mis-seed), is REJECTED
+// rather than silently defaulting to nycmaid — otherwise a second voice tenant
+// would cross-route its calls (recording, transcripts, missed-call SMS) into
+// nycmaid. limit(2) (not .single()) so an ambiguous match is detected instead
+// of throwing.
+async function resolveVoiceTenant(toDid: string | undefined): Promise<VoiceTenantResolution> {
+  const did = (toDid || '').trim()
+  if (!did) return { ok: false, status: 422, reason: 'missing called number' }
 
-const VOICEMAIL_NOTIFY_PHONE = (process.env.VOICEMAIL_NOTIFY_PHONE || ADMIN_RING_LIST[0] || '').trim()
+  const { data: matches } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name')
+    .eq('telnyx_phone', did)
+    .order('id', { ascending: true })
+    .limit(2)
+
+  if (!matches || matches.length === 0) {
+    console.warn(`[telnyx-voice] no tenant for called DID ${did} — rejecting`)
+    return { ok: false, status: 404, reason: 'no tenant for called number' }
+  }
+  if (matches.length > 1) {
+    console.error(`[telnyx-voice] DID ${did} matches ${matches.length} tenants — ambiguous, rejecting`)
+    return { ok: false, status: 409, reason: 'ambiguous tenant for called number' }
+  }
+  return { ok: true, tenantId: matches[0].id }
+}
+
 const ADMIN_LEG_TIMEOUT_SECS = Number(process.env.ADMIN_LEG_TIMEOUT_SECS || '25')
 const VOICEMAIL_MAX_LENGTH_SECS = Number(process.env.VOICEMAIL_MAX_LENGTH_SECS || '120')
 const MISSED_CALL_SMS_COOLDOWN_MIN = Number(process.env.MISSED_CALL_SMS_COOLDOWN_MIN || '60')
@@ -84,14 +106,33 @@ type RingTarget = {
   amd: boolean // whether to use answering-machine detection
 }
 
-// Build the ordered list of admin endpoints to dial. Online softphones
-// first (browser dialer), then cell numbers from ADMIN_RING_LIST. If no
-// softphones are online, this just returns the cell list.
-async function buildRingTargets(): Promise<RingTarget[]> {
+// Per-tenant PSTN fallback numbers, sourced from each admin's own voice
+// settings (the same table the /admin/comhub/voice/settings UI writes to).
+// Ordered by admin_id for deterministic ring order.
+async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
+  const { data } = await supabaseAdmin
+    .from('comhub_admin_voice_settings')
+    .select('admin_id, fallback_cell_phone')
+    .eq('tenant_id', tenantId)
+    .order('admin_id', { ascending: true })
+
+  return (data ?? [])
+    .map(row => (row.fallback_cell_phone || '').trim())
+    .filter(Boolean)
+}
+
+// Build the ordered list of admin endpoints to dial for this tenant's call.
+// Online softphones first (browser dialer), then this tenant's configured
+// cell numbers. If no softphones are online, this just returns the cell
+// list. TENANT-SCOPED: both presence and cell numbers are filtered to
+// tenantId — an unrelated tenant's online admin or configured cell must
+// never ring for this call.
+async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
   const cutoff = new Date(Date.now() - 60_000).toISOString()
   const { data: presence } = await supabaseAdmin
-    .from('comhub_admin_presence')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
+    .from('comhub_admin_presence')
     .select('admin_id, sip_username, sip_address, status, last_seen_at')
+    .eq('tenant_id', tenantId)
     .gte('last_seen_at', cutoff)
     .eq('status', 'available')
     .order('last_seen_at', { ascending: false })
@@ -106,7 +147,8 @@ async function buildRingTargets(): Promise<RingTarget[]> {
     }
   }
 
-  const phoneTargets: RingTarget[] = ADMIN_RING_LIST.map(p => ({
+  const cellPhones = await getTenantAdminCellPhones(tenantId)
+  const phoneTargets: RingTarget[] = cellPhones.map(p => ({
     kind: 'phone' as const,
     destination: p,
     label: p,
@@ -226,6 +268,7 @@ async function startRecordingAndTranscription(callControlId: string): Promise<vo
 }
 
 async function logVoiceMessage(opts: {
+  tenantId: string
   threadId: string
   contactId: string
   direction: 'in' | 'out' | 'system'
@@ -240,7 +283,7 @@ async function logVoiceMessage(opts: {
   const { data, error } = await supabaseAdmin
     .from('comhub_messages')
     .insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: opts.tenantId,
       thread_id: opts.threadId,
       contact_id: opts.contactId,
       channel: 'voice',
@@ -275,6 +318,7 @@ async function logVoiceMessage(opts: {
 }
 
 async function maybeSendMissedCallSMS(opts: {
+  tenantId: string
   customerPhone: string
   threadId: string
   activeCallId: string
@@ -306,13 +350,14 @@ async function maybeSendMissedCallSMS(opts: {
 
   if (result.success) {
     await supabaseAdmin.from('comhub_missed_call_sms').insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: opts.tenantId,
       customer_phone: opts.customerPhone,
       thread_id: opts.threadId,
       active_call_id: opts.activeCallId,
       reason: opts.reason,
     })
     await logVoiceMessage({
+      tenantId: opts.tenantId,
       threadId: opts.threadId,
       contactId: opts.contactId,
       direction: 'out',
@@ -325,25 +370,28 @@ async function maybeSendMissedCallSMS(opts: {
 }
 
 async function notifyVoicemailToAdmin(opts: {
+  tenantId: string
   customerPhone: string
   threadId: string
   recordingUrl: string | null
   transcript: string | null
 }): Promise<void> {
-  if (!VOICEMAIL_NOTIFY_PHONE) return
+  const [notifyPhone] = await getTenantAdminCellPhones(opts.tenantId)
+  if (!notifyPhone) return
   const lines = [
     `📞 New voicemail from ${opts.customerPhone}`,
     opts.transcript ? `Transcript: ${opts.transcript.slice(0, 400)}` : null,
     opts.recordingUrl ? `Audio: ${opts.recordingUrl}` : null,
     `Thread: https://www.thenycmaid.com/admin/comhub?thread=${opts.threadId}`,
   ].filter(Boolean) as string[]
-  await sendSMS(VOICEMAIL_NOTIFY_PHONE, lines.join('\n'), {
+  await sendSMS(notifyPhone, lines.join('\n'), {
     skipCircuit: true,
     smsType: 'voicemail_alert',
   })
 }
 
 async function startVoicemail(opts: {
+  tenantId: string
   customerCallId: string
   threadId: string
   contactId: string
@@ -371,6 +419,7 @@ async function startVoicemail(opts: {
     .update({ status: 'voicemail' })
     .eq('customer_call_id', opts.customerCallId)
   await logVoiceMessage({
+    tenantId: opts.tenantId,
     threadId: opts.threadId,
     contactId: opts.contactId,
     direction: 'system',
@@ -383,44 +432,53 @@ async function startVoicemail(opts: {
 // call lifecycle: answer → ring admin list → bridge → record → transcribe,
 // and on no-answer falls back to voicemail with a missed-call SMS.
 export async function POST(req: NextRequest) {
-  // Webhook freshness check (matches the SMS webhook pattern). When the
-  // public key is set we'll require a Telnyx signature header and reject
-  // anything older than 5 minutes — replay protection for the call-control
-  // events that drive this whole flow.
-  if (process.env.TELNYX_PUBLIC_KEY) {
-    const signature = req.headers.get('telnyx-signature-ed25519')
-    const timestamp = req.headers.get('telnyx-timestamp')
-    if (!signature || !timestamp) {
-      return NextResponse.json({ error: 'missing telnyx signature' }, { status: 401 })
-    }
-    const age = Math.abs(Date.now() / 1000 - Number(timestamp))
-    if (!Number.isFinite(age) || age > 300) {
-      return NextResponse.json({ error: 'stale webhook' }, { status: 401 })
+  // Strict Ed25519 signature verification (mirrors the SMS webhook). We must
+  // read the RAW body and verify the signature over those exact bytes BEFORE
+  // JSON.parse. FAIL CLOSED: verifyTelnyx returns invalid on a missing header,
+  // a bad signature, a stale (>5 min) timestamp, OR an unconfigured public key
+  // — every one of those is a 401. The only bypass is the explicit
+  // TELNYX_WEBHOOK_VERIFY=off local-dev flag. This closes the prior fail-OPEN
+  // hole where an unsigned/forged call-control event could drive the whole
+  // dial/record/voicemail flow (toll-fraud / call forgery).
+  const rawBody = await req.text()
+
+  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+    const result = verifyTelnyx(req.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
+    if (!result.valid) {
+      console.warn('[telnyx-voice] rejected:', result.reason)
+      return NextResponse.json({ error: 'Invalid signature' }, { status: 401 })
     }
   }
 
-  const payload = (await req.json().catch(() => null)) as {
-    data?: {
-      event_type?: string
-      payload?: {
-        call_control_id?: string
-        call_session_id?: string
-        from?: string
-        to?: string
-        direction?: string
-        custom_headers?: Array<{ name: string; value: string }>
-        hangup_cause?: string
-        hangup_source?: string
-        recording_urls?: { mp3?: string; wav?: string }
-        recording_id?: string
-        transcription_text?: string
-        start_time?: string
-        end_time?: string
-        result?: string
-        sip_hangup_cause?: string
+  let payload:
+    | {
+        data?: {
+          event_type?: string
+          payload?: {
+            call_control_id?: string
+            call_session_id?: string
+            from?: string
+            to?: string
+            direction?: string
+            custom_headers?: Array<{ name: string; value: string }>
+            hangup_cause?: string
+            hangup_source?: string
+            recording_urls?: { mp3?: string; wav?: string }
+            recording_id?: string
+            transcription_text?: string
+            start_time?: string
+            end_time?: string
+            result?: string
+            sip_hangup_cause?: string
+          }
+        }
       }
-    }
-  } | null
+    | null
+  try {
+    payload = JSON.parse(rawBody)
+  } catch {
+    return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
 
   const event = payload?.data?.event_type || ''
   const p = payload?.data?.payload || {}
@@ -445,6 +503,14 @@ export async function POST(req: NextRequest) {
     p.from &&
     !leg
   ) {
+    // Route by the DID that was actually dialed. FAIL CLOSED on unknown /
+    // ambiguous — never fall back to a hardcoded tenant.
+    const resolved = await resolveVoiceTenant(p.to)
+    if (!resolved.ok) {
+      return NextResponse.json({ error: resolved.reason }, { status: resolved.status })
+    }
+    const tenantId = resolved.tenantId
+
     const { data: cId } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
       p_phone: p.from,
     })
@@ -459,6 +525,7 @@ export async function POST(req: NextRequest) {
     const threadId = tId as string
 
     await logVoiceMessage({
+      tenantId,
       threadId,
       contactId,
       direction: 'in',
@@ -472,7 +539,7 @@ export async function POST(req: NextRequest) {
     await supabaseAdmin.from('comhub_threads').update({ unread_count: 1 }).eq('id', threadId)
 
     await supabaseAdmin.from('comhub_active_calls').insert({
-      tenant_id: NYCMAID_TENANT_ID,
+      tenant_id: tenantId,
       customer_call_id: callControlId,
       thread_id: threadId,
       contact_id: contactId,
@@ -486,9 +553,10 @@ export async function POST(req: NextRequest) {
     // harmless for SIP-URI transfer (the transfer moves the leg).
     await telnyxAction(callControlId, 'answer', {})
 
-    const ringTargets = await buildRingTargets()
+    const ringTargets = await buildRingTargets(tenantId)
     if (ringTargets.length === 0) {
       await startVoicemail({
+        tenantId,
         customerCallId: callControlId,
         threadId,
         contactId,
@@ -538,11 +606,12 @@ export async function POST(req: NextRequest) {
 
       const { data: active } = await supabaseAdmin
         .from('comhub_active_calls')
-        .select('thread_id, contact_id, admin_phone')
+        .select('tenant_id, thread_id, contact_id, admin_phone')
         .eq('customer_call_id', customerCallId)
         .single()
       if (active) {
         await logVoiceMessage({
+          tenantId: active.tenant_id,
           threadId: active.thread_id,
           contactId: active.contact_id,
           direction: 'system',
@@ -558,14 +627,14 @@ export async function POST(req: NextRequest) {
       const nextIndex = ringIndex + 1
       const { data: active } = await supabaseAdmin
         .from('comhub_active_calls')
-        .select('id, thread_id, contact_id, customer_phone, status')
+        .select('id, tenant_id, thread_id, contact_id, customer_phone, status')
         .eq('customer_call_id', customerCallId)
         .single()
       if (!active) return NextResponse.json({ ok: true })
       // If we already bridged, hangup of admin leg is just end of conversation.
       if (active.status === 'bridged') return NextResponse.json({ ok: true })
 
-      const ringTargets = await buildRingTargets()
+      const ringTargets = await buildRingTargets(active.tenant_id)
       if (nextIndex < ringTargets.length) {
         const nextCallId = await dialRingTarget({
           target: ringTargets[nextIndex],
@@ -587,6 +656,7 @@ export async function POST(req: NextRequest) {
       } else {
         // Ring list exhausted → voicemail.
         await startVoicemail({
+          tenantId: active.tenant_id,
           customerCallId,
           threadId: active.thread_id,
           contactId: active.contact_id,
@@ -599,15 +669,17 @@ export async function POST(req: NextRequest) {
   // ─── Recording saved ─────────────────────────────────────────────────────
   if (event === 'call.recording.saved' && callControlId) {
     const url = p.recording_urls?.mp3 || p.recording_urls?.wav || ''
+    const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-      .select('id, thread_id, contact_id, customer_phone, status')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .select('id, tenant_id, thread_id, contact_id, customer_phone, status')
+      .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (!active || !url) return NextResponse.json({ ok: true })
 
     const isVoicemail = active.status === 'voicemail'
     const messageId = await logVoiceMessage({
+      tenantId: active.tenant_id,
       threadId: active.thread_id,
       contactId: active.contact_id,
       direction: 'system',
@@ -628,12 +700,14 @@ export async function POST(req: NextRequest) {
 
     if (isVoicemail) {
       await notifyVoicemailToAdmin({
+        tenantId: active.tenant_id,
         customerPhone: active.customer_phone,
         threadId: active.thread_id,
         recordingUrl: url,
         transcript: null,
       })
       await maybeSendMissedCallSMS({
+        tenantId: active.tenant_id,
         customerPhone: active.customer_phone,
         threadId: active.thread_id,
         activeCallId: active.id,
@@ -646,13 +720,15 @@ export async function POST(req: NextRequest) {
 
   // ─── Transcription saved ─────────────────────────────────────────────────
   if (event === 'call.transcription' && callControlId && p.transcription_text) {
+    const safeCallControlId = sanitizePostgrestValue(callControlId)
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-      .select('id, thread_id, contact_id, status, customer_phone')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .select('id, tenant_id, thread_id, contact_id, status, customer_phone')
+      .or(`customer_call_id.eq.${safeCallControlId},admin_call_id.eq.${safeCallControlId}`)
       .single()
     if (active) {
       await logVoiceMessage({
+        tenantId: active.tenant_id,
         threadId: active.thread_id,
         contactId: active.contact_id,
         direction: 'system',
@@ -668,6 +744,7 @@ export async function POST(req: NextRequest) {
       // If the transcript is for a voicemail, push it to admin too.
       if (active.status === 'voicemail') {
         await notifyVoicemailToAdmin({
+          tenantId: active.tenant_id,
           customerPhone: active.customer_phone,
           threadId: active.thread_id,
           recordingUrl: null,
@@ -681,7 +758,7 @@ export async function POST(req: NextRequest) {
   if (event === 'call.hangup' && callControlId && !leg) {
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')
-      .select('id, thread_id, contact_id, customer_phone, status, answered_at')
+      .select('id, tenant_id, thread_id, contact_id, customer_phone, status, answered_at')
       .eq('customer_call_id', callControlId)
       .single()
     if (active) {
@@ -706,6 +783,7 @@ export async function POST(req: NextRequest) {
         .eq('id', active.id)
 
       await logVoiceMessage({
+        tenantId: active.tenant_id,
         threadId: active.thread_id,
         contactId: active.contact_id,
         direction: 'system',
@@ -719,6 +797,7 @@ export async function POST(req: NextRequest) {
       // was recorded, send a missed-call SMS.
       if (active.status !== 'bridged' && active.status !== 'voicemail') {
         await maybeSendMissedCallSMS({
+          tenantId: active.tenant_id,
           customerPhone: active.customer_phone,
           threadId: active.thread_id,
           activeCallId: active.id,

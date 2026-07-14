@@ -61,6 +61,7 @@ export async function postDepositToLedger(opts: {
     source_id: sourceId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 
@@ -90,6 +91,7 @@ export async function postRefundToLedger(opts: {
     source_id: sourceId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 
@@ -119,6 +121,7 @@ export async function postChargebackToLedger(opts: {
     source_id: sourceId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 
@@ -155,6 +158,7 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
     source_id: commissionId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 
@@ -191,6 +195,7 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
     source_id: commissionId,
     lines,
   })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
   return { posted: true, entryId }
 }
 

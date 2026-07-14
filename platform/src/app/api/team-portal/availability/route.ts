@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
 
@@ -10,11 +10,10 @@ export async function GET(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data: member } = await supabaseAdmin
+  const { data: member } = await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
     .single()
 
   // Store availability in member notes as JSON for now
@@ -39,11 +38,10 @@ export async function PUT(request: NextRequest) {
   const { availability } = await request.json()
 
   // Get current availability to detect NEW blocked dates
-  const { data: member } = await supabaseAdmin
+  const { data: member } = await tenantDb(auth.tid)
     .from('team_members')
     .select('name, notes')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
     .single()
 
   let currentObj: Record<string, unknown> = {}
@@ -60,11 +58,10 @@ export async function PUT(request: NextRequest) {
       const dayStart = `${date}T00:00:00`
       const dayEnd = `${date}T23:59:59`
 
-      const { data: bookings } = await supabaseAdmin
+      const { data: bookings } = await tenantDb(auth.tid)
         .from('bookings')
         .select('id, start_time, clients(name)')
         .eq('team_member_id', auth.id)
-        .eq('tenant_id', auth.tid)
         .in('status', ['scheduled', 'pending', 'confirmed', 'in_progress'])
         .gte('start_time', dayStart)
         .lte('start_time', dayEnd)
@@ -86,11 +83,10 @@ export async function PUT(request: NextRequest) {
 
   currentObj.availability = availability
 
-  await supabaseAdmin
+  await tenantDb(auth.tid)
     .from('team_members')
     .update({ notes: JSON.stringify(currentObj) })
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
 
   // Notify admin about new time-off requests
   if (newDatesRequested.length > 0) {

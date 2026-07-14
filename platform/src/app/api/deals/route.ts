@@ -47,6 +47,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'client_id or title is required' }, { status: 400 })
     }
 
+    // Confirm client_id (if given) belongs to this tenant -- otherwise a
+    // foreign client's name/email/phone/address gets pulled into this
+    // tenant's deal via the clients() join on this response and every later
+    // GET, a cross-tenant PII leak (same class already fixed on
+    // bookings/quotes/invoices in 534a5834/7907701b).
+    if (client_id) {
+      const { data: clientRow } = await supabaseAdmin
+        .from('clients').select('id').eq('id', client_id).eq('tenant_id', tenantId).single()
+      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     // Only block duplicate open deal on same client if no title was given
     // (same client can have multiple distinct deals when titled).
     if (client_id && !title) {

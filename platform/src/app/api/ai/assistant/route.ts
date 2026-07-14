@@ -1,8 +1,24 @@
 import { NextResponse } from 'next/server'
 import type Anthropic from '@anthropic-ai/sdk'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getTenantForRequest, AuthError, type TenantContext } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { hasPermission, type Permission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
+
+// Tools that mutate data or expose finance figures must be gated behind the
+// SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
+// -> bookings.edit, clients/[id].PUT -> clients.edit, etc). Without this, any
+// tenant member reaching this chat widget — including 'staff', which lacks
+// bookings.edit/clients.edit/finance.view — could have the assistant perform
+// actions the REST API would 403 on directly.
+const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  update_bookings: 'bookings.edit',
+  cancel_bookings: 'bookings.edit',
+  update_client: 'clients.edit',
+  get_revenue_stats: 'finance.view',
+}
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -161,10 +177,16 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-async function executeTool(name: string, input: Record<string, unknown>, tenantId: string): Promise<string> {
+async function executeTool(name: string, input: Record<string, unknown>, tenant: TenantContext): Promise<string> {
+  const requiredPermission = TOOL_PERMISSIONS[name]
+  if (requiredPermission && !hasPermission(tenant.role, requiredPermission, overridesFor(tenant))) {
+    return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
+  }
+  const tenantId = tenant.tenantId
+
   switch (name) {
     case 'search_clients': {
-      const q = (input.query as string).trim()
+      const q = sanitizePostgrestValue((input.query as string).trim())
       const { data, error } = await supabaseAdmin
         .from('clients')
         .select('id, name, email, phone, address, active, notes')
@@ -333,7 +355,8 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
 
 export async function POST(request: Request) {
   try {
-    const { tenant, tenantId } = await getTenantForRequest()
+    const ctx = await getTenantForRequest()
+    const { tenant, tenantId } = ctx
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
@@ -373,7 +396,7 @@ export async function POST(request: Request) {
         const toolResults = []
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(block.name, block.input as Record<string, unknown>, tenantId)
+            const result = await executeTool(block.name, block.input as Record<string, unknown>, ctx)
             toolResults.push({
               type: 'tool_result' as const,
               tool_use_id: block.id,

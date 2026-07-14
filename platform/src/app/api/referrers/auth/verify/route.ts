@@ -11,9 +11,20 @@ export async function POST(request: NextRequest) {
   const code = (body.code || '').trim()
   if (!email || !code) return NextResponse.json({ error: 'Email and code required' }, { status: 400 })
 
-  const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const rl = await rateLimitDb(`referrer_otp_verify:${ip}:${email.toLowerCase()}`, 8, 15 * 60 * 1000)
-  if (!rl.allowed) {
+  // Throttle code verification so a 6-digit code can't be brute-forced.
+  // Primary cap is per-email: once attempts land in the window, further
+  // guesses against THAT email's code are blocked regardless of source IP
+  // (a composite ip+email key would reset every time the attacker rotates
+  // IP). A looser per-IP cap adds defense against one host spraying codes
+  // across many emails. Both fail closed -- a DB outage here must deny
+  // rather than allow unlimited brute force. Mirrors pin-reset/route.ts +
+  // portal/auth/route.ts.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rlEmail = await rateLimitDb(`referrer_otp_verify:${email.toLowerCase()}`, 8, 15 * 60 * 1000, {
+    failClosed: true,
+  })
+  const rlIp = await rateLimitDb(`referrer_otp_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
+  if (!rlEmail.allowed || !rlIp.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 

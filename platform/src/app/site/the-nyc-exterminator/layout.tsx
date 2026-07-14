@@ -8,6 +8,8 @@ import Header from "@/app/site/the-nyc-exterminator/_components/Header";
 import Footer from "@/app/site/the-nyc-exterminator/_components/Footer";
 import Tracker from "@/app/site/the-nyc-exterminator/_components/Tracker";
 import { getOrganizationSchema, getWebsiteSchema, SITE_URL } from "@/app/site/the-nyc-exterminator/_lib/seo";
+import ConsentBanner from "@/components/consent/ConsentBanner";
+import ConsentGate from "@/components/consent/ConsentGate";
 
 const CLARITY_ID = process.env.NEXT_PUBLIC_CLARITY_ID ?? "";
 
@@ -68,26 +70,6 @@ export default function RootLayout({
   return (
     <html lang="en">
       <head>
-        {GA_ID && (
-          <>
-            <script
-              async
-              src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`}
-            />
-            <script
-              dangerouslySetInnerHTML={{
-                __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
-              }}
-            />
-          </>
-        )}
-        {CLARITY_ID && (
-          <script
-            dangerouslySetInnerHTML={{
-              __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`,
-            }}
-          />
-        )}
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
@@ -105,17 +87,39 @@ export default function RootLayout({
         <Header />
         <main className="min-h-screen">{children}</main>
         <Footer />
-        <Suspense fallback={null}>
-          <Tracker />
-        </Suspense>
+        {/* Vercel Analytics/Speed Insights are cookieless first-party telemetry (no
+            persistent identifier written to the visitor's device) — not gated. */}
         <Analytics />
         <SpeedInsights />
-        <script
-          type="text/javascript"
-          dangerouslySetInnerHTML={{
-            __html: `var Tawk_API=Tawk_API||{},Tawk_LoadStart=new Date();(function(){var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];s1.async=true;s1.src='https://embed.tawk.to/6823effa7c5b09190cd447fe/1ir662r4n';s1.charset='UTF-8';s1.setAttribute('crossorigin','*');s0.parentNode.insertBefore(s1,s0);})();`,
-          }}
-        />
+        <ConsentGate>
+          <Suspense fallback={null}>
+            <Tracker />
+          </Suspense>
+          {GA_ID && (
+            <>
+              <script async src={`https://www.googletagmanager.com/gtag/js?id=${GA_ID}`} />
+              <script
+                dangerouslySetInnerHTML={{
+                  __html: `window.dataLayer=window.dataLayer||[];function gtag(){dataLayer.push(arguments);}gtag('js',new Date());gtag('config','${GA_ID}');`,
+                }}
+              />
+            </>
+          )}
+          {CLARITY_ID && (
+            <script
+              dangerouslySetInnerHTML={{
+                __html: `(function(c,l,a,r,i,t,y){c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);})(window,document,"clarity","script","${CLARITY_ID}");`,
+              }}
+            />
+          )}
+          <script
+            type="text/javascript"
+            dangerouslySetInnerHTML={{
+              __html: `var Tawk_API=Tawk_API||{},Tawk_LoadStart=new Date();(function(){var s1=document.createElement("script"),s0=document.getElementsByTagName("script")[0];s1.async=true;s1.src='https://embed.tawk.to/6823effa7c5b09190cd447fe/1ir662r4n';s1.charset='UTF-8';s1.setAttribute('crossorigin','*');s0.parentNode.insertBefore(s1,s0);})();`,
+            }}
+          />
+        </ConsentGate>
+        <ConsentBanner />
       </body>
     </html>
   );

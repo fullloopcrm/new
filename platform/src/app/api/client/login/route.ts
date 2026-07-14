@@ -5,7 +5,7 @@
  */
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
@@ -16,8 +16,15 @@ export async function POST(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const rl = await rateLimitDb(`client-login:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
-  if (!rl.allowed) {
+  // Two layers. Per-IP (5/10min) stops a single host guessing PINs. A wrong PIN
+  // resolves to no account, so per-victim lockout isn't possible here — instead
+  // a per-tenant cap (100/10min) locks out distributed PIN-spraying that rotates
+  // IPs, which the per-IP bucket alone can't see. 100/10min sits far above any
+  // real login volume for a tenant but far below what brute-forcing a 6-digit
+  // PIN needs; bump it for unusually high-traffic tenants if false 429s appear.
+  const rlIp = await rateLimitDb(`client-login:${tenant.id}:${ip}`, 5, 10 * 60 * 1000, { failClosed: true })
+  const rlTenant = await rateLimitDb(`client-login-tenant:${tenant.id}`, 100, 10 * 60 * 1000, { failClosed: true })
+  if (!rlIp.allowed || !rlTenant.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again later.' }, { status: 429 })
   }
 
@@ -26,10 +33,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter your 6-digit PIN' }, { status: 400 })
   }
 
-  const { data: client } = await supabaseAdmin
+  const { data: client } = await tenantDb(tenant.id)
     .from('clients')
     .select('id, do_not_service')
-    .eq('tenant_id', tenant.id)
     .eq('pin', pin)
     .maybeSingle()
 

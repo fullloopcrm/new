@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { formatET } from '@/lib/dates'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -20,11 +20,10 @@ export async function POST(request: Request) {
   }
 
   // Verify booking belongs to this team member
-  const { data: booking } = await supabaseAdmin
+  const { data: booking } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, status, team_member_id, start_time, check_in_time, notes, clients(name, address, latitude, longitude), client_properties(address, latitude, longitude)')
     .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
     }
   }
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .update({
       check_in_time: new Date().toISOString(),

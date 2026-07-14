@@ -6,6 +6,8 @@ const inter = Inter({ subsets: ['latin'], variable: '--font-inter' })
 
 import MarketingNav from '@/app/site/the-florida-maid/_components/marketing/MarketingNav'
 import MarketingFooter from '@/app/site/the-florida-maid/_components/marketing/MarketingFooter'
+import ConsentBanner from '@/components/consent/ConsentBanner'
+import ConsentGate from '@/components/consent/ConsentGate'
 
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -16,7 +18,10 @@ export default function MarketingLayout({ children }: { children: React.ReactNod
       <MarketingNav />
       <main id="main-content">{children}</main>
       <MarketingFooter />
-      <Script id="floridamaid-analytics" src="/sites/the-florida-maid/t.js" strategy="afterInteractive" />
+      <ConsentGate>
+        <Script id="floridamaid-analytics" src="/sites/the-florida-maid/t.js" strategy="afterInteractive" />
+      </ConsentGate>
+      <ConsentBanner privacyHref="/privacy-policy" />
     </div>
   )
 }

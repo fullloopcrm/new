@@ -13,8 +13,14 @@ import { supabaseAdmin } from './supabase'
 export async function rateLimitDb(
   bucketKey: string,
   maxRequests: number,
-  windowMs: number
+  windowMs: number,
+  opts: { failClosed?: boolean } = {}
 ): Promise<{ allowed: boolean; remaining: number }> {
+  // failClosed: auth-critical callers (login/OTP/PIN/admin) pass true so a DB
+  // outage denies instead of allowing unlimited brute force while the limiter
+  // is blind. Public forms/telemetry keep the default fail-open so a transient
+  // DB blip doesn't 429 legitimate traffic. Either path logs loudly.
+  const { failClosed = false } = opts
   const since = new Date(Date.now() - windowMs).toISOString()
 
   // Count recent events in window.
@@ -25,9 +31,10 @@ export async function rateLimitDb(
     .gte('happened_at', since)
 
   if (countErr) {
-    // On DB failure, fail-open so we don't lock users out — but log it.
-    console.error('[rate-limit-db] count failed:', countErr.message)
-    return { allowed: true, remaining: maxRequests }
+    console.error(`[rate-limit-db] count failed (failClosed=${failClosed}):`, countErr.message)
+    return failClosed
+      ? { allowed: false, remaining: 0 }
+      : { allowed: true, remaining: maxRequests }
   }
 
   const current = count ?? 0
@@ -41,7 +48,13 @@ export async function rateLimitDb(
     .insert({ bucket_key: bucketKey })
 
   if (insertErr) {
-    console.error('[rate-limit-db] insert failed:', insertErr.message)
+    console.error(`[rate-limit-db] insert failed (failClosed=${failClosed}):`, insertErr.message)
+    // Same bypass class as the count error: a failed write means this attempt
+    // is unrecorded, so failClosed callers must deny rather than let an
+    // unthrottled request through. Public callers stay fail-open for availability.
+    if (failClosed) {
+      return { allowed: false, remaining: 0 }
+    }
   }
 
   return { allowed: true, remaining: maxRequests - current - 1 }

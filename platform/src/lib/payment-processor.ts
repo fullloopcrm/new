@@ -35,7 +35,7 @@ type TenantPaymentFields = Pick<
 export interface ProcessPaymentInput {
   tenant: TenantPaymentFields | { id: string }
   bookingId: string
-  clientId: string
+  clientId: string                     // ignored — derived from the tenant-verified booking row instead (see processPayment)
   method: string                       // 'zelle' | 'venmo' | 'cashapp' | 'cash' | 'manual' | ...
   amountCents: number
   referenceId: string
@@ -77,7 +77,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   if (!tenant) return null
   const tenantId = tenant.id
 
-  const { bookingId, clientId, method, amountCents, referenceId } = input
+  const { bookingId, method, amountCents, referenceId } = input
   const label = method.charAt(0).toUpperCase() + method.slice(1)
 
   // Tenant-scoped booking lookup with joined relations
@@ -102,6 +102,12 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .single()
 
   if (!booking) return null
+
+  // clientId comes from the tenant-verified booking row, never from the
+  // caller — input.clientId is ignored so an internal-key-gated caller (e.g.
+  // admin/payments/finalize-match, whose key is global across all tenants)
+  // can't attribute this payment to an unowned/cross-tenant client id.
+  const clientId = booking.client_id as string
 
   const clientJoin = booking.clients as unknown as { name: string; phone?: string; address?: string | null } | null
   const teamMember = booking.team_members as unknown as {
@@ -166,7 +172,27 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     })
     .select('id')
     .single()
-  if (paymentInsertErr) console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+  if (paymentInsertErr) {
+    // 23505 = a concurrent/redelivered call with the SAME (tenant_id,
+    // booking_id, reference_id) already won and inserted its row (double-tapped
+    // checkout, a client retry after a timeout, or a redelivered
+    // finalize-match request). Treat as an idempotent no-op — proceeding here
+    // would double-post revenue to the ledger and double-post the cleaner's
+    // payout to the ledger (the Stripe transfer itself is idempotency-keyed
+    // below, but the DB rows and ledger entries are not).
+    if ((paymentInsertErr as { code?: string }).code === '23505') {
+      console.warn(`[payment-processor] duplicate ${label} delivery ignored (booking ${bookingId}, ref ${referenceId})`)
+      const priorIsPartial = expectedCents > 0 && priorCents < expectedCents * PARTIAL_THRESHOLD
+      return {
+        status: priorIsPartial ? 'partial' : 'paid',
+        totalReceivedCents: priorCents,
+        expectedCents,
+        tipCents: 0,
+        cleanerPaidCents: 0,
+      }
+    }
+    console.error(`[payment-processor] ${label} insert failed:`, paymentInsertErr)
+  }
   if (paymentRow?.id) {
     postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
       .catch(err => console.error('[payment-processor] revenue post failed:', err))

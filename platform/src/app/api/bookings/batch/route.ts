@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -26,6 +27,27 @@ export async function POST(request: Request) {
   }
   if (bookingInputs.length > 200) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
+  }
+
+  // client_id/team_member_id are caller-supplied per row; verify every id
+  // belongs to this tenant before insert — the response joins clients(*)/
+  // team_members(*) (full rows, incl. pin/pay_rate), so a foreign id would
+  // otherwise leak another tenant's client or staff PII in bulk.
+  const candidateClientIds = Array.from(new Set(bookingInputs.map(b => b.client_id).filter((v): v is string => typeof v === 'string')))
+  const candidateMemberIds = Array.from(new Set(bookingInputs.map(b => b.team_member_id).filter((v): v is string => typeof v === 'string')))
+  if (candidateClientIds.length > 0) {
+    const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
+    const ownedIds = new Set((ownedClients || []).map(r => r.id))
+    if (candidateClientIds.some(cid => !ownedIds.has(cid))) {
+      return NextResponse.json({ error: 'Invalid client_id in bookings array' }, { status: 404 })
+    }
+  }
+  if (candidateMemberIds.length > 0) {
+    const { data: ownedMembers } = await supabaseAdmin.from('team_members').select('id').eq('tenant_id', tenantId).in('id', candidateMemberIds)
+    const ownedIds = new Set((ownedMembers || []).map(r => r.id))
+    if (candidateMemberIds.some(mid => !ownedIds.has(mid))) {
+      return NextResponse.json({ error: 'Invalid team_member_id in bookings array' }, { status: 404 })
+    }
   }
 
   const rows = bookingInputs.map(b => {
@@ -117,7 +139,7 @@ export async function POST(request: Request) {
         sendEmail({
           to: client.email,
           subject: `Booking confirmed for ${bookingDate}`,
-          html: `<p>Hi ${client.name || 'there'},</p><p>Your booking on <strong>${bookingDate}</strong> is confirmed.</p>`,
+          html: `<p>Hi ${escapeHtml(client.name || 'there')},</p><p>Your booking on <strong>${escapeHtml(bookingDate)}</strong> is confirmed.</p>`,
           from: fromEmail,
           resendApiKey: resendKey,
         }).catch(err => console.error('[batch] client email error:', err))

@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 
@@ -15,11 +15,10 @@ export async function GET(
 
   const { id } = await params
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .single()
 
@@ -45,11 +44,10 @@ export async function PUT(
   const { start_time, end_time, notes, status, special_instructions } = body
 
   // Get old booking for notification context
-  const { data: oldBooking } = await supabaseAdmin
+  const { data: oldBooking } = await tenantDb(auth.tid)
     .from('bookings')
     .select('start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .single()
 
@@ -64,11 +62,10 @@ export async function PUT(
   if (special_instructions !== undefined) update.special_instructions = special_instructions
   if (status === 'cancelled') update.status = 'cancelled'
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .update(update)
     .eq('id', id)
-    .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
     .single()
@@ -86,15 +83,16 @@ export async function PUT(
     const newTime = new Date(start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Admin notification
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: auth.tid,
-      type: 'reschedule',
-      title: 'Client Rescheduled',
-      message: `${clientName} moved from ${oldDate} to ${newDate} at ${newTime}`,
-      booking_id: id,
-      channel: 'in_app',
-      status: 'sent',
-    })
+    await tenantDb(auth.tid)
+      .from('notifications') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
+      .insert({
+        type: 'reschedule',
+        title: 'Client Rescheduled',
+        message: `${clientName} moved from ${oldDate} to ${newDate} at ${newTime}`,
+        booking_id: id,
+        channel: 'in_app',
+        status: 'sent',
+      })
 
     // Admin email
     await notify({
@@ -126,15 +124,16 @@ export async function PUT(
   if (status === 'cancelled') {
     const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
 
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: auth.tid,
-      type: 'booking_cancelled',
-      title: 'Client Cancelled',
-      message: `${clientName} cancelled their ${bookingDate} booking`,
-      booking_id: id,
-      channel: 'in_app',
-      status: 'sent',
-    })
+    await tenantDb(auth.tid)
+      .from('notifications') // tenant-scope-ok: tenantDb() stamps tenant_id on insert; audit heuristic doesn't parse the wrapper
+      .insert({
+        type: 'booking_cancelled',
+        title: 'Client Cancelled',
+        message: `${clientName} cancelled their ${bookingDate} booking`,
+        booking_id: id,
+        channel: 'in_app',
+        status: 'sent',
+      })
 
     await notify({
       tenantId: auth.tid,

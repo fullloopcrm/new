@@ -12,7 +12,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 
 async function authorize(req: NextRequest): Promise<{ tenantId: string } | NextResponse> {
-  const monitorKey = req.headers.get('x-monitor-key') || req.nextUrl.searchParams.get('key')
+  // Header only — a URL query-param key leaks into access/proxy logs and
+  // browser history, unlike a header.
+  const monitorKey = req.headers.get('x-monitor-key')
   const tenantParam = req.nextUrl.searchParams.get('tenant_id')
 
   if (monitorKey && process.env.ELCHAPO_MONITOR_KEY && monitorKey === process.env.ELCHAPO_MONITOR_KEY) {

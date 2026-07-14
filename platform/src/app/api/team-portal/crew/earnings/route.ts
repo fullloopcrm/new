@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
@@ -18,16 +18,15 @@ export async function GET(request: Request) {
   // earnings endpoint so crew totals reconcile with each member's own view.
   const roundToHalfHour = (h: number) => Math.round(h * 2) / 2
 
+  const db = tenantDb(auth.tid)
   const [{ data: members }, { data: jobs }] = await Promise.all([
-    supabaseAdmin
+    db
       .from('team_members')
       .select('id, name, pay_rate')
-      .eq('tenant_id', auth.tid)
       .in('id', scope),
-    supabaseAdmin
+    db
       .from('bookings')
       .select('team_member_id, pay_rate, start_time, end_time, check_in_time, check_out_time, status')
-      .eq('tenant_id', auth.tid)
       .in('team_member_id', scope)
       .eq('status', 'completed')
       .gte('start_time', since.toISOString()),

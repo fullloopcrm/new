@@ -20,6 +20,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail, tenantSender } from '@/lib/email'
 import { adminNewClientEmail } from '@/lib/email-templates'
+import { escapeHtml } from '@/lib/escape-html'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -185,10 +186,10 @@ export async function POST(request: NextRequest) {
         const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
         const subject = `[${tenant.name}] New team application: ${name}`
         const html = `<h2>New Team Application</h2>
-          <p><strong>Name:</strong> ${name}</p>
-          <p><strong>Email:</strong> ${email || '—'}</p>
-          <p><strong>Phone:</strong> ${phone}</p>
-          ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
+          <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+          <p><strong>Email:</strong> ${escapeHtml(email || '—')}</p>
+          <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
+          ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
           <p><a href="${adminUrl}">View in admin</a></p>`
         await emailAdmins(tenant, subject, html)
       } catch (emailErr) {
@@ -206,8 +207,8 @@ export async function POST(request: NextRequest) {
             html: customerConfirmationHtml({
               tenantName: tenant.name,
               primaryColor: tenant.primary_color,
-              heading: `Thanks for applying, ${name.split(' ')[0]}!`,
-              intro: `We received your application${body.position ? ` for ${body.position}` : ''} and our team will review it and follow up soon.`,
+              heading: `Thanks for applying, ${escapeHtml(name.split(' ')[0])}!`,
+              intro: `We received your application${body.position ? ` for ${escapeHtml(body.position)}` : ''} and our team will review it and follow up soon.`,
               businessAddress: (tenant as { address?: string | null }).address ?? undefined,
             }),
           })
@@ -412,7 +413,7 @@ export async function POST(request: NextRequest) {
           html: customerConfirmationHtml({
             tenantName: tenant.name,
             primaryColor: tenant.primary_color,
-            heading: `Thanks, ${name.split(' ')[0]}!`,
+            heading: `Thanks, ${escapeHtml(name.split(' ')[0])}!`,
             intro: `We received your request and a team member will reach out shortly to confirm the details and your time.`,
             discountCents: body.selfBook ? discountCents : undefined,
             businessAddress: (tenant as { address?: string | null }).address ?? undefined,

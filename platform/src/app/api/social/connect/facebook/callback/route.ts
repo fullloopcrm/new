@@ -1,20 +1,27 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { saveSocialAccount } from '@/lib/social'
+import { verifyOAuthState } from '@/lib/oauth-state'
 
 export async function GET(request: Request) {
+  const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
   try {
-    const { tenant } = await getTenantForRequest()
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
+    // Verify the signed state (CSRF, CWE-352): only our own /route init can mint a
+    // state binding a Facebook account to this tenant. Forged/expired -> reject.
+    const tenantId = verifyOAuthState(searchParams.get('state'))
 
     if (!code) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?error=no_code`)
+      return NextResponse.redirect(`${baseUrl}/dashboard/social?error=no_code`)
+    }
+
+    if (!tenantId) {
+      return NextResponse.redirect(`${baseUrl}/dashboard/social?error=bad_state`)
     }
 
     const appId = process.env.FACEBOOK_APP_ID!
     const appSecret = process.env.FACEBOOK_APP_SECRET!
-    const redirectUri = `${process.env.NEXT_PUBLIC_APP_URL}/api/social/connect/facebook/callback`
+    const redirectUri = `${baseUrl}/api/social/connect/facebook/callback`
 
     // Exchange code for short-lived token
     const tokenRes = await fetch(
@@ -24,7 +31,7 @@ export async function GET(request: Request) {
 
     if (!tokenData.access_token) {
       console.error('Facebook token exchange failed:', tokenData)
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?error=token_failed`)
+      return NextResponse.redirect(`${baseUrl}/dashboard/social?error=token_failed`)
     }
 
     // Exchange for long-lived token
@@ -41,12 +48,12 @@ export async function GET(request: Request) {
     const pagesData = await pagesRes.json()
 
     if (!pagesData.data || pagesData.data.length === 0) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?error=no_pages`)
+      return NextResponse.redirect(`${baseUrl}/dashboard/social?error=no_pages`)
     }
 
     const page = pagesData.data[0]
 
-    await saveSocialAccount(tenant.id, 'facebook', {
+    await saveSocialAccount(tenantId, 'facebook', {
       account_id: page.id,
       account_name: page.name,
       access_token: page.access_token,
@@ -56,12 +63,9 @@ export async function GET(request: Request) {
         : undefined,
     })
 
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?connected=facebook`)
+    return NextResponse.redirect(`${baseUrl}/dashboard/social?connected=facebook`)
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?error=unauthorized`)
-    }
     console.error('Facebook callback error:', e)
-    return NextResponse.redirect(`${process.env.NEXT_PUBLIC_APP_URL}/dashboard/social?error=unknown`)
+    return NextResponse.redirect(`${baseUrl}/dashboard/social?error=unknown`)
   }
 }

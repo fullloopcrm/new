@@ -35,6 +35,18 @@ async function resolveTenantId(): Promise<string | null> {
 
 type Member = { id: string; name: string | null; phone: string | null; email: string | null }
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address (Postgres default LIKE escape char is backslash). This route is
+// reachable pre-auth on a tenant's own login page — an unescaped '%'/'_' in
+// `contact` let a caller with no prior knowledge of any specific member's
+// email turn a single-address lookup into a broad pattern match, using the
+// send_code 'sent'/'No operator found' response as an existence oracle for
+// which member-email patterns exist on the tenant. Same pattern already
+// fixed on /api/referrers (601a7904) and /api/client/check.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 async function findMember(tenantId: string, contact: string): Promise<Member | null> {
   const value = contact.trim()
   if (!value) return null
@@ -51,7 +63,7 @@ async function findMember(tenantId: string, contact: string): Promise<Member | n
     .from('tenant_members')
     .select('id, name, phone, email')
     .eq('tenant_id', tenantId)
-    .ilike('email', value)
+    .ilike('email', escapeLike(value))
     .maybeSingle()
   return (byEmail.data as Member) || null
 }
@@ -75,7 +87,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Enter your phone or email.' }, { status: 400 })
     }
 
-    const rl = await rateLimitDb(`pin_reset:${tenantId}:${contact}`, 5, 15 * 60 * 1000)
+    const rl = await rateLimitDb(`pin_reset:${tenantId}:${contact}`, 5, 15 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
@@ -179,6 +191,20 @@ export async function POST(request: Request) {
     }
     if (!isValidAdminPin(newPin)) {
       return NextResponse.json({ error: 'PIN must be 4–8 digits.' }, { status: 400 })
+    }
+
+    // Throttle code verification so a 6-digit code can't be brute-forced.
+    // Primary cap is per-contact: once attempts land in the window, further
+    // guesses against THAT contact's code are blocked regardless of source
+    // IP. A looser per-IP cap adds defense against one host spraying codes
+    // across many contacts. Mirrors the same throttle in portal/auth/route.ts.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rlContact = await rateLimitDb(`pin_reset_verify:${tenantId}:${contact}`, 5, 15 * 60 * 1000, {
+      failClosed: true,
+    })
+    const rlIp = await rateLimitDb(`pin_reset_verify_ip:${ip}`, 30, 15 * 60 * 1000, { failClosed: true })
+    if (!rlContact.allowed || !rlIp.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
     const member = await findMember(tenantId, contact)

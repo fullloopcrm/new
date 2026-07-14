@@ -27,11 +27,16 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!txn) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (body.status === 'ignored') {
-      await supabaseAdmin
+      // Guard the write with the status this request actually read (compare-
+      // and-swap) so a double-submit on an already-processed txn is a no-op.
+      const { data: claim } = await supabaseAdmin
         .from('bank_transactions')
         .update({ status: 'ignored' })
         .eq('id', id)
-      return NextResponse.json({ ok: true })
+        .eq('status', 'pending')
+        .select('id')
+        .maybeSingle()
+      return NextResponse.json({ ok: true, already_processed: !claim })
     }
 
     if (!body.coa_id) return NextResponse.json({ error: 'coa_id required' }, { status: 400 })
@@ -57,6 +62,20 @@ export async function PATCH(request: Request, { params }: Params) {
       ? [{ coa_id: body.coa_id, debit_cents: amount }, { coa_id: bankCoa, credit_cents: amount }]
       : [{ coa_id: bankCoa, debit_cents: amount }, { coa_id: body.coa_id, credit_cents: amount }]
 
+    // Atomic claim: guard the status transition with the 'pending' status this
+    // request actually read (compare-and-swap) before posting the journal
+    // entry, so a double-submit (double-click, retry) can't post it twice.
+    const { data: claim } = await supabaseAdmin
+      .from('bank_transactions')
+      .update({ coa_id: body.coa_id, memo: body.memo || null, status: 'posted' })
+      .eq('id', id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+    if (!claim) {
+      return NextResponse.json({ ok: true, already_processed: true })
+    }
+
     const entryId = await postJournalEntry({
       tenant_id: tenantId,
       entity_id: txn.entity_id || null,
@@ -69,12 +88,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
     await supabaseAdmin
       .from('bank_transactions')
-      .update({
-        coa_id: body.coa_id,
-        memo: body.memo || null,
-        status: 'posted',
-        journal_entry_id: entryId,
-      })
+      .update({ journal_entry_id: entryId })
       .eq('id', id)
 
     // Update learning pattern

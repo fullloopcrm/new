@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
@@ -21,11 +21,10 @@ export async function GET(request: NextRequest) {
   const period = request.nextUrl.searchParams.get('period')
 
   // Get team member's pay rate
-  const { data: member } = await supabaseAdmin
+  const { data: member } = await tenantDb(auth.tid)
     .from('team_members')
     .select('pay_rate')
     .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
     .single()
 
   const hourlyRate = member?.pay_rate || 25
@@ -43,10 +42,9 @@ export async function GET(request: NextRequest) {
   const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
 
   // Today's potential earnings (scheduled hours for today)
-  const { data: todayJobs } = await supabaseAdmin
+  const { data: todayJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, start_time, end_time, status, pay_rate, team_member_pay')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .gte('start_time', todayStart.toISOString())
     .lt('start_time', todayEnd.toISOString())
@@ -70,10 +68,9 @@ export async function GET(request: NextRequest) {
   const weekEnd = new Date(weekStart)
   weekEnd.setDate(weekEnd.getDate() + 7)
 
-  const { data: weekJobs } = await supabaseAdmin
+  const { data: weekJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
     .gte('start_time', weekStart.toISOString())
@@ -100,10 +97,9 @@ export async function GET(request: NextRequest) {
   const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
   const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
 
-  const { data: monthJobs } = await supabaseAdmin
+  const { data: monthJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
     .gte('start_time', monthStart.toISOString())
@@ -129,10 +125,9 @@ export async function GET(request: NextRequest) {
   // Year-to-date earnings
   const yearStart = new Date(now.getFullYear(), 0, 1)
 
-  const { data: yearJobs } = await supabaseAdmin
+  const { data: yearJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
     .gte('start_time', yearStart.toISOString())

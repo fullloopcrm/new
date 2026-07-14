@@ -1,18 +1,18 @@
 /**
- * Escape HTML-significant characters so untrusted text cannot inject markup
- * when interpolated into an HTML string (e.g. admin-notification email bodies).
+ * Escape a value for safe interpolation into HTML **text/content** context
+ * (e.g. email bodies built with template literals). Prevents stored/reflected
+ * XSS when user-supplied fields (names, notes, messages, addresses) are placed
+ * inside HTML we send to admins or other users.
  *
- * Mirrors the local escapeHtml already used by /api/requests, but shared so the
- * public lead-capture routes can reuse it. Accepts unknown because these routes
- * read raw, unvalidated JSON bodies; null/undefined collapse to an empty string.
+ * This is for text and double-quoted attribute contexts. It is NOT sufficient
+ * for unquoted attributes, URLs, `<script>`/`<style>` bodies, or JS contexts.
  */
 export function escapeHtml(value: unknown): string {
-  const map: Record<string, string> = {
-    '&': '&amp;',
-    '<': '&lt;',
-    '>': '&gt;',
-    '"': '&quot;',
-    "'": '&#039;',
-  }
-  return String(value ?? '').replace(/[&<>"']/g, (char) => map[char])
+  if (value === null || value === undefined) return ''
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
 }

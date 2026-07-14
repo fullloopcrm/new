@@ -108,7 +108,12 @@ export async function POST(request: Request) {
     )
   }
 
-  // Confirm the client belongs to this tenant (prevents cross-tenant writes).
+  // Confirm client_id/property_id/team_member_id (if given) belong to this
+  // tenant -- otherwise a foreign id gets its name/address pulled into this
+  // schedule (and every generated booking) via the clients()/team_members()
+  // joins on GET here and the client_properties()/team_members() joins on
+  // GET /api/bookings, a cross-tenant PII leak (same class fixed on the
+  // plain schedules route in 4c0e3635).
   const { data: clientRow } = await supabaseAdmin
     .from('clients')
     .select('id')
@@ -116,6 +121,18 @@ export async function POST(request: Request) {
     .eq('tenant_id', tenantId)
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+  if (property_id) {
+    const { data: propertyRow } = await supabaseAdmin
+      .from('client_properties').select('id').eq('id', property_id).eq('tenant_id', tenantId).single()
+    if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+  }
+
+  if (teamMemberId) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members').select('id').eq('id', teamMemberId).eq('tenant_id', tenantId).single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
 
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)

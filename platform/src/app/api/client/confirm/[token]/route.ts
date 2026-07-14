@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
@@ -43,14 +44,16 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     return NextResponse.json({ ok: true, alreadyAccepted: true, start_time: booking.start_time })
   }
 
-  await supabaseAdmin
+  const db = tenantDb(booking.tenant_id)
+
+  await db
     .from('bookings')
     .update({ client_terms_accepted_at: new Date().toISOString() })
     .eq('id', booking.id)
 
-  const { data: cur } = await supabaseAdmin.from('bookings').select('notes').eq('id', booking.id).single()
+  const { data: cur } = await db.from('bookings').select('notes').eq('id', booking.id).single()
   const newNotes = (cur?.notes || '') + '\n[Client accepted terms ' + new Date().toISOString() + ']'
-  await supabaseAdmin.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
+  await db.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
 
   const startTime = new Date(booking.start_time).toLocaleString('en-US', {
     timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -58,15 +61,15 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
   if (client?.phone) {
-    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your cleaner now and will send your full booking confirmation with cleaner details once locked in.`, {
+    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your service pro now and will send your full booking confirmation with team details once locked in.`, {
       skipConsent: true, smsType: 'terms_accepted', bookingId: booking.id,
     }).catch(() => {})
   }
-  await smsAdmins(booking.tenant_id, `✓ ${client?.name || 'Client'} accepted terms (one-tap link) — booking ${startTime} ready to assign cleaner.`).catch(() => {})
+  await smsAdmins(booking.tenant_id, `✓ ${client?.name || 'Client'} accepted terms (one-tap link) — booking ${startTime} ready to assign a team member.`).catch(() => {})
   await notify({
     type: 'booking_confirmed_by_client',
     title: `${client?.name || 'Client'} accepted terms`,
-    message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign cleaner for ${startTime}.`,
+    message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign a team member for ${startTime}.`,
     booking_id: booking.id,
     url: '/admin/bookings',
   }).catch(() => {})

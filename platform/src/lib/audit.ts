@@ -1,7 +1,7 @@
 import { supabaseAdmin } from './supabase'
 
 type AuditAction =
-  | 'client.created' | 'client.updated' | 'client.deleted'
+  | 'client.created' | 'client.updated' | 'client.deleted' | 'client.data_exported'
   | 'booking.created' | 'booking.updated' | 'booking.deleted' | 'booking.status_changed' | 'booking.batch_updated'
   | 'team.created' | 'team.updated' | 'team.deleted'
   | 'schedule.created' | 'schedule.updated' | 'schedule.deleted' | 'schedule.paused'

@@ -57,8 +57,8 @@ export interface CommCapabilities {
 
 export function defaultCommTiming(): CommTiming {
   return {
-    reminder_days: COMM_TIMING.reminder_days.default as number[],
-    reminder_hours_before: COMM_TIMING.reminder_hours_before.default as number[],
+    reminder_days: [...(COMM_TIMING.reminder_days.default as number[])],
+    reminder_hours_before: [...(COMM_TIMING.reminder_hours_before.default as number[])],
     review_delay_hours: COMM_TIMING.review_delay_hours.default as number,
     daily_summary_hour: COMM_TIMING.daily_summary_hour.default as number,
     payment_reminder_hours: COMM_TIMING.payment_reminder_hours.default as number,
@@ -103,9 +103,10 @@ export function normalizePrefs(raw: unknown): CommPreferences {
 
   for (const tk of Object.keys(base.timing) as CommTimingKey[]) {
     const v = storedTiming[tk]
-    if (Array.isArray(v)) {
+    const kind = COMM_TIMING[tk].kind
+    if (kind === 'list' && Array.isArray(v)) {
       base.timing[tk] = v.filter((n) => typeof n === 'number') as never
-    } else if (typeof v === 'number') {
+    } else if (kind === 'number' && typeof v === 'number') {
       base.timing[tk] = v as never
     }
   }

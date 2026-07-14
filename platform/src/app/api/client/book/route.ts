@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
@@ -20,6 +20,14 @@ import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { SERVICE_PRESETS, type IndustryKey } from '@/lib/industry-presets'
+
+/** Trade-neutral fallback when no service_type is supplied — the tenant's own
+ * first-ranked preset for its industry, not a hardcoded cleaning term. */
+function defaultServiceType(industry: string | null | undefined): string {
+  return SERVICE_PRESETS[(industry as IndustryKey) || 'general']?.[0]?.name
+    || SERVICE_PRESETS.general[0].name
+}
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
@@ -50,15 +58,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // DNS (do-not-service) gate — never create bookings for these clients.
+    // This is a PUBLIC, unauthenticated endpoint and body.client_id comes
+    // straight from the caller's localStorage (see client dashboards) with no
+    // server-side session binding. Confirm it belongs to THIS tenant before
+    // trusting it for anything below -- otherwise a client_id from a
+    // different tenant gets a real booking created under it, and that
+    // foreign client's name/phone/address (and, via resolveProperty, their
+    // property address) gets pulled into this tenant's dashboard through the
+    // clients()/client_properties() joins on GET /api/bookings, a
+    // cross-tenant PII leak reachable by any anonymous visitor (same class
+    // already fixed on the staff-facing creation routes this session).
+    // Doubles as the do-not-service (DNS) gate.
     if (body.client_id) {
-      const { data: dnsCheck } = await supabaseAdmin
+      const { data: dnsCheck } = await tenantDb(tenant.id)
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
-        .eq('tenant_id', tenant.id)
         .single()
-      if (dnsCheck?.do_not_service) {
+      if (!dnsCheck) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+      if (dnsCheck.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
@@ -73,29 +93,26 @@ export async function POST(request: Request) {
       const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
       const emailLower = (body.email as string).toLowerCase()
 
-      const { data: byEmail } = await supabaseAdmin
+      const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
         .select('id')
-        .eq('tenant_id', tenant.id)
         .ilike('email', emailLower)
         .maybeSingle()
       if (byEmail) clientId = byEmail.id
 
       if (!clientId && phone) {
-        const { data: byPhone } = await supabaseAdmin
+        const { data: byPhone } = await tenantDb(tenant.id)
           .from('clients')
           .select('id')
-          .eq('tenant_id', tenant.id)
           .eq('phone', phone)
           .maybeSingle()
         if (byPhone) clientId = byPhone.id
       }
 
       if (!clientId) {
-        const { data: newClient, error: createErr } = await supabaseAdmin
+        const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
-            tenant_id: tenant.id,
             name: body.name as string,
             email: emailLower,
             phone,
@@ -123,10 +140,9 @@ export async function POST(request: Request) {
     let referrerId: string | null = null
     let referrerData: { id: string; name: string; email?: string | null } | null = null
     if (body.ref_code) {
-      const { data: referrer } = await supabaseAdmin
+      const { data: referrer } = await tenantDb(tenant.id)
         .from('referrers')
         .select('id, name, email')
-        .eq('tenant_id', tenant.id)
         .eq('ref_code', (body.ref_code as string).toUpperCase())
         .eq('active', true)
         .maybeSingle()
@@ -134,11 +150,10 @@ export async function POST(request: Request) {
         referrerId = referrer.id
         referrerData = referrer
         if (clientId) {
-          await supabaseAdmin
+          await tenantDb(tenant.id)
             .from('clients')
             .update({ referrer_id: referrerId })
             .eq('id', clientId)
-            .eq('tenant_id', tenant.id)
             .is('referrer_id', null)
         }
       }
@@ -148,14 +163,24 @@ export async function POST(request: Request) {
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
     if (body.date && body.time && !startTime) {
-      const timeMap: Record<string, number> = {
-        '9:00 AM': 9, '10:00 AM': 10, '11:00 AM': 11, '12:00 PM': 12,
-        '1:00 PM': 13, '2:00 PM': 14, '3:00 PM': 15, '4:00 PM': 16,
+      // Parse "H:MM AM/PM" (or 24h "H:MM") robustly. A fixed lookup map only
+      // covering 9am-4pm silently fell back to 9am for any slot outside that
+      // range (e.g. the 7/8am and 5/6pm slots several booking forms offer) —
+      // nycmaid hit and fixed this same bug; port the regex parser here too.
+      const m = String(body.time).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
+      let hour = 9
+      let minute = 0
+      if (m) {
+        hour = parseInt(m[1], 10)
+        minute = parseInt(m[2], 10)
+        const ap = m[3]?.toUpperCase()
+        if (ap === 'PM' && hour < 12) hour += 12
+        if (ap === 'AM' && hour === 12) hour = 0
       }
-      const hour = timeMap[body.time as string] || 9
       const duration = Number(body.estimated_hours) || 2
-      startTime = `${body.date}T${String(hour).padStart(2, '0')}:00:00`
-      endTime = `${body.date}T${String(hour + duration).padStart(2, '0')}:00:00`
+      const pad = (n: number) => n.toString().padStart(2, '0')
+      startTime = `${body.date}T${pad(hour)}:${pad(minute)}:00`
+      endTime = `${body.date}T${pad(hour + duration)}:${pad(minute)}:00`
     }
     if (!startTime) return NextResponse.json({ error: 'start_time or date+time required' }, { status: 400 })
 
@@ -172,10 +197,9 @@ export async function POST(request: Request) {
 
     // Same-date duplicate gate
     const bookingDate = startTime.split('T')[0]
-    const { count: existingCount } = await supabaseAdmin
+    const { count: existingCount } = await tenantDb(tenant.id)
       .from('bookings')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
       .eq('client_id', clientId as string)
       .gte('start_time', `${bookingDate}T00:00:00`)
       .lte('start_time', `${bookingDate}T23:59:59`)
@@ -185,10 +209,25 @@ export async function POST(request: Request) {
     }
 
     // ===== PRICING =====
+    // This is a PUBLIC, unauthenticated endpoint — body.hourly_rate/body.price
+    // are client-supplied and must never be trusted as-is. body.price used to
+    // be accepted verbatim as a direct total override with no floor; no real
+    // booking form actually sends it, so it's no longer trusted at all (always
+    // derived server-side from rate × hours below). hourly_rate legitimately
+    // varies per tenant (real observed rates: $49-$89/hr), so it's floored/
+    // capped rather than pinned to one value.
+    const MIN_HOURLY_RATE = 20
+    const MAX_HOURLY_RATE = 200
+    const rawHourlyRate = Number(body.hourly_rate)
     // Generic default; the NYC Maid tenant layers its supplies/emergency/
     // self-book rules on top (tenant-scoped parity, not global).
-    let bkHourlyRate = Number(body.hourly_rate) || 75
-    let bkPrice = applyRecurringDiscount(Number(body.price) || bkHourlyRate * (Number(body.estimated_hours) || 2) * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+    let bkHourlyRate = Number.isFinite(rawHourlyRate) && rawHourlyRate > 0
+      ? Math.min(MAX_HOURLY_RATE, Math.max(MIN_HOURLY_RATE, rawHourlyRate))
+      : 75
+    // Floored at 1hr — an unfloored fractional value (e.g. 0.001) would slip
+    // past the hourly-rate clamp above and still yield a near-zero total.
+    const bkEstimatedHours = Math.max(1, Number(body.estimated_hours) || 2)
+    let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
     let bkNotes = (body.notes as string) || ''
     const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
     let bkIsEmergency = false
@@ -206,7 +245,12 @@ export async function POST(request: Request) {
       const isUnder48 = hoursUntilBooking < 48
       const isMultiCleaner = bkTeamSize >= 2
       bkIsEmergency = isSameDay || (isUnder48 && isMultiCleaner)
-      const effectiveRate = bkIsEmergency ? 89 : (Number(body.hourly_rate) || 69)
+      // NYC Maid's only two legitimate non-emergency rates are the published
+      // supplies tiers. Anything else in the request is rejected in favor of
+      // the higher (we-bring) default, closing the direct "set hourly_rate=1"
+      // underpay exploit for this tenant precisely.
+      const NYCMAID_VALID_RATES = new Set([59, 69])
+      const effectiveRate = bkIsEmergency ? 89 : (NYCMAID_VALID_RATES.has(rawHourlyRate) ? rawHourlyRate : 69)
       const minHours = isMultiCleaner ? 4 : 2
       const billableHours = Math.max(Number(body.estimated_hours) || 2, minHours)
       bkHourlyRate = effectiveRate
@@ -240,16 +284,15 @@ export async function POST(request: Request) {
     }
 
     // Create booking
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenant.id)
       .from('bookings')
       .insert({
-        tenant_id: tenant.id,
         client_id: clientId,
         property_id: propertyId,
         team_member_id: null,
         start_time: startTime,
         end_time: endTime,
-        service_type: (body.service_type as string) || 'Standard Cleaning',
+        service_type: (body.service_type as string) || defaultServiceType(tenant.industry),
         status: 'pending',
         price: bkPrice,
         hourly_rate: bkHourlyRate,
@@ -265,7 +308,16 @@ export async function POST(request: Request) {
       })
       .select('*, clients(*), client_properties(*)')
       .single()
-    if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+    if (error || !data) {
+      // 23505 here means a concurrent request won the same-date race the
+      // count check above can't close atomically (see
+      // uq_bookings_client_same_date_active) — surface the same duplicate
+      // error the pre-check gives, not a raw 500.
+      if ((error as { code?: string } | null)?.code === '23505') {
+        return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
+      }
+      return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+    }
 
     // Render admin/client emails + SMS with this booking's property address
     // (property ?? client.address) instead of the client's default address.
@@ -283,14 +335,13 @@ export async function POST(request: Request) {
       })
       const best = scores.find(s => s.available && s.score > 0)
       if (best) {
-        await supabaseAdmin
+        await tenantDb(tenant.id)
           .from('bookings')
           .update({
             suggested_team_member_id: best.id,
             suggested_reason: best.reason,
           })
           .eq('id', data.id)
-          .eq('tenant_id', tenant.id)
       }
     } catch (e) {
       console.error('Smart suggestion error:', e)
@@ -316,7 +367,7 @@ export async function POST(request: Request) {
     // Attribution
     try {
       if (body.src) {
-        await supabaseAdmin
+        await tenantDb(tenant.id)
           .from('bookings')
           .update({
             attributed_domain: body.src as string,
@@ -324,7 +375,6 @@ export async function POST(request: Request) {
             attributed_at: new Date().toISOString(),
           })
           .eq('id', data.id)
-          .eq('tenant_id', tenant.id)
       } else {
         await autoAttributeBooking(tenant.id, data.id, clientId as string, data.created_at)
       }
@@ -367,8 +417,7 @@ export async function POST(request: Request) {
             resendApiKey: tenant.resend_api_key,
             from: tenant.email_from || undefined,
           })
-          await supabaseAdmin.from('email_logs').insert({
-            tenant_id: tenant.id,
+          await tenantDb(tenant.id).from('email_logs').insert({
             booking_id: data.id,
             email_type: 'booking_received',
             recipient: data.clients.email,
@@ -402,8 +451,7 @@ export async function POST(request: Request) {
     // sold, cancelled/no_show → lost). Non-blocking: a failure here must never
     // break the booking the customer just made.
     try {
-      await supabaseAdmin.from('deals').insert({
-        tenant_id: tenant.id,
+      await tenantDb(tenant.id).from('deals').insert({
         client_id: clientId || null,
         booking_id: data.id,
         mode: 'booking',

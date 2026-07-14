@@ -42,6 +42,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const teamMemberId = body.team_member_id !== undefined ? body.team_member_id : body.cleaner_id
   const payRate = body.pay_rate !== undefined ? body.pay_rate : body.cleaner_pay_rate
 
+  // A caller-supplied team_member_id must belong to THIS tenant — team_members
+  // has no cross-tenant FK check, so without this a tenant admin could reassign
+  // a schedule (and its future bookings) to another tenant's employee.
+  if (teamMemberId) {
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
+
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (teamMemberId !== undefined) updatePayload.team_member_id = teamMemberId || null
   if (body.recurring_type !== undefined) updatePayload.recurring_type = body.recurring_type

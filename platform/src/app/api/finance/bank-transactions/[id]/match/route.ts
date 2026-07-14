@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry } from '@/lib/ledger'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -116,12 +117,13 @@ export async function POST(request: Request, { params }: Params) {
       // based on the expense's category. Find a matching CoA by subtype or name.
       const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
       if (bankCoa) {
+        const safeCategory = sanitizePostgrestValue(ex.category)
         const { data: coaMatch } = await supabaseAdmin
           .from('chart_of_accounts')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('type', 'expense')
-          .or(`subtype.eq.${ex.category},name.ilike.%${ex.category}%`)
+          .or(`subtype.eq.${safeCategory},name.ilike.%${safeCategory}%`)
           .limit(1)
           .maybeSingle()
         if (coaMatch) {

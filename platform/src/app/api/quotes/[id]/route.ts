@@ -61,6 +61,16 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // Confirm a reassigned client_id belongs to this tenant -- otherwise a
+    // foreign client's name/email/phone/address gets pulled into this quote
+    // via the clients() join on GET (same class already fixed on
+    // deals/[id] PATCH and quotes/invoices create in 7907701b).
+    if ('client_id' in updates && updates.client_id) {
+      const { data: clientRow } = await supabaseAdmin
+        .from('clients').select('id').eq('id', updates.client_id as string).eq('tenant_id', tenantId).single()
+      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await supabaseAdmin
         .from('quotes')

@@ -1,4 +1,5 @@
 // Branded HTML email templates for notifications
+import { escapeHtml } from './escape-html'
 
 type TemplateData = {
   tenantName: string
@@ -372,7 +373,7 @@ export function adminNewClientEmail(
 ): { subject: string; html: string } {
   const rows: string[] = []
   const row = (label: string, value: string) =>
-    `<tr><td style="padding:10px 12px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">${label}</td><td style="padding:10px 12px;color:#111827;font-size:14px;font-weight:500;text-align:right;border-top:1px solid #e5e7eb;">${value}</td></tr>`
+    `<tr><td style="padding:10px 12px;color:#6b7280;font-size:12px;text-transform:uppercase;border-top:1px solid #e5e7eb;">${label}</td><td style="padding:10px 12px;color:#111827;font-size:14px;font-weight:500;text-align:right;border-top:1px solid #e5e7eb;">${escapeHtml(value)}</td></tr>`
   rows.push(row('Name', client.name))
   if (client.phone) rows.push(row('Phone', client.phone))
   if (client.email) rows.push(row('Email', client.email))
@@ -434,7 +435,7 @@ export function adminNewBookingRequestEmail(
   data: TemplateData & { adminUrl?: string },
 ): { subject: string; html: string } {
   const row = (l: string, v: string) =>
-    `<tr><td style="padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;"><span style="color:#6b7280;font-size:12px;text-transform:uppercase;">${l}</span></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${v}</td></tr>`
+    `<tr><td style="padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;"><span style="color:#6b7280;font-size:12px;text-transform:uppercase;">${l}</span></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${escapeHtml(v)}</td></tr>`
   const rows = [
     row('Client', booking.clientName),
     booking.clientPhone ? row('Phone', booking.clientPhone) : '',
@@ -461,7 +462,7 @@ export function referralSignupNotifyEmail(
   const html = baseTemplate(
     `<h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New referral signup</h2>
      <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 16px;">
-       ${referrer.name} signed up as a referrer${referrer.refCode ? ` (code: ${referrer.refCode})` : ''}.
+       ${escapeHtml(referrer.name)} signed up as a referrer${referrer.refCode ? ` (code: ${escapeHtml(referrer.refCode)})` : ''}.
      </p>`,
     data,
   )
