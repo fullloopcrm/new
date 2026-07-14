@@ -42,6 +42,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
 
+  // A client picking who does their job must stay inside their own tenant's
+  // active roster — same gate /api/client/preferred-cleaner already enforces.
+  // Without this, team_member_id was written straight from client input with
+  // no ownership check, letting a client point their booking's assignee FK at
+  // any team_members row (including another tenant's), which then leaks that
+  // employee's name/rate into this tenant's booking joins.
+  if (body.team_member_id) {
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('id, active')
+      .eq('id', body.team_member_id)
+      .eq('tenant_id', tenant.id)
+      .single()
+    if (!member || member.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+  }
+
   const tz = tenant.timezone || 'America/New_York'
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
