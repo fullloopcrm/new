@@ -35,6 +35,18 @@ async function resolveTenantId(): Promise<string | null> {
 
 type Member = { id: string; name: string | null; phone: string | null; email: string | null }
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address (Postgres default LIKE escape char is backslash). This route is
+// reachable pre-auth on a tenant's own login page — an unescaped '%'/'_' in
+// `contact` let a caller with no prior knowledge of any specific member's
+// email turn a single-address lookup into a broad pattern match, using the
+// send_code 'sent'/'No operator found' response as an existence oracle for
+// which member-email patterns exist on the tenant. Same pattern already
+// fixed on /api/referrers (601a7904) and /api/client/check.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 async function findMember(tenantId: string, contact: string): Promise<Member | null> {
   const value = contact.trim()
   if (!value) return null
@@ -51,7 +63,7 @@ async function findMember(tenantId: string, contact: string): Promise<Member | n
     .from('tenant_members')
     .select('id, name, phone, email')
     .eq('tenant_id', tenantId)
-    .ilike('email', value)
+    .ilike('email', escapeLike(value))
     .maybeSingle()
   return (byEmail.data as Member) || null
 }
