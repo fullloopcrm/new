@@ -32,6 +32,16 @@ function isValidName(name: string): boolean {
   return vowels / alpha.length > 0.15
 }
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address (Postgres default LIKE escape char is backslash) — this endpoint
+// is unauthenticated, so an unescaped '%'/'_' in `email` lets a caller with
+// no prior knowledge enumerate every referrer's email/earnings/payout info
+// for the tenant instead of confirming a single known address. Same pattern
+// as lib/inbound-email-tenant.ts's escapeLike().
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
@@ -62,7 +72,7 @@ export async function GET(request: NextRequest) {
       .from('referrers')
       .select('id, name, email, referral_code, ref_code, total_earned, total_paid, preferred_payout, created_at')
       .eq('tenant_id', lookupTenant.id)
-      .ilike('email', email)
+      .ilike('email', escapeLike(email))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
@@ -108,7 +118,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .single()
 
   if (existing) {
