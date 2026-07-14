@@ -17,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 60
 
@@ -33,13 +34,13 @@ interface TenantRow {
 }
 
 async function authorize(req: NextRequest): Promise<boolean> {
-  const auth = req.headers.get('authorization')
-  if (auth === `Bearer ${process.env.CRON_SECRET}`) return true
+  const auth = req.headers.get('authorization') || ''
+  if (process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) return true
   // Body only — a ?key= query param gets written to access logs, browser
   // history, and Referer headers, leaking the monitor key.
   try {
     const body = await req.json()
-    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && body.key === process.env.ELCHAPO_MONITOR_KEY) return true
+    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && safeEqual(body.key, process.env.ELCHAPO_MONITOR_KEY)) return true
   } catch {}
   return false
 }

@@ -4,9 +4,9 @@ import { createSessionCookie, hashPassword } from '@/lib/nycmaid/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
-
-// In-memory rate limiting
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
+import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
+import { safeEqual } from '@/lib/secret-compare'
 
 export async function POST(request: Request) {
   try {
@@ -14,17 +14,14 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 
-    // Check rate limiting
-    const now = Date.now()
-    const attempts = loginAttempts.get(ip)
-
-    if (attempts) {
-      if (now - attempts.lastAttempt > 5 * 60 * 1000) {
-        loginAttempts.delete(ip)
-      } else if (attempts.count >= 5) {
-        await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
-        return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
-      }
+    // Durable rate limiting (survives serverless cold starts, unlike an
+    // in-memory Map which resets per-instance and gives no real protection
+    // against distributed/concurrent brute force). Fail-closed: a DB outage
+    // denies rather than allowing unlimited attempts while blind.
+    const rl = await rateLimitDb(`auth_login:${ip}`, 5, 5 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
+      return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
     }
 
     const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
@@ -43,8 +40,6 @@ export async function POST(request: Request) {
         if (user.status === 'disabled') {
           return NextResponse.json({ error: 'Account disabled. Contact your administrator.' }, { status: 403 })
         }
-
-        loginAttempts.delete(ip)
 
         // Update last_login
         await supabaseAdmin
@@ -77,10 +72,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: legacy PIN-based login
-    if (password === adminPassword) {
-      loginAttempts.delete(ip)
-
+    // Fallback: legacy PIN-based login. Reject if ADMIN_PASSWORD is unset —
+    // otherwise an empty submitted password would match an empty adminPassword,
+    // a zero-config admin-session bypass. Constant-time compare avoids a
+    // timing oracle on the PIN itself.
+    if (adminPassword && typeof password === 'string' && safeEqual(password, adminPassword)) {
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {
@@ -103,9 +99,9 @@ export async function POST(request: Request) {
       const html = `
         <div style="font-family: sans-serif; max-width: 400px;">
           <h3 style="color: #000;">Admin Login Alert</h3>
-          <p><strong>IP:</strong> ${ip}</p>
-          <p><strong>Time:</strong> ${timeET}</p>
-          <p><strong>Device:</strong> ${ua.substring(0, 100)}</p>
+          <p><strong>IP:</strong> ${escapeHtml(ip)}</p>
+          <p><strong>Time:</strong> ${escapeHtml(timeET)}</p>
+          <p><strong>Device:</strong> ${escapeHtml(ua.substring(0, 100))}</p>
           <p style="color: #666; font-size: 12px;">If this wasn't you, change ADMIN_PASSWORD immediately.</p>
         </div>
       `
@@ -114,13 +110,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, user: { name: 'Admin', role: 'owner' } })
     }
 
-    // Track failed attempt
-    const currentAttempts = loginAttempts.get(ip) || { count: 0, lastAttempt: now }
-    const newCount = currentAttempts.count + 1
-    loginAttempts.set(ip, { count: newCount, lastAttempt: now })
-
-    if (newCount >= 3) {
-      await notify({ type: 'security', title: 'Failed Login', message: `${newCount} failed login attempts from ${ip}` })
+    // Failed attempt — already recorded by the rateLimitDb call above.
+    // rl.remaining <= 2 means this was the 3rd+ attempt in the window.
+    if (rl.remaining <= 2) {
+      await notify({ type: 'security', title: 'Failed Login', message: `Repeated failed login attempts from ${ip}` })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })

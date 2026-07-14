@@ -9,14 +9,15 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeEqual } from '@/lib/secret-compare'
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.ELCHAPO_MONITOR_KEY
   if (!expected) return false
   // Header only — a ?key= query param gets written to access logs, browser
   // history, and Referer headers, leaking the monitor key.
-  const key = request.headers.get('x-monitor-key')
-  return key === expected
+  const key = request.headers.get('x-monitor-key') || ''
+  return safeEqual(key, expected)
 }
 
 async function resolveTenantId(param: string | null): Promise<string | null> {
