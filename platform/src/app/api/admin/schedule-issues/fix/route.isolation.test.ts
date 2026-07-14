@@ -2,29 +2,42 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
- * /api/admin/schedule-issues/fix — tenantDb() conversion wrong-tenant probe
- * (P1/W1 queue-c). Platform-admin route: the schedule_issue lookup by id is
- * deliberately cross-tenant, but the booking it references and the mutations
- * it applies must never cross into a different tenant than the issue itself —
- * even if issue.booking_id points at a booking owned by another tenant.
+ * /api/admin/schedule-issues/fix — tenant isolation (P1/W1 queue-c +
+ * cross-lane fix ported from p1-w2 commit 05176c2f). This is the shared
+ * /dashboard Schedule Issues widget's "Resolve" action (every tenant's own
+ * admin), NOT a platform-super-admin-only tool — it was wrongly gated on
+ * requireAdmin() (401ing every ordinary tenant admin's Resolve click; only
+ * the global super_admin PIN could ever use it) and the schedule_issue
+ * lookup by id wasn't tenant-scoped at all. Now gated on
+ * getTenantForRequest() (matching the sibling list/dismiss route) with the
+ * issue lookup scoped to the caller's own tenant via tenantDb(tenantId).
+ * The booking it references and the mutations it applies must still never
+ * cross into a different tenant than the issue itself — even if
+ * issue.booking_id points at a booking owned by another tenant (a stale/
+ * crafted cross-tenant reference).
  */
 
 const h = vi.hoisted(() => ({
+  tenantId: 'tenant-A',
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
-})) as unknown as FakeStoreHandle
+})) as unknown as FakeStoreHandle & { tenantId: string }
 
 vi.mock('@/lib/supabase', () => {
   const fake = makeTenantDbFake(h)
   return { supabaseAdmin: fake, supabase: fake }
 })
-vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
+vi.mock('@/lib/tenant-query', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/tenant-query')>()
+  return { ...actual, getTenantForRequest: async () => ({ tenantId: h.tenantId }) }
+})
 
 import { POST } from './route'
 
 const postReq = (body: unknown) => new Request('http://x', { method: 'POST', body: JSON.stringify(body) })
 
 beforeEach(() => {
+  h.tenantId = 'tenant-A'
   h.seq = 0
   h.store = {
     schedule_issues: [
@@ -67,5 +80,19 @@ describe('POST /api/admin/schedule-issues/fix — tenant isolation', () => {
     expect(res.status).toBe(200)
     const booking = h.store.bookings.find((b) => b.id === 'book-A2')
     expect(booking?.price).toBe(10000)
+  })
+
+  it('an ordinary tenant admin (not a platform super-admin) can resolve their own issue', async () => {
+    const res = await POST(postReq({ id: 'iss-A2', apply: false }))
+    expect(res.status).toBe(200)
+  })
+
+  it("a tenant-B admin gets 'Issue not found', not tenant-A's issue, for a cross-tenant issue id", async () => {
+    h.tenantId = 'tenant-B'
+
+    const res = await POST(postReq({ id: 'iss-A2', apply: false }))
+
+    expect(res.status).toBe(404)
+    await expect(res.json()).resolves.toEqual({ error: 'Issue not found' })
   })
 })

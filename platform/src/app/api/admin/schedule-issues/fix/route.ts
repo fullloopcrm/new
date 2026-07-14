@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { requireAdmin } from '@/lib/require-admin'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 interface IssueRow {
   id: string
@@ -84,8 +83,13 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
 }
 
 export async function POST(request: Request) {
-  const authError = await requireAdmin()
-  if (authError) return authError
+  let tenantId: string
+  try {
+    ;({ tenantId } = await getTenantForRequest())
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const body = await request.json().catch(() => ({}))
   const id = body.id as string | undefined
@@ -93,10 +97,10 @@ export async function POST(request: Request) {
 
   if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-  // Admin lookup by id is deliberately cross-tenant — the platform admin can
-  // resolve any tenant's issue. Once we know its tenant_id, every downstream
-  // mutation below is scoped to that same tenant.
-  const { data: issue } = await supabaseAdmin
+  // This is the shared /dashboard Schedule Issues widget (every tenant's own
+  // admin, not a platform-super-admin tool) — scope the lookup to the caller's
+  // own tenant, or a crafted id could resolve/leak another tenant's issue.
+  const { data: issue } = await tenantDb(tenantId)
     .from('schedule_issues')
     .select('id, tenant_id, type, message, booking_id, team_member_id, status')
     .eq('id', id)
