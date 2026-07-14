@@ -511,16 +511,20 @@ export async function POST(req: NextRequest) {
     }
     const tenantId = resolved.tenantId
 
-    const { data: cId } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
+    const { data: cId, error: cErr } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
+      p_tenant_id: tenantId,
       p_phone: p.from,
     })
+    if (cErr) console.error('[telnyx-voice] contact create failed', cErr)
     if (!cId) return NextResponse.json({ ok: true, note: 'contact create failed' })
     const contactId = cId as string
 
-    const { data: tId } = await supabaseAdmin.rpc('comhub_get_or_create_thread', {
+    const { data: tId, error: tErr } = await supabaseAdmin.rpc('comhub_get_or_create_thread', {
+      p_tenant_id: tenantId,
       p_contact_id: contactId,
       p_channel: 'voice',
     })
+    if (tErr) console.error('[telnyx-voice] thread create failed', tErr)
     if (!tId) return NextResponse.json({ ok: true, note: 'thread create failed' })
     const threadId = tId as string
 
