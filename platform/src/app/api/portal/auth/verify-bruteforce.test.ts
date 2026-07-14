@@ -33,6 +33,9 @@ vi.mock('@/lib/supabase', () => {
       update: () => c,
       delete: () => c,
       single: async () => {
+        if (table === 'tenants') {
+          return { data: { id: 'tenant-1' }, error: null }
+        }
         if (table === 'portal_auth_codes') {
           // A real, unexpired code exists — but the attacker never guesses it.
           return {
@@ -61,7 +64,7 @@ function guess(code: string) {
   return new Request('https://x/api/portal/auth', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': '8.8.8.8' },
-    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code }),
+    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code, tenant_slug: 'tenant-1' }),
   })
 }
 

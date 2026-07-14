@@ -77,7 +77,7 @@ function guess(opts: { phone: string; code: string; ip: string }) {
   return new Request('https://x/api/portal/auth', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'x-forwarded-for': opts.ip },
-    body: JSON.stringify({ action: 'verify_code', phone: opts.phone, code: opts.code }),
+    body: JSON.stringify({ action: 'verify_code', phone: opts.phone, code: opts.code, tenant_slug: 'tenant-1' }),
   })
 }
 
