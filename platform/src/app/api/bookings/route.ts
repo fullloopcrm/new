@@ -95,6 +95,27 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // Confirm client_id/property_id/team_member_id (if given) belong to this
+    // tenant -- otherwise a foreign id gets its name/phone/address pulled into
+    // this tenant's booking via the clients()/client_properties()/team_members()
+    // joins on both this response and every later GET, a cross-tenant PII leak
+    // (same class already fixed on quotes/invoices in 7907701b).
+    const { data: clientRow } = await supabaseAdmin
+      .from('clients').select('id').eq('id', validated.client_id as string).eq('tenant_id', tenantId).single()
+    if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    if (validated.property_id) {
+      const { data: propertyRow } = await supabaseAdmin
+        .from('client_properties').select('id').eq('id', validated.property_id as string).eq('tenant_id', tenantId).single()
+      if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+    }
+
+    if (validated.team_member_id) {
+      const { data: memberOwnedRow } = await supabaseAdmin
+        .from('team_members').select('id').eq('id', validated.team_member_id as string).eq('tenant_id', tenantId).single()
+      if (!memberOwnedRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {
       return NextResponse.json(
