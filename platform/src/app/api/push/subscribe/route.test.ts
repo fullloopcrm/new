@@ -86,7 +86,7 @@ function req(body: Record<string, unknown>): Request {
 }
 
 async function subsFor(role: string): Promise<Array<Record<string, unknown>>> {
-  const { data } = await fake.from('push_subscriptions').select('*')
+  const { data } = await fake.from('push_subscriptions').select('*') // tenant-scope-ok: `fake` is the in-memory FakeSupabase test double, not a live tenant-scoped query
   return ((data as Array<Record<string, unknown>> | null) || []).filter((r) => r.role === role)
 }
 
