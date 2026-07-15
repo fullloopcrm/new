@@ -42,6 +42,33 @@ export async function POST(request: Request, { params }: Params) {
     const isInflow = txn.amount_cents > 0
     const updates: Record<string, unknown> = {}
 
+    if (!['invoice', 'booking', 'expense'].includes(targetType)) {
+      return NextResponse.json({ error: `Unknown target_type: ${targetType}` }, { status: 400 })
+    }
+
+    // Atomic claim: flips status away from pending/categorized in one
+    // conditional UPDATE, gated on the DB row's CURRENT status (not the
+    // stale value read above), placed after target-existence validation
+    // (so a bad target_id 404s cleanly, leaving the txn retriable) but
+    // before any side-effecting insert. Two concurrent match requests for
+    // the same bank_transaction race here; the loser's UPDATE matches zero
+    // rows (Postgres serializes writers on the same row) and is turned away
+    // before either side-effecting write (payments / journal entry) runs.
+    // Closes the TOCTOU that let a duplicate request insert a second
+    // `payments` row and double-count revenue via
+    // trg_payments_recompute_invoice.
+    async function claim(): Promise<boolean> {
+      const { data: claimed } = await supabaseAdmin
+        .from('bank_transactions')
+        .update({ status: 'matched' })
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .in('status', ['pending', 'categorized'])
+        .select('id')
+        .maybeSingle()
+      return !!claimed
+    }
+
     if (targetType === 'invoice') {
       if (!isInflow) return NextResponse.json({ error: 'Only inflows can match invoices' }, { status: 400 })
 
@@ -52,6 +79,7 @@ export async function POST(request: Request, { params }: Params) {
         .eq('id', targetId)
         .single()
       if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      if (!(await claim())) return NextResponse.json({ error: 'Already matched' }, { status: 400 })
 
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
       const { error: pErr } = await supabaseAdmin.from('payments').insert({
@@ -78,6 +106,7 @@ export async function POST(request: Request, { params }: Params) {
         .eq('id', targetId)
         .single()
       if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      if (!(await claim())) return NextResponse.json({ error: 'Already matched' }, { status: 400 })
 
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
       await supabaseAdmin.from('payments').insert({
@@ -107,6 +136,7 @@ export async function POST(request: Request, { params }: Params) {
         .eq('id', targetId)
         .single()
       if (!ex) return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+      if (!(await claim())) return NextResponse.json({ error: 'Already matched' }, { status: 400 })
 
       await supabaseAdmin
         .from('expenses')
