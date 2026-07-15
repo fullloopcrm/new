@@ -379,7 +379,7 @@ export function localBusinessSchema(neighborhood?: Neighborhood, area?: Area) {
         '@type': 'ReserveAction',
         target: {
           '@type': 'EntryPoint',
-          urlTemplate: 'https://www.thenycmaid.com/book/new',
+          urlTemplate: 'https://www.cleaningservicesunnysideny.com/book/new',
           actionPlatform: ['http://schema.org/DesktopWebPlatform', 'http://schema.org/IOSPlatform', 'http://schema.org/AndroidPlatform'],
         },
         result: { '@type': 'Reservation', name: 'Book Cleaning Service' },
@@ -453,14 +453,14 @@ export function serviceSchema(service: Service, neighborhood?: Neighborhood, are
       reviewBody: r.text,
       datePublished: r.datePublished,
     })),
-    termsOfService: `https://www.thenycmaid.com/terms-conditions`,
+    termsOfService: `https://www.cleaningservicesunnysideny.com/terms-conditions`,
     audience: {
       '@type': 'Audience',
       audienceType: service.idealFor.join(', '),
     },
     potentialAction: {
       '@type': 'ReserveAction',
-      target: 'https://www.thenycmaid.com/book/new',
+      target: 'https://www.cleaningservicesunnysideny.com/book/new',
       result: { '@type': 'Reservation', name: `Book ${service.name}` },
     },
   }
@@ -609,7 +609,7 @@ export function siteNavigationSchema() {
       { '@type': 'WebPage', name: 'Blog', url: `${BUSINESS.url}/cleaning-tips-and-tricks` },
       { '@type': 'WebPage', name: 'About', url: `${BUSINESS.url}/about-nyc-cleaning-service-sunnyside-clean-nyc` },
       { '@type': 'WebPage', name: 'Contact', url: `${BUSINESS.url}/contact-nyc-cleaning-service-sunnyside-clean-nyc` },
-      { '@type': 'WebPage', name: 'Self Booking $10 OFF', url: 'https://www.thenycmaid.com/book/new' },
+      { '@type': 'WebPage', name: 'Self Booking $10 OFF', url: 'https://www.cleaningservicesunnysideny.com/book/new' },
     ],
   }
 }
@@ -631,7 +631,7 @@ export function howToBookSchema() {
         '@type': 'HowToStep',
         name: 'Contact Us',
         text: 'Call (212) 202-9030, text us, or book online at cleaningservicesunnysideny.com',
-        url: 'https://www.thenycmaid.com/book/new',
+        url: 'https://www.cleaningservicesunnysideny.com/book/new',
         position: 1,
       },
       {

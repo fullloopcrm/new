@@ -92,7 +92,7 @@ export default async function ServicePage({ params }: Props) {
                 {rich?.heroSubtitle || content.intro}
               </p>
               <div className="flex flex-col sm:flex-row items-start gap-4">
-                <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                   Self Booking $10 OFF
                 </a>
                 <a href="tel:2122028400" className="text-blue-200/60 font-medium py-3.5 hover:text-white transition-colors underline underline-offset-4">
@@ -127,7 +127,7 @@ export default async function ServicePage({ params }: Props) {
                   <p className="font-[family-name:var(--font-bebas)] text-2xl text-[#1E2A4A] tracking-wide">{service.duration}</p>
                   <p className="text-[#1E2A4A]/60 text-xs mt-1">Pay only for time worked &middot; No upfront cost</p>
                 </div>
-                <a href="https://www.thenycmaid.com/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href="/book/new" className="block text-center bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                   Self Booking $10 OFF
                 </a>
               </div>
@@ -156,7 +156,7 @@ export default async function ServicePage({ params }: Props) {
                   <p className="text-gray-500 leading-relaxed mb-6">{rich.whatIs.subheading}</p>
                 )}
                 <div className="flex flex-col sm:flex-row items-start gap-3">
-                  <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                     Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-[#1E2A4A]/60 font-medium py-3 hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
@@ -214,7 +214,7 @@ export default async function ServicePage({ params }: Props) {
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{rich.comparison.title}</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">A regular clean maintains your home. A deep clean resets it. See exactly what&apos;s covered in each service so you know which one you need.</p>
                 <div className="flex flex-col sm:flex-row items-start gap-3">
-                  <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                  <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                     Self Booking $10 OFF
                   </a>
                   <a href="tel:2122028400" className="text-[#1E2A4A]/60 font-medium py-3 hover:text-[#1E2A4A] transition-colors underline underline-offset-4">
@@ -253,7 +253,7 @@ export default async function ServicePage({ params }: Props) {
                 <div className="w-10 h-[3px] bg-[#A8F0DC] mb-5" />
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[#1E2A4A] tracking-wide leading-tight mb-4">{rich.whenToBook.title}</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">If any of these apply to you, a professional {service.name.toLowerCase()} is the move. Book online or call and we&apos;ll get you on the schedule.</p>
-                <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                   Self Booking $10 OFF
                 </a>
               </div>
@@ -365,7 +365,7 @@ export default async function ServicePage({ params }: Props) {
               <div className="bg-gray-50 rounded-xl p-6 text-center">
                 <p className="font-[family-name:var(--font-bebas)] text-3xl text-[#1E2A4A] tracking-wide mb-1">{service.priceRange}</p>
                 <p className="text-gray-500 text-sm mb-4">{service.duration}</p>
-                <a href="https://www.thenycmaid.com/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+                <a href="/book/new" className="inline-block bg-[#A8F0DC] text-[#1E2A4A] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
                   Get a Quote
                 </a>
               </div>
@@ -393,7 +393,7 @@ export default async function ServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="https://www.thenycmaid.com/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
+            <a href="/book/new" className="bg-[#A8F0DC] text-[#1E2A4A] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#8DE8CC] transition-colors">
               Self Booking $10 OFF
             </a>
           </div>

@@ -157,7 +157,7 @@ export default async function BlogPostPage({ params }: Props) {
             Sunnyside Clean NYC provides professional cleaning services across New York City. Licensed, insured, and background-checked cleaners from $59/hr.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="https://www.thenycmaid.com/book/new" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+            <a href="/book/new" className="bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
               Self Booking $10 OFF
             </a>
             <a href="tel:2122029030" className="text-[#1E2A4A] font-semibold hover:underline underline-offset-4">
