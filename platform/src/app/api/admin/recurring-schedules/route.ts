@@ -117,6 +117,19 @@ export async function POST(request: Request) {
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
+  // Same class: a foreign team_member_id would leak that member's name via
+  // the GET join (team_members(id, name)) and get stamped onto every
+  // generated booking's team_member_id below.
+  if (teamMemberId) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)
     ? body.dates.filter((d: unknown): d is string => typeof d === 'string')

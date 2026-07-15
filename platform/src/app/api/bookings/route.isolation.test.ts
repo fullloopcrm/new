@@ -70,6 +70,12 @@ beforeEach(() => {
     { id: 'b-bk', tenant_id: B_ID, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00', status: 'scheduled', team_member_id: TM_A },
   ])
   fake._seed('tenants', [{ id: A_ID, name: 'A Co' }, { id: B_ID, name: 'B Co' }])
+  // Ownership-check rows for the FK-injection guard in POST: CLIENT_A/TM_A
+  // exist ONLY under tenant A, so a POST scoped to tenant A resolves them,
+  // while the isolation intent (same id shape reused across tenants) is
+  // preserved via each row's own tenant_id.
+  fake._seed('clients', [{ id: CLIENT_A, tenant_id: A_ID, name: 'Client A' }])
+  fake._seed('team_members', [{ id: TM_A, tenant_id: A_ID, name: 'Member A' }])
 })
 
 function getReq(): NextRequest {
@@ -130,5 +136,41 @@ describe('bookings POST — tenantDb isolation', () => {
       .select('id, tenant_id')
       .eq('team_member_id', TM_A)
     expect((data as { id: string }[]).map((r) => r.id).sort()).toEqual(['a-bk', 'b-bk'])
+  })
+})
+
+describe('bookings POST — FK-injection guard (client_id / team_member_id ownership)', () => {
+  const FOREIGN_CLIENT = '33333333-3333-3333-3333-333333333333'
+  const FOREIGN_TM = '44444444-4444-4444-4444-444444444444'
+
+  it("rejects a client_id belonging to another tenant -- otherwise that stranger's name/phone/address would join into the response and a real confirmation SMS would fire to their real phone", async () => {
+    fake._seed('clients', [{ id: FOREIGN_CLIENT, tenant_id: B_ID, name: 'Foreign Client', phone: '+15555550001' }])
+    const req = new Request('http://x/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({ client_id: FOREIGN_CLIENT, start_time: '2026-08-04T10:00:00.000Z', force: true }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(404)
+    expect(fake._all('bookings').some((b) => b.client_id === FOREIGN_CLIENT)).toBe(false)
+  })
+
+  it("rejects a team_member_id belonging to another tenant -- otherwise that stranger's name/phone/pin would join into the response and a real job-assignment SMS would fire to their real phone", async () => {
+    fake._seed('team_members', [{ id: FOREIGN_TM, tenant_id: B_ID, name: 'Foreign Member', phone: '+15555550002', pin: '9999' }])
+    const req = new Request('http://x/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({ client_id: CLIENT_A, team_member_id: FOREIGN_TM, start_time: '2026-08-05T10:00:00.000Z', force: true }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(404)
+    expect(fake._all('bookings').some((b) => b.team_member_id === FOREIGN_TM)).toBe(false)
+  })
+
+  it('accepts a booking whose client_id and team_member_id are both genuinely owned by the caller tenant (control)', async () => {
+    const req = new Request('http://x/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({ client_id: CLIENT_A, team_member_id: TM_A, start_time: '2026-08-06T10:00:00.000Z', force: true }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(201)
   })
 })

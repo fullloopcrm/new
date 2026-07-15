@@ -42,6 +42,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const teamMemberId = body.team_member_id !== undefined ? body.team_member_id : body.cleaner_id
   const payRate = body.pay_rate !== undefined ? body.pay_rate : body.cleaner_pay_rate
 
+  // Confirm a reassigned team_member_id belongs to this tenant -- otherwise it
+  // leaks that member's name via this route's own join below and gets stamped
+  // onto every future booking on the schedule (see the reassignment write
+  // further down). Same class as POST /api/admin/recurring-schedules' client_id check.
+  if (teamMemberId) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (teamMemberId !== undefined) updatePayload.team_member_id = teamMemberId || null
   if (body.recurring_type !== undefined) updatePayload.recurring_type = body.recurring_type

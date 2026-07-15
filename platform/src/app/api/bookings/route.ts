@@ -104,6 +104,34 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // Confirm every caller-supplied FK belongs to this tenant before it can be
+    // joined into the response below or used to fire a real SMS/email --
+    // otherwise a foreign client_id/team_member_id leaks that stranger's
+    // name/phone/address (or the team member's portal-login pin) via the
+    // insert's .select() join, AND triggers a real booking-confirmation /
+    // job-assignment SMS to them over this tenant's own Telnyx number
+    // (cross-tenant messaging abuse). Same FK-injection class already fixed
+    // on quotes/route.ts (client_id/deal_id) and elsewhere this session --
+    // runs unconditionally, unlike the day-off/conflict checks below which
+    // `force` can bypass, since this is authorization, not scheduling.
+    const { data: clientRow } = await db.from('clients').select('id').eq('id', validated.client_id as string).single()
+    if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+
+    if (validated.team_member_id) {
+      const { data: memberRow } = await db.from('team_members').select('id').eq('id', validated.team_member_id as string).single()
+      if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+
+    if (validated.property_id) {
+      const { data: propRow } = await db.from('client_properties').select('id').eq('id', validated.property_id as string).single()
+      if (!propRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+    }
+
+    if (validated.service_type_id) {
+      const { data: svcRow } = await db.from('service_types').select('id').eq('id', validated.service_type_id as string).single()
+      if (!svcRow) return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+    }
+
     // Tenant rule: require_team_member forces a team_member_id at create time.
     if (settings.require_team_member && !validated.team_member_id) {
       return NextResponse.json(
