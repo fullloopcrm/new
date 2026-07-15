@@ -25,6 +25,23 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (!validRoles.includes(body.role)) {
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }
+      // Role reassignment touching 'owner' (granting it OR changing an
+      // existing owner away from it) is owner-only. `settings.edit` is
+      // held by admin too — without this, any admin could self-promote
+      // to owner (bypassing the owner-exclusive tenant messaging channel,
+      // settings.integrations, and permission-matrix immunity) or demote
+      // the real owner out of their role entirely.
+      if (tenant.role !== 'owner') {
+        const { data: target } = await supabaseAdmin
+          .from('tenant_members')
+          .select('role')
+          .eq('id', id)
+          .eq('tenant_id', tenant.tenantId)
+          .single()
+        if (body.role === 'owner' || target?.role === 'owner') {
+          return NextResponse.json({ error: 'Only an owner can grant or change the owner role' }, { status: 403 })
+        }
+      }
       updates.role = body.role
     }
 

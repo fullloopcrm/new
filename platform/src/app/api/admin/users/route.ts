@@ -51,6 +51,11 @@ export async function POST(request: NextRequest) {
   if (!name || typeof name !== 'string') {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   }
+  // Granting 'owner' at creation time is owner-only — settings.edit alone
+  // (held by admin too) must not let an admin mint a new owner-role member.
+  if (role === 'owner' && tenant.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can create an owner-role member' }, { status: 403 })
+  }
   const memberRole = VALID_ROLES.includes(role) ? role : 'staff'
 
   // Generate a per-tenant-unique 6-digit PIN (retry on the rare collision).
@@ -135,6 +140,21 @@ export async function PUT(request: NextRequest) {
   if (role) {
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+    }
+    // Role reassignment touching 'owner' (granting it OR changing an
+    // existing owner away from it) is owner-only. settings.edit alone
+    // (held by admin too) must not let an admin self-promote to owner or
+    // demote the real owner out of their role.
+    if (tenant.role !== 'owner') {
+      const { data: target } = await supabaseAdmin
+        .from('tenant_members')
+        .select('role')
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .single()
+      if (role === 'owner' || target?.role === 'owner') {
+        return NextResponse.json({ error: 'Only an owner can grant or change the owner role' }, { status: 403 })
+      }
     }
     update.role = role
   }
