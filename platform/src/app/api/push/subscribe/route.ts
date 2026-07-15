@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { verifyPortalToken } from '../../portal/auth/token'
 import { verifyToken as verifyTeamPortalToken } from '../../team-portal/auth/token'
 
@@ -31,10 +31,21 @@ async function resolveSubscriber(request: Request, role: string): Promise<
     if (!auth) return { ok: false, status: 401, error: 'Invalid token' }
     return { ok: true, tenantId: auth.tid, teamMemberId: null, clientId: auth.id }
   }
-  // admin — existing operator-dashboard session (Clerk / admin PIN impersonation).
-  const tenant = await getCurrentTenant()
-  if (!tenant) return { ok: false, status: 401, error: 'Not authenticated' }
-  return { ok: true, tenantId: tenant.id, teamMemberId: null, clientId: null }
+  // admin — existing operator-dashboard session (Clerk / admin PIN
+  // impersonation). getCurrentTenant() only resolves the tenant from the
+  // public signed tenant-domain header — it does NOT verify a session, so
+  // any anonymous visitor to a tenant's own domain could register as
+  // role:'admin' and silently receive that tenant's admin push
+  // notifications (sendPushToTenantAdmins in lib/push.ts filters by
+  // tenant_id + role:'admin' alone, no further identity check).
+  // getTenantForRequest() requires a verified admin_token or Clerk session.
+  try {
+    const { tenant } = await getTenantForRequest()
+    return { ok: true, tenantId: tenant.id, teamMemberId: null, clientId: null }
+  } catch (err) {
+    if (err instanceof AuthError) return { ok: false, status: err.status, error: err.message }
+    throw err
+  }
 }
 
 export async function POST(request: Request) {

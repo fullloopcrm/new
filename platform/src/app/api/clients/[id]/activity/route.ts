@@ -1,10 +1,23 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  const tenant = await getCurrentTenant()
-  if (!tenant) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // getCurrentTenant() only resolves the tenant from the signed x-tenant-id
+  // header middleware injects on ANY request to a tenant's own domain — it
+  // does NOT check a session/admin_token. Middleware's Clerk/PIN auth gate
+  // only runs for isMainHost(); a tenant-domain request bypasses it entirely,
+  // so this let any unauthenticated visitor pull a client's full booking
+  // history, payment amounts, and GPS check-in/out locations. Sibling
+  // clients/[id]/route.ts uses getTenantForRequest() (verified admin_token or
+  // Clerk session) for the same reason.
+  let tenant
+  try {
+    tenant = (await getTenantForRequest()).tenant
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
+  }
 
   const { id } = await params
 

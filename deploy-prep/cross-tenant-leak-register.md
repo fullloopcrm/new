@@ -1574,3 +1574,125 @@ finding (`seo/recipes.ts`) is pre-existing baseline drift in an untracked
 file none of my changes touch — not introduced by this fix.
 `audit-supabase-admin-gate.mjs` doesn't exist on this branch (p1-w1-only).
 File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 17:10 order) — broad-hunt of 44 previously-unswept
+lower-risk routes: 2 unauthenticated-access findings (P46), 42 clean.**
+
+Swept every `route.ts` (44 files) across 37 API directories with zero prior
+register mentions: `admin-chat`, `apply-ceo`, `audit`, `availability`,
+`booking-notes`(+`[id]`+`upload`), `catalog`, `changelog`(+`[id]`),
+`cleaner-applications`, `client-analytics`, `docs`, `domain-notes`, `errors`,
+`health`, `import-clients`, `indexnow`, `ingest`(`application`+`lead`),
+`inquiry`, `lead`, `migrate-cleaner-notifications`, `migrate-sms`,
+`pin-reset`, `pipeline`, `projects`, `prospects`, `public-upload`,
+`quote-templates`, `requests`, `sales-applications`, `send-booking-emails`,
+`service-area`, `service-types`, `setup-checklist`, `sidebar-counts`,
+`team-availability`, `tenant-sitemap`, `test-emails`, `track`,
+`unsubscribe`, `uploads`, `waitlist`. 42/44 correctly tenant-scoped +
+authenticated (either public-by-design with `getTenantFromHeaders()`, or
+admin-gated with `requirePermission()`/`getTenantForRequest()`, which require
+a verified `admin_token` or Clerk session).
+
+### P46 — `getCurrentTenant()` used as the SOLE auth gate → unauthenticated
+admin-data read on a tenant's own domain, 2 live instances  ⚠️ **DATA EXFIL**
+
+- **Root cause (new class for this register, distinct from every prior
+  FK-injection/cross-tenant finding):** `middleware.ts`'s Clerk/PIN auth gate
+  (`if (!isPublicRoute(req)) { ...redirect to /sign-in... }`) only executes
+  inside the `isMainHost(hostname)` branch. Both the tenant-subdomain branch
+  (`extractSubdomain` → `rewriteToSite`) and the custom-domain branch
+  (`getTenantByDomain` → `rewriteToSite`) `return` **before** that check ever
+  runs — they only inject a signed `x-tenant-id`/`x-tenant-sig` header via
+  `rewriteToSite()` and pass the request straight through, no session check
+  at all. `getCurrentTenant()` → `getHeaderTenant()` (`lib/tenant.ts`) trusts
+  that header alone with zero cookie/token verification. So any route whose
+  *only* auth is `getCurrentTenant()`/`getCurrentTenantId()` is reachable by
+  an anonymous internet visitor via `<tenant-slug>.fullloopcrm.com/api/...`
+  or the tenant's custom domain — confirmed live (not theoretical): this is
+  exactly the bug class `client-analytics/route.ts` was already fixed for
+  (its comment: "getCurrentTenant alone did NOT authenticate, it only
+  resolved the domain's tenant from the signed header"), but 2 more instances
+  were never converted.
+- **`GET /api/team-availability`** (in the swept batch) — leaked the full
+  team roster (names, skills, active-day workload) plus, when a `client_id`
+  query param is supplied, that client's `preferred_team_member_id` and
+  `requirements` array — to anyone, no login.
+- **`GET /api/clients/[id]/activity`** (found while tracing the root cause —
+  adjacent file, same `getCurrentTenant()`-only pattern, same severity class)
+  — leaked a client's full booking timeline: service notes, assigned team
+  member, payment amounts (`payment_status`/`price`), and raw GPS
+  `check_in_location`/`check_out_location` coordinates — to anyone who knew
+  or enumerated a client id, no login.
+- **Fix** — both switched to `getTenantForRequest()` (verified `admin_token`
+  or Clerk session required, in addition to the tenant header), matching the
+  pattern already used by every sibling route in each directory
+  (`clients/[id]/route.ts`'s `GET`, `pipeline`/`projects`/`catalog`, etc.).
+  No query-level tenant scoping changed — both routes' existing
+  `.eq('tenant_id', ...)` filters were already correct; only the auth layer
+  was broken.
+- **Not fixed, flagged for next pickup:** `POST /api/push/subscribe`'s
+  `role: 'admin'` branch (`resolveSubscriber()`) has the identical
+  `getCurrentTenant()`-only pattern — an anonymous caller on a tenant's
+  domain can register a push subscription tagged `role:'admin'` for that
+  tenant with no session, and would receive that tenant's admin push
+  notifications (new-booking/payment alerts, which include client
+  name/phone in the message body) if `lib/push.ts`'s admin-role send path
+  doesn't do further scoping. Deliberately NOT fixed this round — it needs a
+  read of `lib/push.ts`'s send-to-admin path to confirm exploitability before
+  touching the auth branch (unlike `team-availability`/`clients/activity`,
+  a wrong fix here risks breaking legitimate admin push opt-in). The
+  `admin/comhub/*` surface (13 files also calling `getCurrentTenant()`) was
+  checked and is NOT vulnerable — every one calls `requireAdmin()` before
+  `getCurrentTenant()`/`getCurrentTenantId()`, so the tenant-header call is
+  just a lookup after a real auth check, not the gate itself.
+- **Regression lock** —
+  `src/app/api/team-availability/route.isolation.test.ts` (unauthenticated
+  request rejected; authenticated tenant A sees own client's preferences),
+  `src/app/api/clients/[id]/activity/route.isolation.test.ts`
+  (unauthenticated request rejected; wrong-tenant probe: tenant A cannot
+  read tenant B's client activity; authenticated tenant A sees own booking/
+  payment/check-in activity). Mutation-verified against the real pre-fix
+  code for both files (reverted, re-ran the new tests — both suites threw
+  immediately on the real `getCurrentTenant()` → `headers()`-outside-request-
+  scope error, i.e. they do exercise the vulnerable path; restored, GREEN).
+- **Verdict:** FIXED (2/2 in-batch + adjacent instances found this round).
+  `push/subscribe` flagged, not fixed. `npx tsc --noEmit` clean. Full suite
+  328 files / 1439 passed / 37 skipped / 0 failed, 0 regressions.
+File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 17:24 order) — `push/subscribe` P46 follow-up fixed: 3/3
+`getCurrentTenant()`-only instances now closed.**
+
+Read `lib/push.ts` to confirm exploitability before touching the flagged
+`role:'admin'` branch, per the prior entry's deferral note.
+`sendPushToTenantAdmins(tenantId, ...)` (`lib/push.ts:28`) selects
+`push_subscriptions` filtered by `tenant_id` + `role:'admin'` alone — no
+further identity check. Confirmed exploitable: since `resolveSubscriber`'s
+admin branch used `getCurrentTenant()` (same public-signed-header-only
+resolution as the two routes fixed above, no session check), any anonymous
+visitor to a tenant's own domain could `POST /api/push/subscribe` with
+`role:'admin'` (the default when `role` is omitted) and start silently
+receiving that tenant's real admin push notifications — new-booking/payment
+alerts, whose message body includes client name and phone.
+
+- **Fix** — `resolveSubscriber`'s admin branch switched from
+  `getCurrentTenant()` to `getTenantForRequest()` (verified `admin_token` or
+  Clerk session required), same pattern as `team-availability` and
+  `clients/[id]/activity`. The `team_member`/`client` branches were already
+  correctly token-verified from an earlier fix (`c4fc909c`) — only the admin
+  branch had this gap.
+- **Regression lock** — extended the existing
+  `src/app/api/push/subscribe/route.isolation.test.ts` (already covered the
+  team_member/client forged-id cases from `c4fc909c`): updated its 2
+  admin-role cases to mock `getTenantForRequest`/`AuthError` instead of
+  `getCurrentTenant`. Mutation-verified: reverted the route fix (`git stash`
+  the one file), reran — both admin-role tests failed against the real
+  pre-fix code (200/500 instead of expected 200/401, confirming they
+  exercise the vulnerable path); restored via `git stash pop`, reran — GREEN.
+- **Verdict:** FIXED. All 3 `getCurrentTenant()`-as-sole-auth instances found
+  in the 17:10-order sweep are now closed (`team-availability`,
+  `clients/[id]/activity`, `push/subscribe`). `admin/comhub/*` (13 files)
+  already confirmed not vulnerable in the prior entry — every one gates on
+  `requireAdmin()` before `getCurrentTenant()`. `npx tsc --noEmit` clean.
+  Full suite 328 files / 1439 passed / 37 skipped / 0 failed, 0 regressions.
+File-only, no push/deploy/DB.

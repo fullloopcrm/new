@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkTeamAvailability } from '@/lib/availability'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
 /**
@@ -10,9 +10,21 @@ import { supabaseAdmin } from '@/lib/supabase'
  * GET /api/team-availability?date=2026-03-15&start_time=10:00&duration=3&exclude_booking=uuid&client_id=uuid
  */
 export async function GET(request: NextRequest) {
-  const tenant = await getCurrentTenant()
-  if (!tenant) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // getCurrentTenant() only resolves the tenant from the signed x-tenant-id
+  // header middleware injects on ANY request to a tenant's own domain — it
+  // does NOT check a session/admin_token (see client-analytics's fix note).
+  // On a tenant's own subdomain/custom domain the Clerk/PIN auth gate in
+  // middleware.ts only runs for isMainHost(); tenant-domain requests bypass
+  // it entirely. That let any unauthenticated visitor to a tenant's site pull
+  // the full team roster, skills, workload, and a named client's preferred
+  // team member + requirements. getTenantForRequest() requires a verified
+  // admin_token or Clerk session in addition to the tenant header.
+  let tenant
+  try {
+    tenant = (await getTenantForRequest()).tenant
+  } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+    throw err
   }
 
   const { searchParams } = new URL(request.url)

@@ -12,6 +12,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * team_member_id/client_id alone, no tenant_id filter). Fixed: team_member_id
  * and client_id are now derived ONLY from a server-verified portal/team-portal
  * Bearer token, never trusted from the request body.
+ *
+ * P46 FOLLOW-UP — the role:'admin' branch had the same getCurrentTenant()-
+ * only-as-auth pattern as team-availability/clients-activity: any anonymous
+ * visitor to a tenant's own domain resolved a valid tenant via the public
+ * signed header and could register as role:'admin', silently receiving that
+ * tenant's admin push notifications (sendPushToTenantAdmins filters by
+ * tenant_id + role:'admin' alone). Fixed: admin branch now requires
+ * getTenantForRequest() (verified admin_token or Clerk session).
  */
 
 const rows: { id: string; endpoint: string; subscription: unknown; role: string; tenant_id: string; team_member_id: string | null; client_id: string | null }[] = []
@@ -48,12 +56,26 @@ vi.mock('../../portal/auth/token', () => ({
 vi.mock('../../team-portal/auth/token', () => ({
   verifyToken: (token: string) => (token === 'good-member' ? { id: 'member-real', tid: 'tid-a' } : null),
 }))
-vi.mock('@/lib/tenant', () => ({
-  getCurrentTenant: vi.fn(async () => null),
+const { AuthError } = vi.hoisted(() => {
+  class AuthError extends Error {
+    status: number
+    constructor(message: string, status: number) {
+      super(message)
+      this.status = status
+    }
+  }
+  return { AuthError }
+})
+
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: vi.fn(async () => {
+    throw new AuthError('Not authenticated', 401)
+  }),
+  AuthError,
 }))
 
 import { POST } from './route'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest } from '@/lib/tenant-query'
 
 function post(role: string, token: string | null, extra: Record<string, unknown> = {}) {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
@@ -67,13 +89,12 @@ function post(role: string, token: string | null, extra: Record<string, unknown>
 
 beforeEach(() => {
   rows.length = 0
-  vi.mocked(getCurrentTenant).mockReset()
-  // Mimics the real-world exploit precondition: getCurrentTenant() resolves
-  // via the PUBLIC signed tenant-domain header for any visitor to the
-  // tenant's site (getHeaderTenant() inside getCurrentTenant()), no real
-  // session required. Individual tests override this where they need to
-  // exercise the "no session at all" path.
-  vi.mocked(getCurrentTenant).mockResolvedValue({ id: 'tid-a' } as never)
+  vi.mocked(getTenantForRequest).mockReset()
+  // Mimics the fixed behavior: getTenantForRequest() requires a verified
+  // admin_token or Clerk session, in addition to the tenant header.
+  // Individual tests override this where they need to exercise the
+  // "no session at all" path.
+  vi.mocked(getTenantForRequest).mockResolvedValue({ tenant: { id: 'tid-a' } } as never)
 })
 
 describe('push/subscribe POST — identity is server-verified, never caller-supplied', () => {
@@ -112,7 +133,7 @@ describe('push/subscribe POST — identity is server-verified, never caller-supp
   })
 
   it('positive control: role=admin still uses the existing operator-dashboard session', async () => {
-    vi.mocked(getCurrentTenant).mockResolvedValueOnce({ id: 'tid-a' } as never)
+    vi.mocked(getTenantForRequest).mockResolvedValueOnce({ tenant: { id: 'tid-a' } } as never)
     const res = await post('admin', null)
     expect(res.status).toBe(200)
     expect(rows).toHaveLength(1)
@@ -121,8 +142,8 @@ describe('push/subscribe POST — identity is server-verified, never caller-supp
     expect(rows[0].client_id).toBeNull()
   })
 
-  it('role=admin with no operator session → 401, no row written', async () => {
-    vi.mocked(getCurrentTenant).mockResolvedValueOnce(null)
+  it('role=admin with no operator session → 401, no row written (was: any anonymous tenant-site visitor could register as admin)', async () => {
+    vi.mocked(getTenantForRequest).mockRejectedValueOnce(new AuthError('Not authenticated', 401))
     const res = await post('admin', null)
     expect(res.status).toBe(401)
     expect(rows).toHaveLength(0)
