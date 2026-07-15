@@ -16,8 +16,9 @@ const B = 'tid-b'
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
+const ctx = vi.hoisted(() => ({ role: 'owner' as string }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn(async () => ({ tenant: { id: A } })),
+  getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: ctx.role })),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 const spies = vi.hoisted(() => ({
@@ -30,7 +31,7 @@ vi.mock('@/lib/google-reviews', () => ({
 }))
 vi.mock('@/lib/google', () => ({ getGoogleBusiness: vi.fn(async () => null) }))
 
-import { GET, POST } from './route'
+import { GET, POST, PUT } from './route'
 
 function seed() {
   return {
@@ -46,6 +47,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  ctx.role = 'owner'
 })
 
 describe('google/reviews — tenant isolation', () => {
@@ -67,5 +69,18 @@ describe('google/reviews — tenant isolation', () => {
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('Review not found')
     expect(spies.postReviewReply).not.toHaveBeenCalled()
+  })
+
+  it('staff (reviews.view only) can GET but cannot POST a reply or PUT the auto-reply toggle', async () => {
+    ctx.role = 'staff'
+    const getRes = await GET()
+    expect(getRes.status).toBe(200)
+
+    const postRes = await POST(new NextRequest('http://t/x', { method: 'POST', body: JSON.stringify({ reviewId: 'rv-a', reply: 'hi' }) }))
+    expect(postRes.status).toBe(403)
+    expect(spies.postReviewReply).not.toHaveBeenCalled()
+
+    const putRes = await PUT(new NextRequest('http://t/x', { method: 'PUT', body: JSON.stringify({ autoReply: true }) }))
+    expect(putRes.status).toBe(403)
   })
 })
