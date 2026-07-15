@@ -1,16 +1,22 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { randomBytes, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/app/site/the-nyc-interior-designer/_lib/supabase'
 import type { AdminRole } from '@/app/site/the-nyc-interior-designer/_lib/roles'
+import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
+// Throws if ADMIN_PASSWORD is unset (signWithSecret) rather than silently
+// signing with a '' key — an HMAC keyed with '' is publicly computable, so
+// with the secret unset anyone could forge a valid admin_session for any id.
 function signToken(token: string): string {
-  const secret = process.env.ADMIN_PASSWORD || ''
-  return createHmac('sha256', secret).update(token).digest('hex')
+  return signWithSecret(token, process.env.ADMIN_PASSWORD)
 }
 
 // Constant-time compare for HMAC signatures — a plain !== early-exits per
 // mismatched character, which is the textbook timing side-channel case.
+// Propagates signToken()'s throw when ADMIN_PASSWORD is unset; callers catch
+// it and fail closed (no valid session) instead of comparing against an
+// insecurely-derived signature.
 function signaturesMatch(expected: string, provided: string): boolean {
   const expectedBuf = Buffer.from(expected, 'utf8')
   const providedBuf = Buffer.from(provided, 'utf8')
@@ -19,7 +25,7 @@ function signaturesMatch(expected: string, provided: string): boolean {
 }
 
 export function hashPassword(password: string): string {
-  return createHmac('sha256', process.env.ADMIN_PASSWORD || 'fallback').update(password).digest('hex')
+  return signWithSecret(password, process.env.ADMIN_PASSWORD)
 }
 
 export function createSessionCookie(userId?: string): string {
@@ -39,31 +45,37 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (!cookie) return { valid: false }
   const parts = cookie.split('.')
 
-  if (parts.length === 4) {
-    const [userId, token, timestamp, signature] = parts
-    if (!userId || !token || !timestamp || !signature) return { valid: false }
-    const payload = `${userId}.${token}.${timestamp}`
-    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true, userId }
-  }
+  try {
+    if (parts.length === 4) {
+      const [userId, token, timestamp, signature] = parts
+      if (!userId || !token || !timestamp || !signature) return { valid: false }
+      const payload = `${userId}.${token}.${timestamp}`
+      if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true, userId }
+    }
 
-  if (parts.length === 3) {
-    const [token, timestamp, signature] = parts
-    if (!token || !timestamp || !signature) return { valid: false }
-    const payload = `${token}.${timestamp}`
-    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true }
-  }
+    if (parts.length === 3) {
+      const [token, timestamp, signature] = parts
+      if (!token || !timestamp || !signature) return { valid: false }
+      const payload = `${token}.${timestamp}`
+      if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true }
+    }
 
-  if (parts.length === 2) {
-    const [token, signature] = parts
-    if (!token || !signature) return { valid: false }
-    if (!signaturesMatch(signToken(token), signature)) return { valid: false }
-    return { valid: true }
+    if (parts.length === 2) {
+      const [token, signature] = parts
+      if (!token || !signature) return { valid: false }
+      if (!signaturesMatch(signToken(token), signature)) return { valid: false }
+      return { valid: true }
+    }
+  } catch {
+    // ADMIN_PASSWORD not configured — signToken() throws rather than sign
+    // with a publicly-computable '' key. Fail closed: no session is valid.
+    return { valid: false }
   }
 
   return { valid: false }
@@ -177,7 +189,9 @@ export function protectCronAPI(request: Request): NextResponse | null {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   }
 
-  if (authHeader === `Bearer ${cronSecret}`) {
+  // Constant-time compare — a naive `===` leaks CRON_SECRET one byte at a
+  // time via response timing.
+  if (safeEqual(authHeader || '', `Bearer ${cronSecret}`)) {
     return null
   }
 
