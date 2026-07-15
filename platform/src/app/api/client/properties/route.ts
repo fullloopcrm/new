@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server'
-import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { protectClientAPI } from '@/lib/client-auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { requirePermission } from '@/lib/require-permission'
+import { supabaseAdmin } from '@/lib/supabase'
 import {
   listProperties,
   addProperty,
@@ -9,17 +12,48 @@ import {
   type ChangeActor,
 } from '@/lib/client-properties'
 
-// Client-portal multi-address management. Ported from nycmaid; tenant scoping is
-// handled inside the lib (rows carry the client's tenant_id).
-// Auth: admins pass through; otherwise the caller must be the client (PIN cookie).
-async function authClient(clientId: string | null | undefined): Promise<NextResponse | { isAdmin: boolean }> {
+// Client-portal multi-address management. Ported from nycmaid; the CRUD helpers
+// in @/lib/client-properties scope every row by client_id, but client_id alone
+// isn't tenant-safe unless the caller was already proven to own (or administer)
+// that specific client — that's what this file's auth layer must guarantee.
+//
+// Auth: dashboard admins (Clerk session, RBAC-gated) or the client themself
+// (tenant-bound client-portal session, @/lib/client-auth). This used to trust
+// the legacy nycmaid isAdminAuthenticated()/protectClientAPI() pair — a
+// pre-multi-tenant auth system with NO tenant binding in either check (same
+// orphaned-auth class already closed on client-analytics: "admin_users table
+// removed, /api/auth/login orphaned" — but that route's dead PIN-fallback
+// login still mints an admin_session cookie good enough to pass
+// isAdminAuthenticated() here, with zero tenant check on the resulting
+// access). Separately, real clients logged in via the modern /api/client/login
+// hold a 4-part tenant-bound cookie (@/lib/client-auth) that never matched
+// the old 3-part format nycmaid's protectClientAPI expected, so this route
+// silently rejected every legitimate client caller while the stale admin
+// bypass still worked. Both paths now resolve tenant from the request and
+// verify the target client_id belongs to it.
+async function authClient(
+  clientId: string | null | undefined,
+  wantPermission: 'clients.view' | 'clients.edit',
+): Promise<NextResponse | { isAdmin: boolean }> {
   if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
-  const isAdmin = await isAdminAuthenticated()
-  if (!isAdmin) {
-    const auth = await protectClientAPI(clientId)
-    if (auth instanceof NextResponse) return auth
+
+  const { tenant: adminTenant, error: adminError } = await requirePermission(wantPermission)
+  if (adminTenant) {
+    const { data: client } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', clientId)
+      .eq('tenant_id', adminTenant.tenantId)
+      .maybeSingle()
+    if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    return { isAdmin: true }
   }
-  return { isAdmin }
+
+  const siteTenant = await getTenantFromHeaders()
+  if (!siteTenant) return adminError
+  const auth = await protectClientAPI(siteTenant.id, clientId)
+  if (auth instanceof NextResponse) return auth
+  return { isAdmin: false }
 }
 
 function actorFor(isAdmin: boolean, clientId: string): ChangeActor {
@@ -31,13 +65,12 @@ function actorFor(isAdmin: boolean, clientId: string): ChangeActor {
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('client_id')
-  const auth = await authClient(clientId)
+  const auth = await authClient(clientId, 'clients.view')
   if (auth instanceof NextResponse) return auth
 
   const properties = await listProperties(clientId!)
 
   if (searchParams.get('include_history') === 'true' && auth.isAdmin) {
-    const { supabaseAdmin } = await import('@/lib/supabase')
     const { data: history } = await supabaseAdmin
       .from('property_changes')
       .select('id, property_id, action, old_value, new_value, changed_by, actor_id, source, created_at')
@@ -53,7 +86,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
   const clientId = body.client_id
-  const auth = await authClient(clientId)
+  const auth = await authClient(clientId, 'clients.edit')
   if (auth instanceof NextResponse) return auth
 
   const address = typeof body.address === 'string' ? body.address.trim() : ''
@@ -74,7 +107,7 @@ export async function PATCH(request: Request) {
   const body = await request.json().catch(() => ({}))
   const clientId = body.client_id
   const propertyId = body.property_id
-  const auth = await authClient(clientId)
+  const auth = await authClient(clientId, 'clients.edit')
   if (auth instanceof NextResponse) return auth
   if (!propertyId) return NextResponse.json({ error: 'Missing property_id' }, { status: 400 })
 
