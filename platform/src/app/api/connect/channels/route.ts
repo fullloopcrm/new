@@ -67,12 +67,22 @@ export async function POST(request: NextRequest) {
       if (existing) return NextResponse.json({ channel: existing })
     }
 
+    // Never trust a caller-supplied client_id directly — verify it belongs to
+    // this tenant before writing it, same as portal/connect and
+    // team-portal/connect already do for channel_id.
+    let verifiedClientId: string | null = null
+    if (client_id) {
+      const { data: ownedClient } = await db.from('clients').select('id').eq('id', client_id).single()
+      if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      verifiedClientId = ownedClient.id
+    }
+
     const { data, error } = await db
       .from('connect_channels')
       .insert({
         name,
         type: channelType,
-        client_id: client_id || null,
+        client_id: verifiedClientId,
       })
       .select()
       .single()

@@ -40,7 +40,7 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenantId, tenant, role } = await getTenantForRequest()
     const db = tenantDb(tenantId)
 
     let payload: { body?: string }
@@ -52,14 +52,19 @@ export async function POST(request: NextRequest) {
     const body = payload.body?.trim()
     if (!body) return NextResponse.json({ error: 'body required' }, { status: 400 })
 
+    // sender/sender_role reflect the caller's ACTUAL role, not a hardcoded
+    // 'owner' — any tenant member can reach this thread (see nav: Messages
+    // has no `perm` gate), and Jefe's read_tenant_thread/send_tenant_message
+    // tools treat sender_role as a trust signal, so a hardcoded value here
+    // would let a non-owner member's message read as authoritative "owner" input.
     const { data: inserted, error } = await db
       .from('tenant_owner_messages')
       .insert({
         direction: 'in', // in = from owner → platform/admin
         channel: 'platform',
         body,
-        sender: 'owner',
-        sender_role: 'owner',
+        sender: role,
+        sender_role: role,
       })
       .select('id, direction, channel, body, sender, sender_role, created_at')
       .single()
@@ -68,7 +73,7 @@ export async function POST(request: NextRequest) {
     // Surface the reply to the platform admin as an unread notification.
     await db.from('notifications').insert({
       type: 'owner_message',
-      title: `Owner reply — ${tenant?.name ?? 'tenant'}`,
+      title: `${role === 'owner' ? 'Owner' : 'Team'} reply — ${tenant?.name ?? 'tenant'}`,
       message: body.slice(0, 200),
       channel: 'system',
       recipient_type: 'admin',

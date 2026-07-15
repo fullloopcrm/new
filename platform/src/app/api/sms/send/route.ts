@@ -5,11 +5,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('team.edit')
+    if (authError) return authError
+    const { tenantId } = ctx
     const { to, message } = await req.json()
     if (!to || !message) {
       return NextResponse.json({ error: 'to and message required' }, { status: 400 })

@@ -5,14 +5,26 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
     const sendTo = new URL(request.url).searchParams.get('send')
+    // ?send= actually delivers a real email via the tenant's Resend key to an
+    // arbitrary address — gate that path like the sibling /api/test-emails
+    // test-send tool (settings.edit). The plain preview stays open to any
+    // tenant member, same as before.
+    let tenantId: string
+    if (sendTo) {
+      const { tenant: ctx, error: authError } = await requirePermission('settings.edit')
+      if (authError) return authError
+      tenantId = ctx.tenantId
+    } else {
+      tenantId = (await getTenantForRequest()).tenantId
+    }
     const { data: t } = await supabaseAdmin
       .from('tenants')
       .select('name, phone, email, address, logo_url, primary_color, resend_api_key, email_from, domain')
