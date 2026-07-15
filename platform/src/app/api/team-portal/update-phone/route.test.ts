@@ -151,4 +151,25 @@ describe('POST /api/team-portal/update-phone', () => {
     const member = store.get('team_members')?.find(m => m.id === 'member-1')
     expect(member?.phone).toBe('+15551234567')
   })
+
+  it('does not overwrite another tenant\'s cleaner_applications row that shares the same email', async () => {
+    const store = (supabaseAdmin as unknown as Fake)._store
+    store.set('team_members', [
+      { id: 'member-1', tenant_id: 'tenant-a', name: 'Test Cleaner', email: 'shared@example.com', phone: '+15550000000' },
+    ])
+    store.set('cleaner_applications', [
+      { id: 'app-a', tenant_id: 'tenant-a', email: 'shared@example.com', phone: '+15550000000' },
+      { id: 'app-b', tenant_id: 'tenant-b', email: 'shared@example.com', phone: '+15559999999' },
+    ])
+    const good = makeToken('member-1', Date.now() + 60_000)
+    const req = new Request('https://x.test/api/team-portal/update-phone', {
+      method: 'POST',
+      body: JSON.stringify({ token: good, phone: '+15551234567' }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+    const apps = store.get('cleaner_applications') || []
+    expect(apps.find(a => a.id === 'app-a')?.phone).toBe('+15551234567')
+    expect(apps.find(a => a.id === 'app-b')?.phone).toBe('+15559999999')
+  })
 })

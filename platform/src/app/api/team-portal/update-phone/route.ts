@@ -61,7 +61,7 @@ export async function POST(request: Request) {
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('id, email')
+    .select('id, tenant_id, email')
     .eq('id', parsed.teamMemberId!)
     .single()
   if (!member) return NextResponse.json({ error: 'not_found' }, { status: 404 })
@@ -74,8 +74,13 @@ export async function POST(request: Request) {
 
   if (member.email) {
     await supabaseAdmin
-      .from('cleaner_applications')  // tenant-scope-ok: member-initiated phone sync across the same applicant's records by their verified email
+      .from('cleaner_applications')
+      // Scoped by tenant_id, not just email: cleaner_applications.email has no
+      // uniqueness constraint across tenants, so an unscoped match on email
+      // alone could silently overwrite ANOTHER tenant's applicant row that
+      // happens to share this member's email address.
       .update({ phone: phoneCheck.normalized })
+      .eq('tenant_id', member.tenant_id)
       .eq('email', member.email)
   }
 
