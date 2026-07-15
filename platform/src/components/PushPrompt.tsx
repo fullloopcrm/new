@@ -15,9 +15,10 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 interface PushPromptProps {
   role: 'admin' | 'team_member' | 'client'
   userId?: string
+  token?: string
 }
 
-export default function PushPrompt({ role, userId }: PushPromptProps) {
+export default function PushPrompt({ role, userId, token }: PushPromptProps) {
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null)
   const [pushLoading, setPushLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
@@ -62,12 +63,13 @@ export default function PushPrompt({ role, userId }: PushPromptProps) {
 
       await fetch('/api/push/subscribe', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({
           subscription: subscription.toJSON(),
-          role,
-          team_member_id: role === 'team_member' ? userId : undefined,
-          client_id: role === 'client' ? userId : undefined
+          role
         })
       })
 
