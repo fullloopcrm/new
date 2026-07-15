@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getOwnerUserId } from '@/lib/owner-session'
+import { getAdminUser } from '@/lib/nycmaid/auth'
 import { redirect } from 'next/navigation'
 import JoinClient from './join-client'
 
@@ -57,7 +58,27 @@ export default async function JoinPage({
   const userId = await getOwnerUserId()
 
   if (userId) {
-    // Already signed in — accept the invite directly
+    // Already signed in — only auto-accept if the signed-in identity's email
+    // matches who the invite was actually sent to. Without this, any
+    // authenticated session that opens a leaked/forwarded invite link would be
+    // added to the tenant with the invite's role (up to 'owner').
+    const authedUser = await getAdminUser()
+    const authedEmail = authedUser?.email?.toLowerCase().trim()
+    const invitedEmail = invite.email?.toLowerCase().trim()
+
+    if (!authedEmail || authedEmail !== invitedEmail) {
+      return (
+        <div className="min-h-screen flex items-center justify-center bg-gray-50">
+          <div className="text-center max-w-md">
+            <h1 className="text-2xl font-bold text-gray-900 mb-2">Wrong Account</h1>
+            <p className="text-gray-600">
+              This invite was sent to {invite.email}. Sign out and reopen this link, or contact your administrator.
+            </p>
+          </div>
+        </div>
+      )
+    }
+
     // Check if already a member
     const { data: existingMember } = await supabaseAdmin
       .from('tenant_members')

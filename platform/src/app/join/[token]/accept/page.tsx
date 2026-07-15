@@ -1,4 +1,5 @@
 import { getOwnerUserId } from '@/lib/owner-session'
+import { getAdminUser } from '@/lib/nycmaid/auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { redirect } from 'next/navigation'
 import { logSecurityEvent } from '@/lib/security'
@@ -25,6 +26,16 @@ export default async function AcceptInvitePage({
 
   if (!invite || invite.accepted || new Date(invite.expires_at) < new Date()) {
     redirect('/dashboard')
+  }
+
+  // Only accept if the signed-in identity's email matches who the invite was
+  // sent to — otherwise any authenticated session that opens a leaked/forwarded
+  // invite link would be added to the tenant with the invite's role.
+  const authedUser = await getAdminUser()
+  const authedEmail = authedUser?.email?.toLowerCase().trim()
+  const invitedEmail = invite.email?.toLowerCase().trim()
+  if (!authedEmail || authedEmail !== invitedEmail) {
+    redirect(`/join/${token}`)
   }
 
   // Check if already a member
