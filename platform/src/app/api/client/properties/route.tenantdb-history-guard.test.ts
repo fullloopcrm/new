@@ -2,15 +2,15 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
  * W4 isolation probe for the tenantDb() conversion of the GET
- * /api/client/properties?include_history=true branch. The prior code read
- * `property_changes` via `.eq('tenant_id', clientRow?.tenant_id ?? '')` —
- * a manual fallback. The tenantDb() conversion instead short-circuits to an
- * empty history when the client's tenant can't be resolved (tenantDb() throws
- * on an empty tenantId), which route.property-changes-tenant-scope.test.ts
- * does not cover (it only exercises the mistagged-row and non-admin cases
- * with a resolvable tenant). This file covers the missing-tenant guard and a
- * same-client-id cross-tenant collision, using a real filtering fake DB
- * rather than asserting recorded call args.
+ * /api/client/properties?include_history=true branch, updated for the
+ * requirePermission-based auth (see route.property-changes-tenant-scope.test.ts
+ * for why the legacy admin_session gate was replaced).
+ *
+ * Since the operator's own (authenticated) tenant is now the source of truth
+ * for which tenant's history can be read — not something resolved from the
+ * client_id after the fact — an unresolvable/mismatched client tenant is
+ * rejected at the ownership check (404) before the history query ever runs.
+ * This file covers that guard plus a same-client-id cross-tenant collision.
  */
 
 const TENANT_A = 'aaaaaaaa-0000-0000-0000-00000000000a'
@@ -49,9 +49,14 @@ vi.mock('@/lib/client-properties', () => ({
   setPrimaryProperty: async () => {},
   deactivateProperty: async () => {},
 }))
-vi.mock('@/lib/nycmaid/auth', () => ({
-  isAdminAuthenticated: async () => true,
-  protectClientAPI: async (clientId?: string) => ({ clientId }),
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: TENANT_A }, error: null }),
+}))
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: async () => null,
+}))
+vi.mock('@/lib/client-auth', () => ({
+  protectClientAPI: async () => ({ status: 401 }),
 }))
 
 import { GET } from './route'
@@ -62,14 +67,14 @@ beforeEach(() => {
 })
 
 describe('GET /api/client/properties?include_history=true — tenantDb guard + collision', () => {
-  it('returns empty history (no throw) when the client row has no resolvable tenant_id', async () => {
+  it('rejects (no history leak) when the client row has no resolvable tenant_id', async () => {
     DB.clients.push({ id: 'c-orphan', tenant_id: null })
     DB.property_changes.push({ id: 'pc-orphan', client_id: 'c-orphan', tenant_id: null, action: 'add', created_at: '2099-01-01' })
 
     const res = await GET(new Request('https://x?client_id=c-orphan&include_history=true'))
-    expect(res.status).toBe(200)
-    const body = await res.json() as { history: Row[] }
-    expect(body.history).toEqual([])
+    expect(res.status).toBe(404)
+    const body = await res.json() as { history?: Row[] }
+    expect(body.history).toBeUndefined()
   })
 
   it('scopes history strictly to the resolved tenant even when a foreign tenant reuses the same client_id value', async () => {
