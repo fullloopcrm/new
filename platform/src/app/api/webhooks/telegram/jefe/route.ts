@@ -39,7 +39,10 @@ export async function POST(req: Request) {
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
-  if (OWNER_CHAT_ID && String(chatId) !== String(OWNER_CHAT_ID)) {
+  // Fail CLOSED: an unset OWNER_CHAT_ID must reject every chat, not admit
+  // every chat. (The sibling owner-bot route uses a Set().has() lookup that
+  // already fails closed the same way when unconfigured — this mirrors it.)
+  if (!OWNER_CHAT_ID || String(chatId) !== String(OWNER_CHAT_ID)) {
     await sendTelegram(chatId, 'This bot is private.', BOT_TOKEN)
     return NextResponse.json({ ok: true, private: true })
   }

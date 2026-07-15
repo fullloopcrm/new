@@ -73,3 +73,29 @@ describe('POST /api/webhooks/telegram/jefe — secret_token gate', () => {
     expect(res.status).not.toBe(401)
   })
 })
+
+describe('POST /api/webhooks/telegram/jefe — owner-chat-id gate fails closed', () => {
+  beforeEach(() => {
+    vi.resetModules()
+    process.env = { ...ORIGINAL_ENV }
+  })
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV }
+  })
+
+  it('rejects an arbitrary chat id and never calls askJefe when OWNER_CHAT_ID is unset', async () => {
+    process.env.JEFE_BOT_TOKEN = 'fake-bot-token'
+    delete process.env.JEFE_WEBHOOK_SECRET
+    delete process.env.TELEGRAM_WEBHOOK_SECRET
+    delete process.env.JEFE_OWNER_CHAT_ID
+    delete process.env.TELEGRAM_OWNER_CHAT_ID
+    const { askJefe } = await import('@/lib/jefe/agent')
+    const { POST } = await import('./route')
+
+    const res = await POST(req({ message: { chat: { id: 666666 }, text: 'attacker message' } }))
+    const json = await res.json()
+
+    expect(json.private).toBe(true)
+    expect(askJefe).not.toHaveBeenCalled()
+  })
+})
