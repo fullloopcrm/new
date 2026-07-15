@@ -29,6 +29,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
   }
 
+  // client_id/team_member_id/service_type_id are cross-table FKs — confirm each
+  // belongs to this tenant before inserting, same check the single-booking
+  // sibling POST /api/bookings and the PUT /api/bookings/batch-update sibling
+  // already do. Without this, a caller with bookings.create could attribute a
+  // batch-created booking to another tenant's client/team-member/service-type
+  // and exfiltrate that row's PII via this route's own clients()/team_members()
+  // joins on the response.
+  const fkChecks: Array<[string, string]> = []
+  for (const b of bookingInputs) {
+    if (b.client_id) fkChecks.push([b.client_id as string, 'clients'])
+    if (b.team_member_id) fkChecks.push([b.team_member_id as string, 'team_members'])
+    if (b.service_type_id) fkChecks.push([b.service_type_id as string, 'service_types'])
+  }
+  const seenFk = new Set<string>()
+  for (const [fkId, table] of fkChecks) {
+    const key = `${table}:${fkId}`
+    if (seenFk.has(key)) continue
+    seenFk.add(key)
+    const { data: owned } = await supabaseAdmin
+      .from(table)
+      .select('id')
+      .eq('id', fkId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!owned) {
+      const field = table === 'clients' ? 'client_id' : table === 'team_members' ? 'team_member_id' : 'service_type_id'
+      return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)
