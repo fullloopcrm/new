@@ -503,6 +503,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean. Full `vitest run` — 307 files / 1333 passed / 37 skipped / 0 failed. Mutation-verified: reverted both fixes, both new foreign-id LOCK tests failed RED (`cleaner not found`/`client not found` expected but got `undefined` — i.e. the write/insert succeeded); restored, GREEN. |
 | **Rank rationale** | Same exfil class and construction as P25/P30/P32 (unverified FK argument on an AI tool-call's mutating field) — confirms that even within a single already-partially-audited file, each tool needs the ownership check verified individually; a fix to one tool (`assign_cleaner_to_booking`/`create_manual_booking`) does not imply a sibling tool touching the same column (`update_booking`) or same FK class (`create_deal`'s `client_id`) got the same guard. |
 
+### P35 — `admin/payments/finalize-match` → cross-tenant `clientId` FK injection + naive internal-key compare — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/payments/finalize-match` (`src/app/api/admin/payments/finalize-match/route.ts`) — internal-key-gated endpoint called by an external Zelle/Venmo reconciliation tool |
+| **Table** | `payments.client_id` — caller-supplied `clientId` was inserted verbatim by `processPayment()` (`src/lib/payment-processor.ts`); only `bookingId` was used to resolve/verify the tenant. |
+| **Attack vector** | `POST { bookingId: <own booking>, clientId: <foreign tenant's client id>, ... }` with a valid (or, pre-fix, timing-guessed) `x-internal-key`. The route resolved `tenant_id` from `bookingId` alone and passed `clientId` straight through — same P1-pattern FK-injection shape as POST /api/invoices and POST /api/deals, just not yet audited on this route. |
+| **Effect** | A foreign `client_id` gets attached to a `payments` row on this tenant's own booking — reference pollution on a financial record; also compounded by a second, independent bug: the `x-internal-key` gate used a naive `!==` compare (same timing-attack class as `CRON_SECRET`, fixed platform-wide in de510a4e) on `INTERNAL_API_KEY`/`ELCHAPO_MONITOR_KEY`. |
+| **Verdict** | **FIXED** (found continuing the broad-hunt sweep into the `invoices`/`quotes`/`deals`/`jobs` financial surface, then following the `x-internal-key`/`ELCHAPO_MONITOR_KEY` naive-compare pattern to its remaining sites, 2026-07-15, W2) |
+| **Fix** | `clientId` is now verified tenant-owned (`clients` lookup `.eq('id',...).eq('tenant_id', booking.tenant_id)`) before `processPayment()` runs; a miss 404s with no payment row created. The internal-key compare now uses the existing `safeEqual()` util (same fix applied to sibling `admin/selena/monitor` and `admin/selena/sms-status`, both gating `ELCHAPO_MONITOR_KEY` with a naive `===`). |
+| **Regression lock** | `admin/payments/finalize-match/route.isolation.test.ts` — wrong-key 401 + no processPayment call, own-tenant clientId succeeds, WRONG-TENANT PROBE: foreign clientId 404s with no processPayment call. |
+| **Verified** | `npx tsc --noEmit` clean. Full `vitest run` — 309 files / 1342 passed / 37 skipped / 0 failed. |
+| **Rank rationale** | Lower blast radius than P33 (no direct money movement — `payments.client_id` is a display/attribution field, not itself authorization for a transfer) but same proven FK-injection construction as the rest of this register; bundled with the naive-compare fix since both were found auditing the same file in the same pass. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -668,7 +682,12 @@ live leaks. This section is a **negative result, not a to-do list**.
    tool-call surface — re-auditing the same file P25 already touched,
    tool-by-tool, past the three tools P25 covered, turned up two more
    with the identical unverified-FK gap on `list_bookings`/`list_deals`
-   embeds).
+   embeds) → P35 `admin/payments/finalize-match` cross-tenant `clientId`
+   FK injection + naive `x-internal-key` compare (✅ fixed, 2026-07-15,
+   W2, found sweeping the `invoices`/`quotes`/`deals`/`jobs` financial
+   surface — a fresh area — then following the naive-secret-compare
+   pattern to its two remaining sites, `admin/selena/monitor` and
+   `admin/selena/sms-status`, both gating `ELCHAPO_MONITOR_KEY`).
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
