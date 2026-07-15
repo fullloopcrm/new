@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, verifyEntityId } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
@@ -34,7 +34,29 @@ export async function POST(request: Request) {
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
-    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
+    // entity_id and coa_id are cross-table FKs — GET on this same route embeds
+    // entities(id, name) and chart_of_accounts(code, name, type), so an
+    // unverified value here would let a caller point a new bank account at
+    // another tenant's entity/CoA row and exfiltrate its name/code via that
+    // embed (same class already fixed on PATCH /api/finance/bank-accounts/[id]
+    // for coa_id, and on POST /api/finance/periods + finance/expenses/[id] for
+    // entity_id — this create path was the missed sibling).
+    const entityId = body.entity_id ? await verifyEntityId(tenantId, body.entity_id) : await getDefaultEntityId(tenantId)
+    if (body.entity_id && !entityId) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
+
+    let coaId: string | null = null
+    if (body.coa_id) {
+      const { data: coa } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.coa_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!coa) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+      coaId = coa.id
+    }
 
     const { data, error } = await supabaseAdmin
       .from('bank_accounts')
@@ -46,7 +68,7 @@ export async function POST(request: Request) {
         type: body.type || 'checking',
         mask: body.mask || null,
         currency: body.currency || 'USD',
-        coa_id: body.coa_id || null,
+        coa_id: coaId,
       })
       .select('*')
       .single()
