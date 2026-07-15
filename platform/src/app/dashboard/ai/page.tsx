@@ -57,6 +57,16 @@ export default function SelenaAIPage() {
     navigator.clipboard.writeText(text)
   }
 
+  function renderAssistantHtml(text: string) {
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+    return escaped
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\n/g, '<br />')
+  }
+
   return (
     <div className="h-[calc(100vh-4rem)] flex flex-col">
       <div className="flex items-center justify-between mb-4">
@@ -108,11 +118,7 @@ export default function SelenaAIPage() {
                   {m.role === 'assistant' ? (
                     <div className="relative group">
                       <div className="text-sm whitespace-pre-wrap prose prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{
-                          __html: m.content
-                            .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-                            .replace(/\n/g, '<br />')
-                        }}
+                        dangerouslySetInnerHTML={{ __html: renderAssistantHtml(m.content) }}
                       />
                       <button onClick={() => copyText(m.content)}
                         className="absolute top-0 right-0 opacity-0 group-hover:opacity-100 text-[10px] text-slate-400 hover:text-slate-400 px-1.5 py-0.5 bg-white border border-slate-200 rounded transition-opacity">
