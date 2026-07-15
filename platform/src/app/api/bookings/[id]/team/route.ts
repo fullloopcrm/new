@@ -51,6 +51,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
 
+  // team_member_id is a cross-table FK — confirm every lead/extra id belongs
+  // to this tenant before writing it onto bookings/booking_team_members, or a
+  // caller could assign another tenant's team member and exfiltrate their
+  // name/phone/hourly_rate via any team_members() embed (e.g. closeout-summary),
+  // same class already guarded on PUT /api/bookings/[id]'s own team_member_id.
+  const candidateIds = Array.from(new Set([newLead, ...newExtras].filter((x): x is string => !!x)))
+  for (const memberId of candidateIds) {
+    const { data: owned } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', memberId)
+      .eq('tenant_id', ctx.tenantId)
+      .maybeSingle()
+    if (!owned) return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 400 })
+  }
+
   // Snapshot the old team to figure out which extras are NEW (need notification).
   const { data: oldRows } = await supabaseAdmin
     .from('booking_team_members')

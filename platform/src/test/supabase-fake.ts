@@ -23,7 +23,7 @@
  *
  * Supported query surface (superset; unused bits are inert for a given test):
  *   from(table)
- *     .select(cols?, { head }) .insert(payload) .update(payload)
+ *     .select(cols?, { head }) .insert(payload) .update(payload) .delete()
  *     .eq(col, val) .gte(col, val) .lt(col, val) .is(col, null|bool) .in(col, vals) .not() .order() .limit()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *
@@ -108,6 +108,11 @@ function runQuery(
     return { data: updated, error: null }
   }
 
+  if (state.op === 'delete') {
+    h.store[state.table] = rows.filter((r) => !matches(r, state))
+    return { data: null, error: null }
+  }
+
   let found = rows.filter((r) => matches(r, state))
   if (state.head) return { count: found.length, data: null, error: null }
   if (opts.detachReads) found = found.map((r) => ({ ...r }))
@@ -132,6 +137,7 @@ export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions =
         select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; state.returning = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
         update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
+        delete: () => { state.op = 'delete'; return chain },
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
         gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
         lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
