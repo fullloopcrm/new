@@ -475,6 +475,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Rank rationale** | Same exfil class and construction as P25/P30 (unverified FK argument on an AI tool-call's mutating field, not an HTTP body), on a third independent AI agent surface in this codebase (`ai/assistant` — the client-facing widget — vs. `admin/ai-chat`'s CRM copilot and Yinez/Selena's owner tools) — confirms every AI tool-call surface in this codebase needs this check audited per-tool, not just per-file. Checking the follow-up this raised (does `admin/ai-chat`'s own `update_bookings` share the exact same gap?) found YES — same file already touched for P30, same `updates.team_member_id` written unchecked. Fixed in the same pass rather than deferred; see the `admin/ai-chat` line item below. |
 | **Sibling fix (same pass)** | `admin/ai-chat`'s `update_bookings` tool (`src/app/api/admin/ai-chat/route.ts`) had the identical gap — its `TOOL_PERMISSIONS`/RBAC gate (`bookings.edit`) constrains WHO can call it, not what FK VALUES the model can write. Fixed with the same tenant-ownership check on `updates.team_member_id`. Regression lock added to the existing `src/app/api/admin/ai-chat/route.witness.test.ts` (2 new tests: BLOCKED foreign `team_member_id`, CONTROL own-tenant reassignment), mutation-verified RED→GREEN. `npx vitest run src/app/api/admin/ai-chat/` — 3 files / 18 passed / 0 failed. |
 
+### P33 — `webhooks/stripe` `checkout.session.completed` → cross-tenant payment-link hijack via `client_reference_id`  ⚠️ **REAL-MONEY HIJACK** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/webhooks/stripe` (Stripe-signature-verified) — the "static pay-link" (NYC Maid parity) branch of `checkout.session.completed`, `src/app/api/webhooks/stripe/route.ts` |
+| **Table(s)** | `bookings` (payment_status/payout fields), `payments` (insert), `team_member_payouts` (insert + a real Stripe Connect transfer) |
+| **Attack vector** | New class for this register — not FK-injection on a DB write, but an unverified caller-controlled value trusted to pick which TENANT a webhook event applies to. `tenants.payment_link` is a static, per-tenant Stripe Payment Link URL (configured once, sent to clients via the 15-min-alert and payment-followup-daily SMS as `${tenant.payment_link}?client_reference_id=${bookingId}`). Stripe's `client_reference_id` is a caller-editable URL query parameter — Stripe never validates or restricts it. The webhook resolved `tenantId` straight from `.eq('id', session.client_reference_id)`'s matched booking's `tenant_id`, with **zero check** that the Payment Link actually used for the checkout belongs to that tenant. |
+| **Effect** | Anyone holding ANY tenant's static `payment_link` URL (a client who received the SMS, or anyone who obtains it) could pay through it with a **different tenant's** `bookingId` appended as `client_reference_id`. The webhook would mark that foreign booking `payment_status: 'paid'`, insert a `payments` row under the foreign tenant, and — if the foreign booking's cleaner has Stripe Connect configured — fire a **real Stripe transfer** paying that foreign tenant's cleaner out of the platform's shared Stripe balance, all triggered by a payment that had nothing to do with that tenant. Real-money cross-tenant impact, not just a data leak — same severity tier as P22 (Telnyx call hijack) but on the payments rail instead of voice. |
+| **Verdict** | **FIXED** (was proven-LIVE with a harness witness; found in a broad-hunt sweep of `webhooks/*` — a fresh area, not previously in this register — 2026-07-15, W2) |
+| **Fix** | Before trusting the `client_reference_id` → booking → tenant resolution, the route now retrieves the actual Payment Link Stripe says was used for the checkout (`stripe.paymentLinks.retrieve(session.payment_link)`) and requires its `.url` to match the referenced booking's own tenant's stored `payment_link`. A mismatch (or an unresolvable/missing `session.payment_link`) is treated the same as "no client_reference_id at all" — falls through to the existing NYC Maid email-match/admin-alert path instead of silently crediting a foreign tenant. The metadata-based path (dynamic per-booking Payment Links created via `createPaymentLink()`, which bake `metadata.booking_id`/`metadata.tenant_id` into the Payment Link object itself at creation — immutable, not caller-editable) is unaffected; this check only gates the caller-editable `client_reference_id` fallback. |
+| **Regression lock** | `src/app/api/webhooks/stripe/route.payment-link-hijack.witness.test.ts` (LOCK ×2: a mismatched Payment Link and an unresolvable/missing one both leave the foreign booking untouched, no payment row, no payout; CONTROL: the tenant's own matching Payment Link still credits the booking normally) |
+| **Verified** | `npx tsc --noEmit` clean. `npx vitest run src/app/api/webhooks/stripe/` — 5 files / 10 passed / 0 failed. Full `vitest run` — 307 files / 1328 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new LOCK tests failed RED (payment inserted, booking marked paid); restored, GREEN. |
+| **Rank rationale** | Real-money blast radius (a live Stripe Connect transfer can fire), reachable by anyone who has any tenant's semi-public static payment link — no admin session, no API key, nothing beyond a Stripe-hosted checkout page and basic URL editing. Ranked with P22/P27 (action-authorization-bypass class, not FK-injection) as the first finding in this register on the payments-webhook surface specifically. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -627,7 +641,14 @@ live leaks. This section is a **negative result, not a to-do list**.
    `update_bookings` tool for the P25/P30 FK-injection shape on a mutating
    field rather than an insert; the sibling gap in `admin/ai-chat`'s own
    `update_bookings` was checked and fixed in the same pass rather than
-   deferred — same file already touched for P30).
+   deferred — same file already touched for P30) → P33 `webhooks/stripe`
+   `checkout.session.completed` cross-tenant payment-link hijack via
+   `client_reference_id` (✅ fixed, 2026-07-15, W2, found in a broad-hunt
+   sweep of `webhooks/*` — a fresh area — first finding in this register
+   with a REAL-MONEY blast radius: a live Stripe Connect payout could be
+   triggered against a foreign tenant's booking by anyone holding any
+   tenant's semi-public static payment_link URL, no session or API key
+   needed).
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
