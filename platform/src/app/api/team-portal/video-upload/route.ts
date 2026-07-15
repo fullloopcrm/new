@@ -33,6 +33,7 @@ export async function GET(req: NextRequest) {
       .select('id')
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
+      .eq('team_member_id', auth.id)
       .single()
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
