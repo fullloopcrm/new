@@ -8,6 +8,15 @@ import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 export const maxDuration = 60
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped from either side -- returns null for anything shorter (a short or
+// malformed phone must never resolve to an existing client).
+function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { message, sessionId, phone } = await req.json()
@@ -60,13 +69,19 @@ export async function POST(req: NextRequest) {
       // context → skip linking rather than search globally.
       if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('id, name')
-          .eq('tenant_id', reqTenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
+        // Full, exact digit match only -- an ilike substring match on a
+        // short or malformed phone (e.g. a single digit) would link this
+        // brand-new anonymous conversation to an ARBITRARY unrelated
+        // client, leaking their name and letting downstream Selena tool
+        // handlers write into their record.
+        const normalizedPhone = normalizePhoneDigits(phone)
+        const { data: candidates } = normalizedPhone
+          ? await supabaseAdmin
+              .from('clients')
+              .select('id, name, phone')
+              .eq('tenant_id', reqTenantId)
+          : { data: null }
+        const client = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
         if (client) {
           insertData.client_id = client.id
           insertData.booking_checklist = {

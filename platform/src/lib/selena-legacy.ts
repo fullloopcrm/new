@@ -833,13 +833,28 @@ async function handleAddToWaitlist(tenantId: string, input: Record<string, unkno
 
 // ─── Client Profile ─────────────────────────────────────────────────────────
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped from either side -- returns null for anything shorter (a short or
+// malformed phone must never resolve to an existing client).
+function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 export async function getClientProfile(tenantId: string, phone: string): Promise<string> {
   try {
-    const cleanPhone = phone.replace(/\D/g, '').slice(-10)
-    const { data: client } = await supabaseAdmin
+    // Full, exact digit match only -- an ilike substring match on a short or
+    // malformed phone (e.g. a single digit from an anonymous web-chat
+    // visitor) would match an ARBITRARY client and leak their profile into
+    // this conversation.
+    const normalizedPhone = normalizePhoneDigits(phone)
+    if (!normalizedPhone) return JSON.stringify({ error: 'Client not found' })
+    const { data: candidates } = await supabaseAdmin
       .from('clients')
       .select('id, name, email, phone, address, notes, active, created_at')
-      .eq('tenant_id', tenantId).ilike('phone', `%${cleanPhone}%`).limit(1).single()
+      .eq('tenant_id', tenantId)
+    const client = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')
