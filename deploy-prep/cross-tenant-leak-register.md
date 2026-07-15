@@ -460,6 +460,23 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 
 ---
 
+### P32 — `ai/assistant` (client-facing widget) `update_bookings` tool → cross-tenant `team_member_id` FK injection  ⚠️ **DATA EXFIL**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/ai/assistant`'s `update_bookings` tool (the client-facing AI chat widget's tool-call dispatch — same attack-surface CLASS as `admin/ai-chat`'s `create_booking` (P30) and `src/lib/selena/tools.ts` (P25), a fresh file not previously audited for this shape) |
+| **Table(s)** | `bookings.team_member_id` → `team_members.id`, no DB-level tenant check |
+| **Attack vector** | `update_bookings` accepts `booking_ids` + an `updates` object (including `team_member_id`) straight from the model's tool-call input and writes it via `.update(updates).eq('id', id).eq('tenant_id', tenantId)`. The `.eq('tenant_id', tenantId)` clause scopes which ROW can be written (so a foreign `booking_id` is safely a no-op) but does nothing to validate a FK VALUE inside `updates` — a caller-supplied `team_member_id` belonging to another tenant was written into the tenant's own booking unchecked. |
+| **Effect** | `query_bookings` and `get_schedule_summary` (same file, same tool dispatch) both embed `team_members!bookings_team_member_id_fkey(name)` off this exact column with no tenant filter on the embedded side, so a tenant-A user asking the widget to reassign a booking to a foreign `team_member_id`, then asking "who's on the schedule", gets tenant B's real employee name back in the very next tool response — same read-exfil shape as P1/P11/P25/P30. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of the AI tool-call surface, checking `ai/assistant/route.ts` for the same FK-injection shape as P25/P30 but on its `update_bookings` tool rather than a `create_booking` tool — this file was previously checked only for `create_booking` (it has none) and cleared without inspecting `update_bookings`'s `updates.team_member_id`, 2026-07-15, W2) |
+| **Fix** | `update_bookings` now verifies a supplied `updates.team_member_id` is tenant-owned — `.eq('id', ...).eq('tenant_id', tenantId).maybeSingle()` against `team_members` — before the `bookings` update runs; a miss returns `{ error: 'team member not found' }` (matching this tool's existing JSON-string error convention) and the booking is left unchanged. Same pattern as P1/P25/P30. |
+| **Regression lock** | `src/app/api/ai/assistant/route.witness.test.ts` (new file): BLOCKED — a foreign `team_member_id` in `updates` is rejected, the booking's `team_member_id` is left unchanged; CONTROL — own-tenant `team_member_id` reassignment still applies; CONTROL — updates with no `team_member_id` (e.g. a status change) still apply normally. Mutation-verified: reverting the fix reproduces RED (foreign id gets written), restoring gives GREEN. |
+| **Verified** | `npx tsc --noEmit` clean. `npx vitest run src/app/api/ai/assistant/` — 1 file / 3 passed / 0 failed. |
+| **Rank rationale** | Same exfil class and construction as P25/P30 (unverified FK argument on an AI tool-call's mutating field, not an HTTP body), on a third independent AI agent surface in this codebase (`ai/assistant` — the client-facing widget — vs. `admin/ai-chat`'s CRM copilot and Yinez/Selena's owner tools) — confirms every AI tool-call surface in this codebase needs this check audited per-tool, not just per-file. Checking the follow-up this raised (does `admin/ai-chat`'s own `update_bookings` share the exact same gap?) found YES — same file already touched for P30, same `updates.team_member_id` written unchecked. Fixed in the same pass rather than deferred; see the `admin/ai-chat` line item below. |
+| **Sibling fix (same pass)** | `admin/ai-chat`'s `update_bookings` tool (`src/app/api/admin/ai-chat/route.ts`) had the identical gap — its `TOOL_PERMISSIONS`/RBAC gate (`bookings.edit`) constrains WHO can call it, not what FK VALUES the model can write. Fixed with the same tenant-ownership check on `updates.team_member_id`. Regression lock added to the existing `src/app/api/admin/ai-chat/route.witness.test.ts` (2 new tests: BLOCKED foreign `team_member_id`, CONTROL own-tenant reassignment), mutation-verified RED→GREEN. `npx vitest run src/app/api/admin/ai-chat/` — 3 files / 18 passed / 0 failed. |
+
+---
+
 ## 2. Already-blocked — regression locks (no fix needed)
 
 Proven with a witness that the guard fires. Keep the test; do not remove the guard.
@@ -603,7 +620,14 @@ live leaks. This section is a **negative result, not a to-do list**.
    `admin/comhub/*` sibling of the already-fixed P22/P24 findings for the
    same shape — a *conditional*-validation gap, not a missing one: the
    ownership check existed but only ran when `phone`/`email`/`thread_id`
-   were absent from the body, so supplying both skipped it entirely).
+   were absent from the body, so supplying both skipped it entirely) →
+   P32 `ai/assistant` (client-facing widget) + `admin/ai-chat` (CRM
+   copilot) `update_bookings` tools, both cross-tenant `team_member_id`
+   FK injection (✅ fixed, 2026-07-15, W2, found auditing `ai/assistant`'s
+   `update_bookings` tool for the P25/P30 FK-injection shape on a mutating
+   field rather than an insert; the sibling gap in `admin/ai-chat`'s own
+   `update_bookings` was checked and fixed in the same pass rather than
+   deferred — same file already touched for P30).
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping

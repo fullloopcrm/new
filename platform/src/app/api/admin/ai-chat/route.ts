@@ -237,6 +237,20 @@ async function executeTool(
         })
       }
 
+      // team_member_id is a model-supplied FK — query_bookings/get_schedule_summary
+      // embed team_members(name) off this column with no tenant filter on the
+      // embedded side, so an unverified foreign id would surface another tenant's
+      // employee name on the next schedule lookup. Same class as P1/P11/P25/P30/P32.
+      if (updates.team_member_id) {
+        const { data: owned } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        if (!owned) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const results = await Promise.all(
         ids.map(async id => {
           const { data, error } = await supabaseAdmin

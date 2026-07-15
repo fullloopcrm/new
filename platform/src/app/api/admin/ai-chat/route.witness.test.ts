@@ -173,3 +173,60 @@ describe('admin/ai-chat create_booking — foreign client_id/team_member_id (BLO
     expect(created!.team_member_id).toBe('tm-a')
   })
 })
+
+describe('admin/ai-chat update_bookings — foreign team_member_id (BLOCKED)', () => {
+  beforeEach(() => {
+    h.seed.bookings.push({ id: 'booking-a', tenant_id: TENANT_A, status: 'scheduled', team_member_id: 'tm-a' })
+  })
+
+  it('BLOCKED: tenant A cannot reassign its own booking to tenant B\'s team_member_id', async () => {
+    createMock
+      .mockResolvedValueOnce({
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id: 'call-1',
+            name: 'update_bookings',
+            input: { booking_ids: ['booking-a'], updates: { team_member_id: 'tm-b' }, confirmed: true },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'Done.' }],
+      })
+
+    const res = await post([{ role: 'user', content: 'reassign booking-a to member B' }])
+    expect(res.status).toBe(200)
+
+    const booking = h.seed.bookings.find((b) => b.id === 'booking-a')
+    expect(booking!.team_member_id).toBe('tm-a')
+  })
+
+  it('CONTROL: tenant A can reassign its own booking to its own team_member_id', async () => {
+    h.seed.team_members.push({ id: 'tm-a2', tenant_id: TENANT_A, name: 'Member A2' })
+    createMock
+      .mockResolvedValueOnce({
+        stop_reason: 'tool_use',
+        content: [
+          {
+            type: 'tool_use',
+            id: 'call-1',
+            name: 'update_bookings',
+            input: { booking_ids: ['booking-a'], updates: { team_member_id: 'tm-a2' }, confirmed: true },
+          },
+        ],
+      })
+      .mockResolvedValueOnce({
+        stop_reason: 'end_turn',
+        content: [{ type: 'text', text: 'Done.' }],
+      })
+
+    const res = await post([{ role: 'user', content: 'reassign booking-a to member A2' }])
+    expect(res.status).toBe(200)
+
+    const booking = h.seed.bookings.find((b) => b.id === 'booking-a')
+    expect(booking!.team_member_id).toBe('tm-a2')
+  })
+})
