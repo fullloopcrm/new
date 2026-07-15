@@ -43,6 +43,18 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
+    // client_id is client-supplied — verify it belongs to this tenant before
+    // linking a review to it (cross-tenant FK injection).
+    if (fields!.client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', fields!.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
       .insert({ ...fields, tenant_id: tenantId })
