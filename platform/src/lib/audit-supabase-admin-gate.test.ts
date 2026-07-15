@@ -36,7 +36,7 @@ describe('audit-supabase-admin-gate guard', () => {
     writeRoute(
       fixtureDir,
       'src/app/api/leaky/route.ts',
-      `import { supabaseAdmin } from '@/lib/supabase'\n\nexport async function GET() {\n  return supabaseAdmin.from('clients').select('*')\n}\n`
+      `import { supabaseAdmin } from '@/lib/supabase'\n\nexport async function GET() {\n  return supabaseAdmin.from('clients').select('*')\n}\n` // tenant-scope-ok: fixture string for this gate's own test, not a real query
     )
     const baselineFile = path.join(fixtureDir, 'baseline.json')
 
@@ -80,7 +80,7 @@ describe('audit-supabase-admin-gate guard', () => {
     writeRoute(
       fixtureDir,
       'src/app/api/legacy/route.ts',
-      `import { supabaseAdmin } from '@/lib/supabase'\n\nexport async function GET() {\n  return supabaseAdmin.from('clients').select('*')\n}\n`
+      `import { supabaseAdmin } from '@/lib/supabase'\n\nexport async function GET() {\n  return supabaseAdmin.from('clients').select('*')\n}\n` // tenant-scope-ok: fixture string for this gate's own test, not a real query
     )
     const baselineFile = path.join(fixtureDir, 'baseline.json')
     writeFileSync(baselineFile, JSON.stringify([path.join(fixtureDir, 'src/app/api/legacy/route.ts')]))
