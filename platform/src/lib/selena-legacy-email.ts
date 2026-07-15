@@ -63,6 +63,14 @@ function buildReplySubject(originalSubject: string, tenantName: string): string 
   return /^re:\s/i.test(s) ? s : `Re: ${s}`
 }
 
+// Escape LIKE/ILIKE wildcards so an inbound sender address is matched literally
+// -- `from` is attacker-controlled (any email address can send to a monitored
+// inbox), and an unescaped '%'/'_' would ILIKE-match an arbitrary existing
+// client in the tenant instead of the actual sender.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export interface InboundEmailResult {
   handled: boolean
   skipped_reason?: string
@@ -93,7 +101,7 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
     .from('clients')
     .select('id, name, phone, email, do_not_service')
     .eq('tenant_id', tenant.id)
-    .ilike('email', from)
+    .ilike('email', escapeLike(from))
     .limit(1)
     .maybeSingle()
 
