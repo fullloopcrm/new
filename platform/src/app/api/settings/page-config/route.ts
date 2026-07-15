@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -40,14 +40,20 @@ function configKey(page: string) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Sibling settings/* GET routes all gate on settings.view (this tenant's
+    // own page-display config isn't sensitive, but the gap let staff -- which
+    // has no settings.view per rbac.ts -- read it despite the settings.edit
+    // check already present on PUT below). Match the established convention.
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const page = request.nextUrl.searchParams.get('page')
 
     if (!page || !VALID_PAGES.includes(page)) {
       return NextResponse.json({ error: 'Invalid page parameter' }, { status: 400 })
     }
 
-    const { data: tenant, error } = await supabaseAdmin
+    const { data: tenantRow, error } = await supabaseAdmin
       .from('tenants')
       .select('setup_progress')
       .eq('id', tenantId)
@@ -57,7 +63,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    const sp = (tenant?.setup_progress || {}) as Record<string, unknown>
+    const sp = (tenantRow?.setup_progress || {}) as Record<string, unknown>
     const config = (sp[configKey(page)] || {}) as Record<string, unknown>
 
     return NextResponse.json({ config })
