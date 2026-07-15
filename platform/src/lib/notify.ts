@@ -4,6 +4,7 @@ import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
+import { verifyTenantHeaderSig } from './tenant-header-sig'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -94,12 +95,23 @@ export async function notify({
 }): Promise<{ success: boolean; error?: string }> {
   // Accept nycmaid-style `booking_id` as an alias for bookingId
   bookingId = bookingId || booking_id
-  // Resolve tenant from request headers if caller didn't pass one (nycmaid pattern).
+  // Resolve tenant from request headers if caller didn't pass one (nycmaid
+  // pattern). The header must carry a valid x-tenant-sig — only middleware
+  // holds the signing secret, so an unsigned/mis-signed x-tenant-id is a
+  // caller-forged value. Without this check, an unauthenticated request
+  // reaching a notify() call that omits tenantId (e.g. a catch-all error
+  // handler that fires before its route's own sig check) could write a
+  // `notifications` row, and trigger a real email/SMS send using that
+  // tenant's own API keys, against ANY tenant simply by sending its id as a
+  // plain header — same class as the identical gap fixed in
+  // lib/nycmaid/notify.ts's resolveTenantId().
   if (!tenantId) {
     try {
       const { headers } = await import('next/headers')
       const h = await headers()
-      tenantId = h.get('x-tenant-id') || undefined
+      const headerTenantId = h.get('x-tenant-id')
+      const sig = h.get('x-tenant-sig')
+      tenantId = verifyTenantHeaderSig(headerTenantId ?? '', sig) ? headerTenantId ?? undefined : undefined
     } catch {
       // headers() only available inside request scope — ignore if outside
     }

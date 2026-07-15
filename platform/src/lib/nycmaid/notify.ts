@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendPushToAll } from '@/lib/nycmaid/push'
 import { notifyOwnerOnTelegram, sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 interface NotifyOptions {
   type: string
@@ -34,15 +35,27 @@ const TELEGRAM_NOTIFY_TYPES = new Set<string>([
   'tip_paid',
 ])
 
-// Resolve the tenant: explicit arg wins, else the request's x-tenant-id header
-// (the nycmaid request-scoped pattern). Returns null outside request scope
-// (e.g. crons) — callers there should pass tenantId explicitly.
+// Resolve the tenant: explicit arg wins, else the request's signed x-tenant-id
+// header (the nycmaid request-scoped pattern). Returns null outside request
+// scope (e.g. crons) — callers there should pass tenantId explicitly.
+//
+// The header must carry a valid x-tenant-sig. Only middleware holds the
+// signing secret (tenant-header-sig.ts), so an unsigned/mis-signed
+// x-tenant-id is a caller-forged value, not a real tenant context — trusting
+// it let an unauthenticated caller write a `notifications` row (and, for
+// TELEGRAM_NOTIFY_TYPES, trigger a real Telegram send) against ANY tenant by
+// sending that tenant's id as a plain header. Two confirmed reachable paths:
+// /api/auth/login's failed/successful-login alerts (never pass tenantId) and
+// /api/yinez's catch-all error notify (fires before that route's own sig
+// check, via a request whose body fails req.json()).
 async function resolveTenantId(explicit?: string): Promise<string | null> {
   if (explicit) return explicit
   try {
     const { headers } = await import('next/headers')
     const h = await headers()
-    return h.get('x-tenant-id') || null
+    const tenantId = h.get('x-tenant-id')
+    const sig = h.get('x-tenant-sig')
+    return verifyTenantHeaderSig(tenantId ?? '', sig) ? tenantId : null
   } catch {
     return null
   }
