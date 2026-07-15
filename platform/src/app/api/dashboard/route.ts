@@ -5,7 +5,8 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 
 interface BookingRow {
   price: number | null
@@ -18,6 +19,10 @@ export async function GET() {
     if (authError) return authError
     const { tenantId } = tenant
     const db = tenantDb(tenantId)
+    // Revenue numbers are finance-sensitive; this aggregator otherwise serves
+    // every bookings.view role (incl. staff), so redact for anyone without
+    // finance.view rather than blocking the whole endpoint.
+    const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
 
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -147,12 +152,12 @@ export async function GET() {
         week: normalizeMapJobs(mapWeekRes.data as BookingRow[] | null),
         month: normalizeMapJobs(mapMonthRes.data as BookingRow[] | null),
       },
-      financials: {
+      financials: canViewFinance ? {
         today: { revenue: calcRevenue(todayPaidRes.data as BookingRow[] | null), jobs: todayPaidRes.data?.length || 0 },
         week: { revenue: calcRevenue(weekPaidRes.data as BookingRow[] | null), jobs: weekPaidRes.data?.length || 0 },
         month: { revenue: calcRevenue(monthPaidRes.data as BookingRow[] | null), jobs: monthPaidRes.data?.length || 0 },
         pending: { revenue: calcRevenue(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
-      },
+      } : null,
       clients: {
         total: allClientsRes.count || 0,
         newThisMonth: recentClientsRes.data?.length || 0,
