@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { smsDailySummary } from '@/lib/sms-templates'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -13,7 +14,7 @@ export const maxDuration = 300 // Vercel pro plan
 // 3. Recurring expiration check (30-day warning)
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

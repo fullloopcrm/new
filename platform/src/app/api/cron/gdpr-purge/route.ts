@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { purgeDueDeletions } from '@/lib/gdpr-deletion'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const maxDuration = 300
 
@@ -7,7 +8,7 @@ export const maxDuration = 300
 // period has elapsed. See src/lib/gdpr-deletion.ts for the purge logic.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

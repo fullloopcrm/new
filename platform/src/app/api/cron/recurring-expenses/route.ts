@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { postJournalEntry } from '@/lib/ledger'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 function advance(d: Date, freq: string): Date {
   const r = new Date(d)
@@ -24,7 +25,7 @@ function advance(d: Date, freq: string): Date {
 export async function POST(request: Request) {
   const auth = request.headers.get('authorization') || ''
   const secret = process.env.CRON_SECRET
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!secret || !safeEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

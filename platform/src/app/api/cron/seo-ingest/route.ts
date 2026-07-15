@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ingestAllProperties } from '@/lib/seo/ingest'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 // gsc.ts signs a JWT with node:crypto — must run on the Node runtime, not edge.
 export const runtime = 'nodejs'
@@ -11,7 +12,7 @@ export const maxDuration = 300
 // writes only to the seo_* tables via the service role.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

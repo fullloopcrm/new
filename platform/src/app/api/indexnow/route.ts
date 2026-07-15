@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function GET(request: NextRequest) {
   const key = request.nextUrl.searchParams.get('key')
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
   //   2. Admin session via getTenantForRequest().
   let tenantId: string | null = null
   const authHeader = request.headers.get('authorization')
-  if (authHeader && process.env.CRON_SECRET && authHeader === `Bearer ${process.env.CRON_SECRET}`) {
+  if (authHeader && process.env.CRON_SECRET && safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     const body = await request.clone().json().catch(() => ({}))
     tenantId = body.tenantId || null
   } else {

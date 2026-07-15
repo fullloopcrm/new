@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { runCompetitorScan } from '@/lib/seo/competitors'
 import { generateCompetitorProposals } from '@/lib/seo/competitor-remediate'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -13,7 +14,7 @@ export const maxDuration = 300
 // seo_changes. Gated by SERPER_API_KEY — no key, no-op with a clear summary.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

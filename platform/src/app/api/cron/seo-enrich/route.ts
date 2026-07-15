@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateEnrichments } from '@/lib/seo/enrich'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ export const maxDuration = 300
 // applied to a live page — content stays human-reviewed.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const url = new URL(request.url)

@@ -12,10 +12,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { backfillRevenueFromBookings } from '@/lib/finance/post-revenue'
 import { backfillUnpostedLabor } from '@/lib/finance/post-labor'
 import { backfillUnpostedCommissions } from '@/lib/finance/post-adjustments'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function POST(request: Request) {
   const auth = request.headers.get('authorization') || ''
-  if (!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

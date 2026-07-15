@@ -9,12 +9,13 @@ import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
-  if (auth !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!auth || !process.env.CRON_SECRET || !safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

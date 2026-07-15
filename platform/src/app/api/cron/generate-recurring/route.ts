@@ -6,11 +6,12 @@ import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

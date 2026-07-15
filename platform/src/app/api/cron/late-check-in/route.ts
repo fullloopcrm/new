@@ -11,12 +11,13 @@ import {
   smsLateCheckOutTeam,
   smsLateCheckOutAdmin,
 } from '@/lib/sms-templates'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const maxDuration = 300
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!authHeader || !process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

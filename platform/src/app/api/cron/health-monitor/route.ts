@@ -15,6 +15,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner } from '@/lib/telegram'
 import { trackError } from '@/lib/error-tracking'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 type Source = 'email_logs' | 'notifications'
 
@@ -63,7 +64,7 @@ async function lastOccurrence(check: CronCheck): Promise<Date | null> {
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization') || ''
   const secret = process.env.CRON_SECRET
-  if (!secret || auth !== `Bearer ${secret}`) {
+  if (!secret || !safeEqual(auth, `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -7,6 +7,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -286,7 +287,7 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   const url = new URL(req.url)
   const querySecret = url.searchParams.get('secret') || ''
-  const ok = (CRON_SECRET && (authHeader === `Bearer ${CRON_SECRET}` || querySecret === CRON_SECRET))
+  const ok = (CRON_SECRET && ((authHeader && safeEqual(authHeader, `Bearer ${CRON_SECRET}`)) || (querySecret && safeEqual(querySecret, CRON_SECRET))))
             || req.headers.get('x-vercel-cron') === '1'
   if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
