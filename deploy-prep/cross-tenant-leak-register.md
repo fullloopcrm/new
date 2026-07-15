@@ -1210,3 +1210,123 @@ starts from a fresh area instead of re-covering this list.
    converting to `tenantDb` scopes the row's own `tenant_id` but does **not**
    validate foreign-key ownership — the guard is separate. Same principle applies
    to P4–P7.
+
+**2026-07-15 (W2, 15:45 refill) — negative-result sweep, no fix needed:**
+continued the leader's "controlled broad-hunt, lower-risk surface" order. Two
+angles this round: (1) closed out every remaining route with no detectable
+auth/tenant guard keyword (a full-repo scan of all 502 `route.ts` files for
+`tenant_id`/`tenantDb`/`getTenantForRequest`/`requireAdmin`/etc., 16 files
+matched none of them); (2) swept the brand-new, never-touched SEOMGR subsystem
+(`api/cron/seo-*` × 11 routes, `api/admin/seo` + `api/admin/seo/apply`,
+`lib/seo/*` × 30 files) added this session and not yet covered anywhere in
+this register.
+- The 16 no-keyword-match routes were all false positives from the keyword
+  scan or genuinely no-tenant-concept by design: `admin-auth/logout`,
+  `auth/logout` (cookie-clear only), `auth/me` (delegates to `getAdminUser()`
+  session check), `cleaner-applications` (thin alias forwarding to the
+  already tenant-aware `team-applications` handlers), `cron/refresh-job-postings`
+  (`protectCronAPI`-gated, no data returned), `inquiry`/`leads`/`prospects`
+  (public, platform-level pre-tenant lead capture — insert-only into tables
+  with no `tenant_id` column, no read-back, same exception class as
+  `track`/`waitlist`/`contact` already in this register), `seo/verify-file/[file]`
+  (already reviewed — echoes back only a token it can already prove was
+  minted for that exact property), `team-applications/upload` (anonymous
+  applicant photo upload, random-id storage key, no enumeration path),
+  `team-portal/config` + `team-portal/guidelines` (both correctly gated via
+  `verifyToken(token)` → `auth.tid`; missed by the keyword scan because it
+  didn't include `verifyToken`), `tenants/public` (intentional public
+  branding-only lookup: name/slug/logo_url), `territories/options` (already
+  documented public/no-PII), `webhooks/stripe-platform` (Stripe-signature
+  verified, platform-level tenant *creation* webhook, no tenant to scope by
+  yet).
+- `team-portal/update-phone` (GET/POST) verifies a signed
+  `verifyPhoneFixupToken` (HMAC over `team_member_id`+expiry, `ADMIN_PASSWORD`-
+  keyed, `timingSafeEqual`-compared) and looks up `team_members.id` — no
+  additional `tenant_id` check, but the id alone already uniquely identifies
+  the row and the token can't be forged for another id without the signing
+  secret, same accepted shape as the `unsubscribe` signed-token route already
+  in this register. **Not a leak, but flagging a separate functional bug for
+  whoever owns this flow (not fixed — out of the leak-hunt's scope, no
+  cross-tenant exposure results from it):** the minting cron
+  (`api/cron/phone-fixup`) signs tokens from the legacy `cleaners` table's
+  `id` (`signToken(c.id)`, `cleaners` being the nycmaid-era per-tenant-clone
+  schema — `wash-and-fold-nyc`/`wash-and-fold-hoboken`/`nyc-mobile-salon`),
+  while the verify side looks the id up in `team_members` (the modern,
+  global-schema table) — two disjoint id spaces. Any cleaner on the legacy
+  `cleaners` schema who receives this self-service email link will get a
+  `team_members` `not_found` 404 and can never actually fix their phone
+  number through it. Fails closed (404, no data exposure), so out of scope
+  for this leak register, but likely a silently-broken feature since
+  whichever cron ships it.
+- SEOMGR (`api/cron/seo-health`, `seo-improve`, `seo-enrich`, `seo-competitors`,
+  `seo-technical`, `seo-propose`, `seo-autopilot`, `seo-ingest`, `seo-detect`,
+  `seo-verify-revert`, `seo-autoverify` — 11 cron routes total) are all
+  consistently gated by `CRON_SECRET` + `safeEqual` (constant-time compare).
+  `api/admin/seo` (GET) and `api/admin/seo/apply` (POST) are gated by
+  `requireAdmin()` (verified against `verifyAdminToken`/`admin_token` cookie —
+  the platform-superadmin auth used by `src/app/admin/*`, distinct from any
+  tenant-level session; confirmed via `src/lib/require-admin.ts`), with
+  `apply` additionally accepting the same `CRON_SECRET` bearer for its
+  system-triggered remediation path. Every `seo_*` table read/write in these
+  routes and in `lib/seo/*` is keyed by `property`/`target_url` (a domain),
+  not `tenant_id` — by design, per the same "seomgr FL-admin engine, keyed by
+  property/domain not tenant" exception already documented at
+  `api/seo/verify-file/[file]/route.ts`. This is Jeff's own platform-wide SEO
+  ops tool (not a tenant-facing feature — no tenant/tenant-admin can reach
+  it), so the cross-tenant-leak bug class doesn't apply here the way it does
+  to `dashboard`/`api/portal`/`api/team-portal` routes; did not do a
+  line-by-line audit of all 30 `lib/seo/*` files' internal logic (out of
+  scope for a tenant-isolation sweep — no tenant-scoped data flows through
+  this subsystem to leak).
+No code changed this pass (nothing to fix); `npx tsc --noEmit` not run since
+no `.ts` edits were made. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 16:13 refill) — negative-result sweep, no fix needed:**
+continued the leader's "controlled broad-hunt, lower-risk surface" order into
+a fresh batch of admin-facing routes not previously touched by this register
+— every one already correctly tenant-scoped (no P-number assigned — recorded
+here so a future pass doesn't re-spend time on the same files):
+- `admin/cleanup-test-bookings`, `admin/cleanup-phones` — both
+  `requirePermission('settings.edit')`-gated, every read/delete/update
+  `.eq('tenant_id', tenantId)`; the purge route's cascading deletes all key
+  off ids collected from that same tenant-scoped `clients`/`bookings`/
+  `sms_conversations` query, never a caller-supplied id.
+- `admin/campaigns/generate`, `admin/campaigns/preview` — tenant resolved via
+  `getTenantForRequest()`; no caller-supplied FK, all client/booking reads
+  `.eq('tenant_id', tenantId)`.
+- `admin/find-cleaner/preview`, `admin/find-cleaner/recent` — `preview`'s
+  `team_members`/`bookings` reads are tenant-scoped, no caller-supplied id;
+  `recent`'s `cleaner_broadcast_recipients` lookup is keyed by `broadcast_id`s
+  collected from that same tenant's own `tenantDb`-scoped `cleaner_broadcasts`
+  query, so a foreign broadcast id is never in the `.in()` list to begin with
+  (freshly-derived-from-tenant-scoped-parent, same safe-by-construction shape
+  as B2/B4).
+- `admin/comhub/contacts/[id]/notes` (PATCH), `admin/comhub/contacts/[id]/context`
+  (GET) — both `requireAdmin()` (Jeff-only super_admin token, confirmed via
+  `verifyAdminToken`'s `role === 'super_admin'` check in `admin-auth/route.ts`
+  — cross-tenant by design, same exception class as `admin/impersonate`) +
+  `tenantDb(tenantId)`; `notes`'s `clients` update targets `contact.client_id`,
+  itself only ever resolved from the tenant-scoped `comhub_contacts` row;
+  `context`'s phone/email-match fallback lookups are all `.eq('tenant_id',...)`
+  before a `clientId`/`teamMemberId` is accepted.
+- `admin/broadcast-guidelines`, `admin/analytics/live-feed`,
+  `admin/cleaner-availability` — the three `admin/*` routes reachable via
+  `getTenantForRequest()` (not the Jeff-only `admin_token`) found in this
+  batch; all tenant-scoped (`team_members`/`lead_clicks` reads
+  `.eq('tenant_id',...)`/`tenantDb`); `cleaner-availability`'s caller-supplied
+  `exclude_booking` query param only ever feeds a `.neq('id', ...)` inside an
+  already `tenant_id`-scoped query (traced into
+  `src/lib/nycmaid/availability.ts`'s `getBookingsForDay`) — a foreign id
+  simply matches nothing, cannot suppress or leak another tenant's row.
+- Confirmed `admin/businesses`, `admin/businesses/[id]`, `admin/calendar`,
+  `admin/errors`, `admin/finance`, `admin/email`, `admin/activity`,
+  `admin/billing`, `admin/feedback` are all bare `requireAdmin()`
+  (super_admin-only, verified in `admin-auth/route.ts`: `verifyAdminToken`
+  hard-checks `role === 'super_admin'`, `verifyTenantAdminToken` is a
+  structurally separate function so a tenant-admin token can never satisfy
+  it) — Jeff's own platform-ops console, intentionally cross-tenant, same
+  exception class as `admin/impersonate`/`jefe/agent.ts` already documented
+  in this register; out of the cross-tenant-leak threat model this register
+  tracks (no tenant-boundary is being crossed by an unprivileged caller).
+No code changed this pass (nothing to fix); `npx tsc --noEmit` not run since
+no `.ts` edits were made. File-only, no push/deploy/DB.
