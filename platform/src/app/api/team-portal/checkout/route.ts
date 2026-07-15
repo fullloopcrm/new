@@ -25,13 +25,22 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Block double check-out — mirrors ../checkin/route.ts's check_in_time guard.
+  // Without this, check_in_time is never cleared, so a repeat call recomputes
+  // hoursWorked from the SAME check-in against a LATER "now", inflating both
+  // team_member_pay (read directly by finance/payroll-prep for gross pay) and
+  // the client's price every time this endpoint is called again.
+  if (booking.check_out_time) {
+    return NextResponse.json({ error: 'Already checked out' }, { status: 400 })
   }
 
   // Resolve the service's pricing model. ONLY hourly services recompute the
