@@ -701,6 +701,29 @@ live leaks. This section is a **negative result, not a to-do list**.
    route.
    All items in this register are closed.
 
+   **P37 (2026-07-15, W2):** `PATCH /api/routes/[id]` cross-tenant
+   `team_member_id` FK injection — same class as P1/P25/P30/P32/P34, and a
+   direct sibling gap in POST /api/routes' own already-fixed FK check
+   (`route.witness.test.ts` in the parent dir documents that fix). PATCH's
+   `assignables` allow-list included `team_member_id` with zero
+   tenant-ownership check, so an authenticated caller could re-point their
+   own (correctly tenant-scoped) route at a foreign tenant's team member.
+   Both `GET /api/routes` and `GET /api/routes/[id]` embed
+   `team_members(id, name, phone, home_latitude, home_longitude)` unscoped
+   by tenant off this column, so the foreign id would surface that
+   employee's name/phone/home address on the next read — and
+   `POST /api/routes/[id]/publish` would text that foreign employee a
+   route summary via this tenant's own Telnyx account/number, a real
+   cross-tenant contact/messaging abuse on top of the read leak. Found
+   broad-hunting a fresh area (`routes/*`, `clients/*` sub-resources,
+   `team-members/*`) — the exact same FK/embed shape POST already
+   documented a fix for, just missed on the sibling PATCH handler. Fixed:
+   `team_member_id`, when supplied and non-null, is now verified
+   tenant-owned before the update; a miss 404s before any row is written.
+   Witness added at `src/app/api/routes/[id]/route.witness.test.ts`
+   (2 LOCKED + 2 CONTROL), mutation-verified via git stash (RED 200 against
+   pre-fix code, GREEN 404 after restore).
+
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
    finance FK class turned up three more live instances of the exact P7 pattern
