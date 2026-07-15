@@ -58,14 +58,20 @@ export async function POST(request: Request) {
     let startLng: number | null = body.start_longitude ?? null
     let startAddress: string | null = body.start_address ?? null
 
-    if (body.team_member_id && (!startLat || !startLng)) {
+    // A foreign team_member_id would be inserted verbatim into routes.team_member_id
+    // and then joined back as team_members(name, phone, home_latitude, home_longitude)
+    // on every GET — a cross-tenant PII leak. Confirm ownership before using it at all.
+    let teamMemberId: string | null = null
+    if (body.team_member_id) {
       const { data: tm } = await supabaseAdmin
         .from('team_members')
-        .select('home_latitude, home_longitude, address')
+        .select('id, home_latitude, home_longitude, address')
         .eq('tenant_id', tenantId)
         .eq('id', body.team_member_id)
-        .single()
-      if (tm) {
+        .maybeSingle()
+      if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      teamMemberId = tm.id
+      if (!startLat || !startLng) {
         startLat = tm.home_latitude
         startLng = tm.home_longitude
         startAddress = startAddress || tm.address
@@ -89,7 +95,7 @@ export async function POST(request: Request) {
       .from('routes')
       .insert({
         tenant_id: tenantId,
-        team_member_id: body.team_member_id || null,
+        team_member_id: teamMemberId,
         route_date: body.route_date,
         status: 'draft',
         start_address: startAddress,

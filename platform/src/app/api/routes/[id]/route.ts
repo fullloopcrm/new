@@ -40,7 +40,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const updates: Record<string, unknown> = {}
     const assignables = [
-      'team_member_id', 'route_date', 'status',
+      'route_date', 'status',
       'start_address', 'start_latitude', 'start_longitude',
       'end_address', 'end_latitude', 'end_longitude',
       'scheduled_start_time',
@@ -48,6 +48,22 @@ export async function PATCH(request: Request, { params }: Params) {
       'total_distance_meters', 'total_duration_seconds',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
+
+    // A foreign team_member_id would be written verbatim into routes.team_member_id
+    // and then joined back as team_members(name, phone, home_latitude, home_longitude)
+    // on every GET — a cross-tenant PII leak. Confirm ownership before assigning it.
+    if ('team_member_id' in body) {
+      if (body.team_member_id) {
+        const { data: tm } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('id', body.team_member_id)
+          .maybeSingle()
+        if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      updates.team_member_id = body.team_member_id || null
+    }
 
     if ('stops' in body && Array.isArray(body.stops)) {
       updates.total_stops = body.stops.length
