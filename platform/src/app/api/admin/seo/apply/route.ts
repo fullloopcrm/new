@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/require-admin'
 import { applyOverride, revertOverride } from '@/lib/seo/overrides'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,7 +13,7 @@ export const dynamic = 'force-dynamic'
 // or by an admin (session cookie) from the approval UI.
 async function authorize(req: Request): Promise<boolean> {
   const bearer = req.headers.get('authorization')
-  if (bearer && bearer === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (bearer && process.env.CRON_SECRET && safeEqual(bearer, `Bearer ${process.env.CRON_SECRET}`)) return true
   const adminError = await requireAdmin()
   return adminError === null
 }
