@@ -82,7 +82,7 @@ function sha256(data: Uint8Array): Uint8Array {
   return out
 }
 
-function hmacSha256(keyStr: string, msg: string): Uint8Array {
+export function hmacSha256(keyStr: string, msg: string): Uint8Array {
   const enc = new TextEncoder()
   let keyBytes: Uint8Array = enc.encode(keyStr)
   if (keyBytes.length > 64) keyBytes = sha256(keyBytes)
@@ -104,7 +104,7 @@ function hmacSha256(keyStr: string, msg: string): Uint8Array {
   return sha256(outerInput)
 }
 
-function bytesToHex(bytes: Uint8Array): string {
+export function bytesToHex(bytes: Uint8Array): string {
   let s = ''
   for (let i = 0; i < bytes.length; i++) s += bytes[i].toString(16).padStart(2, '0')
   return s
