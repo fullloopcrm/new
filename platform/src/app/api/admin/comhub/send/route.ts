@@ -175,7 +175,7 @@ export async function POST(req: NextRequest) {
   let phone: string | null = body.phone || null
   let email: string | null = body.email || null
 
-  if (threadId && !contactId) {
+  if (threadId) {
     const { data: t } = await supabaseAdmin
       .from('comhub_threads')
       .select('id, contact_id, channel')
@@ -183,17 +183,28 @@ export async function POST(req: NextRequest) {
       .eq('tenant_id', tenantId)
       .single()
     if (!t) return NextResponse.json({ error: 'thread not found' }, { status: 404 })
-    contactId = t.contact_id
+    if (!contactId) contactId = t.contact_id
   }
 
-  if (contactId && (!phone && !email)) {
+  // Caller-supplied contact_id is verified against THIS tenant unconditionally
+  // — regardless of whether `phone`/`email` are ALSO present in the body.
+  // Previously the lookup only ran when both were absent, so a foreign
+  // contact_id (with a phone/email attached in the body) skipped validation
+  // entirely and flowed straight into comhub_get_or_create_thread and the
+  // comhub_messages insert below, stamped with THIS tenant's id — a dangling
+  // cross-tenant FK that GET /api/admin/comhub/threads then joins and
+  // displays (name/phone/email of the OTHER tenant's contact, inside THIS
+  // tenant's thread list).
+  if (contactId) {
     const { data: c } = await supabaseAdmin
       .from('comhub_contacts')
       .select('phone, email')
       .eq('id', contactId)
       .eq('tenant_id', tenantId)
       .single()
-    if (c) { phone = phone || c.phone; email = email || c.email }
+    if (!c) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
+    phone = phone || c.phone
+    email = email || c.email
   }
 
   if (!contactId) {

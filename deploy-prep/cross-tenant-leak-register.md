@@ -430,6 +430,34 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1308 passed / 37 skipped / 1 failed (same pre-existing flaky timeout in `finance-export.test.ts` noted under P20 — passes in isolation, unrelated to this change). Mutation-verified: reverted the fix, the new foreign-convoId test failed RED (B's real message returned instead of `[]`); restored, GREEN. |
 | **Rank rationale** | Same exfil class and severity as P28 (raw transcript/data return, zero ownership check) but on the message-read path itself rather than an AI self-review — arguably worse blast radius since it returns the complete raw conversation, not a derived summary. Found by directly comparing the guarded admin twin (`/api/admin/selena`) against this unguarded twin — same "admin-side already fixed, sibling missed" asymmetry class as P9/P10/P21/P23. |
 
+### P30 — `admin/ai-chat` `create_booking` tool → cross-tenant `client_id`/`team_member_id` FK injection  ⚠️ **DATA EXFIL**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/ai-chat` (tenant-dashboard CRM-copilot chat widget, `getTenantForRequest()`-authed) — `executeTool()`'s `create_booking` case, `src/app/api/admin/ai-chat/route.ts` |
+| **Table** | `bookings` (FK `client_id`, `team_member_id`) |
+| **Attack vector** | Same class of surface as P25 (an AI tool-call argument, not a raw HTTP body field — the model fills `client_id`/`team_member_id` in from the conversation, or a user can just ask the copilot to "book client `<uuid>` tomorrow at 9am" with a foreign id they happen to know). Every OTHER mutating tool in this same file (`update_bookings`, `cancel_bookings`, `update_client`) correctly scopes its target row with `.eq('tenant_id', tenantId)` — but `create_booking` inserts `client_id: input.client_id` and, when supplied, `team_member_id: input.team_member_id` **verbatim**, with zero ownership check against either FK, before stamping `tenant_id: tenantId` on the row itself. The file's own top-of-file comment already flags a *permission*-gating gap on the sibling `ai/assistant/route.ts` — this is a separate, unflagged FK-ownership gap, and `ai/assistant/route.ts` doesn't have a `create_booking` tool at all so it doesn't share this specific hole. |
+| **Effect** | `query_bookings` (`clients(name), team_members!bookings_team_member_id_fkey(name)`) and `get_schedule_summary` (`clients(name, address), team_members!bookings_team_member_id_fkey(name)`) — both in the same tool-dispatch table — embed those exact FKs with no tenant filter on the embedded side. So a tenant-A operator asking the copilot to create a booking against a foreign `client_id`/`team_member_id`, then asking "what's on the schedule", gets tenant B's real client name/address or employee name back in the very next tool response — same read-exfil shape as P1/P11/P25. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in a broad-hunt sweep of the AI-copilot tool-call surface, fresh area vs. P25's `src/lib/selena/tools.ts` — 2026-07-15, W2) |
+| **Fix** | `create_booking` now verifies `client_id` (always) and `team_member_id` (when supplied) are tenant-owned — `.eq('id', ...).eq('tenant_id', tenantId).maybeSingle()` against `clients`/`team_members` — before the `bookings` insert runs; a miss returns `{ error: 'client not found' }` / `{ error: 'team member not found' }` (matching this tool's existing `{ error: ... }` JSON-string return convention). Same pattern as the already-fixed `POST /api/bookings` (P1) and `src/lib/selena/tools.ts` `create_manual_booking` (P25). |
+| **Regression lock** | `src/app/api/admin/ai-chat/route.witness.test.ts` (flipped from LEAK to BLOCKED: foreign `client_id` alone is rejected; own `client_id` + foreign `team_member_id` is rejected; CONTROL — own-tenant `client_id`+`team_member_id` still creates the booking). `src/app/api/admin/ai-chat/route.test.ts` seed extended with a `clients` table so the pre-existing `create_booking` permission test still resolves ownership correctly. |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 303 files / 1312 passed / 37 skipped / 0 failed. |
+| **Rank rationale** | Same exfil class and construction as P25 (unverified FK argument on an AI tool-call, not an HTTP body) but on the separate `admin/ai-chat` copilot rather than the Yinez/Selena owner-messaging tools — confirms the "AI tool-call surface" is a repeating gap class across every agent in this codebase, not a one-off in `selena/tools.ts`. `ai/assistant/route.ts` (the file flagged as sharing a *permission* gap) was checked in the same pass and does NOT share this specific FK-injection hole — it has no `create_booking` tool. |
+
+### P31 — `admin/comhub/voice/dial` + `admin/comhub/send` → cross-tenant `contact_id` FK injection (conditional-validation gap)  ⚠️ **DATA EXFIL**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/comhub/voice/dial` and `POST /api/admin/comhub/send` (both `requireAdmin()`-gated, `getCurrentTenantId()`-scoped) — the external-channel (`sms`/`email`/`voice`) contact-resolution branch shared by both files |
+| **Table(s)** | `comhub_threads`/`comhub_messages` (FK `contact_id` → `comhub_contacts.id`, no DB-level tenant check — `comhub_get_or_create_thread()` inserts `(tenant_id, contact_id, channel)` with zero ownership validation on `p_contact_id`, migration `2026_05_19_comhub.sql`) |
+| **Attack vector** | Both routes accept a caller-supplied `contact_id` in the body. The ownership check that validates it against `tenant_id` was written as an `else`/conditional branch that only ran when OTHER identifying fields were absent: `voice/dial` used `else if (contactId && !customerPhone)`, `send` used `if (contactId && (!phone && !email))`. Supplying `contact_id` (a foreign tenant's real id) **together with** a caller-chosen `phone`/`email` skipped the lookup entirely — the foreign id flowed straight into `comhub_get_or_create_thread` (RPC, no ownership check) and the `comhub_messages` insert, both stamped with the CALLER's `tenant_id` but pointing at ANOTHER tenant's `comhub_contacts` row. `send`'s `thread_id` had the same shape: `if (threadId && !contactId)` meant a request supplying both a valid own-tenant `thread_id` *and* a foreign `contact_id` never validated the thread at all in that branch. |
+| **Effect** | `GET /api/admin/comhub/threads` joins `comhub_contacts!left(id, name, phone, email, client_id, team_member_id)` on the FK with no additional tenant filter (`comhub_contacts` RLS is service-role-only, and these admin routes run on the service-role client). So a tenant-A admin POSTing `{ contact_id: '<tenant-B-contact-uuid>', phone: '+1...', channel: 'sms', body: 'hi' }` to either route creates a thread in tenant A that, the next time the admin loads their own Comhub inbox, renders tenant B's real contact name/phone/email/`client_id`/`team_member_id` — live cross-tenant PII read, same class and blast radius as P22/P25. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of the `admin/comhub/*` surface, checking every sibling of the already-fixed P22 `voice/control` and P24 `threads/[id]` findings for the same conditional-validation shape — a fresh bug pattern distinct from the unconditional-missing-check shape of P1–P30, 2026-07-15, W2) |
+| **Fix** | In both routes, a caller-supplied `contact_id` is now validated against `tenant_id` **unconditionally** — independent of whether `phone`/`email` are also present in the body — a miss 404s (`'contact not found'`) before `comhub_get_or_create_thread`, any Telnyx call, or any DB write. `send`'s `thread_id` check was similarly changed from `threadId && !contactId` to always running when `threadId` is present. |
+| **Regression lock** | `src/app/api/admin/comhub/voice/dial/route.witness.test.ts` and `src/app/api/admin/comhub/send/route.witness.test.ts` (new files): BLOCKED — foreign `contact_id` + a caller-supplied `phone`/`email` 404s with no thread/message/RPC/SMS/fetch side effect; BLOCKED — foreign `contact_id` alone also 404s; CONTROL — own-tenant `contact_id` still succeeds and the inserted message/thread carry only the caller's own `contact_id`/`tenant_id`; CONTROL — phone-only (no `contact_id`) still resolves via the tenant-scoped RPC. |
+| **Verified** | `npx tsc --noEmit` clean (project-wide). `npx vitest run src/app/api/admin/comhub/` — 7 files / 24 passed / 0 failed (includes the 2 new witness files plus the 5 pre-existing comhub route test files, confirming no regression on P22/P24's fixes or normal send/dial behavior). |
+| **Rank rationale** | Same dangling-FK-via-join exfil class as P20/P22/P25 (a caller-controlled FK reaches a DB write unvalidated, then a later unfiltered join renders the victim's row), but a distinct root cause: not a *missing* ownership check like every prior finding in this register, but a check that existed and was correct in isolation, just gated behind the wrong condition — present only in the "field X is missing" branch, absent in the "field X is present too" branch. Worth flagging as its own pattern: any `if (fk && !otherField)`-shaped validation in this codebase should be re-audited for the same gap. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -565,8 +593,18 @@ live leaks. This section is a **negative result, not a to-do list**.
    (✅ fixed, 2026-07-15, W2, found by comparing the already-guarded admin twin
    `/api/admin/selena` against this unguarded sibling — same admin-twin-missing-
    a-guard asymmetry as P9/P10/P21/P23, but on a table with no `tenant_id`
-   column at all, same structural class as P0/P22/P27).**
-   All items in this register are now closed.
+   column at all, same structural class as P0/P22/P27) → P30
+   `admin/ai-chat` `create_booking` tool cross-tenant `client_id`/
+   `team_member_id` FK injection (✅ fixed, 2026-07-15, W2, found in a
+   broad-hunt sweep of the AI-copilot tool-call surface, a fresh area vs.
+   P25's `src/lib/selena/tools.ts`; same P1/P25-pattern ownership guard) →
+   P31 `admin/comhub/voice/dial` + `admin/comhub/send` cross-tenant
+   `contact_id` FK injection (✅ fixed, 2026-07-15, W2, found sweeping every
+   `admin/comhub/*` sibling of the already-fixed P22/P24 findings for the
+   same shape — a *conditional*-validation gap, not a missing one: the
+   ownership check existed but only ran when `phone`/`email`/`thread_id`
+   were absent from the body, so supplying both skipped it entirely).
+   All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the

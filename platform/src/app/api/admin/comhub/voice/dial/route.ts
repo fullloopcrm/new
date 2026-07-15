@@ -44,21 +44,29 @@ export async function POST(req: NextRequest) {
       .eq('id', threadId)
       .eq('tenant_id', tenantId)
       .single()
-    if (t) {
-      contactId = (t as { contact_id: string }).contact_id
-      const c = (t as { comhub_contacts: { phone: string | null } | { phone: string | null }[] | null }).comhub_contacts
-      const single = Array.isArray(c) ? c[0] : c
-      customerPhone = customerPhone || single?.phone || ''
-    }
-  } else if (contactId && !customerPhone) {
+    if (!t) return NextResponse.json({ error: 'thread not found' }, { status: 404 })
+    contactId = (t as { contact_id: string }).contact_id
+    const c = (t as { comhub_contacts: { phone: string | null } | { phone: string | null }[] | null }).comhub_contacts
+    const single = Array.isArray(c) ? c[0] : c
+    customerPhone = customerPhone || single?.phone || ''
+  } else if (contactId) {
+    // Caller-supplied contact_id is verified against THIS tenant before it can
+    // ever reach comhub_get_or_create_thread below. Previously this check only
+    // ran when `phone` was ALSO absent from the body — supplying both let a
+    // foreign contact_id flow straight through unvalidated into a thread/
+    // message insert stamped with this tenant's id, creating a dangling
+    // cross-tenant FK that GET /api/admin/comhub/threads then joins and
+    // displays (name/phone/email of the OTHER tenant's contact, inside THIS
+    // tenant's thread list).
     const { data: c } = await supabaseAdmin
       .from('comhub_contacts')
       .select('phone')
       .eq('id', contactId)
       .eq('tenant_id', tenantId)
       .single()
-    customerPhone = c?.phone || ''
-  } else if (customerPhone && !contactId) {
+    if (!c) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
+    customerPhone = customerPhone || c.phone || ''
+  } else if (customerPhone) {
     const { data, error } = await supabaseAdmin
       .rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: customerPhone })
     if (error || !data) return NextResponse.json({ error: error?.message || 'contact create failed' }, { status: 500 })
