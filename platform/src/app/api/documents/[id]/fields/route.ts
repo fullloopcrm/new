@@ -78,6 +78,18 @@ export async function POST(request: Request, { params }: Params) {
     const normalized = normalizeField(body)
     if ('error' in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 })
 
+    // signer_id is a caller-supplied FK — document_signers has its own tenant_id
+    // and the FK alone doesn't scope it to this document. Confirm the signer
+    // actually belongs to this document before letting a field reference it.
+    const { data: signerRow } = await supabaseAdmin
+      .from('document_signers')
+      .select('id')
+      .eq('id', normalized.signer_id)
+      .eq('tenant_id', tenantId)
+      .eq('document_id', id)
+      .maybeSingle()
+    if (!signerRow) return NextResponse.json({ error: 'Invalid signer_id' }, { status: 404 })
+
     const { data, error } = await supabaseAdmin
       .from('document_fields')
       .insert({ ...normalized, tenant_id: tenantId, document_id: id })
@@ -114,6 +126,23 @@ export async function PUT(request: Request, { params }: Params) {
       const n = normalizeField(f)
       if ('error' in n) return NextResponse.json({ error: n.error }, { status: 400 })
       normalized.push(n)
+    }
+
+    // signer_id is a caller-supplied FK — document_signers has its own tenant_id
+    // and the FK alone doesn't scope it to this document. Confirm every signer
+    // referenced actually belongs to this document before replacing the fields.
+    const signerIds = [...new Set(normalized.map(n => n.signer_id))]
+    if (signerIds.length > 0) {
+      const { data: ownedSigners } = await supabaseAdmin
+        .from('document_signers')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('document_id', id)
+        .in('id', signerIds)
+      const ownedSet = new Set((ownedSigners || []).map(s => s.id))
+      if (ownedSet.size !== signerIds.length) {
+        return NextResponse.json({ error: 'Invalid signer_id' }, { status: 404 })
+      }
     }
 
     await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
