@@ -1,6 +1,43 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getPortalAuth } from '@/lib/team-portal-auth'
+import { protectClientAPI } from '@/lib/client-auth'
+
+// Resolves tenantId *and* verifies the caller actually IS the identity they
+// claim (team_member_id / client_id), not just that they're on the tenant's
+// domain. push_subscriptions rows drive who receives push content
+// (sendPushToTenantAdmins/sendPushToTeamMember/sendPushToClient in
+// lib/push.ts) -- getCurrentTenant() alone would accept the public,
+// unauthenticated x-tenant-id header, letting any site visitor register a
+// push endpoint claiming an arbitrary role/team_member_id/client_id and
+// silently intercept another identity's notifications.
+async function resolveAuthedTenantId(
+  request: Request,
+  effectiveRole: string,
+  teamMemberId: string | undefined,
+  clientId: string | undefined,
+): Promise<{ tenantId: string } | NextResponse> {
+  if (effectiveRole === 'team_member') {
+    const auth = getPortalAuth(request)
+    if (!auth || auth.id !== teamMemberId) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
+    return { tenantId: auth.tid }
+  }
+
+  if (effectiveRole === 'client') {
+    const tenant = await getTenantFromHeaders()
+    if (!tenant) return NextResponse.json({ error: 'Unknown tenant' }, { status: 404 })
+    const auth = await protectClientAPI(tenant.id, clientId)
+    if (auth instanceof NextResponse) return auth
+    return { tenantId: tenant.id }
+  }
+
+  const ctx = await getTenantForRequest()
+  return { tenantId: ctx.tenantId }
+}
 
 export async function POST(request: Request) {
   try {
@@ -8,11 +45,6 @@ export async function POST(request: Request) {
 
     if (!subscription?.endpoint) {
       return NextResponse.json({ error: 'Invalid subscription' }, { status: 400 })
-    }
-
-    const tenant = await getCurrentTenant()
-    if (!tenant) {
-      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 })
     }
 
     const effectiveRole = role || 'admin'
@@ -23,6 +55,10 @@ export async function POST(request: Request) {
     if (effectiveRole === 'client' && !client_id) {
       return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
     }
+
+    const resolved = await resolveAuthedTenantId(request, effectiveRole, team_member_id, client_id)
+    if (resolved instanceof NextResponse) return resolved
+    const { tenantId } = resolved
 
     // Check if this endpoint already exists
     const { data: existing } = await supabaseAdmin
@@ -37,7 +73,7 @@ export async function POST(request: Request) {
         .update({
           subscription,
           role: effectiveRole,
-          tenant_id: tenant.id,
+          tenant_id: tenantId,
           team_member_id: effectiveRole === 'team_member' ? team_member_id : null,
           client_id: effectiveRole === 'client' ? client_id : null,
           updated_at: new Date().toISOString()
@@ -50,7 +86,7 @@ export async function POST(request: Request) {
           endpoint: subscription.endpoint,
           subscription,
           role: effectiveRole,
-          tenant_id: tenant.id,
+          tenant_id: tenantId,
           team_member_id: effectiveRole === 'team_member' ? team_member_id : null,
           client_id: effectiveRole === 'client' ? client_id : null
         })
@@ -58,6 +94,7 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true })
   } catch (err) {
+    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Push subscribe error:', err)
     return NextResponse.json({ error: 'Failed to save subscription' }, { status: 500 })
   }
