@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 
+// Wire to clients.special_instructions (client-facing "notes for your team member"),
+// NOT clients.notes -- that column is the internal staff/operator note field
+// (dashboard client-drawer "Operator" tab) and must never be client-readable or -writable.
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -11,11 +14,11 @@ export async function GET(request: NextRequest) {
 
   const { data } = (await tenantDb(auth.tid)
     .from('clients')
-    .select('notes')
+    .select('special_instructions')
     .eq('id', auth.id)
-    .single()) as { data: { notes: string | null } | null }
+    .single()) as { data: { special_instructions: string | null } | null }
 
-  return NextResponse.json({ notes: data?.notes || '' })
+  return NextResponse.json({ notes: data?.special_instructions || '' })
 }
 
 export async function PUT(request: NextRequest) {
@@ -32,7 +35,7 @@ export async function PUT(request: NextRequest) {
 
   await tenantDb(auth.tid)
     .from('clients')
-    .update({ notes })
+    .update({ special_instructions: notes })
     .eq('id', auth.id)
 
   return NextResponse.json({ success: true })

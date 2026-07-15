@@ -6,6 +6,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * one tenant from reading/writing a same-id client row owned by another
  * tenant (id collision across tenants), even though the route only filters
  * by client id + the token's own tenant claim.
+ *
+ * Also locks the client/staff field-separation fix: the route must read/write
+ * clients.special_instructions only, never clients.notes (the internal
+ * operator note field) -- a client-portal token must not be able to read or
+ * overwrite staff's private notes about that client.
  */
 
 type Row = Record<string, unknown>
@@ -65,8 +70,8 @@ const CLIENT_ID = 'client-shared-id' // same client id row-collision across tena
 beforeEach(() => {
   store = {
     clients: [
-      { id: CLIENT_ID, tenant_id: A_ID, notes: 'A private note' },
-      { id: CLIENT_ID, tenant_id: B_ID, notes: 'B private note' },
+      { id: CLIENT_ID, tenant_id: A_ID, special_instructions: 'A private note', notes: 'A internal operator note' },
+      { id: CLIENT_ID, tenant_id: B_ID, special_instructions: 'B private note', notes: 'B internal operator note' },
     ],
   }
 })
@@ -101,7 +106,25 @@ describe('portal/notes PUT — tenantDb isolation', () => {
 
     const aRow = store.clients.find((r) => r.tenant_id === A_ID)!
     const bRow = store.clients.find((r) => r.tenant_id === B_ID)!
-    expect(aRow.notes).toBe('A UPDATED')
-    expect(bRow.notes).toBe('B private note')
+    expect(aRow.special_instructions).toBe('A UPDATED')
+    expect(bRow.special_instructions).toBe('B private note')
+  })
+})
+
+describe('portal/notes — client/staff field separation', () => {
+  it('GET never returns the internal operator note (clients.notes)', async () => {
+    const res = await GET(reqWithToken(A_ID) as never)
+    const body = await res.json()
+    expect(body.notes).toBe('A private note')
+    expect(body.notes).not.toBe('A internal operator note')
+  })
+
+  it('PUT never mutates the internal operator note (clients.notes)', async () => {
+    const res = await PUT(reqWithToken(A_ID, 'PUT', { notes: 'client-submitted text' }) as never)
+    expect(res.status).toBe(200)
+
+    const aRow = store.clients.find((r) => r.tenant_id === A_ID)!
+    expect(aRow.special_instructions).toBe('client-submitted text')
+    expect(aRow.notes).toBe('A internal operator note')
   })
 })

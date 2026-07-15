@@ -3,6 +3,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
+// Wire to clients.special_instructions (client-facing "notes for your team member"),
+// NOT clients.notes -- that column is the internal staff/operator note field
+// (dashboard client-drawer "Operator" tab) and must never be client-readable or -writable.
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -16,13 +19,13 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('clients')
-    .select('notes')
+    .select('special_instructions')
     .eq('id', clientId)
     .eq('tenant_id', tenant.id)
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-  return NextResponse.json({ notes: data.notes || '' })
+  return NextResponse.json({ notes: data.special_instructions || '' })
 }
 
 export async function PUT(request: Request) {
@@ -42,7 +45,7 @@ export async function PUT(request: Request) {
 
   const { error } = await supabaseAdmin
     .from('clients')
-    .update({ notes })
+    .update({ special_instructions: notes })
     .eq('id', client_id)
     .eq('tenant_id', tenant.id)
 
