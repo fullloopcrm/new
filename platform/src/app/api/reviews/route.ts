@@ -1,34 +1,31 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 
 export async function GET() {
-  try {
-    const { tenantId } = await getTenantForRequest()
+  const { tenant, error: authError } = await requirePermission('reviews.view')
+  if (authError) return authError
+  const { tenantId } = tenant
 
-    const { data, error } = await supabaseAdmin
-      .from('reviews')
-      .select('*, clients(name)')
-      .eq('tenant_id', tenantId)
-      .order('created_at', { ascending: false })
+  const { data, error } = await supabaseAdmin
+    .from('reviews')
+    .select('*, clients(name)')
+    .eq('tenant_id', tenantId)
+    .order('created_at', { ascending: false })
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
-    }
-
-    return NextResponse.json({ reviews: data })
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
-    throw e
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  return NextResponse.json({ reviews: data })
 }
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
@@ -52,9 +49,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ review: data }, { status: 201 })
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
     throw e
   }
 }

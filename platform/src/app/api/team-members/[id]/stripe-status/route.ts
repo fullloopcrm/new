@@ -20,7 +20,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 function getStripe(key: string | null | undefined): Stripe {
@@ -34,7 +34,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   try {
     const { id } = await params
 
-    const { tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const tenant = authTenant.tenant
 
     const { data: teamMember } = await supabaseAdmin
       .from('team_members')
@@ -81,9 +83,6 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       details_submitted: account.details_submitted,
     })
   } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status })
-    }
     console.error('[stripe-status] POST error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }
@@ -92,7 +91,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const { tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const tenant = authTenant.tenant
 
     const { data: tm } = await supabaseAdmin
       .from('team_members')
@@ -112,9 +113,6 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       details_submitted: account.details_submitted,
     })
   } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status })
-    }
     console.error('[stripe-status] GET error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }

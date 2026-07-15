@@ -1,13 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getGoogleTokens, getGoogleBusiness } from '@/lib/google'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Dashboard-level Google status check
 export async function GET() {
+  const { tenant: authTenant, error: authError } = await requirePermission('settings.view')
+  if (authError) return authError
+  const tenant = authTenant.tenant
   try {
-    const { tenant } = await getTenantForRequest()
-
     const tokens = await getGoogleTokens(tenant.id)
     if (!tokens) {
       return NextResponse.json({ connected: false })
@@ -51,7 +52,6 @@ export async function GET() {
       autoReplyEnabled: autoReplySetting?.google_auto_reply === true,
     })
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e
   }
 }

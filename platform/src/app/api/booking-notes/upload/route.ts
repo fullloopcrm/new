@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +14,8 @@ export async function POST(request: NextRequest) {
 
     if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
-    const ctx = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('bookings.create')
+    if (authError) return authError
 
     // booking_id is a caller-supplied FK used both as an insert value and as a
     // storage path segment below — booking_notes has no cross-tenant FK check,
@@ -84,7 +85,6 @@ export async function POST(request: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json(data)
   } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('Note upload error:', err)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }

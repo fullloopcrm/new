@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 
@@ -7,8 +7,10 @@ import { sendSMS } from '@/lib/sms'
 // ?conversation_id=X  → messages for that conversation
 // otherwise           → list of conversations with client info
 export async function GET(request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+  const { tenantId } = tenant
   try {
-    const { tenantId } = await getTenantForRequest()
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
     if (conversationId) {
@@ -52,9 +54,6 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({ conversations: conversations || [] })
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
     throw e
   }
 }
@@ -63,7 +62,9 @@ export async function GET(request: NextRequest) {
 // Body: { conversation_id?, client_id, message }
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('clients.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
     const { conversation_id, client_id, message } = body
 
@@ -177,9 +178,6 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({ message: msg, sent }, { status: 201 })
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
     throw e
   }
 }

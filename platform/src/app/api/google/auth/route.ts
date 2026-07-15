@@ -1,12 +1,13 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { signOAuthState } from '@/lib/oauth-state'
 
 // Dashboard-level Google OAuth — business owner connects their own Google
 export async function GET() {
+  const { tenant: authTenant, error: authError } = await requirePermission('settings.integrations')
+  if (authError) return authError
+  const tenant = authTenant.tenant
   try {
-    const { tenant } = await getTenantForRequest()
-
     const clientId = process.env.GOOGLE_CLIENT_ID
     if (!clientId) {
       return NextResponse.json({ error: 'Google OAuth not configured' }, { status: 500 })
@@ -29,9 +30,6 @@ export async function GET() {
       url: `https://accounts.google.com/o/oauth2/v2/auth?${params}`,
     })
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
     throw e
   }
 }

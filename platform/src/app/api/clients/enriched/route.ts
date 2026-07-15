@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 
@@ -116,8 +116,10 @@ function relativeLast(start: string, status: string | null, paymentStatus: strin
 }
 
 export async function GET(_request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+  const { tenantId } = tenant
   try {
-    const { tenantId } = await getTenantForRequest()
     const settings = await getSettings(tenantId)
 
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([
@@ -339,10 +341,7 @@ export async function GET(_request: NextRequest) {
     }
 
     return NextResponse.json({ clients: enriched, totals })
-  } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
+  } catch {
     return NextResponse.json({ error: 'Failed to fetch enriched clients' }, { status: 500 })
   }
 }

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getSettings } from '@/lib/settings'
 
 /**
@@ -12,8 +12,10 @@ import { getSettings } from '@/lib/settings'
  *   churned: beyond at_risk_threshold_days
  */
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+  const { tenantId } = tenant
   try {
-    const { tenantId } = await getTenantForRequest()
     const settings = await getSettings(tenantId)
     const dayMs = 24 * 60 * 60 * 1000
     const activeCutoff = new Date(Date.now() - settings.active_client_threshold_days * dayMs).toISOString()
@@ -100,7 +102,6 @@ export async function GET() {
       },
     })
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e
   }
 }

@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { signOAuthState } from '@/lib/oauth-state'
 
 export async function GET() {
+  const { tenant: authTenant, error: authError } = await requirePermission('settings.integrations')
+  if (authError) return authError
+  const tenant = authTenant.tenant
   try {
-    const { tenant } = await getTenantForRequest()
-
     const appId = process.env.FACEBOOK_APP_ID
     if (!appId) {
       return NextResponse.json({ error: 'Facebook app not configured' }, { status: 500 })
@@ -19,7 +20,6 @@ export async function GET() {
 
     return NextResponse.json({ url })
   } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     throw e
   }
 }

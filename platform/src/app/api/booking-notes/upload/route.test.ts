@@ -48,7 +48,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ tenantId: 'tenant-A' })),
+    getTenantForRequest: vi.fn(async () => ({ tenantId: 'tenant-A', role: 'owner' })),
   }
 })
 

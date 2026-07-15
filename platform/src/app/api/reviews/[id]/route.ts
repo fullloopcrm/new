@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 
@@ -8,7 +8,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
     // Allow-listed scalars only — never accept tenant_id (row donation) or the
@@ -33,9 +35,6 @@ export async function PUT(
 
     return NextResponse.json({ review: data })
   } catch (e) {
-    if (e instanceof AuthError) {
-      return NextResponse.json({ error: e.message }, { status: e.status })
-    }
     throw e
   }
 }

@@ -1,19 +1,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const bookingId = searchParams.get('booking_id')
   if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
 
   const { data, error } = await supabaseAdmin
     .from('booking_notes')
@@ -33,13 +28,8 @@ export async function POST(request: Request) {
   if (!booking_id) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
   if (!content?.trim()) return NextResponse.json({ error: 'Content required' }, { status: 400 })
 
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('bookings.create')
+  if (authError) return authError
 
   // booking_id is a caller-supplied FK — booking_notes has no cross-tenant FK
   // check, so an unvalidated id would let this tenant attach a note to another

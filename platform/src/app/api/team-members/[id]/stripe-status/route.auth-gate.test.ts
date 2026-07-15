@@ -86,7 +86,7 @@ const { FakeAuthError } = vi.hoisted(() => ({
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => {
     if (h.authThrows) throw new FakeAuthError('Unauthorized')
-    return { tenantId: h.tenantId, tenant: { id: h.tenantId, stripe_api_key: null } }
+    return { tenantId: h.tenantId, tenant: { id: h.tenantId, stripe_api_key: null }, role: 'owner' }
   },
   AuthError: FakeAuthError,
 }))
