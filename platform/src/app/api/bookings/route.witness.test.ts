@@ -25,6 +25,15 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  *     now 404s on a foreign/nonexistent `service_type_id` instead of silently
  *     keeping it, so the FK itself can never be foreign.
  *
+ *  4. PROPERTY_ID FK INJECTION: `property_id` was written verbatim to both the
+ *     app layer and `create_admin_booking_atomic`'s `p_property_id` with no
+ *     ownership check anywhere. `GET /api/bookings` embeds
+ *     `client_properties(*)` unscoped by tenant off this exact column, so a
+ *     foreign id leaked another tenant's client address/lat-long on the very
+ *     next booking list read — same exfil shape as (1). Now verified owned
+ *     (`client_properties` scoped by `client_id` AND `tenant_id`) before the
+ *     RPC runs; a foreign or nonexistent id 404s.
+ *
  * LOCKED: these assertions prove the guards fire. A regression that removes
  * either `.eq('tenant_id', ...)` filter flips them back to a leak.
  */
@@ -126,6 +135,7 @@ function seed() {
     bookings: [] as Record<string, unknown>[],
     clients: [
       { id: 'client-a', tenant_id: CTX_TENANT, name: 'A-Client', phone: null },
+      { id: 'client-a2', tenant_id: CTX_TENANT, name: 'A2-Client', phone: null },
       { id: 'client-b', tenant_id: OTHER_TENANT, name: 'B-Client', phone: null },
     ],
     // Victim's service type — its NAME must not reach tenant A.
@@ -136,6 +146,12 @@ function seed() {
     team_members: [
       { id: 'tm-a', tenant_id: CTX_TENANT, name: 'A-Member', schedule: null, max_jobs_per_day: null },
       { id: 'tm-b', tenant_id: OTHER_TENANT, name: 'B-Member', schedule: null, max_jobs_per_day: null },
+    ],
+    // Victim's property — its address/lat-long must not attach to tenant A's booking.
+    client_properties: [
+      { id: 'prop-a', tenant_id: CTX_TENANT, client_id: 'client-a', address: '1 Alpha St' },
+      { id: 'prop-a2', tenant_id: CTX_TENANT, client_id: 'client-a2', address: '3 Charlie Rd' },
+      { id: 'prop-b', tenant_id: OTHER_TENANT, client_id: 'client-b', address: '2 Bravo Ave' },
     ],
     tenants: [{ id: CTX_TENANT, name: 'Alpha' }],
   }
@@ -210,5 +226,46 @@ describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
     expect(res.status).toBe(201)
     const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
     expect(row.team_member_id).toBe('tm-a')
+  })
+
+  it('LOCKED: a foreign property_id 404s before any booking is inserted', async () => {
+    // WRONG-TENANT PROBE: prop-b belongs to OTHER_TENANT's client-b. Without
+    // an explicit ownership guard, this would sail through and attach tenant
+    // B's client address/lat-long to tenant A's booking (surfaced on every
+    // subsequent GET /api/bookings via the unscoped client_properties embed).
+    const res = await POST(
+      postReq({ client_id: 'client-a', property_id: 'prop-b', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('LOCKED: a nonexistent property_id 404s before any booking is inserted', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', property_id: 'prop-does-not-exist', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('LOCKED: a same-tenant property_id belonging to a DIFFERENT client 404s', async () => {
+    // prop-a2 belongs to client-a2 — same tenant as client-a, but a
+    // different client's property. The client_id filter must be enforced,
+    // not just tenant_id, or one client's address could attach to another
+    // client's booking within the same tenant.
+    const res = await POST(
+      postReq({ client_id: 'client-a', property_id: 'prop-a2', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('CONTROL: own tenant\'s property_id for the owning client still creates the booking', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', property_id: 'prop-a', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(201)
+    const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
+    expect(row.property_id).toBe('prop-a')
   })
 })

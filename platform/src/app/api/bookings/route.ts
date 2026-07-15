@@ -108,6 +108,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
+    // property_id is a caller-supplied FK too — client_properties carries its
+    // own tenant_id and no cross-tenant FK check, and is written verbatim to
+    // create_admin_booking_atomic's p_property_id with no ownership check on
+    // either side (app layer or RPC). GET /api/bookings embeds
+    // client_properties(*) unscoped by tenant off this exact column, so a
+    // foreign id here leaks another tenant's client address/lat-long on the
+    // very next booking list read — same exfil shape as P1/P11/P17. Same
+    // guard already applied to POST /api/client/recurring and
+    // POST /api/admin/recurring-schedules; this sibling route accepted the
+    // id verbatim.
+    if (validated.property_id) {
+      const { data: ownedProperty } = await supabaseAdmin
+        .from('client_properties')
+        .select('id')
+        .eq('id', validated.property_id as string)
+        .eq('client_id', validated.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedProperty) {
+        return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+      }
+    }
+
     // team_member_id is a caller-supplied FK too — team_members has no
     // cross-tenant FK check, so without this a foreign id would sail through
     // (the working-hours/cap lookup below silently no-ops when the row isn't

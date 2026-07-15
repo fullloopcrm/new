@@ -850,6 +850,98 @@ live leaks. This section is a **negative result, not a to-do list**.
 
    All items in this register are closed.
 
+   **Post-P41 broad-hunt sweep (2026-07-15, W2, no new proven-LIVE leak found):**
+   Continuing the broad-hunt per LEADER order (fresh area, file-only, excluding
+   referrers/referral-commissions/team-PIN routes and `GET /api/team`,
+   `GET /api/team/[id]`, `GET /api/dashboard`). Manually audited every
+   caller-supplied `*_id` write site (insert/update/PATCH allow-lists) in a set
+   of areas not previously touched by this register, applying the same
+   FK-ownership-check test used for P1-P39: **all found already safe** —
+   either the FK is verified tenant-owned before use, the value is
+   internally-derived (never caller-supplied), or `tenantDb`'s auto-scoping
+   makes a foreign id resolve to nothing. No fix needed in any of them.
+   Recorded here (per this register's own §4 "scanned & cleared" precedent)
+   so a future sweep doesn't re-spend time on the same files:
+   - `POST/GET /api/documents`, `[id]/signers`, `[id]/signers/[signerId]`,
+     `public/[token]/sign` — signer/field writes scoped by `document_id` +
+     `signer_id`/token match; no foreign-tenant FK path.
+   - `POST/PUT /api/campaigns/send` — `client_ids` filtered through a
+     tenant-scoped `clients` query before use, foreign ids silently excluded.
+   - `POST/PATCH /api/deals`, `/api/deals/[id]`, `/api/deals/manual`,
+     `/api/deals/[id]/stage`, `/api/deals/[id]/activities` — `client_id`
+     already ownership-checked (pre-existing fix); `deals.owner_id` is a bare
+     UUID column with no `REFERENCES` clause and no read/embed anywhere in
+     the app (grepped) — dead column, not a leak surface.
+   - `POST /api/jobs/[id]/sessions` — `crew_id`/`team_member_id` resolved via
+     `tenantDb`, so a foreign id matches zero rows (safe-by-construction,
+     same shape as register item B2).
+   - `POST /api/recurring-expenses`, `PATCH /api/recurring-expenses/[id]` —
+     `entity_id` (a real FK, migration 034) is not in either route's
+     allow-list at all — never caller-settable, so not exploitable.
+   - `POST /api/quote-templates`, `POST /api/settings/services` — no FK
+     columns, scalars only.
+   - `POST /api/leads/override`, `/api/leads/block`, `/api/leads/verify`,
+     `GET /api/leads/feed`, `/api/leads/attribution`, `/api/leads/domains` —
+     all tenant-scoped reads/updates, no caller-supplied cross-tenant FK.
+   - `POST /api/finance/bank-transactions/[id]/match` — every lookup
+     (invoice/booking/expense/chart_of_accounts) is `.eq('tenant_id', tenantId)`
+     scoped before its id is used downstream.
+   - `POST /api/finance/bank-connect/session` — no caller-supplied FK; tenant's
+     own Stripe key/customer only.
+   - `POST /api/admin/payments/confirm-match` — sibling of the already-fixed
+     P35 `finalize-match`, but this one already scopes both `unmatchedPaymentId`
+     and `bookingId` by `tenant_id` before use.
+   - `GET /api/team-portal/crew/members`, `/schedule`, `/earnings` — read-only,
+     scoped via `scopedMemberIds(auth)` + `tenant_id`.
+   - `src/lib/jefe/agent.ts` (the platform-GM AI tool-call surface, a fresh
+     file vs. the tenant-facing `selena/tools.ts`/`ai-chat`/`ai/assistant`
+     already covered under P25/P30/P32/P34) — by design operates across ALL
+     tenants (it's Jeff's platform-wide GM, not a tenant agent); gated by
+     Telegram secret-token + a hardcoded owner chat-id allowlist in
+     `webhooks/telegram/jefe/route.ts`, so "cross-tenant" isn't a violation
+     here, it's the intended scope. Confirmed the gate is real, not a leak.
+   - `GET/POST /api/google/callback` — tenant resolved from a signed/verified
+     OAuth `state` param (CSRF-protected), not caller-supplied.
+   No code changed this pass (nothing to fix); `npx tsc --noEmit` not run
+   since no `.ts` edits were made. File-only.
+
+   **P42 (2026-07-15, W2):** `POST /api/bookings` — the very route P1/P20
+   already hardened for `client_id`/`team_member_id`/`service_type_id` — had
+   one sibling FK column left unchecked: `property_id`. It was accepted from
+   the body (UUID-format-validated only), passed straight through as
+   `p_property_id` to the `create_admin_booking_atomic` RPC, and neither the
+   app layer nor the RPC itself (`migrations/2026_07_13_admin_booking_atomic.sql`)
+   ever verified it belonged to the acting tenant or the target client.
+   `GET /api/bookings` embeds `client_properties(*)` unscoped by tenant off
+   this exact column (`route.ts:40`), so a foreign `property_id` leaks
+   another tenant's client address/lat-long on the very next booking list
+   read — same exfil shape as P1/P11/P17. Found continuing the broad-hunt
+   into a fresh area (`client/*` portal routes — `recurring`, `properties`,
+   `book`, `reschedule/[id]` — all already correctly guard their own
+   `property_id`/`client_properties` access); tracing `client-properties.ts`'s
+   `getBookingAddress()` helper (which itself has the identical unscoped
+   `.eq('id', propertyId)` lookup, but its one live caller,
+   `cron/generate-recurring`, only ever passes an already-tenant-verified
+   `schedule.property_id`) led to diffing every `recurring_schedules`/
+   `bookings` writer's FK-check list against the sibling
+   `admin/recurring-schedules` route, which already carries this exact
+   `property_id` ownership check (`client_properties` scoped by `client_id`)
+   with a comment noting the identical embed-leak rationale — `POST /api/bookings`
+   was the one write site missing it. Fixed: `property_id`, when supplied, is
+   now verified tenant-owned AND owned by the request's own `client_id`
+   (`client_properties` `.eq('id',...).eq('client_id',...).eq('tenant_id', tenantId)`)
+   before the RPC runs; a miss 404s, no booking inserted. Regression lock:
+   `src/app/api/bookings/route.witness.test.ts` — 4 new tests (LOCKED:
+   foreign-tenant property_id, nonexistent property_id, same-tenant-but-
+   different-client property_id, each 404 with no insert; CONTROL: the
+   client's own property_id still creates the booking with that id stamped).
+   Mutation-verified via cp-based backup/restore: reverted the fix, all 3
+   applicable LOCK tests failed RED (200/201 instead of 404, property
+   attached); restored, GREEN. `npx tsc --noEmit` clean; full `vitest run`
+   318 files / 1405 passed / 37 skipped / 0 failed. File-only, no push/
+   deploy/DB. Did not touch referrers/referral-commissions/team-PIN routes
+   or `GET /api/team`, `GET /api/team/[id]`, `GET /api/dashboard`.
+
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
    finance FK class turned up three more live instances of the exact P7 pattern
