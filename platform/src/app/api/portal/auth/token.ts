@@ -26,9 +26,16 @@ export function createToken(clientId: string, tenantId: string): string {
 export function verifyPortalToken(token: string): { id: string; tid: string } | null {
   try {
     const [payloadB64, sig] = token.split('.')
+    if (!payloadB64 || !sig) return null
     const payload = Buffer.from(payloadB64, 'base64').toString()
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
-    if (sig !== expected) return null
+    // Constant-time compare to avoid leaking signature bytes via timing — mirrors
+    // team-portal/auth/token.ts's verifyToken, which shares this same PORTAL_SECRET-
+    // style HMAC scheme and was already hardened; this client-facing verifier (the
+    // most-exposed of the two) had been left on a plain !== comparison.
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
+    if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
     return data
