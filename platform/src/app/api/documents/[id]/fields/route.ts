@@ -78,6 +78,19 @@ export async function POST(request: Request, { params }: Params) {
     const normalized = normalizeField(body)
     if ('error' in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 })
 
+    // signer_id is a caller-supplied FK — document_fields has no cross-tenant FK
+    // check, so an unvalidated id would let this field reference another
+    // tenant's (or another document's) signer row. Verify it belongs to this
+    // document before insert.
+    const { data: ownedSigner } = await supabaseAdmin
+      .from('document_signers')
+      .select('id')
+      .eq('id', normalized.signer_id)
+      .eq('tenant_id', tenantId)
+      .eq('document_id', id)
+      .maybeSingle()
+    if (!ownedSigner) return NextResponse.json({ error: 'Invalid signer_id' }, { status: 400 })
+
     const { data, error } = await supabaseAdmin
       .from('document_fields')
       .insert({ ...normalized, tenant_id: tenantId, document_id: id })
@@ -114,6 +127,22 @@ export async function PUT(request: Request, { params }: Params) {
       const n = normalizeField(f)
       if ('error' in n) return NextResponse.json({ error: n.error }, { status: 400 })
       normalized.push(n)
+    }
+
+    // Every referenced signer_id must belong to this document/tenant — see the
+    // same guard in POST above for why an unchecked FK here is a cross-tenant risk.
+    const signerIds = [...new Set(normalized.map(n => n.signer_id))]
+    if (signerIds.length > 0) {
+      const { data: ownedSigners } = await supabaseAdmin
+        .from('document_signers')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('document_id', id)
+        .in('id', signerIds)
+      const ownedIds = new Set((ownedSigners || []).map(s => s.id))
+      if (signerIds.some(sid => !ownedIds.has(sid))) {
+        return NextResponse.json({ error: 'Invalid signer_id in fields' }, { status: 400 })
+      }
     }
 
     await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
