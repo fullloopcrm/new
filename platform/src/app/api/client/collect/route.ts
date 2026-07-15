@@ -8,6 +8,15 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt } from 'crypto'
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped from either side -- returns null for anything shorter (a short or
+// malformed phone must never resolve to an existing client).
+function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -29,14 +38,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
     }
 
-    const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
-      .from('clients')
-      .select('id, status')
-      .eq('tenant_id', tenant.id)
-      .or(`phone.ilike.%${cleanPhone.slice(-10)}%`)
-      .limit(1)
-    const existingClient = existing?.[0]
+    // Existing client match must be a FULL, exact digit match -- a
+    // substring/suffix ilike here let a short or malformed phone (e.g. "5")
+    // match an ARBITRARY unrelated client, silently overwriting their
+    // name/email/address/notes/status below. Mirrors client/check.
+    const normalizedPhone = normalizePhoneDigits(phone)
+    let existingClient: { id: string; status: string } | undefined
+    if (normalizedPhone) {
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, status, phone')
+        .eq('tenant_id', tenant.id)
+      existingClient = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+    }
 
     // Referrer resolution (tenant-scoped)
     let referrerId: string | null = null
