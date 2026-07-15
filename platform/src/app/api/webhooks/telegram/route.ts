@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
+import { requireAdmin } from '@/lib/require-admin'
 
 export const maxDuration = 60
 
@@ -36,6 +37,12 @@ function ownerPhone(): string {
 }
 
 export async function GET() {
+  // Manual diagnostic route, not a Telegram webhook target — gate it. Without
+  // this, any unauthenticated internet caller could trigger a real outbound
+  // message to the owner's chat and read back owner_chat_id/bot_token_len.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   if (!BOT_TOKEN) return NextResponse.json({ error: 'BOT_TOKEN missing' })
   if (!OWNER_CHAT_ID) return NextResponse.json({ error: 'OWNER_CHAT_ID missing' })
   const send = await sendTelegram(OWNER_CHAT_ID, `GET diag fired at ${new Date().toISOString()}`)
