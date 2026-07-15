@@ -22,7 +22,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { decryptSecret } from '@/lib/secret-crypto'
 
@@ -101,7 +101,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
 
     const { data: tenant } = await supabaseAdmin
