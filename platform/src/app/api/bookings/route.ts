@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
@@ -24,7 +24,9 @@ function formatMin(min: number): string {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const url = request.nextUrl
     const status = url.searchParams.get('status')
     const clientId = url.searchParams.get('client_id')

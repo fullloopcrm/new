@@ -7,7 +7,8 @@
  *         status → 'completed' stamps completed_at and logs a timeline event.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
 import { escapeHtml } from '@/lib/escape-html'
@@ -18,7 +19,9 @@ const VALID_STATUS: JobStatus[] = ['unscheduled', 'scheduled', 'in_progress', 'c
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
 
     const { data: job, error } = await supabaseAdmin
@@ -57,7 +60,9 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
       status?: JobStatus

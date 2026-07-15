@@ -5,7 +5,8 @@
  * POST → { start_time, end_time?, notes? }
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
 
@@ -13,7 +14,9 @@ type Params = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.create')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
       start_time?: string

@@ -6,7 +6,8 @@
  * GET → { jobs: [...], totals: { contracted, paid, due, overdue } }
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 interface PaymentRow {
@@ -30,7 +31,9 @@ function rollup(payments: PaymentRow[], nowIso: string) {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const nowIso = new Date().toISOString()
 
     const { data: jobs, error } = await supabaseAdmin
