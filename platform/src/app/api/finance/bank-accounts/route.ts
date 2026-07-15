@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
@@ -33,6 +33,22 @@ export async function POST(request: Request) {
     const { tenantId } = _authTenant
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
+
+    // Caller-supplied FKs — entities/chart_of_accounts both carry their own
+    // tenant_id, and GET embeds entities(name)/chart_of_accounts(name) off this
+    // row, so a foreign id would leak another tenant's identity on the next read.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
+    if (body.coa_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.coa_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 404 })
+    }
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 

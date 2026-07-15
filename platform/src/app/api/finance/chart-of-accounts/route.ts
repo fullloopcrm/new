@@ -42,6 +42,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'code, name, type required' }, { status: 400 })
     }
 
+    // parent_id is a caller-supplied self-referencing FK — chart_of_accounts
+    // carries its own tenant_id with no cross-tenant constraint, same class as
+    // the coa_id/entity_id checks on bank-accounts/expenses/periods. Verify
+    // ownership before insert.
+    if (body.parent_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.parent_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid parent_id' }, { status: 400 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('chart_of_accounts')
       .insert({

@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 import {
   normalizeLineItems,
   computeTotals,
@@ -141,6 +141,11 @@ export async function POST(request: Request) {
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
+    // A foreign entity_id here is a dangling cross-tenant reference (other
+    // finance routes join entities(name) by entity_id) -- keep it in-tenant.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     // Confirm a directly-supplied client (not one derived from an

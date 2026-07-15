@@ -30,6 +30,17 @@ export async function listEntities(tenantId: string): Promise<Entity[]> {
   return (data || []) as Entity[]
 }
 
+/** True only if `entityId` is owned by `tenantId`. */
+export async function isEntityOwnedByTenant(tenantId: string, entityId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('entities')
+    .select('id')
+    .eq('id', entityId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  return !!data
+}
+
 export async function getDefaultEntityId(tenantId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('entities')

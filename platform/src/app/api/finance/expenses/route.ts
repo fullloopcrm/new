@@ -3,7 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 import { audit } from '@/lib/audit'
 
 export async function GET(request: Request) {
@@ -52,6 +52,13 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
+
+    // Caller-supplied FK — verify it belongs to this tenant before insert, so a
+    // foreign id can't attach another tenant's accounting entity (surfaced back
+    // on read via finance embeds of entities(name)).
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 

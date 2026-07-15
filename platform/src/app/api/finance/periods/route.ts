@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl } from '@/lib/entity'
+import { entityIdFromUrl, isEntityOwnedByTenant } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
@@ -41,6 +41,14 @@ export async function POST(request: Request) {
     const body = await request.json()
     if (!body.year || !body.month) {
       return NextResponse.json({ error: 'year, month required' }, { status: 400 })
+    }
+
+    // Caller-supplied FK — verify it belongs to this tenant before upsert, so a
+    // foreign id can't scope this tenant's period to another tenant's accounting
+    // entity (surfaced back on read via the GET route's entities(name) embed, and
+    // the on-conflict key includes entity_id so a foreign id opens a distinct row).
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
     }
 
     const { data, error } = await supabaseAdmin

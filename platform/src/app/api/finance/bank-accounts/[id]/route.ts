@@ -16,6 +16,20 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of ['name', 'institution', 'type', 'mask', 'coa_id', 'active', 'current_balance_cents', 'as_of_date']) {
       if (k in body) updates[k] = body[k]
     }
+
+    // coa_id is a caller-supplied FK — chart_of_accounts carries its own
+    // tenant_id, and GET embeds chart_of_accounts(code, name, type) off this
+    // row, so a foreign id would leak another tenant's GL account name.
+    if ('coa_id' in updates && updates.coa_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', updates.coa_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('bank_accounts')
       .update(updates)
