@@ -259,3 +259,27 @@ describe('POST /api/client/verify-code -- phone endsWith cross-client account ta
     expect(json.client.id).toBe('us-format-victim')
   })
 })
+
+describe('POST /api/client/verify-code -- response strips secrets/internal fields', () => {
+  it('never returns the raw clients row (pin credential, internal fields) in the JSON body', async () => {
+    clients = [{
+      ...VICTIM,
+      // Fields a raw `{ client }` response would otherwise leak: the
+      // standalone client-portal login credential plus internal-only data.
+      pin: '482913',
+      selena_memory_summary: 'internal AI notes about this client',
+      apology_credit_cents: 500,
+    } as typeof VICTIM]
+
+    const res = await postJson({ email: 'victim@example.com', code: 'VICTIM1' })
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.client.id).toBe('victim-1')
+    expect(json.client).not.toHaveProperty('pin')
+    expect(json.client).not.toHaveProperty('selena_memory_summary')
+    expect(json.client).not.toHaveProperty('apology_credit_cents')
+    // Only the UI-needed fields survive.
+    expect(Object.keys(json.client).sort()).toEqual(['email', 'id', 'name', 'phone'])
+  })
+})
