@@ -3,6 +3,19 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
+// Escape LIKE/ILIKE wildcards so the client/team-member match below only
+// ever matches the literal address. contact.email originates from inbound
+// SMS/email intake (comhub_get_or_create_contact_by_email/_by_phone) —
+// attacker-controlled — and '_'/'%' are both legal, common characters in
+// real addresses (e.g. "john_doe@gmail.com"). Left unescaped, ILIKE treats
+// them as wildcards and can auto-link this contact to a DIFFERENT client,
+// persisting the wrong client_id and leaking that client's bookings/balance
+// into this panel. Same pattern as lib/inbound-email-tenant.ts's
+// escapeLike().
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
 // recent bookings + counters.
@@ -38,7 +51,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .from('clients')
       .select('id')
       .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
+      .ilike('email', escapeLike(contact.email))
       .limit(1)
     if (matched && matched.length > 0) clientId = matched[0].id
   }
@@ -57,7 +70,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .from('team_members')
       .select('id')
       .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
+      .ilike('email', escapeLike(contact.email))
       .limit(1)
     if (matched && matched.length > 0) teamMemberId = matched[0].id
   }

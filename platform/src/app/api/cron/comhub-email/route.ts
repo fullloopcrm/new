@@ -12,6 +12,17 @@ function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
 }
 
+// Escape LIKE/ILIKE wildcards so the do-not-service lookup below only ever
+// matches the literal sender address. `fromAddr` is the inbound email's
+// From: header — fully attacker-controlled — and '_'/'%' are both legal,
+// common characters in real addresses (e.g. "john_doe@gmail.com"). Left
+// unescaped, ILIKE would treat them as wildcards and match OTHER clients'
+// emails, wrongly flipping the do_not_service check for this thread. Same
+// pattern as lib/inbound-email-tenant.ts's escapeLike().
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export const maxDuration = 60
 
 const CRON_SECRET = (process.env.CRON_SECRET || '').trim()
@@ -196,7 +207,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             .from('clients')
             .select('do_not_service')
             .eq('tenant_id', tenantId)
-            .ilike('email', fromAddr)
+            .ilike('email', escapeLike(fromAddr))
             .limit(1)
             .single()
           if (!paused && !dnsClient?.do_not_service) {
