@@ -28,16 +28,29 @@ vi.mock('@/lib/email-templates', () => ({
 vi.mock('@/lib/tenant-site', () => ({ tenantSiteUrl: vi.fn(() => 'https://acme.example.com') }))
 vi.mock('@/lib/error-tracking', () => ({ trackError: vi.fn(async () => {}) }))
 
+// Chainable query stub: eq/in/limit/ilike all return the same object so any
+// call order resolves, and the object itself is awaitable (thenable).
+function chain(result: { data: unknown; error?: unknown }) {
+  const q: Record<string, unknown> = {
+    eq: () => q,
+    in: () => q,
+    limit: () => q,
+    ilike: () => q,
+    order: () => q,
+    maybeSingle: () => Promise.resolve(result),
+    single: () => Promise.resolve(result),
+    then: (resolve: (v: unknown) => void) => Promise.resolve(result).then(resolve),
+  }
+  return q
+}
+
 const insertCalls: Array<{ table: string }> = []
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => ({
-      select: () => ({
-        eq: () => ({
-          ilike: () => ({ limit: () => Promise.resolve({ data: [] }) }),
-          limit: () => ({ maybeSingle: () => Promise.resolve({ data: null }) }),
-        }),
-      }),
+      // No existing clients candidates, no open deal — matches prior
+      // no-dedupe/no-existing-deal defaults for this rate-limit test.
+      select: () => chain({ data: table === 'deals' ? null : [] }),
       insert: (_row: unknown) => {
         insertCalls.push({ table })
         return {

@@ -119,24 +119,31 @@ export async function POST(request: Request) {
   const phone = phoneRaw || null
 
   try {
-    // Dedupe by phone within the tenant when we have a usable number.
-    const { data: existing } = cleanPhone.length >= 7
-      ? await supabaseAdmin
-          .from('clients')
-          .select('id')
-          .eq('tenant_id', tenant.id)
-          .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-          .limit(1)
-      : { data: null as { id: string }[] | null }
+    // Exact national-number match only (mirrors client/collect's established
+    // fix for this exact bug class) -- a substring ilike() with only a
+    // 7-digit floor let a short/malformed phone match an ARBITRARY unrelated
+    // client in this tenant and silently overwrite their name/email/notes/
+    // active-status. This route is reachable from any standalone site holding
+    // the shared INGEST_SECRET, so a crafted short phone is fully attacker-controlled.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const normalizedPhone = nat(cleanPhone)
+    let existingClient: { id: string } | undefined
+    if (normalizedPhone.length >= 10) {
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, phone')
+        .eq('tenant_id', tenant.id)
+      existingClient = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+    }
 
     let clientId: string
     let deduped = false
-    if (existing && existing.length > 0) {
+    if (existingClient) {
       deduped = true
       const { data: updated, error } = await supabaseAdmin
         .from('clients')
         .update({ name, email, notes, active: true, status: 'active' })
-        .eq('id', existing[0].id)
+        .eq('id', existingClient.id)
         .eq('tenant_id', tenant.id)
         .select('id')
         .single()
