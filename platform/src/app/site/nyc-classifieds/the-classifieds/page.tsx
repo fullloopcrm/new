@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import { boroughs, categories, neighborhoodSlug, slugify } from '@/app/site/nyc-classifieds/_lib/data'
 import { buildMetadata, collectionPageSchema, speakableSchema } from '@/app/site/nyc-classifieds/_lib/seo'
 import Link from 'next/link'
@@ -30,7 +31,7 @@ export default function TheClassifiedsPage() {
   return (
     <main style={{ maxWidth: '1050px', margin: '0 auto', padding: '12px 24px 32px' }}>
       {schemas.map((s, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(s) }} />
       ))}
 
       <PreLaunchBanner />

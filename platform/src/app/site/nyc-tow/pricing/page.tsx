@@ -121,6 +121,7 @@ export default function PricingPage() {
             ].map((item) => (
               <div key={item.title} className="rounded-xl border border-slate-200 bg-white p-6">
                 <h3 className="text-lg font-bold text-slate-900 font-heading">{item.title}</h3>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: item.body }} />
               </div>
             ))}
@@ -146,6 +147,7 @@ export default function PricingPage() {
             ].map((item) => (
               <div key={item.title} className="rounded-xl border border-red-200 bg-red-50/30 p-6">
                 <h3 className="text-lg font-bold text-red-900 font-heading">✗ {item.title}</h3>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-700" dangerouslySetInnerHTML={{ __html: item.body }} />
               </div>
             ))}

@@ -18,6 +18,14 @@ import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
  *
  * We mock only supabase + the SMS sender. verifyTelnyx runs for real so the
  * signature assertions exercise the actual Ed25519 path.
+ *
+ * Also covers a real bug found while porting this suite: the inbound-call
+ * handler resolves the correct tenant from the dialed DID (fail-closed per
+ * above), but the comhub_get_or_create_contact_by_phone / comhub_get_or_create_thread
+ * RPC calls hardcoded p_tenant_id to NYCMAID_TENANT_ID regardless — so a second
+ * voice tenant's contact/thread records were still created under nycmaid's
+ * tenant scope even though the resolved tenant_id was correct everywhere else.
+ * Fixed to pass the resolved tenantId; see the RPC-args assertions below.
  */
 
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
@@ -28,9 +36,14 @@ const NYCMAID_DID = '+18883164019'
 // `.limit()`/`.single()` return table-specific data. Inserts are captured so we
 // can assert which tenant_id a call was recorded under.
 const mock = vi.hoisted(() => {
-  const state: { tenantRows: Array<{ id: string; name: string }>; inserts: Array<{ table: string; row: unknown }> } = {
+  const state: {
+    tenantRows: Array<{ id: string; name: string }>
+    inserts: Array<{ table: string; row: unknown }>
+    rpcCalls: Array<{ name: string; args: Record<string, unknown> }>
+  } = {
     tenantRows: [],
     inserts: [],
+    rpcCalls: [],
   }
 
   function makeChain(table: string) {
@@ -57,7 +70,8 @@ const mock = vi.hoisted(() => {
 
   const supabaseAdmin = {
     from: (table: string) => makeChain(table),
-    rpc: async (fn: string) => {
+    rpc: async (fn: string, args?: Record<string, unknown>) => {
+      state.rpcCalls.push({ name: fn, args: args || {} })
       if (fn === 'comhub_get_or_create_contact_by_phone') return { data: 'contact-1', error: null }
       if (fn === 'comhub_get_or_create_thread') return { data: 'thread-1', error: null }
       return { data: null, error: null }
@@ -109,8 +123,9 @@ function inboundCall(to: string): string {
 beforeEach(() => {
   mock.state.tenantRows = []
   mock.state.inserts = []
+  mock.state.rpcCalls = []
   process.env.TELNYX_PUBLIC_KEY = RAW_PUB
-  delete process.env.TELNYX_WEBHOOK_VERIFY
+  delete process.env.TELNYX_VOICE_WEBHOOK_VERIFY
   // Guarantee no real Telnyx HTTP even if the ambient env has an API key set.
   vi.stubGlobal(
     'fetch',
@@ -158,7 +173,7 @@ describe('telnyx-voice — signature (fail closed)', () => {
 describe('telnyx-voice — tenant resolution from DID (fail closed)', () => {
   beforeEach(() => {
     // Isolate resolution from crypto for these cases.
-    process.env.TELNYX_WEBHOOK_VERIFY = 'off'
+    process.env.TELNYX_VOICE_WEBHOOK_VERIFY = 'off'
   })
 
   it('REJECTS an unknown DID (no tenant) with 404 and records nothing', async () => {
@@ -190,5 +205,16 @@ describe('telnyx-voice — tenant resolution from DID (fail closed)', () => {
     // The message log for this call must also be scoped to tenant-2.
     const msg = mock.state.inserts.find(i => i.table === 'comhub_messages')
     expect((msg!.row as { tenant_id: string }).tenant_id).toBe('tenant-2')
+    // Regression: the comhub contact/thread RPCs must receive the RESOLVED
+    // tenant, not a hardcoded nycmaid id — this was a real bug (fixed) where
+    // both calls hardcoded NYCMAID_TENANT_ID even after tenant resolution
+    // correctly identified a different tenant.
+    const contactCall = mock.state.rpcCalls.find(c => c.name === 'comhub_get_or_create_contact_by_phone')
+    expect(contactCall?.args.p_tenant_id).toBe('tenant-2')
+    expect(contactCall?.args.p_phone).toBe('+15551234567')
+    const threadCall = mock.state.rpcCalls.find(c => c.name === 'comhub_get_or_create_thread')
+    expect(threadCall?.args.p_tenant_id).toBe('tenant-2')
+    expect(threadCall?.args.p_contact_id).toBe('contact-1')
+    expect(threadCall?.args.p_channel).toBe('voice')
   })
 })

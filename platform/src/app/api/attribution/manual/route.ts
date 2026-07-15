@@ -3,19 +3,22 @@
  * attribution couldn't match. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
 
-    const { data: bookings } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: bookings } = (await tenantDb(tenantId)
       .from('bookings')
       .select('id, start_time, created_at, price, status, attributed_domain, clients(name, address, phone)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
-      .limit(20)
+      .limit(20)) as {
+      data: { id: string; start_time: string | null; created_at: string; price: number | null; status: string; attributed_domain: string | null; clients: { name?: string; address?: string; phone?: string } | null }[] | null
+    }
 
     return NextResponse.json({
       bookings: (bookings || []).map(b => {
@@ -47,7 +50,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing booking_id or domain' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    const db = tenantDb(tenantId)
+    const { error } = await db
       .from('bookings')
       .update({
         attributed_domain: String(domain).replace(/^www\./, ''),
@@ -55,20 +59,17 @@ export async function POST(request: Request) {
         attributed_at: new Date().toISOString(),
       })
       .eq('id', booking_id)
-      .eq('tenant_id', tenantId)
     if (error) throw error
 
-    const { data: booking } = await supabaseAdmin
+    const { data: booking } = (await db
       .from('bookings')
       .select('clients(name)')
       .eq('id', booking_id)
-      .eq('tenant_id', tenantId)
-      .single()
+      .single()) as { data: { clients: { name?: string } | null } | null }
 
     const clientName = (booking?.clients as unknown as { name?: string } | null)?.name || 'Unknown'
 
-    await supabaseAdmin.from('notifications').insert({
-      tenant_id: tenantId,
+    await db.from('notifications').insert({
       type: 'new_lead',
       title: 'Manual Attribution',
       message: `${clientName} manually attributed to ${domain}`,

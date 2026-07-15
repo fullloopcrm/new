@@ -8,6 +8,12 @@ export const maxDuration = 60
 
 const BOT_TOKEN = (process.env.TELEGRAM_BOT_TOKEN || '').trim()
 const OWNER_CHAT_ID = (process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
+// Telegram never signs webhook bodies — the chat-id allowlist below is derived
+// entirely from the POSTed payload, so without this header check anyone who
+// finds this URL and guesses/leaks OWNER_CHAT_ID can forge an update and drive
+// Yinez with owner-tier tools. Registered via setWebhook `secret_token`; see
+// deploy-prep/telegram-webhook-secret-activation.md for the activation step.
+// Passes through unverified until TELEGRAM_WEBHOOK_SECRET is set + registered.
 // Platform owner bot operates in nycmaid context (resolveTenantForConversation
 // falls back to this when tenant_id is null). sms_conversations.tenant_id is
 // NOT NULL since the tenant-isolation migration, so the owner convo must carry

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
 
@@ -28,12 +29,13 @@ export async function GET(req: NextRequest) {
     }
 
     // Validate booking exists and belongs to this tenant + team member
-    const { data: booking } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
       .select('id, team_member_id')
       .eq('id', bookingId)
-      .eq('tenant_id', auth.tid)
-      .single()
+      .single()) as { data: { team_member_id: string | null } | null }
     if (!booking || booking.team_member_id !== auth.id) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
@@ -86,21 +88,24 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'booking_id, type, and url required' }, { status: 400 })
       }
 
-      const { data: booking } = await supabaseAdmin
+      // tenantDb's select() takes a non-literal `columns` param, which widens
+      // supabase-js's column-string type inference — cast to the shape actually selected.
+      const { data: booking } = (await tenantDb(auth.tid)
         .from('bookings')
         .select('id, team_member_id, start_time, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('id', booking_id)
-        .eq('tenant_id', auth.tid)
-        .single()
+        .single()) as {
+          data: { team_member_id: string | null; start_time: string; service_type: string | null; clients: unknown; team_members: unknown } | null
+        }
       if (!booking || booking.team_member_id !== auth.id) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
       }
 
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
-      await supabaseAdmin.from('bookings').update({
+      await tenantDb(auth.tid).from('bookings').update({
         [field]: url,
         [`${field}_uploaded_at`]: new Date().toISOString(),
-      }).eq('id', booking_id).eq('tenant_id', auth.tid)
+      }).eq('id', booking_id)
 
       const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
       const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'
@@ -128,12 +133,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'file, booking_id, and type required' }, { status: 400 })
     }
 
-    const { data: booking } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
       .select('id, team_member_id, start_time, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
-      .eq('tenant_id', auth.tid)
-      .single()
+      .single()) as {
+        data: { team_member_id: string | null; start_time: string; service_type: string | null; clients: unknown; team_members: unknown } | null
+      }
 
     if (!booking || booking.team_member_id !== auth.id) {
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
@@ -170,10 +178,10 @@ export async function POST(req: NextRequest) {
 
     const videoUrl = urlData.publicUrl
     const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
-    await supabaseAdmin.from('bookings').update({
+    await tenantDb(auth.tid).from('bookings').update({
       [field]: videoUrl,
       [`${field}_uploaded_at`]: new Date().toISOString(),
-    }).eq('id', bookingId).eq('tenant_id', auth.tid)
+    }).eq('id', bookingId)
 
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
     const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'

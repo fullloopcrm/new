@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { PHONE, SITE_URL, SITE_NAME, EMAIL, ADDRESS } from "@/app/site/the-nyc-exterminator/_lib/seo";
@@ -311,7 +312,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(allFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(allFaqs)),
         }}
       />
 
@@ -319,7 +320,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             getBreadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "FAQ", url: "/faq" },

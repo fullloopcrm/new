@@ -11,6 +11,18 @@ import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { pick } from '@/lib/validate'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { hasPermission, type Permission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
+
+// Tools that mutate data require the same permission the equivalent direct
+// API route enforces (e.g. /api/bookings/[id] PUT requires bookings.edit) —
+// the AI chat is a copilot, not a bypass around RBAC.
+const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  update_bookings: 'bookings.edit',
+  cancel_bookings: 'bookings.edit',
+  update_client: 'clients.edit',
+  create_booking: 'bookings.create',
+}
 
 const tools: Anthropic.Tool[] = [
   {
@@ -157,9 +169,16 @@ const tools: Anthropic.Tool[] = [
 export async function executeTool(
   tenantId: string,
   name: string,
-  input: Record<string, unknown>
+  input: Record<string, unknown>,
+  role: string,
+  overrides: ReturnType<typeof overridesFor>
 ): Promise<string> {
   const db = tenantDb(tenantId)
+
+  const requiredPermission = TOOL_PERMISSIONS[name]
+  if (requiredPermission && !hasPermission(role, requiredPermission, overrides)) {
+    return JSON.stringify({ error: 'You do not have permission to do that.' })
+  }
 
   switch (name) {
     case 'search_clients': {
@@ -359,7 +378,9 @@ export async function executeTool(
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const tenantCtx = await getTenantForRequest()
+    const { tenantId, tenant, role } = tenantCtx
+    const overrides = overridesFor(tenantCtx)
     const { messages } = await request.json()
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
@@ -407,7 +428,7 @@ Key rules:
         const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(tenantId, block.name, block.input as Record<string, unknown>)
+            const result = await executeTool(tenantId, block.name, block.input as Record<string, unknown>, role, overrides)
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,

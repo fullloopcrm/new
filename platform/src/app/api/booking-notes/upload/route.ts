@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function POST(request: NextRequest) {
@@ -35,10 +36,9 @@ export async function POST(request: NextRequest) {
     // MODE 1: URLs already uploaded
     if (imageUrlsRaw) {
       const imageUrls = JSON.parse(imageUrlsRaw) as string[]
-      const { data, error } = await supabaseAdmin
+      const { data, error } = await tenantDb(ctx.tenantId)
         .from('booking_notes')
         .insert({
-          tenant_id: ctx.tenantId,
           booking_id: bookingId,
           author_type: authorType || 'admin',
           author_name: authorName || 'Admin',
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Only JPEG, PNG, WebP, or HEIC allowed' }, { status: 400 })
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
 
-    const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+    const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
     const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
@@ -69,10 +69,9 @@ export async function POST(request: NextRequest) {
     const { data: urlData } = supabaseAdmin.storage.from('uploads').getPublicUrl(path)
 
     // Single image: create note directly
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(ctx.tenantId)
       .from('booking_notes')
       .insert({
-        tenant_id: ctx.tenantId,
         booking_id: bookingId,
         author_type: authorType || 'admin',
         author_name: authorName || 'Admin',

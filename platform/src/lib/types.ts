@@ -122,6 +122,7 @@ export interface BookingTeamLookahead {
   start_time: string
   end_time: string
   service_type: string | null
+  hourly_rate: number | null
   clients: ClientNamePhoneAddress
 }
 

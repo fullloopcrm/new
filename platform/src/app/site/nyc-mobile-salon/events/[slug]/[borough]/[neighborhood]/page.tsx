@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -59,10 +60,10 @@ export default async function EventNeighborhoodPage({ params }: Props) {
   return (
     <>
       {/* ── JSON-LD ── */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         serviceSchema(`${evt.name} in ${hood}, ${boro}`, `Mobile ${evt.name.toLowerCase()} in ${hood}, ${boro}. ${evt.description}.`, `${hood}, ${boro}`)
       ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([
           { name: "Home", url: "/" },
           { name: "Events", url: "/events" },
@@ -71,7 +72,7 @@ export default async function EventNeighborhoodPage({ params }: Props) {
           { name: hood, url: `/events/${slug}/${borough}/${neighborhood}` },
         ])
       ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema(faqs)) }} />
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={{ background: "linear-gradient(135deg, #D4749B 0%, #E8A0BF 40%, #C9A96E 100%)" }}>

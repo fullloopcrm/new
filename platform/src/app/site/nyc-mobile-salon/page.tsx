@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { womensCategories, mensCategories, stats, boroughNames, neighborhoods } from "@/app/site/nyc-mobile-salon/_lib/constants";
@@ -170,15 +171,15 @@ export default function Home() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(localBusinessSchema()) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: safeJsonLd(faqSchema(faqs)) }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        dangerouslySetInnerHTML={{ __html: safeJsonLd({
           "@context": "https://schema.org",
           "@type": "HowTo",
           name: "How to Book a Mobile Salon Appointment in NYC",
@@ -193,7 +194,7 @@ export default function Home() {
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({
+        dangerouslySetInnerHTML={{ __html: safeJsonLd({
           "@context": "https://schema.org",
           "@type": "WebPage",
           name: "The NYC Mobile Salon \u2014 Mobile Hair, Nails, Makeup & Grooming in NYC",

@@ -14,9 +14,9 @@ import { safeEqual } from '@/lib/secret-compare'
 function authorized(request: NextRequest): boolean {
   const expected = process.env.ELCHAPO_MONITOR_KEY
   if (!expected) return false
-  // Header only — a URL query-param key leaks into access/proxy logs and
-  // browser history, unlike a header.
-  const key = request.headers.get('x-monitor-key')
+  // Header only — a ?key= query param gets written to access logs, browser
+  // history, and Referer headers, leaking the monitor key.
+  const key = request.headers.get('x-monitor-key') || ''
   return safeEqual(key, expected)
 }
 

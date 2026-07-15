@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
@@ -18,6 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
   }
 
+  const db = tenantDb(tenantId)
+
   // Get tenant config
   const { data: tenantConfig } = await supabaseAdmin
     .from('tenants')
@@ -30,23 +33,34 @@ export async function POST(request: Request) {
   }
 
   // Get the booking
-  const { data: booking } = await supabaseAdmin
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: booking } = (await db
     .from('bookings')
     .select('*, clients(name, address)')
     .eq('id', booking_id)
-    .eq('tenant_id', tenantId)
-    .single()
+    .single()) as {
+      data: {
+        start_time: string
+        end_time: string | null
+        pay_rate: number | null
+        service_type: string | null
+        notes: string | null
+        clients: unknown
+      } | null
+    }
 
   if (!booking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
   }
 
   // Get all active team members
-  const { data: members } = await supabaseAdmin
+  const { data: members } = (await db
     .from('team_members')
     .select('id, name, phone, email')
-    .eq('tenant_id', tenantId)
-    .eq('status', 'active')
+    .eq('status', 'active')) as {
+      data: { id: string; name: string; phone: string | null; email: string | null }[] | null
+    }
 
   if (!members || members.length === 0) {
     return NextResponse.json({ error: 'No active team members' }, { status: 400 })
@@ -126,8 +140,7 @@ export async function POST(request: Request) {
 
   // Admin notification with delivery summary
   const summary = reports.map(r => `${r.name}: sms ${r.sms ? '✓' : '✗'} email ${r.email ? '✓' : '✗'}`).join(', ')
-  await supabaseAdmin.from('notifications').insert({
-    tenant_id: tenantId,
+  await db.from('notifications').insert({
     type: 'job_broadcast',
     title: 'Job Broadcast Sent',
     message: `Sent to ${sentCount}/${members.length} team members. ${summary}`,

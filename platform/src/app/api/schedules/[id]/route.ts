@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
+import { requirePermission } from '@/lib/require-permission'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
 
@@ -9,7 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const { id } = await params
 
@@ -44,7 +47,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
@@ -77,7 +82,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('schedules.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const { id } = await params
 

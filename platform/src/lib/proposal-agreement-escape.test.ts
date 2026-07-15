@@ -4,7 +4,7 @@ import { buildAgreement } from './agreement'
 
 // Regression: businessName / contactName / territoryName come from lead data and
 // are interpolated into the proposal + agreement HTML. They must be HTML-escaped
-// so a hostile value cannot inject markup.
+// so a hostile value cannot inject markup. See security-definer-rpc-audit.md §3.
 
 const XSS = '<script>alert(1)</script>'
 

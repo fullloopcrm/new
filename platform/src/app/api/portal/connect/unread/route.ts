@@ -11,13 +11,16 @@ export async function GET(request: NextRequest) {
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   try {
-    // Get client channel
-    const { data: channel } = await tenantDb(auth.tid)
-      .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+    // Get client channel. tenantDb's select() takes a non-literal `columns`
+    // param, which widens supabase-js's column-string type inference and
+    // makes a narrow select like 'id' resolve to GenericStringError instead
+    // of a real row shape — cast the result to the shape we actually select.
+    const { data: channel } = (await tenantDb(auth.tid)
+      .from('connect_channels')
       .select('id')
       .eq('type', 'client')
       .eq('client_id', auth.id)
-      .single()
+      .single()) as { data: { id: string } | null; error: unknown }
 
     if (!channel) return NextResponse.json({ unread: 0 })
 

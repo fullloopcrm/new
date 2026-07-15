@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import { SITE_URL, SITE_NAME, SITE_PHONE, SITE_EMAIL } from "./siteData";
 
 /* ─── Core Organization Schema (HealthAndBeautyBusiness + ProfessionalService) ─── */
@@ -43,43 +44,9 @@ export const organizationSchema = {
   priceRange: "$99/hour",
   currenciesAccepted: "USD",
   paymentAccepted: "Cash, Credit Card, Venmo, Zelle, CashApp",
-  review: [
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Angel Reyes" },
-      datePublished: "2025-01-15",
-      reviewBody: "I cannot say enough great things about Stretch NYC! After undergoing surgery to repair a partially torn Achilles tendon, my trainer William was exceptional. With his guidance, I regained not only my strength and conditioning, but also my stamina and mobility.",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Dan Anghelescu" },
-      datePublished: "2025-02-10",
-      reviewBody: "Game-changer for our whole family. Will has had extraordinary impact. His ability to tailor sessions to both adults and children is nothing short of extraordinary. He combines deep anatomical knowledge with intuitive adjustments.",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Paula Stephenson" },
-      datePublished: "2025-03-05",
-      reviewBody: "My experience was amazing. Will is knowledgeable, easy to talk to and caring. I felt relief from the many discomforts I had. My body felt better right after. I will definitely continue with my sessions.",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Kristina Cabral" },
-      datePublished: "2025-04-20",
-      reviewBody: "Kelly is excellent. Professional and efficient. As an active softball player I can say I've never slept so peacefully after. Was extremely relieved and was more than what I expected. Worth every penny!",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-    },
-    {
-      "@type": "Review",
-      author: { "@type": "Person", name: "Michael Torres" },
-      datePublished: "2025-05-12",
-      reviewBody: "Best investment in my health I've made in years. The therapist came right to my office, super professional setup. After years of lower back pain from sitting at a desk, I finally have relief.",
-      reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" },
-    },
-  ],
+  // No Review schema: only real, displayed customer reviews may be emitted as
+  // structured data. Hardcoded/fabricated reviews are a Google manual-action
+  // risk, so we emit none until a verified review source exists.
   contactPoint: [
     {
       "@type": "ContactPoint",
@@ -910,7 +877,7 @@ export function JsonLd({ data }: { data: Record<string, unknown> | Record<string
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data).replace(/</g, "\\u003c") }}
     />
   );
 }

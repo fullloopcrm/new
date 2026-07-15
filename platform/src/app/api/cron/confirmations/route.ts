@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300 // Vercel pro plan
 

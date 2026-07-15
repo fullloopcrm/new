@@ -3,8 +3,8 @@
  * Tenant-scoped. Ported from nycmaid.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
 
 interface LeadClick {
   ref_code: string | null
@@ -33,13 +33,13 @@ interface Referrer {
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const now = new Date()
     const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000)
 
-    const { data: allSiteClicks } = await supabaseAdmin
+    const { data: allSiteClicks } = await db
       .from('lead_clicks')
       .select('ref_code, action, session_id, lead_id, device, page, created_at')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     const siteClicks = (allSiteClicks as LeadClick[] | null) || []
@@ -49,10 +49,9 @@ export async function GET() {
     const refBookClicks = refClicks.filter(c => c.action === 'book').length
     const refCallClicks = refClicks.filter(c => c.action === 'call').length
 
-    const { data: referredBookings } = await supabaseAdmin
+    const { data: referredBookings } = await db
       .from('bookings')
       .select('id, status, price, referrer_id')
-      .eq('tenant_id', tenantId)
       .not('referrer_id', 'is', null)
 
     const allReferred = (referredBookings as ReferredBooking[] | null) || []
@@ -67,10 +66,9 @@ export async function GET() {
       if (click.action === 'book') refClickCounts[code].bookClicks++
     }
 
-    const { data: referrers } = await supabaseAdmin
+    const { data: referrers } = await db
       .from('referrers')
       .select('id, name, referral_code, total_earned')
-      .eq('tenant_id', tenantId)
 
     const refMap: Record<string, { id: string; name: string; total_earned: number }> = {}
     for (const r of (referrers as Referrer[] | null) || []) {

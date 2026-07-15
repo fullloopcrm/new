@@ -10,6 +10,8 @@ import { signOAuthState, verifyOAuthState } from './oauth-state'
  * secret can mint an accepted state, the tenant is bound in the signature, and
  * the state expires. Covers google/auth+callback, admin/google/auth+callback,
  * and social/connect/facebook+instagram, all of which share this mechanism.
+ * These tests prove the negative cases matter: tampered, expired, and
+ * cross-tenant states are all rejected, not just that round-tripping works.
  */
 
 const SECRET = 'oauth-state-test-secret'
@@ -32,6 +34,12 @@ describe('verifyOAuthState — happy path', () => {
 
   it('accepts a correctly signed, unexpired state', () => {
     expect(verifyOAuthState(mint('tenant-Z', Date.now() + 60000))).toBe('tenant-Z')
+  })
+
+  it('a state signed for one tenant never verifies as a different tenant', () => {
+    const stateForB = signOAuthState('tenant-B')
+    expect(verifyOAuthState(stateForB)).toBe('tenant-B')
+    expect(verifyOAuthState(stateForB)).not.toBe('tenant-A')
   })
 })
 

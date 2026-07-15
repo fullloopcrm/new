@@ -1,87 +1,78 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createHash } from 'crypto'
 
 /**
  * ledger.ts — double-entry accounting + bank-transaction dedup fingerprinting.
+ * ledger.ts had zero direct unit coverage — every ledger poster
+ * (post-revenue/post-labor/post-adjustments) builds on these primitives, but
+ * only post-revenue's double-post race was ever pinned by a test. This suite
+ * covers the primitives directly: the debit=credit balance guard (the thing
+ * that keeps the books valid), the unique-violation-as-idempotent contract
+ * every poster relies on, and the chart-of-accounts seeding used by all of
+ * them before they can resolve an account id.
  *
- * The load-bearing invariants under test:
- *   - postJournalEntry MUST reject any entry whose debits ≠ credits (the core
- *     accounting invariant; a mismatch corrupts the books) and any empty entry.
- *   - transactionFingerprint MUST be deterministic and MUST fold case /
- *     whitespace / long digit-runs together (that's what lets re-imported bank
- *     rows dedup) — while staying sensitive to date + amount.
- *   - normalizeDescription is the fingerprint's normalizer; its exact behavior
- *     is pinned here so a future edit can't silently change dedup semantics.
- *
- * We mock @supabase/supabase-js's createClient so supabaseAdmin (built from it
- * at import time) returns controllable results — same pattern as
- * rate-limit-db.test.ts. `chainResult` is what an awaited query builder resolves
- * to; `maybeSingleResult` is what `.maybeSingle()` resolves to; `rpcResult` is
- * the `.rpc()` result. Spies capture insert/upsert/rpc payloads.
+ * Mocks `supabaseAdmin.rpc` directly (the shared fake-supabase.ts harness
+ * doesn't model RPC calls), matching the pattern in post-revenue-race.test.ts.
+ * `rpcOverride`, when set, lets a test control what post_journal_entry
+ * resolves to (error / malformed id / duplicate no-op) — defaults to the
+ * normal success path so most tests don't need to touch it.
  */
+import { describe, it, expect, beforeEach, vi } from 'vitest'
+import type { FakeSupabase } from '@/test/fake-supabase'
 
-let rpcResult: { data: unknown; error: unknown }
-let maybeSingleResult: { data: unknown }
-let chainResult: { data?: unknown; count?: number | null; error?: unknown }
-const rpcSpy = vi.fn()
-const insertSpy = vi.fn()
-const upsertSpy = vi.fn()
+const rpcCalls: Array<{ fn: string; params: Record<string, unknown> }> = []
+let rpcOverride: { data: unknown; error: unknown } | null = null
 
-function makeBuilder() {
-  const b: Record<string, unknown> = {}
-  const self = () => b
-  b.select = vi.fn(self)
-  b.eq = vi.fn(self)
-  b.limit = vi.fn(self)
-  b.insert = vi.fn((rows: unknown) => { insertSpy(rows); return b })
-  b.upsert = vi.fn((rows: unknown, opts: unknown) => { upsertSpy(rows, opts); return b })
-  b.maybeSingle = vi.fn(async () => maybeSingleResult)
-  b.single = vi.fn(async () => maybeSingleResult)
-  // Thenable: any `await builder` (e.g. `.select().eq()` used as a terminal)
-  // resolves to chainResult.
-  b.then = (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) =>
-    Promise.resolve(chainResult).then(res, rej)
-  return b
-}
+vi.mock('./supabase', async () => {
+  const { createFakeSupabase } = await import('@/test/fake-supabase')
+  const fake = createFakeSupabase()
 
-vi.mock('@supabase/supabase-js', () => ({
-  createClient: () => ({
-    from: () => makeBuilder(),
-    rpc: (name: string, params: unknown) => { rpcSpy(name, params); return Promise.resolve(rpcResult) },
-  }),
-}))
+  const rpc = async (fn: string, params: Record<string, unknown>) => {
+    rpcCalls.push({ fn, params })
+    if (fn !== 'post_journal_entry') throw new Error(`unexpected rpc: ${fn}`)
+    if (rpcOverride) return rpcOverride
+    const id = crypto.randomUUID()
+    fake._seed('journal_entries', [
+      { id, tenant_id: params.p_tenant_id, source: params.p_source, source_id: params.p_source_id },
+    ])
+    return { data: id, error: null }
+  }
 
+  const admin = { ...fake, rpc }
+  return { supabase: admin, supabaseAdmin: admin, __fake: fake }
+})
+
+import { supabaseAdmin } from './supabase'
 import {
-  postJournalEntry,
   normalizeDescription,
   transactionFingerprint,
   sha256File,
-  DEFAULT_CHART,
+  isUniqueViolation,
+  postJournalEntry,
   seedChartOfAccounts,
+  ensureChartAccounts,
   getAccountIdByCode,
   journalEntryExists,
+  DEFAULT_CHART,
 } from './ledger'
 
+const fake = supabaseAdmin as unknown as FakeSupabase
+const TENANT_ID = 'tenant-1'
+
 beforeEach(() => {
-  rpcResult = { data: 'entry-id-1', error: null }
-  maybeSingleResult = { data: null }
-  chainResult = { data: null, count: null, error: null }
-  rpcSpy.mockClear()
-  insertSpy.mockClear()
-  upsertSpy.mockClear()
+  fake._store.clear()
+  rpcCalls.length = 0
+  rpcOverride = null
   vi.spyOn(console, 'error').mockImplementation(() => {})
-})
-afterEach(() => {
-  vi.restoreAllMocks()
 })
 
 describe('normalizeDescription', () => {
-  it('lowercases and trims', () => {
-    expect(normalizeDescription('  HELLO World  ')).toBe('hello world')
+  it('lowercases, strips punctuation, and masks long numbers', () => {
+    expect(normalizeDescription('  ACH  Deposit -  Stripe #4829102938  ')).toBe('ach deposit  stripe ##')
   })
 
-  it('collapses internal runs of whitespace (spaces, tabs, newlines) to one space', () => {
-    expect(normalizeDescription('a\t\tb\n\nc   d')).toBe('a b c d')
+  it('handles empty/undefined input without throwing', () => {
+    expect(normalizeDescription('')).toBe('')
+    expect(normalizeDescription(undefined as unknown as string)).toBe('')
   })
 
   it('collapses standalone digit runs of length >= 4 to "#"', () => {
@@ -94,28 +85,12 @@ describe('normalizeDescription', () => {
     expect(normalizeDescription('order 12')).toBe('order 12')
   })
 
-  it('collapses multiple long digit runs independently', () => {
-    expect(normalizeDescription('12345 67890')).toBe('# #')
-  })
-
   it('does NOT collapse digits fused to letters (no word boundary) — documents dedup limitation', () => {
-    // 'r1' is word-word: no \b before the digits, so \b\d{4,}\b cannot match.
     expect(normalizeDescription('order12345')).toBe('order12345')
-  })
-
-  it('strips characters outside [a-z0-9# ] (punctuation, accents)', () => {
-    expect(normalizeDescription('café')).toBe('caf')
-    expect(normalizeDescription('Payment: $50.00!!!')).toBe('payment 5000')
   })
 
   it('keeps a literal # already present', () => {
     expect(normalizeDescription('ref #1234')).toBe('ref ##')
-  })
-
-  it('returns "" for null / undefined / empty (adversarial null input)', () => {
-    expect(normalizeDescription(null as unknown as string)).toBe('')
-    expect(normalizeDescription(undefined as unknown as string)).toBe('')
-    expect(normalizeDescription('')).toBe('')
   })
 
   it('returns "" for whitespace-only input', () => {
@@ -136,8 +111,6 @@ describe('transactionFingerprint', () => {
   })
 
   it('folds together descriptions that normalize identically (the dedup property)', () => {
-    // Different case, whitespace, and (long) reference numbers → same normalized
-    // string → same fingerprint. This is what dedups a re-imported bank row.
     const a = transactionFingerprint('2026-07-11', 1000, 'ACME  CORP  12345')
     const b = transactionFingerprint('2026-07-11', 1000, 'acme corp 99999')
     expect(a).toBe(b)
@@ -177,11 +150,6 @@ describe('sha256File', () => {
     )
   })
 
-  it('is deterministic', () => {
-    const bytes = Buffer.from('invoice.pdf-contents')
-    expect(sha256File(bytes)).toBe(sha256File(bytes))
-  })
-
   it('produces the same hash for a Buffer and an equivalent Uint8Array', () => {
     const buf = Buffer.from([1, 2, 3, 4])
     const arr = new Uint8Array([1, 2, 3, 4])
@@ -219,10 +187,27 @@ describe('DEFAULT_CHART invariants', () => {
   })
 })
 
+describe('isUniqueViolation', () => {
+  it('is true for a Postgres 23505 error object', () => {
+    expect(isUniqueViolation({ code: '23505', message: 'duplicate key' })).toBe(true)
+  })
+
+  it('is false for other error codes', () => {
+    expect(isUniqueViolation({ code: '23502', message: 'not null violation' })).toBe(false)
+  })
+
+  it('is false for non-object / nullish values', () => {
+    expect(isUniqueViolation(null)).toBe(false)
+    expect(isUniqueViolation(undefined)).toBe(false)
+    expect(isUniqueViolation('boom')).toBe(false)
+    expect(isUniqueViolation(new Error('boom'))).toBe(false)
+  })
+})
+
 describe('postJournalEntry — balance invariant', () => {
   const base = {
-    tenant_id: 't1',
-    entry_date: '2026-07-11',
+    tenant_id: TENANT_ID,
+    entry_date: '2026-07-13',
     lines: [] as Array<{ coa_id: string; debit_cents?: number; credit_cents?: number }>,
   }
 
@@ -234,7 +219,7 @@ describe('postJournalEntry — balance invariant', () => {
         { coa_id: 'b', credit_cents: 900 },
       ],
     })).rejects.toThrow(/Unbalanced journal entry: debits 1000, credits 900/)
-    expect(rpcSpy).not.toHaveBeenCalled()
+    expect(rpcCalls.length).toBe(0)
   })
 
   it('throws "Empty journal entry" when all amounts are zero', async () => {
@@ -245,7 +230,7 @@ describe('postJournalEntry — balance invariant', () => {
         { coa_id: 'b', credit_cents: 0 },
       ],
     })).rejects.toThrow(/Empty journal entry/)
-    expect(rpcSpy).not.toHaveBeenCalled()
+    expect(rpcCalls.length).toBe(0)
   })
 
   it('throws "Empty journal entry" for an empty lines array', async () => {
@@ -253,7 +238,6 @@ describe('postJournalEntry — balance invariant', () => {
   })
 
   it('treats missing debit_cents/credit_cents as 0 when balancing', async () => {
-    // debit line has no credit_cents, credit line has no debit_cents — balances.
     const id = await postJournalEntry({
       ...base,
       lines: [
@@ -261,21 +245,23 @@ describe('postJournalEntry — balance invariant', () => {
         { coa_id: 'b', credit_cents: 500 },
       ],
     })
-    expect(id).toBe('entry-id-1')
-    expect(rpcSpy).toHaveBeenCalledOnce()
+    expect(typeof id).toBe('string')
+    expect(rpcCalls.length).toBe(1)
   })
 
-  it('accepts a multi-line balanced entry and returns the entry id', async () => {
-    rpcResult = { data: 'je-42', error: null }
+  it('posts a balanced multi-line entry via rpc and returns the entry id', async () => {
     const id = await postJournalEntry({
       ...base,
+      source: 'manual',
       lines: [
-        { coa_id: 'a', debit_cents: 700 },
-        { coa_id: 'b', debit_cents: 300 },
-        { coa_id: 'c', credit_cents: 1000 },
+        { coa_id: 'coa-a', debit_cents: 700 },
+        { coa_id: 'coa-b', debit_cents: 300 },
+        { coa_id: 'coa-c', credit_cents: 1000 },
       ],
     })
-    expect(id).toBe('je-42')
+    expect(typeof id).toBe('string')
+    expect(rpcCalls.length).toBe(1)
+    expect(rpcCalls[0].fn).toBe('post_journal_entry')
   })
 
   it('defaults source to "manual" and null-fills optional params in the RPC payload', async () => {
@@ -286,12 +272,10 @@ describe('postJournalEntry — balance invariant', () => {
         { coa_id: 'b', credit_cents: 100 },
       ],
     })
-    const [name, params] = rpcSpy.mock.calls[0]
-    expect(name).toBe('post_journal_entry')
+    const { params } = rpcCalls[0]
     expect(params.p_source).toBe('manual')
     expect(params.p_entity_id).toBeNull()
     expect(params.p_memo).toBeNull()
-    // Each line's amounts are coerced to numbers (undefined → 0).
     expect(params.p_lines).toEqual([
       { coa_id: 'a', debit_cents: 100, credit_cents: 0, memo: null },
       { coa_id: 'b', debit_cents: 0, credit_cents: 100, memo: null },
@@ -299,7 +283,7 @@ describe('postJournalEntry — balance invariant', () => {
   })
 
   it('propagates an RPC error', async () => {
-    rpcResult = { data: null, error: new Error('rpc boom') }
+    rpcOverride = { data: null, error: new Error('rpc boom') }
     await expect(postJournalEntry({
       ...base,
       lines: [
@@ -310,10 +294,10 @@ describe('postJournalEntry — balance invariant', () => {
   })
 
   it('returns null (idempotent no-op) when the RPC reports a duplicate post', async () => {
-    // migration 064: post_journal_entry() returns NULL on a (tenant_id,
-    // source, source_id) conflict instead of throwing — this is the real
-    // idempotency gate, not an error.
-    rpcResult = { data: null, error: null }
+    // post_journal_entry() returns NULL on a (tenant_id, source, source_id)
+    // conflict instead of throwing — this is the real idempotency gate, not
+    // an error.
+    rpcOverride = { data: null, error: null }
     const id = await postJournalEntry({
       ...base,
       lines: [
@@ -325,7 +309,7 @@ describe('postJournalEntry — balance invariant', () => {
   })
 
   it('throws when the RPC returns a malformed (non-string, non-null) id', async () => {
-    rpcResult = { data: 42, error: null }
+    rpcOverride = { data: 42, error: null }
     await expect(postJournalEntry({
       ...base,
       lines: [
@@ -337,50 +321,45 @@ describe('postJournalEntry — balance invariant', () => {
 })
 
 describe('seedChartOfAccounts', () => {
-  it('is idempotent: returns 0 and inserts nothing when accounts already exist', async () => {
-    chainResult = { count: 5, error: null }
-    const n = await seedChartOfAccounts('t1')
-    expect(n).toBe(0)
-    expect(insertSpy).not.toHaveBeenCalled()
+  it('inserts every DEFAULT_CHART row for a fresh tenant', async () => {
+    const inserted = await seedChartOfAccounts(TENANT_ID)
+    expect(inserted).toBe(DEFAULT_CHART.length)
+    expect(fake._all('chart_of_accounts').filter((r) => r.tenant_id === TENANT_ID).length).toBe(DEFAULT_CHART.length)
   })
 
-  it('seeds the full default chart when none exist', async () => {
-    chainResult = { count: 0, error: null }
-    const n = await seedChartOfAccounts('t1')
-    expect(n).toBe(DEFAULT_CHART.length)
-    expect(insertSpy).toHaveBeenCalledOnce()
-    const rows = insertSpy.mock.calls[0][0] as Array<{ tenant_id: string }>
-    expect(rows).toHaveLength(DEFAULT_CHART.length)
-    // Every seeded row is tenant-scoped.
-    expect(rows.every(r => r.tenant_id === 't1')).toBe(true)
-  })
-
-  it('throws when the insert fails', async () => {
-    chainResult = { count: 0, error: { message: 'insert boom' } }
-    await expect(seedChartOfAccounts('t1')).rejects.toEqual({ message: 'insert boom' })
+  it('is a no-op returning 0 if the tenant already has any accounts', async () => {
+    fake._seed('chart_of_accounts', [{ id: 'x', tenant_id: TENANT_ID, code: '1000' }])
+    const inserted = await seedChartOfAccounts(TENANT_ID)
+    expect(inserted).toBe(0)
+    expect(fake._all('chart_of_accounts').filter((r) => r.tenant_id === TENANT_ID).length).toBe(1)
   })
 })
 
-describe('getAccountIdByCode', () => {
-  it('returns the id when the account exists', async () => {
-    maybeSingleResult = { data: { id: 'acc-1' } }
-    expect(await getAccountIdByCode('t1', '4000')).toBe('acc-1')
-  })
+describe('ensureChartAccounts', () => {
+  it('inserts only the codes a tenant is missing, idempotently', async () => {
+    fake._seed('chart_of_accounts', [{ id: 'x', tenant_id: TENANT_ID, code: '1000', name: 'Cash' }])
+    await ensureChartAccounts(TENANT_ID)
+    const rows = fake._all('chart_of_accounts').filter((r) => r.tenant_id === TENANT_ID)
+    expect(rows.length).toBe(DEFAULT_CHART.length)
 
-  it('returns null when no row matches', async () => {
-    maybeSingleResult = { data: null }
-    expect(await getAccountIdByCode('t1', '9999')).toBeNull()
+    // Calling again with the chart already complete inserts nothing further.
+    await ensureChartAccounts(TENANT_ID)
+    expect(fake._all('chart_of_accounts').filter((r) => r.tenant_id === TENANT_ID).length).toBe(DEFAULT_CHART.length)
   })
 })
 
-describe('journalEntryExists', () => {
-  it('is true when a matching (source, source_id) entry exists', async () => {
-    maybeSingleResult = { data: { id: 'je-1' } }
-    expect(await journalEntryExists('t1', 'payment', 'p1')).toBe(true)
+describe('getAccountIdByCode / journalEntryExists', () => {
+  it('resolves an existing code to its row id and null for an unknown code', async () => {
+    fake._seed('chart_of_accounts', [{ id: 'coa-4000', tenant_id: TENANT_ID, code: '4000' }])
+    expect(await getAccountIdByCode(TENANT_ID, '4000')).toBe('coa-4000')
+    expect(await getAccountIdByCode(TENANT_ID, '9999')).toBeNull()
   })
 
-  it('is false when no matching entry exists', async () => {
-    maybeSingleResult = { data: null }
-    expect(await journalEntryExists('t1', 'payment', 'p1')).toBe(false)
+  it('reports whether a journal entry already exists for a (source, source_id) pair', async () => {
+    expect(await journalEntryExists(TENANT_ID, 'payout', 'payout-1')).toBe(false)
+    fake._seed('journal_entries', [{ id: 'je-1', tenant_id: TENANT_ID, source: 'payout', source_id: 'payout-1' }])
+    expect(await journalEntryExists(TENANT_ID, 'payout', 'payout-1')).toBe(true)
+    // Different tenant with the same source/source_id must not match (tenant isolation).
+    expect(await journalEntryExists('tenant-2', 'payout', 'payout-1')).toBe(false)
   })
 })

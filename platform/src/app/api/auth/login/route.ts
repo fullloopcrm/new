@@ -14,10 +14,10 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 
-    // DB-backed so the limit survives serverless cold starts (an in-memory
-    // Map resets per-instance and gives no real brute-force protection).
-    // failClosed: an auth-critical route must deny on a limiter outage
-    // instead of allowing unlimited guesses while it's blind.
+    // Durable rate limiting (survives serverless cold starts, unlike an
+    // in-memory Map which resets per-instance and gives no real protection
+    // against distributed/concurrent brute force). Fail-closed: a DB outage
+    // denies rather than allowing unlimited attempts while blind.
     const rl = await rateLimitDb(`auth_login:${ip}`, 5, 5 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
@@ -84,9 +84,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: legacy PIN-based login. `adminPassword &&` guards against the
-    // empty-secret bypass (see comment above); safeEqual() is constant-time.
-    if (adminPassword && safeEqual(password, adminPassword)) {
+    // Fallback: legacy PIN-based login. Reject if ADMIN_PASSWORD is unset —
+    // otherwise an empty submitted password would match an empty adminPassword,
+    // a zero-config admin-session bypass. Constant-time compare avoids a
+    // timing oracle on the PIN itself.
+    if (adminPassword && typeof password === 'string' && safeEqual(password, adminPassword)) {
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {
@@ -120,9 +122,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, user: { name: 'Admin', role: 'owner' } })
     }
 
-    // Failed attempt — rl.remaining reflects the DB-backed bucket consumed above.
+    // Failed attempt — already recorded by the rateLimitDb call above.
+    // rl.remaining <= 2 means this was the 3rd+ attempt in the window.
     if (rl.remaining <= 2) {
-      await notify({ type: 'security', title: 'Failed Login', message: `Repeated failed login attempts from ${ip} (${rl.remaining} attempts remaining before lockout)` })
+      await notify({ type: 'security', title: 'Failed Login', message: `Repeated failed login attempts from ${ip}` })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })

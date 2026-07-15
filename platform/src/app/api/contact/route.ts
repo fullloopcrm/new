@@ -18,9 +18,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { sendEmail, tenantSender } from '@/lib/email'
 import { adminNewClientEmail } from '@/lib/email-templates'
-import { escapeHtml } from '@/lib/escape-html'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -187,10 +187,10 @@ export async function POST(request: NextRequest) {
         const subject = `[${tenant.name}] New team application: ${name}`
         const html = `<h2>New Team Application</h2>
           <p><strong>Name:</strong> ${escapeHtml(name)}</p>
-          <p><strong>Email:</strong> ${escapeHtml(email || '—')}</p>
+          <p><strong>Email:</strong> ${email ? escapeHtml(email) : '—'}</p>
           <p><strong>Phone:</strong> ${escapeHtml(phone)}</p>
           ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
-          <p><a href="${adminUrl}">View in admin</a></p>`
+          <p><a href="${safeUrl(adminUrl)}">View in admin</a></p>`
         await emailAdmins(tenant, subject, html)
       } catch (emailErr) {
         console.error('[api/contact] job-app email error:', emailErr)

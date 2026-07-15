@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
@@ -40,13 +41,16 @@ export async function POST(request: NextRequest) {
     .eq('id', tenant.id)
     .single()
 
-  const { data: referrer } = await supabaseAdmin
+  const db = tenantDb(tenant.id)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: referrer } = (await db
     .from('referrers')
     .select('id, name, email')
     .eq('tenant_id', tenant.id)
     .ilike('email', escapeLikeValue(email))
     .eq('status', 'active')
-    .maybeSingle()
+    .maybeSingle()) as { data: { id: string; name: string; email: string } | null }
 
   if (referrer) {
     // crypto.randomInt is uniformly distributed and cryptographically strong;

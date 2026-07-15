@@ -24,21 +24,25 @@ export default function OnboardingPage() {
     setSaving(true)
     setError('')
 
-    const res = await fetch('/api/tenants', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...form, serviceArea: area }),
-    })
+    try {
+      const res = await fetch('/api/tenants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...form, serviceArea: area }),
+      })
 
-    const data = await res.json()
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setError(data.error || 'Something went wrong')
+        return
+      }
 
-    if (!res.ok) {
-      setError(data.error || 'Something went wrong')
+      router.push('/dashboard')
+    } catch {
+      setError('Something went wrong. Please check your connection and try again.')
+    } finally {
       setSaving(false)
-      return
     }
-
-    router.push('/dashboard')
   }
 
   return (

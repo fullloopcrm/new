@@ -1,5 +1,6 @@
 import crypto from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
+import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
@@ -836,7 +837,7 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     }
 
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: crypto.randomInt(100000, 1000000).toString() }).select('id').single()
+      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: randomInt(100000, 1000000).toString() }).select('id').single()
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')
@@ -1066,7 +1067,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       }
       const inputEmail = typeof input.client_email === 'string' ? input.client_email.trim() || null : null
       const inputAddress = typeof input.client_address === 'string' ? input.client_address.trim() || null : null
-      const pin = crypto.randomInt(100000, 1000000).toString()
+      const pin = randomInt(100000, 1000000).toString()
       const { data: newClient, error: clientErr } = await supabaseAdmin
         .from('clients')
         .insert({ tenant_id: tid, name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin })
@@ -1277,7 +1278,7 @@ async function handleSendPin(conversationId: string): Promise<string> {
     // Validate PIN is 6 digits — regenerate if not
     let pin = client.pin
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-      pin = crypto.randomInt(100000, 1000000).toString()
+      pin = randomInt(100000, 1000000).toString()
       await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid)
     }
 

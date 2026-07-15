@@ -113,7 +113,21 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies()
   const session = cookieStore.get('admin_session')?.value
   if (!session) return false
-  return verifySessionCookie(session).valid
+  const { valid, userId } = verifySessionCookie(session)
+  if (!valid) return false
+  // Legacy PIN session (no userId) has no admin_users row to re-check against —
+  // treated as owner, matching getAdminUser()'s existing behavior for this format.
+  if (!userId) return true
+  // Instant revocation: a disabled/removed admin's signed cookie stays
+  // cryptographically valid until its 24h expiry. Re-check current status on
+  // every request instead of trusting only the signature (mirrors
+  // requirePortalPermission's per-request status check on team-portal).
+  const { data } = await supabaseAdmin
+    .from('admin_users')
+    .select('status')
+    .eq('id', userId)
+    .single()
+  return data?.status === 'active'
 }
 
 export async function requireAdmin() {

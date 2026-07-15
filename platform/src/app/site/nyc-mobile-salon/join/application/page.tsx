@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import ApplicationForm from "@/app/site/nyc-mobile-salon/_components/ApplicationForm";
 import { breadcrumbSchema } from "@/app/site/nyc-mobile-salon/_lib/seo";
@@ -21,7 +22,7 @@ export default function ApplicationPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             breadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Join Our Team", url: "/join" },

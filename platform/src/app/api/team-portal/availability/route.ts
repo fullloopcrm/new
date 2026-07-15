@@ -10,11 +10,13 @@ export async function GET(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data: member } = await tenantDb(auth.tid)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   // Store availability in member notes as JSON for now
   let availability = { working_days: [1, 2, 3, 4, 5], blocked_dates: [] as string[] }
@@ -37,12 +39,16 @@ export async function PUT(request: NextRequest) {
 
   const { availability } = await request.json()
 
+  const db = tenantDb(auth.tid)
+
   // Get current availability to detect NEW blocked dates
-  const { data: member } = await tenantDb(auth.tid)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: member } = (await db
     .from('team_members')
     .select('name, notes')
     .eq('id', auth.id)
-    .single()
+    .single()) as { data: { name: string | null; notes: string | null } | null }
 
   let currentObj: Record<string, unknown> = {}
   if (member?.notes) {
@@ -58,14 +64,16 @@ export async function PUT(request: NextRequest) {
       const dayStart = `${date}T00:00:00`
       const dayEnd = `${date}T23:59:59`
 
-      const { data: bookings } = await tenantDb(auth.tid)
+      // tenantDb's select() takes a non-literal `columns` param, which widens
+      // supabase-js's column-string type inference — cast to the shape actually selected.
+      const { data: bookings } = (await db
         .from('bookings')
         .select('id, start_time, clients(name)')
         .eq('team_member_id', auth.id)
         .in('status', ['scheduled', 'pending', 'confirmed', 'in_progress'])
         .gte('start_time', dayStart)
         .lte('start_time', dayEnd)
-        .limit(1)
+        .limit(1)) as { data: { id: string; start_time: string; clients: { name: string } | null }[] | null }
 
       if (bookings && bookings.length > 0) {
         const clientName = (bookings[0].clients as any)?.name || 'a client'
@@ -83,7 +91,7 @@ export async function PUT(request: NextRequest) {
 
   currentObj.availability = availability
 
-  await tenantDb(auth.tid)
+  await db
     .from('team_members')
     .update({ notes: JSON.stringify(currentObj) })
     .eq('id', auth.id)

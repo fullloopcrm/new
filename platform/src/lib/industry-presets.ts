@@ -130,6 +130,28 @@ export function mapIndustry(raw: string | null | undefined): IndustryKey {
   return 'general'
 }
 
+// The 23 "project (lead) verticals" from the IndustryKey union above — jobs that
+// run days-to-a-year and close via quote/proposal, never a self-served hourly
+// timeslot. Kept as an explicit set (not a naming convention) so this list is
+// the single source of truth provisioning, and any future funnel-mode check,
+// reads from.
+const PROJECT_VERTICALS: ReadonlySet<IndustryKey> = new Set([
+  'landscaping', 'remodeling', 'roofing', 'siding', 'painting', 'flooring',
+  'concrete', 'deck', 'fencing', 'demolition', 'drywall', 'epoxy',
+  'foundation', 'insulation', 'moving', 'paving', 'windows_doors', 'stucco',
+  'solar', 'smart_home', 'accessibility', 'restoration', 'interior_design',
+])
+
+/**
+ * Default funnel_mode for a newly-provisioned tenant of this industry.
+ * Service (booking) verticals self-book an hourly slot; project (lead)
+ * verticals close through the sales pipeline (quote/proposal → schedule).
+ * See TenantSettings.funnel_mode in lib/settings.ts for the full contract.
+ */
+export function defaultFunnelMode(industry: IndustryKey): 'booking' | 'pipeline' {
+  return PROJECT_VERTICALS.has(industry) ? 'pipeline' : 'booking'
+}
+
 const svc = (name: string, description: string, hours: number, rate: number, i: number): DefaultService =>
   ({ name, description, default_duration_hours: hours, default_hourly_rate: rate, sort_order: i })
 

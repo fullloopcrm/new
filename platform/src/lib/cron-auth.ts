@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { safeEqual } from '@/lib/secret-compare'
+import { safeEqual } from './secret-compare'
 
 /**
  * Fail-closed CRON_SECRET check for cron/system routes authenticated by a
@@ -23,7 +23,7 @@ export function verifyCronSecret(request: Request): NextResponse | null {
   if (!secret) {
     return NextResponse.json({ error: 'Server misconfiguration: CRON_SECRET not set' }, { status: 500 })
   }
-  const authHeader = request.headers.get('authorization')
+  const authHeader = request.headers.get('authorization') || ''
   if (!safeEqual(authHeader, `Bearer ${secret}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }

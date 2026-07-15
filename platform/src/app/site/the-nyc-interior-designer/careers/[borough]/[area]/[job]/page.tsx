@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import Link from "next/link";
@@ -131,8 +132,8 @@ export default async function JobPage({ params }: Props) {
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingSchema) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchemaData) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jobPostingSchema) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbSchemaData) }} />
 
       {/* Hero */}
       <section className="relative overflow-hidden bg-gray-800 pt-36 pb-20 sm:pt-44 sm:pb-28">

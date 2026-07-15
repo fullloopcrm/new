@@ -9,11 +9,13 @@ export async function GET(request: NextRequest) {
   const auth = verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data: member } = await tenantDb(auth.tid)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   // Default preferences
   const defaults = {
@@ -58,11 +60,11 @@ export async function PUT(request: NextRequest) {
   const { notification_preferences, sms_consent } = await request.json()
 
   // Get current notes
-  const { data: member } = await tenantDb(auth.tid)
+  const { data: member } = (await tenantDb(auth.tid)
     .from('team_members')
     .select('notes')
     .eq('id', auth.id)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   let notesObj: Record<string, unknown> = {}
   if (member?.notes) {

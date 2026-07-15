@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import { buildMetadata, breadcrumbSchema, SITE_NAME, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
 import { blogPosts, BLOG_CATEGORIES } from '@/app/site/nyc-classifieds/_lib/blog-posts'
@@ -39,7 +40,7 @@ export default function BlogIndexPage() {
   return (
     <>
       {schemas.map((s, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(s) }} />
       ))}
       <BlogIndexClient
         posts={blogPosts}

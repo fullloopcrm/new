@@ -194,6 +194,17 @@ export async function getAccountIdByCode(tenantId: string, code: string): Promis
   return (data?.id as string) || null
 }
 
+/**
+ * True if `err` is a Postgres unique-violation (23505). `postJournalEntry`
+ * throws the raw Postgrest error object from the RPC call, so callers can
+ * narrow it this way to treat a concurrent duplicate post as idempotent
+ * instead of a real failure — the atomic backstop for the
+ * `idx_journal_entries_source_unique` index (2026_07_13_journal_entries_source_unique.sql).
+ */
+export function isUniqueViolation(err: unknown): boolean {
+  return !!err && typeof err === 'object' && 'code' in err && (err as { code?: unknown }).code === '23505'
+}
+
 /** Has a journal entry already been posted for this (source, source_id)? */
 export async function journalEntryExists(tenantId: string, source: string, sourceId: string): Promise<boolean> {
   const { data } = await supabaseAdmin

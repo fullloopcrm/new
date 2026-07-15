@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -18,7 +19,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('settings.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json()
     const updates = pick(body, EDITABLE_SERVICE_FIELDS)
@@ -51,7 +54,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('settings.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     const { error } = await supabaseAdmin

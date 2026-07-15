@@ -66,6 +66,19 @@ const h = vi.hoisted(() => {
         store[table] = [...(store[table] || []), ...inserted]
         return inserted
       }
+      // Mirrors migration 011's UNIQUE constraint on payments.stripe_session_id
+      // -- the atomic-insert-as-claim money-race fix relies on a real 23505 to
+      // detect a concurrent/retried delivery before any side effect.
+      function checkUniqueSessionId(): { data: null; error: { code: string; message: string } } | null {
+        if (table !== 'payments' || kind !== 'insert') return null
+        const rows = Array.isArray(payload) ? payload : [payload]
+        for (const p of rows) {
+          if (p.stripe_session_id != null && (store.payments || []).some((r) => r.stripe_session_id === p.stripe_session_id)) {
+            return { data: null, error: { code: '23505', message: 'duplicate key value violates unique constraint on payments(stripe_session_id)' } }
+          }
+        }
+        return null
+      }
       function doUpdate() {
         store[table] = (store[table] || []).map((r) => (match(r) ? { ...r, ...(payload as Row) } : r))
       }
@@ -77,7 +90,12 @@ const h = vi.hoisted(() => {
         order: () => c,
         limit: (n: number) => { cap = n; return c },
         single: async () => {
-          if (kind === 'insert') { const [row] = doInsert(); return { data: row, error: null } }
+          if (kind === 'insert') {
+            const dup = checkUniqueSessionId()
+            if (dup) return dup
+            const [row] = doInsert()
+            return { data: row, error: null }
+          }
           const found = (store[table] || []).find(match)
           return { data: found ?? null, error: found ? null : { message: 'not found' } }
         },

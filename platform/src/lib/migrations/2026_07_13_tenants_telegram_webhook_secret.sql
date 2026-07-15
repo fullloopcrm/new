@@ -1,0 +1,17 @@
+-- Auth-gap fix: the per-tenant Telegram webhook (/api/webhooks/telegram/[tenant])
+-- had no way to verify an inbound POST actually came from Telegram — Telegram
+-- doesn't sign webhook bodies, and the route's only "auth" was comparing the
+-- chat_id embedded in the (fully attacker-controlled) request body against
+-- tenants.telegram_chat_id. Anyone who found a tenant's webhook URL and
+-- guessed/leaked that chat_id could forge an update and drive the tenant's AI
+-- agent.
+--
+-- This column stores an encrypted (via secret-crypto.ts, same as
+-- telegram_bot_token) random secret_token that gets passed to Telegram's
+-- setWebhook and echoed back on every real delivery in the
+-- X-Telegram-Bot-Api-Secret-Token header (verified via
+-- verifyTelegramSecretToken() in webhook-verify.ts). NULL until a tenant's
+-- bot token is next saved through /api/admin/businesses/[id] — verification
+-- is skipped (not rejected) for rows where it's still NULL, so this is
+-- backward compatible with existing live bots until they re-save.
+ALTER TABLE tenants ADD COLUMN IF NOT EXISTS telegram_webhook_secret text;

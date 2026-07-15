@@ -19,6 +19,18 @@ function slugify(name: string): string {
   return name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')
 }
 
+/**
+ * Release a stuck conversion claim so a retry isn't permanently blocked.
+ * Safe even if a concurrent call has since re-claimed or finished — the
+ * idempotent `converted_tenant_id` check at the top of the function wins.
+ */
+async function releaseLeadClaim(leadId: string): Promise<void> {
+  await supabaseAdmin
+    .from('partner_requests')
+    .update({ conversion_claimed_at: null })
+    .eq('id', leadId)
+}
+
 export interface CreateFromLeadOptions {
   /** 'new' for paid proposals, 'pending' for a comp/manual override. */
   status?: string
@@ -61,6 +73,40 @@ export async function createTenantFromLead(
       .eq('id', lead.converted_tenant_id)
       .single()
     return { ok: true, tenant: existing || undefined, alreadyConverted: true }
+  }
+
+  // Atomic claim: only a not-yet-converted, not-yet-claimed lead can proceed
+  // past this point. Concurrent callers (e.g. an admin double-clicking
+  // "convert" while a paid-proposal webhook fires for the same lead) race
+  // this UPDATE — the loser gets null back instead of falling through to
+  // create a duplicate tenant (billing, seats, territory claim, owner PIN).
+  const { data: claim } = await supabaseAdmin
+    .from('partner_requests')
+    .update({ conversion_claimed_at: new Date().toISOString() })
+    .eq('id', leadId)
+    .is('converted_tenant_id', null)
+    .is('conversion_claimed_at', null)
+    .select('id')
+    .maybeSingle()
+
+  if (!claim) {
+    // Already claimed (in flight or finished) by a concurrent call. If the
+    // winner already finished, return its tenant; otherwise surface a
+    // retryable conflict instead of silently creating a second tenant.
+    const { data: latest } = await supabaseAdmin
+      .from('partner_requests')
+      .select('converted_tenant_id')
+      .eq('id', leadId)
+      .maybeSingle()
+    if (latest?.converted_tenant_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('tenants')
+        .select('id, slug, name, status')
+        .eq('id', latest.converted_tenant_id)
+        .single()
+      return { ok: true, tenant: existing || undefined, alreadyConverted: true }
+    }
+    return { ok: false, error: 'Lead conversion already in progress' }
   }
 
   const name: string = lead.business_name || lead.contact_name || 'New tenant'
@@ -116,9 +162,11 @@ export async function createTenantFromLead(
         if (existing && existing.tenant_id == null) {
           reservedClaimId = existing.id as string
         } else {
+          await releaseLeadClaim(leadId)
           return { ok: false, error: 'Territory already claimed for that category — cannot convert.' }
         }
       } else {
+        await releaseLeadClaim(leadId)
         return { ok: false, error: `Territory reservation failed: ${claimErr.message}` }
       }
     } else {
@@ -168,6 +216,7 @@ export async function createTenantFromLead(
     if (reservedClaimId) {
       await supabaseAdmin.from('territory_claims').delete().eq('id', reservedClaimId)
     }
+    await releaseLeadClaim(leadId)
     return { ok: false, error: insErr?.message || 'Tenant create failed' }
   }
 

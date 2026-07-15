@@ -39,17 +39,54 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     const isInflow = txn.amount_cents > 0
+    if (targetType === 'invoice' && !isInflow) {
+      return NextResponse.json({ error: 'Only inflows can match invoices' }, { status: 400 })
+    }
+    if (targetType === 'booking' && !isInflow) {
+      return NextResponse.json({ error: 'Only inflows match bookings' }, { status: 400 })
+    }
+    if (targetType === 'expense' && isInflow) {
+      return NextResponse.json({ error: 'Only outflows match expenses' }, { status: 400 })
+    }
+    if (!['invoice', 'booking', 'expense'].includes(targetType)) {
+      return NextResponse.json({ error: `Unknown target_type: ${targetType}` }, { status: 400 })
+    }
+
+    // Atomic claim: only a txn NOT already matched/posted can proceed past
+    // this point. Two concurrent match requests for the same bank_txn id
+    // (e.g. a double-click, or two operators matching it to different
+    // targets at once) used to both pass the plain status check above and
+    // both insert a payment row before either write landed — the loser now
+    // gets null back and backs off instead of double-crediting revenue.
+    const originalStatus = txn.status as string
+    const { data: claimed } = await tenantDb(tenantId)
+      .from('bank_transactions')
+      .update({ status: 'matched' })
+      .eq('id', id)
+      .neq('status', 'matched')
+      .neq('status', 'posted')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) return NextResponse.json({ error: 'Already matched' }, { status: 400 })
+
+    // Reverts the claim on a target-resolution failure (bad target_id) so the
+    // txn isn't left stuck in 'matched' with no matched_*_id — this is a
+    // client input error, not the race the claim above guards against.
+    const revertClaim = () =>
+      tenantDb(tenantId).from('bank_transactions').update({ status: originalStatus }).eq('id', id)
+
     const updates: Record<string, unknown> = {}
 
     if (targetType === 'invoice') {
-      if (!isInflow) return NextResponse.json({ error: 'Only inflows can match invoices' }, { status: 400 })
-
       const { data: inv } = await tenantDb(tenantId)
         .from('invoices')
         .select('id, total_cents, amount_paid_cents, status, client_id, booking_id')
         .eq('id', targetId)
         .single()
-      if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      if (!inv) {
+        await revertClaim()
+        return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
+      }
 
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
       const { error: pErr } = await tenantDb(tenantId).from('payments').insert({
@@ -66,14 +103,15 @@ export async function POST(request: Request, { params }: Params) {
       updates.matched_invoice_id = inv.id
       updates.status = 'matched'
     } else if (targetType === 'booking') {
-      if (!isInflow) return NextResponse.json({ error: 'Only inflows match bookings' }, { status: 400 })
-
       const { data: b } = await tenantDb(tenantId)
         .from('bookings')
         .select('id, client_id')
         .eq('id', targetId)
         .single()
-      if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      if (!b) {
+        await revertClaim()
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
 
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
       await tenantDb(tenantId).from('payments').insert({
@@ -92,14 +130,15 @@ export async function POST(request: Request, { params }: Params) {
       updates.matched_booking_id = b.id
       updates.status = 'matched'
     } else if (targetType === 'expense') {
-      if (isInflow) return NextResponse.json({ error: 'Only outflows match expenses' }, { status: 400 })
-
       const { data: ex } = await tenantDb(tenantId)
         .from('expenses')
         .select('id, category, amount')
         .eq('id', targetId)
         .single()
-      if (!ex) return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+      if (!ex) {
+        await revertClaim()
+        return NextResponse.json({ error: 'Expense not found' }, { status: 404 })
+      }
 
       await tenantDb(tenantId)
         .from('expenses')
@@ -137,8 +176,6 @@ export async function POST(request: Request, { params }: Params) {
       }
       updates.matched_expense_id = ex.id
       if (!updates.status) updates.status = 'matched'
-    } else {
-      return NextResponse.json({ error: `Unknown target_type: ${targetType}` }, { status: 400 })
     }
 
     const { error } = await tenantDb(tenantId)

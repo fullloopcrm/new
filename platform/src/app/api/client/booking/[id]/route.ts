@@ -13,7 +13,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('id', id)
-    .single()
+    .single<{ client_id: string }>()
 
   if (error || !data) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 

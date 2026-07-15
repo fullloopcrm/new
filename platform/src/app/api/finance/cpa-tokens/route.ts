@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { randomBytes } from 'crypto'
+import { isEntityOwnedByTenant } from '@/lib/entity'
 
 export async function GET() {
   try {
@@ -33,6 +34,11 @@ export async function POST(request: Request) {
     const expiresAt = body.expires_in_days
       ? new Date(Date.now() + Number(body.expires_in_days) * 86400000).toISOString()
       : null
+    // A foreign entity_id would join back as entities(name) on GET -- a
+    // cross-tenant leak of another tenant's business entity name.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
+    }
     const { data, error } = await supabaseAdmin
       .from('cpa_access_tokens')
       .insert({

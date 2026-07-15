@@ -25,11 +25,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Tenant not found for this host' }, { status: 404 })
   }
 
+  // Unauthenticated, tenant-public endpoint accepting up to 25MB per request --
+  // without a limit here a caller could spam storage writes and run up hosting
+  // costs. Same window/threshold as the sibling lead-media/signed-url endpoint.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  // Generous: a single booking can legitimately include many photos (mirrors lead-media/signed-url).
   const rl = await rateLimitDb(`public_upload:${tenant.id}:${ip}`, 60, 10 * 60 * 1000)
   if (!rl.allowed) {
-    return NextResponse.json({ success: false, error: 'Too many uploads. Try again later.' }, { status: 429 })
+    return NextResponse.json({ success: false, error: 'Too many requests. Try again later.' }, { status: 429 })
   }
 
   const formData = await request.formData()
@@ -43,7 +45,7 @@ export async function POST(request: NextRequest) {
   if (file.size > MAX_SIZE) return NextResponse.json({ success: false, error: 'File too large (max 25MB)' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ success: false, error: 'File type not allowed' }, { status: 400 })
 
-  const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+  const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
   const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
   const path = `${tenant.id}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 

@@ -10,6 +10,8 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  const db = tenantDb(auth.tid)
+
   try {
     // Find or create client channel
     let { data: channel } = await tenantDb(auth.tid)
@@ -41,7 +43,7 @@ export async function GET(request: NextRequest) {
 
     if (!channel) return NextResponse.json({ messages: [] })
 
-    const { data: messages } = await supabaseAdmin
+    const { data: messages } = await db
       .from('connect_messages')
       .select('id, sender_type, sender_id, sender_name, body, created_at')
       .eq('channel_id', channel.id)

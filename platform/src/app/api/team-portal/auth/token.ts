@@ -25,9 +25,11 @@ export function verifyToken(token: string): { id: string; tid: string; role: str
     if (!payloadB64 || !sig) return null
     const payload = Buffer.from(payloadB64, 'base64').toString()
     const expected = crypto.createHmac('sha256', getSecret()).update(payload).digest('hex')
-    // Constant-time compare to avoid leaking signature bytes via timing.
-    const sigBuf = Buffer.from(sig, 'hex')
-    const expBuf = Buffer.from(expected, 'hex')
+    // Constant-time compare to avoid leaking signature bytes via timing — mirrors
+    // referrer-portal-auth.ts verifyReferrerToken, which shares TEAM_PORTAL_SECRET
+    // and carries the same forgery risk from a non-constant-time comparison.
+    const sigBuf = Buffer.from(sig)
+    const expBuf = Buffer.from(expected)
     if (sigBuf.length !== expBuf.length || !crypto.timingSafeEqual(sigBuf, expBuf)) return null
     const data = JSON.parse(payload)
     // Scope gate: TEAM_PORTAL_SECRET is shared with the referrer portal

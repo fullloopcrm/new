@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { getAllServices, getServicesByCategory } from "@/app/site/the-nyc-exterminator/_lib/data";
@@ -79,14 +80,14 @@ export default function PricingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(pricingFaqs)),
+          __html: safeJsonLd(getFAQPageSchema(pricingFaqs)),
         }}
       />
       {/* JSON-LD: Breadcrumb Schema */}
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(
+          __html: safeJsonLd(
             getBreadcrumbSchema([
               { name: "Home", url: "/" },
               { name: "Pricing", url: "/pricing" },

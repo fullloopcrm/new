@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from 'next'
 import Link from 'next/link'
 import { breadcrumbSchema, localBusinessSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
@@ -98,8 +99,8 @@ export default async function ReviewsPage() {
 
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(orgLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(faqLd) }} />
 
       <section className="bg-[var(--brand)] text-white">
         <div className="max-w-4xl mx-auto px-6 py-20 md:py-28">

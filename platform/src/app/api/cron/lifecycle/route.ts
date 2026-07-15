@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 120
 

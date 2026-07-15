@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 const DOMAIN = "https://www.landscapinginnyc.com";
 const BIZ_NAME = "Landscaping In NYC";
 const PHONE = "+1-212-470-9637";
@@ -297,7 +298,7 @@ export function JsonLd({
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data).replace(/</g, "\\u003c") }}
     />
   );
 }

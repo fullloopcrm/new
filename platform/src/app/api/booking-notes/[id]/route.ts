@@ -13,7 +13,10 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   const { id } = await params
-  const { data: note } = await tenantDb(ctx.tenantId).from('booking_notes').select('images').eq('id', id).single()
+  const db = tenantDb(ctx.tenantId)
+  const { data: note } = (await db.from('booking_notes').select('images').eq('id', id).single()) as {
+    data: { images: string[] | null } | null
+  }
   if (!note) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
   for (const url of (note.images as string[]) || []) {
@@ -21,7 +24,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     if (match) await supabaseAdmin.storage.from('uploads').remove([match[1]])
   }
 
-  const { error } = await tenantDb(ctx.tenantId).from('booking_notes').delete().eq('id', id)
+  const { error } = await db.from('booking_notes').delete().eq('id', id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ success: true })
 }

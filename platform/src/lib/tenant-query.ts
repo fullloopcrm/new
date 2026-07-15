@@ -89,13 +89,27 @@ export async function getTenantForRequest(): Promise<TenantContext> {
         // Per-tenant member token → only valid if minted for THIS tenant.
         const ta = verifyTenantAdminToken(adminToken, headerTenantId)
         if (ta) {
-          const { data: tenant } = await supabaseAdmin
-            .from('tenants')
-            .select('*')
-            .eq('id', headerTenantId)
+          // Instant revocation: the token carries the role it was minted with,
+          // but a demoted/removed member's access must die immediately, not at
+          // the token's 24h natural expiry (mirrors requirePortalPermission's
+          // per-request status re-check on the team-portal side). Re-read the
+          // member's CURRENT role from tenant_members on every request instead
+          // of trusting the signed claim.
+          const { data: member } = await supabaseAdmin
+            .from('tenant_members')
+            .select('role')
+            .eq('id', ta.memberId)
+            .eq('tenant_id', headerTenantId)
             .single()
-          if (tenant) {
-            return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
+          if (member) {
+            const { data: tenant } = await supabaseAdmin
+              .from('tenants')
+              .select('*')
+              .eq('id', headerTenantId)
+              .single()
+            if (tenant) {
+              return { userId: ta.memberId, tenantId: tenant.id, tenant, role: member.role }
+            }
           }
         }
       }

@@ -74,16 +74,29 @@ const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include=
   .trim().split('\n').filter(Boolean)
   .filter(f => !EXCLUDE.some(rx => rx.test(f)))
 
+// tenantDb(tenantId) (ADR 0004) is scoped by construction — the wrapper injects
+// .eq('tenant_id', …) / stamps tenant_id internally (src/lib/tenant-db.ts), so the
+// literal string "tenant_id" never appears at call sites. Recognize both the direct
+// chain (`tenantDb(x).from(...)`, possibly wrapped across lines) and the
+// variable-bound form (`const db = tenantDb(x)` … `db.from(...)`) so wrapper adoption
+// doesn't trip this text-based guard.
+const TENANT_DB_VAR_RX = /\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/
+const TENANT_DB_CALL_RX = /\btenantDb\(/
+const LOOKBEHIND_LINES = 3
+
 const flagged = []
 for (const file of files) {
-  const src = readFileSync(file, 'utf8')
-  const lines = src.split('\n')
   // Variables bound to a tenantDb(...) wrapper instance (e.g. `const db =
   // tenantDb(tenantId)`, reused as `db.from(...)` possibly many lines later).
   // A `.from()` call through one of these is auto-scoped by the wrapper
   // itself (lib/tenant-db.ts adds .eq('tenant_id', …) internally) even though
   // the literal string "tenant_id" never appears at the call site.
-  const wrapperVars = [...src.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/g)].map((m) => m[1])
+  const lines = readFileSync(file, 'utf8').split('\n')
+  const tenantDbVars = new Set()
+  for (const line of lines) {
+    const vm = line.match(TENANT_DB_VAR_RX)
+    if (vm) tenantDbVars.add(vm[1])
+  }
 
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
@@ -91,21 +104,26 @@ for (const file of files) {
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
 
-    // Inline `tenantDb(tenantId).from(...)` (same line, or chained across up
-    // to 3 lines — `tenantDb(tenantId)\n  .from(...)`), or a call through a
-    // tracked wrapper variable — same line (`db.from(...)`) or the variable
-    // sitting bare on one of the preceding chain-continuation lines
-    // (`db\n  .from(...)`).
-    const prevLines = lines.slice(Math.max(0, i - 3), i).map((l) => l.trim())
-    const wrapperInline = /tenantDb\(/.test(lines[i].slice(0, m.index)) || prevLines.some((l) => /tenantDb\(/.test(l))
-    const wrapperVarCall = wrapperVars.some((v) =>
-      new RegExp(`(?:^|[^\\w.])${v}\\s*\\.from\\(`).test(lines[i])
-      || prevLines.some((l) => new RegExp(`(?:^|[^\\w.])${v}$`).test(l))
-    )
-    const wrapperScoped = wrapperInline || wrapperVarCall
+    const lookBehind = lines.slice(Math.max(0, i - LOOKBEHIND_LINES), i + 1).join('\n')
+    // Walk back from the .from() line to the root of ITS OWN call chain: as
+    // long as the line above is a `.method(...)` continuation, it's the same
+    // chain (`await db\n  .from(...)`). Stop at the first non-continuation
+    // line — that's the chain's actual receiver. Matching the var name only
+    // against this root line (not the whole lookBehind blob) stops an
+    // unrelated same-named tenantDb-bound var in nearby, unrelated code (e.g.
+    // two functions both naming a local `db`) from falsely suppressing a real
+    // leak in between them.
+    let root = i
+    while (root > Math.max(0, i - LOOKBEHIND_LINES) && lines[root].trim().startsWith('.')) root--
+    const chainRootLine = lines[root]
+    const tenantDbWrapped = TENANT_DB_CALL_RX.test(lookBehind) ||
+      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(chainRootLine))
+    if (tenantDbWrapped) continue
 
     const chain = lines.slice(i, i + 12).join('\n')
-    const scoped = wrapperScoped || /tenant_id/.test(chain)      // filter, insert payload, or wrapper
+    // Wrapper-scoped calls already `continue`d above, so reaching here means
+    // this .from() is either raw .eq('tenant_id', …)-scoped or unscoped.
+    const scoped = /tenant_id/.test(chain)      // filter, insert payload, or wrapper
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)

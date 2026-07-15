@@ -33,4 +33,8 @@ describe('safeEqual', () => {
   it('returns false when the candidate is empty but the expected secret is set', () => {
     expect(safeEqual('', 'configured-secret')).toBe(false)
   })
+
+  it('returns false when expected is empty but the candidate is not', () => {
+    expect(safeEqual('anything', '')).toBe(false)
+  })
 })

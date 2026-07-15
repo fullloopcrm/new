@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -33,13 +33,16 @@ export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown business' }, { status: 400 })
 
-  const { data: referrer } = await supabaseAdmin
+  const db = tenantDb(tenant.id)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: referrer } = (await db
     .from('referrers')
     .select('id, referral_code, otp_hash, otp_expires_at')
     .eq('tenant_id', tenant.id)
     .ilike('email', escapeLikeValue(email))
     .eq('status', 'active')
-    .maybeSingle()
+    .maybeSingle()) as { data: { id: string; referral_code: string; otp_hash: string | null; otp_expires_at: string | null } | null }
 
   const valid =
     referrer &&
@@ -53,7 +56,7 @@ export async function POST(request: NextRequest) {
   }
 
   // Single-use: clear the code as soon as it's spent.
-  await supabaseAdmin
+  await db
     .from('referrers')
     .update({ otp_hash: null, otp_expires_at: null })
     .eq('id', referrer.id)

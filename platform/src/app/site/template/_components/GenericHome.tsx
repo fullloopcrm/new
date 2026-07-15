@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import JsonLd from '@/app/site/template/_components/JsonLd'
 import type { SiteConfig } from '@/app/site/template/_config/types'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { homeContent } from '@/app/site/template/_lib/content/longform'
@@ -49,8 +50,8 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
 
   return (
     <div>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(orgLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
+      <JsonLd data={orgLd} />
+      <JsonLd data={faqLd} />
 
       {/* Hero */}
       <section className="bg-[var(--brand)] text-white">

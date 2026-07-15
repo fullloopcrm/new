@@ -108,6 +108,19 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
           }
         }
       }
+      // Mirrors migration 011's UNIQUE constraint on payments.stripe_session_id
+      // -- the stripe webhook's atomic-insert-as-claim money-race fix relies on
+      // a real 23505 here to detect a concurrent/retried delivery for the same
+      // checkout session before any side effect (revenue post, cleaner payout).
+      if (state.op === 'insert' && state.table === 'payments' && p.stripe_session_id != null) {
+        const dup = rows.find((r) => r.stripe_session_id === p.stripe_session_id)
+        if (dup) {
+          return {
+            data: null,
+            error: { message: 'duplicate key value violates unique constraint on payments(stripe_session_id)', code: '23505' },
+          }
+        }
+      }
       // Mirrors migration 066's unique index on referral_commissions(booking_id)
       // WHERE booking_id IS NOT NULL -- lets the POST /api/referral-commissions
       // 23505 handling be exercised for real.

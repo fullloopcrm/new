@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 

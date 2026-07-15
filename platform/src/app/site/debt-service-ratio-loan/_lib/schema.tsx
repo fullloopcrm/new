@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -374,7 +375,7 @@ export function JsonLd({ data }: { data: Record<string, unknown> | Record<string
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data).replace(/</g, "\\u003c") }}
     />
   );
 }

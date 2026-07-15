@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
+import { safeEqual } from '@/lib/secret-compare'
 
 const TEST_TAG = 'selena-email-test'
 
@@ -28,7 +29,7 @@ export async function POST(request: NextRequest) {
     tenant_id?: string
   } | null
   if (!body) return NextResponse.json({ error: 'bad_body' }, { status: 400 })
-  if (body.key !== expectedToken) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  if (!safeEqual(body.key || '', expectedToken)) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const tenantId = body.tenant_id || request.nextUrl.searchParams.get('tenant_id')
   if (!tenantId) return NextResponse.json({ error: 'tenant_id required' }, { status: 400 })

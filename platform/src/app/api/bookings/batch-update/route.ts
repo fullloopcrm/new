@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
@@ -60,13 +61,17 @@ export async function PUT(request: Request) {
       }
     }
 
+    // tenantDb auto-scopes the update's WHERE clause by tenant_id — without it,
+    // supabaseAdmin bypasses RLS and .eq('id', u.id) alone would let a caller
+    // update a booking belonging to a DIFFERENT tenant (cross-tenant IDOR),
+    // independent of the mass-assignment/FK-ownership guards above.
+    const db = tenantDb(tenantId)
     const results = await Promise.all(
       sanitized.map(async (u) => {
-        const { data, error } = await supabaseAdmin
+        const { data, error } = await db
           .from('bookings')
           .update(u.data)
           .eq('id', u.id)
-          .eq('tenant_id', tenantId)
           .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
           .single()
         return { id: u.id, data, error }

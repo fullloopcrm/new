@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
@@ -50,13 +51,13 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getBlogPostSchema(post)),
+          __html: safeJsonLd(getBlogPostSchema(post)),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getBreadcrumbSchema([
+          __html: safeJsonLd(getBreadcrumbSchema([
             { name: "Blog", url: "/blog" },
             { name: post.title, url: `/blog/${post.slug}` },
           ])),

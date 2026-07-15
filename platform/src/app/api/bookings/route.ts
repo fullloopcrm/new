@@ -10,8 +10,8 @@ import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
-import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
@@ -49,7 +49,13 @@ export async function GET(request: NextRequest) {
     if (dateFrom) query = query.gte('start_time', dateFrom)
     if (dateTo) query = query.lte('start_time', dateTo)
 
-    const { data, count, error } = await query
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data, count, error } = (await query) as {
+      data: Record<string, unknown>[] | null
+      count: number | null
+      error: { message: string } | null
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
@@ -142,13 +148,15 @@ export async function POST(request: Request) {
       const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
       const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
 
-      const { data: conflicts } = await db
+      // tenantDb's select() takes a non-literal `columns` param, which widens
+      // supabase-js's column-string type inference — cast to the shape actually selected.
+      const { data: conflicts } = (await db
         .from('bookings')
         .select('id, start_time, end_time')
         .eq('team_member_id', validated.team_member_id)
         .not('status', 'in', '("cancelled","no_show")')
         .lt('start_time', endWithBuffer)
-        .gt('end_time', startWithBuffer)
+        .gt('end_time', startWithBuffer)) as { data: { id: string; start_time: string; end_time: string | null }[] | null }
 
       if (conflicts && conflicts.length > 0) {
         const bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
@@ -168,11 +176,13 @@ export async function POST(request: Request) {
     // enforce. (force bypasses, like the day-off + conflict guards above.)
     if (validated.team_member_id && validated.start_time && !body.force) {
       const bookingDate = (validated.start_time as string).split('T')[0]
-      const { data: member } = await db
+      // tenantDb's select() takes a non-literal `columns` param, which widens
+      // supabase-js's column-string type inference — cast to the shape actually selected.
+      const { data: member } = (await db
         .from('team_members')
         .select('name, schedule, max_jobs_per_day')
         .eq('id', validated.team_member_id as string)
-        .single()
+        .single()) as { data: { name: string; schedule: Record<string, unknown> | null; max_jobs_per_day: number | null } | null }
       if (member) {
         const startMin = timestampToMin(validated.start_time as string)
         const endMin = validated.end_time
@@ -210,11 +220,13 @@ export async function POST(request: Request) {
     // Look up service type name if service_type_id provided. Tenant-scoped via
     // db so a service_type_id from another tenant can't be used here.
     if (validated.service_type_id) {
-      const { data: svc } = await db
+      // tenantDb's select() takes a non-literal `columns` param, which widens
+      // supabase-js's column-string type inference — cast to the shape actually selected.
+      const { data: svc } = (await db
         .from('service_types')
         .select('name')
         .eq('id', validated.service_type_id as string)
-        .single()
+        .single()) as { data: { name: string } | null }
       if (svc) (validated as Record<string, unknown>).service_type = svc.name
     }
 
@@ -244,10 +256,9 @@ export async function POST(request: Request) {
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
         .eq('id', tenantId)
         .single()
-      const bizName = tenantData?.name || 'Your Business'
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
@@ -281,7 +292,7 @@ export async function POST(request: Request) {
       if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.team_members.phone,
-          body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
+          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
         }).catch(err => console.error('Team assignment SMS error:', err))

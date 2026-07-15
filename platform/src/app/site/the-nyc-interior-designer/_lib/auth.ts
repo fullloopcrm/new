@@ -1,12 +1,21 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes } from 'crypto'
+import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/app/site/the-nyc-interior-designer/_lib/supabase'
 import type { AdminRole } from '@/app/site/the-nyc-interior-designer/_lib/roles'
 
 function signToken(token: string): string {
   const secret = process.env.ADMIN_PASSWORD || ''
   return createHmac('sha256', secret).update(token).digest('hex')
+}
+
+// Constant-time compare for HMAC signatures — a plain !== early-exits per
+// mismatched character, which is the textbook timing side-channel case.
+function signaturesMatch(expected: string, provided: string): boolean {
+  const expectedBuf = Buffer.from(expected, 'utf8')
+  const providedBuf = Buffer.from(provided, 'utf8')
+  if (expectedBuf.length !== providedBuf.length) return false
+  return timingSafeEqual(expectedBuf, providedBuf)
 }
 
 export function hashPassword(password: string): string {
@@ -34,7 +43,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [userId, token, timestamp, signature] = parts
     if (!userId || !token || !timestamp || !signature) return { valid: false }
     const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true, userId }
@@ -44,7 +53,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [token, timestamp, signature] = parts
     if (!token || !timestamp || !signature) return { valid: false }
     const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true }
@@ -53,7 +62,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (parts.length === 2) {
     const [token, signature] = parts
     if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
+    if (!signaturesMatch(signToken(token), signature)) return { valid: false }
     return { valid: true }
   }
 
@@ -94,7 +103,21 @@ export async function isAdminAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies()
   const session = cookieStore.get('admin_session')?.value
   if (!session) return false
-  return verifySessionCookie(session).valid
+  const { valid, userId } = verifySessionCookie(session)
+  if (!valid) return false
+  // Legacy PIN session (no userId) has no admin_users row to re-check against —
+  // treated as owner, matching getAdminUser()'s existing behavior for this format.
+  if (!userId) return true
+  // Instant revocation: a disabled/removed admin's signed cookie stays
+  // cryptographically valid until its 24h expiry. Re-check current status on
+  // every request instead of trusting only the signature (mirrors
+  // requirePortalPermission's per-request status check on team-portal).
+  const { data } = await supabaseAdmin
+    .from('admin_users')
+    .select('status')
+    .eq('id', userId)
+    .single()
+  return data?.status === 'active'
 }
 
 export async function protectAdminAPI(): Promise<NextResponse | null> {

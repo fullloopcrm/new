@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       subject: `[Automation request] ${tenantName}: ${title}`,
       html: `<h2>New automation request</h2>
         <p><strong>Tenant:</strong> ${escapeHtml(tenantName)} (${escapeHtml(tenant.tenantId)})</p>
-        <p><strong>From:</strong> ${escapeHtml(t?.owner_email || '—')}</p>
+        <p><strong>From:</strong> ${t?.owner_email ? escapeHtml(t.owner_email) : '—'}</p>
         <p><strong>Trigger:</strong> ${escapeHtml(title)}</p>
         ${description ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(description)}</pre>` : ''}`,
     })

@@ -35,15 +35,17 @@ export async function sendTelegram(chatId: number | string, text: string, botTok
 // Called when a tenant saves/updates its bot token in setup — makes the bot
 // live without any manual curl. Pass the RAW (unencrypted) token.
 //
-// Sets secret_token (from TELEGRAM_WEBHOOK_SECRET) when configured, so Telegram
-// echoes it back on every update via X-Telegram-Bot-Api-Secret-Token — the
-// routes verify that header since a POSTed chat.id alone is attacker-forgeable.
-// Registers WITHOUT it if the env var isn't set yet (pre-activation) so tenant
-// bot setup keeps working during rollout instead of hard-failing.
-export async function registerTelegramWebhook(botToken: string, webhookUrl: string): Promise<TelegramSendResult> {
+// secretToken, when passed, is registered as Telegram's `secret_token` —
+// Telegram echoes it back on every real delivery as the
+// X-Telegram-Bot-Api-Secret-Token header, which is the only origin proof
+// Telegram webhooks offer (bodies aren't signed). Verified server-side via
+// verifyTelegramSecret() in webhook-verify.ts. Falls back to the global
+// TELEGRAM_WEBHOOK_SECRET env var when no per-call secret is given, so the
+// platform owner bot (which has no per-tenant secret) keeps working.
+export async function registerTelegramWebhook(botToken: string, webhookUrl: string, secretToken?: string): Promise<TelegramSendResult> {
   const token = botToken.trim()
   if (!token) return { ok: false, status: 0, body: 'no bot token' }
-  const secretToken = (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
+  const secret = secretToken || (process.env.TELEGRAM_WEBHOOK_SECRET || '').trim()
   try {
     const r = await fetch(`https://api.telegram.org/bot${token}/setWebhook`, {
       method: 'POST',
@@ -51,7 +53,7 @@ export async function registerTelegramWebhook(botToken: string, webhookUrl: stri
       body: JSON.stringify({
         url: webhookUrl,
         allowed_updates: ['message', 'channel_post'],
-        ...(secretToken ? { secret_token: secretToken } : {}),
+        ...(secret ? { secret_token: secret } : {}),
       }),
     })
     return { ok: r.ok, status: r.status, body: await r.text() }

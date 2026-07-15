@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '../preview/route'
@@ -68,13 +68,14 @@ type CleanerRow = {
 }
 
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  // Mass-SMS broadcast to team members — same blast-radius/cost/brand-risk
+  // class as the sibling send-apology-batch route, which is gated on
+  // campaigns.send. This route previously only checked for a valid tenant
+  // session via getTenantForRequest(), so any authenticated role (incl.
+  // 'staff', which has neither campaigns.send nor team.edit per rbac.ts)
+  // could broadcast SMS to every team member.
+  const { tenant: ctx, error: authError } = await requirePermission('campaigns.send')
+  if (authError) return authError
   const tenantId = ctx.tenantId
 
   const body = await request.json().catch(() => ({}))

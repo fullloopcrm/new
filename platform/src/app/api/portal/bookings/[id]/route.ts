@@ -49,7 +49,7 @@ export async function PUT(
     .select('start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
     .eq('client_id', auth.id)
-    .single()
+    .single<{ start_time: string; end_time: string | null; team_member_id: string | null; clients: { name?: string | null } | null }>()
 
   if (!oldBooking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })

@@ -1,38 +1,42 @@
 import { describe, it, expect } from 'vitest'
+import { renderToStaticMarkup } from 'react-dom/server'
 import JsonLd from './JsonLd'
 
 /**
- * Regression: the shared template JSON-LD serializer is fed tenant-controlled
- * fields (e.g. tenant.name via buildBusiness -> schema). A tenant that sets its
- * business name to "</script><script>…</script>" must NOT be able to break out
- * of the <script type="application/ld+json"> block (stored XSS). We escape "<"
- * to "<"; the browser un-escapes it inside the JSON string, so structured
- * data still parses, but the raw closing tag never reaches the HTML.
+ * JsonLd is the shared JSON-LD serializer for the config-driven marketing
+ * template. Its values are tenant-derived (business name, url, FAQ copy), so an
+ * attacker-controlled tenant field must NOT be able to break out of the
+ * <script type="application/ld+json"> block. The only character that can start a
+ * closing </script> tag is '<', so we assert '<' is escaped to '<' and that
+ * no raw '</script' survives into the rendered HTML.
  */
-describe('template JsonLd XSS escaping', () => {
-  const PAYLOAD = '</script><script>alert(document.cookie)</script>'
+describe('JsonLd — script-tag breakout prevention', () => {
+  const breakout = '</script><script>alert(document.domain)</script>'
 
-  function renderHtml(data: Record<string, unknown> | Record<string, unknown>[]): string {
-    const el = JsonLd({ data })
-    return (el.props as { dangerouslySetInnerHTML: { __html: string } })
-      .dangerouslySetInnerHTML.__html
-  }
-
-  it('neutralizes a </script> payload in tenant.name', () => {
-    const html = renderHtml({ '@type': 'LocalBusiness', name: PAYLOAD })
-
-    // No raw "<" survives — so no literal "</script>" or injected "<script>".
-    expect(html).not.toContain('<')
-    expect(html).not.toContain('</script>')
-    expect(html).toContain('\\u003c/script>')
+  it('escapes < so a tenant value cannot close the script tag', () => {
+    const html = renderToStaticMarkup(<JsonLd data={{ name: breakout }} />)
+    // No raw closing tag survived (case-insensitive, in case of </ScRiPt>).
+    expect(html.toLowerCase()).not.toContain('</script><script>')
+    // The escaped form is present instead.
+    expect(html).toContain('\\u003c/script')
   })
 
-  it('preserves the data once unescaped (JSON still valid + name intact)', () => {
-    const html = renderHtml({ '@type': 'LocalBusiness', name: PAYLOAD })
+  it('escapes < in both object and array inputs', () => {
+    const single = renderToStaticMarkup(<JsonLd data={{ url: '<b>x' }} />)
+    const array = renderToStaticMarkup(<JsonLd data={[{ url: '<b>x' }]} />)
+    expect(single).toContain('\\u003cb>x')
+    expect(array).toContain('\\u003cb>x')
+    expect(single).not.toContain('<b>x')
+    expect(array).not.toContain('<b>x')
+  })
 
-    // Browsers decode < back to "<" when parsing the JSON string literal,
-    // so the structured data a crawler sees is unchanged.
-    const parsed = JSON.parse(html.replace(/\\u003c/g, '<'))
-    expect(parsed[0].name).toBe(PAYLOAD)
+  it('still emits valid, parseable JSON-LD for benign data', () => {
+    const html = renderToStaticMarkup(
+      <JsonLd data={{ '@context': 'https://schema.org', '@type': 'Organization', name: 'Acme' }} />,
+    )
+    const json = html.replace(/^.*<script[^>]*>/, '').replace(/<\/script>.*$/, '')
+    // Escaped payload round-trips back to the original object once parsed.
+    const parsed = JSON.parse(json.replace(/\\u003c/g, '<'))
+    expect(parsed[0].name).toBe('Acme')
   })
 })

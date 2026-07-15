@@ -37,7 +37,7 @@ export interface BrandContext {
 export const DEFAULT_BRAND: BrandContext = {
   name: 'Your Business',
   siteName: 'Your Business',
-  url: 'https://example.com',
+  url: process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/+$/, '') || '',
   phone: '(555) 555-5555',
   phoneDigits: '5555555555',
   city: 'your area',

@@ -38,12 +38,21 @@ export async function POST(req: NextRequest) {
     const { bookingId, force } = await req.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
-    const { data: booking } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
       .select('id, tenant_id, team_member_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
-      .single()
+      .single()) as { data: {
+        id: string; tenant_id: string; start_time: string; end_time: string | null
+        check_in_time: string | null; check_out_time: string | null; service_type: string | null
+        hourly_rate: number | null; pay_rate: number | null; price: number | null; notes: string | null
+        max_hours: number | null; team_size: number | null; client_id: string | null
+        payment_status: string | null; fifteen_min_alert_time: string | null
+        clients: unknown; team_members: unknown
+      } | null }
 
     // Cross-tenant: never confirm a foreign booking even exists.
     if (!booking || booking.tenant_id !== auth.tid) {
@@ -168,7 +177,7 @@ export async function POST(req: NextRequest) {
     const smsMessage = smsLines.join('\n')
 
     // Record the 30-min alert timestamp on the booking
-    await supabaseAdmin
+    await tenantDb(tenantId)
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)

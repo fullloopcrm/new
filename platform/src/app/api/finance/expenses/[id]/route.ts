@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
+import { isEntityOwnedByTenant } from '@/lib/entity'
 
 export async function PUT(
   request: Request,
@@ -18,6 +19,9 @@ export async function PUT(
     const fields = pick(body, ['category', 'subcategory', 'amount', 'description', 'receipt_url', 'date', 'vendor_name', 'payment_method', 'tax_deductible', 'entity_id'])
 
     if (fields.amount) fields.amount = Math.round(Number(fields.amount) * 100)
+    if (fields.entity_id && !(await isEntityOwnedByTenant(tenantId, fields.entity_id as string))) {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
+    }
 
     // Caller-supplied FK — verify it belongs to this tenant before update, so a
     // foreign id can't repoint the expense at another tenant's accounting entity.

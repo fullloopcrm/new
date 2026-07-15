@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
@@ -229,56 +230,6 @@ export default function HomePage() {
       name: "Consortium NYC",
       url: "https://www.consortiumnyc.com",
     },
-    review: [
-      {
-        "@type": "Review",
-        author: { "@type": "Person", name: "Gabriel Gonzalez" },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: "5",
-          bestRating: "5",
-        },
-        reviewBody:
-          "We run a plumbing company in Brooklyn. Before Consortium we were spending $4K/month on Google Ads and barely breaking even. Jeff built us a site and within 90 days we were getting 15–20 organic calls a week. We cut our ad spend to zero. Wish we found them years ago.",
-        datePublished: "2025-08-15",
-      },
-      {
-        "@type": "Review",
-        author: { "@type": "Person", name: "June Smith" },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: "5",
-          bestRating: "5",
-        },
-        reviewBody:
-          "I own a med spa in Manhattan and hired three different SEO agencies before finding Consortium. They're the first ones who actually built pages I can see ranking. Not reports. Not promises. Real pages showing up on Google when my clients search. Night and day difference.",
-        datePublished: "2025-10-02",
-      },
-      {
-        "@type": "Review",
-        author: { "@type": "Person", name: "Jenni Martinez" },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: "5",
-          bestRating: "5",
-        },
-        reviewBody:
-          "Our law firm needed leads in Queens and the Bronx. Consortium built us a full SEO platform with pages for every practice area in every neighborhood. We went from 2 organic leads a month to 30+. The ROI isn't even close to what we were getting with ads.",
-        datePublished: "2025-11-20",
-      },
-      {
-        "@type": "Review",
-        author: { "@type": "Person", name: "William Snyder" },
-        reviewRating: {
-          "@type": "Rating",
-          ratingValue: "5",
-          bestRating: "5",
-        },
-        reviewBody:
-          "HVAC company in Westchester. Jeff and his team built us microsites for every town we serve. We're showing up on Google, Bing, even DuckDuckGo. Customers tell us they found us searching 'AC repair near me.' That never happened before. These guys are the real deal.",
-        datePublished: "2026-01-10",
-      },
-    ],
     sameAs: [
       "https://www.bbb.org/us/ny/new-york/profile/web-designer/consortium-nyc-0121-87177901",
       "https://www.consortiumnyc.com",
@@ -290,13 +241,13 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema),
+          __html: safeJsonLd(faqSchema),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(localBusinessSchema),
+          __html: safeJsonLd(localBusinessSchema),
         }}
       />
 

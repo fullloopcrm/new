@@ -3,7 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 import { audit } from '@/lib/audit'
 
 export async function GET(request: Request) {
@@ -52,6 +52,11 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
+    // A foreign entity_id here is a dangling cross-tenant reference (other
+    // finance routes join entities(name) by entity_id) -- keep it in-tenant.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
+    }
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     const { data, error } = await tenantDb(tenantId)

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { generateCode, createToken } from './token'
 
@@ -33,12 +34,14 @@ export async function POST(request: Request) {
     }
 
     // Look up client by phone
-    const { data: client } = await supabaseAdmin
+    const db = tenantDb(tenant.id)
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: client } = (await db
       .from('clients')
       .select('id, name, phone, email')
-      .eq('tenant_id', tenant.id)
       .eq('phone', phone)
-      .single()
+      .single()) as { data: { id: string; name: string; phone: string; email: string | null } | null }
 
     if (!client) {
       return NextResponse.json({ error: 'No account found with this phone number' }, { status: 404 })
@@ -47,17 +50,16 @@ export async function POST(request: Request) {
     const code = generateCode()
 
     // Delete any existing unused codes for this phone
-    await supabaseAdmin
+    await db
       .from('portal_auth_codes')
       .delete()
       .eq('phone', phone)
       .eq('used', false)
 
     // Insert new code
-    await supabaseAdmin.from('portal_auth_codes').insert({
+    await db.from('portal_auth_codes').insert({
       phone,
       code,
-      tenant_id: tenant.id,
       client_id: client.id,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     })
@@ -137,8 +139,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`portal_auth_verify:${ip}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
+    }
+
+    // Tenant isn't known yet at this point — the client only has phone+code,
+    // not a tenant slug — so this lookup must scan across tenants (like a
+    // token lookup) before we can resolve which tenant's wrapper to use.
     const { data: stored } = await supabaseAdmin
-      .from('portal_auth_codes')
+      .from('portal_auth_codes') // tenant-scope-ok: tenant unknown until code resolves; code+phone combo is the auth token here
       .select('code, tenant_id, client_id, expires_at')
       .eq('phone', phone)
       .eq('tenant_id', tenant.id)

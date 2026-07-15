@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 
@@ -38,14 +38,18 @@ export async function GET(request: NextRequest) {
     // Unassigned jobs — MASKED. Client name/phone/full address are withheld until
     // a job is claimed (prevents the pool from leaking the whole client list to
     // every field worker). Only coarse area + service/time/pay is exposed.
-    const { data, error } = await supabaseAdmin
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data, error } = (await tenantDb(auth.tid)
       .from('bookings')
       .select('id, start_time, end_time, service_type, price, status, clients(address)')
-      .eq('tenant_id', auth.tid)
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
       .gte('start_time', today.toISOString())
-      .order('start_time')
+      .order('start_time')) as {
+      data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
+      error: { message: string } | null
+    }
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
@@ -69,10 +73,9 @@ export async function GET(request: NextRequest) {
     const futureEnd = new Date(today)
     futureEnd.setDate(futureEnd.getDate() + 14)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(auth.tid)
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
-      .eq('tenant_id', auth.tid)
       .eq('team_member_id', auth.id)
       .gte('start_time', tomorrow.toISOString())
       .lt('start_time', futureEnd.toISOString())
@@ -84,10 +87,9 @@ export async function GET(request: NextRequest) {
   }
 
   // Default: return today's jobs for the authenticated team member
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .select('*, clients(name, phone, address, special_instructions)')
-    .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .gte('start_time', today.toISOString())
     .lt('start_time', tomorrow.toISOString())

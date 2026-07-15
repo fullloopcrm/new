@@ -6,7 +6,8 @@
  *                        whose rid matches the requested referrer_id.
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
- * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid.
+ * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid
+ *               (atomically claimed so a double-submit can't double-credit).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'

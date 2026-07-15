@@ -31,14 +31,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     team_member_id?: string | null
   }
 
-  const { data: oldBooking } = await tenantDb(tenant.id)
+  const db = tenantDb(tenant.id)
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: oldBooking } = (await db
     .from('bookings')
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
-    .single()
+    .single()) as { data: { client_id: string | null; start_time: string } | null }
   if (!oldBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
-  const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
+  const auth = await protectClientAPI(tenant.id, oldBooking.client_id ?? undefined)
   if (auth instanceof NextResponse) return auth
 
   // A client picking who does their job must stay inside their own tenant's
@@ -48,11 +51,11 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // any team_members row (including another tenant's), which then leaks that
   // employee's name/rate into this tenant's booking joins.
   if (body.team_member_id) {
-    const { data: member } = await tenantDb(tenant.id)
+    const { data: member } = (await db
       .from('team_members')
       .select('id, active')
       .eq('id', body.team_member_id)
-      .single()
+      .single()) as { data: { active: boolean | null } | null }
     if (!member || member.active === false) {
       return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
     }
@@ -62,7 +65,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
-  const { data: updated, error } = await tenantDb(tenant.id)
+  const { data: updated, error } = await db
     .from('bookings')
     .update({
       start_time: body.start_time,
@@ -93,7 +96,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         resendApiKey: tenant.resend_api_key,
         from: tenant.email_from || undefined,
       }).catch(() => {})
-      await tenantDb(tenant.id).from('email_logs').insert({
+      await db.from('email_logs').insert({
         booking_id: id,
         email_type: 'client_reschedule',
         recipient: updated.clients.email,

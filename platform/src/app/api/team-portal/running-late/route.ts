@@ -18,12 +18,15 @@ export async function POST(request: Request) {
     const { bookingId, eta } = await request.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
-    const { data: booking } = await tenantDb(auth.tid)
+    const db = tenantDb(auth.tid)
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast to the shape actually selected.
+    const { data: booking } = (await db
       .from('bookings')
       .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
-      .single()
+      .single()) as { data: { tenant_id: string; start_time: string; client_id: string | null; clients: unknown; team_members: unknown } | null }
 
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 

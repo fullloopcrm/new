@@ -19,6 +19,7 @@ import {
   ensureChartAccounts,
   getAccountIdByCode,
   journalEntryExists,
+  isUniqueViolation,
   type JournalLineInput,
 } from '../ledger'
 
@@ -143,30 +144,42 @@ export async function backfillRevenueFromBookings(
       const tip = Math.max(0, Math.round(Number(b.tip_amount) || 0))
       const date = String((b.payment_date as string) || (b.start_time as string) || new Date().toISOString()).slice(0, 10)
 
+      // journalEntryExists() is a fast-path; the INSERT inside postJournalEntry
+      // is the atomic guard — a concurrent post (e.g. this backfill overlapping
+      // a real-time postPaymentRevenue call for the same booking) 23505s and
+      // is treated as already-posted rather than double-counting revenue.
       if (price > 0 && !(await journalEntryExists(tenantId, 'booking', id))) {
         const lines: JournalLineInput[] = [
           { coa_id: undeposited, debit_cents: price + tip, memo: 'Booking revenue' },
           { coa_id: revenueAcct, credit_cents: price, memo: 'Service revenue' },
         ]
         if (tip > 0 && tipsAcct) lines.push({ coa_id: tipsAcct, credit_cents: tip, memo: 'Tip' })
-        await postJournalEntry({ tenant_id: tenantId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
-        revenuePosted++
+        try {
+          await postJournalEntry({ tenant_id: tenantId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
+          revenuePosted++
+        } catch (e) {
+          if (!isUniqueViolation(e)) throw e
+        }
       }
 
       const pay = Math.round(Number(b.team_member_pay) || 0)
       if (pay > 0 && contractorAcct && transitAcct && !(await journalEntryExists(tenantId, 'booking_cogs', id))) {
-        await postJournalEntry({
-          tenant_id: tenantId,
-          entry_date: date,
-          memo: `Booking labor ${id.slice(0, 8)}`,
-          source: 'booking_cogs',
-          source_id: id,
-          lines: [
-            { coa_id: contractorAcct, debit_cents: pay, memo: 'Contractor pay' },
-            { coa_id: transitAcct, credit_cents: pay, memo: 'Payouts in transit' },
-          ],
-        })
-        cogsPosted++
+        try {
+          await postJournalEntry({
+            tenant_id: tenantId,
+            entry_date: date,
+            memo: `Booking labor ${id.slice(0, 8)}`,
+            source: 'booking_cogs',
+            source_id: id,
+            lines: [
+              { coa_id: contractorAcct, debit_cents: pay, memo: 'Contractor pay' },
+              { coa_id: transitAcct, credit_cents: pay, memo: 'Payouts in transit' },
+            ],
+          })
+          cogsPosted++
+        } catch (e) {
+          if (!isUniqueViolation(e)) throw e
+        }
       }
     }
 

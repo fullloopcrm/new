@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import Link from "next/link";
 import { getBreadcrumbSchema } from "@/app/site/the-nyc-seo/_lib/seo";
 
@@ -20,7 +21,7 @@ export default function Breadcrumbs({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getBreadcrumbSchema(allItems)),
+          __html: safeJsonLd(getBreadcrumbSchema(allItems)),
         }}
       />
       <nav

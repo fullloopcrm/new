@@ -26,10 +26,14 @@ export async function GET(request: Request) {
   const clientIds = [clientId]
 
   if (clientRecord?.email) {
-    const { data: emailMatches } = await tenantDb(tenant.id)
+    // tenantDb's select() takes a non-literal `columns` param, which widens
+    // supabase-js's column-string type inference — cast the narrow-select
+    // result to the shape actually selected (see portal/connect/unread for
+    // the same gap).
+    const { data: emailMatches } = (await tenantDb(tenant.id)
       .from('clients')
       .select('id')
-      .ilike('email', clientRecord.email.trim())
+      .ilike('email', clientRecord.email.trim())) as { data: { id: string }[] | null }
     if (emailMatches) {
       for (const m of emailMatches) if (!clientIds.includes(m.id)) clientIds.push(m.id)
     }
@@ -38,9 +42,9 @@ export async function GET(request: Request) {
   if (clientRecord?.phone) {
     const digits = clientRecord.phone.replace(/\D/g, '')
     if (digits.length >= 10) {
-      const { data: allClients } = await tenantDb(tenant.id)
+      const { data: allClients } = (await tenantDb(tenant.id)
         .from('clients')
-        .select('id, phone')
+        .select('id, phone')) as { data: { id: string; phone: string | null }[] | null }
       if (allClients) {
         for (const c of allClients) {
           const cDigits = (c.phone || '').replace(/\D/g, '')

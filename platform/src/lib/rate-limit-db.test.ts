@@ -81,4 +81,12 @@ describe('rateLimitDb failClosed', () => {
     const res = await rateLimitDb('public_form:1.2.3.4', 5, 60000)
     expect(res.allowed).toBe(true)
   })
+
+  it('logs loudly on a DB count error regardless of mode', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    countResult = { count: null, error: { message: 'db down' } }
+    await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
+    expect(spy).toHaveBeenCalled()
+    spy.mockRestore()
+  })
 })

@@ -10,6 +10,7 @@ import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 

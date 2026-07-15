@@ -18,12 +18,14 @@ export async function GET(request: NextRequest) {
   const dayStart = `${date}T00:00:00`
   const dayEnd = `${date}T23:59:59`
 
-  const { data: bookings } = await tenantDb(auth.tid)
-    .from('bookings') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: bookings } = (await tenantDb(auth.tid)
+    .from('bookings')
     .select('start_time, end_time')
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
-    .not('status', 'eq', 'cancelled')
+    .not('status', 'eq', 'cancelled')) as { data: { start_time: string; end_time: string | null }[] | null }
 
   // Generate 30-minute slots from 8am to 6pm
   const slots: { time: string; available: boolean }[] = []

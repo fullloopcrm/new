@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -74,11 +75,11 @@ export default async function ClassNeighborhoodPage({ params }: Props) {
   return (
     <>
       {/* JSON-LD: Service */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         serviceSchema(`${cls.name} in ${hood}, ${boro}`, `${cls.description} — mobile workshop in ${hood}, ${boro}. ${cls.duration}, groups of ${cls.groupSize}.`, `${hood}, ${boro}`)
       ) }} />
       {/* JSON-LD: Breadcrumb */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         breadcrumbSchema([
           { name: "Home", url: "/" },
           { name: "Classes", url: "/classes" },
@@ -88,7 +89,7 @@ export default async function ClassNeighborhoodPage({ params }: Props) {
         ])
       ) }} />
       {/* JSON-LD: FAQ */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(
         faqSchema(faqs)
       ) }} />
 

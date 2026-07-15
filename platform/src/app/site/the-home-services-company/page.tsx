@@ -140,7 +140,9 @@ export default function HomePage() {
               { title: "990 Cities Nationwide", desc: "Local technicians who know your area, backed by a national company with consistent standards, scheduling, and invoicing across every market." },
             ].map((card) => (
               <div key={card.title} className="rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-teal-400 hover:shadow-md">
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <h3 className="text-lg font-bold text-slate-900 font-heading" dangerouslySetInnerHTML={{ __html: card.title }} />
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: card.desc }} />
               </div>
             ))}
@@ -245,7 +247,9 @@ export default function HomePage() {
               { title: "Estate &amp; Senior Services", desc: "Full estate prep with patient, respectful technicians. Cleaning, junk removal, painting, and handyman punch lists coordinated by one project manager." },
             ].map((card) => (
               <div key={card.title} className="rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-teal-400 hover:shadow-md">
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <h3 className="text-lg font-bold text-slate-900 font-heading" dangerouslySetInnerHTML={{ __html: card.title }} />
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: card.desc }} />
               </div>
             ))}

@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -67,7 +68,7 @@ export default async function CityPartnershipsPage({ params }: { params: Promise
         <script
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jp) }}
+          dangerouslySetInnerHTML={{ __html: safeJsonLd(jp) }}
         />
       ))}
 

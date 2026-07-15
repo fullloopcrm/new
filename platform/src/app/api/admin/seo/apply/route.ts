@@ -12,8 +12,8 @@ export const dynamic = 'force-dynamic'
 // Callable by the system (Bearer CRON_SECRET, e.g. the weekly remediation run)
 // or by an admin (session cookie) from the approval UI.
 async function authorize(req: Request): Promise<boolean> {
-  const bearer = req.headers.get('authorization')
   const secret = process.env.CRON_SECRET
+  const bearer = req.headers.get('authorization')
   if (bearer && secret && safeEqual(bearer, `Bearer ${secret}`)) return true
   const adminError = await requireAdmin()
   return adminError === null

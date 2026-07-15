@@ -4,6 +4,7 @@ import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
 // Token format: <team_member_id>.<expiry_ms>.<sig> signed with ADMIN_PASSWORD.
+// Matches the signing side in cron/phone-fixup/route.ts.
 
 function sign(payload: string): string {
   return signWithSecret(payload, process.env.ADMIN_PASSWORD)

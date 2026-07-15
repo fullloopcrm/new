@@ -1,5 +1,6 @@
 // Comprehensive JSON-LD Schema Generator for every page type
 
+import { safeJsonLd } from '@/lib/escape-html'
 export const organizationSchema = {
   "@context": "https://schema.org",
   "@type": "Organization",
@@ -244,19 +245,11 @@ export function articleSchema(
   };
 }
 
-export function aggregateRatingSchema() {
-  return {
-    "@context": "https://schema.org",
-    "@type": "ProfessionalService",
-    name: "The NYC Marketing Company",
-  };
-}
-
 export function JsonLd({ data }: { data: Record<string, unknown> | Record<string, unknown>[] }) {
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: safeJsonLd(data).replace(/</g, "\\u003c") }}
     />
   );
 }

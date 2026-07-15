@@ -1,6 +1,6 @@
 import type { Metadata } from 'next'
 import Link from 'next/link'
-import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faqSchema, buildBusiness, type Biz } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
@@ -165,7 +165,7 @@ function coordinatorJobPostingSchema(biz: ReturnType<typeof buildBusiness>) {
     jobImmediateStart: true,
     totalJobOpenings: 1,
     directApply: true,
-    url: pageUrl,
+    url: `${biz.url}/careers/operations-coordinator`,
 
     identifier: {
       '@type': 'PropertyValue',
@@ -254,7 +254,7 @@ const faqs = [
   {
     question: 'How do I apply?',
     questionEs: '¿Cómo aplico?',
-    answer: 'Go to example.com/apply/operations-coordinator. Fill out the short form, upload a photo of yourself and a 60-second selfie video. If you\'re bilingual, speak in both English and Spanish in the video. We review applications within 48 hours.',
+    answer: 'Use the application form linked on this page. Fill out the short form, upload a photo of yourself and a 60-second selfie video. If you\'re bilingual, speak in both English and Spanish in the video. We review applications within 48 hours.',
   },
 ]
 

@@ -195,7 +195,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('start_time, service_type, hourly_rate, clients(name, email, pin), team_members!bookings_team_member_id_fkey(name), tenants(name)')
-      .eq('id', bookingId).eq('tenant_id', tenantId).single()
+      .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string } | null
@@ -401,10 +401,13 @@ function parseTime(t: string): { hours: number; minutes: number } | null {
 
 export async function handleRescheduleBooking(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    const clientId = await getConvoClientId(conversationId)
+    if (!clientId) return JSON.stringify({ error: 'No account found' })
+
     const bookingId = input.booking_id as string
     const { data: booking } = await supabaseAdmin
       .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days)')
-      .eq('id', bookingId).eq('tenant_id', tenantId).single()
+      .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be rescheduled.' })
@@ -431,11 +434,14 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
 
 export async function handleCancelBooking(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    const clientId = await getConvoClientId(conversationId)
+    if (!clientId) return JSON.stringify({ error: 'No account found' })
+
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
     const { data: booking } = await supabaseAdmin
       .from('bookings').select('id, start_time, recurring_type, clients(name), tenants(reschedule_notice_days)')
-      .eq('id', bookingId).eq('tenant_id', tenantId).single()
+      .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
@@ -601,7 +607,7 @@ export async function handleBookingDetails(tenantId: string, input: Record<strin
     const { data: booking } = await supabaseAdmin
       .from('bookings')
       .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, check_in_lat, check_in_lng, check_out_lat, check_out_lng, actual_hours, hourly_rate, price, team_member_pay, payment_status, payment_method, status, service_type, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
-      .eq('id', bookingId).eq('tenant_id', tenantId).single()
+      .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
 
     const client = booking.clients as unknown as { name: string; address: string } | null

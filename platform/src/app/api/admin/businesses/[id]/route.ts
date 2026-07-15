@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { logSecurityEvent } from '@/lib/security'
@@ -273,6 +274,15 @@ export async function PUT(
       ? body.telegram_bot_token.trim()
       : null
 
+  // A fresh secret_token accompanies every (re)registered bot token — it's
+  // the only origin proof Telegram webhooks offer (bodies aren't signed).
+  // Regenerating on every token save is fine: the stored value only has to
+  // match what we register with Telegram's setWebhook below. See
+  // verifyTelegramSecret() in webhook-verify.ts and
+  // deploy-prep/telegram-webhook-secret-activation.md.
+  const rawWebhookSecret = rawTelegramToken ? randomBytes(24).toString('hex') : null
+  if (rawWebhookSecret) updates.telegram_webhook_secret = rawWebhookSecret
+
   // Encrypt vendor secrets at rest — skip if empty (treat as unchanged) or
   // already encrypted (idempotent on re-save).
   for (const field of ENCRYPTED_FIELDS) {
@@ -346,12 +356,11 @@ export async function PUT(
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
       const origin = host ? `https://${host}` : new URL(request.url).origin
       const { registerTelegramWebhook } = await import('@/lib/telegram')
-      const { deriveTelegramSecret } = await import('@/lib/telegram-webhook-auth')
-      // Scope the secret to this tenant's id so the webhook can fail-closed verify
-      // authenticity. Null when TELEGRAM_WEBHOOK_SECRET is unset (registers without
-      // a secret — the route then fails closed until the env is configured).
-      const secretToken = deriveTelegramSecret(`tenant:${id}`) || undefined
-      telegramWebhook = await registerTelegramWebhook(rawTelegramToken, `${origin}/api/webhooks/telegram/${t.slug}`, secretToken)
+      telegramWebhook = await registerTelegramWebhook(
+        rawTelegramToken,
+        `${origin}/api/webhooks/telegram/${t.slug}`,
+        rawWebhookSecret || undefined
+      )
     }
   }
 

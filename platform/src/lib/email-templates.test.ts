@@ -8,7 +8,7 @@ import {
 // Regression: customer/tenant-controlled fields interpolated into email HTML
 // must be HTML-escaped, and URL fields must be scheme-allowlisted, so a hostile
 // clientName / logoUrl / feedbackUrl cannot inject markup or break out of an
-// attribute.
+// attribute. See deploy-prep/security-definer-rpc-audit.md §3.
 
 const XSS = '<img src=x onerror="alert(1)">'
 

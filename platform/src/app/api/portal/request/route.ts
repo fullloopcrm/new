@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../auth/token'
 import { ownerAlert } from '@/lib/messaging/owner-alerts'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Client "request a quote / appointment" for pipeline & lead_only tenants (trades
 // that don't self-serve an hourly time slot). Drops the request into the SAME
@@ -34,14 +35,17 @@ export async function POST(request: NextRequest) {
   const notes = noteLines.join('\n')
 
   // Reuse an open deal for this client rather than stacking duplicates
-  // (mirrors /api/contact).
-  const { data: openDeal } = await tenantDb(auth.tid)
+  // (mirrors /api/contact). tenantDb's select() takes a non-literal `columns`
+  // param, which widens supabase-js's column-string type inference — cast
+  // the narrow-select result to the shape actually selected (see
+  // portal/connect/unread for the same gap).
+  const { data: openDeal } = (await tenantDb(auth.tid)
     .from('deals')
     .select('id, notes')
     .eq('client_id', client.id)
     .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
     .order('created_at', { ascending: false })
-    .maybeSingle()
+    .maybeSingle()) as { data: { id: string; notes: string | null } | null }
 
   if (openDeal) {
     const merged = [openDeal.notes, `[${nowIso.slice(0, 10)} portal request]`, notes].filter(Boolean).join('\n')
@@ -68,7 +72,7 @@ export async function POST(request: NextRequest) {
     tenantId: auth.tid,
     kicker: 'Portal request',
     heading: `${client.name || 'A client'} requested service`,
-    bodyHtml: noteLines.map((l) => `<div>${l}</div>`).join('') || '<div>New request from the client portal.</div>',
+    bodyHtml: noteLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('') || '<div>New request from the client portal.</div>',
     sms: `New portal request from ${client.name || 'a client'}${serviceName ? `: ${serviceName}` : ''}`,
     subject: `New portal request from ${client.name || 'a client'}`,
   })

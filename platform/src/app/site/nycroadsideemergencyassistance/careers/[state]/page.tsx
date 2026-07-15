@@ -75,6 +75,7 @@ export default async function StateJobsPage({ params }: { params: Promise<{ stat
             ].map((item) => (
               <div key={item.title} className="rounded-xl border border-slate-200 bg-white p-6 transition-all hover:border-teal-400 hover:shadow-md">
                 <h3 className="text-base font-bold text-slate-900 font-heading">{item.title}</h3>
+                {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                 <p className="mt-2 text-sm text-slate-600" dangerouslySetInnerHTML={{ __html: item.desc }} />
               </div>
             ))}
@@ -116,6 +117,7 @@ export default async function StateJobsPage({ params }: { params: Promise<{ stat
                 <span className="text-teal-600 mt-0.5 shrink-0">✓</span>
                 <div>
                   <p className="text-sm font-bold text-slate-900">{item.req}</p>
+                  {/* SAFE: static operator-authored literal (colocated array in this file); raw HTML is intentional (HTML entities / inline <a>). Sanitize if ever DB-sourced — audit §2.4b. */}
                   <p className="text-xs text-slate-500" dangerouslySetInnerHTML={{ __html: item.detail }} />
                 </div>
               </div>

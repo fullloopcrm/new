@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
   if (file.size > MAX_SIZE) return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })
   if (!ALLOWED_TYPES.includes(file.type)) return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
 
-  const rawExt = (file.name.split('.').pop() || '').toLowerCase()
+  const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
   const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
   const path = `${tenant.tenantId}/${folder}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`
 

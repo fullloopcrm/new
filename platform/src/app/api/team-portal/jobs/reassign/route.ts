@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { sendPushToTeamMember } from '@/lib/push'
 import { audit } from '@/lib/audit'
@@ -23,30 +23,38 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'That member is not in your crew' }, { status: 403 })
   }
 
+  const db = tenantDb(auth.tid)
+
   // Fetch the booking (tenant-scoped) so we know who currently holds it.
-  const { data: booking } = await supabaseAdmin
+  // tenantDb's select() takes a non-literal `columns` param, which widens
+  // supabase-js's column-string type inference — cast to the shape actually selected.
+  const { data: booking } = (await db
     .from('bookings')
     .select('id, team_member_id, start_time, clients(name)')
     .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
-    .single()
+    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null } | null }
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
   const previous = booking.team_member_id
 
-  const { data: target } = await supabaseAdmin
+  // The booking's current holder (if any) must also be inside the actor's
+  // scope — otherwise a lead could reassign a job belonging to a different
+  // crew/lead by simply supplying its booking_id.
+  if (previous && !scope.includes(previous)) {
+    return NextResponse.json({ error: 'That job is not in your crew' }, { status: 403 })
+  }
+
+  const { data: target } = (await db
     .from('team_members')
     .select('pay_rate')
     .eq('id', to_member_id)
-    .eq('tenant_id', auth.tid)
-    .single()
+    .single()) as { data: { pay_rate: number | null } | null }
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await db
     .from('bookings')
     .update({ team_member_id: to_member_id, pay_rate: target.pay_rate || null, status: 'confirmed' })
     .eq('id', booking_id)
-    .eq('tenant_id', auth.tid)
     .select()
     .maybeSingle()
 

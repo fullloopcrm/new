@@ -9,11 +9,11 @@ export async function GET(request: NextRequest) {
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
-  const { data } = await tenantDb(auth.tid)
+  const { data } = (await tenantDb(auth.tid)
     .from('clients')
     .select('notes')
     .eq('id', auth.id)
-    .single()
+    .single()) as { data: { notes: string | null } | null }
 
   return NextResponse.json({ notes: data?.notes || '' })
 }

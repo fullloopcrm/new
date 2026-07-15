@@ -33,6 +33,7 @@ export async function POST(request: Request) {
 
   const db = tenantDb(auth.tid)
   const body = await request.json().catch(() => ({}))
+  const db = tenantDb(auth.tid)
 
   // Enforce tenant scheduling rules (allow_same_day, min_days_ahead).
   // start_time is a client-provided ISO string; reject if missing or unparseable.
@@ -67,7 +68,7 @@ export async function POST(request: Request) {
       .from('service_types')
       .select('name, default_duration_hours, default_hourly_rate')
       .eq('id', body.service_type_id)
-      .single()
+      .single<{ name: string; default_duration_hours: number; default_hourly_rate: number }>()
     if (!svc) {
       return NextResponse.json({ error: 'Invalid service' }, { status: 400 })
     }

@@ -94,6 +94,11 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
     ? `What do you need? (${activeServices.map((s) => s.name).join(', ')})`
     : 'What do you need help with?'
 
+  // provision-tenant.ts seeds tenants.selena_config.checklist_fields from
+  // CHECKLIST_BY_INDUSTRY[industry] at signup, so every non-cleaning trade
+  // (hvac, roofing, plumbing, ...) already has its own qualifying checklist
+  // sitting in the DB. Before this, intake always fell back to the generic
+  // 3-question list below and that per-trade checklist was never read.
   const checklistFields = (tenant as { selena_config?: { checklist_fields?: unknown } } | null)?.selena_config?.checklist_fields
   const intakeQuestions = deriveIntakeQuestions(checklistFields, [serviceList, 'Where are you located?', 'When do you need it?'])
 

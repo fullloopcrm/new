@@ -3,7 +3,7 @@
  * Kept as thin compatibility shim so nycmaid-era code/frontends keep working.
  */
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 
@@ -11,10 +11,9 @@ export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
   if (authError) return authError
 
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.tenantId)
     .from('team_members')
     .select('*')
-    .eq('tenant_id', tenant.tenantId)
     .order('priority', { ascending: true, nullsFirst: false })
     .order('name')
 
@@ -27,10 +26,9 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
 
   const body = await request.json()
-  const { data, error } = await supabaseAdmin
+  const { data, error } = await tenantDb(tenant.tenantId)
     .from('team_members')
     .insert({
-      tenant_id: tenant.tenantId,
       name: body.name,
       email: body.email || null,
       phone: body.phone,
@@ -55,11 +53,10 @@ export async function POST(request: NextRequest) {
   if (data?.id && body.address) {
     geocodeAddress(body.address).then(coords => {
       if (coords) {
-        return supabaseAdmin
+        return tenantDb(tenant.tenantId)
           .from('team_members')
           .update({ home_latitude: coords.lat, home_longitude: coords.lng })
           .eq('id', data.id)
-          .eq('tenant_id', tenant.tenantId)
       }
     }).catch(() => {})
   }

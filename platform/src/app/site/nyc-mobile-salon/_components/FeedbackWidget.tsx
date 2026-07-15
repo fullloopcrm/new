@@ -19,11 +19,14 @@ export default function FeedbackWidget({ source }: { source: string }) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, source })
       })
-      if (!res.ok) throw new Error('Failed to submit')
+      if (!res.ok) {
+        setError('Failed to send feedback. Please try again.')
+        return
+      }
       setSubmitted(true)
       setTimeout(() => { setOpen(false); setSubmitted(false); setMessage('') }, 2000)
     } catch {
-      setError('Failed to submit. Please try again.')
+      setError('Failed to send feedback. Please try again.')
     } finally {
       setSending(false)
     }
@@ -62,7 +65,9 @@ export default function FeedbackWidget({ source }: { source: string }) {
                   required
                   autoFocus
                 />
-                {error && <p className="text-red-600 text-sm mt-2">{error}</p>}
+                {error && (
+                  <p className="text-red-600 text-sm mt-2">{error}</p>
+                )}
                 <div className="flex gap-3 mt-4">
                   <button type="button" onClick={() => setOpen(false)} className="flex-1 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-sm">Cancel</button>
                   <button type="submit" disabled={sending || !message.trim()} className="flex-1 py-2 bg-[#1E2A4A] text-white rounded-lg text-sm font-medium disabled:bg-gray-300">

@@ -32,19 +32,21 @@ export async function GET() {
     // Connect unread count — count channels with messages newer than read cursor
     let connectUnread = 0
     try {
-      const { data: channels } = await db
+      const { data: channelsRaw } = await db
         .from('connect_channels')
         .select('id')
+      const channels = (channelsRaw || []) as unknown as Array<{ id: string }>
 
-      if (channels && channels.length > 0) {
-        const { data: cursors } = await db
+      if (channels.length > 0) {
+        const { data: cursorsRaw } = await db
           .from('connect_read_cursors')
           .select('channel_id, last_read_at')
           .eq('reader_type', 'owner')
           .eq('reader_id', userId)
           .in('channel_id', channels.map((c) => c.id))
+        const cursors = (cursorsRaw || []) as unknown as Array<{ channel_id: string; last_read_at: string }>
 
-        const cursorMap = new Map((cursors || []).map((c) => [c.channel_id, c.last_read_at]))
+        const cursorMap = new Map(cursors.map((c) => [c.channel_id, c.last_read_at]))
 
         for (const ch of channels) {
           const lastRead = cursorMap.get(ch.id)

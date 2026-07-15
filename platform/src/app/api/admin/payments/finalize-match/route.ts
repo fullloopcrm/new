@@ -9,9 +9,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { safeEqual } from '@/lib/secret-compare'
 
 export async function POST(req: NextRequest) {
-  const internalKey = req.headers.get('x-internal-key')
+  const internalKey = req.headers.get('x-internal-key') || ''
   const expected = process.env.INTERNAL_API_KEY || process.env.ELCHAPO_MONITOR_KEY
-  if (!safeEqual(internalKey, expected)) {
+  if (!expected || !safeEqual(internalKey, expected)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

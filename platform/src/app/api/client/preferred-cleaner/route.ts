@@ -22,6 +22,7 @@ export async function GET(request: Request) {
     .from('clients')
     .select('preferred_team_member_id, tenant_id')
     .eq('id', clientId)
+    .eq('tenant_id', tenant.id)
     .single()
 
   if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
@@ -58,6 +59,7 @@ export async function PUT(request: Request) {
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const body = await request.json()
+  if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
   // Ownership gate: a forged client_id must not set another client's preferred
   // cleaner. Session must match this tenant + client_id.
@@ -79,6 +81,7 @@ export async function PUT(request: Request) {
     .from('clients')
     .update({ preferred_team_member_id: body.preferred_cleaner_id || null })
     .eq('id', body.client_id)
+    .eq('tenant_id', tenant.id)
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   return NextResponse.json({ ok: true })

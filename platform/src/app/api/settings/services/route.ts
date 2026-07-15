@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('settings.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
 
     const { data, error } = await supabaseAdmin
       .from('service_types')
@@ -29,7 +32,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('settings.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {

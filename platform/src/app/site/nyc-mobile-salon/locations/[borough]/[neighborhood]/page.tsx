@@ -1,3 +1,4 @@
+import { safeJsonLd } from '@/lib/escape-html'
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -75,7 +76,7 @@ export default async function NeighborhoodLocationPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify([
+          __html: safeJsonLd([
             localBusinessSchema({
               name: `The NYC Mobile Salon — ${hood}`,
               url: `https://thenycmobilesalon.com/locations/${borough}/${neighborhood}`,

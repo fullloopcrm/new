@@ -4,10 +4,11 @@
  * All builders return plain serializable objects. Use with the <JsonLd/>
  * component (below) to emit them as <script type="application/ld+json"> tags.
  */
+import { safeJsonLd } from '@/lib/escape-html'
 import type { ReactElement } from "react";
 import { createElement, Fragment } from "react";
 
-import { PHONE, EMAIL, RATING, REVIEW_COUNT, FAQ } from "@/app/site/nyc-tow/_data/content";
+import { PHONE, EMAIL, FAQ } from "@/app/site/nyc-tow/_data/content";
 import { PRICING } from "@/app/site/nyc-tow/_data/content";
 import { OFFICES, type Office } from "@/app/site/nyc-tow/_data/offices";
 import { SERVICES, SERVICE_CATEGORIES, type Service } from "@/app/site/nyc-tow/_data/services";
@@ -578,7 +579,7 @@ export function JsonLd({ schema }: { schema: JsonLdValue }): ReactElement {
       createElement("script", {
         key: i,
         type: "application/ld+json",
-        dangerouslySetInnerHTML: { __html: JSON.stringify(item) },
+        dangerouslySetInnerHTML: { __html: safeJsonLd(item).replace(/</g, "\\u003c") },
       }),
     ),
   );
