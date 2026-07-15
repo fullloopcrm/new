@@ -79,11 +79,16 @@ export default function SocialPage() {
 
   async function handleDisconnect(plat: string) {
     if (!confirm(`Disconnect ${plat}?`)) return
-    await fetch('/api/social/accounts', {
+    const res = await fetch('/api/social/accounts', {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ platform: plat }),
     })
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}))
+      setError(data.error || 'Failed to disconnect account')
+      return
+    }
     setAccounts(prev => prev.filter(a => a.platform !== plat))
   }
 
