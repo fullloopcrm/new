@@ -14,10 +14,12 @@ const h = vi.hoisted(() => ({
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
   tenant: {} as Record<string, unknown>,
+  role: 'admin' as string,
   notify: vi.fn(),
 })) as unknown as FakeStoreHandle & {
   tenantId: string
   tenant: Record<string, unknown>
+  role: string
   notify: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
 }
 
@@ -26,7 +28,7 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: h.tenant }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: h.tenant, role: h.role }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -44,6 +46,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.tenant = { id: 'tenant-A', name: 'Acme Cleaning', domain: null }
+  h.role = 'admin'
   h.notify.mockReset()
   h.notify.mockResolvedValue({ success: true })
   h.store = {
@@ -68,14 +71,15 @@ describe('POST /api/admin/broadcast-guidelines — permission gate', () => {
     expect(h.notify).not.toHaveBeenCalled()
   })
 
-  it('maps a thrown error from the DB lookup to a 500', async () => {
+  it('maps a non-AuthError thrown by getTenantForRequest to a 401, matching requirePermission convention', async () => {
     const tenantQuery = await import('@/lib/tenant-query')
     vi.spyOn(tenantQuery, 'getTenantForRequest').mockRejectedValueOnce(new Error('db down'))
 
     const res = await POST()
 
-    expect(res.status).toBe(500)
-    await expect(res.json()).resolves.toEqual({ error: 'Broadcast failed' })
+    expect(res.status).toBe(401)
+    await expect(res.json()).resolves.toEqual({ error: 'Unauthorized' })
+    expect(h.notify).not.toHaveBeenCalled()
   })
 })
 

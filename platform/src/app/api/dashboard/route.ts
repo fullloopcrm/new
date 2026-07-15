@@ -4,7 +4,8 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface BookingRow {
   price: number | null
@@ -13,7 +14,9 @@ interface BookingRow {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
 
     const now = new Date()
