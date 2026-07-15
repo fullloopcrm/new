@@ -9,8 +9,21 @@ describe('impersonation signing', () => {
   it('round-trips a valid tenant id', () => {
     const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
     const signed = signImpersonation(tenantId)
-    expect(signed.startsWith(tenantId + '.')).toBe(true)
+    expect(signed.startsWith(tenantId + ':')).toBe(true)
     expect(verifyImpersonationCookie(signed)).toBe(tenantId)
+  })
+
+  it('rejects an expired signature (leaked cookie replayed past its TTL)', () => {
+    const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
+    const signed = signImpersonation(tenantId, -1000) // already expired
+    expect(verifyImpersonationCookie(signed)).toBeNull()
+  })
+
+  it('rejects a signature with the exp field stripped off', () => {
+    const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
+    const signed = signImpersonation(tenantId)
+    const sig = signed.split('.')[1]
+    expect(verifyImpersonationCookie(`${tenantId}.${sig}`)).toBeNull()
   })
 
   it('rejects a tampered tenant id', () => {
