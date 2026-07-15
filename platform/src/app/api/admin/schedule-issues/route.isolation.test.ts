@@ -20,7 +20,7 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { name: 'Tenant A' } }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { name: 'Tenant A' }, role: 'admin' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 

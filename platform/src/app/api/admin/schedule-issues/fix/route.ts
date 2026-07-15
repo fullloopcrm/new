@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface IssueRow {
   id: string
@@ -83,13 +83,9 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
 }
 
 export async function POST(request: Request) {
-  let tenantId: string
-  try {
-    ;({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant, error: authError } = await requirePermission('schedules.edit')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const body = await request.json().catch(() => ({}))
   const id = body.id as string | undefined

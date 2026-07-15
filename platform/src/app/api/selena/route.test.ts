@@ -58,7 +58,7 @@ beforeEach(() => {
   h.seq = 0
   h.tenantId = TENANT_A
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: {}, role: 'admin' }))
   h.store['sms_conversations'] = [
     { id: CONVO_A, tenant_id: TENANT_A, phone: '+15550001' },
     { id: CONVO_B, tenant_id: TENANT_B, phone: '+15550002' },

@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => {
 })
 vi.mock('@/lib/tenant-query', async (importOriginal) => {
   const actual = await importOriginal<typeof import('@/lib/tenant-query')>()
-  return { ...actual, getTenantForRequest: async () => ({ tenantId: h.tenantId }) }
+  return { ...actual, getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: {}, role: 'admin' }) }
 })
 
 import { POST } from './route'

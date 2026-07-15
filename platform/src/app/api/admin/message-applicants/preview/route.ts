@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP, type EligibleApplicant } from '../constants'
 
@@ -27,13 +27,9 @@ type ApplicantRow = {
 }
 
 export async function POST() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const { data: applicants, error } = await tenantDb(tenantId)
     .from('cleaner_applications')
