@@ -4,7 +4,9 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
-import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -35,11 +37,17 @@ export async function POST(request: Request) {
   // This route had no check at all: any caller who knew a client_id could spin
   // up a real 6-week recurring booking series (discounted pricing, real SMS/
   // email sent to that client) and reassign their preferred cleaner, with zero
-  // proof of session. Mirrors the authClient() gate used by /api/client/properties.
+  // proof of session. Mirrors the authClient() gate used by /api/client/properties
+  // — uses lib/client-auth's tenant-bound protectClientAPI (PORTAL_SECRET-signed,
+  // tenant id in the payload, what /api/client/login + /api/client/verify-code
+  // actually issue), NOT lib/nycmaid/auth's legacy version, which is signed with
+  // the platform-wide ADMIN_PASSWORD and carries no tenant binding.
   if (!client_id) return NextResponse.json({ error: 'Missing required fields' }, { status: 400 })
   const isAdmin = await isAdminAuthenticated()
   if (!isAdmin) {
-    const auth = await protectClientAPI(client_id)
+    const tenant = await getTenantFromHeaders()
+    if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    const auth = await protectClientAPI(tenant.id, client_id)
     if (auth instanceof NextResponse) return auth
   }
 

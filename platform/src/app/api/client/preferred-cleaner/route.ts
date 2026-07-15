@@ -1,6 +1,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 // `/api/client(.*)` is exempted from the platform's Clerk/session middleware
 // (see middleware.ts) — tenant is resolved from a signed header, not a login,
@@ -8,12 +10,18 @@ import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
 // data they're reading/writing. This route took client_id from the query/body
 // with no session check at all: any caller who knew (or guessed) a client_id
 // could read another client's preferred-cleaner history or reassign it.
-// Mirrors the authClient() gate already used by /api/client/properties.
+// Mirrors the authClient() gate already used by /api/client/properties — uses
+// lib/client-auth's tenant-bound protectClientAPI (PORTAL_SECRET-signed, tenant
+// id in the payload, what /api/client/login + /api/client/verify-code actually
+// issue), NOT lib/nycmaid/auth's legacy version, which is signed with the
+// platform-wide ADMIN_PASSWORD and carries no tenant binding.
 async function authClient(clientId: string | null | undefined): Promise<NextResponse | { isAdmin: boolean }> {
   if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
   const isAdmin = await isAdminAuthenticated()
   if (!isAdmin) {
-    const auth = await protectClientAPI(clientId)
+    const tenant = await getTenantFromHeaders()
+    if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    const auth = await protectClientAPI(tenant.id, clientId)
     if (auth instanceof NextResponse) return auth
   }
   return { isAdmin }

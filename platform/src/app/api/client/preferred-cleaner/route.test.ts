@@ -6,15 +6,22 @@
  * string (GET) / body (PUT) and never checked it against the caller's session.
  * Anyone who knew (or guessed) another client's client_id could read their
  * preferred-cleaner history or overwrite it — no client_session cookie needed.
+ *
+ * The subsequent auth check also used lib/nycmaid/auth's protectClientAPI —
+ * signed with the platform-wide ADMIN_PASSWORD, no tenant binding — instead of
+ * lib/client-auth's tenant-bound version (PORTAL_SECRET-signed, tenant id in
+ * the payload) that /api/client/login + /api/client/verify-code actually issue
+ * and every sibling /api/client/* route uses. Tests below exercise the fixed
+ * (tenant-bound) session path.
  */
 import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import type { FakeSupabase, Row } from '@/test/fake-supabase'
 
-// createClientSession signs with ADMIN_PASSWORD (lib/nycmaid/auth.ts); it now
+// createClientSession signs with PORTAL_SECRET (lib/client-auth.ts); it now
 // throws rather than falling back to an empty/publicly-computable HMAC key
-// when unset, so tests need a real secret configured same as auth.test.ts.
+// when unset, so tests need a real secret configured.
 beforeAll(() => {
-  process.env.ADMIN_PASSWORD ||= 'test-admin-password'
+  process.env.PORTAL_SECRET ||= 'test-portal-secret'
 })
 
 vi.mock('@/lib/supabase', async () => {
@@ -30,8 +37,13 @@ vi.mock('next/headers', () => ({
   }),
 }))
 
+let currentTenantId: string
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: async () => ({ id: currentTenantId }),
+}))
+
 import { supabaseAdmin } from '@/lib/supabase'
-import { createClientSession } from '@/lib/nycmaid/auth'
+import { createClientSession } from '@/lib/client-auth'
 import { GET, PUT } from './route'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
@@ -51,10 +63,11 @@ function seed() {
     { id: CLEANER_ID, tenant_id: TENANT_ID, active: true },
   ])
   fake._seed('bookings', [])
+  currentTenantId = TENANT_ID
 }
 
 function withSession(clientId: string) {
-  cookieJar = new Map([['client_session', { value: createClientSession(clientId) }]])
+  cookieJar = new Map([['client_session', { value: createClientSession(clientId, TENANT_ID) }]])
 }
 
 function noSession() {
