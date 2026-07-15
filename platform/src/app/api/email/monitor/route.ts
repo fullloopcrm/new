@@ -13,10 +13,20 @@
  * POST is the trigger entry. Auth: ?key=ELCHAPO_MONITOR_KEY OR cron Bearer.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
+
+// Constant-time compare — a naive `===` leaks secret bytes via timing,
+// letting an attacker recover CRON_SECRET/ELCHAPO_MONITOR_KEY byte-by-byte
+// and trigger this route's payment-matching/reconciliation flow at will.
+function safeEqual(a: string, b: string): boolean {
+  const bufA = Buffer.from(a)
+  const bufB = Buffer.from(b)
+  return bufA.length === bufB.length && crypto.timingSafeEqual(bufA, bufB)
+}
 
 export const maxDuration = 60
 
@@ -34,13 +44,13 @@ interface TenantRow {
 
 async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
-  if (auth === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (auth && process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) return true
   const url = req.nextUrl
   const key = url.searchParams.get('key')
-  if (key && process.env.ELCHAPO_MONITOR_KEY && key === process.env.ELCHAPO_MONITOR_KEY) return true
+  if (key && process.env.ELCHAPO_MONITOR_KEY && safeEqual(key, process.env.ELCHAPO_MONITOR_KEY)) return true
   try {
     const body = await req.json()
-    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && body.key === process.env.ELCHAPO_MONITOR_KEY) return true
+    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && safeEqual(String(body.key), process.env.ELCHAPO_MONITOR_KEY)) return true
   } catch {}
   return false
 }
