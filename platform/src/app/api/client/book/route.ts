@@ -50,15 +50,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // DNS (do-not-service) gate — never create bookings for these clients.
+    // Ownership + DNS (do-not-service) gate. A client-supplied client_id must
+    // resolve to a row owned by THIS tenant — otherwise a caller who knows/
+    // guesses another tenant's client_id could create a booking against that
+    // foreign client, and the booking-fetch below (which joins clients(*) off
+    // this FK with no further tenant filter) would hand that victim's full
+    // PII (name, phone, email, address) straight back in the response. Same
+    // FK-injection class already fixed on POST /api/bookings.
     if (body.client_id) {
-      const { data: dnsCheck } = await supabaseAdmin
+      const { data: ownedClient } = await supabaseAdmin
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
         .eq('tenant_id', tenant.id)
         .single()
-      if (dnsCheck?.do_not_service) {
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Invalid client' }, { status: 404 })
+      }
+      if (ownedClient.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
