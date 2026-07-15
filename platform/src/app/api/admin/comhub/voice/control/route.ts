@@ -74,7 +74,10 @@ export async function POST(req: NextRequest) {
       .eq('customer_call_id', customerCallId)
       .eq('tenant_id', tenantId)
       .single()
-    activeCallRowId = data?.id ?? null
+    if (!data) {
+      return NextResponse.json({ error: 'call not found for this tenant' }, { status: 404 })
+    }
+    activeCallRowId = data.id
   }
 
   if (!customerCallId) {
