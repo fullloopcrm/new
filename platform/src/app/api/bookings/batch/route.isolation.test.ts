@@ -39,6 +39,9 @@ beforeEach(() => {
   fake._seed('bookings', [
     { id: 'b-existing', tenant_id: B_ID, client_id: CLIENT_A, start_time: '2026-08-01T10:00:00', status: 'scheduled' },
   ])
+  // Ownership-check rows for the FK-injection guard in POST: CLIENT_A exists
+  // ONLY under tenant A, so a batch scoped to tenant A resolves it.
+  fake._seed('clients', [{ id: CLIENT_A, tenant_id: A_ID, name: 'Client A' }])
 })
 
 function req(bookings: Array<Record<string, unknown>>): Request {
@@ -65,6 +68,38 @@ describe('bookings/batch POST — tenantDb isolation', () => {
     expect(aRows.length).toBe(1)
     const bRows = fake._all('bookings').filter((b) => b.tenant_id === B_ID)
     expect(bRows.length).toBe(1)
+  })
+})
+
+describe('bookings/batch POST — FK-injection guard (client_id / team_member_id ownership)', () => {
+  const FOREIGN_CLIENT = 'client-foreign'
+  const TM_A = 'tm-a'
+  const FOREIGN_TM = 'tm-foreign'
+
+  it("rejects a batch containing a client_id belonging to another tenant -- otherwise that stranger's full row (via this route's clients(*) join) would leak into the response and a real confirmation SMS would fire to their real phone", async () => {
+    fake._seed('clients', [{ id: FOREIGN_CLIENT, tenant_id: B_ID, name: 'Foreign Client', phone: '+15555550001' }])
+    const res = await POST(req([
+      { client_id: FOREIGN_CLIENT, start_time: '2026-08-06T10:00:00', end_time: '2026-08-06T12:00:00', status: 'scheduled' },
+    ]))
+    expect(res.status).toBe(404)
+    expect(fake._all('bookings').some((b) => b.client_id === FOREIGN_CLIENT)).toBe(false)
+  })
+
+  it("rejects a batch containing a team_member_id belonging to another tenant -- otherwise that stranger's full row (via this route's team_members(*) join, incl. portal-login pin) would leak into the response and a real job-assignment SMS would fire to their real phone", async () => {
+    fake._seed('team_members', [{ id: FOREIGN_TM, tenant_id: B_ID, name: 'Foreign Member', phone: '+15555550002', pin: '9999' }])
+    const res = await POST(req([
+      { client_id: CLIENT_A, team_member_id: FOREIGN_TM, start_time: '2026-08-07T10:00:00', end_time: '2026-08-07T12:00:00', status: 'scheduled' },
+    ]))
+    expect(res.status).toBe(404)
+    expect(fake._all('bookings').some((b) => b.team_member_id === FOREIGN_TM)).toBe(false)
+  })
+
+  it('accepts a batch whose client_id and team_member_id are both genuinely owned by the caller tenant (control)', async () => {
+    fake._seed('team_members', [{ id: TM_A, tenant_id: A_ID, name: 'Member A' }])
+    const res = await POST(req([
+      { client_id: CLIENT_A, team_member_id: TM_A, start_time: '2026-08-08T10:00:00', end_time: '2026-08-08T12:00:00', status: 'pending' },
+    ]))
+    expect(res.status).toBe(200)
   })
 })
 

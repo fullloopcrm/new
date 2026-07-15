@@ -30,6 +30,36 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
   }
 
+  // Confirm every caller-supplied client_id/team_member_id belongs to this
+  // tenant before it can be joined into the response below or used to fire a
+  // real SMS/email -- same FK-injection class already fixed on the sibling
+  // single-booking POST /api/bookings (75a66b65): a foreign id would leak
+  // that stranger's full clients(*)/team_members(*) row via this route's own
+  // post-insert .select() join, plus trigger a real booking-confirmation /
+  // job-assignment SMS to them over this tenant's own Telnyx number.
+  const db = tenantDb(tenantId)
+  const clientIds = [...new Set(bookingInputs.map(b => b.client_id).filter(Boolean))] as string[]
+  const teamMemberIds = [...new Set(bookingInputs.map(b => b.team_member_id).filter(Boolean))] as string[]
+
+  if (clientIds.length > 0) {
+    const { data: ownedClients } = (await db.from('clients').select('id').in('id', clientIds)) as {
+      data: { id: string }[] | null
+    }
+    const owned = new Set((ownedClients || []).map(c => c.id))
+    if (clientIds.some(id => !owned.has(id))) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+  }
+  if (teamMemberIds.length > 0) {
+    const { data: ownedMembers } = (await db.from('team_members').select('id').in('id', teamMemberIds)) as {
+      data: { id: string }[] | null
+    }
+    const owned = new Set((ownedMembers || []).map(m => m.id))
+    if (teamMemberIds.some(id => !owned.has(id))) {
+      return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)
@@ -53,7 +83,7 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data, error } = await tenantDb(tenantId)
+  const { data, error } = await db
     .from('bookings')
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
