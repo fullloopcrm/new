@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requireAdmin } from '@/lib/require-admin'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -21,12 +22,17 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
 
+  // Admin-only: this used to be an unauthenticated code/email -> name+email+
+  // earnings+payout-method lookup (rate-limited, but still a public oracle —
+  // referral codes are shareable/guessable and emails are often public). The
+  // referrer-facing dashboard was migrated off this to the Bearer-token-gated
+  // GET /api/referrers/[code] (see src/lib/referrer-portal-auth.ts); nothing
+  // in-repo calls this code/email lookup unauthenticated anymore, so require
+  // an admin session rather than leaving the disclosure live for anyone else.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  // failClosed: this resolves a code/email to a referrer's name+email+earnings
-  // with no auth — same PII-enumeration-oracle shape as client/check, which is
-  // already failClosed. An in-memory limiter also resets every serverless cold
-  // start / per-instance, so it never actually bounded this in production —
-  // moved to the persistent DB-backed limiter.
   const rl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })

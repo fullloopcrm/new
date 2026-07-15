@@ -53,6 +53,10 @@ vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: 'tenant_1' }),
 }))
 
+// GET's code/email lookup is admin-gated (route.auth.test.ts covers the gate
+// itself); mock it authorized here so these tests can focus on rate limiting.
+vi.mock('@/lib/require-admin', () => ({ requireAdmin: vi.fn(async () => null) }))
+
 vi.mock('@/lib/rate-limit-db', () => ({
   rateLimitDb: async (
     key: string,
