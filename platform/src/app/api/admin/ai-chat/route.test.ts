@@ -17,12 +17,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 const CTX_TENANT = 'tenant-A'
 const OTHER_TENANT = 'tenant-B'
 
-const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'], role: 'owner' as string }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: vi.fn(async () => ({
     tenantId: CTX_TENANT,
+    role: holder.role,
     tenant: { id: CTX_TENANT, name: 'Acme Cleaning', industry: 'cleaning', anthropic_api_key: null },
   })),
   AuthError: class AuthError extends Error {
@@ -56,6 +57,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  holder.role = 'owner'
   anthropicCreate.mockReset()
   process.env.ANTHROPIC_API_KEY = 'test-key'
 })
@@ -140,5 +142,52 @@ describe('admin/ai-chat — cancel_bookings response honesty', () => {
     expect(result.not_found).toEqual(['book-B1'])
     expect(h.seed.bookings.find(b => b.id === 'book-A1')?.status).toBe('cancelled')
     expect(h.seed.bookings.find(b => b.id === 'book-B1')?.status).toBe('scheduled')
+  })
+})
+
+describe('admin/ai-chat — tool permission gating', () => {
+  it('staff cannot cancel_bookings (lacks bookings.edit) — the mutation never runs', async () => {
+    holder.role = 'staff'
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-A1'], confirmed: true })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires bookings.edit)." })
+    expect(h.seed.bookings.find(b => b.id === 'book-A1')?.status).toBe('scheduled')
+  })
+
+  it('staff cannot update_bookings (lacks bookings.edit)', async () => {
+    holder.role = 'staff'
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { status: 'completed' },
+      confirmed: true,
+    })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires bookings.edit)." })
+    expect(h.seed.bookings.find(b => b.id === 'book-A1')?.status).toBe('scheduled')
+  })
+
+  it('staff cannot get_revenue_stats (lacks finance.view)', async () => {
+    holder.role = 'staff'
+    const result = await runTool('get_revenue_stats', { date_from: '2026-01-01', date_to: '2026-12-31' })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires finance.view)." })
+  })
+
+  it('staff CAN create_booking — staff has bookings.create by default', async () => {
+    holder.role = 'staff'
+    const result = await runTool('create_booking', {
+      client_id: 'client-A1',
+      start_time: '2026-08-01T10:00:00',
+      confirmed: true,
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('manager (has bookings.edit) CAN cancel_bookings', async () => {
+    holder.role = 'manager'
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-A1'], confirmed: true })
+
+    expect(result).toEqual({ success: true, cancelled: 1 })
   })
 })
