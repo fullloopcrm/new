@@ -13,6 +13,7 @@
  * when it isn't — so shipping this doesn't break the live bot pre-activation.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
+import { NextResponse } from 'next/server'
 
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
@@ -31,6 +32,11 @@ vi.mock('@/lib/selena/agent', () => ({
 
 vi.mock('@/lib/telegram', () => ({
   sendTelegram: vi.fn(async () => ({ ok: true, status: 200, body: '' })),
+}))
+
+const requireAdminMock = vi.fn()
+vi.mock('@/lib/require-admin', () => ({
+  requireAdmin: () => requireAdminMock(),
 }))
 
 const ORIGINAL_ENV = { ...process.env }
@@ -81,5 +87,46 @@ describe('POST /api/webhooks/telegram — secret_token gate', () => {
     // from the secret gate — proves the gate itself didn't block this.
     const res = await POST(req({ message: { chat: { id: 1 }, text: 'hi' } }))
     expect(res.status).not.toBe(401)
+  })
+})
+
+describe('GET /api/webhooks/telegram — diag endpoint requires platform admin', () => {
+  beforeEach(async () => {
+    vi.resetModules()
+    process.env = { ...ORIGINAL_ENV }
+    requireAdminMock.mockReset()
+    const { sendTelegram } = await import('@/lib/telegram')
+    vi.mocked(sendTelegram).mockClear()
+  })
+  afterEach(() => {
+    process.env = { ...ORIGINAL_ENV }
+  })
+
+  it('rejects an unauthenticated caller before sending a Telegram message or leaking owner_chat_id', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'bot-token'
+    process.env.TELEGRAM_OWNER_CHAT_ID = '12345'
+    requireAdminMock.mockResolvedValue(NextResponse.json({ error: 'Unauthorized' }, { status: 401 }))
+    const { GET } = await import('./route')
+    const { sendTelegram } = await import('@/lib/telegram')
+
+    const res = await GET()
+
+    expect(res.status).toBe(401)
+    const json = await res.json()
+    expect(json.owner_chat_id).toBeUndefined()
+    expect(sendTelegram).not.toHaveBeenCalled()
+  })
+
+  it('allows a verified platform admin through', async () => {
+    process.env.TELEGRAM_BOT_TOKEN = 'bot-token'
+    process.env.TELEGRAM_OWNER_CHAT_ID = '12345'
+    requireAdminMock.mockResolvedValue(null)
+    const { GET } = await import('./route')
+
+    const res = await GET()
+
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.owner_chat_id).toBe('12345')
   })
 })
