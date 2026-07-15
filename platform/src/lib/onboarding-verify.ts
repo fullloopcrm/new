@@ -10,6 +10,7 @@
  */
 import Stripe from 'stripe'
 import { promises as dnsPromises } from 'dns'
+import { safeFetch } from './ssrf'
 
 export interface CheckResult {
   ok: boolean
@@ -65,7 +66,10 @@ export async function verifySsl(domain: string): Promise<CheckResult> {
   try {
     const controller = new AbortController()
     const timeout = setTimeout(() => controller.abort(), 10000)
-    const res = await fetch(`https://${domain}/`, { method: 'HEAD', signal: controller.signal })
+    // SSRF guard: domain is admin-editable tenant data (businesses/[id] PATCH),
+    // not a hardcoded host — same class already guarded via safeFetch() in
+    // site-readiness/tenant-health/seo remediate/technical/enrich.
+    const res = await safeFetch(`https://${domain}/`, { method: 'HEAD', signal: controller.signal })
     clearTimeout(timeout)
     if (res.status < 500) {
       return { ok: true, detail: `HTTPS ${res.status}` }
