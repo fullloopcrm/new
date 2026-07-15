@@ -352,3 +352,36 @@ describe('getTenantForRequest — Clerk super-admin impersonation', () => {
     }
   })
 })
+
+describe('getTenantForRequest — signed header vs. impersonation-cookie priority', () => {
+  // A super-admin PIN login works on ANY host (see admin-auth/route.ts), and
+  // neither admin_token nor fl_impersonate carry a cookie `domain`, so both
+  // are host-only. That means a stale fl_impersonate=<tenant A> cookie left
+  // over from an earlier session can still be present when the same admin
+  // later authenticates directly on tenant B's own domain. tenant.ts's
+  // getCurrentTenant() (used by DashboardLayout to gate + render this exact
+  // header path) always resolves the header tenant first. This function must
+  // agree, or a page rendered as tenant B would silently mutate tenant A's
+  // data underneath it.
+  it('WRONG-TENANT PROBE: a valid signed header for tenant B wins over a stale impersonation cookie for tenant A', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-B')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig-for-b')
+    mockCookieStore.set('admin_token', 'global-token')
+    mockCookieStore.set('fl_impersonate', 'stale-cookie-for-a')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(true)
+    verifyImpersonationCookie.mockReturnValue('t-A')
+    getOwnerUserId.mockResolvedValue(null)
+    resolve = (table, eqs) => {
+      if (table === 'tenants' && eqs.id === 't-B') return { data: tenantRow({ id: 't-B', name: 'Tenant B' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-A') return { data: tenantRow({ id: 't-A', name: 'Tenant A' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('t-B')
+    // must never have resolved (or written an audit row for) the impersonated tenant
+    expect(singleCalls.some((c) => c.table === 'tenants' && c.eqs.id === 't-A')).toBe(false)
+    expect(insertCalls.some((c) => c.table === 'impersonation_events')).toBe(false)
+  })
+})

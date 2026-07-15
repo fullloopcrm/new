@@ -41,33 +41,20 @@ async function logImpersonationEvent(
 // Supports admin impersonation via cookie (PIN auth or Clerk super admin)
 export async function getTenantForRequest(): Promise<TenantContext> {
   const cookieStore = await cookies()
-  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
-
-  // Admin PIN impersonation — no Clerk needed
-  if (impersonateId) {
-    const adminToken = cookieStore.get('admin_token')?.value
-    if (adminToken && verifyAdminToken(adminToken)) {
-      const { data: tenant } = await supabaseAdmin
-        .from('tenants')
-        .select('*')
-        .eq('id', impersonateId)
-        .single()
-
-      if (tenant) {
-        await logImpersonationEvent('pin_admin', 'admin', tenant.id)
-        return {
-          userId: 'admin',
-          tenantId: tenant.id,
-          tenant,
-          role: 'owner',
-        }
-      }
-    }
-  }
 
   // PIN admin on a tenant's OWN domain. Middleware injects a signed x-tenant-id
   // header for the domain; a valid admin_token authorizes that tenant's Loop.
-  // (No impersonation cookie exists here — the domain identifies the tenant.)
+  //
+  // Checked BEFORE the impersonation cookie (the super-admin PIN works on any
+  // host, and neither admin_token nor fl_impersonate carry a cookie `domain`,
+  // so both are host-only — a super admin can pick up an admin_token on
+  // tenant B's own domain while a STALE fl_impersonate=<tenant A> cookie from
+  // an earlier, different session is still set on that same host). Header
+  // must win here to match tenant.ts's getCurrentTenant() (header-first) and
+  // DashboardLayout's own auth gate, which authorizes this exact header path
+  // and renders tenant B's name/branding — if this function resolved
+  // impersonation first instead, every /api/dashboard/* write on that page
+  // would silently land on tenant A while the UI shows tenant B.
   {
     const h = await headers()
     const headerTenantId = h.get('x-tenant-id')
@@ -97,6 +84,30 @@ export async function getTenantForRequest(): Promise<TenantContext> {
           if (tenant) {
             return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
           }
+        }
+      }
+    }
+  }
+
+  const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
+
+  // Admin PIN impersonation — no Clerk needed
+  if (impersonateId) {
+    const adminToken = cookieStore.get('admin_token')?.value
+    if (adminToken && verifyAdminToken(adminToken)) {
+      const { data: tenant } = await supabaseAdmin
+        .from('tenants')
+        .select('*')
+        .eq('id', impersonateId)
+        .single()
+
+      if (tenant) {
+        await logImpersonationEvent('pin_admin', 'admin', tenant.id)
+        return {
+          userId: 'admin',
+          tenantId: tenant.id,
+          tenant,
+          role: 'owner',
         }
       }
     }
