@@ -35,6 +35,18 @@ async function notifyLeadEmailIfNeeded(args: {
   const now = Date.now()
   const last = recentLeadEmails.get(dedupeKey) || 0
   if (now - last < LEAD_EMAIL_DEDUPE_MS) return
+
+  // The dedupe above is keyed by client-supplied session_id, which an
+  // anonymous caller can vary on every request — this is a public,
+  // unauthenticated endpoint (see POST below). Without a per-tenant ceiling
+  // that ignores session_id, that lets anyone who reads tenant_id off the
+  // tenant's own page source (it ships in client-side tracking JS) email-bomb
+  // that tenant's lead_notification_email inbox and burn Resend send volume.
+  // Cap independent of session so real traffic (a handful of leads/window)
+  // is unaffected but rotating session_id can't bypass the limit.
+  const tenantLimit = await rateLimitDb(`lead-email-notify:${args.tenantId}`, 20, 10 * 60 * 1000)
+  if (!tenantLimit.allowed) return
+
   recentLeadEmails.set(dedupeKey, now)
   // Cheap GC so the map can't grow without bound.
   if (recentLeadEmails.size > 500) {
