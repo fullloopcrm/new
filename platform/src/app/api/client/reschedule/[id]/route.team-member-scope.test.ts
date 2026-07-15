@@ -81,7 +81,7 @@ function req(body: Record<string, unknown>): Request {
 describe('PUT /api/client/reschedule/[id] — team_member_id tenant scoping', () => {
   it('rejects a team_member_id belonging to another tenant', async () => {
     const res = await PUT(req({ start_time: '2099-02-01T10:00:00Z', team_member_id: 'tm-foreign' }), { params: Promise.resolve({ id: 'bk-1' }) })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(DB.bookings.find((b) => b.id === 'bk-1')?.team_member_id).toBeUndefined()
   })
 

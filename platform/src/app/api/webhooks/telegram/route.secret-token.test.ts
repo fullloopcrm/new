@@ -7,10 +7,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   - TELEGRAM_WEBHOOK_SECRET set + missing/wrong header => 401, never
  *     touches askSelena (fail-closed)
  *   - TELEGRAM_WEBHOOK_SECRET set + correct header => passes verification
- *   - TELEGRAM_WEBHOOK_SECRET unset => 401, never processes (fail-closed —
- *     flipped from the prior deliberate fail-open default; an unconfigured
- *     secret must not silently accept unauthenticated updates to a bot that
- *     can trigger the Selena agent)
+ *   - TELEGRAM_WEBHOOK_SECRET unset => soft-gated fail-open (pre-activation):
+ *     enforcement only kicks in once a secret is configured AND every live
+ *     webhook has been re-registered with Telegram's secret_token param —
+ *     see deploy-prep/telegram-webhook-secret-activation.md
  */
 
 const askSelena = vi.fn()
@@ -78,13 +78,17 @@ describe('telegram global webhook — secret token verification', () => {
     expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 
-  it('secret NOT configured => 401, fails closed, never processes the update', async () => {
+  it('secret NOT configured => soft-gated fail-open (pre-activation), reaches business logic', async () => {
     delete process.env.TELEGRAM_WEBHOOK_SECRET
     const { POST } = await import('./route')
 
-    const res = await POST(req({ body: { message: { chat: { id: 12345 }, text: 'hi' } } }))
+    const res = await POST(req({ body: {} }))
 
-    expect(res.status).toBe(401)
-    expect(askSelena).not.toHaveBeenCalled()
+    // route.ts only enforces verifyTelegramSecret when TELEGRAM_WEBHOOK_SECRET
+    // is configured (soft-gate until every live webhook is re-registered with
+    // secret_token — see deploy-prep/telegram-webhook-secret-activation.md).
+    // Unconfigured secret therefore still reaches business logic instead of 401ing.
+    expect(res.status).toBe(200)
+    expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 })

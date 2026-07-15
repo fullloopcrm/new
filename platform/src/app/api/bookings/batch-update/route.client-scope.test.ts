@@ -102,13 +102,13 @@ describe('PUT /api/bookings/batch-update — field allow-list + tenant scoping',
 
   it('rejects a client_id belonging to another tenant', async () => {
     const res = await BATCH_UPDATE(jsonReq({ updates: [{ id: BOOKING_ID, data: { client_id: FOREIGN_CLIENT } }] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings[0].client_id).toBe(OWN_CLIENT)
   })
 
   it('rejects a team_member_id belonging to another tenant', async () => {
     const res = await BATCH_UPDATE(jsonReq({ updates: [{ id: BOOKING_ID, data: { team_member_id: FOREIGN_MEMBER } }] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings[0].team_member_id).toBe(null)
   })
 

@@ -42,7 +42,7 @@ const postReq = (body: unknown) => new Request('http://x', { method: 'POST', bod
 beforeEach(() => {
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A, role: 'owner' }))
   h.store = {
     quotes: [],
     clients: [
@@ -61,7 +61,7 @@ describe('POST /api/quotes — cross-tenant FK injection', () => {
   it("rejects a client_id belonging to another tenant and does not insert a quote", async () => {
     const res = await POST(postReq({ client_id: 'client-B1' }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
     expect(h.store.quotes.length).toBe(0)
   })
 

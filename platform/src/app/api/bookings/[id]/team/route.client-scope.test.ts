@@ -110,14 +110,14 @@ describe('PUT /api/bookings/[id]/team — tenant scoping', () => {
 
   it('rejects a lead_id belonging to another tenant', async () => {
     const res = await UPDATE_TEAM(jsonReq({ lead_id: FOREIGN_MEMBER, extra_team_member_ids: [] }), { params: Promise.resolve({ id: BOOKING_ID }) })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings[0].team_member_id).toBe(null)
     expect(store.booking_team_members.length).toBe(0)
   })
 
   it('rejects an extra_team_member_ids entry belonging to another tenant', async () => {
     const res = await UPDATE_TEAM(jsonReq({ lead_id: OWN_MEMBER, extra_team_member_ids: [FOREIGN_MEMBER] }), { params: Promise.resolve({ id: BOOKING_ID }) })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings[0].team_member_id).toBe(null)
     expect(store.booking_team_members.length).toBe(0)
   })

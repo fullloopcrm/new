@@ -16,7 +16,7 @@ const TARGET = '33333333-0000-0000-0000-000000000003'
 const BOOKING = 'bbbbbbbb-0000-0000-0000-00000000000b'
 
 let permError: NextResponse | null = null
-let scope: string[] = [ACTOR, TARGET]
+let scope: string[] = [ACTOR, TARGET, PREV_MEMBER]
 let bookingResult: unknown = {
   id: BOOKING,
   team_member_id: PREV_MEMBER,
@@ -72,7 +72,7 @@ import { POST } from './route'
 
 beforeEach(() => {
   permError = null
-  scope = [ACTOR, TARGET]
+  scope = [ACTOR, TARGET, PREV_MEMBER]
   bookingResult = {
     id: BOOKING,
     team_member_id: PREV_MEMBER,
@@ -115,7 +115,7 @@ describe('team-portal/jobs/reassign', () => {
   })
 
   it('ALLOWS a target INSIDE the actor\'s scope', async () => {
-    scope = [ACTOR, TARGET]
+    scope = [ACTOR, TARGET, PREV_MEMBER]
     const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
     expect(res.status).toBe(200)
   })

@@ -117,14 +117,13 @@ vi.mock('@/lib/supabase', () => ({
 import { GET } from './route'
 
 function req() {
-  // CRON_SECRET is captured as a module-level constant on import, before
-  // beforeEach can set it — use the Vercel-cron header path instead.
   return new NextRequest('http://t/api/cron/comhub-email', {
-    headers: { 'x-vercel-cron': '1' },
+    headers: { authorization: 'Bearer test-cron-secret' },
   })
 }
 
 beforeEach(() => {
+  process.env.CRON_SECRET = 'test-cron-secret'
   askSelenaCalls.length = 0
   commhubMessagesExisting = []
   threadRow = { bot_paused_until: null }

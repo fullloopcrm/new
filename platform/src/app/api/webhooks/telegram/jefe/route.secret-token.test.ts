@@ -6,8 +6,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   - JEFE_WEBHOOK_SECRET set + missing/wrong header => 401, never touches
  *     askJefe (fail-closed)
  *   - JEFE_WEBHOOK_SECRET set + correct header => passes verification
- *   - JEFE_WEBHOOK_SECRET unset => 401, never processes (fail-closed —
- *     flipped from the prior fail-open default)
+ *   - JEFE_WEBHOOK_SECRET unset => soft-gated fail-open (pre-activation):
+ *     enforcement only kicks in once a secret is configured AND this bot's
+ *     webhook has been re-registered with it (mirrors the sibling
+ *     /api/webhooks/telegram route)
  */
 
 const askJefe = vi.fn()
@@ -71,13 +73,13 @@ describe('telegram jefe webhook — secret token verification', () => {
     expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 
-  it('secret NOT configured => 401, fails closed, never processes the update', async () => {
+  it('secret NOT configured => soft-gated fail-open (pre-activation), reaches business logic', async () => {
     delete process.env.JEFE_WEBHOOK_SECRET
     const { POST } = await import('./route')
 
-    const res = await POST(req({ body: { message: { chat: { id: 999 }, text: 'status?' } } }))
+    const res = await POST(req({ body: {} }))
 
-    expect(res.status).toBe(401)
-    expect(askJefe).not.toHaveBeenCalled()
+    expect(res.status).toBe(200)
+    expect((await res.json()).skip).toBe('no_chat_or_text')
   })
 })

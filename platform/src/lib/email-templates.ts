@@ -379,8 +379,8 @@ export function adminNewClientEmail(
   if (client.email) rows.push(row('Email', client.email))
   if (client.address) rows.push(row('Address', client.address))
   if (client.referralInfo)
-    rows.push(row('Referred by', escapeHtml(client.referralInfo) + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
-  if (client.notes) rows.push(row('Notes', escapeHtml(client.notes)))
+    rows.push(row('Referred by', client.referralInfo + (client.referrerMatched ? ' (matched)' : ' (unmatched)')))
+  if (client.notes) rows.push(row('Notes', client.notes))
 
   // Self-book online leads earn a discount that must be honored on the quote.
   const discountBanner = client.selfBookDiscountCents

@@ -58,7 +58,25 @@ vi.mock('next/headers', () => ({
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabase: fake, supabaseAdmin: fake, __fake: fake }
+  // team-portal/jobs/claim/route.ts now claims atomically via
+  // rpc('claim_job_atomic', ...) (migrations/2026_07_13_job_claim_atomic.sql)
+  // instead of a plain scoped UPDATE. Faithfully replicate its tenant_id +
+  // team_member_id IS NULL scoping against the SAME fake store so the
+  // cross-tenant proof below still exercises real isolation logic, not a
+  // rubber-stamped mock.
+  const rpc = (fn: string, params: Record<string, unknown>) => {
+    if (fn !== 'claim_job_atomic') {
+      return Promise.resolve({ data: null, error: { message: `unexpected rpc: ${fn}` } })
+    }
+    const row = fake._all('bookings').find(
+      (r) => r.id === params.p_booking_id && r.tenant_id === params.p_tenant_id && r.team_member_id == null,
+    )
+    if (!row) return Promise.resolve({ data: { claimed: false, reason: 'not_found' }, error: null })
+    row.team_member_id = params.p_member_id
+    return Promise.resolve({ data: { claimed: true, booking: { ...row } }, error: null })
+  }
+  const admin = { ...fake, rpc }
+  return { supabase: admin, supabaseAdmin: admin, __fake: fake }
 })
 
 import { supabaseAdmin } from '@/lib/supabase'

@@ -7,14 +7,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * "row-scoped-ok" bucket): the parent `jobs` row is loaded scoped
  * `.eq('tenant_id', tenantId).eq('id', id).single()` with a 404 gate, and ONLY
  * after that gate does the handler fan out to child reads —
- * `job_payments` (money), `bookings`, `job_events` — each keyed by `.eq('job_id',
- * id)` with NO tenant scope of their own. Isolation holds today purely because
- * the 404 returns BEFORE the Promise.all runs.
+ * `job_payments` (money), `bookings`, `job_events`, each now also independently
+ * tenant-scoped via tenantDb (defense-in-depth on top of the parent gate).
  *
- * The child selects are therefore one refactor away from the selena leak: move
- * the Promise.all above the gate, or read children in parallel with the parent,
- * and a cross-tenant job id would spill another tenant's payment schedule. This
- * test pins the SECURE OUTCOME so that regression fails loudly.
+ * This test pins the SECURE OUTCOME so that regression fails loudly if either
+ * layer (the parent gate or the child tenantDb scoping) is ever dropped.
  *
  *   • NEGATIVE: tenant-A requesting tenant-B's job id gets 404 — no job body, no
  *     job_payments amounts, no child rows disclosed.
@@ -35,10 +32,10 @@ const reads: Array<{ table: string; eqs: Eqs; single: boolean }> = []
 
 const jobsStore = [{ id: VICTIM_JOB, tenant_id: VICTIM_TENANT, title: 'Deep clean — Victim Residence', status: 'scheduled' }]
 const paymentsStore = [
-  { id: 'pay-b-1', job_id: VICTIM_JOB, kind: 'deposit', amount_cents: VICTIM_MONEY, status: 'paid', sort_order: 0 },
+  { id: 'pay-b-1', tenant_id: VICTIM_TENANT, job_id: VICTIM_JOB, kind: 'deposit', amount_cents: VICTIM_MONEY, status: 'paid', sort_order: 0 },
 ]
-const bookingsStore = [{ id: 'bk-b-1', job_id: VICTIM_JOB, status: 'scheduled', start_time: '2026-07-01T10:00:00Z' }]
-const eventsStore = [{ id: 'ev-b-1', job_id: VICTIM_JOB, kind: 'created', created_at: '2026-06-30T00:00:00Z' }]
+const bookingsStore = [{ id: 'bk-b-1', tenant_id: VICTIM_TENANT, job_id: VICTIM_JOB, status: 'scheduled', start_time: '2026-07-01T10:00:00Z' }]
+const eventsStore = [{ id: 'ev-b-1', tenant_id: VICTIM_TENANT, job_id: VICTIM_JOB, kind: 'created', created_at: '2026-06-30T00:00:00Z' }]
 
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: vi.fn(async () => ({ userId: 'op-a', tenantId: CALLER_TENANT, tenant: {}, role: 'owner' })),

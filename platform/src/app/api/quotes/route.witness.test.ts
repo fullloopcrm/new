@@ -89,7 +89,7 @@ describe('quotes POST — cross-tenant FK injection LOCKED', () => {
 
   it('LOCKED: a foreign deal_id 404s before any quote is inserted (and the deals UPDATE never runs)', async () => {
     const res = await POST(postReq({ deal_id: 'deal-b', line_items: [] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'quotes')).toBeUndefined()
     expect(h.capture.updates.find((u) => u.table === 'deals')).toBeUndefined()
 

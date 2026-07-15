@@ -224,19 +224,14 @@ export async function PUT(request: Request) {
     }
 
     if (markingPaid) {
-      const { data: ref } = await supabaseAdmin
-        .from('referrers')
-        .select('total_paid')
-        .eq('id', data.referrer_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (ref) {
-        await supabaseAdmin
-          .from('referrers')
-          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
-          .eq('id', data.referrer_id)
-          .eq('tenant_id', tenantId)
-      }
+      // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) — a
+      // read-then-write here would lose an increment if two commissions for
+      // the same referrer are marked paid around the same time.
+      await supabaseAdmin.rpc('increment_referrer_paid', {
+        p_tenant_id: tenantId,
+        p_referrer_id: data.referrer_id,
+        p_amount_cents: data.commission_cents,
+      })
       // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))

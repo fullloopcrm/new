@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
  * W4 isolation probe for the tenantDb() conversion of GET/POST
@@ -12,28 +13,15 @@ const TENANT_A = 'aaaaaaaa-0000-0000-0000-00000000000a'
 const TENANT_B = 'bbbbbbbb-0000-0000-0000-00000000000b'
 const BOOKING_ID = 'shared-booking-id'
 
-type Row = Record<string, unknown>
-const DB: Record<string, Row[]> = {}
-let idSeq = 0
+const h = vi.hoisted(() => ({
+  seq: 0,
+  store: {} as Record<string, Array<Record<string, unknown>>>,
+})) as unknown as FakeStoreHandle
 
-function chain(table: string) {
-  const filters: Array<(r: Row) => boolean> = []
-  const rowsOf = (): Row[] => DB[table] || (DB[table] = [])
-  const matched = (): Row[] => rowsOf().filter((r) => filters.every((f) => f(r)))
-  const c: Record<string, unknown> = {
-    select: () => c,
-    eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
-    order: () => Promise.resolve({ data: matched(), error: null }),
-    insert: (row: Row) => {
-      const created = { id: `note-${++idSeq}`, ...row }
-      rowsOf().push(created)
-      return { select: () => ({ single: async () => ({ data: created, error: null }) }) }
-    },
-  }
-  return c
-}
-
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+vi.mock('@/lib/supabase', () => {
+  const fake = makeTenantDbFake(h)
+  return { supabaseAdmin: fake, supabase: fake }
+})
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({ tenantId: TENANT_A }),
   AuthError: class AuthError extends Error {},
@@ -42,11 +30,19 @@ vi.mock('@/lib/tenant-query', () => ({
 import { NextRequest } from 'next/server'
 import { GET, POST } from './route'
 
+const DB = () => h.store
+
 beforeEach(() => {
-  DB.booking_notes = [
-    { id: 'note-a', tenant_id: TENANT_A, booking_id: BOOKING_ID, content: 'A own note', author_type: 'admin', author_name: 'A Admin', created_at: '2020-01-01' },
-    { id: 'note-b', tenant_id: TENANT_B, booking_id: BOOKING_ID, content: 'B foreign note', author_type: 'admin', author_name: 'B Admin', created_at: '2020-01-01' },
-  ]
+  h.seq = 0
+  h.store = {
+    bookings: [
+      { id: BOOKING_ID, tenant_id: TENANT_A },
+    ],
+    booking_notes: [
+      { id: 'note-a', tenant_id: TENANT_A, booking_id: BOOKING_ID, content: 'A own note', author_type: 'admin', author_name: 'A Admin', created_at: '2020-01-01' },
+      { id: 'note-b', tenant_id: TENANT_B, booking_id: BOOKING_ID, content: 'B foreign note', author_type: 'admin', author_name: 'B Admin', created_at: '2020-01-01' },
+    ],
+  }
 })
 
 describe('GET /api/booking-notes — tenantDb scoping', () => {
@@ -71,7 +67,7 @@ describe('POST /api/booking-notes — tenantDb scoping', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.tenant_id).toBe(TENANT_A)
-    const inserted = DB.booking_notes.find((r) => r.content === 'new note from A')!
+    const inserted = DB().booking_notes.find((r) => r.content === 'new note from A')!
     expect(inserted.tenant_id).toBe(TENANT_A)
   })
 })

@@ -44,6 +44,10 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
+      maybeSingle: async () => {
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (kind === 'insert') { doInsert(); return res({ data: null, error: null }) }
         return res({ data: (store[table] || []).filter(match), error: null })
@@ -105,7 +109,7 @@ describe('POST /api/invoices — client_id tenant scoping', () => {
       client_id: FOREIGN_CLIENT,
       line_items: [{ name: 'Deep clean', quantity: 1, unit_price_cents: 10000 }],
     }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.invoices.length).toBe(0)
   })
 

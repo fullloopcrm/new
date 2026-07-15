@@ -8,6 +8,12 @@
  *
  *   - rpc('post_journal_entry', …) : writes the journal entry + its lines, the
  *     way the real Postgres RPC does — so postJournalEntry() lands real rows.
+ *   - rpc('next_document_number', …) : atomic per-(tenant, doc_type, period)
+ *     sequence backing generateInvoiceNumber() (money-spine's INV-YYYYMM-NNNN).
+ *   - rpc('increment_referrer_earned'/'increment_referrer_paid', …) : mirrors
+ *     migrations/2026_07_13_referrer_ledger_atomic.sql's single UPDATE …
+ *     RETURNING, so concurrent increments never lose an update to a stale
+ *     JS-side read.
  *   - upsert(payload, { onConflict, ignoreDuplicates }) : the idempotency
  *     mechanism (a webhook retry must not double-post).
  *
@@ -25,7 +31,8 @@
  *     .eq(col,val) .neq(col,val) .in(col,vals) .gt(col,val) .gte(col,val) .lt(col,val)
  *     .not() .order() .range() .limit()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
- *   rpc('post_journal_entry', params)
+ *   rpc('post_journal_entry', params) rpc('next_document_number', params)
+ *   rpc('increment_referrer_earned'|'increment_referrer_paid', params)
  *
  * Window ops: `gt` compares numerically; `gte`/`lt` compare stringwise (what the
  * invoice monthly-count window in money-spine relies on). These are inert for the
@@ -83,6 +90,38 @@ function postJournalEntryRpc(h: FakeStoreHandle, params: Record<string, unknown>
     })
   }
   return { data: entryId, error: null }
+}
+
+function nextDocumentNumberRpc(h: FakeStoreHandle, params: Record<string, unknown>): { data: unknown; error: unknown } {
+  // Mirrors migrations/2026_07_13_document_number_atomic.sql: an atomic
+  // per-(tenant, doc_type, period) sequence, so generateInvoiceNumber() gets
+  // a real incrementing NNNN instead of a count-then-append race.
+  const counters = (h.store.__document_number_counters ||= [])
+  let row = counters.find(
+    (r) => r.tenant_id === params.p_tenant_id && r.doc_type === params.p_doc_type && r.period === params.p_period,
+  )
+  if (!row) {
+    row = { tenant_id: params.p_tenant_id, doc_type: params.p_doc_type, period: params.p_period, seq: 0 }
+    counters.push(row)
+  }
+  row.seq = Number(row.seq) + 1
+  return { data: row.seq, error: null }
+}
+
+// Mirrors migrations/2026_07_13_referrer_ledger_atomic.sql — a single
+// UPDATE ... RETURNING, so concurrent increments for the same referrer never
+// lose an update to a stale JS-side read.
+function incrementReferrerRpc(
+  h: FakeStoreHandle,
+  field: 'total_earned' | 'total_paid',
+  params: Record<string, unknown>,
+): { data: unknown; error: unknown } {
+  const ref = (h.store.referrers || []).find(
+    (r) => r.id === params.p_referrer_id && r.tenant_id === params.p_tenant_id,
+  )
+  if (!ref) return { data: null, error: { message: 'not found' } }
+  ref[field] = (Number(ref[field]) || 0) + (Number(params.p_amount_cents) || 0)
+  return { data: { [field]: ref[field] }, error: null }
 }
 
 function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeSingle' | 'many') {
@@ -190,7 +229,12 @@ export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
       }
       return chain
     },
-    rpc: (name: string, params: Record<string, unknown>) =>
-      Promise.resolve(name === 'post_journal_entry' ? postJournalEntryRpc(h, params) : { data: null, error: { message: `unknown rpc ${name}` } }),
+    rpc: (name: string, params: Record<string, unknown>) => {
+      if (name === 'post_journal_entry') return Promise.resolve(postJournalEntryRpc(h, params))
+      if (name === 'next_document_number') return Promise.resolve(nextDocumentNumberRpc(h, params))
+      if (name === 'increment_referrer_earned') return Promise.resolve(incrementReferrerRpc(h, 'total_earned', params))
+      if (name === 'increment_referrer_paid') return Promise.resolve(incrementReferrerRpc(h, 'total_paid', params))
+      return Promise.resolve({ data: null, error: { message: `unknown rpc ${name}` } })
+    },
   }
 }

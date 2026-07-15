@@ -69,9 +69,9 @@ beforeEach(() => {
 })
 
 describe('invoices/[id] PATCH — client_id FK injection WITNESS', () => {
-  it('LOCK: a foreign client_id is rejected (404), invoice untouched', async () => {
+  it('LOCK: a foreign client_id is rejected (400), invoice untouched', async () => {
     const res = await PATCH(patchReq({ client_id: 'client-b' }), ctx('inv-a'))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
 
     const upd = h.capture.updates.find((u) => u.table === 'invoices')
     expect(upd).toBeFalsy()

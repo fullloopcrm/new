@@ -105,7 +105,29 @@ vi.mock('@/lib/supabase', () => {
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => builder(t) } }
+  return {
+    supabaseAdmin: {
+      from: (t: string) => builder(t),
+      // Claiming now runs through one atomic supabaseAdmin.rpc('claim_job_atomic', ...)
+      // call (migrations/2026_07_13_job_claim_atomic.sql) rather than a separate
+      // count-then-update — model that same contract against this file's shared
+      // jobAssignee/claimCount/members lifecycle state.
+      rpc: async (fn: string, args: Row) => {
+        if (fn !== 'claim_job_atomic') throw new Error(`unexpected rpc: ${fn}`)
+        const member = members[args.p_member_id as string]
+        const cap = member?.max_jobs_per_day ?? null
+        if (cap && cap > 0 && claimCount >= cap) {
+          return { data: { claimed: false, reason: 'cap_reached', cap }, error: null }
+        }
+        if (jobAssignee !== null) {
+          return { data: { claimed: false, reason: 'already_taken' }, error: null }
+        }
+        jobAssignee = args.p_member_id as string
+        const booking = { id: args.p_booking_id, team_member_id: jobAssignee, pay_rate: member?.pay_rate ?? null, status: 'confirmed' }
+        return { data: { claimed: true, reason: 'ok', booking }, error: null }
+      },
+    },
+  }
 })
 
 import { POST as claim } from './claim/route'

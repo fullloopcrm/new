@@ -16,10 +16,21 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
+// PUT marks-paid via the atomic increment_referrer_paid RPC
+// (migrations/2026_07_13_referrer_ledger_atomic.sql), so the fake needs an
+// .rpc() the base fake doesn't provide.
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
+  const rpc = (fn: string, args: { p_tenant_id: string; p_referrer_id: string; p_amount_cents: number }) => {
+    if (fn === 'increment_referrer_paid') {
+      const ref = fake._all('referrers').find((r) => r.id === args.p_referrer_id && r.tenant_id === args.p_tenant_id)
+      if (ref) ref.total_paid = (Number(ref.total_paid) || 0) + args.p_amount_cents
+      return Promise.resolve({ data: { total_paid: ref?.total_paid ?? null }, error: null })
+    }
+    return Promise.resolve({ data: null, error: null })
+  }
+  return { supabaseAdmin: Object.assign(fake, { rpc }) }
 })
 
 vi.mock('@/lib/notify', () => ({ notify: vi.fn().mockResolvedValue(undefined) }))
@@ -30,7 +41,7 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
 
 let currentTenantId: string
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenantId }),
+  getTenantForRequest: async () => ({ tenantId: currentTenantId, role: 'owner' }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {

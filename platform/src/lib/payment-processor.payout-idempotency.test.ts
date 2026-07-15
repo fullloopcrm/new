@@ -1,17 +1,18 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * payment-processor.processPayment() has NO DB-level dedup on manual payment
- * confirmations (Zelle/Venmo/cash) — unlike the Stripe webhook route, which is
- * protected by a UNIQUE constraint on payments.stripe_session_id. A double-submit
- * of "confirm payment" (admin double-click, retried request) reaches
- * stripe.transfers.create twice for the SAME booking. The only remaining guard
- * is the idempotencyKey (`payout-<bookingId>`) now passed to transfers.create,
- * which makes Stripe treat the second call as a replay of the first instead of
- * moving money again. This test simulates Stripe's own idempotency-key
- * semantics (same key → cached response, no new transfer) and proves the
- * second processPayment() call for the same booking never creates a second,
- * distinct transfer.
+ * payment-processor.processPayment() has app-level dedup (cleanerAlreadyPaid +
+ * claimCleanerPayout, DB-claimed before any Stripe call) but that's not this
+ * test's mock reality — bookingsBuilder()/the generic table noop below don't
+ * persist claim state across calls, so this test isolates the STRIPE-side
+ * defense in depth: the idempotencyKey (`cleaner-payout:<bookingId>:<referenceId>`,
+ * mirroring webhooks/stripe/route.ts's cleaner-payout:<booking>:<session>
+ * pattern) now passed to transfers.create/payouts.create, which makes Stripe
+ * treat a genuine retry (same bookingId + same caller-supplied referenceId)
+ * as a replay of the first call instead of moving money again. This proves
+ * a second processPayment() call for the same booking+referenceId never
+ * creates a second, distinct transfer even when the app-level DB claim
+ * (out of scope for this file) isn't what caught it.
  */
 
 const TENANT: { id: string; name: string; stripe_api_key: null; telnyx_api_key: null; telnyx_phone: null } = {
@@ -63,30 +64,33 @@ vi.mock('stripe', () => {
 })
 
 function bookingsBuilder() {
+  const bookingRow = {
+    id: BOOKING_ID,
+    team_member_id: 'tm_1',
+    client_id: 'client_1',
+    team_member_pay: null,
+    actual_hours: 2,
+    hourly_rate: 69,
+    pay_rate: null,
+    price: null,
+    check_in_time: null,
+    start_time: null,
+    team_member_paid: false, // never persisted by this mock's update() — see cleanerAlreadyPaid below
+    clients: { name: 'Client', phone: null, address: null },
+    team_members: {
+      name: 'Cleaner', phone: null, sms_consent: false,
+      stripe_account_id: 'acct_tm_1', hourly_rate: null, pay_rate: 25,
+      preferred_language: 'en',
+    },
+  }
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
-    single: async () => ({
-      data: {
-        id: BOOKING_ID,
-        team_member_id: 'tm_1',
-        client_id: 'client_1',
-        team_member_pay: null,
-        actual_hours: 2,
-        hourly_rate: 69,
-        pay_rate: null,
-        price: null,
-        check_in_time: null,
-        start_time: null,
-        clients: { name: 'Client', phone: null, address: null },
-        team_members: {
-          name: 'Cleaner', phone: null, sms_consent: false,
-          stripe_account_id: 'acct_tm_1', hourly_rate: null, pay_rate: 25,
-          preferred_language: 'en',
-        },
-      },
-      error: null,
-    }),
+    single: async () => ({ data: bookingRow, error: null }),
+    // cleanerAlreadyPaid()'s own-flag check — always false here (this mock
+    // doesn't persist the team_member_paid update(), on purpose: this test
+    // isolates the Stripe-side idempotencyKey, not the DB-level claim guard).
+    maybeSingle: async () => ({ data: bookingRow, error: null }),
     update: () => chain,
   }
   return chain
@@ -111,10 +115,10 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'bookings') return bookingsBuilder()
       if (table === 'payments') return paymentsBuilder()
       const noop: Record<string, unknown> = {
-        select: () => noop, insert: () => noop, update: () => noop, eq: () => noop,
-        limit: () => Promise.resolve({ data: [], error: null }),
+        select: () => noop, insert: () => noop, update: () => noop, eq: () => noop, limit: () => noop,
         maybeSingle: async () => ({ data: null, error: null }),
         single: async () => ({ data: { id: 'row_x' }, error: null }),
+        then: (res: (v: { data: unknown; error: null }) => unknown) => res({ data: [], error: null }),
       }
       return noop
     },
@@ -142,14 +146,15 @@ beforeEach(() => {
 })
 
 describe('payment-processor — duplicate manual payment confirmation does not double-pay the cleaner', () => {
-  it('two processPayment() calls for the same booking pass the same idempotencyKey and the second is a no-op transfer', async () => {
+  it('two processPayment() calls for the same booking+referenceId pass the same idempotencyKey and the second is a no-op transfer', async () => {
+    const REFERENCE_ID = 'ref_1' // e.g. a duplicate admin confirm retried with the same reference
     const first = await processPayment({
       tenant: TENANT,
       bookingId: BOOKING_ID,
       clientId: 'client_1',
       method: 'zelle',
       amountCents: 13800,
-      referenceId: 'ref_1',
+      referenceId: REFERENCE_ID,
     })
     const second = await processPayment({
       tenant: TENANT,
@@ -157,7 +162,7 @@ describe('payment-processor — duplicate manual payment confirmation does not d
       clientId: 'client_1',
       method: 'zelle',
       amountCents: 13800,
-      referenceId: 'ref_2', // e.g. duplicate admin confirm with a different reference
+      referenceId: REFERENCE_ID,
     })
 
     expect(first?.status).toBe('paid')
@@ -167,8 +172,8 @@ describe('payment-processor — duplicate manual payment confirmation does not d
     expect(transfersCreate).toHaveBeenCalledTimes(2)
     const [, firstOptions] = transfersCreate.mock.calls[0]
     const [, secondOptions] = transfersCreate.mock.calls[1]
-    expect(firstOptions).toEqual({ idempotencyKey: `payout-${BOOKING_ID}` })
-    expect(secondOptions).toEqual({ idempotencyKey: `payout-${BOOKING_ID}` })
+    expect(firstOptions).toEqual({ idempotencyKey: `cleaner-payout:${BOOKING_ID}:${REFERENCE_ID}` })
+    expect(secondOptions).toEqual({ idempotencyKey: `cleaner-payout:${BOOKING_ID}:${REFERENCE_ID}` })
 
     // ...but only ONE real transfer was ever created — the second call is a
     // no-op replay, and both calls resolve to the identical transfer id.
@@ -176,12 +181,13 @@ describe('payment-processor — duplicate manual payment confirmation does not d
     expect(first?.cleanerPaidCents).toBe(second?.cleanerPaidCents)
 
     // Same guarantee for the instant payout leg: both calls pass the SAME
-    // payout-instant-<bookingId> key, and only one real instant payout is minted.
+    // cleaner-instant-payout:<bookingId>:<referenceId> key, and only one real
+    // instant payout is minted.
     expect(payoutsCreate).toHaveBeenCalledTimes(2)
     const [, firstPayoutOptions] = payoutsCreate.mock.calls[0]
     const [, secondPayoutOptions] = payoutsCreate.mock.calls[1]
-    expect(firstPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `payout-instant-${BOOKING_ID}` })
-    expect(secondPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `payout-instant-${BOOKING_ID}` })
+    expect(firstPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `cleaner-instant-payout:${BOOKING_ID}:${REFERENCE_ID}` })
+    expect(secondPayoutOptions).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `cleaner-instant-payout:${BOOKING_ID}:${REFERENCE_ID}` })
     expect(realPayoutCount).toBe(1)
   })
 })

@@ -35,6 +35,10 @@ function chain(table: string) {
       const m = matched()
       return m[0] ? { data: m[0], error: null } : { data: null, error: { message: 'not found' } }
     },
+    maybeSingle: async () => {
+      const m = matched()
+      return { data: m[0] ?? null, error: null }
+    },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
   return c
@@ -49,11 +53,23 @@ vi.mock('@/lib/client-properties', () => ({
   deactivateProperty: async () => {},
 }))
 
+// The route no longer uses the legacy nycmaid isAdminAuthenticated()/
+// protectClientAPI() pair at all — dashboard admin access now runs through
+// requirePermission (RBAC), and the client-portal path (not exercised by
+// this history-focused file) through @/lib/client-auth + getTenantFromHeaders.
 const adminCtx = { value: true }
-vi.mock('@/lib/nycmaid/auth', () => ({
-  isAdminAuthenticated: async () => adminCtx.value,
-  protectClientAPI: async (clientId?: string) => ({ clientId }),
-}))
+vi.mock('@/lib/require-permission', async () => {
+  const { NextResponse } = await import('next/server')
+  return {
+    requirePermission: async () => {
+      if (!adminCtx.value) {
+        return { tenant: null, error: NextResponse.json({ error: 'Forbidden' }, { status: 403 }) }
+      }
+      return { tenant: { tenantId: TENANT_A }, error: null }
+    },
+  }
+})
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => null }))
 
 import { GET } from './route'
 

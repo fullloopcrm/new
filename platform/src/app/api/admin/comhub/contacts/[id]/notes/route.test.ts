@@ -1,5 +1,6 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 import { NextRequest } from 'next/server'
+import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
  * Regression: `body.notes ?? body.notes_private ?? body.notes_public` treated
@@ -16,35 +17,21 @@ vi.mock('@/lib/tenant', () => ({
   getCurrentTenantId: vi.fn(async () => 'tenant-1'),
 }))
 
-let updatePayload: Record<string, unknown> | null = null
+const h = vi.hoisted(() => ({
+  seq: 0,
+  store: {} as Record<string, Array<Record<string, unknown>>>,
+})) as unknown as FakeStoreHandle
 
 vi.mock('@/lib/supabase', () => {
-  const from = (table: string) => {
-    if (table === 'comhub_contacts') {
-      return {
-        select: () => ({
-          eq: () => ({
-            eq: () => ({
-              single: async () => ({ data: { id: 'contact-1', client_id: 'client-1' } }),
-            }),
-          }),
-        }),
-      }
-    }
-    if (table === 'clients') {
-      return {
-        update: (payload: Record<string, unknown>) => {
-          updatePayload = payload
-          return { eq: async () => ({ error: null }) }
-        },
-      }
-    }
-    throw new Error(`unexpected table ${table}`)
-  }
-  return { supabaseAdmin: { from } }
+  const fake = makeTenantDbFake(h)
+  return { supabaseAdmin: fake, supabase: fake }
 })
 
 import { PATCH } from './route'
+
+function currentClient() {
+  return h.store.clients.find((c) => c.id === 'client-1')!
+}
 
 function makeRequest(body: unknown): NextRequest {
   return new NextRequest('http://localhost/api/admin/comhub/contacts/contact-1/notes', {
@@ -55,7 +42,15 @@ function makeRequest(body: unknown): NextRequest {
 
 describe('PATCH contacts/[id]/notes', () => {
   beforeEach(() => {
-    updatePayload = null
+    h.seq = 0
+    h.store = {
+      comhub_contacts: [
+        { id: 'contact-1', tenant_id: 'tenant-1', client_id: 'client-1' },
+      ],
+      clients: [
+        { id: 'client-1', tenant_id: 'tenant-1', notes: 'original' },
+      ],
+    }
   })
 
   it('clears notes when notes is explicitly null', async () => {
@@ -65,14 +60,14 @@ describe('PATCH contacts/[id]/notes', () => {
     const json = await res.json()
 
     expect(json).toEqual({ ok: true })
-    expect(updatePayload).toEqual({ notes: null })
+    expect(currentClient().notes).toBeNull()
   })
 
   it('sets notes to the provided string', async () => {
     await PATCH(makeRequest({ notes: 'hello' }), {
       params: Promise.resolve({ id: 'contact-1' }),
     })
-    expect(updatePayload).toEqual({ notes: 'hello' })
+    expect(currentClient().notes).toBe('hello')
   })
 
   it('is a noop when no recognized key is present', async () => {
@@ -81,13 +76,13 @@ describe('PATCH contacts/[id]/notes', () => {
     })
     const json = await res.json()
     expect(json).toEqual({ ok: true, noop: true })
-    expect(updatePayload).toBeNull()
+    expect(currentClient().notes).toBe('original')
   })
 
   it('falls back to notes_private when notes key is absent', async () => {
     await PATCH(makeRequest({ notes_private: 'legacy' }), {
       params: Promise.resolve({ id: 'contact-1' }),
     })
-    expect(updatePayload).toEqual({ notes: 'legacy' })
+    expect(currentClient().notes).toBe('legacy')
   })
 })

@@ -60,6 +60,10 @@ vi.mock('@/lib/invoice', () => ({
 vi.mock('@/lib/entity', () => ({
   getDefaultEntityId: async () => 'entity-a',
   entityIdFromUrl: () => null,
+  isEntityOwnedByTenant: vi.fn(async (tenantId: string, entityId: string) => {
+    const seedEntities: Record<string, string> = { 'entity-a': CTX_TENANT, 'entity-b': OTHER_TENANT }
+    return seedEntities[entityId] === tenantId
+  }),
 }))
 
 import { POST } from './route'
@@ -95,27 +99,27 @@ beforeEach(() => {
 })
 
 describe('invoices POST — cross-tenant FK injection LOCKED', () => {
-  it('LOCKED: a foreign client_id from the body 404s before any invoice is inserted', async () => {
+  it('LOCKED: a foreign client_id from the body 400s before any invoice is inserted', async () => {
     const res = await POST(postReq({ client_id: 'client-b', line_items: [] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('LOCKED: a foreign booking_id 404s before any invoice is inserted', async () => {
+  it('LOCKED: a foreign booking_id 400s before any invoice is inserted', async () => {
     const res = await POST(postReq({ booking_id: 'bk-b', line_items: [] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('LOCKED: a foreign quote_id 404s before any invoice is inserted', async () => {
+  it('LOCKED: a foreign quote_id 400s before any invoice is inserted', async () => {
     const res = await POST(postReq({ quote_id: 'q-b', line_items: [] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('LOCKED: from_booking_id referencing a foreign booking 404s before any invoice is inserted', async () => {
+  it('LOCKED: from_booking_id referencing a foreign booking 400s before any invoice is inserted', async () => {
     const res = await POST(postReq({ from_booking_id: 'bk-b', line_items: [] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 

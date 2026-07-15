@@ -23,12 +23,20 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
     order: () => c,
     maybeSingle: async () => ({ data: matched()[0] || null, error: null }),
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
   return c
 }
+
+// tenantId is now bootstrapped from the HOST (signed request headers), not
+// from the client row — a caller-supplied client_id is only ever trusted
+// once it's confirmed to belong to that host tenant (see the route's own
+// comment). Make the mocked host tenant configurable per test.
+let hostTenant: { id: string } | null = { id: TENANT_A }
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => hostTenant }))
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [], suggestBookingSlots: async () => [] }))
@@ -38,6 +46,7 @@ import { GET } from './route'
 beforeEach(() => {
   DB.clients = []
   DB.team_members = []
+  hostTenant = { id: TENANT_A }
 })
 
 describe('GET /api/client/smart-schedule — tenantDb scoping (picker fallback)', () => {
@@ -53,8 +62,12 @@ describe('GET /api/client/smart-schedule — tenantDb scoping (picker fallback)'
     expect(ids).not.toContain('tm-foreign')
   })
 
-  it('returns an empty list when the client cannot be resolved to a tenant', async () => {
-    const res = await GET(new Request('https://x?client_id=missing'))
+  it('returns an empty list when the host tenant cannot be resolved', async () => {
+    // middleware always signs x-tenant-id for /api/client/* in production, but
+    // when it can't (misconfigured domain), tenantId must stay null rather
+    // than fall back to trusting a caller-supplied client_id's own tenant.
+    hostTenant = null
+    const res = await GET(new Request('https://x?client_id=c-1'))
     const body = await res.json() as { cleaners: Row[] }
     expect(body.cleaners).toEqual([])
   })

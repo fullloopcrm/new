@@ -33,6 +33,7 @@ type Row = Record<string, unknown>
 const reads: Array<{ table: string; eqs: Row }> = []
 const inserts: Array<{ table: string; payload: Row }> = []
 const updates: Array<{ table: string; eqs: Row }> = []
+let lastBooking: Row | null = null
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
@@ -67,11 +68,21 @@ vi.mock('@/lib/supabase', () => {
             error: null,
           }
         }
+        // Booking creation itself now runs inside create_booking_atomic (see
+        // the rpc() mock below) — this plain SELECT is the route's read-back
+        // of the row the RPC just created.
+        if (table === 'bookings' && lastBooking && eqs.id === lastBooking.id) {
+          return { data: lastBooking, error: null }
+        }
         if (table === 'clients') return { data: { do_not_service: false }, error: null }
         return { data: null, error: null }
       },
       maybeSingle: async () => {
         reads.push({ table, eqs: { ...eqs } })
+        // client_id ownership is now verified via .maybeSingle() before any
+        // booking work runs (see route.witness.test.ts) — this used to
+        // unconditionally return null, which 404'd every request in this file.
+        if (table === 'clients') return { data: { do_not_service: false }, error: null }
         return { data: null, error: null }
       },
       // Awaiting the chain directly (count reads, plain inserts) lands here.
@@ -82,7 +93,49 @@ vi.mock('@/lib/supabase', () => {
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => chain(t) } }
+  return {
+    supabaseAdmin: {
+      from: (t: string) => chain(t),
+      // Booking creation now runs atomically inside a single Postgres RPC
+      // (create_booking_atomic — see migrations/2026_07_13_client_book_dedupe_atomic.sql),
+      // which does the same-date duplicate check AND the INSERT server-side.
+      // Record it the same way the old duplicate-gate SELECT + INSERT were
+      // recorded so both assertions below (INSERT payload correctness, and
+      // "the gate read was tenant-scoped") still hold against the new shape.
+      rpc: async (fn: string, args: Row) => {
+        if (fn !== 'create_booking_atomic') return { data: null, error: { message: `unmocked rpc ${fn}` } }
+        reads.push({ table: 'bookings', eqs: { tenant_id: args.p_tenant_id, client_id: args.p_client_id } })
+        const payload: Row = {
+          tenant_id: args.p_tenant_id,
+          client_id: args.p_client_id,
+          property_id: args.p_property_id,
+          start_time: args.p_start_time,
+          end_time: args.p_end_time,
+          service_type: args.p_service_type,
+          price: args.p_price,
+          hourly_rate: args.p_hourly_rate,
+          team_size: args.p_team_size,
+          is_emergency: args.p_is_emergency,
+          max_hours: args.p_max_hours,
+          notes: args.p_notes,
+          recurring_type: args.p_recurring_type,
+          team_member_token: args.p_team_member_token,
+          token_expires_at: args.p_token_expires_at,
+          referrer_id: args.p_referrer_id,
+          status: 'pending',
+        }
+        inserts.push({ table: 'bookings', payload })
+        lastBooking = {
+          id: BOOKING_ID,
+          ...payload,
+          created_at: '2026-08-14T10:00:00Z',
+          clients: { name: 'Canary Client', email: null, phone: null, address: null },
+          client_properties: null,
+        }
+        return { data: { created: true, booking: { id: BOOKING_ID } }, error: null }
+      },
+    },
+  }
 })
 
 // Tenant resolution → a plain, non-NYC-Maid tenant with no send credentials.

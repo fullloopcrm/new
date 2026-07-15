@@ -8,7 +8,9 @@
  * a second real Stripe refund for the same payment. Fixed with (1) a
  * pre-check that short-circuits if the booking is already payment_status
  * 'refunded', and (2) an idempotencyKey on the Stripe call keyed by
- * payment id + amount so an exact retry can't double-refund.
+ * booking id + amount + day (commit b73c936a's design — a same-day retry
+ * replays the same refund, while a genuinely distinct refund request on a
+ * later day still goes through) so an exact retry can't double-refund.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
@@ -59,13 +61,14 @@ beforeEach(() => {
 })
 
 describe('handleProcessStripeRefund idempotency', () => {
-  it('passes a stable idempotencyKey keyed by payment id + amount', async () => {
+  it('passes a stable idempotencyKey keyed by booking id + amount + day', async () => {
     seed()
     const out = JSON.parse(await handleProcessStripeRefund({ booking_id: BOOKING_ID, amount_dollars: 100 }, TENANT_ID))
     expect(out.ok).toBe(true)
     expect(refundsCreate).toHaveBeenCalledTimes(1)
     const [, opts] = refundsCreate.mock.calls[0]
-    expect(opts.idempotencyKey).toBe(`selena-refund:${PAYMENT_ID}:10000`)
+    const dayBucket = new Date().toISOString().slice(0, 10)
+    expect(opts.idempotencyKey).toBe(`refund-${BOOKING_ID}-10000-${dayBucket}`)
   })
 
   it('refuses to refund again once the booking is already marked refunded', async () => {

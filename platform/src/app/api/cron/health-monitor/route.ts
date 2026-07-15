@@ -36,7 +36,8 @@ const CHECKS: CronCheck[] = [
   { cron: 'generate-recurring',  desc: 'Recurring booking generator',        source: 'notifications', match: { type: 'recurring_generated' }, maxSilenceMin: 8 * 24 * 60 },
   { cron: 'daily-summary',       desc: 'Cleaner 3-day summary',              source: 'notifications', match: { type: 'daily_summary_sent' }, maxSilenceMin: 28 * 60 },
   { cron: 'recurring-expenses',  desc: 'Daily recurring-expense poster',     source: 'notifications', match: { type: 'recurring_expense_posted' }, maxSilenceMin: 48 * 60 },
-  { cron: 'reminders',           desc: '8am client reminder digest',         source: 'email_logs',    match: { subject: 'reminder' }, maxSilenceMin: 36 * 60 },
+  { cron: 'reminders.daily_ops_recap', desc: '8am daily ops recap',          source: 'notifications', match: { type: 'daily_ops_recap' }, maxSilenceMin: 36 * 60 },
+  { cron: 'reminders.daily_digest',    desc: '9pm nightly digest',           source: 'notifications', match: { type: 'daily_digest' }, maxSilenceMin: 36 * 60 },
   // Pipeline freshness — if these go silent, upstream capture is broken.
   { cron: 'pipeline.new_lead',    desc: 'New leads captured',    source: 'notifications', match: { type: 'new_lead' },    maxSilenceMin: 24 * 60 },
   { cron: 'pipeline.new_booking', desc: 'New bookings captured', source: 'notifications', match: { type: 'new_booking' }, maxSilenceMin: 3 * 24 * 60 },

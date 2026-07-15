@@ -36,16 +36,25 @@ vi.mock('@/lib/tenant-query', () => {
 
 const review = { id: 'rev-1', tenant_id: 'tenant-A', reviewer_name: 'Alex', rating: 5, comment: 'Great!', google_review_id: 'g-1' }
 
-const updateEq = vi.hoisted(() => vi.fn(async () => ({ error: null })))
+const updateEq = vi.hoisted(() => vi.fn(async (_col: string, _val: unknown) => ({ error: null })))
 const upsertFn = vi.hoisted(() => vi.fn(async () => ({ error: null })))
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'google_reviews') {
-        return {
-          select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: review }) }) }) }),
-          update: () => ({ eq: updateEq }),
+        // Chainable fake matching tenantDb's wrapper — select()/eq() return
+        // the same chain object (arbitrary .eq() depth), single() terminates.
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          single: async () => ({ data: review }),
         }
+        const updateChain: Record<string, unknown> = {
+          eq: (col: string, val: unknown) => { updateEq(col, val); return updateChain },
+          then: (res: (v: { error: null }) => unknown) => Promise.resolve({ error: null }).then(res),
+        }
+        chain.update = () => updateChain
+        return chain
       }
       if (table === 'tenant_settings') {
         return { upsert: upsertFn }

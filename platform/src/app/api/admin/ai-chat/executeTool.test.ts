@@ -43,7 +43,7 @@ beforeEach(() => {
 
 describe("executeTool('update_client')", () => {
   it('updates an allowed field', async () => {
-    await executeTool('tenant-A', 'update_client', { client_id: 'client-A1', updates: { name: 'New Name' } })
+    await executeTool('tenant-A', 'update_client', { client_id: 'client-A1', updates: { name: 'New Name' } }, 'owner', null)
     expect(h.store.clients[0].name).toBe('New Name')
   })
 
@@ -51,7 +51,7 @@ describe("executeTool('update_client')", () => {
     await executeTool('tenant-A', 'update_client', {
       client_id: 'client-A1',
       updates: { name: 'Hacked', pin: '0000' },
-    })
+    }, 'owner', null)
     expect(h.store.clients[0].pin).toBe('1234')
     expect(h.store.clients[0].name).toBe('Hacked')
   })
@@ -63,7 +63,7 @@ describe("executeTool('update_bookings')", () => {
       booking_ids: ['book-A1'],
       updates: { status: 'confirmed' },
       confirmed: true,
-    })
+    }, 'owner', null)
     expect(h.store.bookings[0].status).toBe('confirmed')
   })
 
@@ -72,7 +72,7 @@ describe("executeTool('update_bookings')", () => {
       booking_ids: ['book-A1'],
       updates: { status: 'confirmed', client_id: 'client-B9' },
       confirmed: true,
-    })
+    }, 'owner', null)
     expect(h.store.bookings[0].client_id).toBe('client-A1')
     expect(h.store.bookings[0].status).toBe('confirmed')
   })

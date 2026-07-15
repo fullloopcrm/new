@@ -51,21 +51,21 @@ const baseBody = { client_id: 'client-A', recurring_type: 'weekly', start_date: 
 describe('POST /api/admin/recurring-schedules — property/team-member tenant scoping', () => {
   it('rejects a property_id belonging to another tenant', async () => {
     const res = await POST(jsonReq({ ...baseBody, property_id: 'prop-B' }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(fake._all('recurring_schedules').length).toBe(0)
     expect(fake._all('bookings').length).toBe(0)
   })
 
   it('rejects a team_member_id belonging to another tenant', async () => {
     const res = await POST(jsonReq({ ...baseBody, team_member_id: 'tm-B' }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(fake._all('recurring_schedules').length).toBe(0)
     expect(fake._all('bookings').length).toBe(0)
   })
 
   it('rejects a cleaner_id (nycmaid alias) belonging to another tenant', async () => {
     const res = await POST(jsonReq({ ...baseBody, cleaner_id: 'tm-B' }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(fake._all('recurring_schedules').length).toBe(0)
   })
 

@@ -56,6 +56,11 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
+      maybeSingle: async () => {
+        if (kind === 'insert') { const [row] = doInsert(); return { data: row, error: null } }
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown; count?: number }) => unknown) => {
         if (kind === 'insert') { const rows = doInsert(); return res({ data: rows, error: null }) }
         void notIn
@@ -65,7 +70,33 @@ vi.mock('@/lib/supabase', () => {
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => chain(t) } }
+  // Booking creation now runs atomically inside a single Postgres RPC
+  // (create_admin_booking_atomic — see migrations/2026_07_13_admin_booking_atomic.sql),
+  // which does the conflict/cap checks and the INSERT server-side. This
+  // fixture has no existing bookings to conflict with, so the fake just
+  // performs the insert and reports success.
+  const rpc = async (fnName: string, params: Row) => {
+    if (fnName !== 'create_admin_booking_atomic') {
+      return { data: null, error: { message: `unmocked rpc ${fnName}` } }
+    }
+    const row: Row = {
+      id: genId('bookings'),
+      tenant_id: params.p_tenant_id,
+      client_id: params.p_client_id,
+      property_id: params.p_property_id,
+      team_member_id: params.p_team_member_id,
+      service_type_id: params.p_service_type_id,
+      service_type: params.p_service_type,
+      start_time: params.p_start_time,
+      end_time: params.p_end_time,
+      notes: params.p_notes,
+      special_instructions: params.p_special_instructions,
+      status: params.p_status,
+    }
+    store.bookings = [...(store.bookings || []), row]
+    return { data: { created: true, booking: { id: row.id } }, error: null }
+  }
+  return { supabaseAdmin: { from: (t: string) => chain(t), rpc } }
 })
 
 vi.mock('@/lib/tenant-query', () => ({

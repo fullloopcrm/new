@@ -110,6 +110,66 @@ vi.mock('@/lib/supabase', () => {
       }
       return chain
     },
+    // Booking creation now runs atomically inside a single Postgres RPC
+    // (create_admin_booking_atomic — see migrations/2026_07_13_admin_booking_atomic.sql):
+    // the conflict-window and daily-cap CHECKS themselves moved server-side
+    // (closing a TOCTOU race — see the route's own comment above the call),
+    // even though the JS layer still precomputes the window/cap inputs. The
+    // fake has to reproduce that check here, not just perform the insert.
+    rpc: async (fnName: string, params: Record<string, unknown>) => {
+      if (fnName !== 'create_admin_booking_atomic') {
+        return { data: null, error: { message: `unmocked rpc ${fnName}` } }
+      }
+      const bookings = h.store.bookings || (h.store.bookings = [])
+      const isActive = (b: Record<string, unknown>) => b.status !== 'cancelled' && b.status !== 'no_show'
+      if (params.p_team_member_id && params.p_conflict_start && params.p_conflict_end) {
+        const conflicts = bookings.filter((b) =>
+          b.tenant_id === params.p_tenant_id &&
+          b.team_member_id === params.p_team_member_id &&
+          isActive(b) &&
+          String(b.start_time) < String(params.p_conflict_end) &&
+          String(b.end_time) > String(params.p_conflict_start)
+        )
+        if (conflicts.length > 0) {
+          return {
+            data: {
+              created: false,
+              reason: 'conflict',
+              conflicts: conflicts.map((c) => ({ id: c.id, start: c.start_time, end: c.end_time })),
+            },
+            error: null,
+          }
+        }
+      }
+      if (params.p_team_member_id && params.p_max_jobs_per_day && params.p_day_start && params.p_day_end) {
+        const count = bookings.filter((b) =>
+          b.tenant_id === params.p_tenant_id &&
+          b.team_member_id === params.p_team_member_id &&
+          isActive(b) &&
+          String(b.start_time) >= String(params.p_day_start) &&
+          String(b.start_time) <= String(params.p_day_end)
+        ).length
+        if (count >= Number(params.p_max_jobs_per_day)) {
+          return { data: { created: false, reason: 'max_jobs' }, error: null }
+        }
+      }
+      const row = {
+        id: `bk-new-${++h.seq}`,
+        tenant_id: params.p_tenant_id,
+        client_id: params.p_client_id,
+        property_id: params.p_property_id,
+        team_member_id: params.p_team_member_id,
+        service_type_id: params.p_service_type_id,
+        service_type: params.p_service_type,
+        start_time: params.p_start_time,
+        end_time: params.p_end_time,
+        notes: params.p_notes,
+        special_instructions: params.p_special_instructions,
+        status: params.p_status,
+      }
+      bookings.push(row)
+      return { data: { created: true, booking: { id: row.id } }, error: null }
+    },
   }
   return { supabaseAdmin: fake, supabase: fake }
 })
@@ -389,26 +449,26 @@ describe('POST /api/bookings — cross-tenant FK injection', () => {
   it("rejects a client_id belonging to another tenant instead of creating the booking (and leaking it via the clients() join)", async () => {
     const res = await POST(postReq({ ...validCreateBody, client_id: OTHER_TENANT_CLIENT_ID }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
     expect(h.store.bookings.some((b) => b.client_id === OTHER_TENANT_CLIENT_ID)).toBe(false)
   })
 
   it("rejects a team_member_id belonging to another tenant", async () => {
     const res = await POST(postReq({ ...validCreateBody, team_member_id: OTHER_TENANT_TEAM_MEMBER_ID }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
   })
 
   it("rejects a service_type_id belonging to another tenant", async () => {
     const res = await POST(postReq({ ...validCreateBody, service_type_id: OTHER_TENANT_SERVICE_TYPE_ID }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
   })
 
   it("rejects a property_id belonging to another tenant", async () => {
     const res = await POST(postReq({ ...validCreateBody, property_id: OTHER_TENANT_PROPERTY_ID }))
 
-    expect(res.status).toBe(400)
+    expect(res.status).toBe(404)
   })
 
   it('still creates the booking when every FK genuinely belongs to the caller tenant', async () => {

@@ -14,7 +14,7 @@ const IMG = '<img src=x onerror=alert(1)>'
 
 describe('escapeHtml', () => {
   it('escapes all HTML-significant characters', () => {
-    expect(escapeHtml(`&<>"'`)).toBe('&amp;&lt;&gt;&quot;&#039;')
+    expect(escapeHtml(`&<>"'`)).toBe('&amp;&lt;&gt;&quot;&#39;')
   })
 
   it('escapes a script payload', () => {

@@ -52,6 +52,10 @@ vi.mock('@/lib/require-permission', () => ({
 vi.mock('@/lib/entity', () => ({
   getDefaultEntityId: vi.fn(async () => 'entity-a'),
   entityIdFromUrl: () => null,
+  isEntityOwnedByTenant: vi.fn(async (tenantId: string, entityId: string) => {
+    const seedEntities: Record<string, string> = { 'entity-a': CTX_TENANT, 'entity-b': OTHER_TENANT }
+    return seedEntities[entityId] === tenantId
+  }),
 }))
 
 import { POST } from './route'

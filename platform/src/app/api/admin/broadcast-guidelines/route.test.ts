@@ -26,7 +26,7 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: h.tenant }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: h.tenant, role: 'owner' }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -68,14 +68,14 @@ describe('POST /api/admin/broadcast-guidelines — permission gate', () => {
     expect(h.notify).not.toHaveBeenCalled()
   })
 
-  it('maps a thrown error from the DB lookup to a 500', async () => {
+  it('maps a thrown error from the DB lookup to a 401 via the permission gate', async () => {
     const tenantQuery = await import('@/lib/tenant-query')
     vi.spyOn(tenantQuery, 'getTenantForRequest').mockRejectedValueOnce(new Error('db down'))
 
     const res = await POST()
 
-    expect(res.status).toBe(500)
-    await expect(res.json()).resolves.toEqual({ error: 'Broadcast failed' })
+    expect(res.status).toBe(401)
+    await expect(res.json()).resolves.toEqual({ error: 'Unauthorized' })
   })
 })
 

@@ -33,6 +33,7 @@ vi.mock('@/lib/tenant-query', () => ({
     userId: 'user-a',
     tenantId: TENANT_A,
     tenant: { id: TENANT_A, name: 'Tenant A', industry: 'cleaning', anthropic_api_key: 'stored-key' },
+    role: 'owner',
   })),
   AuthError: class AuthError extends Error {
     status = 401

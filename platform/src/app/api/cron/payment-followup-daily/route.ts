@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
-import { safeEqual } from '@/lib/timing-safe-equal'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -44,11 +44,11 @@ function etHour(now: Date): number {
 }
 
 export async function GET(request: Request) {
-  const auth = request.headers.get('authorization')
-  const validSecret = !!auth && !!process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)
-  if (!validSecret && request.headers.get('x-vercel-cron') !== '1') {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Fails closed through the shared helper — no spoofable Vercel-cron-header
+  // bypass (that header isn't cryptographically signed, so any external
+  // caller can send it) and no CRON_SECRET-unset silent pass-through.
+  const cronAuthError = verifyCronSecret(request)
+  if (cronAuthError) return cronAuthError
 
   const now = new Date()
   const hour = etHour(now)

@@ -48,12 +48,24 @@ vi.mock('../../portal/auth/token', () => ({
 vi.mock('../../team-portal/auth/token', () => ({
   verifyToken: (token: string) => (token === 'good-member' ? { id: 'member-real', tid: 'tid-a' } : null),
 }))
-vi.mock('@/lib/tenant', () => ({
-  getCurrentTenant: vi.fn(async () => null),
+// role='admin' resolves identity via getTenantForRequest() (an authenticated
+// dashboard session), not the public host-resolved tenant.
+vi.mock('@/lib/tenant-query', () => ({
+  getTenantForRequest: vi.fn(async () => { throw new Error('no session') }),
+}))
+// role='client' falls back to a cookie session when no bearer token is
+// present — mock that path closed (no cookie store / no valid session) so
+// the no-token case resolves to 401 instead of throwing through cookies().
+vi.mock('next/headers', () => ({
+  cookies: vi.fn(async () => ({ get: () => undefined })),
+}))
+vi.mock('@/lib/client-auth', () => ({
+  verifyClientSessionToken: vi.fn(() => null),
+  clientSessionCookieOptions: () => ({ name: 'client_session' }),
 }))
 
 import { POST } from './route'
-import { getCurrentTenant } from '@/lib/tenant'
+import { getTenantForRequest } from '@/lib/tenant-query'
 
 function post(role: string, token: string | null, extra: Record<string, unknown> = {}) {
   const headers: Record<string, string> = { 'content-type': 'application/json' }
@@ -67,13 +79,11 @@ function post(role: string, token: string | null, extra: Record<string, unknown>
 
 beforeEach(() => {
   rows.length = 0
-  vi.mocked(getCurrentTenant).mockReset()
-  // Mimics the real-world exploit precondition: getCurrentTenant() resolves
-  // via the PUBLIC signed tenant-domain header for any visitor to the
-  // tenant's site (getHeaderTenant() inside getCurrentTenant()), no real
-  // session required. Individual tests override this where they need to
-  // exercise the "no session at all" path.
-  vi.mocked(getCurrentTenant).mockResolvedValue({ id: 'tid-a' } as never)
+  vi.mocked(getTenantForRequest).mockReset()
+  // Default: a real authenticated dashboard session for tenant tid-a.
+  // Individual tests override this where they need to exercise the "no
+  // session at all" path.
+  vi.mocked(getTenantForRequest).mockResolvedValue({ tenantId: 'tid-a' } as never)
 })
 
 describe('push/subscribe POST — identity is server-verified, never caller-supplied', () => {
@@ -112,7 +122,7 @@ describe('push/subscribe POST — identity is server-verified, never caller-supp
   })
 
   it('positive control: role=admin still uses the existing operator-dashboard session', async () => {
-    vi.mocked(getCurrentTenant).mockResolvedValueOnce({ id: 'tid-a' } as never)
+    vi.mocked(getTenantForRequest).mockResolvedValueOnce({ tenantId: 'tid-a' } as never)
     const res = await post('admin', null)
     expect(res.status).toBe(200)
     expect(rows).toHaveLength(1)
@@ -122,7 +132,7 @@ describe('push/subscribe POST — identity is server-verified, never caller-supp
   })
 
   it('role=admin with no operator session → 401, no row written', async () => {
-    vi.mocked(getCurrentTenant).mockResolvedValueOnce(null)
+    vi.mocked(getTenantForRequest).mockRejectedValueOnce(new Error('no session'))
     const res = await post('admin', null)
     expect(res.status).toBe(401)
     expect(rows).toHaveLength(0)

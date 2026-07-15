@@ -54,7 +54,10 @@ vi.mock('@/lib/supabase', () => {
         rows = rows.filter((r) => re.test(String(r[col] ?? '')))
         return c
       },
+      gte: () => c,
       single: async () => (rows.length > 0 ? { data: rows[0], error: null } : { data: null, error: { message: 'not found' } }),
+      then: (resolve: (v: { data: Row[]; count: number; error: null }) => unknown) =>
+        resolve({ data: rows, count: rows.length, error: null }),
     }
     return c
   }

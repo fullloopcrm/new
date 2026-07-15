@@ -7,11 +7,13 @@ import { signTenantHeader } from '@/lib/tenant-header-sig'
  * check, unlike its siblings /api/chat + /api/errors. On the main host a caller
  * could forge `x-tenant-id: <victim>` and (a) have the returning-client phone
  * lookup read that victim's clients, and (b) scope the new conversation into the
- * victim's tenant. The fix routes tenant derivation through verifyTenantHeaderSig,
- * so an unsigned/forged id is dropped to undefined.
+ * victim's tenant. The fix routes tenant derivation through verifyTenantHeaderSig
+ * and fails CLOSED: an unsigned/forged id is rejected outright (400) rather
+ * than silently degrading to an unscoped request.
  *
- * These tests prove: a forged/unsigned x-tenant-id performs NO tenant-scoped read
- * and writes NO tenant_id; only a middleware-signed id selects the tenant.
+ * These tests prove: a forged/unsigned x-tenant-id is rejected before any
+ * tenant-scoped read or write happens; only a middleware-signed id selects
+ * the tenant.
  */
 
 const SECRET = 'yinez-route-test-secret'
@@ -35,6 +37,13 @@ const h = vi.hoisted(() => {
       limit: () => builder,
       // clients returning-client lookup terminates here
       single: () => Promise.resolve({ data: null, error: null }),
+      // insertConversationMessage() resolves tenant_id from the parent
+      // conversation via .select('tenant_id').eq('id', ...).maybeSingle() —
+      // every conversation created in this suite belongs to VICTIM.
+      maybeSingle: () =>
+        table === 'sms_conversations'
+          ? Promise.resolve({ data: { tenant_id: 'tenant-victim' }, error: null })
+          : Promise.resolve({ data: null, error: null }),
       insert: (payload: Record<string, unknown>) => {
         if (table === 'sms_conversations') captured.convoInsert = payload
         // Supports both shapes: `.insert(x)` awaited directly (messages) and
@@ -89,10 +98,10 @@ beforeEach(() => {
 })
 
 describe('POST /api/yinez — forgeable x-tenant-id tenant wall', () => {
-  it('forged x-tenant-id (no signature) does NOT read the victim tenant and does NOT scope the write', async () => {
+  it('forged x-tenant-id (no signature) is rejected — no tenant-scoped read or write', async () => {
     const res = await POST(post({ 'x-tenant-id': VICTIM }))
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
     // No tenant-scoped client read happened.
     expect(h.captured.clientLookups).toEqual([])
     // The conversation was NOT written into the victim tenant.
@@ -102,7 +111,7 @@ describe('POST /api/yinez — forgeable x-tenant-id tenant wall', () => {
   it('forged x-tenant-id with a bogus signature is also rejected', async () => {
     const res = await POST(post({ 'x-tenant-id': VICTIM, 'x-tenant-sig': 'deadbeef'.repeat(8) }))
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
     expect(h.captured.clientLookups).toEqual([])
     expect(h.captured.convoInsert?.tenant_id).toBeUndefined()
   })
@@ -112,7 +121,7 @@ describe('POST /api/yinez — forgeable x-tenant-id tenant wall', () => {
     const otherSig = signTenantHeader('tenant-other')
     const res = await POST(post({ 'x-tenant-id': VICTIM, 'x-tenant-sig': otherSig }))
 
-    expect(res.status).toBe(200)
+    expect(res.status).toBe(400)
     expect(h.captured.clientLookups).toEqual([])
     expect(h.captured.convoInsert?.tenant_id).toBeUndefined()
   })

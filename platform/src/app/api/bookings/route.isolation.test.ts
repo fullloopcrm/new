@@ -14,6 +14,35 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
+  // Booking creation now runs atomically inside a single Postgres RPC
+  // (create_admin_booking_atomic — see migrations/2026_07_13_admin_booking_atomic.sql),
+  // which does the conflict/cap checks and the INSERT server-side. Every
+  // scenario in this file passes `force: true`, which makes the route skip
+  // its own conflict/cap pre-checks (p_conflict_start/p_max_jobs_per_day
+  // come through null) — so the fake just performs the insert.
+  let bookingSeq = 0
+  ;(fake as unknown as { rpc: (fn: string, params: Record<string, unknown>) => Promise<{ data: unknown; error: unknown }> }).rpc =
+    async (fnName, params) => {
+      if (fnName !== 'create_admin_booking_atomic') {
+        return { data: null, error: { message: `unmocked rpc ${fnName}` } }
+      }
+      const row = {
+        id: `bk-new-${++bookingSeq}`,
+        tenant_id: params.p_tenant_id,
+        client_id: params.p_client_id,
+        property_id: params.p_property_id,
+        team_member_id: params.p_team_member_id,
+        service_type_id: params.p_service_type_id,
+        service_type: params.p_service_type,
+        start_time: params.p_start_time,
+        end_time: params.p_end_time,
+        notes: params.p_notes,
+        special_instructions: params.p_special_instructions,
+        status: params.p_status,
+      }
+      fake._seed('bookings', [row])
+      return { data: { created: true, booking: { id: row.id } }, error: null }
+    }
   return { supabaseAdmin: fake }
 })
 
@@ -70,6 +99,8 @@ beforeEach(() => {
     { id: 'b-bk', tenant_id: B_ID, start_time: '2026-08-01T10:00:00', end_time: '2026-08-01T12:00:00', status: 'scheduled', team_member_id: TM_A },
   ])
   fake._seed('tenants', [{ id: A_ID, name: 'A Co' }, { id: B_ID, name: 'B Co' }])
+  fake._seed('clients', [{ id: CLIENT_A, tenant_id: A_ID, name: 'Client A' }])
+  fake._seed('team_members', [{ id: TM_A, tenant_id: A_ID, name: 'Team Member A' }])
 })
 
 function getReq(): NextRequest {

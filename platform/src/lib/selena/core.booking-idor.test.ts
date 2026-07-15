@@ -146,13 +146,15 @@ describe('Yinez SMS agent — cross-tenant/cross-client booking IDOR', () => {
     const out = JSON.parse(
       await handleTool('booking_details', { booking_id: BOOKING_C }, CONVO_A, dummyResult())
     )
-    expect(out.error).toBe('Booking not found')
+    // Distinct from the cross-tenant "not found" case above: the booking DOES
+    // exist (same tenant), it just doesn't belong to this conversation's client.
+    expect(out.error).toBe('not_your_booking')
   })
 
   it('resend_confirmation refuses to email a same-tenant sibling client\'s PIN via explicit booking_id', async () => {
     const out = JSON.parse(
       await handleTool('resend_confirmation', { booking_id: BOOKING_C }, CONVO_A, dummyResult())
     )
-    expect(out.error).toBe('Booking not found')
+    expect(out.error).toBe('not_your_booking')
   })
 })

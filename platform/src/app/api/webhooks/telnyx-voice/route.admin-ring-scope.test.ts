@@ -105,7 +105,7 @@ beforeEach(() => {
   mock.state.presenceRows = []
   mock.state.voiceSettingsRows = []
   mock.state.fetchCalls = []
-  process.env.TELNYX_WEBHOOK_VERIFY = 'off'
+  process.env.TELNYX_VOICE_WEBHOOK_VERIFY = 'off'
   vi.stubGlobal(
     'fetch',
     vi.fn(async (url: string, init?: { body?: string }) => {

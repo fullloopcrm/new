@@ -69,8 +69,16 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'clients') return { data: clientRow, error: null }
         return { data: null, error: null }
       },
-      then: (res: (v: Resolved) => unknown) => {
+      then: (res: (v: Resolved & { count?: number }) => unknown) => {
         if (kind === 'read') reads.push({ table, eqs: { ...eqs } })
+        // Recurring's repeat-client gate requires >=1 prior completed
+        // booking (tenantDb(...).from('bookings').select('id', { count:
+        // 'exact', head: true }).eq('status', 'completed')) before it will
+        // even look at cleaner_id — satisfy that gate so this file's tests
+        // can reach the cleaner-ownership check they're actually probing.
+        if (table === 'bookings' && eqs.status === 'completed') {
+          return res({ data: [], error: null, count: 1 })
+        }
         return res({ data: [], error: null })
       },
     }
@@ -154,7 +162,7 @@ describe('W4 client-IDOR: recurring rejects a foreign cleaner_id after the gate 
     // 400 (not 401/403) proves the auth gate PASSED for the legit client, then the
     // NEW member-validation block rejected the cross-tenant cleaner.
     expect(res.status).toBe(400)
-    expect(await res.json()).toMatchObject({ error: 'Invalid cleaner selection' })
+    expect(await res.json()).toMatchObject({ error: 'Cleaner not available' })
     expect(writes.inserts).toHaveLength(0)
     const tmReads = reads.filter((r) => r.table === 'team_members')
     expect(tmReads.length).toBeGreaterThan(0)

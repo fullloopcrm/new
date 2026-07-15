@@ -50,7 +50,7 @@ export async function GET(request: NextRequest) {
     // /api/referrers/auth/*) -- financial fields only live there.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, created_at')
+      .select('id, name, email, referral_code, ref_code, created_at')
       .eq('tenant_id', lookupTenant.id)
       .eq('referral_code', code)
       .single()
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
     // Same no-financial-fields rule as the code branch above.
     const { data } = await supabaseAdmin
       .from('referrers')
-      .select('id, name, email, referral_code, created_at')
+      .select('id, name, email, referral_code, ref_code, created_at')
       .eq('tenant_id', lookupTenant.id)
       .ilike('email', escapeLikeValue(email))
       .single()

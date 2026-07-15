@@ -44,7 +44,7 @@ type Payload = Record<string, unknown>
 const inserts: Array<{ table: string; payload: Payload }> = []
 
 // tenant-B owns the stuck conversation (SMS phone → triggers the recovery path).
-const convoStore = [
+const convoStore: Payload[] = [
   { id: STUCK_CONVO, tenant_id: CALLER_TENANT, phone: '2125551234', client_id: null, booking_checklist: {} },
 ]
 // tenant-B has live Telnyx creds so the outbound send + message-log path runs.
@@ -75,6 +75,11 @@ vi.mock('@/lib/supabase', () => {
       insert: (row: Payload) => {
         insertRow = row
         inserts.push({ table, payload: { ...row } })
+        // Mirrors tenantDb's insert() (already stamps tenant_id on `row`) +
+        // Postgres assigning the new id — so the fresh conversation is
+        // findable by insertConversationMessage's own tenant-derivation
+        // lookup a few lines later in the route.
+        if (table === 'sms_conversations') convoStore.push({ ...row, id: NEW_CONVO })
         return chain
       },
       single: () => {
@@ -85,6 +90,10 @@ vi.mock('@/lib/supabase', () => {
         }
         const rows = rowsFor(table, eqs)
         return Promise.resolve(rows[0] ? { data: rows[0], error: null } : { data: null, error: { message: 'no rows' } })
+      },
+      maybeSingle: () => {
+        const rows = rowsFor(table, eqs)
+        return Promise.resolve(rows[0] ? { data: rows[0], error: null } : { data: null, error: null })
       },
       // terminal await on a bare `.eq(...)` (the expiry update) or `.insert(...)`
       then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) =>

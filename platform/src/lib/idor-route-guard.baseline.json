@@ -24,6 +24,7 @@
   "src/app/api/admin/requests/route.ts::partner_requests",
   "src/app/api/admin/schedule-issues/fix/route.ts::bookings",
   "src/app/api/admin/schedule-issues/fix/route.ts::schedule_issues",
+  "src/app/api/admin/selena/monitor/route.ts::sms_conversations",
   "src/app/api/auth/login/route.ts::admin_users",
   "src/app/api/booking-notes/[id]/route.ts::booking_notes",
   "src/app/api/bookings/route.ts::service_types",

@@ -34,7 +34,7 @@ import {
 async function authClient(
   clientId: string | null | undefined,
   wantPermission: 'clients.view' | 'clients.edit',
-): Promise<NextResponse | { isAdmin: boolean }> {
+): Promise<NextResponse | { isAdmin: boolean; tenantId?: string }> {
   if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
 
   const { tenant: adminTenant, error: adminError } = await requirePermission(wantPermission)
@@ -46,7 +46,7 @@ async function authClient(
       .eq('tenant_id', adminTenant.tenantId)
       .maybeSingle()
     if (!client) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-    return { isAdmin: true }
+    return { isAdmin: true, tenantId: adminTenant.tenantId }
   }
 
   const siteTenant = await getTenantFromHeaders()
@@ -71,12 +71,11 @@ export async function GET(request: Request) {
   const properties = await listProperties(clientId!)
 
   if (searchParams.get('include_history') === 'true' && auth.isAdmin) {
-    // isAdminAuthenticated() is a legacy admin_session cookie with no tenant
-    // binding — resolve the client's OWN tenant_id and require every returned
-    // row to match it, so a property_changes row ever mistagged to a foreign
-    // tenant can't surface here.
-    const { data: clientRow } = await supabaseAdmin.from('clients').select('tenant_id').eq('id', clientId!).single()
-    const tenantId = clientRow?.tenant_id as string | undefined
+    // authClient() already verified clientId belongs to this admin's tenant
+    // (scoped .eq('tenant_id', ...) lookup above) — reuse that tenantId
+    // rather than re-deriving it from an unscoped-by-id clients query, so
+    // every returned property_changes row is required to match it too.
+    const tenantId = auth.tenantId
     if (!tenantId) return NextResponse.json({ properties, history: [] })
     const { data: history } = await supabaseAdmin
       .from('property_changes')

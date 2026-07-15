@@ -12,8 +12,9 @@ import { generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
  *   - TELNYX_PUBLIC_KEY set + forged/missing signature => 401, never reaches
  *     the call-control handling logic
  *   - TELNYX_PUBLIC_KEY set + valid signature => passes verification
- *   - TELNYX_PUBLIC_KEY unset => unchanged (no verification) — pre-existing
- *     behavior, not addressed here
+ *   - TELNYX_PUBLIC_KEY unset => 401, fails closed too (an unconfigured key
+ *     is not a bypass — the only escape hatch is the explicit
+ *     TELNYX_VOICE_WEBHOOK_VERIFY=off local-dev flag)
  */
 
 const supabaseFrom = vi.fn((..._args: unknown[]) => ({
@@ -107,13 +108,13 @@ describe('telnyx-voice webhook — signature verification', () => {
     expect((await res.json()).ok).toBe(true)
   })
 
-  it('unset TELNYX_PUBLIC_KEY => unchanged behavior, no signature required', async () => {
+  it('unset TELNYX_PUBLIC_KEY => 401, fails closed (not a bypass)', async () => {
     delete process.env.TELNYX_PUBLIC_KEY
     const { POST } = await import('./route')
 
     const res = await POST(req({ rawBody: unmatchedEventBody }) as never)
 
-    expect(res.status).toBe(200)
-    expect((await res.json()).ok).toBe(true)
+    expect(res.status).toBe(401)
+    expect(supabaseFrom).not.toHaveBeenCalled()
   })
 })

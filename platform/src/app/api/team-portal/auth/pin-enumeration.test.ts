@@ -70,11 +70,13 @@ describe('team-portal/auth PIN enumeration', () => {
     expect(statuses[5]).toBe(429)
   })
 
-  it('bucket key is slug+IP and never contains the PIN', async () => {
+  it('bucket keys are slug+IP based and never contain the PIN', async () => {
     await POST(req('424242'))
     expect(rlKeys.length).toBeGreaterThan(0)
+    // Precheck bucket (slug+ip, checked before any PIN lookup) plus the two
+    // post-failure buckets (per-slug, per-ip) — none embed the guessed PIN.
+    expect(rlKeys).toContain('team_portal_auth:acme:9.9.9.9')
     for (const k of rlKeys) {
-      expect(k).toBe('team_portal_auth:acme:9.9.9.9')
       expect(k).not.toContain('424242')
     }
   })

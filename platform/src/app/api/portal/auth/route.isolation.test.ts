@@ -5,12 +5,12 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * tenantDb conversion probe — portal/auth/route.ts (docs/adr/0004).
  * send_code resolves tenant from the request's tenant_slug, then scopes the
  * client lookup, the stale-code delete, and the new-code insert to it via
- * tenantDb. verify_code can't know the tenant until AFTER the phone+code
- * lookup resolves it (documented tenant-scope-ok) — but once resolved, the
- * mark-as-used update is scoped via tenantDb too. The LEAK CONTROL proves
- * that scoping is load-bearing: two tenants sharing both the same phone AND
- * the same 6-digit code (a realistic collision) would otherwise let a
- * verify_code call for one tenant silently burn the other tenant's code.
+ * tenantDb. verify_code now also requires tenant_slug up front, resolves the
+ * tenant first, and scopes the phone+code lookup AND the mark-as-used update
+ * to that tenant_id. The LEAK CONTROL proves that scoping is load-bearing:
+ * two tenants sharing both the same phone AND the same 6-digit code (a
+ * realistic collision) would otherwise let a verify_code call for one tenant
+ * silently burn the other tenant's code.
  */
 
 vi.mock('@/lib/supabase', async () => {
@@ -58,10 +58,10 @@ function sendCodeReq(tenant_slug: string): Request {
   })
 }
 
-function verifyCodeReq(code: string): Request {
+function verifyCodeReq(code: string, tenant_slug: string): Request {
   return new Request('http://x/api/portal/auth', {
     method: 'POST',
-    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code }),
+    body: JSON.stringify({ action: 'verify_code', phone: PHONE, code, tenant_slug }),
   })
 }
 
@@ -97,7 +97,7 @@ describe('portal/auth verify_code — tenantDb isolation', () => {
   })
 
   it("marks only tenant A's code as used via tenantDb, leaving tenant B's colliding phone+code row untouched", async () => {
-    const res = await POST(verifyCodeReq('111111'))
+    const res = await POST(verifyCodeReq('111111', 'biz-a'))
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.token).toBe('tok.client-a.tenant-A')

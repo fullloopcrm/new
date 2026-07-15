@@ -49,6 +49,10 @@ function applyPaymentTrigger(payment: Record<string, unknown>) {
 // ── module mocks ──
 // insertDefaults mirrors the old fake's created_at default; afterInsert emulates
 // the DB trigger that recomputes an invoice when a payment row lands.
+// Emulates the atomic next_document_number() Postgres function
+// (migrations/2026_07_13_document_number_atomic.sql) that generateInvoiceNumber
+// now calls via rpc() instead of a count-then-append query.
+const docSeq = vi.hoisted(() => ({ counts: {} as Record<string, number> }))
 vi.mock('@/lib/supabase', () => {
   const opts = {
     insertDefaults: { created_at: '2026-07-12T00:00:00.000Z' },
@@ -56,7 +60,16 @@ vi.mock('@/lib/supabase', () => {
       if (table === 'payments') applyPaymentTrigger(row)
     },
   }
-  return { supabaseAdmin: makeSupabaseFake(h, opts), supabase: makeSupabaseFake(h, opts) }
+  const fake = makeSupabaseFake(h, opts) as unknown as Record<string, unknown>
+  fake.rpc = async (fn: string, args: Record<string, unknown>) => {
+    if (fn === 'next_document_number') {
+      const key = `${args.p_tenant_id}:${args.p_doc_type}:${args.p_period}`
+      docSeq.counts[key] = (docSeq.counts[key] || 0) + 1
+      return { data: docSeq.counts[key], error: null }
+    }
+    return { data: null, error: null }
+  }
+  return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: h.tenantId }, error: null }),
@@ -92,6 +105,7 @@ const jsonReq = (url: string, body: unknown) =>
 beforeEach(() => {
   h.tenantId = TENANT
   h.seq = 0
+  docSeq.counts = {}
   h.store = {
     invoices: [
       // a pre-existing draft owned by ANOTHER tenant — must stay untouched.
@@ -100,6 +114,7 @@ beforeEach(() => {
     invoice_activity: [],
     payments: [],
     clients: [{ id: 'client-A', tenant_id: TENANT, name: 'Jane Doe' }],
+    entities: [{ id: 'ent-1', tenant_id: TENANT, name: 'Acme Co' }],
     tenants: [
       {
         id: TENANT, name: 'Acme Co', slug: 'acme', domain: 'acme.example.com',

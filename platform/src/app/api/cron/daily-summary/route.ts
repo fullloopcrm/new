@@ -183,6 +183,7 @@ export async function GET(request: Request) {
       const { data: latestBooking } = await supabaseAdmin
         .from('bookings')
         .select('start_time')
+        .eq('tenant_id', tenantId)
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending'])
         .order('start_time', { ascending: false })
@@ -195,12 +196,15 @@ export async function GET(request: Request) {
       if (lastDate <= thirtyDaysOut && lastDate >= now) {
         const clientName = schedule.clients?.name || 'Unknown'
 
-        // Check if already notified within 7 days
+        // Check if already notified within 7 days — scoped to THIS client's
+        // recurring_type, not just tenant+type, so one schedule's dedup
+        // window doesn't suppress every other schedule in the same tenant.
         const { data: existingNotif } = await supabaseAdmin
           .from('notifications')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('type', 'recurring_expiring' as string)
+          .like('message', `%${clientName}%${schedule.recurring_type}%`)
           .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
           .limit(1)
 

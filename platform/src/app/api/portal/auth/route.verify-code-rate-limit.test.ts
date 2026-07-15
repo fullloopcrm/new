@@ -11,7 +11,9 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * inside the 10-minute window and log in as that client.
  *
  * FIX: `verify_code` is now rate-limited the same as `send_code` (5 per
- * 15 min, fail-closed), bucketed per tenant+phone.
+ * 15 min, fail-closed), bucketed per phone (`portal_verify:<phone>`) — plus a
+ * looser secondary per-IP cap (30/15min, `portal_verify_ip:<ip>`) so one host
+ * can't spray guesses across many phones.
  */
 
 const TENANT_A = 'tid-a'
@@ -29,7 +31,7 @@ process.env.PORTAL_SECRET = 'test-portal-secret'
 import { POST } from './route'
 
 function req(body: unknown): Request {
-  return { json: async () => body } as unknown as Request
+  return { json: async () => body, headers: new Headers() } as unknown as Request
 }
 
 let h: Harness
@@ -60,12 +62,18 @@ describe('portal auth verify_code — brute-force guard', () => {
     expect(h.capture.updates).toHaveLength(0)
   })
 
-  it('rate-limit bucket is scoped per tenant+phone', async () => {
+  it('rate-limit bucket is scoped per phone, plus a secondary per-IP cap', async () => {
     await POST(req({ action: 'verify_code', phone: PHONE, code: CODE, tenant_slug: 'tenant-a' }))
 
     expect(rateLimitDb).toHaveBeenCalledWith(
-      `portal_auth_verify:${TENANT_A}:${PHONE}`,
+      `portal_verify:${PHONE}`,
       5,
+      15 * 60 * 1000,
+      { failClosed: true },
+    )
+    expect(rateLimitDb).toHaveBeenCalledWith(
+      'portal_verify_ip:unknown',
+      30,
       15 * 60 * 1000,
       { failClosed: true },
     )

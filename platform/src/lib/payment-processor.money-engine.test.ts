@@ -52,12 +52,19 @@ vi.mock('./supabase', () => {
         return c
       },
       eq: () => c,
+      limit: () => c,
       single: async () => {
         if (didUpdate && table === 'bookings') { bookingUpdates.push({ ...updatePayload }); return { data: null, error: null } }
         if (table === 'bookings') return { data: bookingRow, error: null }
         if (table === 'tenants') return { data: { id: bookingRow.tenant_id, name: 'T', stripe_api_key: null, telnyx_api_key: null, telnyx_phone: null }, error: null }
         if (table === 'clients') return { data: { phone: null }, error: null }
         if (table === 'team_member_payouts') return { data: { id: 'payout-1' }, error: null }
+        return { data: null, error: null }
+      },
+      // cleanerAlreadyPaid()'s pre-checks — no prior payout, booking's own flag.
+      maybeSingle: async () => {
+        if (table === 'team_member_payouts') return { data: null, error: null }
+        if (table === 'bookings') return { data: bookingRow, error: null }
         return { data: null, error: null }
       },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {

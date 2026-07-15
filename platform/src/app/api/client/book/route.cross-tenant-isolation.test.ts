@@ -76,7 +76,51 @@ function chain(table: string) {
   return c
 }
 
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (t: string) => chain(t),
+    // Booking creation runs atomically inside a single Postgres RPC
+    // (create_booking_atomic — see migrations/2026_07_13_client_book_dedupe_atomic.sql),
+    // which does the same-date duplicate check and the INSERT server-side.
+    // The fake has to reproduce that duplicate check (tenant-scoped, same
+    // as every other filter in this file) rather than just performing the insert.
+    rpc: async (fn: string, args: Row) => {
+      if (fn !== 'create_booking_atomic') return { data: null, error: { message: `unmocked rpc ${fn}` } }
+      const bookings = (DB.bookings ||= [])
+      const activeStatuses = args.p_active_statuses as string[]
+      const dup = bookings.find((b) =>
+        b.tenant_id === args.p_tenant_id &&
+        b.client_id === args.p_client_id &&
+        activeStatuses.includes(b.status as string) &&
+        String(b.start_time) >= String(args.p_day_start) &&
+        String(b.start_time) < String(args.p_day_end)
+      )
+      if (dup) return { data: { created: false, reason: 'duplicate_date' }, error: null }
+      const row: Row = {
+        id: `gen-${++genId}`,
+        tenant_id: args.p_tenant_id,
+        client_id: args.p_client_id,
+        property_id: args.p_property_id,
+        start_time: args.p_start_time,
+        end_time: args.p_end_time,
+        service_type: args.p_service_type,
+        price: args.p_price,
+        hourly_rate: args.p_hourly_rate,
+        team_size: args.p_team_size,
+        is_emergency: args.p_is_emergency,
+        max_hours: args.p_max_hours,
+        notes: args.p_notes,
+        recurring_type: args.p_recurring_type,
+        team_member_token: args.p_team_member_token,
+        token_expires_at: args.p_token_expires_at,
+        referrer_id: args.p_referrer_id,
+        status: 'pending',
+      }
+      bookings.push(row)
+      return { data: { created: true, booking: { id: row.id } }, error: null }
+    },
+  },
+}))
 
 const tenantCtx: { value: Row } = { value: {} }
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => tenantCtx.value }))

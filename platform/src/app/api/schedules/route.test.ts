@@ -56,7 +56,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, role: 'owner' }))
   h.audit.mockReset()
   h.audit.mockResolvedValue(undefined)
   h.generateRecurringDates.mockReset()
@@ -66,6 +66,7 @@ beforeEach(() => {
       { id: 'sched-A1', tenant_id: 'tenant-A', client_id: CLIENT_ID, recurring_type: 'weekly', status: 'active' },
       { id: 'sched-B1', tenant_id: 'tenant-B', client_id: 'client-B1', recurring_type: 'weekly', status: 'active' },
     ],
+    clients: [{ id: CLIENT_ID, tenant_id: 'tenant-A' }],
     service_types: [{ id: SERVICE_TYPE_ID, tenant_id: 'tenant-A', name: 'Deep Clean' }],
     bookings: [],
   }

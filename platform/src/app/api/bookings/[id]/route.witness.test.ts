@@ -85,25 +85,25 @@ beforeEach(() => {
 })
 
 describe('bookings/[id] PUT — FK injection WITNESS', () => {
-  it('LOCK: a foreign client_id is rejected (404), booking untouched', async () => {
+  it('LOCK: a foreign client_id is rejected (400), booking untouched', async () => {
     const res = await PUT(putReq({ client_id: 'client-b' }), ctx('bk-a'))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     const upd = h.capture.updates.find((u) => u.table === 'bookings')
     expect(upd).toBeFalsy()
     expect(h.seed.bookings.find((r) => r.id === 'bk-a')!.client_id).toBe('client-a')
   })
 
-  it('LOCK: a foreign team_member_id is rejected (404), booking untouched', async () => {
+  it('LOCK: a foreign team_member_id is rejected (400), booking untouched', async () => {
     const res = await PUT(putReq({ team_member_id: 'tm-b' }), ctx('bk-a'))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     const upd = h.capture.updates.find((u) => u.table === 'bookings')
     expect(upd).toBeFalsy()
     expect(h.seed.bookings.find((r) => r.id === 'bk-a')!.team_member_id).toBe('tm-a')
   })
 
-  it('LOCK: a foreign service_type_id is rejected (404), booking untouched', async () => {
+  it('LOCK: a foreign service_type_id is rejected (400), booking untouched', async () => {
     const res = await PUT(putReq({ service_type_id: 'svc-b' }), ctx('bk-a'))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     const upd = h.capture.updates.find((u) => u.table === 'bookings')
     expect(upd).toBeFalsy()
     expect(h.seed.bookings.find((r) => r.id === 'bk-a')!.service_type_id).toBe('svc-a')

@@ -86,7 +86,7 @@ describe('POST /api/client/recurring — tenantDb scoping', () => {
     const res = await POST(req({ ...base, cleaner_id: 'tm-foreign' }))
     expect(res.status).toBe(400)
     const body = await res.json()
-    expect(body.error).toBe('Invalid cleaner selection')
+    expect(body.error).toBe('Cleaner not available')
   })
 
   it("does not count a foreign tenant's completed bookings toward the repeat-client gate", async () => {

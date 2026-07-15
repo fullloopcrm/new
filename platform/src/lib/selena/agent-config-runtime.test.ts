@@ -95,7 +95,12 @@ describe('F2 runtime integration — non-cleaning trade checklist survives loade
 
     expect(prompt).toContain('Ask tune-up, repair, install, or duct cleaning — system type.')
     expect(prompt).toContain('Ask for the job details — scope, condition, and anything specific they need.')
-    expect(prompt).toContain('Quote the rate.')
+    // 'rate' is in NON_INTAKE_CHECKLIST_KEYS (agent-config-loader.ts) — quoted
+    // from the dedicated PRICING section, not rendered as a literal checklist
+    // question (so the agent never improvises a number instead of quoting
+    // configured rates).
+    expect(prompt).not.toContain('Quote the rate.')
+    expect(prompt).toContain('PRICING')
     // disabled field must not leak into the live prompt
     expect(prompt).not.toContain('Ask for phone (disabled for this tenant).')
     // generic 3-question fallback must NOT appear alongside the real checklist

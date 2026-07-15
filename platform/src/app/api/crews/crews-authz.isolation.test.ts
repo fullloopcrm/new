@@ -94,7 +94,7 @@ beforeEach(() => {
 describe('R-1 regression: cross-tenant crew_members wipe blocked', () => {
   it('rejects an A-owner PATCH on tenant B’s crew: B’s members untouched, no A member injected', async () => {
     const res = await PATCH(patchReq({ id: 'crewB', member_ids: ['memberA'] }))
-    expect(res.status).toBe(200) // no-op, not an error
+    expect(res.status).toBe(404) // explicit ownership gate now rejects before any write
     expect(h.store.crew_members).toEqual([{ crew_id: 'crewB', team_member_id: 'memberB' }])
   })
 

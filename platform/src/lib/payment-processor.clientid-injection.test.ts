@@ -40,6 +40,7 @@ vi.mock('./supabase', () => {
       update: (p: Row) => { didUpdate = true; void p; return c },
       insert: (p: Row) => { insertPayload = p; return c },
       eq: () => c,
+      limit: () => c,
       single: async () => {
         if (table === 'payments' && insertPayload) {
           paymentInserts.push({ ...insertPayload })
@@ -52,6 +53,13 @@ vi.mock('./supabase', () => {
         if (table === 'bookings') return { data: bookingRow, error: null }
         if (table === 'tenants') return { data: { id: bookingRow.tenant_id, name: 'T', stripe_api_key: null, telnyx_api_key: null, telnyx_phone: null }, error: null }
         if (table === 'clients') return { data: { phone: null }, error: null }
+        return { data: null, error: null }
+      },
+      // cleanerAlreadyPaid()'s two pre-checks: no prior payout row, and this
+      // booking's own team_member_paid flag (unset in the seeded bookingRow).
+      maybeSingle: async () => {
+        if (table === 'team_member_payouts') return { data: null, error: null }
+        if (table === 'bookings') return { data: bookingRow, error: null }
         return { data: null, error: null }
       },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {

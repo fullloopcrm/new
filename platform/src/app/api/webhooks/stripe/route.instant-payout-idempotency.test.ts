@@ -77,20 +77,22 @@ function paymentsBuilder() {
 }
 
 function bookingsBuilder() {
+  const bookingRow = {
+    id: 'book_instant_1', client_id: 'client_1', team_member_id: 'tm_1',
+    hourly_rate: 69, pay_rate: null, team_member_pay: null, actual_hours: 2, price: 13800,
+    team_members: { name: 'Cleaner', phone: null, pay_rate: 25, stripe_account_id: 'acct_tm_1', preferred_language: 'en' },
+    clients: { name: 'Client', phone: null, address: null },
+    tenants: { name: 'Tenant', telnyx_api_key: null, telnyx_phone: null },
+  }
   const chain: Record<string, unknown> = {
     select: () => chain,
     eq: () => chain,
     update: () => chain,
-    single: async () => ({
-      data: {
-        id: 'book_instant_1', client_id: 'client_1', team_member_id: 'tm_1',
-        hourly_rate: 69, pay_rate: null, team_member_pay: null, actual_hours: 2, price: 13800,
-        team_members: { name: 'Cleaner', phone: null, pay_rate: 25, stripe_account_id: 'acct_tm_1', preferred_language: 'en' },
-        clients: { name: 'Client', phone: null, address: null },
-        tenants: { name: 'Tenant', telnyx_api_key: null, telnyx_phone: null },
-      },
-      error: null,
-    }),
+    single: async () => ({ data: bookingRow, error: null }),
+    // cleanerAlreadyPaid()'s own-flag check — never persisted by this mock's
+    // update() on purpose: this test isolates the Stripe-side idempotencyKey,
+    // not the DB-level claim guard (see file docstring).
+    maybeSingle: async () => ({ data: bookingRow, error: null }),
   }
   return chain
 }
@@ -101,10 +103,10 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'payments') return paymentsBuilder()
       if (table === 'bookings') return bookingsBuilder()
       const noop: Record<string, unknown> = {
-        select: () => noop, insert: () => noop, update: () => noop, eq: () => noop,
-        limit: () => Promise.resolve({ data: [], error: null }),
+        select: () => noop, insert: () => noop, update: () => noop, eq: () => noop, limit: () => noop,
         maybeSingle: async () => ({ data: null, error: null }),
         single: async () => ({ data: { id: 'row_x' }, error: null }),
+        then: (res: (v: { data: unknown; error: null }) => unknown) => res({ data: [], error: null }),
       }
       return noop
     },
@@ -149,13 +151,13 @@ describe('Stripe webhook — NYC Maid instant payout never double-pays even if D
 
     const [, transferOpts1] = transfersCreate.mock.calls[0]
     const [, transferOpts2] = transfersCreate.mock.calls[1]
-    expect(transferOpts1).toEqual({ idempotencyKey: 'payout-book_instant_1' })
-    expect(transferOpts2).toEqual({ idempotencyKey: 'payout-book_instant_1' })
+    expect(transferOpts1).toEqual({ idempotencyKey: `cleaner-payout:book_instant_1:${SESSION_ID}` })
+    expect(transferOpts2).toEqual({ idempotencyKey: `cleaner-payout:book_instant_1:${SESSION_ID}` })
 
     const [, payoutOpts1] = payoutsCreate.mock.calls[0]
     const [, payoutOpts2] = payoutsCreate.mock.calls[1]
-    expect(payoutOpts1).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: 'payout-instant-book_instant_1' })
-    expect(payoutOpts2).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: 'payout-instant-book_instant_1' })
+    expect(payoutOpts1).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `cleaner-instant-payout:book_instant_1:${SESSION_ID}` })
+    expect(payoutOpts2).toEqual({ stripeAccount: 'acct_tm_1', idempotencyKey: `cleaner-instant-payout:book_instant_1:${SESSION_ID}` })
 
     // ...but Stripe's own idempotency semantics mean only ONE real transfer and
     // ONE real instant payout were ever minted across both deliveries.

@@ -23,8 +23,13 @@ vi.mock('next/headers', () => ({
   }),
 }))
 
+// The route resolves its tenant from signed request headers before running
+// protectClientAPI — not exercised by this file (single-tenant fixture), so
+// just return the fixed tenant every request expects.
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ id: TENANT_ID }) }))
+
 import { supabaseAdmin } from '@/lib/supabase'
-import { createClientSession } from '@/lib/nycmaid/auth'
+import { createClientSession } from '@/lib/client-auth'
 import { GET, PUT } from './route'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
@@ -47,7 +52,7 @@ function seed() {
 }
 
 function withSession(clientId: string) {
-  cookieJar = new Map([['client_session', { value: createClientSession(clientId) }]])
+  cookieJar = new Map([['client_session', { value: createClientSession(clientId, TENANT_ID) }]])
 }
 
 function noSession() {
@@ -55,6 +60,7 @@ function noSession() {
 }
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = 'unit-test-portal-secret'
   seed()
   noSession()
 })

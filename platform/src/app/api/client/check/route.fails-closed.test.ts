@@ -25,14 +25,19 @@ function rateLimitEventsTable() {
 }
 
 function clientsTable() {
+  // tenantDb()'s own select() already appends one .eq('tenant_id', …)
+  // internally before the route's own explicit .eq('tenant_id', …) — the
+  // chain needs to support two .eq() levels before .ilike(), not one.
   return {
     select: () => ({
       eq: () => ({
-        ilike: () => ({
-          maybeSingle: async () => {
-            clientsQueried = true
-            return { data: null, error: null }
-          },
+        eq: () => ({
+          ilike: () => ({
+            maybeSingle: async () => {
+              clientsQueried = true
+              return { data: null, error: null }
+            },
+          }),
         }),
       }),
     }),

@@ -1,6 +1,4 @@
-import { describe, it, expect, beforeEach, afterAll } from 'vitest'
-import { POST as postLead } from './lead/route'
-import { POST as postApplication } from './application/route'
+import { describe, it, expect, beforeEach, afterAll, vi } from 'vitest'
 
 /**
  * `/api/ingest/lead` and `/api/ingest/application` are the ONLY public sinks
@@ -16,6 +14,16 @@ import { POST as postApplication } from './application/route'
  * or the JSON check (400) BEFORE any Supabase call, so no DB mock is needed and
  * the test stays hermetic.
  */
+
+// Both routes now rate-limit by IP before the secret check (rateLimitDb,
+// fail-closed). Mock it open so this suite stays hermetic and continues to
+// exercise only the secret gate this file is about.
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: async () => ({ allowed: true, remaining: 30 }),
+}))
+
+import { POST as postLead } from './lead/route'
+import { POST as postApplication } from './application/route'
 
 const SECRET = 'ingest-shared-secret'
 const ORIG = process.env.INGEST_SECRET

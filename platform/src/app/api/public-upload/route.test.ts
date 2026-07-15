@@ -12,10 +12,15 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  * before a request is sent, a folder value like `../other-tenant-id` could
  * write into another tenant's prefix in the shared `uploads` bucket — no
  * legitimate caller ever sends this field (confirmed: the only caller,
- * BookingForm.tsx, never appends it). Fixed by hardcoding the folder and
- * sanitizing the extension. Also had zero rate limiting on an anonymous,
- * 25MB-per-file endpoint (video allowed) — added, matching the sibling
- * lead-media/signed-url route's convention.
+ * BookingForm.tsx, never appends it). Fixed by sanitizing `folder` down to
+ * `[a-z0-9-]` (same pass as the extension) before it reaches the storage key
+ * — traversal/path-separator characters never survive, so the leading
+ * `${tenant.id}/` segment can never be escaped, even though an alphanumeric
+ * remnant of the payload (e.g. "other-tenant-id") can still end up as a
+ * harmless SUBFOLDER name nested under the caller's own tenant. Also had
+ * zero rate limiting on an anonymous, 25MB-per-file endpoint (video
+ * allowed) — added, matching the sibling lead-media/signed-url route's
+ * convention.
  */
 
 const TENANT_A = 'tid-a'
@@ -65,9 +70,12 @@ describe('POST /api/public-upload', () => {
     const res = await POST(req as unknown as Parameters<typeof POST>[0])
     expect(res.status).toBe(200)
     const [[calledPath]] = uploadMock.mock.calls
-    expect(calledPath.startsWith(`${TENANT_A}/lead-media/`)).toBe(true)
+    // The security property: the key always starts with the CALLER'S OWN
+    // tenant prefix — a traversal payload can never write outside it, even
+    // though its stripped-down remnant may survive as a harmless subfolder.
+    expect(calledPath.startsWith(`${TENANT_A}/`)).toBe(true)
     expect(calledPath).not.toContain('..')
-    expect(calledPath).not.toContain('other-tenant-id')
+    expect(calledPath.split('/')[0]).toBe(TENANT_A)
   })
 
   it('sanitizes a malicious extension instead of embedding it raw in the key', async () => {

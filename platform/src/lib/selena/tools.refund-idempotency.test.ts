@@ -61,7 +61,7 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
-vi.mock('@/lib/selena/agent', () => ({ isOwner: () => true }))
+vi.mock('@/lib/selena/agent', () => ({ isOwnerOfTenant: async () => true }))
 vi.mock('@/lib/selena/core', () => ({ handleTool: vi.fn(async () => ''), EMPTY_CHECKLIST: {} }))
 vi.mock('@/lib/nycmaid/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ smsAdmins: vi.fn(async () => {}) }))

@@ -31,7 +31,7 @@ vi.mock('@/lib/comhub-voice-config', () => ({
   })),
 }))
 
-let activeCallRow: { id: string } | null = null
+let activeCallRow: { id: string; customer_call_id: string } | null = null
 
 vi.mock('@/lib/supabase', () => {
   const from = (table: string) => {
@@ -84,7 +84,7 @@ describe('POST admin/comhub/voice/control', () => {
   })
 
   it('allows the action when the customer_call_id belongs to the caller tenant', async () => {
-    activeCallRow = { id: 'active-call-row-1' }
+    activeCallRow = { id: 'active-call-row-1', customer_call_id: 'my-tenants-call-id' }
 
     const res = await POST(makeRequest({ customer_call_id: 'my-tenants-call-id', action: 'mute' }))
     const json = await res.json()

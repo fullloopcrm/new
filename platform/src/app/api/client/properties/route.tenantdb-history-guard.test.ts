@@ -36,6 +36,10 @@ function chain(table: string) {
       const m = matched()
       return m[0] ? { data: m[0], error: null } : { data: null, error: { message: 'not found' } }
     },
+    maybeSingle: async () => {
+      const m = matched()
+      return { data: m[0] ?? null, error: null }
+    },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
   return c
@@ -49,9 +53,17 @@ vi.mock('@/lib/client-properties', () => ({
   setPrimaryProperty: async () => {},
   deactivateProperty: async () => {},
 }))
-vi.mock('@/lib/nycmaid/auth', () => ({
-  isAdminAuthenticated: async () => true,
-  protectClientAPI: async (clientId?: string) => ({ clientId }),
+// The route no longer uses the legacy nycmaid isAdminAuthenticated()/
+// protectClientAPI() pair — dashboard admin access now runs through
+// requirePermission (RBAC), which ALSO gates on the client row's tenant_id
+// matching the admin's own tenant (an ownership check that didn't exist when
+// this file was written). That check runs against the SAME client row the
+// inner "unresolvable tenant" guard below reads, so admin.tenantId has to
+// equal the fixture's tenant_id value for a given test to reach the code
+// each scenario is actually probing.
+let permTenantId: string | null = TENANT_A
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: permTenantId }, error: null }),
 }))
 
 import { GET } from './route'
@@ -59,12 +71,18 @@ import { GET } from './route'
 beforeEach(() => {
   DB.clients = []
   DB.property_changes = []
+  permTenantId = TENANT_A
 })
 
 describe('GET /api/client/properties?include_history=true — tenantDb guard + collision', () => {
   it('returns empty history (no throw) when the client row has no resolvable tenant_id', async () => {
-    DB.clients.push({ id: 'c-orphan', tenant_id: null })
-    DB.property_changes.push({ id: 'pc-orphan', client_id: 'c-orphan', tenant_id: null, action: 'add', created_at: '2099-01-01' })
+    // '' (not null) — the ownership check does a strict .eq('tenant_id', …)
+    // match, so the admin's own resolved tenantId has to equal the row's
+    // value to pass; '' is both a valid equality match AND falsy, so it
+    // still exercises the inner "unresolvable tenant" guard immediately after.
+    permTenantId = ''
+    DB.clients.push({ id: 'c-orphan', tenant_id: '' })
+    DB.property_changes.push({ id: 'pc-orphan', client_id: 'c-orphan', tenant_id: '', action: 'add', created_at: '2099-01-01' })
 
     const res = await GET(new Request('https://x?client_id=c-orphan&include_history=true'))
     expect(res.status).toBe(200)

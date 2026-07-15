@@ -13,20 +13,6 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params
     const body = await request.json()
 
-    // coa_id is a cross-table FK — confirm it belongs to this tenant before
-    // writing it, or a caller could reassign the bank account to another
-    // tenant's chart-of-accounts row and exfiltrate its code/name/type via
-    // the chart_of_accounts() join on GET /api/finance/bank-accounts.
-    if ('coa_id' in body && body.coa_id) {
-      const { data: coa } = await supabaseAdmin
-        .from('chart_of_accounts')
-        .select('id')
-        .eq('id', body.coa_id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!coa) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
-    }
-
     const updates: Record<string, unknown> = {}
     for (const k of ['name', 'institution', 'type', 'mask', 'coa_id', 'active', 'current_balance_cents', 'as_of_date']) {
       if (k in body) updates[k] = body[k]
@@ -43,7 +29,7 @@ export async function PATCH(request: Request, { params }: Params) {
         .eq('id', updates.coa_id as string)
         .eq('tenant_id', tenantId)
         .maybeSingle()
-      if (!owned) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 404 })
+      if (!owned) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
     }
 
     const { data, error } = await supabaseAdmin

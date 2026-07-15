@@ -3,11 +3,13 @@
  *
  * post-adjustments.ts shares the exact same double-post guard as
  * post-revenue.ts and post-labor.ts (journalEntryExists fast-path +
- * postJournalEntry's unique-constraint INSERT as the atomic decision point,
- * 23505 caught as already_posted) but had zero test coverage — a Stripe
- * refund/dispute webhook redelivery is exactly the concurrent-double-post
- * case this guard exists for, and for four separate money-moving functions
- * it was unverified. This suite closes that gap.
+ * post_journal_entry's unique-constraint INSERT as the atomic decision point;
+ * migration 064 resolves the dedupe claim INSIDE the RPC and returns NULL —
+ * not a 23505 error the caller must catch — and postJournalEntry()/these
+ * posters treat that null as already_posted) but had zero test coverage — a
+ * Stripe refund/dispute webhook redelivery is exactly the concurrent-double-
+ * post case this guard exists for, and for four separate money-moving
+ * functions it was unverified. This suite closes that gap.
  *
  * Mocks `supabaseAdmin.rpc` directly (the shared fake-supabase.ts harness
  * doesn't model RPC calls), matching post-revenue-race.test.ts.
@@ -28,10 +30,9 @@ vi.mock('../supabase', async () => {
     if (fn !== 'post_journal_entry') throw new Error(`unexpected rpc: ${fn}`)
     const key = `${params.p_tenant_id}|${params.p_source}|${params.p_source_id}`
     if (params.p_source_id && postedKeys.has(key)) {
-      return {
-        data: null,
-        error: { message: 'duplicate key value violates unique constraint "idx_journal_entries_source_unique"', code: '23505' },
-      }
+      // migration 064: the RPC resolves the dedupe claim internally and
+      // returns NULL, not a 23505 error, for the losing concurrent caller.
+      return { data: null, error: null }
     }
     if (params.p_source_id) postedKeys.add(key)
     const id = crypto.randomUUID()

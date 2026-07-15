@@ -111,7 +111,7 @@ describe('processPayment cleaner transfer/payout idempotency', () => {
     expect(payoutOpts.idempotencyKey).toBe(`cleaner-instant-payout:${BOOKING_ID}:${REFERENCE_ID}`)
   })
 
-  it('a retried call with the same bookingId+referenceId reuses the same idempotencyKey (Stripe would dedupe it)', async () => {
+  it('a retried call with the same bookingId+referenceId never reaches Stripe a second time', async () => {
     seed()
     await processPayment({
       tenant: { id: TENANT_ID },
@@ -122,9 +122,14 @@ describe('processPayment cleaner transfer/payout idempotency', () => {
       referenceId: REFERENCE_ID,
     })
     const firstKey = transfersCreate.mock.calls[0][1].idempotencyKey
+    expect(firstKey).toBe(`cleaner-payout:${BOOKING_ID}:${REFERENCE_ID}`)
 
     // Simulate the same logical retry (double-tap checkout) — same booking,
-    // same caller-supplied referenceId.
+    // same caller-supplied referenceId. The app-level guards (payments'
+    // UNIQUE(tenant_id, booking_id, reference_id) + bookings.team_member_paid)
+    // stop this before a second Stripe call is even attempted — the
+    // idempotencyKey above is defense in depth for a delivery that somehow
+    // reaches stripe.transfers.create twice, not the primary guard here.
     await processPayment({
       tenant: { id: TENANT_ID },
       bookingId: BOOKING_ID,
@@ -133,8 +138,8 @@ describe('processPayment cleaner transfer/payout idempotency', () => {
       amountCents: 10_000,
       referenceId: REFERENCE_ID,
     })
-    const secondKey = transfersCreate.mock.calls[1][1].idempotencyKey
 
-    expect(secondKey).toBe(firstKey)
+    expect(transfersCreate).toHaveBeenCalledTimes(1)
+    expect(payoutsCreate).toHaveBeenCalledTimes(1)
   })
 })

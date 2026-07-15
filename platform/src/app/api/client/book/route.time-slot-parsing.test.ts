@@ -20,16 +20,18 @@ const BOOKING_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 
 type Row = Record<string, unknown>
 const inserts: Array<{ table: string; payload: Row }> = []
+let lastBooking: Row | null = null
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
     let kind: 'read' | 'insert' | 'update' = 'read'
     let payload: Row = {}
+    const eqs: Row = {}
     const c: Record<string, unknown> = {
       select: () => c,
       insert: (p: Row) => { kind = 'insert'; payload = p; inserts.push({ table, payload: p }); return c },
       update: (p: Row) => { kind = 'update'; void p; return c },
-      eq: () => c,
+      eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       in: () => c,
       not: () => c,
       is: () => c,
@@ -39,28 +41,55 @@ vi.mock('@/lib/supabase', () => {
       order: () => c,
       limit: () => c,
       single: async () => {
-        if (kind === 'insert' && table === 'bookings') {
-          return {
-            data: {
-              id: BOOKING_ID,
-              ...payload,
-              created_at: '2026-08-14T10:00:00Z',
-              clients: { name: 'Canary Client', email: null, phone: null, address: null },
-              client_properties: null,
-            },
-            error: null,
-          }
+        // Booking creation runs inside create_booking_atomic (see the rpc()
+        // mock below); this is the route's plain SELECT read-back of the
+        // row the RPC just created.
+        if (table === 'bookings' && lastBooking && eqs.id === lastBooking.id) {
+          return { data: lastBooking, error: null }
         }
         if (table === 'clients') return { data: { do_not_service: false }, error: null }
         return { data: null, error: null }
       },
-      maybeSingle: async () => ({ data: null, error: null }),
+      maybeSingle: async () => {
+        if (table === 'clients') return { data: { do_not_service: false }, error: null }
+        return { data: null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown; count: number }) => unknown) =>
         res({ data: [], error: null, count: 0 }),
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => chain(t) } }
+  return {
+    supabaseAdmin: {
+      from: (t: string) => chain(t),
+      // Booking creation now runs atomically inside create_booking_atomic
+      // (migrations/2026_07_13_client_book_dedupe_atomic.sql) — record the
+      // insert payload the same way the old direct .insert() did, so this
+      // file's assertions against `inserts` still hold.
+      rpc: async (fn: string, args: Row) => {
+        if (fn !== 'create_booking_atomic') return { data: null, error: { message: `unmocked rpc ${fn}` } }
+        const payload: Row = {
+          tenant_id: args.p_tenant_id,
+          client_id: args.p_client_id,
+          start_time: args.p_start_time,
+          end_time: args.p_end_time,
+          service_type: args.p_service_type,
+          price: args.p_price,
+          hourly_rate: args.p_hourly_rate,
+          status: 'pending',
+        }
+        inserts.push({ table: 'bookings', payload })
+        lastBooking = {
+          id: BOOKING_ID,
+          ...payload,
+          created_at: '2026-08-14T10:00:00Z',
+          clients: { name: 'Canary Client', email: null, phone: null, address: null },
+          client_properties: null,
+        }
+        return { data: { created: true, booking: { id: BOOKING_ID } }, error: null }
+      },
+    },
+  }
 })
 
 vi.mock('@/lib/tenant-site', () => ({
@@ -106,6 +135,7 @@ function bookRequest(body: Row): Request {
 describe('POST /api/client/book — time-slot parsing (parity fix vs nycmaid 1:1 hour bug)', () => {
   beforeEach(() => {
     inserts.length = 0
+    lastBooking = null
   })
 
   it.each([

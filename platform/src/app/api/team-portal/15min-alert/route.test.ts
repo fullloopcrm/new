@@ -17,6 +17,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 const h = vi.hoisted(() => ({
   bookings: [] as Array<Record<string, unknown>>,
   tenants: [] as Array<Record<string, unknown>>,
+  teamMembers: [] as Array<Record<string, unknown>>,
   bookingUpdates: [] as Array<Record<string, unknown>>,
 }))
 
@@ -44,6 +45,18 @@ vi.mock('@/lib/supabase', () => ({
           select: () => chain,
           eq: () => chain,
           single: async () => ({ data: h.tenants[0] ?? null, error: null }),
+        }
+        return chain
+      }
+      if (table === 'team_members') {
+        const eqs: Record<string, unknown> = {}
+        const chain = {
+          select: () => chain,
+          eq: (col: string, val: unknown) => { eqs[col] = val; return chain },
+          single: async () => {
+            const found = h.teamMembers.find((m) => Object.entries(eqs).every(([k, v]) => m[k] === v))
+            return { data: found ?? null, error: null }
+          },
         }
         return chain
       }
@@ -85,6 +98,11 @@ function req(body: unknown, token?: string): Request {
 beforeEach(() => {
   h.bookings = [{ id: BOOKING_ID, tenant_id: TENANT_A, team_member_id: MEMBER_A, fifteen_min_alert_time: null, payment_status: 'unpaid' }]
   h.tenants = []
+  h.teamMembers = [
+    { id: MEMBER_A, tenant_id: TENANT_A, status: 'active' },
+    { id: MEMBER_OTHER, tenant_id: TENANT_A, status: 'active' },
+    { id: MEMBER_A, tenant_id: TENANT_B, status: 'active' },
+  ]
   h.bookingUpdates = []
 })
 
@@ -101,10 +119,10 @@ describe('POST /api/team-portal/15min-alert — auth gate', () => {
     expect(h.bookingUpdates).toHaveLength(0)
   })
 
-  it('rejects a valid token for a DIFFERENT team member\'s booking with 404, no mutation', async () => {
+  it('rejects a valid token for a DIFFERENT team member\'s booking with 403 (booking exists in-tenant, caller lacks visibility), no mutation', async () => {
     const token = createToken(MEMBER_OTHER, TENANT_A, 25, 'worker')
     const res = await POST(req({ bookingId: BOOKING_ID }, token) as never)
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(403)
     expect(h.bookingUpdates).toHaveLength(0)
   })
 

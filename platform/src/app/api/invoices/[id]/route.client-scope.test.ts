@@ -41,6 +41,10 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
+      maybeSingle: async () => {
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         const rows = (store[table] || []).filter(match)
         return res({ data: rows, error: null })
@@ -83,7 +87,7 @@ describe('PATCH /api/invoices/[id] — client_id tenant scoping', () => {
 
   it('rejects a client_id belonging to another tenant', async () => {
     const res = await UPDATE(jsonReq({ client_id: FOREIGN_CLIENT }), { params: Promise.resolve({ id: INVOICE_ID }) })
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.invoices[0].client_id).toBe(OWN_CLIENT)
   })
 

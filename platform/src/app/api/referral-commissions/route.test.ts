@@ -21,7 +21,7 @@ const t = vi.hoisted(() => ({ tenantId: 'tenant-A' }))
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: () => Promise.resolve({ tenantId: t.tenantId }),
+  getTenantForRequest: () => Promise.resolve({ tenantId: t.tenantId, role: 'owner' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))

@@ -68,12 +68,14 @@ beforeEach(() => {
 })
 
 describe('team-portal/auth — PIN-enumeration throttle structure', () => {
-  it('distinct PIN guesses from one IP+slug collapse to a SINGLE bucket key (cardinality 1, PIN absent)', async () => {
+  it('distinct PIN guesses from one IP+slug collapse to a FIXED, small set of bucket keys (PIN absent)', async () => {
     for (let i = 0; i < 8; i++) {
       await POST(req({ pin: String(200000 + i), ip: '9.9.9.9', slug: 'acme' }))
     }
-    // Reverted per-PIN key → 8 distinct keys. Correct key → exactly 1.
-    expect(new Set(rlKeys).size).toBe(1)
+    // Reverted per-PIN key → 8 distinct keys. Correct keying → the fixed set of
+    // (tenant+ip) precheck + (per-tenant fail) + (per-ip fail) buckets, never
+    // growing with the number of distinct PINs guessed.
+    expect(new Set(rlKeys).size).toBe(3)
     for (const k of rlKeys) expect(k).not.toMatch(/20000\d/)
   })
 

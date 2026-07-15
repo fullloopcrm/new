@@ -151,7 +151,7 @@ describe('handleRescheduleBooking — tenant/client authorization', () => {
       return { data: null, error: null }
     }
     const out = await handleTool('reschedule_booking', { booking_id: 'bk-1', new_date: '2099-02-01', new_time: '2:00 PM' }, 'convo-A', coreResult(), TENANT_A)
-    expect(JSON.parse(out).error).toBe('no_account')
+    expect(JSON.parse(out).error).toBe('No account found')
     expect(updateCalls).toHaveLength(0)
   })
 

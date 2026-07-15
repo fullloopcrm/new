@@ -67,9 +67,9 @@ beforeEach(() => {
 })
 
 describe('finance/bank-accounts/[id] PATCH — coa_id FK injection WITNESS', () => {
-  it('LOCK: a foreign coa_id is rejected (404), bank account untouched', async () => {
+  it('LOCK: a foreign coa_id is rejected (400), bank account untouched', async () => {
     const res = await PATCH(patchReq({ coa_id: 'coa-b' }), ctx('bank-a'))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
 
     const upd = h.capture.updates.find((u) => u.table === 'bank_accounts')
     expect(upd).toBeFalsy()

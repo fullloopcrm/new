@@ -39,6 +39,10 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
+      maybeSingle: async () => {
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
+      },
     }
     return c
   }
@@ -46,7 +50,7 @@ vi.mock('@/lib/supabase', () => {
 })
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT }),
+  getTenantForRequest: async () => ({ tenantId: TENANT, role: 'owner' }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) { super(message); this.status = status }

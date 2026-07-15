@@ -19,7 +19,12 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
  */
 
 let chainResult: { data?: unknown; count?: number | null; error?: unknown }
+// generateQuoteNumber() (migrations/2026_07_13_document_number_atomic.sql) now
+// calls the atomic rpc('next_document_number', ...) instead of a count-then-
+// append SELECT — this carries the RPC's return value for those tests.
+let rpcResult: { data?: unknown; error?: unknown }
 const insertSpy = vi.fn()
+const rpcSpy = vi.fn()
 
 function makeBuilder() {
   const b: Record<string, unknown> = {}
@@ -38,6 +43,7 @@ function makeBuilder() {
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
     from: () => makeBuilder(),
+    rpc: (fn: string, params: unknown) => { rpcSpy(fn, params); return Promise.resolve(rpcResult) },
   }),
 }))
 
@@ -55,7 +61,9 @@ import {
 
 beforeEach(() => {
   chainResult = { data: null, count: null, error: null }
+  rpcResult = { data: null, error: null }
   insertSpy.mockClear()
+  rpcSpy.mockClear()
 })
 afterEach(() => {
   vi.restoreAllMocks()
@@ -207,28 +215,38 @@ describe('generatePublicToken', () => {
 })
 
 describe('generateQuoteNumber', () => {
+  // migrations/2026_07_13_document_number_atomic.sql: an atomic per-(tenant,
+  // doc_type, period) sequence via rpc('next_document_number', ...) replaced
+  // the count-then-append SELECT (a count-then-append here let two concurrent
+  // creates land on the same number, mirroring generateInvoiceNumber's fix).
+  // The RPC returns the NEXT number directly (1-indexed), not a prior count.
   const prefix = (): string => {
     const now = new Date()
     return `Q-${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`
   }
 
   it('matches the Q-YYYYMM-NNNN shape', async () => {
-    chainResult = { count: 0 }
+    rpcResult = { data: 1, error: null }
     expect(await generateQuoteNumber('t1')).toMatch(/^Q-\d{6}-\d{4}$/)
   })
 
-  it('uses (this-month count)+1, zero-padded to four digits', async () => {
-    chainResult = { count: 6 }
+  it('zero-pads the RPC-issued sequence number to four digits', async () => {
+    rpcResult = { data: 7, error: null }
     expect(await generateQuoteNumber('t1')).toBe(`${prefix()}-0007`)
   })
 
-  it('treats a null count as zero -> first quote is 0001', async () => {
-    chainResult = { count: null }
-    expect(await generateQuoteNumber('t1')).toBe(`${prefix()}-0001`)
+  it('calls next_document_number scoped to this tenant, doc_type=quote, and the current period', async () => {
+    rpcResult = { data: 1, error: null }
+    await generateQuoteNumber('t1')
+    const now = new Date()
+    const period = `${now.getUTCFullYear()}${String(now.getUTCMonth() + 1).padStart(2, '0')}`
+    expect(rpcSpy).toHaveBeenCalledWith('next_document_number', {
+      p_tenant_id: 't1', p_doc_type: 'quote', p_period: period,
+    })
   })
 
-  it('does not truncate a count past 9999', async () => {
-    chainResult = { count: 9999 }
+  it('does not truncate a sequence number past 9999', async () => {
+    rpcResult = { data: 10000, error: null }
     expect(await generateQuoteNumber('t1')).toBe(`${prefix()}-10000`)
   })
 })

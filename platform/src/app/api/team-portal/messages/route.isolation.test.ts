@@ -44,9 +44,9 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness({
     team_members: [
-      { id: 'member-a', tenant_id: 'tid-a', name: 'Alice', phone: '5551110000', email: null },
-      { id: 'member-b', tenant_id: 'tid-b', name: 'Bob', phone: '5552220000', email: null },
-      { id: 'member-c', tenant_id: 'tid-a', name: 'Cara', phone: '5553330000', email: null },
+      { id: 'member-a', tenant_id: 'tid-a', name: 'Alice', phone: '5551110000', email: null, status: 'active' },
+      { id: 'member-b', tenant_id: 'tid-b', name: 'Bob', phone: '5552220000', email: null, status: 'active' },
+      { id: 'member-c', tenant_id: 'tid-a', name: 'Cara', phone: '5553330000', email: null, status: 'active' },
     ],
     comhub_contacts: [
       { id: 'contact-a', team_member_id: 'member-a' },

@@ -38,6 +38,7 @@ type Eqs = Record<string, unknown>
 const selectCalls: Array<{ table: string; eqs: Eqs }> = []
 
 // Store: tenant-B owns VICTIM_CONVO and its messages contain PII.
+const conversationsStore = [{ id: VICTIM_CONVO, tenant_id: VICTIM_TENANT }]
 const messagesStore = [
   { conversation_id: VICTIM_CONVO, tenant_id: VICTIM_TENANT, direction: 'inbound', message: VICTIM_PII, created_at: '2026-07-01T10:00:00Z' },
   { conversation_id: VICTIM_CONVO, tenant_id: VICTIM_TENANT, direction: 'outbound', message: 'Thanks Jane, you are booked.', created_at: '2026-07-01T10:01:00Z' },
@@ -60,6 +61,14 @@ vi.mock('@/lib/supabase', () => {
       gte: () => chain,
       order: () => chain,
       limit: () => chain,
+      maybeSingle: async () => {
+        selectCalls.push({ table, eqs: { ...eqs } })
+        if (table === 'sms_conversations') {
+          const found = conversationsStore.find((c) => Object.entries(eqs).every(([k, v]) => (c as Eqs)[k] === v))
+          return { data: found ?? null, error: null }
+        }
+        return { data: null, error: null }
+      },
       then: (onF: (v: unknown) => unknown, onR?: (e: unknown) => unknown) => {
         selectCalls.push({ table, eqs: { ...eqs } })
         let data: unknown = []
@@ -98,11 +107,14 @@ describe('GET /api/selena?convoId — cross-tenant SMS message disclosure', () =
     expect(returned).not.toContain('Jane Victim')
     expect(body.messages ?? []).toHaveLength(0)
 
-    // Structural guarantee: the read is scoped to the caller's tenant.
-    const msgRead = selectCalls.find((c) => c.table === 'sms_conversation_messages')!
-    expect(msgRead).toBeTruthy()
-    expect(msgRead.eqs).toHaveProperty('conversation_id', VICTIM_CONVO)
-    expect(msgRead.eqs).toHaveProperty('tenant_id', CALLER_TENANT) // ← the fix, pinned
+    // Structural guarantee: ownership is verified via the tenantDb-scoped
+    // sms_conversations lookup BEFORE any message read is attempted — the
+    // foreign convoId never resolves, so the messages query never runs.
+    const convoRead = selectCalls.find((c) => c.table === 'sms_conversations')!
+    expect(convoRead).toBeTruthy()
+    expect(convoRead.eqs).toHaveProperty('id', VICTIM_CONVO)
+    expect(convoRead.eqs).toHaveProperty('tenant_id', CALLER_TENANT) // ← the fix, pinned
+    expect(selectCalls.find((c) => c.table === 'sms_conversation_messages')).toBeUndefined()
   })
 
   it('POSITIVE CONTROL: the owning tenant still reads its own convo in full', async () => {
@@ -117,7 +129,9 @@ describe('GET /api/selena?convoId — cross-tenant SMS message disclosure', () =
     expect(body.messages).toHaveLength(2)
     expect(JSON.stringify(body.messages)).toContain('Jane Victim')
 
+    const convoRead = selectCalls.find((c) => c.table === 'sms_conversations')!
+    expect(convoRead.eqs).toHaveProperty('tenant_id', VICTIM_TENANT)
     const msgRead = selectCalls.find((c) => c.table === 'sms_conversation_messages')!
-    expect(msgRead.eqs).toHaveProperty('tenant_id', VICTIM_TENANT)
+    expect(msgRead.eqs).toHaveProperty('conversation_id', VICTIM_CONVO)
   })
 })

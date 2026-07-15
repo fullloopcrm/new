@@ -30,6 +30,7 @@ vi.mock('@/lib/supabase', () => {
       insert: (p: Row) => { kind = 'insert'; payload = p; inserts.push({ table, payload: p }); return c },
       eq: () => c,
       ilike: () => c,
+      gte: () => c,
       single: async () => {
         if (kind === 'insert' && table === 'referrers') {
           return { data: { id: 'ref-1', ...payload }, error: null }
@@ -37,6 +38,8 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'referrers') return { data: getRow, error: getRow ? null : { message: 'not found' } }
         return { data: null, error: null }
       },
+      then: (resolve: (v: { data: null; count: number; error: null }) => unknown) =>
+        resolve({ data: null, count: 0, error: null }),
     }
     return c
   }

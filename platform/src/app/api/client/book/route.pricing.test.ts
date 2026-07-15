@@ -64,6 +64,7 @@ function stubChain(result: { data: unknown; error: unknown } = { data: null, err
     gte: () => chain,
     lte: () => chain,
     ilike: () => chain,
+    order: () => chain,
     single: async () => result,
     maybeSingle: async () => result,
     then: (res: (v: unknown) => unknown, rej: (e: unknown) => unknown) => Promise.resolve(result).then(res, rej),
@@ -92,7 +93,8 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'clients') {
-        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { do_not_service: false }, error: null }) }) }) }) }
+        const clientResult = { data: { do_not_service: false }, error: null }
+        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => clientResult, maybeSingle: async () => clientResult }) }) }) }
       }
       if (table === 'bookings') return bookingsSelectBuilder()
       return stubChain()

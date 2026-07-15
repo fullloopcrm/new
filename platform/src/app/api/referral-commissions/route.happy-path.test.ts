@@ -44,6 +44,7 @@ type Row = Record<string, unknown>
 const inserts: Array<{ table: string; payload: Row }> = []
 const reads: Array<{ table: string; eqs: Row }> = []
 const updates: Array<{ table: string; payload: Row; eqs: Row }> = []
+const rpcCalls: Array<{ fn: string; args: Row }> = []
 
 // Toggle: does a commission already exist for the booking? (idempotency test)
 let commissionExists = false
@@ -106,7 +107,15 @@ vi.mock('@/lib/supabase', () => {
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => chain(t) } }
+  return {
+    supabaseAdmin: {
+      from: (t: string) => chain(t),
+      rpc: async (fn: string, args: Row) => {
+        rpcCalls.push({ fn, args })
+        return { data: null, error: null }
+      },
+    },
+  }
 })
 
 vi.mock('@/lib/tenant-query', () => ({
@@ -146,6 +155,7 @@ describe('referral flow — happy path (create → attribution → commission)',
     inserts.length = 0
     reads.length = 0
     updates.length = 0
+    rpcCalls.length = 0
     commissionExists = false
     postCommissionAccrual.mockClear()
     postCommissionPayment.mockClear()
@@ -205,11 +215,12 @@ describe('referral flow — happy path (create → attribution → commission)',
     expect(comm.commission_cents).toBe(EXPECTED_COMMISSION) // 3000
     expect(comm.status).toBe('pending')
 
-    // 3. Referrer's running total_earned bumped by exactly the new commission, tenant-scoped.
-    const refUpdate = updates.find((u) => u.table === 'referrers')
-    expect(refUpdate?.payload.total_earned).toBe(REFERRER_TOTAL_EARNED + EXPECTED_COMMISSION)
-    expect(refUpdate?.eqs.id).toBe(REFERRER_ID)
-    expect(refUpdate?.eqs.tenant_id).toBe(TENANT)
+    // 3. Referrer's total_earned bumped atomically (increment_referrer_earned
+    // RPC — migrations/2026_07_13_referrer_ledger_atomic.sql), tenant-scoped.
+    const earnedCall = rpcCalls.find((c) => c.fn === 'increment_referrer_earned')
+    expect(earnedCall?.args.p_amount_cents).toBe(EXPECTED_COMMISSION)
+    expect(earnedCall?.args.p_referrer_id).toBe(REFERRER_ID)
+    expect(earnedCall?.args.p_tenant_id).toBe(TENANT)
 
     // 4. The accrual was posted to the ledger for this commission (attribution → books).
     expect(postCommissionAccrual).toHaveBeenCalledTimes(1)

@@ -24,8 +24,13 @@ vi.mock('next/headers', () => ({
   }),
 }))
 
+// The route resolves its tenant from signed request headers before running
+// protectClientAPI — not exercised by this file (single-tenant fixture), so
+// just return the fixed tenant every request expects.
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ id: TENANT_ID }) }))
+
 import { supabaseAdmin } from '@/lib/supabase'
-import { createClientSession } from '@/lib/nycmaid/auth'
+import { createClientSession } from '@/lib/client-auth'
 import { POST } from './route'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
@@ -48,7 +53,7 @@ function seed() {
 }
 
 function withSession(clientId: string) {
-  cookieJar = new Map([['client_session', { value: createClientSession(clientId) }]])
+  cookieJar = new Map([['client_session', { value: createClientSession(clientId, TENANT_ID) }]])
 }
 
 function noSession() {
@@ -63,6 +68,7 @@ const basePayload = {
 }
 
 beforeEach(() => {
+  process.env.PORTAL_SECRET = 'unit-test-portal-secret'
   seed()
   noSession()
 })
@@ -139,16 +145,16 @@ it('rejects an extra_cleaner_id belonging to a DIFFERENT tenant', async () => {
 })
 
 it("rejects a property_id belonging to a DIFFERENT tenant's client", async () => {
-  fake._seed('client_properties', [{ id: 'foreign-property', tenant_id: OTHER_TENANT_ID }])
+  fake._seed('client_properties', [{ id: 'foreign-property', tenant_id: OTHER_TENANT_ID, client_id: OWNER_ID }])
   withSession(OWNER_ID)
   const res = await post({ ...basePayload, client_id: OWNER_ID, property_id: 'foreign-property' })
-  expect(res.status).toBe(404)
+  expect(res.status).toBe(400)
   expect(fake._store.get('recurring_schedules') ?? []).toHaveLength(0)
 })
 
 it('allows a valid same-tenant, active cleaner_id + property_id', async () => {
   fake._seed('team_members', [{ id: 'good-cleaner', tenant_id: TENANT_ID, active: true }])
-  fake._seed('client_properties', [{ id: 'good-property', tenant_id: TENANT_ID }])
+  fake._seed('client_properties', [{ id: 'good-property', tenant_id: TENANT_ID, client_id: OWNER_ID }])
   withSession(OWNER_ID)
   const res = await post({
     ...basePayload,

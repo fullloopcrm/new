@@ -3,18 +3,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 /**
  * Stripe webhook — session-level idempotency (route's first line of defense).
  *
- * Before touching the ledger, the route guards each money-in checkout on the
- * Stripe session id: it SELECTs payments by stripe_session_id and returns
- * `{ idempotent: true }` if a row already exists, so a redelivered
- * checkout.session.completed never inserts a second payment. This test drives
- * the invoice-payment branch (the simplest money branch) and proves a duplicate
+ * The invoice-payment branch claims the session atomically: it INSERTs the
+ * payment directly (stripe_session_id UNIQUE, migration 011) and treats a
+ * 23505 on that insert as the idempotency signal, returning
+ * `{ idempotent: true }` — there is no separate select-then-insert existence
+ * check (that shape had a race gap between the read and the write; the
+ * insert itself is now the atomic decision point). This test drives the
+ * invoice-payment branch (the simplest money branch) and proves a duplicate
  * delivery inserts the payment exactly once.
- *
- * Backing constraint: payments.stripe_session_id is UNIQUE (migration 011), so
- * even if two deliveries raced past this SELECT, the DB would reject the second
- * insert. The gap (documented in /tmp/w2-webhook-idempotency.md) is that the
- * route does NOT check the insert's error, so a raced second delivery would
- * swallow the unique-violation and still run downstream side effects.
  */
 
 // ── Event returned by the mocked Stripe signature verifier ──
@@ -41,36 +37,32 @@ vi.mock('stripe', () => {
   return { default: MockStripe }
 })
 
-// ── Supabase mock: track existing-payment lookups + captured inserts ──
-// The first existence check returns none; after the insert, subsequent checks
-// return the stored row — modelling sequential redelivery against the real
-// stripe_session_id guard.
+// ── Supabase mock: track captured inserts + enforce the UNIQUE constraint ──
+// The insert itself is the atomic claim — a second insert for the same
+// stripe_session_id must surface a 23505, same as the real Postgres index.
 let paymentRows: Array<{ id: string; stripe_session_id: string }>
 let insertCount: number
 
 function paymentsBuilder() {
-  const state: { op?: 'select' | 'insert'; sessionEq?: string; pending?: Record<string, unknown> } = {}
+  const state: { pending?: Record<string, unknown> } = {}
   const chain: Record<string, unknown> = {
     select: () => chain,
     insert: (row: Record<string, unknown>) => {
-      state.op = 'insert'
       state.pending = row
       return chain
     },
-    eq: (col: string, val: unknown) => {
-      if (col === 'stripe_session_id') state.sessionEq = String(val)
-      return chain
-    },
-    limit: () => {
-      // terminal for the existence SELECT: resolve to the matching rows
-      const data = paymentRows.filter(r => r.stripe_session_id === state.sessionEq)
-      return Promise.resolve({ data, error: null })
-    },
     single: async () => {
-      // terminal for the insert().select().single()
+      // terminal for insert().select().single()
+      const sessionId = String(state.pending?.stripe_session_id ?? '')
+      if (paymentRows.some(r => r.stripe_session_id === sessionId)) {
+        return {
+          data: null,
+          error: { code: '23505', message: 'duplicate key value violates unique constraint on payments.stripe_session_id' },
+        }
+      }
       insertCount++
       const id = `pay_${insertCount}`
-      paymentRows.push({ id, stripe_session_id: String(state.pending?.stripe_session_id ?? '') })
+      paymentRows.push({ id, stripe_session_id: sessionId })
       return { data: { id }, error: null }
     },
   }

@@ -123,7 +123,7 @@ describe('PATCH /api/crews — cross-tenant crew_members guard', () => {
     h.tenantId = 'tenant-A' // caller is tenant A
     // Attacker passes tenant B's crew UUID and tries to replace its members.
     const res = await PATCH(patchReq({ id: 'crewB', member_ids: ['memberA'] }))
-    expect(res.status).toBe(200) // handler does not error — it simply no-ops
+    expect(res.status).toBe(404) // explicit ownership gate now rejects before any write
 
     // B's crew is untouched: still exactly its original member, no A member injected.
     expect(h.store.crew_members).toEqual([{ crew_id: 'crewB', team_member_id: 'memberB' }])

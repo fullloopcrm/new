@@ -43,7 +43,9 @@ const { rateLimitDb } = vi.hoisted(() => ({
   rateLimitDb: vi.fn(async (bucketKey: string) => {
     // Every caller IP is fresh (never blocked) -- only the per-identifier
     // bucket for this specific victim has been exhausted by prior guesses.
-    if (bucketKey.startsWith('client-verify-id:')) return { allowed: false, remaining: 0 }
+    // The real bucket key is 'client-verify:<tenant>:<identifier>' (distinct
+    // from the IP bucket's 'client-verify-ip:' prefix).
+    if (bucketKey.startsWith('client-verify:')) return { allowed: false, remaining: 0 }
     return { allowed: true, remaining: 5 }
   }),
 }))

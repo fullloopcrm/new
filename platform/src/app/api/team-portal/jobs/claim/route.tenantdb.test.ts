@@ -56,7 +56,44 @@ function chain(table: string) {
   return c
 }
 
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
+// Claiming now runs through one atomic supabaseAdmin.rpc('claim_job_atomic', ...)
+// call (migrations/2026_07_13_job_claim_atomic.sql) instead of a separate
+// count-then-update — this fake models that same contract against the
+// chain-backed DB store above so the tenant-scoping assertions below still
+// exercise the real route.
+function claimJobAtomicRpc(args: Record<string, unknown>) {
+  const member = (DB.team_members || []).find(
+    (m) => m.id === args.p_member_id && m.tenant_id === args.p_tenant_id,
+  )
+  const cap = (member?.max_jobs_per_day as number | null) ?? null
+  if (cap && cap > 0) {
+    const count = (DB.bookings || []).filter(
+      (b) =>
+        b.tenant_id === args.p_tenant_id &&
+        b.team_member_id === args.p_member_id &&
+        (b.start_time as string) >= (args.p_day_start as string) &&
+        (b.start_time as string) < (args.p_day_end as string) &&
+        b.status !== 'cancelled',
+    ).length
+    if (count >= cap) return { data: { claimed: false, reason: 'cap_reached', cap }, error: null }
+  }
+  const booking = (DB.bookings || []).find(
+    (b) => b.id === args.p_booking_id && b.tenant_id === args.p_tenant_id && b.team_member_id === null,
+  )
+  if (!booking) return { data: { claimed: false, reason: 'already_taken' }, error: null }
+  Object.assign(booking, { team_member_id: args.p_member_id, pay_rate: member?.pay_rate ?? null, status: 'confirmed' })
+  return { data: { claimed: true, reason: 'ok', booking }, error: null }
+}
+
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (t: string) => chain(t),
+    rpc: async (fn: string, args: Record<string, unknown>) => {
+      if (fn !== 'claim_job_atomic') throw new Error(`unexpected rpc: ${fn}`)
+      return claimJobAtomicRpc(args)
+    },
+  },
+}))
 vi.mock('@/lib/audit', () => ({ audit: vi.fn(() => Promise.resolve()) }))
 
 process.env.TEAM_PORTAL_SECRET = 'unit-test-team-portal-secret'

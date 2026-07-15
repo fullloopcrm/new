@@ -50,6 +50,10 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
+      maybeSingle: async () => {
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
+      },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (kind === 'insert') { const rows = doInsert(); return res({ data: rows, error: null }) }
         if (kind === 'update') { const rows = doUpdate(); return res({ data: rows, error: null }) }

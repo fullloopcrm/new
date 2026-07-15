@@ -47,12 +47,33 @@ const PUBLIC_CALLERS = [
   'src/app/api/reviews/submit/route.ts',
 ]
 
-// Lines that actually invoke the limiter (excludes the import and any comment
-// referencing the symbol).
-function rateLimitCallLines(src: string): string[] {
-  return src
-    .split('\n')
-    .filter((l) => /(?:await\s+)?rateLimitDb\s*\(/.test(l) && !l.trimStart().startsWith('*') && !l.trimStart().startsWith('//'))
+// Full call sites that actually invoke the limiter (excludes the import and
+// any comment referencing the symbol) — captures the whole balanced-paren
+// argument list, not just the first line, since some callers wrap a long
+// options object onto its own line (e.g. `rateLimitDb(key, n, ms, {\n
+// failClosed: true,\n})`), which a single-line regex would miss entirely.
+function rateLimitCalls(src: string): string[] {
+  const calls: string[] = []
+  const re = /rateLimitDb\s*\(/g
+  let m: RegExpExecArray | null
+  while ((m = re.exec(src))) {
+    const lineStart = src.lastIndexOf('\n', m.index) + 1
+    const linePrefix = src.slice(lineStart, m.index).trimStart()
+    if (linePrefix.startsWith('*') || linePrefix.startsWith('//')) continue
+
+    let depth = 0
+    let i = src.indexOf('(', m.index)
+    const start = i
+    for (; i < src.length; i++) {
+      if (src[i] === '(') depth++
+      else if (src[i] === ')') {
+        depth--
+        if (depth === 0) { i++; break }
+      }
+    }
+    calls.push(src.slice(start, i))
+  }
+  return calls
 }
 
 describe('rate-limit fail-closed caller invariant [038428f]', () => {
@@ -64,7 +85,7 @@ describe('rate-limit fail-closed caller invariant [038428f]', () => {
     for (const rel of AUTH_CALLERS) {
       it(rel, () => {
         const src = readFileSync(path.resolve(process.cwd(), rel), 'utf8')
-        const calls = rateLimitCallLines(src)
+        const calls = rateLimitCalls(src)
         expect(calls.length).toBeGreaterThan(0)
         // Every rateLimitDb call in an auth route must be fail-closed.
         for (const call of calls) {
@@ -78,7 +99,7 @@ describe('rate-limit fail-closed caller invariant [038428f]', () => {
     for (const rel of PUBLIC_CALLERS) {
       it(rel, () => {
         const src = readFileSync(path.resolve(process.cwd(), rel), 'utf8')
-        const calls = rateLimitCallLines(src)
+        const calls = rateLimitCalls(src)
         expect(calls.length).toBeGreaterThan(0)
         for (const call of calls) {
           expect(call).not.toMatch(/failClosed/)

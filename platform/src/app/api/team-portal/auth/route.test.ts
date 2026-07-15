@@ -65,13 +65,14 @@ describe('team-portal auth — PIN brute-force throttle', () => {
     h.counts.clear()
   })
 
-  it('a wrong-PIN sweep on one tenant trips the per-tenant lockout (was unlimited)', async () => {
+  it('a wrong-PIN sweep on one tenant+IP trips the combined precheck lockout (was unlimited)', async () => {
     const statuses: number[] = []
     for (let pin = 100000; pin <= 100011; pin++) statuses.push(await attempt(String(pin)))
 
-    // First 10 wrong PINs return 401, then the tenant is locked out with 429.
-    expect(statuses.slice(0, 10)).toEqual(Array(10).fill(401))
-    expect(statuses.slice(10)).toEqual([429, 429])
+    // The tighter (slug+ip) precheck bucket (5 attempts) trips before the
+    // looser per-tenant-only failure bucket (10) ever gets a chance to.
+    expect(statuses.slice(0, 5)).toEqual(Array(5).fill(401))
+    expect(statuses.slice(5)).toEqual(Array(7).fill(429))
   })
 
   it('one IP fanning out across many tenants is capped by the per-IP bucket', async () => {
@@ -90,7 +91,11 @@ describe('team-portal auth — PIN brute-force throttle', () => {
     await attempt('654321')
     expect(h.calls.length).toBeGreaterThan(0)
     expect(new Set(h.calls)).toEqual(
-      new Set(['team_portal_auth_fail:slug:testco', 'team_portal_auth_fail:ip:9.9.9.9'])
+      new Set([
+        'team_portal_auth:testco:9.9.9.9',
+        'team_portal_auth_fail:slug:testco',
+        'team_portal_auth_fail:ip:9.9.9.9',
+      ])
     )
     for (const key of h.calls) {
       expect(key).not.toContain('123456')

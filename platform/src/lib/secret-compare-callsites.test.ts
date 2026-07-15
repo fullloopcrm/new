@@ -10,7 +10,11 @@ import path from 'node:path'
  * plain `===`/`!==`, leaking the secret one byte at a time via response
  * timing — same class of bug already fixed for HMAC signatures elsewhere
  * (see portal-token-consttime.test.ts). Fix: route every compare through
- * `safeEqual()` (length-guarded crypto.timingSafeEqual, lib/secret-compare.ts).
+ * `safeEqual()` (length-guarded crypto.timingSafeEqual). Two equivalent,
+ * independently-added helper modules ended up wired to different call sites
+ * across lanes/merges — lib/secret-compare.ts and lib/timing-safe-equal.ts —
+ * so the import check below accepts either; the invariant under test is
+ * constant-time compare, not which of the two identical helpers a file uses.
  *
  * Source invariant, not a behavioral test, for the same reason as the sibling
  * portal-token file: a plain compare and a constant-time compare return the
@@ -84,7 +88,7 @@ describe('constant-time secret compare invariant (queue-c)', () => {
       const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
 
       it('imports the safeEqual helper', () => {
-        expect(src).toMatch(/import\s*\{\s*safeEqual\s*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+        expect(src).toMatch(/import\s*\{\s*safeEqual\s*\}\s*from\s*['"](?:@\/lib\/secret-compare|\.\/secret-compare|@\/lib\/timing-safe-equal)['"]/)
       })
 
       it('routes the secret compare through safeEqual(...)', () => {

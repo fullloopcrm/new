@@ -12,10 +12,12 @@
  *
  * The fix adds a UNIQUE index (idx_journal_entries_source_unique,
  * 2026_07_13_journal_entries_source_unique.sql) so the INSERT inside
- * `post_journal_entry()` is the atomic decision point; every caller across
- * post-revenue/post-adjustments/post-labor now catches the resulting 23505
- * and returns `{posted: false, reason: 'already_posted'}` instead of
- * crashing or (pre-fix) silently double-posting.
+ * `post_journal_entry()` is the atomic decision point. Migration 064 moved
+ * dedupe resolution INSIDE the RPC itself: the losing caller gets NULL back
+ * (not a 23505 error to catch), and every caller across post-revenue/
+ * post-adjustments/post-labor treats that null as
+ * `{posted: false, reason: 'already_posted'}` instead of crashing or
+ * (pre-fix) silently double-posting.
  *
  * This suite mocks `supabaseAdmin.rpc` directly (the shared fake-supabase.ts
  * harness doesn't model RPC calls) to reproduce the real unique-constraint
@@ -37,10 +39,9 @@ vi.mock('@/lib/supabase', async () => {
     if (fn !== 'post_journal_entry') throw new Error(`unexpected rpc: ${fn}`)
     const key = `${params.p_tenant_id}|${params.p_source}|${params.p_source_id}`
     if (params.p_source_id && postedKeys.has(key)) {
-      return {
-        data: null,
-        error: { message: 'duplicate key value violates unique constraint "idx_journal_entries_source_unique"', code: '23505' },
-      }
+      // migration 064: the RPC resolves the dedupe claim internally and
+      // returns NULL, not a 23505 error, for the losing concurrent caller.
+      return { data: null, error: null }
     }
     if (params.p_source_id) postedKeys.add(key)
     const id = crypto.randomUUID()

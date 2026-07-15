@@ -95,13 +95,13 @@ describe('POST /api/bookings/batch — client_id/team_member_id tenant scoping',
 
   it('rejects a client_id belonging to another tenant', async () => {
     const res = await BATCH_CREATE(jsonReq({ bookings: [{ client_id: FOREIGN_CLIENT, start_time: '2026-08-01T10:00:00Z' }] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings.length).toBe(0)
   })
 
   it('rejects a team_member_id belonging to another tenant', async () => {
     const res = await BATCH_CREATE(jsonReq({ bookings: [{ client_id: OWN_CLIENT, team_member_id: FOREIGN_MEMBER, start_time: '2026-08-01T10:00:00Z' }] }))
-    expect(res.status).toBe(404)
+    expect(res.status).toBe(400)
     expect(store.bookings.length).toBe(0)
   })
 

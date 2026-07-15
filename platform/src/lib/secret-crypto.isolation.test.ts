@@ -153,6 +153,7 @@ describe('secret-crypto — encryptTenantSecrets field scoping', () => {
       anthropic_api_key: 'ak_live_4',
       indexnow_key: 'idx_5',
       telegram_bot_token: 'tg_6',
+      telegram_webhook_secret: 'tg_secret_7',
       // Non-secret fields must pass through verbatim.
       business_name: 'Acme Cleaning',
       id: 'tenant-A',

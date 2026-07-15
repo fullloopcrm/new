@@ -22,7 +22,7 @@ export async function GET(request: Request) {
   const { data: deals, error } = await supabaseAdmin
     .from('deals')
     .select('id, tenant_id, follow_up_at, follow_up_note, clients(name, phone)')
-    .eq('status', 'active')
+    .not('stage', 'in', '(sold,lost)')
     .lte('follow_up_at', now.toISOString())
     .gte('follow_up_at', oneHourAgo.toISOString())
 

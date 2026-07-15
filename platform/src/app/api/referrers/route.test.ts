@@ -73,6 +73,9 @@ vi.mock('@/lib/supabase', () => {
         state.ilikes[col] = val
         return builder
       },
+      gte() {
+        return builder
+      },
       single: async () => {
         const matches =
           state.eqs.tenant_id === REFERRER_ROW.tenant_id &&
@@ -81,12 +84,17 @@ vi.mock('@/lib/supabase', () => {
         if (!matches) return { data: null, error: { message: 'not found' } }
         return { data: project(REFERRER_ROW, cols), error: null }
       },
+      then: (resolve: (v: { data: null; count: number; error: null }) => unknown) =>
+        resolve({ data: null, count: 0, error: null }),
     }
     return builder
   }
   const supabaseAdmin = {
     from: (_table: string) => ({
       select: (cols: string) => chain(cols),
+      insert: (_payload: unknown) => ({
+        then: (resolve: (v: { error: null }) => unknown) => resolve({ error: null }),
+      }),
     }),
   }
   return { supabaseAdmin, supabase: supabaseAdmin }

@@ -25,6 +25,8 @@ const CLIENT = '11111111-1111-1111-1111-111111111111'
 
 type Row = Record<string, unknown>
 let simulateConcurrentWinner = false
+let lastBooking: Row | null = null
+const BOOKING_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
@@ -45,40 +47,60 @@ vi.mock('@/lib/supabase', () => {
       order: () => c,
       limit: () => c,
       single: async () => {
-        if (kind === 'insert' && table === 'bookings') {
-          // A concurrent request's INSERT already claimed this
-          // (tenant_id, client_id, date) slot — the partial unique index
-          // rejects this request's insert exactly like Postgres would.
-          if (simulateConcurrentWinner) {
-            return {
-              data: null,
-              error: { message: 'duplicate key value violates unique constraint "uq_bookings_client_same_date_active"', code: '23505' },
-            }
-          }
-          return {
-            data: {
-              id: 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-              ...payload,
-              created_at: '2026-08-14T10:00:00Z',
-              clients: { name: 'Race Client', email: null, phone: null, address: null },
-              client_properties: null,
-            },
-            error: null,
-          }
+        // The route's read-back of the row create_booking_atomic just
+        // created (booking creation itself is no longer a plain INSERT —
+        // see the rpc() mock below).
+        if (table === 'bookings' && lastBooking && eqs.id === lastBooking.id) {
+          return { data: lastBooking, error: null }
         }
         if (table === 'clients') return { data: { do_not_service: false }, error: null }
         return { data: null, error: null }
       },
-      maybeSingle: async () => ({ data: null, error: null }),
+      maybeSingle: async () => {
+        // client_id ownership is verified via .maybeSingle() before any
+        // booking work runs.
+        if (table === 'clients') return { data: { do_not_service: false }, error: null }
+        return { data: null, error: null }
+      },
       // The same-date duplicate COUNT read — always reads 0, same as the
       // happy-path lock's mock, so the app-level pre-check can't close this
-      // race on its own; only the DB constraint + 23505 handling can.
+      // race on its own; only the atomic RPC's server-side check can.
       then: (res: (v: { data: unknown; error: unknown; count: number }) => unknown) =>
         res({ data: [], error: null, count: 0 }),
     }
     return c
   }
-  return { supabaseAdmin: { from: (t: string) => chain(t) } }
+  return {
+    supabaseAdmin: {
+      from: (t: string) => chain(t),
+      // The same-date duplicate check + INSERT now run atomically inside
+      // create_booking_atomic (migrations/2026_07_13_client_book_dedupe_atomic.sql)
+      // — precisely the fix that closes the race this file is testing. A
+      // "concurrent winner" is simulated as the RPC itself reporting
+      // reason: 'duplicate_date', the same as a real losing racer would see.
+      rpc: async (fn: string, args: Row) => {
+        if (fn !== 'create_booking_atomic') return { data: null, error: { message: `unmocked rpc ${fn}` } }
+        if (simulateConcurrentWinner) {
+          return { data: { created: false, reason: 'duplicate_date' }, error: null }
+        }
+        lastBooking = {
+          id: BOOKING_ID,
+          tenant_id: args.p_tenant_id,
+          client_id: args.p_client_id,
+          start_time: args.p_start_time,
+          end_time: args.p_end_time,
+          service_type: args.p_service_type,
+          price: args.p_price,
+          hourly_rate: args.p_hourly_rate,
+          status: 'pending',
+          created_at: '2026-08-14T10:00:00Z',
+          clients: { name: 'Race Client', email: null, phone: null, address: null },
+          client_properties: null,
+        }
+        return { data: { created: true, booking: { id: BOOKING_ID } }, error: null }
+      },
+    },
+  }
 })
 
 vi.mock('@/lib/tenant-site', () => ({
@@ -123,6 +145,7 @@ function bookRequest(body: Row): Request {
 describe('POST /api/client/book — same-date duplicate race', () => {
   beforeEach(() => {
     simulateConcurrentWinner = false
+    lastBooking = null
   })
 
   it('returns 409 (not 500) when a concurrent request wins the same-date insert race', async () => {

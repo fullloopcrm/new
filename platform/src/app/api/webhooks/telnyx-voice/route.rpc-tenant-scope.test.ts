@@ -13,21 +13,26 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  */
 
 const rpcCalls: Array<{ fn: string; args: Record<string, unknown> }> = []
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+const CALLED_DID = '+18883164019'
 
-function chainable(): unknown {
+function chainable(matches: unknown[] = []): unknown {
   const node: Record<string, unknown> = {}
   const methods = ['select', 'eq', 'gte', 'order', 'limit', 'update', 'insert', 'upsert']
   for (const m of methods) node[m] = () => node
   node.single = () => Promise.resolve({ data: { id: 'msg-1' }, error: null })
   node.maybeSingle = () => Promise.resolve({ data: null, error: null })
   // Allow `await` directly on a chain (e.g. plain .update().eq(...) with no terminal select).
-  node.then = (resolve: (v: { data: unknown[]; error: null }) => void) => resolve({ data: [], error: null })
+  node.then = (resolve: (v: { data: unknown[]; error: null }) => void) => resolve({ data: matches, error: null })
   return node
 }
 
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
-    from: () => chainable(),
+    // resolveVoiceTenant() looks up the tenant that owns the dialed DID
+    // (payload.to) before the RPC calls below — route the 'tenants' table
+    // to a single matching row so tenant resolution succeeds.
+    from: (table: string) => (table === 'tenants' ? chainable([{ id: NYCMAID_TENANT_ID, name: 'nycmaid' }]) : chainable()),
     rpc: (fn: string, args: Record<string, unknown>) => {
       rpcCalls.push({ fn, args })
       if (fn === 'comhub_get_or_create_contact_by_phone') return Promise.resolve({ data: 'contact-1', error: null })
@@ -42,7 +47,7 @@ function inboundCallReq(): Request {
   const body = JSON.stringify({
     data: {
       event_type: 'call.initiated',
-      payload: { call_control_id: 'cc1', from: '+15550001111', direction: 'incoming' },
+      payload: { call_control_id: 'cc1', from: '+15550001111', to: CALLED_DID, direction: 'incoming' },
     },
   })
   return {
@@ -56,6 +61,10 @@ describe('telnyx-voice webhook — comhub RPC tenant scoping', () => {
     vi.resetModules()
     rpcCalls.length = 0
     delete process.env.TELNYX_PUBLIC_KEY
+    // This suite is about RPC tenant-scoping, not signature verification —
+    // bypass it the same way route.signature-verification.test.ts documents
+    // (route.ts now fails closed even when TELNYX_PUBLIC_KEY is unset).
+    process.env.TELNYX_VOICE_WEBHOOK_VERIFY = 'off'
     // Must be unset before the module loads (TELNYX_API_KEY is read into a
     // module-scope const) so telnyxAction() no-ops instead of making a real
     // outbound call to Telnyx's live API.
@@ -75,7 +84,7 @@ describe('telnyx-voice webhook — comhub RPC tenant scoping', () => {
 
     const contactCall = rpcCalls.find((c) => c.fn === 'comhub_get_or_create_contact_by_phone')
     const threadCall = rpcCalls.find((c) => c.fn === 'comhub_get_or_create_thread')
-    expect(contactCall?.args.p_tenant_id).toBe('00000000-0000-0000-0000-000000000001')
-    expect(threadCall?.args.p_tenant_id).toBe('00000000-0000-0000-0000-000000000001')
+    expect(contactCall?.args.p_tenant_id).toBe(NYCMAID_TENANT_ID)
+    expect(threadCall?.args.p_tenant_id).toBe(NYCMAID_TENANT_ID)
   })
 })

@@ -10,13 +10,30 @@ import { createHmac } from 'node:crypto'
  * pattern as clerk/route.fails-closed.test.ts (both ride verifySvix).
  */
 
-const supabaseFrom = vi.fn((..._args: unknown[]) => ({
-  insert: () => Promise.resolve({ data: null, error: null }),
-  select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
-  update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
-}))
+const INBOUND_TENANT_ID = 'tenant-resend-inbound-1'
+
+const supabaseFrom = vi.fn((table: string) => {
+  if (table === 'tenants') {
+    // resolveTenantIdForInboundEmail's firstMatch('email_from', ...) lookup —
+    // the route now tenant-scopes inbound email before inserting it.
+    return {
+      select: () => ({
+        ilike: () => ({
+          order: () => ({
+            limit: () => Promise.resolve({ data: [{ id: INBOUND_TENANT_ID, name: 'Acme' }], error: null }),
+          }),
+        }),
+      }),
+    }
+  }
+  return {
+    insert: () => Promise.resolve({ data: null, error: null }),
+    select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null, error: null }) }) }),
+    update: () => ({ eq: () => Promise.resolve({ data: null, error: null }) }),
+  }
+})
 vi.mock('@/lib/supabase', () => ({
-  supabaseAdmin: { from: (...args: unknown[]) => supabaseFrom(...args) },
+  supabaseAdmin: { from: (table: string) => supabaseFrom(table) },
 }))
 
 function signSvix(secretBase64: string, id: string, timestamp: string, body: string): string {

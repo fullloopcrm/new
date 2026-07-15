@@ -2,8 +2,10 @@
  * LEDGER DOUBLE-POST RACE — `postPayoutToLedger` / `postPayrollToLedger`.
  *
  * post-revenue.ts has a race test proving the double-post guard
- * (idx_journal_entries_source_unique + catch-23505-as-already_posted) holds
- * under concurrency. post-labor.ts shares the exact same guard (via the
+ * (idx_journal_entries_source_unique; migration 064's post_journal_entry RPC
+ * resolves the dedupe claim internally and returns NULL, treated as
+ * already_posted) holds under concurrency. post-labor.ts shares the exact
+ * same guard (via the
  * shared `postLabor()` helper) but had zero test coverage of its own — a
  * payout/payroll webhook redelivery racing a backfill run is exactly the
  * kind of concurrent double-pay this guard exists to prevent, and it was
@@ -29,10 +31,9 @@ vi.mock('../supabase', async () => {
     if (fn !== 'post_journal_entry') throw new Error(`unexpected rpc: ${fn}`)
     const key = `${params.p_tenant_id}|${params.p_source}|${params.p_source_id}`
     if (params.p_source_id && postedKeys.has(key)) {
-      return {
-        data: null,
-        error: { message: 'duplicate key value violates unique constraint "idx_journal_entries_source_unique"', code: '23505' },
-      }
+      // migration 064: the RPC resolves the dedupe claim internally and
+      // returns NULL, not a 23505 error, for the losing concurrent caller.
+      return { data: null, error: null }
     }
     if (params.p_source_id) postedKeys.add(key)
     const id = crypto.randomUUID()

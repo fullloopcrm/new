@@ -69,7 +69,7 @@ describe('finance/bank-transactions/[id] PATCH — tenant isolation', () => {
   it('positive control: tenant A can ignore its OWN transaction', async () => {
     const res = await patch('txn-a', { status: 'ignored' })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual({ ok: true })
+    expect(await res.json()).toEqual({ ok: true, already_processed: false })
     // The write landed on tenant A's row only.
     expect(h.capture.updates).toHaveLength(1)
     expect(h.capture.updates[0].matched.map((r) => r.id)).toEqual(['txn-a'])

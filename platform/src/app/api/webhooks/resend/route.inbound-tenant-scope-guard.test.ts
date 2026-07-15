@@ -1,27 +1,24 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * inbound_emails has no tenant_id column yet (see
- * deploy-prep/inbound-emails-tenant-scope-plan-p1-w2.md — prep for migration
- * 062). The route stamps tenant_id/resolved_domain ONLY when
- * INBOUND_EMAILS_TENANT_SCOPE_ENABLED='true', which must stay unset until
- * that migration lands — flipping it early would 500 every inbound email
- * (insert against a column that doesn't exist).
+ * inbound_emails used to insert with NO tenant_id — an unscoped, globally
+ * visible row (any admin inbox reading the table would see every tenant's
+ * inbound mail). The route now resolves the tenant that owns the recipient
+ * address via resolveTenantIdForInboundEmail() (src/lib/inbound-email-tenant.ts)
+ * before inserting, and fails CLOSED: if no tenant resolves, the message is
+ * dropped rather than written as an unscoped row.
  *
  * This locks in both halves of that guard:
- *   - OFF (today, everywhere): the insert payload is untouched — no
- *     tenant_id/resolved_domain keys, and the tenant resolver is never
- *     called at all.
- *   - ON (only valid post-062): the recipient domain resolves through the
- *     SAME tenant_domains-first/tenants.domain-fallback resolver
- *     (getTenantByDomain) everything else in P1 uses, and gets stamped.
+ *   - Recipient resolves to a tenant: the row is stamped with that tenant_id.
+ *   - Recipient resolves to no tenant: DROPPED — no insert at all, never a
+ *     platform-wide unscoped fallback row.
  */
 
-const getTenantByDomain = vi.fn(async (domain: string) =>
-  domain === 'a.example.com' ? { id: 'tenant_a' } : null,
+const resolveTenantIdForInboundEmail = vi.fn(async (toAddress: string | null) =>
+  toAddress === 'inbox@a.example.com' ? 'tenant_a' : null,
 )
 
-vi.mock('@/lib/tenant-lookup', () => ({ getTenantByDomain }))
+vi.mock('@/lib/inbound-email-tenant', () => ({ resolveTenantIdForInboundEmail }))
 vi.mock('@/lib/webhook-verify', () => ({ verifySvix: vi.fn(() => ({ valid: true })) }))
 
 let insertedRows: Record<string, unknown>[] = []
@@ -53,49 +50,35 @@ const emailReceivedPayload = {
 
 beforeEach(() => {
   insertedRows = []
-  getTenantByDomain.mockClear()
+  resolveTenantIdForInboundEmail.mockClear()
   process.env.RESEND_WEBHOOK_VERIFY = 'off'
   vi.resetModules()
 })
 
-describe('resend webhook — inbound_emails tenant-scope guard defaults to a no-op', () => {
-  it('flag unset: insert has no tenant_id/resolved_domain and the resolver is never called', async () => {
-    delete process.env.INBOUND_EMAILS_TENANT_SCOPE_ENABLED
+describe('resend webhook — inbound_emails tenant-scope guard', () => {
+  it('recipient resolves to a tenant: insert is stamped with that tenant_id', async () => {
     const { POST } = await import('./route')
 
     const res = await POST(req(emailReceivedPayload))
     expect((await res.json()).ok).toBe(true)
 
-    expect(insertedRows).toHaveLength(1)
-    expect(insertedRows[0]).not.toHaveProperty('tenant_id')
-    expect(insertedRows[0]).not.toHaveProperty('resolved_domain')
-    expect(getTenantByDomain).not.toHaveBeenCalled()
-  })
-
-  it('flag=true (post-062 only): stamps tenant_id via the tenant_domains-first resolver', async () => {
-    process.env.INBOUND_EMAILS_TENANT_SCOPE_ENABLED = 'true'
-    const { POST } = await import('./route')
-
-    const res = await POST(req(emailReceivedPayload))
-    expect((await res.json()).ok).toBe(true)
-
-    expect(getTenantByDomain).toHaveBeenCalledWith('a.example.com')
+    expect(resolveTenantIdForInboundEmail).toHaveBeenCalledWith('inbox@a.example.com')
     expect(insertedRows).toHaveLength(1)
     expect(insertedRows[0].tenant_id).toBe('tenant_a')
-    expect(insertedRows[0].resolved_domain).toBe('a.example.com')
+    expect(insertedRows[0].to_address).toBe('inbox@a.example.com')
   })
 
-  it('flag=true but the recipient domain matches no tenant: tenant_id stays null (platform inbox)', async () => {
-    process.env.INBOUND_EMAILS_TENANT_SCOPE_ENABLED = 'true'
+  it('recipient resolves to no tenant: message is dropped, no unscoped row is ever inserted', async () => {
     const { POST } = await import('./route')
 
     const res = await POST(req({
       ...emailReceivedPayload,
       data: { ...emailReceivedPayload.data, to: 'sales@fullloopcrm.com' },
     }))
-    expect((await res.json()).ok).toBe(true)
+    const body = await res.json()
 
-    expect(insertedRows[0].tenant_id).toBeNull()
-    expect(insertedRows[0].resolved_domain).toBe('fullloopcrm.com')
+    expect(body.ok).toBe(true)
+    expect(body.dropped).toBe('no_tenant')
+    expect(insertedRows).toHaveLength(0)
   })
 })

@@ -77,7 +77,7 @@ describe('PUT /api/finance/expenses/:id — mass-assignment + FK-ownership guard
     const json = await res.json()
 
     expect(res.status).toBe(404)
-    expect(json.error).toBe('Invalid entity_id')
+    expect(json.error).toBe('Entity not found')
     expect(fake._all('expenses').find((r) => r.id === 'exp-A1')?.entity_id).toBe('ent-A')
   })
 

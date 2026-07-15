@@ -274,12 +274,19 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
         if (claim.claimed && claim.payoutId) {
           try {
             const stripe = getStripe(tenant.stripe_api_key)
+            // Defense in depth on top of the DB-level claim above: an explicit
+            // Stripe-side idempotency key (mirrors webhooks/stripe/route.ts's
+            // cleaner payout) means a retried call with the same
+            // bookingId+referenceId can't double-transfer to the cleaner even
+            // if something replays this path after a crash/retry.
             const transfer = await stripe.transfers.create({
               amount: payAmountCents,
               currency: 'usd',
               destination: teamMember.stripe_account_id,
               description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
               metadata: { booking_id: bookingId, tenant_id: tenantId },
+            }, {
+              idempotencyKey: `cleaner-payout:${bookingId}:${referenceId}`,
             })
 
             let payoutId: string | null = null
@@ -287,7 +294,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
             try {
               const payout = await stripe.payouts.create(
                 { amount: payAmountCents, currency: 'usd', method: 'instant' },
-                { stripeAccount: teamMember.stripe_account_id },
+                { stripeAccount: teamMember.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${referenceId}` },
               )
               payoutId = payout.id
               isInstant = true
