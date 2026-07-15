@@ -42,6 +42,8 @@ type State = {
   gts: Array<{ col: string; val: unknown }>
   gtes: Array<{ col: string; val: unknown }>
   lts: Array<{ col: string; val: unknown }>
+  /** `.is(col, null | true | false)` — PostgREST's IS NULL / IS TRUE / IS FALSE. */
+  ises: Array<{ col: string; val: null | boolean }>
   head: boolean
   payload: unknown
   upsertOpts: { onConflict?: string; ignoreDuplicates?: boolean } | null
@@ -54,6 +56,7 @@ function matches(r: Record<string, unknown>, s: State): boolean {
   for (const g of s.gts) if (!(Number(r[g.col]) > Number(g.val))) return false
   for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
   for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
+  for (const i of s.ises) if ((r[i.col] ?? null) !== i.val) return false
   return true
 }
 
@@ -157,7 +160,7 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], gts: [], gtes: [], lts: [], head: false, payload: null, upsertOpts: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], gts: [], gtes: [], lts: [], ises: [], head: false, payload: null, upsertOpts: null }
       const chain: Record<string, unknown> = {
         select: (_c?: unknown, opts?: { head?: boolean }) => { if (opts?.head) state.head = true; return chain },
         insert: (p: unknown) => { state.op = 'insert'; state.payload = p; return chain },
@@ -165,6 +168,7 @@ export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
         upsert: (p: unknown, opts?: State['upsertOpts']) => { state.op = 'upsert'; state.payload = p; state.upsertOpts = opts ?? null; return chain },
         eq: (c: string, v: unknown) => { state.eqs[c] = v; return chain },
         neq: (c: string, v: unknown) => { state.neqs[c] = v; return chain },
+        is: (c: string, v: null | boolean) => { state.ises.push({ col: c, val: v }); return chain },
         in: (c: string, v: unknown[]) => { state.ins.push({ col: c, vals: v }); return chain },
         gt: (c: string, v: unknown) => { state.gts.push({ col: c, val: v }); return chain },
         gte: (c: string, v: unknown) => { state.gtes.push({ col: c, val: v }); return chain },

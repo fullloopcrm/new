@@ -250,9 +250,18 @@ export async function POST(request: Request) {
 
         const amt = session.amount_total || q.deposit_cents || 0
         const nowIso = new Date().toISOString()
-        await supabaseAdmin.from('quotes')
+        // Compare-and-swap claim (mirrors the prospect-signup claim above): the
+        // `deposit_paid_at IS NULL` guard makes this UPDATE the single winner
+        // under a concurrent/retried webhook delivery for the same session — the
+        // read-then-write above this comment isn't atomic on its own, and without
+        // this guard a race would double-post the ledger entry, double-advance
+        // the deal stage, and double-fire the owner alert below.
+        const { data: claim } = await supabaseAdmin.from('quotes')
           .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
-          .eq('id', quoteId).eq('tenant_id', tenantId)
+          .eq('id', quoteId).eq('tenant_id', tenantId).is('deposit_paid_at', null)
+          .select('id')
+          .maybeSingle()
+        if (!claim) return NextResponse.json({ received: true, idempotent: true })
 
         // Deposit is unearned until the job runs → post as a liability, not revenue.
         postDepositToLedger({ tenantId, sourceId: quoteId, amountCents: amt, memo: `Deposit ${q.quote_number}` })
@@ -366,8 +375,14 @@ export async function POST(request: Request) {
         }
       }
 
-      // 1. Insert payment row (capture id → post revenue to ledger immediately)
-      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
+      // 1. Insert payment row (capture id → post revenue to ledger immediately).
+      // stripe_session_id is UNIQUE — this insert is the real idempotency claim;
+      // the "existing" check above is only a fast-path. Stripe delivers
+      // at-least-once and retries on slow/failed responses, so a concurrent or
+      // retried delivery for the SAME session can race past that check and lose
+      // this insert. Must stop here on any insert failure, or step 4 below fires
+      // a real (non-idempotent) Stripe Connect transfer to the cleaner twice.
+      const { data: bookingPayment, error: paymentInsertError } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: bookingId,
         client_id: booking.client_id,
@@ -378,10 +393,12 @@ export async function POST(request: Request) {
         stripe_session_id: session.id,
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
       }).select('id').single()
-      if (bookingPayment?.id) {
-        postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
-          .catch(err => console.error('[stripe] booking revenue post failed:', err))
+      if (paymentInsertError || !bookingPayment) {
+        console.error('[stripe] booking payment insert failed (treating as idempotent duplicate):', paymentInsertError)
+        return NextResponse.json({ received: true, idempotent: true })
       }
+      postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
+        .catch(err => console.error('[stripe] booking revenue post failed:', err))
 
       // 2. Update booking
       await supabaseAdmin
