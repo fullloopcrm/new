@@ -4,6 +4,7 @@ import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
+import { requireAdmin } from '@/lib/require-admin'
 
 export const maxDuration = 60
 
@@ -37,7 +38,13 @@ function ownerPhone(): string {
   return list[0] || '+12122029220'
 }
 
+// Diagnostic only — sends a real Telegram message and echoes owner_chat_id
+// (the value that gates who can drive Yinez with owner-tier tools), so this
+// must never be reachable unauthenticated.
 export async function GET() {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   if (!BOT_TOKEN) return NextResponse.json({ error: 'BOT_TOKEN missing' })
   if (!OWNER_CHAT_ID) return NextResponse.json({ error: 'OWNER_CHAT_ID missing' })
   const send = await sendTelegram(OWNER_CHAT_ID, `GET diag fired at ${new Date().toISOString()}`)
