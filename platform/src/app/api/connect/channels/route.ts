@@ -67,6 +67,23 @@ export async function POST(request: NextRequest) {
       if (existing) return NextResponse.json({ channel: existing })
     }
 
+    // client_id is a caller-supplied FK with no cross-tenant check of its own —
+    // same class as the deals/projects/bookings client_id-injection fixes this
+    // session. No current read joins connect_channels.client_id back to
+    // clients, but verify ownership anyway so a foreign id can never be
+    // planted here to leak PII if such a join is added later.
+    if (client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', client_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('connect_channels')
       .insert({
