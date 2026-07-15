@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { verifyEntityId } from '@/lib/entity'
 import { randomBytes } from 'crypto'
 
 export async function GET() {
@@ -29,6 +30,16 @@ export async function POST(request: Request) {
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const body = await request.json().catch(() => ({}))
+
+    // entity_id is a cross-table FK — GET above embeds entities(name), so an
+    // unverified entity_id here would let a caller read another tenant's
+    // entity name by minting a CPA token against it (same class as the
+    // sibling finance/periods, finance/expenses, invoices fixes).
+    const entityId = body.entity_id ? await verifyEntityId(tenantId, body.entity_id) : null
+    if (body.entity_id && !entityId) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
+
     const token = randomBytes(24).toString('base64url')
     const expiresAt = body.expires_in_days
       ? new Date(Date.now() + Number(body.expires_in_days) * 86400000).toISOString()
@@ -37,7 +48,7 @@ export async function POST(request: Request) {
       .from('cpa_access_tokens')
       .insert({
         tenant_id: tenantId,
-        entity_id: body.entity_id || null,
+        entity_id: entityId,
         cpa_name: body.cpa_name || null,
         cpa_email: body.cpa_email || null,
         token,
