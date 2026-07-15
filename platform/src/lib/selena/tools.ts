@@ -904,6 +904,18 @@ async function handleSearchMessages(query: string, tid: string): Promise<string>
 // ──────────────────────────────────────────────────────────────────────────
 
 async function handleAssignCleaner(input: { booking_id: string; cleaner_id: string }, tid: string): Promise<string> {
+  // The booking update itself is tenant-scoped, but cleaner_id is a caller
+  // (model-supplied) FK — verify it belongs to this tenant before writing it,
+  // otherwise list_bookings' cleaners(name,id) embed would read back another
+  // tenant's cleaner name on the very next lookup.
+  const { data: cleaner } = await supabaseAdmin
+    .from('cleaners')
+    .select('id')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+
   const { error } = await supabaseAdmin
     .from('bookings')
     .update({ cleaner_id: input.cleaner_id, status: 'scheduled' })
@@ -981,6 +993,28 @@ async function handleBroadcast(input: { audience: 'all_clients' | 'recurring_cli
 }
 
 async function handleCreateManualBooking(input: { client_id: string; date: string; time: string; service_type: string; hourly_rate: number; estimated_hours: number; cleaner_id?: string }, tid: string): Promise<string> {
+  // client_id and cleaner_id are caller (model-supplied) FKs — verify both
+  // belong to this tenant before insert. list_bookings embeds clients(name)
+  // and cleaners(name,id) off these columns, so an unverified foreign id
+  // would read back another tenant's client/cleaner name on the next lookup.
+  const { data: client } = await supabaseAdmin
+    .from('clients')
+    .select('id')
+    .eq('id', input.client_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!client) return JSON.stringify({ error: 'client not found' })
+
+  if (input.cleaner_id) {
+    const { data: cleaner } = await supabaseAdmin
+      .from('cleaners')
+      .select('id')
+      .eq('id', input.cleaner_id)
+      .eq('tenant_id', tid)
+      .maybeSingle()
+    if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+  }
+
   const startISO = `${input.date}T${parseTimeToISO(input.time)}`
   const startMs = new Date(startISO).getTime()
   const endISO = new Date(startMs + Math.round((input.estimated_hours || 2) * 3_600_000)).toISOString()
@@ -1409,6 +1443,17 @@ async function handleTriggerCron(input: { name: string }): Promise<string> {
 }
 
 async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid: string): Promise<string> {
+  // cleaner_id is a caller (model-supplied) FK — verify it belongs to this
+  // tenant before insert, same dangling-FK gap class as the other cleaner_id
+  // tools in this file.
+  const { data: cleaner } = await supabaseAdmin
+    .from('cleaners')
+    .select('id')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+
   const { error } = await supabaseAdmin.from('cleaner_blocks').insert({
     tenant_id: tid,
     cleaner_id: input.cleaner_id,
