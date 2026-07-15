@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { clearSettingsCache, getSettings } from '@/lib/settings'
@@ -14,7 +14,9 @@ const DEFAULT_ROLES = ['worker', 'lead', 'manager']
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const settings = await getSettings(tenantId)
 
     const config: TeamConfig = {

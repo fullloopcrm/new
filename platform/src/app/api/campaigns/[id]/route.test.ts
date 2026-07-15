@@ -2,15 +2,16 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
- * PUT/DELETE /api/campaigns/:id — permission gate.
+ * GET/PUT/DELETE /api/campaigns/:id — permission gate.
  *
- * Both verbs called getTenantForRequest() only, with zero permission check --
- * any tenant member of ANY role (a 'manager', who rbac.ts grants only
- * campaigns.view, or 'staff', who has no campaigns permission at all) could
- * edit a campaign's body/subject, delete it, or flip `status` straight to
+ * All three verbs called getTenantForRequest() only, with zero permission
+ * check -- any tenant member of ANY role (a 'manager', who rbac.ts grants
+ * only campaigns.view, or 'staff', who has no campaigns permission at all)
+ * could read, edit, or delete a campaign, or flip `status` straight to
  * 'approved' (the exact field campaigns.send's approval gate checks). The
  * sibling POST /api/campaigns (create) already correctly requires
- * campaigns.create -- PUT/DELETE now match it.
+ * campaigns.create -- GET now requires campaigns.view, PUT/DELETE require
+ * campaigns.create.
  */
 
 const h = vi.hoisted(() => ({
@@ -45,7 +46,7 @@ vi.mock('@/lib/tenant-query', () => {
 vi.mock('@/lib/audit', () => ({ audit: vi.fn(async () => {}) }))
 
 // Real requirePermission + real rbac run against the mocked tenant-query above.
-import { PUT, DELETE } from './route'
+import { GET, PUT, DELETE } from './route'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
 const putReq = (body: unknown) => new Request('http://x', { method: 'PUT', body: JSON.stringify(body) })
@@ -60,6 +61,25 @@ beforeEach(() => {
       { id: 'camp-B1', tenant_id: 'tenant-B', status: 'draft', name: 'Other tenant', body: 'orig' },
     ],
   }
+})
+
+describe('GET /api/campaigns/:id — campaigns.view permission gate', () => {
+  it('owner can read their own campaign', async () => {
+    const res = await GET(new Request('http://x'), params('camp-A1'))
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: 'staff' role (no campaigns permission at all) is forbidden", async () => {
+    roleHolder.role = 'staff'
+    const res = await GET(new Request('http://x'), params('camp-A1'))
+    expect(res.status).toBe(403)
+  })
+
+  it("PERMISSION PROBE: 'manager' role (has campaigns.view) can read", async () => {
+    roleHolder.role = 'manager'
+    const res = await GET(new Request('http://x'), params('camp-A1'))
+    expect(res.status).toBe(200)
+  })
 })
 
 describe('PUT /api/campaigns/:id — permission gate', () => {
