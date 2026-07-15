@@ -88,6 +88,15 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
     file: 'src/app/api/test/email-selena/cleanup/route.ts',
     vulnerable: /body\.key\s*!==\s*expectedToken/,
   },
+  // Fourth batch: protectCronAPI() (lib/nycmaid/auth.ts) — a SEPARATE
+  // CRON_SECRET Bearer helper from verifyCronSecret()/lib/cron-auth.ts,
+  // used by cron/{rating-prompt,refresh-job-postings,anthropic-health,
+  // phone-fixup,confirmation-reminder} and missed by the original queue-c
+  // sweep (which only covered the 9 standalone inline-compare routes).
+  {
+    file: 'src/lib/nycmaid/auth.ts',
+    vulnerable: /authHeader\s*===\s*`Bearer \$\{cronSecret\}`/,
+  },
 ]
 
 describe('constant-time secret compare invariant (queue-c)', () => {
@@ -96,7 +105,9 @@ describe('constant-time secret compare invariant (queue-c)', () => {
       const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
 
       it('imports the safeEqual helper', () => {
-        expect(src).toMatch(/import\s*\{\s*safeEqual\s*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+        // Allows either a bare `{ safeEqual }` import or a multi-named one
+        // (e.g. `{ safeEqual, signWithSecret }`) from the same module.
+        expect(src).toMatch(/import\s*\{[^}]*\bsafeEqual\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
       })
 
       it('routes the secret compare through safeEqual(...)', () => {
@@ -144,5 +155,28 @@ describe('auth/login — unconfigured ADMIN_PASSWORD no longer grants access on 
       'utf8'
     )
     expect(src).not.toMatch(/\(process\.env\.ADMIN_PASSWORD\s*\|\|\s*['"]{2}\)\.trim\(\)/)
+  })
+})
+
+describe('empty-key HMAC fallback closed — signWithSecret() throws instead of signing with a publicly-computable key', () => {
+  // cron/phone-fixup keyed an HMAC with `process.env.ADMIN_PASSWORD || ''` —
+  // an empty HMAC key is publicly computable, so with ADMIN_PASSWORD
+  // unconfigured, anyone could mint a still-valid phone-fixup link for any
+  // cleaner id with zero credentials. Same class as lib/nycmaid/auth.ts's
+  // signToken()/hashPassword(), fixed the same way: signWithSecret() throws
+  // on an unset secret instead of falling back to ''.
+  //
+  // NOTE: team-portal/update-phone/route.ts has the identical pattern
+  // (`process.env.ADMIN_PASSWORD || ''` + a plain `!==` compare) but is
+  // intentionally NOT touched here — it's under /api/team-portal, in scope
+  // of this session's standing "do not touch team-PIN routes" boundary.
+  // Flagged to the leader as found-but-unfixed, pending Jeff's call.
+  it("cron/phone-fixup signs via signWithSecret(), no ADMIN_PASSWORD || '' fallback", () => {
+    const file = 'src/app/api/cron/phone-fixup/route.ts'
+    const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
+    expect(src).toMatch(/import\s*\{[^}]*\bsignWithSecret\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+    expect(src).toMatch(/signWithSecret\s*\(/)
+    expect(src).not.toMatch(/process\.env\.ADMIN_PASSWORD\s*\|\|\s*['"]/)
+    expect(src).not.toMatch(/createHmac\(/)
   })
 })

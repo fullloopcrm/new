@@ -7,8 +7,15 @@
  * Anyone who knew (or guessed) another client's client_id could read their
  * preferred-cleaner history or overwrite it — no client_session cookie needed.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import type { FakeSupabase, Row } from '@/test/fake-supabase'
+
+// createClientSession signs with ADMIN_PASSWORD (lib/nycmaid/auth.ts); it now
+// throws rather than falling back to an empty/publicly-computable HMAC key
+// when unset, so tests need a real secret configured same as auth.test.ts.
+beforeAll(() => {
+  process.env.ADMIN_PASSWORD ||= 'test-admin-password'
+})
 
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')

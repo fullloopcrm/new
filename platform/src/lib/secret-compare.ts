@@ -19,3 +19,19 @@ export function safeEqual(a: string | null | undefined, b: string | null | undef
   if (aBuf.length !== bBuf.length) return false
   return crypto.timingSafeEqual(aBuf, bBuf)
 }
+
+/**
+ * HMAC-SHA256 sign `payload` with `secret`. Throws if secret is empty/unset —
+ * several call sites used to fall back to `secret || ''` (or a literal
+ * fallback string), which HMAC-keys with a publicly-computable value: with
+ * the real secret unconfigured, anyone can compute the same signature and
+ * forge a valid session/token with zero credentials. Failing closed here
+ * means an unconfigured secret produces no valid signature at all, not an
+ * insecure one.
+ */
+export function signWithSecret(payload: string, secret: string | null | undefined): string {
+  if (!secret) {
+    throw new Error('Cannot sign: secret is not configured')
+  }
+  return crypto.createHmac('sha256', secret).update(payload).digest('hex')
+}

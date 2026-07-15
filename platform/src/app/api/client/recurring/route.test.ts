@@ -8,8 +8,15 @@
  * who knew another client's id could book real, priced, recurring work onto
  * their account and reassign their preferred cleaner.
  */
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
+
+// createClientSession signs with ADMIN_PASSWORD (lib/nycmaid/auth.ts); it now
+// throws rather than falling back to an empty/publicly-computable HMAC key
+// when unset, so tests need a real secret configured same as auth.test.ts.
+beforeAll(() => {
+  process.env.ADMIN_PASSWORD ||= 'test-admin-password'
+})
 
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')

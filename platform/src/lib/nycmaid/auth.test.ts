@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, vi } from 'vitest'
+import { describe, it, expect, beforeAll, afterEach, vi } from 'vitest'
 import { createHmac } from 'crypto'
 
 // auth.ts imports next/headers + supabase at module top for its async helpers.
@@ -125,5 +125,51 @@ describe('password hashing', () => {
 
   it('produces different hashes for different inputs', () => {
     expect(hashPassword('hunter2')).not.toBe(hashPassword('hunter3'))
+  })
+})
+
+describe('ADMIN_PASSWORD unconfigured — fail closed, not a forgeable empty-key HMAC', () => {
+  // Prior bug: signToken()/hashPassword() fell back to an HMAC key of ''
+  // (or the literal string 'fallback') when ADMIN_PASSWORD was unset. That
+  // key is publicly computable, so with the secret unconfigured, anyone
+  // could forge a valid admin_session for ANY userId or a client_session
+  // for ANY clientId with zero credentials, entirely independent of the
+  // login route's own checks.
+  const ORIGINAL = process.env.ADMIN_PASSWORD
+
+  afterEach(() => {
+    if (ORIGINAL === undefined) delete process.env.ADMIN_PASSWORD
+    else process.env.ADMIN_PASSWORD = ORIGINAL
+  })
+
+  it('createSessionCookie throws instead of signing with an empty key', () => {
+    delete process.env.ADMIN_PASSWORD
+    expect(() => createSessionCookie('victim-user')).toThrow()
+  })
+
+  it('a session forged with the empty-key HMAC (the pre-fix scheme) is rejected once ADMIN_PASSWORD is unset', () => {
+    delete process.env.ADMIN_PASSWORD
+    const userId = 'attacker-controlled-id'
+    const token = 'forged-token'
+    const timestamp = Date.now().toString(36)
+    const payload = `${userId}.${token}.${timestamp}`
+    // This is exactly what the pre-fix signToken() would have produced —
+    // an HMAC keyed with ''. An attacker needs no secret to compute this.
+    const forgedSignature = createHmac('sha256', '').update(payload).digest('hex')
+    expect(verifySessionCookie(`${payload}.${forgedSignature}`)).toEqual({ valid: false })
+  })
+
+  it('hashPassword throws instead of hashing with the literal "fallback" key', () => {
+    delete process.env.ADMIN_PASSWORD
+    expect(() => hashPassword('hunter2')).toThrow()
+  })
+
+  it('a client session forged with the empty-key HMAC is rejected once ADMIN_PASSWORD is unset', () => {
+    delete process.env.ADMIN_PASSWORD
+    const clientId = 'victim-client'
+    const timestamp = Date.now().toString()
+    const payload = `${clientId}.${timestamp}`
+    const forgedSignature = createHmac('sha256', '').update(payload).digest('hex')
+    expect(verifyClientSession(`${payload}.${forgedSignature}`)).toBeNull()
   })
 })

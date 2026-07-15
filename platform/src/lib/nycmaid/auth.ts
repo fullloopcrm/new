@@ -1,27 +1,33 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes, timingSafeEqual } from 'crypto'
+import { randomBytes, timingSafeEqual } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import type { AdminRole } from '@/lib/nycmaid/roles'
 import { canAccessAPI } from '@/lib/nycmaid/roles'
+import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
-// Session token = random value signed with ADMIN_PASSWORD as secret
-// Can't be forged without knowing the password
+// Session token = random value signed with ADMIN_PASSWORD as secret. Throws
+// if ADMIN_PASSWORD is unset (signWithSecret) rather than silently signing
+// with a '' key — an HMAC keyed with '' is publicly computable, so with the
+// secret unset anyone could forge a valid admin_session/client_session for
+// any id without ever touching the login endpoint.
 function signToken(token: string): string {
-  const secret = process.env.ADMIN_PASSWORD || ''
-  return createHmac('sha256', secret).update(token).digest('hex')
+  return signWithSecret(token, process.env.ADMIN_PASSWORD)
 }
 
 // Constant-time compare — a naive `!==` leaks signature bytes via timing.
+// Propagates signToken()'s throw when ADMIN_PASSWORD is unset; callers catch
+// it and fail closed (no valid session) instead of comparing against an
+// insecurely-derived signature.
 function signatureMatches(payload: string, signature: string): boolean {
   const expected = Buffer.from(signToken(payload), 'hex')
   const sig = Buffer.from(signature, 'hex')
   return expected.length === sig.length && timingSafeEqual(expected, sig)
 }
 
-// Hash password with HMAC-SHA256
+// Hash password with HMAC-SHA256. No 'fallback' key default — see signToken().
 export function hashPassword(password: string): string {
-  return createHmac('sha256', process.env.ADMIN_PASSWORD || 'fallback').update(password).digest('hex')
+  return signWithSecret(password, process.env.ADMIN_PASSWORD)
 }
 
 // Session cookie now encodes userId: userId.token.timestamp.signature
@@ -43,34 +49,40 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (!cookie) return { valid: false }
   const parts = cookie.split('.')
 
-  // New user-based format: userId.token.timestamp.signature
-  if (parts.length === 4) {
-    const [userId, token, timestamp, signature] = parts
-    if (!userId || !token || !timestamp || !signature) return { valid: false }
-    const payload = `${userId}.${token}.${timestamp}`
-    if (!signatureMatches(payload, signature)) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true, userId }
-  }
+  try {
+    // New user-based format: userId.token.timestamp.signature
+    if (parts.length === 4) {
+      const [userId, token, timestamp, signature] = parts
+      if (!userId || !token || !timestamp || !signature) return { valid: false }
+      const payload = `${userId}.${token}.${timestamp}`
+      if (!signatureMatches(payload, signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true, userId }
+    }
 
-  // Legacy format: token.timestamp.signature (PIN login, no userId)
-  if (parts.length === 3) {
-    const [token, timestamp, signature] = parts
-    if (!token || !timestamp || !signature) return { valid: false }
-    const payload = `${token}.${timestamp}`
-    if (!signatureMatches(payload, signature)) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true } // Legacy session, no userId — treated as owner
-  }
+    // Legacy format: token.timestamp.signature (PIN login, no userId)
+    if (parts.length === 3) {
+      const [token, timestamp, signature] = parts
+      if (!token || !timestamp || !signature) return { valid: false }
+      const payload = `${token}.${timestamp}`
+      if (!signatureMatches(payload, signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true } // Legacy session, no userId — treated as owner
+    }
 
-  // Ancient legacy: token.signature
-  if (parts.length === 2) {
-    const [token, signature] = parts
-    if (!token || !signature) return { valid: false }
-    if (!signatureMatches(token, signature)) return { valid: false }
-    return { valid: true }
+    // Ancient legacy: token.signature
+    if (parts.length === 2) {
+      const [token, signature] = parts
+      if (!token || !signature) return { valid: false }
+      if (!signatureMatches(token, signature)) return { valid: false }
+      return { valid: true }
+    }
+  } catch {
+    // ADMIN_PASSWORD not configured — signToken() throws rather than sign
+    // with a publicly-computable '' key. Fail closed: no session is valid.
+    return { valid: false }
   }
 
   return { valid: false }
@@ -142,7 +154,12 @@ export function verifyClientSession(cookie: string): string | null {
   const [clientId, timestamp, signature] = parts
   if (!clientId || !timestamp || !signature) return null
   const payload = `${clientId}.${timestamp}`
-  if (!signatureMatches(payload, signature)) return null
+  try {
+    if (!signatureMatches(payload, signature)) return null
+  } catch {
+    // ADMIN_PASSWORD not configured — fail closed, same as verifySessionCookie.
+    return null
+  }
   // Sessions valid for 30 days
   const age = Date.now() - parseInt(timestamp)
   if (age > 30 * 24 * 60 * 60 * 1000) return null
@@ -187,8 +204,11 @@ export function protectCronAPI(request: Request): NextResponse | null {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   }
 
-  // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
-  if (authHeader === `Bearer ${cronSecret}`) {
+  // Vercel cron sends: Authorization: Bearer <CRON_SECRET>. Constant-time
+  // compare — a naive `===` leaks CRON_SECRET one byte at a time via
+  // response timing (same class already fixed for the other cron helper,
+  // lib/cron-auth.ts's verifyCronSecret()).
+  if (safeEqual(authHeader, `Bearer ${cronSecret}`)) {
     return null
   }
 

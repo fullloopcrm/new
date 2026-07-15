@@ -1,10 +1,10 @@
 import { NextResponse } from 'next/server'
-import { createHmac } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { validateUsPhone } from '@/lib/nycmaid/phone-validator'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
+import { signWithSecret } from '@/lib/secret-compare'
 
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
@@ -20,7 +20,9 @@ const CAP = 10
 function signToken(cleanerId: string): string {
   const expiry = Date.now() + TOKEN_EXPIRY_MS
   const payload = `${cleanerId}.${expiry}`
-  const sig = createHmac('sha256', process.env.ADMIN_PASSWORD || '').update(payload).digest('hex')
+  // signWithSecret throws when ADMIN_PASSWORD is unset (caught per-cleaner
+  // below) instead of signing with a publicly-computable '' key.
+  const sig = signWithSecret(payload, process.env.ADMIN_PASSWORD)
   return `${payload}.${sig}`
 }
 
