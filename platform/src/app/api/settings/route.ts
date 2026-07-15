@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
@@ -9,8 +9,9 @@ import { encryptTenantSecrets } from '@/lib/secret-crypto'
 
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
-    return NextResponse.json({ tenant })
+    const { tenant: authTenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    return NextResponse.json({ tenant: authTenant.tenant })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
