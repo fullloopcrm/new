@@ -307,6 +307,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 295 files / 1272 passed / 37 skipped / 1 failed (unrelated pre-existing flaky timeout in `finance-export.test.ts`, passes in isolation) |
 | **Rank rationale** | Same exfil class as P1/P4 (unscoped embedded join surfacing a foreign row's fields) but discovered as a **regression in an already-"fixed" entry** — P1's guard only ever closed the direct name-copy read, not the underlying FK-injection, so the same booking-creation surface stayed exploitable via a different read path the whole time. Worth flagging for Q3: any prior "FIXED" entry whose fix only gated a *derived* field (a copied name/amount) rather than the *FK column itself* should be re-audited for the same partial-fix shape. |
 
+### P21 — `reviews/request` POST → cross-tenant `booking_id` FK injection (admin-side twin of P15) — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/reviews/request` (unconverted, raw `supabaseAdmin`) — internal/operator-triggered review-request send, distinct from the client-portal `POST /api/portal/feedback` (register P15) |
+| **Table** | `reviews` (FK `booking_id`) |
+| **Attack vector** | `client_id` was already verified tenant-owned before insert, but `booking_id` was caller-supplied and inserted **verbatim** with no ownership check at all — the identical gap P15 closed on the client-portal twin of this route, just never applied here. |
+| **Effect** | An operator of tenant A could attach a `booking_id` belonging to tenant B (or another client of A) to an internal review-request record. No current read joins `bookings(...)` off `reviews` (confirmed: `GET /api/reviews` embeds only `clients(name)`, `GET /api/admin/reviews` is `select('*')`), so this is a dangling-reference bug rather than live exfil today — same lower-severity shape as P15/P7, not P1. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in a broad-hunt sweep of routes adjacent to the already-fixed P15, 2026-07-14, W2) |
+| **Fix** | `booking_id`, when supplied, is now verified owned (`tenant_id` = caller AND `client_id` = the review's `client_id`) before insert; a miss 404s (stricter than P15's silent-drop, matching the majority POST-route convention in this register since this is an admin-side route, not an anonymous client submission). |
+| **Regression lock** | `src/app/api/reviews/request/route.witness.test.ts` (foreign-tenant booking_id 404s no insert; same-tenant-other-client booking_id 404s no insert; CONTROL: caller's own client's booking_id kept, CONTROL: omitted booking_id still succeeds as null) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 296 files / 1277 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same class and severity as P15 — placed after P20 since found in a later sweep specifically checking whether P15's guard was applied consistently across every route that writes `reviews.booking_id`. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -406,8 +420,11 @@ live leaks. This section is a **negative result, not a to-do list**.
    finance/payroll edge-case sweep) → P20 bookings/schedules/
    bookings-batch service_type_id dangling-FK → invoices-embed READ
    (✅ fixed, 2026-07-14, W2, found sweeping the invoices from_booking_id
-   prefill — a regression/incompleteness in P1's original fix).** All items
-   in this register are now closed.
+   prefill — a regression/incompleteness in P1's original fix) → P21
+   reviews/request POST booking_id (✅ fixed, 2026-07-14, W2, found checking
+   whether P15's guard was applied consistently across every route that
+   writes reviews.booking_id — it wasn't, on the admin-side twin).** All
+   items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
