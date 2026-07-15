@@ -8,11 +8,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: Request) {
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const tenantId = tenant.tenantId
     const { bookingId, clientOnly, channel = 'email' } = await request.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
 
@@ -76,7 +79,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json({ success: true, results })
   } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('send-booking-emails error:', err)
     return NextResponse.json({ error: 'Send failed' }, { status: 500 })
   }
