@@ -1,6 +1,6 @@
-import { supabaseAdmin } from '@/lib/supabase'
-import { getOwnerUserId } from '@/lib/owner-session'
+import { getAdminUser } from '@/lib/nycmaid/auth'
 import { redirect } from 'next/navigation'
+import { lookupInvite, acceptInviteForAdmin } from '@/lib/accept-invite'
 import JoinClient from './join-client'
 
 export default async function JoinPage({
@@ -10,14 +10,9 @@ export default async function JoinPage({
 }) {
   const { token } = await params
 
-  // Look up the invite
-  const { data: invite } = await supabaseAdmin
-    .from('tenant_invites')
-    .select('*, tenants(id, name, industry)')
-    .eq('token', token)
-    .single()
+  const lookup = await lookupInvite(token)
 
-  if (!invite) {
+  if (lookup.status === 'invalid') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
@@ -28,7 +23,7 @@ export default async function JoinPage({
     )
   }
 
-  if (invite.accepted) {
+  if (lookup.status === 'already_accepted') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
@@ -42,7 +37,7 @@ export default async function JoinPage({
     )
   }
 
-  if (new Date(invite.expires_at) < new Date()) {
+  if (lookup.status === 'expired') {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="text-center max-w-md">
@@ -53,35 +48,31 @@ export default async function JoinPage({
     )
   }
 
+  const { invite } = lookup
+
   // Check if user is already signed in
-  const userId = await getOwnerUserId()
+  const admin = await getAdminUser()
 
-  if (userId) {
-    // Already signed in — accept the invite directly
-    // Check if already a member
-    const { data: existingMember } = await supabaseAdmin
-      .from('tenant_members')
-      .select('id')
-      .eq('tenant_id', invite.tenant_id)
-      .eq('clerk_user_id', userId)
-      .single()
+  if (admin) {
+    const result = await acceptInviteForAdmin(invite, admin)
 
-    if (!existingMember) {
-      // Add them as a member
-      await supabaseAdmin.from('tenant_members').insert({
-        tenant_id: invite.tenant_id,
-        clerk_user_id: userId,
-        role: invite.role || 'owner',
-      })
+    if (result.status === 'accepted') {
+      redirect('/dashboard')
     }
 
-    // Mark invite as accepted
-    await supabaseAdmin
-      .from('tenant_invites')
-      .update({ accepted: true })
-      .eq('id', invite.id)
-
-    redirect('/dashboard')
+    // email_mismatch — the active session belongs to a different identity
+    // than the one this invite was sent to. Do not silently grant access.
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50">
+        <div className="text-center max-w-md">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">Wrong Account</h1>
+          <p className="text-gray-600 mb-4">
+            This invite was sent to <strong>{result.inviteEmail}</strong>, but you&apos;re signed in as a different
+            account. Sign out and try again, or contact your administrator.
+          </p>
+        </div>
+      </div>
+    )
   }
 
   // Not signed in — show invite details with sign-up option
