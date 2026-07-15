@@ -11,7 +11,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 
@@ -44,7 +44,9 @@ export async function GET(request: Request) {
     }
 
     // Admin-session path.
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('referrals.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     let query = supabaseAdmin
       .from('referral_commissions')
       .select('*, referrers(name, email, referral_code), bookings(start_time, price)')
