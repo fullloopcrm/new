@@ -2,6 +2,7 @@
 // Client-facing tools (14) → call into yinez/core.ts handleTool.
 // Owner-facing tools (8) → inline supabase queries.
 
+import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
@@ -1482,7 +1483,7 @@ async function handleCreateClient(input: { name: string; phone: string; email?: 
     return JSON.stringify({ ok: true, client_id: existing.id, name: existing.name, note: 'already existed; linked conversation' })
   }
 
-  const pin = Math.floor(100000 + Math.random() * 900000).toString()
+  const pin = String(100000 + randomInt(0, 900000))
   const { data: client, error } = await supabaseAdmin
     .from('clients')
     .insert({ tenant_id: tid, name: input.name, phone, email: input.email || null, status: 'potential', pin })

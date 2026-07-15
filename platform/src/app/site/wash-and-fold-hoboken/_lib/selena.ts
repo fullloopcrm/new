@@ -1,3 +1,4 @@
+import { randomInt } from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
 import { checkAvailability, getSmartSuggestions, checkCleanerAvailability } from '@/app/site/wash-and-fold-hoboken/_lib/availability'
@@ -447,7 +448,7 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     }
 
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ name, phone, status: 'potential', pin: Math.floor(100000 + Math.random() * 900000).toString() }).select('id').single()
+      .from('clients').insert({ name, phone, status: 'potential', pin: String(100000 + randomInt(0, 900000)) }).select('id').single()
 
     if (client) {
       await supabaseAdmin.from('sms_conversations')
