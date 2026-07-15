@@ -9,6 +9,12 @@ import { NextRequest } from 'next/server'
  * 'manager' (neither has campaigns.send per rbac.ts) -- could publish live
  * content to the tenant's public Google listing via the API. Fixed to
  * require campaigns.send, matching social/post's established convention.
+ *
+ * GET /api/google/posts — same missing-authz class: only checked
+ * getTenantForRequest(), unlike the sibling social/posts route (gated on
+ * campaigns.view). 'staff' has no campaigns permission at all per rbac.ts, so
+ * any staff member could read the tenant's Google Business post history via
+ * the API. Fixed to require campaigns.view, matching social/posts.
  */
 
 const roleHolder = vi.hoisted(() => ({ role: 'owner' as string, tenantId: 'tenant-A' as string }))
@@ -37,13 +43,14 @@ const generateGooglePost = vi.hoisted(() => vi.fn(async () => 'generated draft')
 const getGooglePosts = vi.hoisted(() => vi.fn(async () => []))
 vi.mock('@/lib/google-posts', () => ({ createGooglePost, generateGooglePost, getGooglePosts }))
 
-import { POST } from './route'
+import { GET, POST } from './route'
 
 beforeEach(() => {
   roleHolder.role = 'owner'
   roleHolder.tenantId = 'tenant-A'
   createGooglePost.mockClear()
   generateGooglePost.mockClear()
+  getGooglePosts.mockClear()
 })
 
 const req = (body: unknown) => new NextRequest('http://x', { method: 'POST', body: JSON.stringify(body) })
@@ -69,5 +76,26 @@ describe('POST /api/google/posts — permission gate', () => {
     const res = await POST(req({ generateAI: true, topic: 'spring special' }))
     expect(res.status).toBe(403)
     expect(generateGooglePost).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/google/posts — permission gate', () => {
+  it('owner (has campaigns.view) can list posts', async () => {
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect(getGooglePosts).toHaveBeenCalledWith('tenant-A')
+  })
+
+  it("manager (campaigns.view) can list posts", async () => {
+    roleHolder.role = 'manager'
+    const res = await GET()
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: 'staff' role (no campaigns permission at all) is forbidden and never reads posts", async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(403)
+    expect(getGooglePosts).not.toHaveBeenCalled()
   })
 })

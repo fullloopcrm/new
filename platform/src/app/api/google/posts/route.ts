@@ -1,13 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { createGooglePost, generateGooglePost, getGooglePosts } from '@/lib/google-posts'
 import { requirePermission } from '@/lib/require-permission'
 
-// GET — list all posts for tenant
+// GET — list all posts for tenant. Gated on campaigns.view, matching the
+// sibling social/posts route's established convention -- 'staff' has no
+// campaigns permission at all per rbac.ts.
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('campaigns.view')
+  if (authError) return authError
+
   try {
-    const { tenant } = await getTenantForRequest()
-    const posts = await getGooglePosts(tenant.id)
+    const posts = await getGooglePosts(tenant.tenantId)
     return NextResponse.json({ posts })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })

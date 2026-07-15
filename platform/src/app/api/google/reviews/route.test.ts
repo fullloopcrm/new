@@ -11,9 +11,21 @@ import { NextRequest } from 'next/server'
  * 'staff' (reviews.view only, no reviews.request per rbac.ts) could do
  * either. Fixed to require reviews.request on both, matching the sibling
  * route's established convention.
+ *
+ * GET /api/google/reviews — same missing-authz class: only checked
+ * getTenantForRequest(). Every default role happens to include reviews.view,
+ * so this was invisible day-to-day, but rbac.ts lets a tenant override
+ * per-role permissions (tenants.selena_config.role_permissions) and that
+ * override was silently ignored here. Fixed with requirePermission
+ * ('reviews.view'), matching the notifications route's established
+ * convention of enforcing the tenant's actual configured permission set.
  */
 
-const roleHolder = vi.hoisted(() => ({ role: 'owner' as string, tenantId: 'tenant-A' as string }))
+const roleHolder = vi.hoisted(() => ({
+  role: 'owner' as string,
+  tenantId: 'tenant-A' as string,
+  overrides: null as Record<string, unknown> | null,
+}))
 
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
@@ -28,7 +40,10 @@ vi.mock('@/lib/tenant-query', () => {
     getTenantForRequest: vi.fn(async () => ({
       userId: 'u1',
       tenantId: roleHolder.tenantId,
-      tenant: { id: roleHolder.tenantId },
+      tenant: {
+        id: roleHolder.tenantId,
+        selena_config: roleHolder.overrides ? { role_permissions: roleHolder.overrides } : null,
+      },
       role: roleHolder.role,
     })),
   }
@@ -38,17 +53,32 @@ const review = { id: 'rev-1', tenant_id: 'tenant-A', reviewer_name: 'Alex', rati
 
 const updateEq = vi.hoisted(() => vi.fn(async () => ({ error: null })))
 const upsertFn = vi.hoisted(() => vi.fn(async () => ({ error: null })))
+const selectReviews = vi.hoisted(() => vi.fn())
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'google_reviews') {
         return {
-          select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: review }) }) }) }),
+          // GET's chain terminates on .limit(); POST's on .single() after a
+          // second .eq(). Both share the same .eq()-returns-self chain.
+          select: (...args: unknown[]) => {
+            selectReviews(...args)
+            const chain = {
+              eq: () => chain,
+              order: () => chain,
+              limit: async () => ({ data: [review] }),
+              single: async () => ({ data: review }),
+            }
+            return chain
+          },
           update: () => ({ eq: updateEq }),
         }
       }
       if (table === 'tenant_settings') {
-        return { upsert: upsertFn }
+        return {
+          select: () => ({ eq: () => ({ single: async () => ({ data: { google_auto_reply: false } }) }) }),
+          upsert: upsertFn,
+        }
       }
       throw new Error(`unexpected table ${table}`)
     },
@@ -62,14 +92,16 @@ const generateReviewReply = vi.hoisted(() => vi.fn(async () => 'AI reply'))
 const postReviewReply = vi.hoisted(() => vi.fn(async () => true))
 vi.mock('@/lib/google-reviews', () => ({ generateReviewReply, postReviewReply }))
 
-import { POST, PUT } from './route'
+import { GET, POST, PUT } from './route'
 
 beforeEach(() => {
   roleHolder.role = 'owner'
   roleHolder.tenantId = 'tenant-A'
+  roleHolder.overrides = null
   postReviewReply.mockClear()
   generateReviewReply.mockClear()
   upsertFn.mockClear()
+  selectReviews.mockClear()
 })
 
 const req = (body: unknown) => new NextRequest('http://x', { method: 'POST', body: JSON.stringify(body) })
@@ -108,5 +140,34 @@ describe('PUT /api/google/reviews — permission gate', () => {
     const res = await PUT(req({ autoReply: true }))
     expect(res.status).toBe(403)
     expect(upsertFn).not.toHaveBeenCalled()
+  })
+})
+
+describe('GET /api/google/reviews — permission gate', () => {
+  it('owner can list reviews', async () => {
+    const res = await GET()
+    expect(res.status).toBe(200)
+    expect(selectReviews).toHaveBeenCalled()
+  })
+
+  it('staff (has reviews.view by default) can list reviews', async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: rejects staff with 403 once the tenant overrides reviews.view off for staff, and never reads", async () => {
+    roleHolder.role = 'staff'
+    roleHolder.overrides = { staff: { 'reviews.view': false } }
+    const res = await GET()
+    expect(res.status).toBe(403)
+    expect(selectReviews).not.toHaveBeenCalled()
+  })
+
+  it('owner is never affected by a staff override (owner bypasses permission checks)', async () => {
+    roleHolder.role = 'owner'
+    roleHolder.overrides = { staff: { 'reviews.view': false } }
+    const res = await GET()
+    expect(res.status).toBe(200)
   })
 })

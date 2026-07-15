@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateReviewReply, postReviewReply } from '@/lib/google-reviews'
 import { getGoogleBusiness } from '@/lib/google'
 import { requirePermission } from '@/lib/require-permission'
 
-// GET — list reviews for current tenant
+// GET — list reviews for current tenant. Gated on reviews.view so a tenant
+// that customizes a role's reviews.view off (RolePermissionOverrides) is
+// actually enforced -- previously any authenticated member could read.
 export async function GET() {
-  try {
-    const { tenant } = await getTenantForRequest()
+  const { tenant, error: authError } = await requirePermission('reviews.view')
+  if (authError) return authError
 
+  try {
     const { data: reviews } = await supabaseAdmin
       .from('google_reviews')
       .select('*')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .order('review_created_at', { ascending: false })
       .limit(50)
 
@@ -21,10 +24,10 @@ export async function GET() {
     const { data: autoReplySetting } = await supabaseAdmin
       .from('tenant_settings')
       .select('google_auto_reply')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .single()
 
-    const business = await getGoogleBusiness(tenant.id)
+    const business = await getGoogleBusiness(tenant.tenantId)
 
     return NextResponse.json({
       reviews: reviews || [],
