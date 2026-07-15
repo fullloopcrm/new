@@ -76,6 +76,18 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
     file: 'src/app/api/admin/seo/apply/route.ts',
     vulnerable: /bearer\s*===\s*`Bearer \$\{secret\}`/,
   },
+  // Third batch: SELENA_TEST_TOKEN compares, missed by the original queue-c
+  // sweep. Both routes are 404-when-unset test harnesses, but when
+  // SELENA_TEST_TOKEN IS configured (e.g. a shared parity-test environment),
+  // a plain `!==` leaks the token one byte at a time via response timing.
+  {
+    file: 'src/app/api/test/email-selena/route.ts',
+    vulnerable: /body\.key\s*!==\s*expectedToken/,
+  },
+  {
+    file: 'src/app/api/test/email-selena/cleanup/route.ts',
+    vulnerable: /body\.key\s*!==\s*expectedToken/,
+  },
 ]
 
 describe('constant-time secret compare invariant (queue-c)', () => {
