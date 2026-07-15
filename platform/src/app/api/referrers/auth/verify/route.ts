@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { safeEqual } from '@/lib/secret-compare'
 
 // Step 2 of referrer login: email + 6-digit code in → session token out.
 export async function POST(request: NextRequest) {
@@ -30,12 +31,17 @@ export async function POST(request: NextRequest) {
     .eq('status', 'active')
     .maybeSingle()) as { data: { id: string; referral_code: string; otp_hash: string | null; otp_expires_at: string | null } | null }
 
+  // Constant-time compare: a plain === on the OTP hash lets an attacker recover
+  // the full stored hash byte-by-byte from response latency, then brute-force
+  // the 900k-code space offline in microseconds -- completely bypassing the
+  // per-identifier rate limit above. Matches this file's own token verifier
+  // (referrer-portal-auth.ts's verifyReferrerToken), which already does this.
   const valid =
     referrer &&
     referrer.otp_hash &&
     referrer.otp_expires_at &&
     new Date(referrer.otp_expires_at).getTime() > Date.now() &&
-    referrer.otp_hash === hashOtp(code)
+    safeEqual(hashOtp(code), referrer.otp_hash)
 
   if (!valid) {
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 401 })
