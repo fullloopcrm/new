@@ -1063,6 +1063,23 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+
+  // cleaner_id is a caller (model-supplied) FK — the sibling assign_cleaner_to_booking
+  // tool already verifies it belongs to this tenant before writing it; this tool
+  // let the same field through unchecked via the allow-list. list_bookings embeds
+  // cleaners(name, id) off this exact column, so an unverified foreign id would
+  // read back another tenant's cleaner name on the next list_bookings call —
+  // same class as the P25 finding in deploy-prep/cross-tenant-leak-register.md.
+  if (update.cleaner_id) {
+    const { data: cleaner } = await supabaseAdmin
+      .from('cleaners')
+      .select('id')
+      .eq('id', update.cleaner_id as string)
+      .eq('tenant_id', tid)
+      .maybeSingle()
+    if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+  }
+
   const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, updated_fields: Object.keys(update) })
@@ -1227,6 +1244,19 @@ async function handleListDeals(input: { stage?: string }, tid: string): Promise<
 }
 
 async function handleCreateDeal(input: { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }, tid: string): Promise<string> {
+  // client_id is a caller (model-supplied) FK — verify it belongs to this
+  // tenant before insert. list_deals embeds clients(name, phone) off this
+  // column, so an unverified foreign id would read back another tenant's
+  // client name/phone on the next list_deals call — same class as the P25
+  // finding in deploy-prep/cross-tenant-leak-register.md.
+  const { data: client } = await supabaseAdmin
+    .from('clients')
+    .select('id')
+    .eq('id', input.client_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!client) return JSON.stringify({ error: 'client not found' })
+
   const { data, error } = await supabaseAdmin
     .from('deals')
     .insert({

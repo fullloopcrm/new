@@ -34,6 +34,7 @@ function makeTables() {
       { id: 'booking_a', tenant_id: TENANT_A, cleaner_id: null, client_id: 'client_a', status: 'pending' },
     ] as Row[],
     cleaner_blocks: [] as Row[],
+    deals: [] as Row[],
   }
 }
 
@@ -197,5 +198,63 @@ describe('block_cleaner_dates — foreign cleaner_id rejected before insert', ()
     expect(tables.cleaner_blocks.length).toBe(1)
     expect(tables.cleaner_blocks[0].cleaner_id).toBe('cleaner_a')
     expect(tables.cleaner_blocks[0].tenant_id).toBe(TENANT_A)
+  })
+})
+
+describe('update_booking — foreign cleaner_id in fields rejected before write', () => {
+  it('LOCK: cleaner_b (tenant B) via fields.cleaner_id is rejected, booking.cleaner_id stays null', async () => {
+    const out = await runTool(
+      'update_booking',
+      { booking_id: 'booking_a', fields: { cleaner_id: 'cleaner_b' } },
+      'conv_1', 'owner_phone', stubResult(), TENANT_A
+    )
+    expect(JSON.parse(out).error).toBe('cleaner not found')
+    expect(tables.bookings[0].cleaner_id).toBeNull()
+  })
+
+  it('CONTROL: cleaner_a (own tenant) via fields.cleaner_id succeeds', async () => {
+    const out = await runTool(
+      'update_booking',
+      { booking_id: 'booking_a', fields: { cleaner_id: 'cleaner_a' } },
+      'conv_1', 'owner_phone', stubResult(), TENANT_A
+    )
+    expect(JSON.parse(out).ok).toBe(true)
+    expect(tables.bookings[0].cleaner_id).toBe('cleaner_a')
+  })
+
+  it('CONTROL: a field-only update with no cleaner_id still applies', async () => {
+    const out = await runTool(
+      'update_booking',
+      { booking_id: 'booking_a', fields: { status: 'confirmed' } },
+      'conv_1', 'owner_phone', stubResult(), TENANT_A
+    )
+    expect(JSON.parse(out).ok).toBe(true)
+    expect(tables.bookings[0].status).toBe('confirmed')
+    expect(tables.bookings[0].cleaner_id).toBeNull()
+  })
+})
+
+describe('create_deal — foreign client_id rejected before insert', () => {
+  it('LOCK: client_b (tenant B) is rejected, no deal created', async () => {
+    const out = await runTool(
+      'create_deal',
+      { client_id: 'client_b' },
+      'conv_1', 'owner_phone', stubResult(), TENANT_A
+    )
+    expect(JSON.parse(out).error).toBe('client not found')
+    expect(tables.deals.length).toBe(0)
+  })
+
+  it('CONTROL: client_a (own tenant) succeeds and is stamped', async () => {
+    const out = await runTool(
+      'create_deal',
+      { client_id: 'client_a', value_dollars: 100 },
+      'conv_1', 'owner_phone', stubResult(), TENANT_A
+    )
+    const parsed = JSON.parse(out)
+    expect(parsed.ok).toBe(true)
+    expect(tables.deals.length).toBe(1)
+    expect(tables.deals[0].client_id).toBe('client_a')
+    expect(tables.deals[0].tenant_id).toBe(TENANT_A)
   })
 })
