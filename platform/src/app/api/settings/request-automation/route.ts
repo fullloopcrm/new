@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 /**
  * Tenants can't author net-new automated triggers themselves (a new trigger
@@ -24,6 +25,14 @@ export async function POST(request: Request) {
   const title = String(body?.title || '').trim().slice(0, 160)
   const description = String(body?.description || '').trim().slice(0, 2000)
   if (!title) return NextResponse.json({ error: 'A short title is required.' }, { status: 400 })
+
+  // No RBAC gate is warranted here (any tenant member may legitimately request
+  // a trigger), but with no rate limit any authenticated member could spam the
+  // platform team's inbox. Cap per-tenant volume.
+  const rl = await rateLimitDb(`request-automation:${tenant.tenantId}`, 5, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Try again later.' }, { status: 429 })
+  }
 
   const { data: t } = await supabaseAdmin
     .from('tenants')

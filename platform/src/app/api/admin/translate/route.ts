@@ -5,17 +5,31 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { rateLimitDb } from '@/lib/rate-limit-db'
+
+const MAX_TEXT_LENGTH = 5000
 
 export async function POST(request: Request) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenantId, tenant } = await getTenantForRequest()
     const { text, target = 'Spanish' } = await request.json()
 
     if (!text || typeof text !== 'string') {
       return NextResponse.json({ error: 'No text provided' }, { status: 400 })
     }
+    if (text.length > MAX_TEXT_LENGTH) {
+      return NextResponse.json({ error: `Text is too long (max ${MAX_TEXT_LENGTH} characters)` }, { status: 400 })
+    }
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
+    }
+
+    // Any authenticated tenant member can trigger this paid Anthropic call with
+    // no cost control; cap per-tenant volume so a scripted caller can't run up
+    // unbounded API spend against the tenant's stored key.
+    const rl = await rateLimitDb(`admin-translate:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many translation requests. Try again shortly.' }, { status: 429 })
     }
 
     const client = anthropicFromStoredKey(tenant.anthropic_api_key)
