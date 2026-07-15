@@ -26,6 +26,7 @@ vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({
     tenantId: h.tenantId,
     tenant: { name: 'Tenant ' + h.tenantId, primary_color: '#000000' },
+    role: 'owner',
   }),
   AuthError: class AuthError extends Error { status = 401 },
 }))

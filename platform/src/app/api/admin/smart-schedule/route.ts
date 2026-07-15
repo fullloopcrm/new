@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { scoreTeamForBooking, pickBestTeam, suggestBookingSlots } from '@/lib/smart-schedule'
 
 export async function GET(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('schedules.view')
+  if (authError) return authError
 
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')

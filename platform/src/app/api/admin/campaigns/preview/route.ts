@@ -3,7 +3,8 @@
  * and a rendered HTML preview. Tenant-scoped.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 
 interface BookingRow {
@@ -33,7 +34,9 @@ function wrapEmail(bodyHtml: string, tenantName: string, brandColor: string): st
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('campaigns.view')
+    if (authError) return authError
+    const { tenantId, tenant } = ctx
     const { audience_filter, email_body, channel, contact_filter } = await request.json()
 
     let clientsQuery = tenantDb(tenantId)

@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 // Live visitor feed for the tenant's tracked sites. Ported from nycmaid
 // admin/analytics/live-feed, tenant-scoped for FullLoop (filters lead_clicks by
@@ -24,13 +24,9 @@ interface LiveVisit {
 }
 
 export async function GET() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('campaigns.view')
+  if (authError) return authError
+  const { tenantId } = ctx
 
   try {
     const { data, error } = await supabaseAdmin
