@@ -31,6 +31,25 @@ export async function POST(req: NextRequest) {
 
     let conversationId = sessionId
 
+    // A client-supplied sessionId must belong to THIS tenant's conversation.
+    // Without this check, a visitor to tenantId's own site could pass any
+    // other tenant's sms_conversations.id and the reused conversation would
+    // run end-to-end as that foreign tenant: askYinez re-derives its entire
+    // tenant context (Anthropic key, business config, client PII, message
+    // history) purely from the conversation row's tenant_id, and the legacy
+    // askSelena path reads/writes booking_checklist by conversationId alone
+    // with no tenant filter. Same pattern as the /api/admin-chat fix
+    // (e8052fb1) and the /api/yinez fix alongside this one.
+    if (conversationId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) conversationId = undefined
+    }
+
     // Create conversation if new session
     if (!conversationId) {
       const webPhone = phone ? `web-${phone}` : `web-${crypto.randomUUID().slice(0, 8)}`
