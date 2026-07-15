@@ -37,6 +37,14 @@ interface LeadBody {
 // so no field is silently dropped.
 const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source'])
 
+// Escape LIKE/ILIKE wildcards so the dedup lookup only ever matches the
+// literal name (Postgres default LIKE escape char is backslash). Same
+// pattern already fixed on /api/referrers, /api/client/check, /api/pin-reset,
+// /api/ingest/application.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 function buildLeadNotes(body: LeadBody): string | null {
   const lines: string[] = []
   const base = (body.details || body.message || '').toString().trim()
@@ -87,7 +95,7 @@ export async function POST(request: NextRequest) {
             .select('id')
             .eq('tenant_id', tenant.id)
             .eq('phone', appPhone)
-            .ilike('name', name)
+            .ilike('name', escapeLike(name))
             .limit(1)
             .maybeSingle()
           if (dupe) return NextResponse.json({ success: true, application_id: dupe.id, deduped: true })

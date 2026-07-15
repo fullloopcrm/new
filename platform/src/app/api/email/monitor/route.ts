@@ -22,6 +22,14 @@ import { sendSMS } from '@/lib/sms'
 
 export const maxDuration = 60
 
+// Escape LIKE/ILIKE wildcards so payer-name matching (attacker-influenced —
+// Zelle/Venmo let the sender pick their own display name) only ever matches
+// the literal substring. Same pattern already fixed on the sibling inbound-
+// email lookups in admin/comhub/contacts/[id]/context and cron/comhub-email.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 interface TenantRow {
   id: string
   name: string | null
@@ -174,7 +182,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
       .select('id, client_id, clients(phone)')
       .eq('tenant_id', tenant.id)
       .neq('payment_status', 'paid')
-      .ilike('payment_sender_name', `%${senderLower}%`)
+      .ilike('payment_sender_name', `%${escapeLike(senderLower)}%`)
       .order('start_time', { ascending: false })
       .limit(1)
     if (byPayer && byPayer.length > 0) {
@@ -189,7 +197,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
       .from('clients')
       .select('id, phone')
       .eq('tenant_id', tenant.id)
-      .ilike('name', `%${senderLower}%`)
+      .ilike('name', `%${escapeLike(senderLower)}%`)
       .limit(5)
     for (const client of clients || []) {
       const { data: booking } = await supabaseAdmin
