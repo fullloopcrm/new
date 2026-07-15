@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 type CalendarEvent = {
@@ -75,7 +76,9 @@ function heatLevel(jobs: number, max: number): CalendarDay['heat'] {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const url = request.nextUrl
     const monthParam = url.searchParams.get('month') // YYYY-MM
     const focus = monthParam

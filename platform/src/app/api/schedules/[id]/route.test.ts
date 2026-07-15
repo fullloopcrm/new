@@ -49,7 +49,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, role: 'owner' }))
   h.audit.mockReset()
   h.audit.mockResolvedValue(undefined)
   h.store = {

@@ -3,14 +3,15 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
  * GET/POST /api/schedules — first route-level regression test (P1/W1 O13
- * sweep). Distinct from admin/recurring-schedules (different auth —
- * getTenantForRequest, not requirePermission — different route tree, same
- * underlying tables). Zero prior coverage of schedule creation + the
- * first-4-weeks booking generation, the tenant-scoped service_type_id
- * lookup, or tenant isolation on the list. `generateRecurringDates` is
- * mocked to return controlled dates — its own recurrence-math has separate
- * unit tests; this file verifies the ROUTE turns those dates into booking
- * rows correctly.
+ * sweep). Distinct from admin/recurring-schedules (different route tree,
+ * same underlying tables — both now gated via requirePermission after the
+ * P1/W1 broad-hunt found this tree was only checking session auth, not the
+ * schedules.view/schedules.create RBAC permission). Zero prior coverage of
+ * schedule creation + the first-4-weeks booking generation, the
+ * tenant-scoped service_type_id lookup, or tenant isolation on the list.
+ * `generateRecurringDates` is mocked to return controlled dates — its own
+ * recurrence-math has separate unit tests; this file verifies the ROUTE
+ * turns those dates into booking rows correctly.
  */
 
 const h = vi.hoisted(() => ({
@@ -56,7 +57,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, role: 'owner' }))
   h.audit.mockReset()
   h.audit.mockResolvedValue(undefined)
   h.generateRecurringDates.mockReset()
