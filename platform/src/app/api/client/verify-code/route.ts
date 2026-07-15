@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -74,7 +75,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('*')
         .eq('tenant_id', tenant.id)
-        .ilike('email', email.trim())
+        .ilike('email', escapeLikeValue(email.trim()))
         .order('created_at', { ascending: true })
         .limit(1)
       client = (emailMatches?.[0] as typeof client) || null
