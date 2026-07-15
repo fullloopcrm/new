@@ -1,12 +1,14 @@
 /**
  * Jobs list + money reconciliation. Returns every job for the tenant with a
  * per-job payment rollup (contracted / paid / due / overdue) and a tenant-wide
- * total. Read-only, tenant-scoped.
+ * total. Read-only, tenant-scoped. Gated on finance.view (matches every other
+ * money-reconciliation endpoint under /api/finance/* and /api/invoices).
  *
  * GET → { jobs: [...], totals: { contracted, paid, due, overdue } }
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 interface PaymentRow {
@@ -30,7 +32,9 @@ function rollup(payments: PaymentRow[], nowIso: string) {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const nowIso = new Date().toISOString()
 
     const { data: jobs, error } = await supabaseAdmin
