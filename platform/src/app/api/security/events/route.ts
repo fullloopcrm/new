@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: Request) {
-  let tenant
-  try {
-    ({ tenant } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant, error: authError } = await requirePermission('audit.view')
+  if (authError) return authError
 
   const url = new URL(request.url)
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
@@ -17,7 +12,7 @@ export async function GET(request: Request) {
   const { data: events } = await supabaseAdmin
     .from('security_events')
     .select('*')
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .order('created_at', { ascending: false })
     .limit(limit)
 
