@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import type Anthropic from '@anthropic-ai/sdk'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
@@ -335,7 +336,13 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
 
 export async function POST(request: Request) {
   try {
-    const { tenant, tenantId } = await getTenantForRequest()
+    // This copilot's tools can mutate bookings/clients and surface revenue —
+    // gate on the same permission that guards those mutations directly (see
+    // sibling /api/admin/ai-chat), so a role without bookings.edit (e.g.
+    // 'staff') can't get the AI to do it on their behalf.
+    const { tenant: ctx, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenant, tenantId } = ctx
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
