@@ -138,3 +138,28 @@ describe('processPayment cleaner transfer/payout idempotency', () => {
     expect(secondKey).toBe(firstKey)
   })
 })
+
+describe('processPayment — clientId FK-injection', () => {
+  // admin/payments/finalize-match is gated by a single INTERNAL_API_KEY that
+  // is global across ALL tenants and passes a raw caller-supplied clientId
+  // straight through to processPayment — a leaked/misused key (or a buggy
+  // automated caller) could otherwise attribute a payment to an unowned or
+  // cross-tenant client id. clientId must come from the tenant-verified
+  // booking row, never from the caller.
+  it('a forged clientId in the input never lands on the payments row — booking.client_id wins', async () => {
+    seed()
+    await processPayment({
+      tenant: { id: TENANT_ID },
+      bookingId: BOOKING_ID,
+      clientId: 'client-FORGED', // attacker/bug-supplied, does not own this booking
+      method: 'zelle',
+      amountCents: 10_000,
+      referenceId: REFERENCE_ID,
+    })
+
+    const payments = fake._store.get('payments') || []
+    expect(payments).toHaveLength(1)
+    expect(payments[0].client_id).toBe(CLIENT_ID)
+    expect(payments[0].client_id).not.toBe('client-FORGED')
+  })
+})
