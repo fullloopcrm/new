@@ -3,13 +3,16 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const { data, error } = await supabaseAdmin
       .from('routes')
@@ -29,13 +32,15 @@ export async function GET(_request: Request, { params }: Params) {
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
 
     const updates: Record<string, unknown> = {}
     const assignables = [
-      'team_member_id', 'route_date', 'status',
+      'route_date', 'status',
       'start_address', 'start_latitude', 'start_longitude',
       'end_address', 'end_latitude', 'end_longitude',
       'scheduled_start_time',
@@ -43,6 +48,24 @@ export async function PATCH(request: Request, { params }: Params) {
       'total_distance_meters', 'total_duration_seconds',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
+
+    // Never trust a caller-supplied team_member_id directly — verify it
+    // belongs to this tenant before writing it (same reasoning as POST
+    // /api/routes: GET embeds team_members PII incl. home address off this FK).
+    if ('team_member_id' in body) {
+      if (body.team_member_id) {
+        const { data: tm } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .eq('id', body.team_member_id)
+          .single()
+        if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+        updates.team_member_id = tm.id
+      } else {
+        updates.team_member_id = null
+      }
+    }
 
     if ('stops' in body && Array.isArray(body.stops)) {
       updates.total_stops = body.stops.length
@@ -93,7 +116,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
 export async function DELETE(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
 
     // Unlink bookings

@@ -3,11 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const url = new URL(request.url)
     const date = url.searchParams.get('date')
     const teamMemberId = url.searchParams.get('team_member_id')
@@ -41,7 +44,9 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const body = await request.json()
 
     if (!body.route_date) {
@@ -53,14 +58,22 @@ export async function POST(request: Request) {
     let startLng: number | null = body.start_longitude ?? null
     let startAddress: string | null = body.start_address ?? null
 
-    if (body.team_member_id && (!startLat || !startLng)) {
+    // Never trust a caller-supplied team_member_id directly — verify it
+    // belongs to this tenant before writing it. Both GET /api/routes and
+    // GET /api/routes/[id] embed team_members(name, phone, home_latitude,
+    // home_longitude) off this FK, so an unverified foreign id would leak
+    // another tenant's team member PII (incl. home address) cross-tenant.
+    let verifiedTeamMemberId: string | null = null
+    if (body.team_member_id) {
       const { data: tm } = await supabaseAdmin
         .from('team_members')
-        .select('home_latitude, home_longitude, address')
+        .select('id, home_latitude, home_longitude, address')
         .eq('tenant_id', tenantId)
         .eq('id', body.team_member_id)
         .single()
-      if (tm) {
+      if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      verifiedTeamMemberId = tm.id
+      if (!startLat || !startLng) {
         startLat = tm.home_latitude
         startLng = tm.home_longitude
         startAddress = startAddress || tm.address
@@ -84,7 +97,7 @@ export async function POST(request: Request) {
       .from('routes')
       .insert({
         tenant_id: tenantId,
-        team_member_id: body.team_member_id || null,
+        team_member_id: verifiedTeamMemberId,
         route_date: body.route_date,
         status: 'draft',
         start_address: startAddress,
