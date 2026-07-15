@@ -3,6 +3,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped -- returns null for anything shorter (a short or partial phone
+// must never auto-link to an existing client/team_member). Mirrors the
+// exact-match convention established in client/collect + deals/manual.
+function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
 // recent bookings + counters.
@@ -24,14 +34,15 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   let teamMemberId = contact.team_member_id as string | null
 
   if (!clientId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
-      .from('clients')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
+    const normalizedPhone = normalizePhoneDigits(contact.phone)
+    if (normalizedPhone) {
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, phone')
+        .eq('tenant_id', tenantId)
+      const match = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+      if (match) clientId = match.id
+    }
   }
   if (!clientId && contact.email) {
     const { data: matched } = await supabaseAdmin
@@ -43,14 +54,15 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (matched && matched.length > 0) clientId = matched[0].id
   }
   if (!teamMemberId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
-      .from('team_members')
-      .select('id')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
+    const normalizedPhone = normalizePhoneDigits(contact.phone)
+    if (normalizedPhone) {
+      const { data: candidates } = await supabaseAdmin
+        .from('team_members')
+        .select('id, phone')
+        .eq('tenant_id', tenantId)
+      const match = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+      if (match) teamMemberId = match.id
+    }
   }
   if (!teamMemberId && contact.email) {
     const { data: matched } = await supabaseAdmin
