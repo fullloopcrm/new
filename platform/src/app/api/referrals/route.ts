@@ -1,12 +1,18 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Was previously reachable by ANY authenticated team member via
+    // getTenantForRequest() alone -- staff (no referrals.view by default)
+    // could list every referral code, client name, and commission_rate.
+    const { tenant, error: authError } = await requirePermission('referrals.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     const { data, error } = await supabaseAdmin
       .from('referrals')
@@ -36,7 +42,11 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same gap as GET above -- staff (no referrals.create by default) could
+    // otherwise mint arbitrary referral codes/commission rates.
+    const { tenant, error: authError } = await requirePermission('referrals.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
 
     const { data: fields, error: vError } = validate(body, {
