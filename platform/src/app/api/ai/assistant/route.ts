@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -365,6 +366,15 @@ export async function POST(request: Request) {
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
+    }
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // (up to 10 tool-use iterations each) with no cost control; cap per-tenant
+    // volume so a scripted caller can't run up unbounded API spend. Matches
+    // admin/translate's rateLimitDb(tenantId) convention for the same risk.
+    const rl = await rateLimitDb(`ai-assistant:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
     }
 
     // Tenant's own Anthropic key if set, platform key otherwise.

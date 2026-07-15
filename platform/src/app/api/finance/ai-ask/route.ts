@@ -10,12 +10,22 @@ import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { buildTrialBalance } from '@/lib/finance-export'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // with no cost control; cap per-tenant volume so a scripted caller can't
+    // run up unbounded API spend. Matches admin/translate's convention.
+    const rl = await rateLimitDb(`finance-ai-ask:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
+    }
+
     const url = new URL(request.url)
     const entityId = entityIdFromUrl(url)
     const body = await request.json()

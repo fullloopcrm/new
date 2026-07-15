@@ -6,16 +6,25 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
     const { tenant: authTenant, error: authError } = await requirePermission('reviews.request')
     if (authError) return authError
-    const { tenant } = authTenant
+    const { tenant, tenantId } = authTenant
     const { reviewerName, rating, comment } = await request.json()
 
     if (typeof rating !== 'number') {
       return NextResponse.json({ error: 'rating required' }, { status: 400 })
+    }
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // with no cost control; cap per-tenant volume so a scripted caller can't
+    // run up unbounded API spend. Matches admin/translate's convention.
+    const rl = await rateLimitDb(`google-generate-reply:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
     }
 
     const business = tenant.name || 'our business'

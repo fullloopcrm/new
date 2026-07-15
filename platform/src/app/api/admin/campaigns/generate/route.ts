@@ -6,12 +6,13 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
     const { tenant: authTenant, error: authError } = await requirePermission('campaigns.create')
     if (authError) return authError
-    const { tenant } = authTenant
+    const { tenant, tenantId } = authTenant
     const { prompt, channel } = await request.json()
 
     if (!prompt || typeof prompt !== 'string') {
@@ -19,6 +20,14 @@ export async function POST(request: Request) {
     }
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
+    }
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // with no cost control; cap per-tenant volume so a scripted caller can't
+    // run up unbounded API spend. Matches admin/translate's convention.
+    const rl = await rateLimitDb(`campaigns-generate:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
     }
 
     const includeEmail = channel === 'email' || channel === 'both'

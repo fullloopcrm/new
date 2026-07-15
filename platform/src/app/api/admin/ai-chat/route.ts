@@ -12,6 +12,7 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -405,6 +406,15 @@ export async function POST(request: Request) {
     }
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'ANTHROPIC_API_KEY not configured' }, { status: 500 })
+    }
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // (up to 10 tool-use iterations each) with no cost control; cap per-tenant
+    // volume so a scripted caller can't run up unbounded API spend. Matches
+    // admin/translate's convention.
+    const rl = await rateLimitDb(`admin-ai-chat:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
     }
 
     const businessName = tenant.name || 'the business'

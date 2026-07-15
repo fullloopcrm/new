@@ -27,6 +27,8 @@ vi.mock('@/lib/supabase', () => {
     const c: Record<string, unknown> = {
       select: () => c,
       update: (p: Row) => { kind = 'update'; payload = p; return c },
+      insert: () => c,
+      gte: () => c,
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       single: async () => {
         const found = (store[table] || []).find(match)
