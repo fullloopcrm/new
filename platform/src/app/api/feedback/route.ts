@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { requireAdmin } from '@/lib/require-admin'
 
 // SQL to create table:
 // CREATE TABLE platform_feedback (
@@ -14,8 +15,12 @@ import { sendEmail } from '@/lib/email'
 // CREATE INDEX idx_feedback_status ON platform_feedback(status);
 
 export async function GET() {
-  // Admin only — used by /admin/feedback
-  // No auth check here since admin layout handles it
+  // Admin only — used by /admin/feedback. The admin layout is a client
+  // component with no server-side gate, so this route (not middleware,
+  // which lists it public for the anonymous POST below) must check auth itself.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const { data, error } = await supabaseAdmin
     .from('platform_feedback')
     .select('*')
@@ -82,6 +87,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   // Mark feedback as read / add notes — admin use
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const { id, status, admin_notes } = body
