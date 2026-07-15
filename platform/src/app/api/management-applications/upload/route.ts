@@ -8,6 +8,23 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 
+// Mirrors the sibling signed-url route's whitelist (management-applications/signed-url) —
+// this direct-upload route was missing a content-type check entirely, so any
+// caller could store arbitrary content (e.g. text/html, image/svg+xml with an
+// embedded script) at a public URL in the shared `uploads` bucket.
+const ALLOWED_TYPES: Record<string, { mimes: string[]; maxSize: number }> = {
+  photo: { mimes: ['image/jpeg', 'image/png', 'image/webp'], maxSize: 10 * 1024 * 1024 },
+  video: { mimes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'], maxSize: 100 * 1024 * 1024 },
+  resume: {
+    mimes: [
+      'application/pdf',
+      'application/msword',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
+    maxSize: 10 * 1024 * 1024,
+  },
+}
+
 export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
@@ -24,9 +41,13 @@ export async function POST(request: NextRequest) {
     const type = formData.get('type') as string | null
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
 
-    const maxSize = type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024
-    if (file.size > maxSize) {
-      return NextResponse.json({ error: `File must be under ${type === 'video' ? '100MB' : '10MB'}` }, { status: 400 })
+    const config = type ? ALLOWED_TYPES[type] : undefined
+    if (!config) return NextResponse.json({ error: 'Invalid upload type' }, { status: 400 })
+    if (!config.mimes.includes(file.type)) {
+      return NextResponse.json({ error: `Invalid file type for ${type}` }, { status: 400 })
+    }
+    if (file.size > config.maxSize) {
+      return NextResponse.json({ error: `File must be under ${config.maxSize / (1024 * 1024)}MB` }, { status: 400 })
     }
 
     const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
