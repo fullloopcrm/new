@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
@@ -8,7 +8,9 @@ import { getSettings } from '@/lib/settings'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     const { data, error } = await supabaseAdmin
       .from('team_members')
@@ -20,7 +22,12 @@ export async function GET() {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ team: data })
+    // pin is a team-portal login credential, not roster data — strip it here
+    // (no consumer of the list endpoint uses it; the [id] detail endpoint
+    // still returns it for the intentional single-member admin card view).
+    const team = (data || []).map(({ pin: _pin, ...rest }) => rest)
+
+    return NextResponse.json({ team })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
