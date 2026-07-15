@@ -8,6 +8,7 @@ import {
   canSignerAct,
   documentSignedPath,
   DOCUMENTS_BUCKET,
+  isTerminalStatus,
   logDocEvent,
   sha256Hex,
 } from '@/lib/documents'
@@ -58,6 +59,14 @@ export async function POST(request: Request, { params }: Params) {
       .eq('id', signer.document_id)
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+
+    // A void/complete/expire/decline on the parent document must stop any
+    // signer from completing — otherwise a still-valid signer token can
+    // finish signing a document staff already voided (canSignerAct only
+    // checks signer status/order, not the document's own status).
+    if (isTerminalStatus(doc.status)) {
+      return NextResponse.json({ error: `Document is ${doc.status}` }, { status: 400 })
+    }
 
     const { data: allSigners } = await supabaseAdmin
       .from('document_signers')
