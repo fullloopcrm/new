@@ -9,6 +9,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 
 interface LoginAlertInput {
   /** Omit for the Full Loop platform super-admin; set for a tenant admin login. */
@@ -19,15 +20,15 @@ interface LoginAlertInput {
   who?: string
 }
 
-function alertHtml(brand: string, ip: string, ua: string, timeET: string, who?: string): string {
+export function alertHtml(brand: string, ip: string, ua: string, timeET: string, who?: string): string {
   return `
     <div style="font-family:sans-serif;max-width:520px">
-      <h2 style="margin:0 0 2px 0;color:#111">${brand}</h2>
+      <h2 style="margin:0 0 2px 0;color:#111">${escapeHtml(brand)}</h2>
       <p style="color:#888;font-size:12px;letter-spacing:0.08em;text-transform:uppercase;margin:0 0 16px 0">Admin Login Alert</p>
-      <p style="margin:6px 0"><strong>IP:</strong> ${ip}</p>
-      <p style="margin:6px 0"><strong>Time:</strong> ${timeET}</p>
-      <p style="margin:6px 0"><strong>Device:</strong> ${ua.substring(0, 160)}</p>
-      ${who ? `<p style="margin:6px 0"><strong>Account:</strong> ${who}</p>` : ''}
+      <p style="margin:6px 0"><strong>IP:</strong> ${escapeHtml(ip)}</p>
+      <p style="margin:6px 0"><strong>Time:</strong> ${escapeHtml(timeET)}</p>
+      <p style="margin:6px 0"><strong>Device:</strong> ${escapeHtml(ua.substring(0, 160))}</p>
+      ${who ? `<p style="margin:6px 0"><strong>Account:</strong> ${escapeHtml(who)}</p>` : ''}
       <p style="color:#888;font-size:12px;margin-top:16px">If this wasn't you, change your PIN immediately and contact support.</p>
     </div>`
 }
