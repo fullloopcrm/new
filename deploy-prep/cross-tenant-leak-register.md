@@ -1330,3 +1330,85 @@ here so a future pass doesn't re-spend time on the same files):
   tracks (no tenant-boundary is being crossed by an unprivileged caller).
 No code changed this pass (nothing to fix); `npx tsc --noEmit` not run since
 no `.ts` edits were made. File-only, no push/deploy/DB.
+
+**P44 (2026-07-15, W2, 16:24 order):** `cron/rating-prompt`'s CAP-exceeded
+bulk-block alert imported `emailAdmins`/`smsAdmins` from
+`@/lib/nycmaid/admin-contacts` — the legacy, un-tenant-scoped helper that
+queries the global `admin_users` table (NYC Maid's own legacy admin accounts,
+confirmed via `src/app/api/auth/login/route.ts`'s single-tenant login query —
+the same table, distinct from the modern per-tenant `tenant_members`) — with
+no `isNycMaid()` gate. Every OTHER cron that imports this exact legacy helper
+(`sales-follow-ups.ts`) correctly gates it behind `isNycMaid(deal.tenant_id)`;
+`rating-prompt` was the one caller that missed the gate, calling it
+unconditionally inside a `for (const tenant of tenants)` loop over every
+active tenant on the platform. Live impact: any non-nycmaid tenant whose
+completed-and-unrated bookings exceed the CAP (10) in one 5-min cron tick has
+its business name + booking-volume signal disclosed via email/SMS to NYC
+Maid's `admin_users` — a real tenant, unrelated to the triggering tenant.
+Same bug class as P1/P11/P17/P20/P40 (missing ownership/tenant check before a
+cross-tenant-visible action), just on the notification-recipient axis instead
+of a DB row. Found while sweeping the 30 previously-unswept `cron/*` routes
+(this session's full batch: `gdpr-purge`, `jefe-heartbeat`,
+`auto-reply-reviews`, `finance-post`, `release-due-payments`, `email-monitor`,
+`follow-up`, `confirmation-reminder`, `cleanup-videos`, `comms-monitor`,
+`no-show-check`, `anthropic-health`, `sales-follow-ups`, `rating-prompt`,
+`lifecycle`, `payment-reminder`, `payment-followup-daily`,
+`post-job-followup`, `late-check-in`, `outreach`, `confirmations`,
+`retention`, `system-check`, `health-check`, `schedule-monitor`,
+`comhub-email`, `backup`, `sync-google-reviews`, `health-monitor`,
+`recurring-expenses` — 29/30 clean, this one bug).
+**Fixed:** switched the import to the tenant-aware `@/lib/admin-contacts`
+(`emailAdmins(tenantId, subject, html)` / `smsAdmins(tenantId, message)`,
+which already exists precisely for this — its own docstring says "tenant-aware
+replacement for nycmaid's admin-contacts.ts" — and is already the correct
+pattern used by e.g. `team-portal/15min-alert`), passing the actual
+looping-tenant's id so the alert reaches that tenant's own `tenant_members`
+admins instead. New test `route.isolation.test.ts`: 2 tests — a wrong-
+recipient probe (legacy nycmaid-global helper is never invoked) and a
+positive control (tenant-scoped helper invoked with the correct tenant id,
+subject/body contain that tenant's name). Verified the probe actually catches
+the bug: reverted the fix, both tests failed RED against the old code (0 legacy
+calls expected but 1 seen; 0 tenant-scoped calls seen instead of 1);
+restored, GREEN. `npx tsc --noEmit` clean. File-only, no push/deploy/DB.
+
+**Noticed, not fixed (same root cause, currently NOT live-exploitable —
+recording so a future pass doesn't have to re-derive this):**
+- `webhooks/stripe`'s `checkout.session.completed` handler has an identical
+  shape at its "no `bookingId`" fallback: when a Stripe Payment Link checkout
+  can't be matched to a booking, it hardcodes a search against
+  `NYCMAID_TENANT_ID`'s `clients` table and, on no match, alerts via the same
+  legacy `nmSmsAdmins` (from `@/lib/nycmaid/admin-contacts`) with no tenant
+  gate — same latent cross-tenant-alert shape as P44. This webhook is a
+  single shared endpoint for ALL tenants' Stripe events (one
+  `STRIPE_WEBHOOK_SECRET`/`STRIPE_SECRET_KEY`), so it's reachable by any
+  tenant's checkout session. **Not currently exploitable**: this fallback only
+  triggers for a static Payment-Link checkout with no resolvable
+  `client_reference_id`/metadata, and a live read-only check
+  (`tenants?select=id,name&payment_link=not.is.null`) confirms **only NYC
+  Maid has `payment_link` set today** — no other tenant's checkout can reach
+  this branch yet. Becomes live the moment a second tenant configures a
+  static Payment Link and a payer's email doesn't match one of NYC Maid's own
+  unpaid bookings. Whoever next touches Stripe payment-link support for a
+  second tenant should harden this first (gate the fallback alert on
+  `tenantId === NYCMAID_TENANT_ID`, or drop to a generic unresolved-payment
+  alert with no tenant assumption when `tenantId` is unknown).
+- `cron/backup`'s end-of-run summary notification (`type: 'platform'`,
+  `channel: 'in_app'`) inserts under `tenants[0].id` (whichever tenant happens
+  to sort first that run) and includes every OTHER tenant's slug + upload-
+  error text in the `message` field when any tenant's backup fails. **Not
+  currently exploitable**: the insert omits `recipient_type`, and a live
+  read-only check (`notifications?type=eq.platform&limit=5`) confirms these
+  rows land with `recipient_type: null`; the only tenant-facing reader,
+  `GET /api/notifications` (`src/app/api/notifications/route.ts`), filters
+  `.eq('recipient_type', 'admin')`, which excludes null — so today this is an
+  orphaned, invisible row, not a live leak. Fragile: if `recipient_type`
+  ever gets a DB default, or a future tenant-facing endpoint reads
+  `notifications` by `tenant_id` without that filter, it becomes live. Cheap
+  fix whenever someone's in this file: stop writing a cross-tenant summary
+  under any single tenant's id at all — this belongs in a platform-only sink
+  (Telegram/`alertOwner`, matching `cron/comms-monitor`/`cron/backup`'s
+  siblings), not a `notifications` row keyed to an arbitrary tenant.
+- Verified the same legacy-helper import in `client/book`, `team-portal/
+  checkout`, `webhooks/stripe` (the two Connect-payout call sites at lines
+  480/496, not the one flagged above) are each correctly wrapped in an
+  `isNycMaid(...)` check — P44's missing-gate pattern is not repeated there.
