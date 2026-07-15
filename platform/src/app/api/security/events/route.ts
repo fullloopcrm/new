@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: Request) {
   let tenant
   try {
-    ({ tenant } = await getTenantForRequest())
+    const { tenant: authTenant, error: authError } = await requirePermission('audit.view')
+    if (authError) return authError
+    tenant = authTenant.tenant
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     throw err
