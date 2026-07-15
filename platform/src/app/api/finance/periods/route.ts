@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { entityIdFromUrl } from '@/lib/entity'
+import { entityIdFromUrl, verifyEntityId } from '@/lib/entity'
 
 export async function GET(request: Request) {
   try {
@@ -43,11 +43,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'year, month required' }, { status: 400 })
     }
 
+    // entity_id is a cross-table FK — GET above embeds entities(name), so an
+    // unverified entity_id here would let a caller read another tenant's
+    // entity name by upserting a period against it.
+    const entityId = body.entity_id ? await verifyEntityId(tenantId, body.entity_id) : null
+    if (body.entity_id && !entityId) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('accounting_periods')
       .upsert({
         tenant_id: tenantId,
-        entity_id: body.entity_id || null,
+        entity_id: entityId,
         year: Number(body.year),
         month: Number(body.month),
         status: body.status || 'open',

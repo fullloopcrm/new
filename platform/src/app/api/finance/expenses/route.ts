@@ -3,7 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, verifyEntityId } from '@/lib/entity'
 import { audit } from '@/lib/audit'
 
 export async function GET(request: Request) {
@@ -52,7 +52,15 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
-    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
+    // entity_id is a cross-table FK — confirm it belongs to this tenant before
+    // writing it, or a caller could tag their own expense with another
+    // tenant's entity_id and have it leak via any entities() embed.
+    const entityId = body.entity_id
+      ? await verifyEntityId(tenantId, body.entity_id)
+      : (await getDefaultEntityId(tenantId))
+    if (body.entity_id && !entityId) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
 
     const { data, error } = await tenantDb(tenantId)
       .from('expenses')

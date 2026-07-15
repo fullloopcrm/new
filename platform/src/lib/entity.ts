@@ -47,3 +47,19 @@ export function entityIdFromUrl(url: URL): string | null {
   if (!raw || raw === 'all' || raw === 'consolidated') return null
   return raw
 }
+
+// entity_id is a cross-table FK — confirm it belongs to this tenant before
+// writing it onto another row (expense/invoice/accounting_period/…), or a
+// caller could tag their own row with another tenant's entity_id and
+// exfiltrate that entity's name/legal_name/EIN via any entities() embed
+// (e.g. GET /api/finance/periods already does `select('*, entities(name))`).
+export async function verifyEntityId(tenantId: string, entityId: string | null | undefined): Promise<string | null> {
+  if (!entityId) return null
+  const { data } = await supabaseAdmin
+    .from('entities')
+    .select('id')
+    .eq('id', entityId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  return data?.id || null
+}

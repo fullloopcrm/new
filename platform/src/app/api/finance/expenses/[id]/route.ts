@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
+import { verifyEntityId } from '@/lib/entity'
 
 export async function PUT(
   request: Request,
@@ -18,6 +19,14 @@ export async function PUT(
     const fields = pick(body, ['category', 'subcategory', 'amount', 'description', 'receipt_url', 'date', 'vendor_name', 'payment_method', 'tax_deductible', 'entity_id'])
 
     if (fields.amount) fields.amount = Math.round(Number(fields.amount) * 100)
+
+    // entity_id is a cross-table FK — confirm it belongs to this tenant
+    // before writing it, or a caller could reassign their own expense to
+    // another tenant's entity_id and have it leak via any entities() embed.
+    if (fields.entity_id) {
+      const verified = await verifyEntityId(tenantId, fields.entity_id as string)
+      if (!verified) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
 
     const { data, error } = await tenantDb(tenantId)
       .from('expenses')

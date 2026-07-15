@@ -46,6 +46,10 @@ beforeEach(() => {
       { id: 'exp-A1', tenant_id: 'tenant-A', category: 'utilities', amount: 5000, date: '2026-07-01' },
       { id: 'exp-B1', tenant_id: 'tenant-B', category: 'utilities', amount: 3000, date: '2026-07-01' },
     ],
+    entities: [
+      { id: 'ent-A1', tenant_id: 'tenant-A', name: 'Acme A' },
+      { id: 'ent-B1', tenant_id: 'tenant-B', name: 'Acme B (secret)' },
+    ],
   }
 })
 
@@ -94,6 +98,21 @@ describe('PUT /api/finance/expenses/:id — update', () => {
     expect(res.status).toBe(200)
     expect(json.expense.tenant_id).toBe('tenant-A')
     expect(h.store.expenses.find((e) => e.id === 'exp-A1')?.tenant_id).toBe('tenant-A')
+  })
+
+  it("rejects an entity_id belonging to another tenant and does not mutate the row", async () => {
+    const res = await PUT(putReq({ entity_id: 'ent-B1' }), params('exp-A1'))
+
+    expect(res.status).toBe(400)
+    expect(h.store.expenses.find((e) => e.id === 'exp-A1')?.entity_id).toBeUndefined()
+  })
+
+  it('accepts an entity_id that genuinely belongs to the caller tenant', async () => {
+    const res = await PUT(putReq({ entity_id: 'ent-A1' }), params('exp-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.expense.entity_id).toBe('ent-A1')
   })
 
   it('ignores an id field in the body instead of mass-assigning arbitrary/unknown columns onto the row', async () => {

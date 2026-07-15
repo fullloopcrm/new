@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, verifyEntityId } from '@/lib/entity'
 import {
   normalizeLineItems,
   computeTotals,
@@ -142,13 +142,12 @@ export async function POST(request: Request) {
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
-    const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
-
-    // client_id/booking_id/quote_id are cross-table FKs — confirm each belongs
-    // to this tenant before writing it, or a caller could attach the invoice to
-    // another tenant's client/booking/quote and exfiltrate its PII via the
-    // clients()/bookings() embeds used by this route's own GET, the invoice
-    // list, and finance/ar-aging + finance/reconcile-candidates.
+    // client_id/booking_id/quote_id/entity_id are cross-table FKs — confirm each
+    // belongs to this tenant before writing it, or a caller could attach the
+    // invoice to another tenant's client/booking/quote/entity and exfiltrate its
+    // PII via the clients()/bookings() embeds used by this route's own GET, the
+    // invoice list, and finance/ar-aging + finance/reconcile-candidates, or via
+    // any entities() embed.
     const clientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
     const bookingId = body.booking_id || body.from_booking_id || null
     const quoteId = body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null
@@ -163,6 +162,12 @@ export async function POST(request: Request) {
     if (quoteId) {
       const { data: quote } = await db.from('quotes').select('id').eq('id', quoteId).maybeSingle()
       if (!quote) return NextResponse.json({ error: 'Invalid quote_id' }, { status: 400 })
+    }
+    const entityId = body.entity_id
+      ? await verifyEntityId(tenantId, body.entity_id)
+      : (await getDefaultEntityId(tenantId))
+    if (body.entity_id && !entityId) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
     }
 
     const { data, error } = await db

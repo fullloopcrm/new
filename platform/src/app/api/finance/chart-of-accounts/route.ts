@@ -42,6 +42,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'code, name, type required' }, { status: 400 })
     }
 
+    // parent_id is a self-referential FK — confirm it belongs to this tenant
+    // before writing it, or a caller could nest their account under another
+    // tenant's chart-of-accounts row.
+    let parentId: string | null = null
+    if (body.parent_id) {
+      const { data: parent } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.parent_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!parent) return NextResponse.json({ error: 'Invalid parent_id' }, { status: 400 })
+      parentId = parent.id
+    }
+
     const { data, error } = await supabaseAdmin
       .from('chart_of_accounts')
       .insert({
@@ -50,7 +65,7 @@ export async function POST(request: Request) {
         name: body.name,
         type: body.type,
         subtype: body.subtype || null,
-        parent_id: body.parent_id || null,
+        parent_id: parentId,
         is_bank_account: !!body.is_bank_account,
       })
       .select('*')
