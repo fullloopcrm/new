@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 
@@ -69,7 +70,9 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('notifications.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const markRead = request.nextUrl.searchParams.get('mark_read')
 
     const { data, error } = await supabaseAdmin

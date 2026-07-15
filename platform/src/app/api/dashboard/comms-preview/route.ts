@@ -5,14 +5,20 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { hasPermission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const authTenant = await getTenantForRequest()
+    const { tenantId, role } = authTenant
     const sendTo = new URL(request.url).searchParams.get('send')
+    if (sendTo && !hasPermission(role, 'campaigns.send', overridesFor(authTenant))) {
+      return new Response(JSON.stringify({ error: 'Forbidden: insufficient permissions' }), { status: 403, headers: { 'Content-Type': 'application/json' } })
+    }
     const { data: t } = await supabaseAdmin
       .from('tenants')
       .select('name, phone, email, address, logo_url, primary_color, resend_api_key, email_from, domain')
