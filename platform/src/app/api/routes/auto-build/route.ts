@@ -8,7 +8,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import type { RouteStop } from '@/lib/route-optimizer'
 
 interface BookingRow {
@@ -25,8 +26,11 @@ interface BookingRow {
 }
 
 export async function POST(request: Request) {
+  const { tenant, error: authError } = await requirePermission('schedules.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({}))
     const date: string = body.date
     if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
@@ -63,7 +67,7 @@ export async function POST(request: Request) {
     }
 
     // Fetch tenant HQ for fallback start
-    const { data: tenant } = await supabaseAdmin
+    const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
       .select('hq_latitude, hq_longitude, address')
       .eq('id', tenantId)
@@ -97,9 +101,9 @@ export async function POST(request: Request) {
 
       if (stops.length === 0) continue
 
-      const startLat = firstTm?.home_latitude || tenant?.hq_latitude || null
-      const startLng = firstTm?.home_longitude || tenant?.hq_longitude || null
-      const startAddress = firstTm?.address || tenant?.address || null
+      const startLat = firstTm?.home_latitude || tenantRow?.hq_latitude || null
+      const startLng = firstTm?.home_longitude || tenantRow?.hq_longitude || null
+      const startAddress = firstTm?.address || tenantRow?.address || null
 
       // Delete any existing route for this team_member + date so this is idempotent
       const delQuery = supabaseAdmin

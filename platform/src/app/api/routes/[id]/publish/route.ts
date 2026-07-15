@@ -3,7 +3,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { googleMapsDirectionsUrl, formatDistanceMiles, formatDuration, type RouteStop } from '@/lib/route-optimizer'
 import { decryptSecret } from '@/lib/secret-crypto'
@@ -11,8 +12,11 @@ import { decryptSecret } from '@/lib/secret-crypto'
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(_request: Request, { params }: Params) {
+  const { tenant, error: authError } = await requirePermission('schedules.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
 
     const { data: route } = await supabaseAdmin
@@ -28,14 +32,14 @@ export async function POST(_request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Route has no team member with phone number' }, { status: 400 })
     }
 
-    const { data: tenant } = await supabaseAdmin
+    const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
       .select('name, telnyx_api_key, telnyx_phone')
       .eq('id', tenantId)
       .single()
 
-    const apiKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-    const from = tenant?.telnyx_phone || ''
+    const apiKey = tenantRow?.telnyx_api_key ? decryptSecret(tenantRow.telnyx_api_key) : null
+    const from = tenantRow?.telnyx_phone || ''
     if (!apiKey || !from) {
       return NextResponse.json({ error: 'Telnyx not configured for tenant' }, { status: 400 })
     }
