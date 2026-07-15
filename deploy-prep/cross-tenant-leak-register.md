@@ -1756,3 +1756,63 @@ File-only, no push/deploy/DB.
 | **Rank rationale** | Same action-authorization-bypass-via-shared-credential class as P22/P31, but the narrowest of the three: DoS-only (no data returned to the attacker), and the credential_id is never exposed to any tenant but its owner through any legitimate UI path — exploitability requires either a leak of the id through another channel or blind guessing of a high-entropy Telnyx UUID. Fixed anyway per this register's standing "close ownership gaps by construction" policy (P19/P23/P24/P26), and because a cryptographically clean fix was available with zero schema/DB cost. |
 
 File-only, no push/deploy/DB. Committed locally (see commit below), not pushed.
+
+**2026-07-15 (W2, 17:58 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order into
+territory never named anywhere in this register or the LEADER-CHANNEL
+history — external-facing integration surface (webhooks, OAuth callbacks,
+social posting) plus a handful of never-swept operator routes. All clean:
+- **All 7 `webhooks/*` routes** (`telnyx`, `telnyx-voice`, `telegram`,
+  `telegram/jefe`, `telegram/[tenant]`, `clerk`, `resend`) — signature/secret
+  verification is fail-closed everywhere it's configured
+  (`verifyTelnyx`/`verifySvix`/`verifyTelegramSecretToken` all return
+  `valid:false` on a missing key/secret, confirmed by reading
+  `webhook-verify.ts`). Tenant resolution in each is either a legitimate
+  "this IS the tenant-resolution step" lookup off the *verified* payload
+  (Telnyx `to`-phone match, per-tenant Telegram bot secret decrypted from
+  that tenant's own row) or hardcoded to a single tenant by design
+  (`telnyx-voice` is nycmaid-only, documented inline). `telnyx-voice` already
+  carries an inline comment describing a prior signature-bypass fix
+  (headers-present-only → real Ed25519 verify) — already landed, re-confirmed
+  not regressed.
+- **OAuth: `social/connect/{facebook,instagram}` init+callback** (never named
+  in this register before, unlike `google/callback` and `admin/google/callback`
+  which were) — both callbacks call `verifyOAuthState` (HMAC-signed
+  tenant-id + expiry, timing-safe compare, same `oauth-state.ts` already
+  used by Google connect) before trusting the state's tenantId; init routes
+  mint the state from the caller's own `getTenantForRequest()` tenant, never
+  caller input. No CWE-352 gap.
+- **`lib/social.ts`** (`getSocialAccounts`/`saveSocialAccount`/
+  `disconnectSocialAccount`/`postToFacebook`/`postToInstagram`/
+  `getSocialPosts`) — every read/write is `.eq('tenant_id', tenantId)`;
+  `postToFacebook`/`postToInstagram` look up the access_token via the
+  caller's own tenantId, so a tenant can never post through another
+  tenant's connected page/IG account. `social/accounts` GET also strips
+  `access_token` before returning to the client — a live Graph credential
+  never reaches the browser.
+- **`attribution/manual`** — already carries an inline comment documenting a
+  prior fix for exactly the P1-class bug (foreign `booking_id` silently
+  no-op'd success + cross-tenant FK on the notification); current code
+  chains `.select().single()` on the tenant-scoped update so a foreign id
+  404s before any write. Not re-broken.
+- **`campaigns/route.ts`, `campaigns/[id]`, `campaigns/send`,
+  `campaigns/[id]/send`, `catalog`, `chat`, `cpa/[token]/year-end-zip`** —
+  all tenant-scoped via `tenantDb`/`getTenantForRequest`/`requirePermission`
+  or (for `chat`) the signed `x-tenant-id`/`x-tenant-sig` header pair with an
+  explicit body-vs-header tenant mismatch check; `campaigns/send`'s
+  caller-supplied `client_ids` is safe because the recipient query still
+  carries `.eq('tenant_id', tenantId)` from the `tenantDb` wrapper, so a
+  foreign client id just matches nothing. `cpa/[token]/year-end-zip` is
+  token-scoped read-only (tenantId/entityId come off the verified token row,
+  never the request).
+- **`lib/seo/recipes.ts` + `lib/seo/autopilot.ts`** (brand-new, untracked —
+  the weekly SEO auto-improve cron) — not actually in this register's threat
+  model (no caller-supplied tenant/property, it's a scheduled job iterating
+  its own `seo_issues`/`seo_changes` queue by GSC `property`), but checked
+  since it mutates live tenant site content unattended; both new cron routes
+  (`cron/seo-health`, `cron/seo-improve`) correctly guard `CRON_SECRET` unset
+  with `safeEqual`, matching the fixed pattern from this session's earlier
+  cron-secret fail-open finding.
+
+No new P-number. `npx tsc --noEmit` not needed (no code changed, read-only
+audit). File-only, no push/deploy/DB.
