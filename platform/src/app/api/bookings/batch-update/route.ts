@@ -25,6 +25,37 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
     }
 
+    // client_id/team_member_id/service_type_id are cross-table FKs -- confirm
+    // each belongs to this tenant before writing any row, same check the
+    // single-booking sibling PUT /api/bookings/[id] already does. Without
+    // this, a caller with bookings.edit could reassign one of their own
+    // bookings to another tenant's client/team-member/service-type and
+    // exfiltrate that row's PII via this route's own clients()/team_members()
+    // joins on the response. Checked across the WHOLE batch before any write
+    // runs, so a foreign id 404s the whole batch instead of partially applying.
+    const fkChecks: Array<[string, string]> = []
+    for (const u of updates as Array<{ id: string; data: Record<string, unknown> }>) {
+      if (u.data?.client_id) fkChecks.push([u.data.client_id as string, 'clients'])
+      if (u.data?.team_member_id) fkChecks.push([u.data.team_member_id as string, 'team_members'])
+      if (u.data?.service_type_id) fkChecks.push([u.data.service_type_id as string, 'service_types'])
+    }
+    const seen = new Set<string>()
+    for (const [fkId, table] of fkChecks) {
+      const key = `${table}:${fkId}`
+      if (seen.has(key)) continue
+      seen.add(key)
+      const { data: owned } = await supabaseAdmin
+        .from(table)
+        .select('id')
+        .eq('id', fkId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) {
+        const field = table === 'clients' ? 'client_id' : table === 'team_members' ? 'team_member_id' : 'service_type_id'
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+    }
+
     const results = await Promise.all(
       updates.map(async (u: { id: string; data: Record<string, unknown> }) => {
         const { data, error } = await supabaseAdmin
