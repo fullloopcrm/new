@@ -1,4 +1,5 @@
 import Anthropic from '@anthropic-ai/sdk'
+import crypto from 'crypto'
 import { supabaseAdmin } from '@/app/site/wash-and-fold-nyc/_lib/supabase'
 import { checkAvailability, getSmartSuggestions, checkCleanerAvailability } from '@/app/site/wash-and-fold-nyc/_lib/availability'
 import { notify } from '@/app/site/wash-and-fold-nyc/_lib/notify'
@@ -442,7 +443,7 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     }
 
     const { data: client } = await supabaseAdmin
-      .from('clients').insert({ name, phone, status: 'potential', pin: Math.floor(100000 + Math.random() * 900000).toString() }).select('id').single()
+      .from('clients').insert({ name, phone, status: 'potential', pin: String(crypto.randomInt(100000, 1000000)) }).select('id').single()
 
     if (client) {
       await supabaseAdmin.from('sms_conversations')
