@@ -13,6 +13,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { extractReceipt, matchReceiptToTransaction, type BankTxnLite } from '@/lib/receipt-ai'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomBytes } from 'crypto'
 
 const RECEIPTS_BUCKET = 'receipts'
@@ -24,6 +25,16 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+
+    // Any authenticated tenant member can trigger this paid Anthropic vision
+    // call (falls back to the platform's shared key when the tenant hasn't
+    // set their own) with no cost control; cap per-tenant volume the same
+    // way finance/ai-ask and admin/translate do.
+    const rl = await rateLimitDb(`finance-receipts:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many receipt uploads. Try again shortly.' }, { status: 429 })
+    }
+
     const form = await request.formData()
     const file = form.get('file') as File | null
     if (!file) return NextResponse.json({ error: 'Receipt image required' }, { status: 400 })

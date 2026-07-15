@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { resolveAnthropic } from '@/lib/anthropic-client'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Target schemas per import kind. Keep in sync with the import APIs.
 const SCHEMAS: Record<string, { field: string; desc: string }[]> = {
@@ -64,6 +65,16 @@ export async function POST(request: Request) {
     const { tenant, error: authError } = await requirePermission('clients.create')
     if (authError) return authError
     const { tenantId } = tenant
+
+    // Any authenticated tenant member can trigger this paid Anthropic call
+    // (falls back to the platform's shared key when the tenant hasn't set
+    // their own) with no cost control; cap per-tenant volume the same way
+    // finance/ai-ask and admin/translate do.
+    const rl = await rateLimitDb(`import-analyze:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many AI requests. Try again shortly.' }, { status: 429 })
+    }
+
     const body = (await request.json().catch(() => ({}))) as { kind?: string; columns?: string[]; samples?: string[][] }
     const kind = body.kind || 'clients'
     const schema = SCHEMAS[kind]
