@@ -1027,6 +1027,68 @@ starts from a fresh area instead of re-covering this list.
    0 failed. Commit `7efca465`. File-only, no push/deploy/DB. Did not touch
    referrers/referral-commissions routes.
 
+   **2026-07-15 (W2, post-P43 refill) — negative-result sweep, no fix needed:**
+   broad-hunted a fresh batch of lower-risk surfaces per leader's "resume
+   controlled broad-hunt, lower-risk surface" order and found every one already
+   correctly tenant-scoped (no P-number assigned — recorded here so a future
+   pass doesn't re-spend time on the same files):
+   - `client/[id]/contacts` (GET/POST) + `client/[id]/contacts/[contactId]`
+     (PUT/DELETE) — client ownership verified before insert; PUT uses an
+     explicit `ALLOWED` field allow-list (not a P7-shape raw-body spread);
+     every write scoped `.eq('tenant_id',...).eq('client_id',...)`.
+   - `client/[id]/gdpr-delete`, `client/[id]/activity`, `client/[id]/transcript`
+     — all reads/writes scoped by `tenant_id` (activity's `bookings`/
+     `notifications` embeds, transcript's `client_sms_messages`/
+     `sms_conversations` fallback, all `.eq('tenant_id', tenantId)`).
+   - `dashboard/hr/[id]` (GET/PATCH), `.../notes`, `.../documents` (POST/PATCH)
+     — every route re-verifies the `team_member_id` belongs to the tenant
+     before any child read/write; `hr_documents` PATCH scopes its update by
+     `id` + `tenant_id` + `team_member_id` together (a forged `document_id`
+     alone can't touch another tenant's row).
+   - `finance/entities` (GET/POST), `.../[id]` (PATCH/DELETE), `finance/expenses`
+     (GET/POST), `.../[id]` (PUT/DELETE), `finance/periods` (GET/POST),
+     `.../[id]` (PATCH), `finance/receipts/attach` — every caller-supplied
+     `entity_id`/`coa_id` already carries an explicit "verify it belongs to
+     this tenant" ownership check with the same P4–P7-derived comment pattern;
+     this class was already closed by the earlier finance sweep (see the
+     P4–P7 section below) and remains closed here.
+   - `documents/[id]/fields` (POST/PUT), `.../duplicate`, `.../send`, `.../void`
+     — `signer_id` (a caller-supplied FK into `document_signers`, which has no
+     cross-document constraint of its own) is explicitly re-verified against
+     `document_id` + `tenant_id` before any field is persisted, with a comment
+     calling out the exact exfil risk; `duplicate`'s child reads/writes are
+     scoped by an already-tenant-verified parent `document_id`, so no
+     additional tenant filter is needed on those specific queries.
+   - `team-applications/bulk-approve`, `cleaners/[id]/role` — bulk update and
+     role-set are both `.eq('tenant_id',...)` scoped; `bulk-approve` only
+     touches its own tenant's pending rows.
+   - `dashboard/import/batch/[id]` — `ownsBatch()` helper re-verifies the batch
+     belongs to the tenant (via `tenantDb`) before GET/POST act on it.
+   - `invoices/[id]/record-payment` — invoice fetched `.eq('tenant_id',...)`
+     first; `client_id`/`booking_id` on the inserted payment are copied from
+     that already-verified invoice, not caller-supplied.
+   - `quotes/[id]/convert`, `quotes/[id]/convert-to-job` — both resolve the
+     quote via `tenantDb`/`getTenantForRequest`, so the id is tenant-bound
+     before any booking/job/client is created from it.
+   - `team-portal/jobs/reassign` — `to_member_id` checked against
+     `scopedMemberIds(auth)` (the actor's own crew) AND `.eq('tenant_id',...)`
+     before the booking's `team_member_id` is updated.
+   - `settings/permissions`, `settings/portal-permissions`, `settings/team` —
+     all owner/admin-gated, validate every role/permission key against a
+     hard-coded catalog, and write to the requesting tenant's own `tenants`
+     row only.
+   - `social/connect/facebook/callback`, `social/connect/instagram/callback` —
+     `tenantId` comes from `verifyOAuthState(state)` (a signed, CSRF-protected
+     value minted only by this tenant's own `/connect/*` init), not a raw
+     query param.
+   - `webhooks/clerk` — Svix-signature verified; `tenant_members` writes are
+     keyed by `clerk_user_id` (1:1 with the webhook's own verified subject),
+     with no tenant to scope by until that lookup resolves it, matching the
+     documented `tenant-scope-ok: N/A` exception class already used elsewhere
+     in this file.
+   No code changed this pass (nothing to fix); `npx tsc --noEmit` not run
+   since no `.ts` edits were made. File-only, no push/deploy/DB.
+
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
    finance FK class turned up three more live instances of the exact P7 pattern
