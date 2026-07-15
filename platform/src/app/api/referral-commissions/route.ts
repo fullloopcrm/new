@@ -11,7 +11,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 
@@ -58,8 +59,14 @@ export async function GET(request: Request) {
       return NextResponse.json(data)
     }
 
-    // Admin-session path.
-    const { tenantId } = await getTenantForRequest()
+    // Admin-session path. Was previously reachable by ANY authenticated
+    // team member via getTenantForRequest() alone -- staff (no
+    // referrals.view by default) could list every commission for the
+    // tenant, including third-party client_name/booking price/date data.
+    // Same gap already closed on the sibling GET /api/referrals.
+    const { tenant, error: authError } = await requirePermission('referrals.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     let query = supabaseAdmin
       .from('referral_commissions')
       .select('*, referrers(name, email, referral_code), bookings(start_time, price)')
@@ -78,7 +85,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same gap as GET above -- staff/manager (no referrals.create by
+    // default) could otherwise mint a commission for any booking.
+    const { tenant, error: authError } = await requirePermission('referrals.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { booking_id } = await request.json()
     if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
@@ -171,7 +182,13 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same gap as GET/POST above, and the most severe -- staff/manager (no
+    // referrals.payout by default; only admin/owner have it) could mark any
+    // commission 'paid', bumping referrer.total_paid and posting a real
+    // payment to the finance ledger with no such authority.
+    const { tenant, error: authError } = await requirePermission('referrals.payout')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 

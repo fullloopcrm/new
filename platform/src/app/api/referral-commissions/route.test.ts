@@ -17,11 +17,11 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeLedgerSupabaseFake } from '@/test/ledger-supabase-fake'
 
 const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<string, unknown>>> }))
-const t = vi.hoisted(() => ({ tenantId: 'tenant-A' }))
+const t = vi.hoisted(() => ({ tenantId: 'tenant-A', role: 'owner' as string }))
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: () => Promise.resolve({ tenantId: t.tenantId }),
+  getTenantForRequest: () => Promise.resolve({ tenantId: t.tenantId, tenant: {}, role: t.role }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
@@ -37,6 +37,7 @@ const putReq = (body: unknown) => new Request('http://x', { method: 'PUT', body:
 
 beforeEach(() => {
   t.tenantId = 'tenant-A'
+  t.role = 'owner'
   h.seq = 0
   h.store = {
     bookings: [
