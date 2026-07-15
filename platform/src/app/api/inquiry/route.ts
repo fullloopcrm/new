@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/inquiry — single contact form for the marketing teaser site.
 // Strategy pivot 2026-05-03: no longer selling territory licenses; this form
@@ -63,6 +64,16 @@ async function sendOwnerSms(text: string): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
+  // Unauthenticated + no rate limit == a scripted caller could loop this to
+  // email-bomb any address it puts in the `email` field (we send that address
+  // a confirmation) and, for the Acquirer/$1M+ path, spam the owner's phone
+  // via Telnyx SMS at the owner's cost.
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`inquiry:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'rate_limited' }, { status: 429 })
+  }
+
   let body: InquiryBody
   try {
     body = (await req.json()) as InquiryBody

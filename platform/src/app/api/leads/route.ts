@@ -2,11 +2,21 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
 // Public endpoint — lead capture from onboarding page
 export async function POST(request: Request) {
+  // Unauthenticated + no rate limit == a scripted caller could loop this to
+  // flood the leads/partner_requests tables and spam the admin inbox — same
+  // bug class already fixed for /api/track (commit c492cffa).
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`leads:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const body = await request.json()
   const { name, email, phone, business_name, industry, message } = body
 

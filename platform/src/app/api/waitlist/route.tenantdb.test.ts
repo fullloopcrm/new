@@ -22,6 +22,7 @@ function chain(table: string) {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
     neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
+    gte: (col: string, val: unknown) => { filters.push((r) => (r[col] as string) >= (val as string)); return c },
     order: () => c,
     limit: () => c,
     insert: (row: Row) => {
