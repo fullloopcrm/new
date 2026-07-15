@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -147,6 +148,15 @@ export async function GET(request: NextRequest) {
 // POST — public tracking pixel endpoint (called by t.js)
 export async function POST(request: Request) {
   try {
+    // High-frequency, unauthenticated endpoint — same class as the sibling
+    // /api/track pixel, which already caps at 240/min/IP so a runaway client
+    // or scraper can't pummel website_visits with unbounded inserts.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`leads-visits:${ip}`, 240, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Rate limit' }, { status: 429 })
+    }
+
     const contentType = request.headers.get('content-type') || ''
     let body: Record<string, unknown>
 
