@@ -163,4 +163,10 @@ describe('team-portal checkout — authorization guards', () => {
     const res = await POST(req({ booking_id: 'b-1' }))
     expect(res.status).toBe(404)
   })
+
+  it('400s on replay: a booking that already has check_out_time cannot be checked out again (no pay/price re-inflation)', async () => {
+    bookingRow = baseBooking({ check_out_time: checkedInMinutesAgo(5) })
+    const res = await POST(req({ booking_id: 'b-1' }))
+    expect(res.status).toBe(400)
+  })
 })
