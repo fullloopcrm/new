@@ -460,7 +460,7 @@ export default function HomePage() {
       </section>
 
       {/* Google Reviews */}
-      <section className="py-20 bg-gray-50">
+      <section id="reviews" className="py-20 bg-gray-50">
         <div className="max-w-7xl mx-auto px-4">
           <h2 className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">Real NYC House Cleaning Reviews From Verified Google Customers</h2>
           <p className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[#1E2A4A] tracking-wide text-center mb-4">5-Star Rated Cleaning Service in New York City — Read What Our Clients Say</p>
@@ -857,9 +857,9 @@ export default function HomePage() {
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
             Refer friends, family, or neighbors to Sunnyside Clean NYC and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
           </p>
-          <a href="https://www.thenycmaid.com/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" rel="noopener noreferrer" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
+          <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" className="inline-block bg-[#1E2A4A] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[#1E2A4A]/90 transition-colors">
             Join the Referral Program &rarr;
-          </a>
+          </Link>
         </div>
       </section>
 
