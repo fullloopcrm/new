@@ -6,15 +6,25 @@
  * /api/contact + /api/lead so manual entry lands the same way as web leads.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
 
+// Escape LIKE/ILIKE wildcards so a caller-supplied email is matched literally
+// -- an operator typing '%' into the email dedupe field should not silently
+// attach the new deal to an arbitrary existing client in the tenant.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
 
     const name = typeof body.name === 'string' ? body.name.trim() : ''
@@ -46,7 +56,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('id')
         .eq('tenant_id', tenantId)
-        .ilike('email', email)
+        .ilike('email', escapeLike(email))
         .maybeSingle()
       if (data) clientId = data.id
     }

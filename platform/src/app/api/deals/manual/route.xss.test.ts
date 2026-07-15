@@ -1,14 +1,17 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * POST /api/deals/manual is reachable by ANY authenticated tenant member
- * (getTenantForRequest() only -- no requirePermission gate), including the
- * lowest-priv 'staff' role. Its name/phone/service fields were interpolated
- * raw into ownerAlert()'s bodyHtml (documented as requiring "Pre-escaped
- * HTML body"), so a low-priv staff member could inject a <script>/<img
- * onerror> payload via a manually-created lead that executes when the
- * tenant OWNER opens the "New lead" notification email -- stored XSS,
- * staff-to-owner privilege escalation vector.
+ * POST /api/deals/manual now requires 'sales.edit' (gated as part of the
+ * deals/quotes RBAC fix -- previously getTenantForRequest() only, reachable
+ * by any authenticated role including 'staff'). Its name/phone/service
+ * fields were interpolated raw into ownerAlert()'s bodyHtml (documented as
+ * requiring "Pre-escaped HTML body"), so even a role that legitimately holds
+ * 'sales.edit' (e.g. 'manager') could inject a <script>/<img onerror>
+ * payload via a manually-created lead that executes when the tenant OWNER
+ * opens the "New lead" notification email -- stored XSS, sales-role-to-owner
+ * privilege escalation vector. Role used below just needs 'sales.edit' to
+ * clear the permission gate; the XSS behavior under test is independent of
+ * which role holds that permission.
  */
 
 const TENANT = 'aaaaaaaa-0000-0000-0000-00000000000a'
@@ -41,7 +44,7 @@ let capturedBodyHtml = ''
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT, userId: 'staff-1', role: 'staff' }),
+  getTenantForRequest: async () => ({ tenantId: TENANT, userId: 'manager-1', role: 'manager' }),
   AuthError: class AuthError extends Error {},
 }))
 vi.mock('@/lib/audit', () => ({ audit: async () => {} }))
