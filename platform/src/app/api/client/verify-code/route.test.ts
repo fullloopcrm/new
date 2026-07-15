@@ -210,3 +210,52 @@ describe('POST /api/client/verify-code -- email ILIKE wildcard account takeover'
     expect(json.client.id).toBe('victim-1')
   })
 })
+
+describe('POST /api/client/verify-code -- phone endsWith cross-client account takeover', () => {
+  const PHONE_VICTIM = {
+    id: 'phone-victim-1',
+    tenant_id: 'tenant-1',
+    name: 'Phone Victim',
+    email: 'phonevictim@example.com',
+    // 11 digits, leading "9" (not a US country-code "1") — a genuinely
+    // different national number that merely ENDS WITH the attacker's own
+    // 10-digit number below. Realistic for sloppily-imported/international
+    // numbers, same class the sibling fix (p1-w2 8fc5f304) targeted.
+    phone: '92125551234',
+    do_not_service: false,
+  }
+  const ATTACKER_PHONE = '2125551234'
+
+  CODES.push({
+    tenant_id: 'tenant-1',
+    identifier: `sms:${ATTACKER_PHONE}`,
+    code: 'PHONEATTACK1',
+    expires_at: '2099-01-01T00:00:00Z',
+  })
+
+  beforeEach(() => {
+    clients.push({ ...PHONE_VICTIM })
+  })
+
+  it('a caller who verifies their OWN phone cannot resolve a different client whose stored number merely ends with it', async () => {
+    const res = await postJson({ phone: ATTACKER_PHONE, code: 'PHONEATTACK1' })
+    const json = await res.json()
+
+    // No client has this exact national number on file (only a lookalike),
+    // and there's no email fallback in this request — correct behavior is to
+    // fail closed rather than fall through to the WRONG client.
+    expect(res.status).not.toBe(200)
+    expect(json.client?.id).not.toBe('phone-victim-1')
+  })
+
+  it('positive control: an 11-digit stored number with a leading US "1" still matches its 10-digit national number', async () => {
+    const usFormatVictim = { ...PHONE_VICTIM, id: 'us-format-victim', phone: `1${ATTACKER_PHONE}`, email: 'usformat@example.com' }
+    clients.push(usFormatVictim)
+
+    const res = await postJson({ phone: ATTACKER_PHONE, code: 'PHONEATTACK1' })
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.client.id).toBe('us-format-victim')
+  })
+})

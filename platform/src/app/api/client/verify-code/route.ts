@@ -63,9 +63,16 @@ export async function POST(request: Request) {
         .select('*')
         .eq('tenant_id', tenant.id)
       if (allClients) {
+        // Exact match only. The old `endsWith` matching let a code verified for
+        // one phone resolve a DIFFERENT client whose number was a suffix (or
+        // superset) of it — e.g. "5551234" matching "+1 (800) 555-1234". Compare
+        // the full national number (last 10 digits, dropping a leading US "1")
+        // so 10- vs 11-digit stored formats still match, but partials never do.
+        const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+        const target = nat(phoneDigits)
         client = allClients.find(c => {
-          const cDigits = ((c as { phone?: string }).phone || '').replace(/\D/g, '')
-          return cDigits && (cDigits === phoneDigits || cDigits.endsWith(phoneDigits) || phoneDigits.endsWith(cDigits))
+          const cDigits = nat(((c as { phone?: string }).phone || '').replace(/\D/g, ''))
+          return cDigits.length >= 10 && cDigits === target
         }) as typeof client || null
       }
     }
