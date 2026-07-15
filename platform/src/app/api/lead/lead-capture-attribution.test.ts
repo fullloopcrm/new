@@ -123,8 +123,10 @@ vi.mock('@/lib/tenant-site', () => ({
 }))
 
 // /api/leads/attribution + /visits GET resolve the authenticated tenant.
+// role: 'owner' — this test exercises the happy-path lead/attribution flow,
+// not RBAC (see leads-analytics-rbac.test.ts for the leads.view permission gate).
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { selena_config: null }, role: 'owner' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 

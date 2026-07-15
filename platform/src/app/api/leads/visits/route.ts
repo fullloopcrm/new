@@ -3,9 +3,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
-  const { getTenantForRequest, AuthError } = await import('@/lib/tenant-query')
+  const { requirePermission } = await import('@/lib/require-permission')
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('leads.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'

@@ -4,11 +4,14 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('leads.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id, type } = await request.json()
     if (!id || !type) return NextResponse.json({ error: 'Missing id or type' }, { status: 400 })
     if (type !== 'conversion' && type !== 'sale') {
