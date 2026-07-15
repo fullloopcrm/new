@@ -60,6 +60,14 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
+// The route now requires a host tenant (middleware-signed x-tenant-id) before
+// it will trust a caller-supplied client_id at all — see route.witness.test.ts
+// for the cross-tenant ownership guard itself. Stub it here so this file's
+// pre-existing column-bug regression test stays focused on that one bug.
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: vi.fn(async () => ({ id: 'tenant-A' })),
+}))
+
 // Scored path is never reached in the fallback branch; stub to keep it isolated.
 vi.mock('@/lib/smart-schedule', () => ({
   scoreTeamForBooking: vi.fn().mockResolvedValue([]),
