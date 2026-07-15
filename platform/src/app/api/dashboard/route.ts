@@ -13,11 +13,30 @@ interface BookingRow {
   status?: string
 }
 
+// team_members joined via `!bookings_team_member_id_fkey(*)` pulls the full
+// row including `pin` -- the team-portal login credential -- into every
+// booking-derived widget. None of this route's consumers read that field;
+// strip it unconditionally regardless of the caller's role (mirrors the
+// GET /api/team list fix).
+function stripJoinedTeamMemberPin<T extends { team_members?: unknown }>(row: T): T {
+  const joined = row.team_members
+  if (!joined || typeof joined !== 'object') return row
+  const { pin: _pin, ...rest } = joined as Record<string, unknown>
+  return { ...row, team_members: rest }
+}
+
+function stripJoinedTeamMemberPins<T extends { team_members?: unknown }>(
+  rows: T[] | null,
+): T[] {
+  return (rows || []).map(stripJoinedTeamMemberPin)
+}
+
 export async function GET() {
   try {
     const ctx = await getTenantForRequest()
     const { tenantId } = ctx
     const canViewFinance = hasPermission(ctx.role, 'finance.view', overridesFor(ctx))
+    const canViewTeam = hasPermission(ctx.role, 'team.view', overridesFor(ctx))
 
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -154,9 +173,9 @@ export async function GET() {
       }))
 
     return NextResponse.json({
-      todayJobs: todayRes.data || [],
-      upcomingBookings: upcomingRes.data || [],
-      allJobs: allJobsRes.data || [],
+      todayJobs: stripJoinedTeamMemberPins(todayRes.data),
+      upcomingBookings: stripJoinedTeamMemberPins(upcomingRes.data),
+      allJobs: stripJoinedTeamMemberPins(allJobsRes.data),
       mapJobs: {
         today: normalizeMapJobs(mapTodayRes.data as BookingRow[] | null),
         week: normalizeMapJobs(mapWeekRes.data as BookingRow[] | null),
@@ -179,7 +198,7 @@ export async function GET() {
         completed: completedRecentRes.count || 0,
         pending_payment: canViewFinance ? (pendingPaymentRes.data?.length || 0) : null,
       },
-      teamMembers: teamListRes.data || [],
+      teamMembers: canViewTeam ? (teamListRes.data || []) : null,
     })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
