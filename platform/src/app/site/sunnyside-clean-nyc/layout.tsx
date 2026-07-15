@@ -12,6 +12,12 @@ export const metadata = {
   },
 }
 
+// This tree was previously statically prerendered with a 300s ISR window,
+// but the static HTML from an old deployment kept being served indefinitely
+// instead of revalidating — force every request to render fresh so deploys
+// take effect immediately.
+export const dynamic = 'force-dynamic'
+
 export default function MarketingLayout({ children }: { children: React.ReactNode }) {
   return (
     <div className={`${bebasNeue.variable} ${inter.variable} font-[family-name:var(--font-inter)]`}>
