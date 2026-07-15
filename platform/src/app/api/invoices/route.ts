@@ -143,11 +143,16 @@ export async function POST(request: Request) {
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
+    // entity_id is a caller-supplied FK too — sibling finance writes (periods,
+    // expenses, bank-accounts, cpa-tokens) all verify it belongs to this tenant
+    // before insert; this route computed a tenant-scoped default but never
+    // checked a caller-supplied override, so a foreign id could scope this
+    // invoice to another tenant's accounting entity.
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     // Caller-supplied FKs — verify each belongs to this tenant before insert, so
-    // a foreign id can't attach another tenant's client/booking/quote to this
-    // invoice (the from_booking_id/from_quote_id prefill fetches above are
+    // a foreign id can't attach another tenant's client/booking/quote/entity to
+    // this invoice (the from_booking_id/from_quote_id prefill fetches above are
     // already tenant-scoped, but the raw body ids were not checked at all).
     const finalClientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
     const finalBookingId = body.booking_id || body.from_booking_id || null
@@ -157,6 +162,7 @@ export async function POST(request: Request) {
       { label: 'client_id', table: 'clients', id: finalClientId },
       { label: 'booking_id', table: 'bookings', id: finalBookingId },
       { label: 'quote_id', table: 'quotes', id: finalQuoteId },
+      { label: 'entity_id', table: 'entities', id: body.entity_id || null },
     ]
     for (const { label, table, id } of fkChecks) {
       if (!id) continue

@@ -7,13 +7,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * This route is UNCONVERTED (raw `supabaseAdmin`, not `tenantDb`). See
  * deploy-prep/cross-tenant-leak-register.md P2.
  *
- * `body.client_id` / `body.booking_id` / `body.quote_id` are now verified to
- * belong to the acting tenant (a fresh `.eq('id',...).eq('tenant_id', tenantId)`
- * lookup per id) before the invoice insert runs; a foreign id 404s the request
- * before any row is written.
+ * `body.client_id` / `body.booking_id` / `body.quote_id` / `body.entity_id` are
+ * now verified to belong to the acting tenant (a fresh
+ * `.eq('id',...).eq('tenant_id', tenantId)` lookup per id) before the invoice
+ * insert runs; a foreign id 404s the request before any row is written.
  *
  * LOCKED: these assertions prove the guard fires per id. A regression that
- * drops any of the three checks flips this back to a leak.
+ * drops any of the four checks flips this back to a leak.
  */
 
 const CTX_TENANT = 'tid-a' // attacker (the caller)
@@ -77,6 +77,10 @@ function seed() {
       { id: 'bk-b', tenant_id: OTHER_TENANT, price: 12345, actual_hours: 2 },
     ],
     quotes: [{ id: 'q-a', tenant_id: CTX_TENANT, client_id: 'client-a', line_items: [] }],
+    entities: [
+      { id: 'entity-a', tenant_id: CTX_TENANT, name: 'A-Entity' },
+      { id: 'entity-b', tenant_id: OTHER_TENANT, name: 'B-Entity' },
+    ],
   }
 }
 
@@ -115,8 +119,16 @@ describe('invoices POST — cross-tenant FK injection LOCKED', () => {
     expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
   })
 
-  it('CONTROL: own-tenant client_id/booking_id/quote_id all pass and the invoice is created', async () => {
-    const res = await POST(postReq({ client_id: 'client-a', booking_id: 'bk-a', quote_id: 'q-a', line_items: [] }))
+  it('LOCKED: a foreign entity_id 404s before any invoice is inserted (P2 gap, never had this check)', async () => {
+    const res = await POST(postReq({ entity_id: 'entity-b', line_items: [] }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'invoices')).toBeUndefined()
+  })
+
+  it('CONTROL: own-tenant client_id/booking_id/quote_id/entity_id all pass and the invoice is created', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', booking_id: 'bk-a', quote_id: 'q-a', entity_id: 'entity-a', line_items: [] }),
+    )
     expect(res.status).toBe(200)
 
     const row = h.capture.inserts.find((i) => i.table === 'invoices')!.rows[0]
@@ -124,5 +136,13 @@ describe('invoices POST — cross-tenant FK injection LOCKED', () => {
     expect(row.client_id).toBe('client-a')
     expect(row.booking_id).toBe('bk-a')
     expect(row.quote_id).toBe('q-a')
+    expect(row.entity_id).toBe('entity-a')
+  })
+
+  it('CONTROL: no entity_id supplied falls back to the tenant-scoped default, no check needed', async () => {
+    const res = await POST(postReq({ client_id: 'client-a', line_items: [] }))
+    expect(res.status).toBe(200)
+    const row = h.capture.inserts.find((i) => i.table === 'invoices')!.rows[0]
+    expect(row.entity_id).toBe('entity-a')
   })
 })
