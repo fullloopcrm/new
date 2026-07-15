@@ -29,6 +29,14 @@ export async function POST(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
+    // Guard against re-sending: the UI only shows Send while status is
+    // 'draft'/'approved', but that's a client-side hint, not enforcement —
+    // without this check a replayed/duplicate POST re-blasts every active
+    // client again.
+    if (campaign.status === 'sent' || campaign.status === 'sending') {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
+
     const settings = await getSettings(tenantId)
 
     // Tenant rule: campaign_approval_required gates send on an explicit
@@ -40,6 +48,10 @@ export async function POST(
       )
     }
 
+    // Mark as sending immediately to narrow the race window for concurrent
+    // duplicate requests (matches the pattern in /api/campaigns/send).
+    await supabaseAdmin.from('campaigns').update({ status: 'sending' }).eq('id', id)
+
     // Get recipients (active clients). Per-channel marketing opt-outs are
     // enforced below so a client who opted out of SMS/email marketing is never
     // sent a campaign on that channel (CAN-SPAM / TCPA).
@@ -50,6 +62,7 @@ export async function POST(
       .eq('status', 'active')
 
     if (!clients || clients.length === 0) {
+      await supabaseAdmin.from('campaigns').update({ status: campaign.status }).eq('id', id)
       return NextResponse.json({ error: 'No eligible recipients' }, { status: 400 })
     }
 
@@ -60,9 +73,11 @@ export async function POST(
     const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
 
     if (sendEmails && !hasEmail) {
+      await supabaseAdmin.from('campaigns').update({ status: campaign.status }).eq('id', id)
       return NextResponse.json({ error: 'Email not configured. Add Resend API key in Settings.' }, { status: 400 })
     }
     if (sendSMSMessages && (!tenant.telnyx_api_key || !tenant.telnyx_phone)) {
+      await supabaseAdmin.from('campaigns').update({ status: campaign.status }).eq('id', id)
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx keys in Settings.' }, { status: 400 })
     }
 
