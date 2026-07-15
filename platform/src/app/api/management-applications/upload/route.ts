@@ -8,6 +8,19 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 
+// Mirrors the ALLOWED_TYPES allow-list in the sibling signed-url endpoint —
+// this route is the one that actually receives file bytes server-side, so it
+// must enforce the MIME allow-list itself rather than trusting the client.
+const ALLOWED_MIMES: Record<string, string[]> = {
+  photo: ['image/jpeg', 'image/png', 'image/webp'],
+  video: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'],
+  resume: [
+    'application/pdf',
+    'application/msword',
+    'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  ],
+}
+
 export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
@@ -23,6 +36,12 @@ export async function POST(request: NextRequest) {
     const file = formData.get('file') as File | null
     const type = formData.get('type') as string | null
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+
+    const allowedMimes = type ? ALLOWED_MIMES[type] : undefined
+    if (!allowedMimes) return NextResponse.json({ error: 'Invalid upload type' }, { status: 400 })
+    if (!allowedMimes.includes(file.type)) {
+      return NextResponse.json({ error: `Invalid file type for ${type}` }, { status: 400 })
+    }
 
     const maxSize = type === 'video' ? 100 * 1024 * 1024 : 10 * 1024 * 1024
     if (file.size > maxSize) {
