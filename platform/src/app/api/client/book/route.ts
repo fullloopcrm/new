@@ -51,15 +51,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // DNS (do-not-service) gate — never create bookings for these clients.
+    // Ownership + DNS (do-not-service) gate. A caller-supplied client_id must
+    // resolve to a row scoped to THIS tenant — otherwise it silently flows
+    // into resolveProperty() and the bookings insert, whose response joins
+    // clients(*)/client_properties(*) and would leak an unrelated tenant's
+    // client PII (and pollute their property list) to whoever guessed/leaked
+    // the UUID.
     if (body.client_id) {
       const { data: dnsCheck } = await supabaseAdmin
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
         .eq('tenant_id', tenant.id)
-        .single()
-      if (dnsCheck?.do_not_service) {
+        .maybeSingle()
+      if (!dnsCheck) {
+        return NextResponse.json({ error: 'Invalid client' }, { status: 400 })
+      }
+      if (dnsCheck.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,

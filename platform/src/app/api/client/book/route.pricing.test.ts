@@ -115,7 +115,10 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'clients') {
-        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { do_not_service: false }, error: null }) }) }) }) }
+        return { select: () => ({ eq: () => ({ eq: () => ({
+          single: async () => ({ data: { do_not_service: false }, error: null }),
+          maybeSingle: async () => ({ data: { do_not_service: false }, error: null }),
+        }) }) }) }
       }
       if (table === 'bookings') return bookingsChain()
       return stubChain()
