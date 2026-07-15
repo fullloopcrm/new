@@ -55,6 +55,9 @@ function seed() {
     bookings: [
       { id: 'booking-a', tenant_id: TENANT_A, status: 'scheduled', team_member_id: 'tm-a' },
     ] as Record<string, unknown>[],
+    clients: [
+      { id: 'client-a', tenant_id: TENANT_A, name: 'Client A', email: 'a@example.com' },
+    ] as Record<string, unknown>[],
   }
 }
 
@@ -125,5 +128,62 @@ describe('ai/assistant update_bookings — foreign team_member_id (BLOCKED)', ()
 
     const booking = h.seed.bookings.find((b) => b.id === 'booking-a')
     expect(booking!.status).toBe('confirmed')
+  })
+})
+
+/**
+ * Mass-assignment gap (same class as P7/P8 in the leak register): `updates`
+ * on `update_bookings`/`update_client` is a model-supplied object that was
+ * spread verbatim into `.update()` with no column allow-list. The
+ * `.eq('tenant_id', …)` WHERE clause only scopes which ROW is written — a
+ * `tenant_id` key inside `updates` could still overwrite the row's own
+ * tenant_id, donating it to another tenant, exactly like the already-fixed
+ * `PUT /api/finance/expenses/[id]` (P7) and `PUT /api/schedules/[id]` (P8).
+ * Both tools now allow-list mutable columns, matching their own documented
+ * tool schema and src/lib/selena/tools.ts's handleUpdateBooking.
+ */
+describe('ai/assistant mass-assignment — tenant_id column injection (BLOCKED)', () => {
+  it('BLOCKED: update_bookings cannot overwrite tenant_id via the updates object', async () => {
+    toolTurn('update_bookings', {
+      booking_ids: ['booking-a'],
+      updates: { status: 'confirmed', tenant_id: TENANT_B },
+      confirmed: true,
+    })
+
+    const res = await post([{ role: 'user', content: 'confirm booking-a' }])
+    expect(res.status).toBe(200)
+
+    const booking = h.seed.bookings.find((b) => b.id === 'booking-a')
+    expect(booking!.tenant_id).toBe(TENANT_A) // not donated to tenant B
+    expect(booking!.status).toBe('confirmed') // allowed field still applied
+  })
+
+  it('BLOCKED: update_client cannot overwrite tenant_id via the updates object', async () => {
+    toolTurn('update_client', {
+      client_id: 'client-a',
+      updates: { name: 'Renamed Client', tenant_id: TENANT_B },
+    })
+
+    const res = await post([{ role: 'user', content: 'rename client-a' }])
+    expect(res.status).toBe(200)
+
+    const client = h.seed.clients.find((c) => c.id === 'client-a')
+    expect(client!.tenant_id).toBe(TENANT_A) // not donated to tenant B
+    expect(client!.name).toBe('Renamed Client') // allowed field still applied
+  })
+
+  it('CONTROL: update_client applies only its documented allow-listed fields', async () => {
+    toolTurn('update_client', {
+      client_id: 'client-a',
+      updates: { phone: '555-0100', notes: 'VIP', not_a_real_column: 'ignored' },
+    })
+
+    const res = await post([{ role: 'user', content: 'update client-a phone' }])
+    expect(res.status).toBe(200)
+
+    const client = h.seed.clients.find((c) => c.id === 'client-a')
+    expect(client!.phone).toBe('555-0100')
+    expect(client!.notes).toBe('VIP')
+    expect(client!.not_a_real_column).toBeUndefined()
   })
 })
