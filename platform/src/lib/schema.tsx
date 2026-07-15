@@ -367,10 +367,17 @@ export function howToSchema(
 }
 
 export function JsonLd({ data }: { data: Record<string, unknown> | Record<string, unknown>[] }) {
+  // JSON.stringify does not escape '<', so a field containing the literal
+  // sequence '</script>' would close this tag early and let arbitrary HTML
+  // execute -- the HTML parser doesn't know it's inside a JSON string. Any
+  // schema field sourced from admin-editable tenant content (name, FAQ
+  // answers, etc.) is a potential injection point. Standard mitigation:
+  // unicode-escape '<' so it can never form a closing tag.
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: json }}
     />
   );
 }
