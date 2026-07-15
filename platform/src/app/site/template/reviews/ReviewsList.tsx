@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { safeUrl } from '@/lib/escape-html'
 
 const COLORS = [
   'bg-emerald-400', 'bg-indigo-500', 'bg-slate-500', 'bg-purple-500', 'bg-amber-400',
@@ -122,8 +123,13 @@ export default function ReviewsList() {
                 {review.images && review.images.length > 0 && (
                   <div className="flex flex-wrap gap-2 mt-3">
                     {review.images.map((url, j) => (
-                      <a key={j} href={url} target="_blank" rel="noopener noreferrer">
-                        <img src={url} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
+                      // Review images are attacker-reachable: /api/reviews/submit accepts
+                      // this array as raw strings with no scheme check, so a javascript:
+                      // URL posted directly to the API (bypassing the real upload flow)
+                      // would execute on click via a bare href. safeUrl() allowlists
+                      // http(s)/mailto/tel/sms and drops anything else to '#'.
+                      <a key={j} href={safeUrl(url)} target="_blank" rel="noopener noreferrer">
+                        <img src={safeUrl(url)} alt="" className="w-16 h-16 object-cover rounded-lg border border-gray-200" />
                       </a>
                     ))}
                   </div>
@@ -131,7 +137,7 @@ export default function ReviewsList() {
 
                 {review.video_url && (
                   <div className="mt-3">
-                    <video src={review.video_url} controls preload="metadata" className="w-full rounded-lg border border-gray-200" />
+                    <video src={safeUrl(review.video_url)} controls preload="metadata" className="w-full rounded-lg border border-gray-200" />
                   </div>
                 )}
               </div>
