@@ -1,16 +1,20 @@
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import { createHmac, randomBytes } from 'crypto'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/app/site/nyc-mobile-salon/_lib/supabase'
 import type { AdminRole } from '@/app/site/nyc-mobile-salon/_lib/roles'
+import { safeEqual, signWithSecret } from '@/lib/secret-compare'
 
+// signWithSecret throws if ADMIN_PASSWORD is unset rather than signing with a
+// publicly-computable '' (or literal 'fallback') key -- an empty/known HMAC
+// key would let anyone forge a valid admin_session for any userId. Callers
+// catch the throw and fail closed (no valid session) instead of crashing.
 function signToken(token: string): string {
-  const secret = process.env.ADMIN_PASSWORD || ''
-  return createHmac('sha256', secret).update(token).digest('hex')
+  return signWithSecret(token, process.env.ADMIN_PASSWORD)
 }
 
 export function hashPassword(password: string): string {
-  return createHmac('sha256', process.env.ADMIN_PASSWORD || 'fallback').update(password).digest('hex')
+  return signWithSecret(password, process.env.ADMIN_PASSWORD)
 }
 
 export function createSessionCookie(userId?: string): string {
@@ -30,31 +34,37 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (!cookie) return { valid: false }
   const parts = cookie.split('.')
 
-  if (parts.length === 4) {
-    const [userId, token, timestamp, signature] = parts
-    if (!userId || !token || !timestamp || !signature) return { valid: false }
-    const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true, userId }
-  }
+  try {
+    if (parts.length === 4) {
+      const [userId, token, timestamp, signature] = parts
+      if (!userId || !token || !timestamp || !signature) return { valid: false }
+      const payload = `${userId}.${token}.${timestamp}`
+      if (!safeEqual(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true, userId }
+    }
 
-  if (parts.length === 3) {
-    const [token, timestamp, signature] = parts
-    if (!token || !timestamp || !signature) return { valid: false }
-    const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
-    const created = parseInt(timestamp, 36)
-    if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
-    return { valid: true }
-  }
+    if (parts.length === 3) {
+      const [token, timestamp, signature] = parts
+      if (!token || !timestamp || !signature) return { valid: false }
+      const payload = `${token}.${timestamp}`
+      if (!safeEqual(signToken(payload), signature)) return { valid: false }
+      const created = parseInt(timestamp, 36)
+      if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
+      return { valid: true }
+    }
 
-  if (parts.length === 2) {
-    const [token, signature] = parts
-    if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
-    return { valid: true }
+    if (parts.length === 2) {
+      const [token, signature] = parts
+      if (!token || !signature) return { valid: false }
+      if (!safeEqual(signToken(token), signature)) return { valid: false }
+      return { valid: true }
+    }
+  } catch {
+    // ADMIN_PASSWORD not configured — signToken() throws rather than sign
+    // with a publicly-computable key. Fail closed: no session is valid.
+    return { valid: false }
   }
 
   return { valid: false }

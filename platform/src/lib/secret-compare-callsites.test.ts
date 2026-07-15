@@ -191,4 +191,34 @@ describe('empty-key HMAC fallback closed — signWithSecret() throws instead of 
     expect(src).not.toMatch(/createHmac\(/)
     expect(src).not.toMatch(/expected\s*!==\s*sig/)
   })
+
+  // Fresh broad-hunt finding: the tenant-site admin/client-portal auth clones
+  // under src/app/site/<tenant>/_lib/auth.ts (nyc-mobile-salon,
+  // the-nyc-interior-designer, wash-and-fold-hoboken, wash-and-fold-nyc) each
+  // had the identical `process.env.ADMIN_PASSWORD || ''` signToken() +
+  // literal `|| 'fallback'` hashPassword() + plain `!==` signature compares —
+  // same bug class as nycmaid/auth.ts. Any of these 4 tenant sites' admin
+  // sessions, password hashes, and (where present) client sessions / cron
+  // Bearer checks were forgeable with ADMIN_PASSWORD unconfigured. Fixed the
+  // same way: signWithSecret() fails closed, safeEqual() for all compares.
+  const TENANT_AUTH_FILES = [
+    'src/app/site/nyc-mobile-salon/_lib/auth.ts',
+    'src/app/site/the-nyc-interior-designer/_lib/auth.ts',
+    'src/app/site/wash-and-fold-hoboken/_lib/auth.ts',
+    'src/app/site/wash-and-fold-nyc/_lib/auth.ts',
+  ]
+
+  for (const file of TENANT_AUTH_FILES) {
+    it(`${file} signs via signWithSecret() + safeEqual(), no ADMIN_PASSWORD || fallback or plain !== compare`, () => {
+      const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
+      expect(src).toMatch(/import\s*\{[^}]*\bsignWithSecret\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+      expect(src).toMatch(/import\s*\{[^}]*\bsafeEqual\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+      expect(src).toMatch(/signWithSecret\s*\(/)
+      expect(src).toMatch(/safeEqual\s*\(/)
+      expect(src).not.toMatch(/process\.env\.ADMIN_PASSWORD\s*\|\|\s*['"]/)
+      expect(src).not.toMatch(/createHmac\(/)
+      expect(src).not.toMatch(/signToken\([^)]*\)\s*!==\s*signature/)
+      expect(src).not.toMatch(/authHeader\s*===\s*`Bearer \$\{cronSecret\}`/)
+    })
+  }
 })
