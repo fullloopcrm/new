@@ -29,6 +29,24 @@ export async function POST(req: NextRequest) {
   const ownerPhone = getOwnerPhone()
   let sessionId: string = body.sessionId || ''
 
+  // A client-supplied sessionId must belong to THIS tenant's conversation.
+  // Without this check, any authenticated caller could pass another
+  // tenant's sms_conversations.id: resolveTenantForConversation() in
+  // lib/selena/agent.ts derives the AI agent's tenant context purely from
+  // the conversation row's tenant_id (not the caller's session), so an
+  // unverified sessionId lets a Tenant-A staffer read/write Tenant-B's
+  // admin-chat thread and run Selena tool calls against Tenant B's data
+  // using Tenant B's own Anthropic key.
+  if (sessionId) {
+    const { data: owned } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('tenant_id', tenant.tenantId)
+      .maybeSingle()
+    if (!owned) sessionId = ''
+  }
+
   if (!sessionId) {
     // The unique partial index `idx_sms_conv_active_phone` only allows ONE active
     // (completed_at IS NULL AND expired = false) conversation per phone. Without a
