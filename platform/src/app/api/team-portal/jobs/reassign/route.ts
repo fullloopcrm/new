@@ -32,6 +32,12 @@ export async function POST(request: Request) {
     .single()
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
+  // The source booking must also be in the actor's scope — otherwise a lead
+  // could hijack jobs already assigned to (or intended for) another crew.
+  if (booking.team_member_id && !scope.includes(booking.team_member_id)) {
+    return NextResponse.json({ error: 'That job is not in your crew' }, { status: 403 })
+  }
+
   const previous = booking.team_member_id
 
   const { data: target } = await supabaseAdmin
@@ -44,7 +50,18 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .update({ team_member_id: to_member_id, pay_rate: target.pay_rate || null, status: 'confirmed' })
+    .update({
+      team_member_id: to_member_id,
+      pay_rate: target.pay_rate || null,
+      status: 'confirmed',
+      check_in_time: null,
+      check_out_time: null,
+      check_in_lat: null,
+      check_in_lng: null,
+      check_out_lat: null,
+      check_out_lng: null,
+      actual_hours: null,
+    })
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .select()

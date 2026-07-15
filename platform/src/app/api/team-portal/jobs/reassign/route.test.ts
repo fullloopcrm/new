@@ -7,6 +7,12 @@ import { NextResponse } from 'next/server'
  * scope (scopedMemberIds), never to an arbitrary team member id. That check
  * is mutation-verified below — stubbing scopedMemberIds to omit the target
  * flips the 403 test; including it lets the reassignment through.
+ *
+ * The SOURCE booking must also be in the actor's scope — otherwise a lead
+ * could hijack a job already assigned to another crew (cross-crew job
+ * theft). And the update must clear check-in/out state so the new assignee
+ * never inherits the previous assignee's already-elapsed clock (payroll
+ * inflation vector).
  */
 
 const TENANT = 'aaaaaaaa-0000-0000-0000-000000000001'
@@ -16,7 +22,7 @@ const TARGET = '33333333-0000-0000-0000-000000000003'
 const BOOKING = 'bbbbbbbb-0000-0000-0000-00000000000b'
 
 let permError: NextResponse | null = null
-let scope: string[] = [ACTOR, TARGET]
+let scope: string[] = [ACTOR, TARGET, PREV_MEMBER]
 let bookingResult: unknown = {
   id: BOOKING,
   team_member_id: PREV_MEMBER,
@@ -26,6 +32,7 @@ let bookingResult: unknown = {
 let targetResult: unknown = { pay_rate: 25 }
 let updateResult: unknown = { id: BOOKING, team_member_id: TARGET, status: 'confirmed' }
 let updateError: unknown = null
+let lastUpdatePayload: Record<string, unknown> | null = null
 
 const auditCalls: unknown[] = []
 const pushCalls: Array<{ memberId: string; title: string }> = []
@@ -54,7 +61,10 @@ vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
     const c: Record<string, unknown> = {
       select: () => c,
-      update: () => c,
+      update: (payload: Record<string, unknown>) => {
+        if (table === 'bookings') lastUpdatePayload = payload
+        return c
+      },
       eq: () => c,
       maybeSingle: async () => ({ data: updateResult, error: updateError }),
       single: async () => {
@@ -72,7 +82,7 @@ import { POST } from './route'
 
 beforeEach(() => {
   permError = null
-  scope = [ACTOR, TARGET]
+  scope = [ACTOR, TARGET, PREV_MEMBER]
   bookingResult = {
     id: BOOKING,
     team_member_id: PREV_MEMBER,
@@ -82,6 +92,7 @@ beforeEach(() => {
   targetResult = { pay_rate: 25 }
   updateResult = { id: BOOKING, team_member_id: TARGET, status: 'confirmed' }
   updateError = null
+  lastUpdatePayload = null
   auditCalls.length = 0
   pushCalls.length = 0
 })
@@ -115,9 +126,38 @@ describe('team-portal/jobs/reassign', () => {
   })
 
   it('ALLOWS a target INSIDE the actor\'s scope', async () => {
-    scope = [ACTOR, TARGET]
+    scope = [ACTOR, TARGET, PREV_MEMBER]
     const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
     expect(res.status).toBe(200)
+  })
+
+  it('REJECTS (403) when the SOURCE booking is currently held by someone OUTSIDE the actor\'s scope — cross-crew hijack', async () => {
+    scope = [ACTOR, TARGET] // PREV_MEMBER (current holder) is on another crew
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(403)
+    expect(auditCalls).toHaveLength(0)
+    expect(pushCalls).toHaveLength(0)
+  })
+
+  it('ALLOWS reassigning an unassigned booking even though no prior holder is in scope', async () => {
+    scope = [ACTOR, TARGET]
+    bookingResult = { ...(bookingResult as object), team_member_id: null }
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(200)
+  })
+
+  it('clears check-in/out state on reassignment so the new assignee cannot inherit the prior clock', async () => {
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(200)
+    expect(lastUpdatePayload).toMatchObject({
+      check_in_time: null,
+      check_out_time: null,
+      check_in_lat: null,
+      check_in_lng: null,
+      check_out_lat: null,
+      check_out_lng: null,
+      actual_hours: null,
+    })
   })
 
   it('REJECTS (404) when the booking does not exist / wrong tenant', async () => {
