@@ -3,10 +3,10 @@ import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
-import { IMPERSONATE_COOKIE, signImpersonation } from '@/lib/impersonation'
+import { IMPERSONATE_COOKIE, IMPERSONATE_TTL_MS, signImpersonation } from '@/lib/impersonation'
 
 const COOKIE_NAME = IMPERSONATE_COOKIE
-const MAX_AGE = 3600 // 1 hour
+const MAX_AGE = IMPERSONATE_TTL_MS / 1000 // seconds, must match the exp embedded in signImpersonation()
 
 // Start impersonation
 export async function POST(request: Request) {

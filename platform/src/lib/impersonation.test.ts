@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll } from 'vitest'
+import crypto from 'node:crypto'
 import { signImpersonation, verifyImpersonationCookie } from './impersonation'
 
 describe('impersonation signing', () => {
@@ -39,5 +40,31 @@ describe('impersonation signing', () => {
     process.env.IMPERSONATION_ALLOW_UNSIGNED = '1'
     expect(verifyImpersonationCookie('24d94cd6-9fc0-4882-b544-fa25a4542e9e')).toBe('24d94cd6-9fc0-4882-b544-fa25a4542e9e')
     delete process.env.IMPERSONATION_ALLOW_UNSIGNED
+  })
+
+  it('rejects an expired signed cookie even with a valid signature', () => {
+    const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
+    const secret = process.env.ADMIN_TOKEN_SECRET!
+    const exp = Date.now() - 1000 // already expired
+    const payload = `${tenantId}.${exp}`
+    const hmac = crypto.createHmac('sha256', secret).update(payload).digest('hex')
+    const expiredCookie = `${payload}.${hmac}`
+    expect(verifyImpersonationCookie(expiredCookie)).toBeNull()
+  })
+
+  it('rejects a tampered exp (extending the deadline) even with a stale-looking signature', () => {
+    const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
+    const signed = signImpersonation(tenantId)
+    const [, exp, sig] = signed.split('.')
+    const tampered = `${tenantId}.${Number(exp) + 1000000}.${sig}`
+    expect(verifyImpersonationCookie(tampered)).toBeNull()
+  })
+
+  it('rejects a pre-expiry legacy signed cookie (no exp segment)', () => {
+    const tenantId = '24d94cd6-9fc0-4882-b544-fa25a4542e9e'
+    const secret = process.env.ADMIN_TOKEN_SECRET!
+    const hmac = crypto.createHmac('sha256', secret).update(tenantId).digest('hex')
+    const legacySigned = `${tenantId}.${hmac}`
+    expect(verifyImpersonationCookie(legacySigned)).toBeNull()
   })
 })
