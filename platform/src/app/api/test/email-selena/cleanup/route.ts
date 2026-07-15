@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 const TEST_TAG = 'selena-email-test'
 
@@ -14,7 +15,9 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => null)) as { key?: string; tenant_id?: string } | null
-  if (!body || body.key !== expectedToken) {
+  // Constant-time compare — a naive !== leaks SELENA_TEST_TOKEN byte-by-byte via
+  // timing, same class already fixed for CRON_SECRET/ADMIN_PIN elsewhere.
+  if (!body || typeof body.key !== 'string' || !safeEqual(body.key, expectedToken)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

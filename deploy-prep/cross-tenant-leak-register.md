@@ -1696,3 +1696,47 @@ alerts, whose message body includes client name and phone.
   `requireAdmin()` before `getCurrentTenant()`. `npx tsc --noEmit` clean.
   Full suite 328 files / 1439 passed / 37 skipped / 0 failed, 0 regressions.
 File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 17:31 order) — broad-hunt refill: 1 timing side-channel
+fixed, otherwise negative.**
+
+Re-swept `admin-auth`, `admin-chat`, `announcements`, `auth/*` — all already
+covered by the prior `w2-legacy-admin-session-dead-code-audit.md` sweep
+(confirmed clean there, no new issue this pass; noting for future rounds so
+this batch isn't re-checked a third time).
+
+Fresh ground: `team/route.ts`+`team/[id]`, `email/monitor`, `health`, and
+`test/email-selena/route.ts`+`cleanup/route.ts` — plus 17 `admin/*`
+sub-routes whose grep for the usual guard markers (`requireAdmin`/
+`verifyAdminToken`/`verifyTenantAdminToken`) came back empty (`geocode-backfill`,
+`google/generate-reply`, `google/reply`, `google/callback`,
+`message-applicants/preview`+`send`, `schedule-issues`+`fix`,
+`send-apology-batch`, `smart-schedule`, `team-availability-batch`,
+`translate`, `travel-time`+`travel-times`, `users`+`[id]`+`[id]/pin`) — all
+turned out to be gated by a different but equally valid pattern
+(`requirePermission`/`getTenantForRequest`/`verifyOAuthState` CSRF state),
+just not the exact marker string the grep looked for. No cross-tenant leak
+in any of these.
+
+- **Found + fixed (not a cross-tenant leak, a timing side-channel):**
+  `POST /api/test/email-selena` and `POST /api/test/email-selena/cleanup`
+  compared the caller-supplied `key` against `SELENA_TEST_TOKEN` with a plain
+  `!==`, the same secret-comparison-timing class already fixed everywhere
+  else in this codebase (`CRON_SECRET`, `ADMIN_PIN`, the admin token HMAC,
+  portal token HMAC — all via `safeEqual`/`crypto.timingSafeEqual`). This
+  harness creates/mutates real `clients` + `sms_conversations` rows for any
+  `tenant_id` the caller supplies once the token is known, so it's worth the
+  same convention. Switched both to the shared `lib/timing-safe-equal.ts`
+  `safeEqual()`.
+- **Regression lock** — new `route.auth.test.ts` in both directories (3
+  tests each: wrong key → 401, missing key → 401, harness disabled when
+  `SELENA_TEST_TOKEN` unset → 404). This is a non-functional hardening fix
+  (old and new code accept/reject the identical set of inputs — only the
+  comparison's timing changed), so no RED/GREEN mutation test applies here;
+  verified via the new unit tests passing against the fixed code instead,
+  matching the precedent set for the portal-token constant-time fix
+  (`cd5c0e6c`).
+- **Verdict:** FIXED (2 files, non-functional hardening). `npx tsc --noEmit`
+  clean. Full suite 330 files / 1445 passed / 37 skipped / 0 failed, 0
+  regressions.
+File-only, no push/deploy/DB.
