@@ -614,6 +614,58 @@ live leaks. This section is a **negative result, not a to-do list**.
 > swept here; it was **not** a whole-codebase all-clear. The `entity_id`/`coa_id`
 > FK-injection class is now witnessed, not a hypothesis.
 
+**2026-07-15 (W2, post-P39 refill) — negative-result sweep, no fix needed:**
+broad-hunted a batch of surfaces not previously touched by this register and
+found every one already correctly tenant-scoped (no P-number assigned — recorded
+here so a future pass doesn't re-spend time on the same files):
+- `admin/impersonate` + `src/lib/impersonation.ts`/`tenant.ts` (super-admin
+  impersonation cookie: HMAC-signed, `timingSafeEqual`-compared, correctly
+  gated by `requireAdmin()`/Clerk super-admin id — impersonating ANY tenant is
+  the intended platform-admin capability, not a leak).
+- Resolver core (`src/lib/tenant.ts` `getTenantByDomain`, `src/lib/tenant-lookup.ts`,
+  `src/middleware.ts`, `src/lib/tenant-header-sig.ts`) — re-verified the
+  tenant_domains-first/tenants.domain-fallback contract and the
+  TRANSITION ASSERT-AND-REFUSE divergence guard are intact and consistent
+  between the middleware (edge) and server resolvers; HMAC header signing is
+  constant-time; no forgery path found.
+- Webhooks not yet in this register: `webhooks/clerk`, `webhooks/resend`,
+  `webhooks/telegram` (Jeff's private owner bot, single hardcoded tenant +
+  chat-id allowlist), `webhooks/telegram/jefe` (platform-level, no tenant
+  concept) — all correctly Svix/secret-token verified, no caller-controlled
+  tenant-selection surface.
+- `invoices/public/[token]/checkout` → `webhooks/stripe`'s `invoiceId &&
+  tenantId && !bookingId` branch — `invoice_id`/`tenant_id` Stripe metadata are
+  both set server-side from the SAME tenant-scoped invoice row at session
+  creation (self-consistent by construction), distinct from P33's caller-editable
+  `client_reference_id` path.
+- Signed-upload-URL routes (`lead-media/signed-url`, `apply/signed-url`,
+  `management-applications/signed-url`) — tenant from host, path prefixed by
+  `tenant.id`, write-only.
+- Import staging (`src/lib/import-staging.ts`, `dashboard/import/*`) — batch
+  ownership re-checked before every commit/undo call; `commitBatch`'s
+  `{...mapped, tenant_id}` payload only ever contains ids resolved from
+  tenant-scoped lookups at stage time, never a raw caller FK.
+- Finance surfaces: `mark-paid`, `bank-import`, `receipts/attach`,
+  `reconcile-candidates`, `year-end-zip` (incl. its caller-supplied
+  `entityId` query param — always AND'd with `tenant_id`, so a foreign
+  `entityId` just matches zero rows, not a leak), `entities/[id]`.
+- `team-members/[id]/stripe-status`, `cleaners/[id]`, `cleaners/[id]/role` —
+  correctly tenant-scoped; the unauthenticated `resolveTenantForTeamMember`
+  fallback on `stripe-status` derives its tenant from the SAME team-member row
+  it then scopes by, so it's self-consistent (matches the "freshly-created
+  parent" safe-by-construction shape already noted in §2).
+- `admin/comhub/templates/[id]`, `admin/comhub/messages/[id]/flag`,
+  `campaigns/[id]` — DELETE/PATCH/PUT all tenant-scoped, no unchecked FK in
+  any allow-list.
+- Grepped the whole `src/app/api` tree for the P31 conditional-validation-gap
+  shape (`if (someId && !otherField)`) — the only other hits
+  (`bookings/[id]`, `quotes`, `deals`, `client/book`, `webhooks/telnyx-voice`)
+  are unrelated `force`/`silent`/required-field branches, not an
+  ownership-check skipped behind a condition.
+
+No proven-LIVE finding this round. Recorded so the next broad-hunt pass
+starts from a fresh area instead of re-covering this list.
+
 ---
 
 ## 5. Source references
