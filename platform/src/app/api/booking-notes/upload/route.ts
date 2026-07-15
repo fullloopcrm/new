@@ -19,12 +19,18 @@ export async function POST(request: NextRequest) {
     const { tenant: ctx, error: authError } = await requirePermission('bookings.edit')
     if (authError) return authError
 
+    // booking_id is a caller-supplied FK — verify it belongs to this tenant
+    // before insert so a note can't be planted against another tenant's booking.
+    const db = tenantDb(ctx.tenantId)
+    const { data: ownedBooking } = await db.from('bookings').select('id').eq('id', bookingId).maybeSingle()
+    if (!ownedBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
     // MODE 1: URLs already uploaded
     if (imageUrlsRaw) {
       const imageUrls = JSON.parse(imageUrlsRaw) as string[]
-      const { data, error } = await tenantDb(ctx.tenantId)
+      const { data, error } = await db
         .from('booking_notes')
         .insert({
           booking_id: bookingId,
@@ -57,7 +63,7 @@ export async function POST(request: NextRequest) {
     const { data: urlData } = supabaseAdmin.storage.from('uploads').getPublicUrl(path)
 
     // Single image: create note directly
-    const { data, error } = await tenantDb(ctx.tenantId)
+    const { data, error } = await db
       .from('booking_notes')
       .insert({
         booking_id: bookingId,

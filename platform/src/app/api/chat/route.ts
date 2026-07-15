@@ -31,6 +31,24 @@ export async function POST(req: NextRequest) {
 
     let conversationId = sessionId
 
+    // Caller-supplied sessionId — verify it belongs to this tenant before
+    // writing into it or handing it to askSelena/askYinez. Same FK-injection
+    // class as the conversation_id trust bug already fixed on /api/sms,
+    // /api/admin-chat, and sibling /api/yinez: a foreign sessionId would let
+    // this tenant's public web widget read/append to, and have Selena act on,
+    // another tenant's SMS conversation thread. Falls through to start a
+    // fresh conversation (matching /api/yinez) rather than hard-erroring the
+    // widget on a stale/foreign session id.
+    if (conversationId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) conversationId = undefined
+    }
+
     // Create conversation if new session
     if (!conversationId) {
       const webPhone = phone ? `web-${phone}` : `web-${crypto.randomUUID().slice(0, 8)}`

@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
@@ -8,13 +7,8 @@ export async function GET(request: Request) {
   const bookingId = searchParams.get('booking_id')
   if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
 
   const { data, error } = await tenantDb(ctx.tenantId)
     .from('booking_notes')
@@ -36,7 +30,13 @@ export async function POST(request: Request) {
   const { tenant: ctx, error: authError } = await requirePermission('bookings.edit')
   if (authError) return authError
 
-  const { data, error } = await tenantDb(ctx.tenantId)
+  // booking_id is a caller-supplied FK — verify it belongs to this tenant
+  // before insert so a note can't be planted against another tenant's booking.
+  const db = tenantDb(ctx.tenantId)
+  const { data: ownedBooking } = await db.from('bookings').select('id').eq('id', booking_id).maybeSingle()
+  if (!ownedBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+
+  const { data, error } = await db
     .from('booking_notes')
     .insert({
       booking_id,
