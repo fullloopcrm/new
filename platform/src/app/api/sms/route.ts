@@ -79,6 +79,23 @@ export async function POST(request: NextRequest) {
 
     let convoId = conversation_id
 
+    // A client-supplied conversation_id must belong to THIS tenant (and this
+    // client) — otherwise any tenant member could inject an outbound message
+    // into another tenant's SMS thread and bump its last_message_at, since
+    // the insert below trusts convoId with no ownership check of its own.
+    if (convoId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', convoId)
+        .eq('tenant_id', tenantId)
+        .eq('client_id', client_id)
+        .maybeSingle()
+      if (!owned) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+    }
+
     // Look up or create conversation if none provided
     if (!convoId) {
       const { data: existing } = await supabaseAdmin
