@@ -43,7 +43,10 @@ const h = vi.hoisted(() => {
 })
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: h.supabaseAdmin }))
-vi.mock('@/lib/webhook-verify', () => ({ verifySvix: () => ({ valid: true }) }))
+vi.mock('@/lib/webhook-verify', () => ({
+  verifySvix: () => ({ valid: true }),
+  isWebhookVerifyDisabled: () => false,
+}))
 vi.mock('@/lib/inbound-email-tenant', () => ({
   resolveTenantIdForInboundEmail: h.resolveTenantIdForInboundEmail,
 }))

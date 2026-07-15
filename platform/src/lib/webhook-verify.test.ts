@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest'
+import { describe, it, expect, afterEach, vi } from 'vitest'
 import { createHmac, generateKeyPairSync, sign as cryptoSign } from 'node:crypto'
-import { verifySvix, verifyTelnyx } from './webhook-verify'
+import { verifySvix, verifyTelnyx, isWebhookVerifyDisabled } from './webhook-verify'
 
 function svixHeaders(id: string, timestamp: string, signature: string): Headers {
   const h = new Headers()
@@ -113,5 +113,27 @@ describe('verifyTelnyx', () => {
     const result = verifyTelnyx(headers(ts, sig), body, rawPub)
     expect(result.valid).toBe(false)
     expect(result.reason).toBe('timestamp out of window')
+  })
+})
+
+describe('isWebhookVerifyDisabled', () => {
+  afterEach(() => {
+    vi.unstubAllEnvs()
+  })
+
+  it('honors the off flag outside production', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(isWebhookVerifyDisabled('off')).toBe(true)
+  })
+
+  it('LOCK: ignores the off flag in production — a leaked/copy-pasted env var must not disable signature checks', () => {
+    vi.stubEnv('NODE_ENV', 'production')
+    expect(isWebhookVerifyDisabled('off')).toBe(false)
+  })
+
+  it('stays disabled-check-off (false) when the flag is unset or any other value', () => {
+    vi.stubEnv('NODE_ENV', 'test')
+    expect(isWebhookVerifyDisabled(undefined)).toBe(false)
+    expect(isWebhookVerifyDisabled('on')).toBe(false)
   })
 })

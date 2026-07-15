@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
-import { verifyTelnyx } from '@/lib/webhook-verify'
+import { verifyTelnyx, isWebhookVerifyDisabled } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
@@ -442,7 +442,7 @@ export async function POST(req: NextRequest) {
   // dial/record/voicemail flow (toll-fraud / call forgery).
   const rawBody = await req.text()
 
-  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+  if (!isWebhookVerifyDisabled(process.env.TELNYX_WEBHOOK_VERIFY)) {
     const result = verifyTelnyx(req.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx-voice] rejected:', result.reason)

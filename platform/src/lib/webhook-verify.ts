@@ -18,6 +18,16 @@ export interface VerifyResult {
 }
 
 /**
+ * Guards the *_WEBHOOK_VERIFY=off local-dev escape hatch. A leaked or
+ * copy-pasted env var must never disable signature verification in
+ * production — this ignores 'off' whenever NODE_ENV === 'production',
+ * regardless of what the flag is set to.
+ */
+export function isWebhookVerifyDisabled(flagValue: string | undefined): boolean {
+  return flagValue === 'off' && process.env.NODE_ENV !== 'production'
+}
+
+/**
  * Verify a Svix-signed webhook (used by Clerk, Resend).
  * Required headers: svix-id, svix-timestamp, svix-signature.
  * Secret format: `whsec_<base64>`.

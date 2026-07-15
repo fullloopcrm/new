@@ -1,12 +1,12 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifySvix } from '@/lib/webhook-verify'
+import { verifySvix, isWebhookVerifyDisabled } from '@/lib/webhook-verify'
 
 // Sync Clerk user events to platform
 export async function POST(request: Request) {
   const rawBody = await request.text()
 
-  if (process.env.CLERK_WEBHOOK_VERIFY !== 'off') {
+  if (!isWebhookVerifyDisabled(process.env.CLERK_WEBHOOK_VERIFY)) {
     const result = verifySvix(request.headers, rawBody, process.env.CLERK_WEBHOOK_SECRET)
     if (!result.valid) {
       console.warn('[clerk webhook] rejected:', result.reason)

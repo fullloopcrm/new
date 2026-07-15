@@ -4,7 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { askSelena } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { getSettings } from '@/lib/settings'
-import { verifyTelnyx } from '@/lib/webhook-verify'
+import { verifyTelnyx, isWebhookVerifyDisabled } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 
@@ -15,7 +15,7 @@ export async function POST(request: Request) {
   const rawBody = await request.text()
 
   // Signature verification (skip only when explicitly disabled for local dev).
-  if (process.env.TELNYX_WEBHOOK_VERIFY !== 'off') {
+  if (!isWebhookVerifyDisabled(process.env.TELNYX_WEBHOOK_VERIFY)) {
     const result = verifyTelnyx(request.headers, rawBody, process.env.TELNYX_PUBLIC_KEY)
     if (!result.valid) {
       console.warn('[telnyx webhook] rejected:', result.reason)
