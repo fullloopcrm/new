@@ -489,6 +489,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean. `npx vitest run src/app/api/webhooks/stripe/` — 5 files / 10 passed / 0 failed. Full `vitest run` — 307 files / 1328 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new LOCK tests failed RED (payment inserted, booking marked paid); restored, GREEN. |
 | **Rank rationale** | Real-money blast radius (a live Stripe Connect transfer can fire), reachable by anyone who has any tenant's semi-public static payment link — no admin session, no API key, nothing beyond a Stripe-hosted checkout page and basic URL editing. Ranked with P22/P27 (action-authorization-bypass class, not FK-injection) as the first finding in this register on the payments-webhook surface specifically. |
 
+### P34 — `src/lib/selena/tools.ts` `update_booking`/`create_deal` tools → cross-tenant `cleaner_id`/`client_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | Yinez/Selena owner AI tools `update_booking` and `create_deal` (`src/lib/selena/tools.ts`, `handleUpdateBooking`/`handleCreateDeal`) — the same file as P25, but two *different* tools than the three P25 fixed (`assign_cleaner_to_booking`, `create_manual_booking`, `block_cleaner_dates`) |
+| **Table(s)** | `bookings.cleaner_id` (via `update_booking`'s `fields` allow-list), `deals.client_id` (via `create_deal` insert) — neither had an ownership check before this fix. |
+| **Attack vector** | Same sibling-tool-missing-a-guard asymmetry as P9/P10/P21/P23/P30/P32: `handleAssignCleaner` (the dedicated `assign_cleaner_to_booking` tool, fixed under P25) verifies `cleaner_id` is tenant-owned before writing it, but `handleUpdateBooking` (the general-purpose `update_booking` tool) accepted `fields.cleaner_id` into its column allow-list and wrote it verbatim — the `.eq('tenant_id', tid)` on the update only scopes which booking ROW is touched, not the FK VALUE being written into it. Likewise `handleCreateManualBooking` (fixed under P25) verifies `client_id`, but the separate `create_deal` tool's `handleCreateDeal` inserted `client_id: input.client_id` unverified. |
+| **Effect** | `handleListBookings` (`list_bookings` tool) embeds `cleaners(name, id)` off `bookings.cleaner_id` with no tenant filter on the embedded side, so a foreign `cleaner_id` set via `update_booking` surfaces another tenant's cleaner name on the very next `list_bookings` call. `handleListDeals` (`list_deals` tool) embeds `clients(name, phone)` off `deals.client_id` the same way, so a foreign `client_id` set via `create_deal` surfaces another tenant's client name/phone on the next `list_deals` call — same read-exfil shape as P25/P30/P32. |
+| **Verdict** | **FIXED** (was proven-LIVE; found continuing the broad-hunt sweep of the AI tool-call surface — re-auditing `src/lib/selena/tools.ts` tool-by-tool past the three tools P25 already covered turned up two more with the identical gap, 2026-07-15, W2) |
+| **Fix** | `handleUpdateBooking` now verifies a supplied `fields.cleaner_id` is tenant-owned (`cleaners` lookup `.eq('id',...).eq('tenant_id', tid)`) before the `bookings` update runs; a miss returns `{ error: 'cleaner not found' }` and the booking is left unchanged. `handleCreateDeal` now verifies `input.client_id` is tenant-owned (`clients` lookup) before the `deals` insert; a miss returns `{ error: 'client not found' }`, no row created. Same pattern as the already-fixed sibling tools in this file. |
+| **Regression lock** | `src/lib/selena/tools.cleaner-fk.witness.test.ts` (extended: 4 new tests — LOCK foreign `cleaner_id` via `update_booking.fields` rejected/unchanged, CONTROL own-tenant `cleaner_id` applies, CONTROL a field-only update with no `cleaner_id` still applies; LOCK foreign `client_id` via `create_deal` rejected/no insert, CONTROL own-tenant `client_id` succeeds and is stamped) |
+| **Verified** | `npx tsc --noEmit` clean. Full `vitest run` — 307 files / 1333 passed / 37 skipped / 0 failed. Mutation-verified: reverted both fixes, both new foreign-id LOCK tests failed RED (`cleaner not found`/`client not found` expected but got `undefined` — i.e. the write/insert succeeded); restored, GREEN. |
+| **Rank rationale** | Same exfil class and construction as P25/P30/P32 (unverified FK argument on an AI tool-call's mutating field) — confirms that even within a single already-partially-audited file, each tool needs the ownership check verified individually; a fix to one tool (`assign_cleaner_to_booking`/`create_manual_booking`) does not imply a sibling tool touching the same column (`update_booking`) or same FK class (`create_deal`'s `client_id`) got the same guard. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -648,7 +662,13 @@ live leaks. This section is a **negative result, not a to-do list**.
    with a REAL-MONEY blast radius: a live Stripe Connect payout could be
    triggered against a foreign tenant's booking by anyone holding any
    tenant's semi-public static payment_link URL, no session or API key
-   needed).
+   needed) → P34 `src/lib/selena/tools.ts` `update_booking`/`create_deal`
+   tools cross-tenant `cleaner_id`/`client_id` FK injection (✅ fixed,
+   2026-07-15, W2, found continuing the broad-hunt sweep of the AI
+   tool-call surface — re-auditing the same file P25 already touched,
+   tool-by-tool, past the three tools P25 covered, turned up two more
+   with the identical unverified-FK gap on `list_bookings`/`list_deals`
+   embeds).
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
