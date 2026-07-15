@@ -1844,11 +1844,23 @@ export async function handleTool(name: string, input: Record<string, unknown>, c
 export async function getClientProfile(phone: string, tenantId?: string): Promise<string> {
   try {
     const tid = tenantId || NYCMAID_TENANT_ID
-    const lookupPhone = phone.replace(/\D/g, '').slice(-10)
-    const { data: client } = await supabaseAdmin.from('clients')
+    // Exact national-number match only (no ilike substring). A short/garbage
+    // phone (e.g. a single digit, reachable unauthenticated via POST
+    // /api/chat's `phone` field) must never resolve to an arbitrary client —
+    // that would leak an unrelated client's name/address/email/notes/booking
+    // history/memories into the AI's system-prompt context. Same nat()+
+    // length>=10 exact-match convention as /api/client/verify-code.
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 10) return JSON.stringify({ error: 'Client not found' })
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const target = nat(digits)
+    const { data: candidates } = await supabaseAdmin.from('clients')
       .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
       .eq('tenant_id', tid)
-      .ilike('phone', `%${lookupPhone}%`).limit(1).single()
+    const client = (candidates || []).find(c => {
+      const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+      return cDigits.length >= 10 && cDigits === target
+    })
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')

@@ -68,15 +68,24 @@ export async function POST(req: NextRequest) {
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
-      // If returning client, try to link to existing client record
-      if (phone) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
+      // If returning client, try to link to existing client record. Exact
+      // national-number match only (no ilike substring) — this endpoint is
+      // fully unauthenticated, so a short/garbage `phone` (e.g. "5") must
+      // never resolve to an arbitrary client: downstream Selena tool
+      // handlers (e.g. capture-name) WRITE to `clients` keyed off this
+      // client_id, so a false match is a corruption vector, not just a read.
+      const digits = phone ? phone.replace(/\D/g, '') : ''
+      if (digits.length >= 10) {
+        const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+        const target = nat(digits)
+        const { data: candidates } = await supabaseAdmin
           .from('clients')
-          .select('id, name')
+          .select('id, name, phone')
           .eq('tenant_id', tenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
+        const client = (candidates || []).find(c => {
+          const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+          return cDigits.length >= 10 && cDigits === target
+        })
         if (client) {
           insertData.client_id = client.id
           insertData.booking_checklist = {

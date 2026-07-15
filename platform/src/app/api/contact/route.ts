@@ -232,13 +232,22 @@ export async function POST(request: NextRequest) {
 
     // Dedup against an existing client by phone when we have one, else by email
     // (email-only marketing leads). No contact match → treated as new.
+    // Exact national-number match only (no ilike substring) — this is an
+    // unauthenticated public form; a short/garbage phone must never resolve
+    // to an arbitrary client, since a match here gets its name/email/
+    // address/notes silently overwritten below with attacker-supplied data.
     const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
     let existing: { id: string }[] | null = null
-    if (cleanPhone) {
-      const r = await supabaseAdmin
-        .from('clients').select('id').eq('tenant_id', tenant.id)
-        .ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
-      existing = r.data
+    if (cleanPhone.length >= 10) {
+      const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+      const target = nat(cleanPhone)
+      const { data: candidates } = await supabaseAdmin
+        .from('clients').select('id, phone').eq('tenant_id', tenant.id)
+      const match = (candidates || []).find(c => {
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
+      })
+      existing = match ? [{ id: match.id }] : []
     } else if (email) {
       const r = await supabaseAdmin
         .from('clients').select('id').eq('tenant_id', tenant.id)

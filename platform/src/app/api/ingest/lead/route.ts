@@ -107,15 +107,25 @@ export async function POST(request: Request) {
   const phone = phoneRaw || null
 
   try {
-    // Dedupe by phone within the tenant when we have a usable number.
-    const { data: existing } = cleanPhone.length >= 7
-      ? await supabaseAdmin
-          .from('clients')
-          .select('id')
-          .eq('tenant_id', tenant.id)
-          .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-          .limit(1)
-      : { data: null as { id: string }[] | null }
+    // Dedupe by phone within the tenant, only on a full national number.
+    // Exact match only (no ilike substring) — the prior 7-digit floor still
+    // let a malformed/short phone from any external site holding the shared
+    // INGEST_SECRET substring-match an unrelated client, whose name/email/
+    // notes then get overwritten below with attacker-supplied data.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    let existing: { id: string }[] | null = null
+    if (cleanPhone.length >= 10) {
+      const target = nat(cleanPhone)
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, phone')
+        .eq('tenant_id', tenant.id)
+      const match = (candidates || []).find(c => {
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
+      })
+      existing = match ? [{ id: match.id }] : []
+    }
 
     let clientId: string
     let deduped = false

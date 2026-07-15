@@ -40,13 +40,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
     }
 
+    // Exact national-number match only (no ilike substring) — this is an
+    // unauthenticated public form; a short/garbage phone must never resolve
+    // to an arbitrary client, since a match below gets its name/email/
+    // address/notes silently overwritten with attacker-supplied data.
     const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await tenantDb(tenant.id)
-      .from('clients')
-      .select('id, status')
-      .or(`phone.ilike.%${cleanPhone.slice(-10)}%`)
-      .limit(1)
-    const existingClient = existing?.[0]
+    let existingClient: { id: string; status: string } | undefined
+    if (cleanPhone.length >= 10) {
+      const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+      const target = nat(cleanPhone)
+      const { data: candidates } = await tenantDb(tenant.id)
+        .from('clients')
+        .select('id, status, phone')
+      existingClient = (candidates || []).find(c => {
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
+      })
+    }
 
     // Referrer resolution (tenant-scoped)
     let referrerId: string | null = null

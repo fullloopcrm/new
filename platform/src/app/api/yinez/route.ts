@@ -69,19 +69,29 @@ export async function POST(req: NextRequest) {
       // If returning client, try to link to existing client record.
       // No tenant context → skip linking rather than search globally.
       if (reqTenantId) insertData.tenant_id = reqTenantId
+      // Exact national-number match only (no ilike substring) — this
+      // endpoint is fully unauthenticated, so a short/garbage `phone` must
+      // never resolve to an arbitrary client (write-corruption vector via
+      // client_id, same as /api/chat).
       if (phone && reqTenantId) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('id, name')
-          .eq('tenant_id', reqTenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
-        if (client) {
-          insertData.client_id = client.id
-          insertData.booking_checklist = {
-            ...EMPTY_CHECKLIST, channel: 'web',
-            phone, name: client.name,
+        const digits = phone.replace(/\D/g, '')
+        if (digits.length >= 10) {
+          const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+          const target = nat(digits)
+          const { data: candidates } = await supabaseAdmin
+            .from('clients')
+            .select('id, name, phone')
+            .eq('tenant_id', reqTenantId)
+          const client = (candidates || []).find(c => {
+            const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+            return cDigits.length >= 10 && cDigits === target
+          })
+          if (client) {
+            insertData.client_id = client.id
+            insertData.booking_checklist = {
+              ...EMPTY_CHECKLIST, channel: 'web',
+              phone, name: client.name,
+            }
           }
         }
       }

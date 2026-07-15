@@ -68,14 +68,26 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
     }
 
-    // Existing client match by phone (tenant-scoped)
+    // Existing client match by phone (tenant-scoped). Exact national-number
+    // match only (no ilike substring) — this is an unauthenticated public
+    // form; a short/garbage phone must never resolve to an arbitrary
+    // client, since a match below gets its name/email/address/notes
+    // silently overwritten with attacker-supplied data.
     const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
-      .from('clients')
-      .select('id, status')
-      .eq('tenant_id', tenant.id)
-      .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-      .limit(1)
+    let existing: { id: string; status: string }[] | null = null
+    if (cleanPhone.length >= 10) {
+      const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+      const target = nat(cleanPhone)
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, status, phone')
+        .eq('tenant_id', tenant.id)
+      const match = (candidates || []).find(c => {
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
+      })
+      existing = match ? [{ id: match.id, status: match.status }] : []
+    }
 
     const existingClient = existing?.[0]
 

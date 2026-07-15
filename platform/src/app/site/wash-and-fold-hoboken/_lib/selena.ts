@@ -424,9 +424,19 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     const phone = convo?.phone || `web-${conversationId.slice(0, 8)}`
     const cleanPhone = phone.replace(/\D/g, '')
 
-    if (cleanPhone.length >= 7 && !phone.startsWith('web-')) {
-      const { data: existing } = await supabaseAdmin.from('clients')
-        .select('id').ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
+    // Exact national-number match only (no ilike substring) — a short/
+    // garbage phone must never resolve to an arbitrary client, since a
+    // match here gets its name overwritten and gets linked to this
+    // conversation (write-corruption vector).
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    if (cleanPhone.length >= 10 && !phone.startsWith('web-')) {
+      const target = nat(cleanPhone)
+      const { data: candidates } = await supabaseAdmin.from('clients')
+        .select('id, phone')
+      const existing = (candidates || []).filter(c => {
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
+      })
       if (existing && existing.length > 0) {
         await supabaseAdmin.from('clients').update({ name }).eq('id', existing[0].id)
         await supabaseAdmin.from('sms_conversations')
@@ -726,11 +736,21 @@ async function handleAddToWaitlist(input: Record<string, unknown>, conversationI
 
 export async function getClientProfile(phone: string): Promise<string> {
   try {
-    const lookupPhone = phone.replace(/\D/g, '').slice(-10)
-    const { data: client } = await supabaseAdmin
+    // Exact national-number match only (no ilike substring). A short/
+    // garbage phone must never resolve to an arbitrary client — that would
+    // leak an unrelated client's name/address/email/notes/booking history
+    // into the AI's system-prompt context.
+    const digits = phone.replace(/\D/g, '')
+    if (digits.length < 10) return JSON.stringify({ error: 'Client not found' })
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const target = nat(digits)
+    const { data: candidates } = await supabaseAdmin
       .from('clients')
       .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
-      .ilike('phone', `%${lookupPhone}%`).limit(1).single()
+    const client = (candidates || []).find(c => {
+      const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+      return cDigits.length >= 10 && cDigits === target
+    })
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')
