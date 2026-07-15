@@ -63,6 +63,67 @@ export async function createTenantFromLead(
     return { ok: true, tenant: existing || undefined, alreadyConverted: true }
   }
 
+  // ── Concurrent-conversion guard (atomicity rule #0) ─────────────────────
+  // This function is invoked from the Stripe PLATFORM webhook, which Stripe
+  // redelivers whenever the handler doesn't ACK within ~10s or the response is
+  // dropped — no attacker needed, just a slow/retried delivery under load. The
+  // read above is read-only, so two concurrent redeliveries can both see
+  // converted_tenant_id as NULL and both proceed to create a full duplicate
+  // tenant (double owner PIN, both linked to the same Stripe subscription).
+  // Claim the lead atomically before doing any of that work. A stale (>5min)
+  // claim from a crashed prior attempt is reclaimable so a lead can never be
+  // permanently wedged.
+  const nowIso = new Date().toISOString()
+  const staleBefore = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+  const { data: freshClaim } = await supabaseAdmin
+    .from('partner_requests')
+    .update({ conversion_claimed_at: nowIso })
+    .eq('id', leadId)
+    .is('converted_tenant_id', null)
+    .is('conversion_claimed_at', null)
+    .select('id')
+    .maybeSingle()
+
+  // No unclaimed row matched — try reclaiming a stale (>5min) claim from a
+  // crashed prior attempt. Two separate atomic UPDATE...WHERE attempts (not
+  // one query with OR) so each is still a real CAS: the second only wins if
+  // the claim column's value is still strictly older than `staleBefore` at
+  // the moment it runs.
+  const claimed =
+    freshClaim ??
+    (
+      await supabaseAdmin
+        .from('partner_requests')
+        .update({ conversion_claimed_at: nowIso })
+        .eq('id', leadId)
+        .is('converted_tenant_id', null)
+        .lt('conversion_claimed_at', staleBefore)
+        .select('id')
+        .maybeSingle()
+    ).data
+
+  if (!claimed) {
+    // Lost the race — either finished converting between our first read and
+    // now, or another attempt is genuinely mid-flight.
+    const { data: recheck } = await supabaseAdmin
+      .from('partner_requests')
+      .select('converted_tenant_id')
+      .eq('id', leadId)
+      .single()
+    if (recheck?.converted_tenant_id) {
+      const { data: existing } = await supabaseAdmin
+        .from('tenants')
+        .select('id, slug, name, status')
+        .eq('id', recheck.converted_tenant_id)
+        .single()
+      return { ok: true, tenant: existing || undefined, alreadyConverted: true }
+    }
+    return { ok: false, error: 'Lead conversion already in progress' }
+  }
+
+  const releaseClaim = () =>
+    supabaseAdmin.from('partner_requests').update({ conversion_claimed_at: null }).eq('id', leadId)
+
   const name: string = lead.business_name || lead.contact_name || 'New tenant'
   const industry = mapIndustry(lead.service_category)
   const admins = opts.admins ?? lead.proposal_admins ?? 1
@@ -116,9 +177,11 @@ export async function createTenantFromLead(
         if (existing && existing.tenant_id == null) {
           reservedClaimId = existing.id as string
         } else {
+          await releaseClaim()
           return { ok: false, error: 'Territory already claimed for that category — cannot convert.' }
         }
       } else {
+        await releaseClaim()
         return { ok: false, error: `Territory reservation failed: ${claimErr.message}` }
       }
     } else {
@@ -168,6 +231,7 @@ export async function createTenantFromLead(
     if (reservedClaimId) {
       await supabaseAdmin.from('territory_claims').delete().eq('id', reservedClaimId)
     }
+    await releaseClaim()
     return { ok: false, error: insErr?.message || 'Tenant create failed' }
   }
 
@@ -217,6 +281,7 @@ export async function createTenantFromLead(
       status: 'sold',
       reviewed_at: new Date().toISOString(),
       reviewed_by: 'admin',
+      conversion_claimed_at: null,
     })
     .eq('id', leadId)
 
