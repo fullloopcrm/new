@@ -19,6 +19,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 60
 
@@ -46,12 +47,12 @@ async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
   // Guard against CRON_SECRET being unset: without this, `Bearer ${undefined}`
   // stringifies to "Bearer undefined", a known literal any caller could send.
-  if (auth && process.env.CRON_SECRET && auth === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (auth && process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) return true
   const headerKey = req.headers.get('x-monitor-key')
-  if (headerKey && process.env.ELCHAPO_MONITOR_KEY && headerKey === process.env.ELCHAPO_MONITOR_KEY) return true
+  if (headerKey && process.env.ELCHAPO_MONITOR_KEY && safeEqual(headerKey, process.env.ELCHAPO_MONITOR_KEY)) return true
   try {
     const body = await req.json()
-    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && body.key === process.env.ELCHAPO_MONITOR_KEY) return true
+    if (body?.key && process.env.ELCHAPO_MONITOR_KEY && safeEqual(body.key, process.env.ELCHAPO_MONITOR_KEY)) return true
   } catch {}
   return false
 }
