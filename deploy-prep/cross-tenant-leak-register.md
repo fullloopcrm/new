@@ -293,6 +293,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/client/smart-schedule/route.witness.test.ts` (a foreign tenant's client_id never resolves that tenant's crew or leaks its preferred-cleaner id; CONTROL: own-tenant client_id still resolves normally) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 289 files / 1227 passed / 37 skipped / 0 failed |
 
+### P20 — `bookings`/`recurring_schedules` `service_type_id` dangling-FK → cross-tenant READ via `invoices` embed  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/bookings` (register P1's "fix"), `POST /api/schedules`, `POST /api/bookings/batch` — all write `bookings.service_type_id` (the latter two also `recurring_schedules.service_type_id`) |
+| **Table(s)** | `bookings`, `recurring_schedules` (FK `service_type_id`); read exfil surfaces via `POST /api/invoices?from_booking_id` |
+| **Attack vector** | P1's fix on `POST /api/bookings` scoped the `service_types` lookup by `tenant_id` — but only to gate whether the **name** got copied onto the booking; the raw (possibly foreign) `service_type_id` was still passed to the insert unconditionally, so P1 was only ever a partial fix. `POST /api/schedules` had the identical partial pattern (name-copy gated, raw id always written to both `recurring_schedules` and every generated booking). `POST /api/bookings/batch` had **no check at all** on `service_type_id`, unlike its own `client_id`/`team_member_id` guards in the same function. None of the three routes' own responses embed `service_types`, so this sat as a silent dangling-FK gap until this sweep found the actual read vector: `POST /api/invoices` with `from_booking_id` fetches the booking `.eq('tenant_id', tenantId).eq('id', from_booking_id)` (correctly scoped on the booking itself) but embeds `service_types(name, default_hourly_rate, pricing_model)` via the FK join with **no tenant filter on the embedded side** — PostgREST resolves the join regardless of which tenant owns the joined row. |
+| **Effect** | Tenant A plants a foreign `service_type_id` (tenant B's) on a booking via any of the three creation routes, then calls `POST /api/invoices?from_booking_id=<that booking>` — the response's `prefillLineItems[0].name` (and the unit price, derived from B's `default_hourly_rate`/`pricing_model`) is B's service-type data, returned directly to A. A two-hop exfil, but fully live end-to-end with only routes an authenticated tenant admin can already reach. |
+| **Verdict** | **FIXED** (was proven-LIVE at all three write sites; found in a broad-hunt sweep of the invoices prefill embed, 2026-07-14, W2) |
+| **Fix** | All three routes now reject (`404`/`400`) a caller-supplied `service_type_id` that doesn't resolve for the acting tenant, **before** any insert — same pattern as the already-fully-closed `client_id`/`team_member_id` guards on these same routes (and matching how `PUT /api/bookings/[id]` / `PUT /api/bookings/batch-update` / `POST /api/portal/bookings` already handled this FK correctly). The FK can no longer be foreign by construction, so the unscoped `invoices` embed is safe without also needing an embed-side fix (same "fix at the injection point" philosophy as every other entry in this register). `bookings/route.ts`'s partial P1 fix is superseded by this stricter check. |
+| **Regression lock** | `src/app/api/bookings/route.witness.test.ts` (flipped the old "silently strips the name" case to expect 404; added a nonexistent-id case), `src/app/api/schedules/route.witness.test.ts` (added service_type_id LOCKED ×2 + CONTROL), `src/app/api/bookings/batch/route.isolation.test.ts` (added service_type_id LOCKED + CONTROL) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 295 files / 1272 passed / 37 skipped / 1 failed (unrelated pre-existing flaky timeout in `finance-export.test.ts`, passes in isolation) |
+| **Rank rationale** | Same exfil class as P1/P4 (unscoped embedded join surfacing a foreign row's fields) but discovered as a **regression in an already-"fixed" entry** — P1's guard only ever closed the direct name-copy read, not the underlying FK-injection, so the same booking-creation surface stayed exploitable via a different read path the whole time. Worth flagging for Q3: any prior "FIXED" entry whose fix only gated a *derived* field (a copied name/amount) rather than the *FK column itself* should be re-audited for the same partial-fix shape. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -389,8 +403,11 @@ live leaks. This section is a **negative result, not a to-do list**.
    sweep) → P18 admin/recurring-schedules/[id]/regenerate POST
    team_member_id/cleaner_id (✅ fixed, 2026-07-14, W2, same sweep) → P19
    finance/chart-of-accounts POST parent_id (✅ fixed, 2026-07-14, W2,
-   finance/payroll edge-case sweep).** All items in this register are now
-   closed.
+   finance/payroll edge-case sweep) → P20 bookings/schedules/
+   bookings-batch service_type_id dangling-FK → invoices-embed READ
+   (✅ fixed, 2026-07-14, W2, found sweeping the invoices from_booking_id
+   prefill — a regression/incompleteness in P1's original fix).** All items
+   in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
