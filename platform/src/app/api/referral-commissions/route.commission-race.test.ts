@@ -39,7 +39,9 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT_ID }),
+  // role: 'owner' — POST /api/referral-commissions now gates on
+  // requirePermission('referrals.create'), which needs a real role to resolve.
+  getTenantForRequest: async () => ({ tenantId: TENANT_ID, role: 'owner', tenant: {} }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
