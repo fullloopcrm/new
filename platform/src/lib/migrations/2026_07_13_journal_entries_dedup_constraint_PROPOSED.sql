@@ -107,4 +107,14 @@ BEGIN
 END;
 $$;
 
-GRANT EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) TO authenticated, service_role;
+-- NOTE (regression guard): migration 039 originally granted EXECUTE to
+-- `authenticated`; 060_lockdown_secdef_rpcs.sql REVOKEd it because the function
+-- takes p_tenant_id as a plain argument with no caller-authorization check,
+-- so any authenticated end user could forge balanced journal entries into a
+-- DIFFERENT tenant's books by calling the RPC directly (RLS never runs under
+-- SECURITY DEFINER). This CREATE OR REPLACE must not silently reopen that
+-- hole by re-granting `authenticated` — grant EXECUTE to service_role only.
+REVOKE EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) FROM PUBLIC;
+GRANT  EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) TO service_role;
+ALTER  FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) SET search_path = public, pg_temp;
