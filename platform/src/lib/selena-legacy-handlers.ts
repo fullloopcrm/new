@@ -194,9 +194,10 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
     if (!bookingId) return JSON.stringify({ error: 'No upcoming booking found' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('start_time, service_type, hourly_rate, clients(name, email, pin), team_members!bookings_team_member_id_fkey(name), tenants(name)')
+      .select('client_id, start_time, service_type, hourly_rate, clients(name, email, pin), team_members!bookings_team_member_id_fkey(name), tenants(name)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    if (booking.client_id !== clientId) return JSON.stringify({ error: 'not_your_booking' })
 
     const client = booking.clients as unknown as { name: string; email: string; pin: string } | null
     if (!client?.email) return JSON.stringify({ error: 'No email on file' })
@@ -401,11 +402,19 @@ function parseTime(t: string): { hours: number; minutes: number } | null {
 
 export async function handleRescheduleBooking(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    // booking_id is caller-supplied via the SMS conversation -- fetching by
+    // id+tenant_id alone let a client in this tenant reschedule a DIFFERENT
+    // client's booking just by supplying their id. Resolve the caller's own
+    // client_id from the conversation and require it to match.
+    const clientId = await getConvoClientId(conversationId)
+    if (!clientId) return JSON.stringify({ error: 'No account found' })
+
     const bookingId = input.booking_id as string
     const { data: booking } = await supabaseAdmin
       .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    if (booking.client_id !== clientId) return JSON.stringify({ error: 'not_your_booking' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be rescheduled.' })
     }
@@ -431,12 +440,18 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
 
 export async function handleCancelBooking(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
+    // Same caller-supplied-booking_id trust boundary as reschedule above --
+    // require the booking to belong to the conversation's own client.
+    const clientId = await getConvoClientId(conversationId)
+    if (!clientId) return JSON.stringify({ error: 'No account found' })
+
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
     const { data: booking } = await supabaseAdmin
-      .from('bookings').select('id, start_time, recurring_type, clients(name), tenants(reschedule_notice_days)')
+      .from('bookings').select('id, start_time, recurring_type, client_id, clients(name), tenants(reschedule_notice_days)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    if (booking.client_id !== clientId) return JSON.stringify({ error: 'not_your_booking' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     }
@@ -600,9 +615,14 @@ export async function handleBookingDetails(tenantId: string, input: Record<strin
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, check_in_lat, check_in_lng, check_out_lat, check_out_lng, actual_hours, hourly_rate, price, team_member_pay, payment_status, payment_method, status, service_type, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
+      .select('id, client_id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, check_in_lat, check_in_lng, check_out_lat, check_out_lng, actual_hours, hourly_rate, price, team_member_pay, payment_status, payment_method, status, service_type, team_members!bookings_team_member_id_fkey(name), clients(name, address)')
       .eq('id', bookingId).eq('tenant_id', tenantId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
+    // An explicit caller-supplied booking_id bypasses the client_id-scoped
+    // lookups above (the two fallback paths already imply ownership; a
+    // supplied id does not) -- a foreign booking_id from another client in
+    // this tenant must be rejected, not returned.
+    if (booking.client_id !== clientId) return JSON.stringify({ error: 'not_your_booking' })
 
     const client = booking.clients as unknown as { name: string; address: string } | null
     const tm = booking.team_members as unknown as { name: string } | null
