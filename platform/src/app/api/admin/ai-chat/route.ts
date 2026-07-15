@@ -18,11 +18,20 @@ import { overridesFor } from '@/lib/require-permission'
 // -> bookings.edit, clients/[id].PUT -> clients.edit, etc). Without this, any
 // tenant member reaching this chat widget — including 'staff', which lacks
 // bookings.edit/clients.edit/finance.view — could have the assistant perform
-// actions the REST API would 403 on directly. Mirrors ai/assistant/route.ts.
+// actions the REST API would 403 on directly. Read-only tools must be gated
+// too (search_clients/get_client_details/search_team_members/query_bookings/
+// get_schedule_summary), same as ai/assistant/route.ts (37cb395f) — without
+// this, a per-tenant override revoking clients.view/team.view/bookings.view
+// from a role has no effect on what this chat widget's tools can return.
 const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  search_clients: 'clients.view',
+  get_client_details: 'clients.view',
+  update_client: 'clients.edit',
+  search_team_members: 'team.view',
+  query_bookings: 'bookings.view',
+  get_schedule_summary: 'bookings.view',
   update_bookings: 'bookings.edit',
   cancel_bookings: 'bookings.edit',
-  update_client: 'clients.edit',
   create_booking: 'bookings.create',
   get_revenue_stats: 'finance.view',
 }
