@@ -388,6 +388,34 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/notifications/route.witness.test.ts` (LOCK: foreign-tenant and nonexistent booking_id both 400, no notification row, no SMS sent; CONTROL: own-tenant booking_id creates the notification and sends the SMS, omitted booking_id still creates the notification with no SMS) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 300 files / 1298 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new foreign/nonexistent-id LOCK tests failed RED (200 instead of 400); restored, GREEN. |
 
+### P27 — `POST /api/yinez` → cross-tenant conversation hijack via `sessionId`  ⚠️ **LIVE-ACTION HIJACK** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/yinez` — the **public, unauthenticated** web-chat widget endpoint (nycmaid's real Yinez agent) |
+| **Table(s)** | `sms_conversations` / `sms_conversation_messages` (no write leak on its own — this is an **action-authorization** bypass, same new class as P22) |
+| **Attack vector** | `askSelena()` and `insertConversationMessage()` both resolve the acting tenant from the conversation's OWN row (`sms_conversations.tenant_id`), not from the request's signed tenant header — intentional, so a conversation stays with its real owner across calls. But this route accepted a caller-supplied `sessionId` and used it as `conversationId` with **no check at all** that it belongs to the tenant the request is signed for. The sibling `POST /api/chat` already guards exactly this by passing `{ expectedTenantId: tenantId }` to every `insertConversationMessage()` call (see `src/lib/sms-messages.ts`'s cross-tenant-append block) — `/api/yinez` never passed it. |
+| **Effect** | An anonymous visitor on ANY tenant's widget could supply another tenant's **live** `sessionId` (e.g., read off that tenant's own widget in another tab) and inject a message into, and drive Selena's reply/tool-calls against, that victim tenant's real customer conversation — reading back whatever Selena's reply reveals about the victim's in-flight conversation state (name, address, price already quoted) and potentially triggering Selena's booking/tool actions in the victim's tenant context. Fully unauthenticated — no session, no permission gate of any kind. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of the Yinez/Selena public chat surface — a fresh area, not previously in this register — 2026-07-15, W2) |
+| **Fix** | A supplied `sessionId` is now verified tenant-owned (`sms_conversations` lookup `.eq('id',...).eq('tenant_id', reqTenantId)`) **before** any of `insertConversationMessage`/`askSelena` run; a miss 400s. Both `insertConversationMessage` calls also now pass `expectedTenantId: reqTenantId`, matching `/api/chat`, as defense-in-depth. |
+| **Regression lock** | `src/app/api/yinez/route.witness.test.ts` (LOCK: foreign-tenant sessionId 400s, nonexistent sessionId 400s, neither ever calls insertConversationMessage/askSelena; CONTROL: own-tenant sessionId proceeds with expectedTenantId stamped, omitted sessionId still creates a new tenant-scoped conversation) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1306 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, 3 of 4 new tests failed RED (200 instead of 400, or `expectedTenantId` missing); restored, GREEN. |
+| **Rank rationale** | Same class and severity as P22 (action-authorization bypass on a live conversation, not FK-injection) but on a **fully public, unauthenticated** endpoint — the lowest bar to exploit of any live-action finding in this register, comparable to P12's public-endpoint severity. |
+
+### P28 — `scoreConversation`/`selfReviewConversation` → cross-tenant `conversation_id` read/write via `POST /api/admin/selena/score`  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/selena/score` (admin-authed, `settings.view` permission only — not bound to any specific conversation) → `src/lib/conversation-scorer.ts` |
+| **Table(s)** | `sms_conversations` (read + write `quality_score`/`quality_issues`), `sms_conversation_messages` (read), `selena_memory` (insert) |
+| **Attack vector** | `conversation_id` is caller-supplied and both scoring functions fetched it with `.eq('id', conversationId).single()` — **no `.eq('tenant_id', tenantId)` at all**, unlike every sibling FK-ownership check already fixed in this register. |
+| **Effect** | An admin of tenant A supplying tenant B's `conversation_id` could: **(1) read** — pull B's client conversation transcript into an AI self-review whose review text is returned directly in the API response (exfil); **(2) write** — stamp `quality_score`/`quality_issues` onto B's own row (cross-tenant mutation of a row A doesn't own); **(3) pollute** — insert into A's own `selena_memory` with `client_id` = B's client (cross-tenant FK pollution, same shape as P25). |
+| **Verdict** | **FIXED** (found in the same broad-hunt sweep as P27 — the Selena/Yinez conversation-scoring surface — 2026-07-15, W2) |
+| **Fix** | Both `scoreConversation` and `selfReviewConversation` now verify the conversation belongs to `tenantId` before reading its transcript or writing anything; a miss short-circuits with the same "no data"/"not found" shape already used for a missing conversation, so no insert/update is reachable for a foreign id. |
+| **Regression lock** | `src/lib/conversation-scorer.witness.test.ts` (LOCK ×2: foreign conversation_id returns no-data/not-found and leaves the victim row untouched, for both functions; CONTROL ×2: own-tenant conversation_id scores/reviews normally) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1306 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new foreign-id LOCK tests failed RED (real score/review data returned instead of the not-found shape); restored, GREEN. |
+| **Rank rationale** | Same exfil class as P1/P25 (unverified caller-supplied id surfacing another tenant's data) — narrower blast radius than P27 since it requires an authenticated admin session, but still cross-tenant by construction with zero ownership check, not just a partial gap. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -512,7 +540,13 @@ live leaks. This section is a **negative result, not a to-do list**.
    (✅ fixed, 2026-07-15, W2, found in a broad-hunt sweep of the
    `notifications` table's write sites — a fresh area — closed as
    defense-in-depth, same dangling-FK class as P7/P15/P19/P21/P23/P24, no
-   live read-exfil found today).**
+   live read-exfil found today) → P27 `/api/yinez` cross-tenant
+   conversation hijack via `sessionId` (✅ fixed, 2026-07-15, W2, found in a
+   broad-hunt sweep of the Yinez/Selena public chat surface — a fresh area —
+   same action-authorization-bypass class as P22, on a fully public
+   unauthenticated endpoint) → P28 `scoreConversation`/`selfReviewConversation`
+   cross-tenant `conversation_id` read/write (✅ fixed, 2026-07-15, W2, same
+   sweep — closes a zero-check FK gap on the AI conversation-scoring surface).**
    All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
