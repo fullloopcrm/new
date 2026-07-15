@@ -4,13 +4,62 @@ import { simpleParser } from 'mailparser'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { decryptSecret } from '@/lib/secret-crypto'
 
 export const maxDuration = 300
 
+const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
+
+interface MailAccount {
+  host: string
+  port: number
+  user: string
+  pass: string
+}
+
+// Resolve the CALLING tenant's own mailbox — same per-tenant profile fields
+// + nycmaid env fallback as the cron job's collectAccounts()
+// (src/app/api/cron/comhub-email/route.ts) — instead of always using the
+// hardcoded global EMAIL_HOST/USER/PASS env vars regardless of which tenant
+// is impersonated. That mismatch let this route mirror nycmaid's mailbox
+// into whatever other tenant happened to be active.
+async function resolveTenantMailAccount(tenantId: string): Promise<MailAccount | null> {
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('imap_host, imap_user, imap_pass, imap_port')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  if (tenant?.imap_host && tenant?.imap_user && tenant?.imap_pass) {
+    try {
+      return {
+        host: String(tenant.imap_host).trim(),
+        port: tenant.imap_port || 993,
+        user: String(tenant.imap_user).trim(),
+        pass: decryptSecret(String(tenant.imap_pass)).trim(),
+      }
+    } catch {
+      return null
+    }
+  }
+
+  if (tenantId === NYCMAID_TENANT_ID) {
+    const envPass = (process.env.EMAIL_PASS || '').trim()
+    if (!envPass) return null
+    return {
+      host: (process.env.EMAIL_HOST || 'mail.thenycmaid.com').trim(),
+      port: 993,
+      user: (process.env.EMAIL_USER || 'hi@thenycmaid.com').trim(),
+      pass: envPass,
+    }
+  }
+
+  return null
+}
+
 // POST /api/admin/comhub/email/backfill?days=90
 // Deep IMAP sweep — populates comhub_messages with historical email for the
-// active tenant. Idempotent (dedupes by Message-ID + channel='email').
-// IMAP credentials currently env-based; per-tenant IMAP not yet wired.
+// active tenant's OWN mailbox. Idempotent (dedupes by Message-ID + channel='email').
 export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -19,13 +68,12 @@ export async function POST(req: NextRequest) {
   const url = new URL(req.url)
   const days = Math.max(1, Math.min(parseInt(url.searchParams.get('days') || '90', 10) || 90, 365))
 
-  const host = (process.env.EMAIL_HOST || '').trim()
-  const user = (process.env.EMAIL_USER || '').trim()
-  const pass = (process.env.EMAIL_PASS || '').trim()
-  if (!host || !user || !pass) return NextResponse.json({ error: 'EMAIL_HOST/USER/PASS not set' }, { status: 500 })
+  const account = await resolveTenantMailAccount(tenantId)
+  if (!account) return NextResponse.json({ error: 'No IMAP mailbox configured for this tenant' }, { status: 500 })
+  const { host, port, user, pass } = account
 
   const client = new ImapFlow({
-    host, port: 993, secure: true,
+    host, port, secure: true,
     auth: { user, pass },
     logger: false,
     socketTimeout: 60_000,
