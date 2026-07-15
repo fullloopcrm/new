@@ -166,11 +166,11 @@ describe('empty-key HMAC fallback closed — signWithSecret() throws instead of 
   // signToken()/hashPassword(), fixed the same way: signWithSecret() throws
   // on an unset secret instead of falling back to ''.
   //
-  // NOTE: team-portal/update-phone/route.ts has the identical pattern
-  // (`process.env.ADMIN_PASSWORD || ''` + a plain `!==` compare) but is
-  // intentionally NOT touched here — it's under /api/team-portal, in scope
-  // of this session's standing "do not touch team-PIN routes" boundary.
-  // Flagged to the leader as found-but-unfixed, pending Jeff's call.
+  // team-portal/update-phone/route.ts had the identical pattern
+  // (`process.env.ADMIN_PASSWORD || ''` + a plain `!==` compare) — a caller
+  // could forge a token that rewrites any team member's phone. Leader
+  // confirmed this signing-weakness fix is distinct from the gated
+  // team_members.pin VISIBILITY boundary and cleared it for the same fix.
   it("cron/phone-fixup signs via signWithSecret(), no ADMIN_PASSWORD || '' fallback", () => {
     const file = 'src/app/api/cron/phone-fixup/route.ts'
     const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
@@ -178,5 +178,17 @@ describe('empty-key HMAC fallback closed — signWithSecret() throws instead of 
     expect(src).toMatch(/signWithSecret\s*\(/)
     expect(src).not.toMatch(/process\.env\.ADMIN_PASSWORD\s*\|\|\s*['"]/)
     expect(src).not.toMatch(/createHmac\(/)
+  })
+
+  it("team-portal/update-phone signs via signWithSecret() + safeEqual(), no ADMIN_PASSWORD || '' fallback or plain !== compare", () => {
+    const file = 'src/app/api/team-portal/update-phone/route.ts'
+    const src = readFileSync(path.resolve(process.cwd(), file), 'utf8')
+    expect(src).toMatch(/import\s*\{[^}]*\bsignWithSecret\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+    expect(src).toMatch(/import\s*\{[^}]*\bsafeEqual\b[^}]*\}\s*from\s*['"]@\/lib\/secret-compare['"]/)
+    expect(src).toMatch(/signWithSecret\s*\(/)
+    expect(src).toMatch(/safeEqual\s*\(/)
+    expect(src).not.toMatch(/process\.env\.ADMIN_PASSWORD\s*\|\|\s*['"]/)
+    expect(src).not.toMatch(/createHmac\(/)
+    expect(src).not.toMatch(/expected\s*!==\s*sig/)
   })
 })
