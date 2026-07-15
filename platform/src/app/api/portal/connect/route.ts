@@ -87,6 +87,23 @@ export async function POST(request: NextRequest) {
 
     let targetChannelId = channel_id
 
+    // channel_id is caller-supplied — verify it's actually this client's own
+    // channel before using it, same ownership check the no-channel_id
+    // fallback branch below performs implicitly by resolving its own id.
+    // Without this, any portal-authenticated client who learns another
+    // party's channel UUID (log exposure, future leak, etc.) could insert
+    // messages into it (IDOR, flagged in supabase-admin-gate-baseline-audit.md).
+    if (targetChannelId) {
+      const { data: owned } = await tenantDb(auth.tid)
+        .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
+        .select('id')
+        .eq('id', targetChannelId)
+        .eq('type', 'client')
+        .eq('client_id', auth.id)
+        .single()
+      if (!owned) return NextResponse.json({ error: 'Invalid channel' }, { status: 403 })
+    }
+
     if (!targetChannelId) {
       let { data: channel } = await tenantDb(auth.tid)
         .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select; audit heuristic doesn't parse the wrapper
