@@ -9,6 +9,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { checkActivationReadiness, type OnboardingTaskStatus } from '@/lib/onboarding-tasks'
 
@@ -33,7 +34,9 @@ export async function GET() {
 
 export async function PATCH(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { task_id, status } = (await request.json().catch(() => ({}))) as {
       task_id?: string
       status?: OnboardingTaskStatus

@@ -4,14 +4,17 @@
  * the SMS format. Tenant-scoped; lives under /api/dashboard (impersonation-ok).
  */
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.integrations')
+    if (authError) return authError
+    const { tenantId } = tenant
     const sendTo = new URL(request.url).searchParams.get('send')
     const { data: t } = await supabaseAdmin
       .from('tenants')

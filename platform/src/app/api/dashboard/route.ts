@@ -5,6 +5,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { hasPermission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
 
 interface BookingRow {
   price: number | null
@@ -13,7 +15,9 @@ interface BookingRow {
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const ctx = await getTenantForRequest()
+    const { tenantId } = ctx
+    const canViewFinance = hasPermission(ctx.role, 'finance.view', overridesFor(ctx))
 
     const now = new Date()
     const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
@@ -158,12 +162,14 @@ export async function GET() {
         week: normalizeMapJobs(mapWeekRes.data as BookingRow[] | null),
         month: normalizeMapJobs(mapMonthRes.data as BookingRow[] | null),
       },
-      financials: {
-        today: { revenue: calcRevenue(todayPaidRes.data as BookingRow[] | null), jobs: todayPaidRes.data?.length || 0 },
-        week: { revenue: calcRevenue(weekPaidRes.data as BookingRow[] | null), jobs: weekPaidRes.data?.length || 0 },
-        month: { revenue: calcRevenue(monthPaidRes.data as BookingRow[] | null), jobs: monthPaidRes.data?.length || 0 },
-        pending: { revenue: calcRevenue(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
-      },
+      financials: canViewFinance
+        ? {
+            today: { revenue: calcRevenue(todayPaidRes.data as BookingRow[] | null), jobs: todayPaidRes.data?.length || 0 },
+            week: { revenue: calcRevenue(weekPaidRes.data as BookingRow[] | null), jobs: weekPaidRes.data?.length || 0 },
+            month: { revenue: calcRevenue(monthPaidRes.data as BookingRow[] | null), jobs: monthPaidRes.data?.length || 0 },
+            pending: { revenue: calcRevenue(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
+          }
+        : null,
       clients: {
         total: allClientsRes.count || 0,
         newThisMonth: recentClientsRes.data?.length || 0,
@@ -171,7 +177,7 @@ export async function GET() {
       stats: {
         scheduled: scheduledAllRes.count || 0,
         completed: completedRecentRes.count || 0,
-        pending_payment: pendingPaymentRes.data?.length || 0,
+        pending_payment: canViewFinance ? (pendingPaymentRes.data?.length || 0) : null,
       },
       teamMembers: teamListRes.data || [],
     })

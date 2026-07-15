@@ -6,7 +6,8 @@
  * blind-imports onto a live business.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 
 // Target schemas per import kind. Keep in sync with the import APIs.
@@ -60,7 +61,9 @@ function extractJson(text: string): AiMapping | null {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('clients.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = (await request.json().catch(() => ({}))) as { kind?: string; columns?: string[]; samples?: string[][] }
     const kind = body.kind || 'clients'
     const schema = SCHEMAS[kind]

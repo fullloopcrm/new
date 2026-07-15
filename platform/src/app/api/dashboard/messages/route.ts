@@ -9,7 +9,14 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId, role } = await getTenantForRequest()
+    // Level 1 platform messaging is the tenant OWNER's channel to Full Loop
+    // admin — no RBAC permission covers this, so gate directly on role (same
+    // pattern as admin/users' owner-only grant check) rather than letting any
+    // authenticated tenant member read/send as 'owner'.
+    if (role !== 'owner') {
+      return NextResponse.json({ error: 'Forbidden: owner only' }, { status: 403 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('tenant_owner_messages')
@@ -36,7 +43,10 @@ export async function GET() {
 
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenantId, tenant, role } = await getTenantForRequest()
+    if (role !== 'owner') {
+      return NextResponse.json({ error: 'Forbidden: owner only' }, { status: 403 })
+    }
 
     let payload: { body?: string }
     try {
