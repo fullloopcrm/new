@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 let _resend: Resend | null = null;
 function getResend() {
@@ -14,8 +15,20 @@ const TO = "thenycmarketingco@gmail.com";
  * Unified contact API — every form on the site posts here.
  * Sends a notification email via Resend for every lead.
  */
+const MAX_FILES = 5;
+const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20MB combined, matches Resend's own request-size ceiling
+
 export async function POST(req: NextRequest) {
   try {
+    // Public, unauthenticated form — same abuse class as the sibling
+    // /api/leads and /api/feedback routes (unbounded writes + an outbound
+    // email per submission), so it gets the same per-IP throttle.
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const limit = await rateLimitDb(`nycmarketing-contact:${ip}`, 5, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "Too many submissions. Please wait a few minutes." }, { status: 429 });
+    }
+
     const contentType = req.headers.get("content-type") || "";
 
     let type = "unknown";
@@ -29,6 +42,14 @@ export async function POST(req: NextRequest) {
       const dataStr = formData.get("data") as string;
       data = JSON.parse(dataStr);
       const files = formData.getAll("files") as File[];
+
+      if (files.length > MAX_FILES) {
+        return NextResponse.json({ error: `Too many files — max ${MAX_FILES}` }, { status: 400 });
+      }
+      const totalSize = files.reduce((sum, f) => sum + f.size, 0);
+      if (totalSize > MAX_TOTAL_ATTACHMENT_BYTES) {
+        return NextResponse.json({ error: "Attachments exceed the 20MB combined limit" }, { status: 400 });
+      }
 
       for (const file of files) {
         if (file.size > 10 * 1024 * 1024) {
