@@ -52,6 +52,7 @@ beforeEach(() => {
   permissionError = null
   fake._store.set('clients', [
     { id: 'client-1', tenant_id: TENANT_ID, name: 'Jane Doe', email: null, phone: null },
+    { id: '11111111-1111-1111-1111-111111111111', tenant_id: TENANT_ID, name: 'John Roe', email: null, phone: null },
   ])
 })
 

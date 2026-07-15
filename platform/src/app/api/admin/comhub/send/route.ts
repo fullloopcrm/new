@@ -186,14 +186,25 @@ export async function POST(req: NextRequest) {
     contactId = t.contact_id
   }
 
-  if (contactId && (!phone && !email)) {
+  // contact_id can arrive straight from the request body — verify it belongs
+  // to this tenant before it flows into comhub_messages/comhub_threads (and
+  // comhub_get_or_create_thread, which performs no tenant check of its own).
+  // The old guard only ran this lookup when BOTH phone and email were absent,
+  // so a body carrying contact_id + phone together skipped verification
+  // entirely, letting a foreign tenant's contact_id get stamped onto this
+  // tenant's thread — then leaked back out via the thread-detail route's
+  // unfiltered comhub_contacts FK-embed (name/phone/email of another
+  // tenant's contact rendered in this tenant's admin thread view).
+  if (contactId) {
     const { data: c } = await supabaseAdmin
       .from('comhub_contacts')
-      .select('phone, email')
+      .select('id, phone, email')
       .eq('id', contactId)
       .eq('tenant_id', tenantId)
-      .single()
-    if (c) { phone = phone || c.phone; email = email || c.email }
+      .maybeSingle()
+    if (!c) return NextResponse.json({ error: 'contact not found' }, { status: 404 })
+    phone = phone || c.phone
+    email = email || c.email
   }
 
   if (!contactId) {
