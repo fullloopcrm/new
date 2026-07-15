@@ -4,6 +4,16 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address. Unescaped, a caller-controlled '%'/'_' lets an attacker rotate
+// the submitted `email` string while still matching the SAME target
+// referrer row — bypassing the per-email OTP brute-force throttle below,
+// which assumes `email` uniquely identifies the target. Same pattern as
+// lib/inbound-email-tenant.ts's escapeLike() and ../request/route.ts.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 // Step 2 of referrer login: email + 6-digit code in → session token out.
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
@@ -35,7 +45,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id, referral_code, otp_hash, otp_expires_at')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .eq('status', 'active')
     .maybeSingle()
 

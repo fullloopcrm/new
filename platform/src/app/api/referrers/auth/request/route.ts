@@ -8,6 +8,17 @@ import { randomInt } from 'crypto'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
+// Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
+// address. Unescaped, a caller-controlled '%'/'_' lets an attacker rotate
+// the submitted `email` string (e.g. adding/removing wildcard chars) while
+// still matching the SAME target referrer row — bypassing the per-email
+// rate-limit key below, which assumes `email` uniquely identifies the
+// target. Same pattern as lib/inbound-email-tenant.ts's escapeLike() and
+// ../../route.ts's fix for the sibling code/email lookup.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 // Step 1 of referrer login: email in → email a 6-digit code out.
 // Always responds { ok: true } regardless of whether the email matches a
 // referrer, so this endpoint can't be used to enumerate who's a partner.
@@ -43,7 +54,7 @@ export async function POST(request: NextRequest) {
     .from('referrers')
     .select('id, name, email')
     .eq('tenant_id', tenant.id)
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .eq('status', 'active')
     .maybeSingle()
 
