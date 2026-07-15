@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { clearSettingsCache } from '@/lib/settings'
 import {
   normalizePrefs,
@@ -11,13 +11,8 @@ import {
 
 // GET communications preferences + capabilities for the tenant.
 export async function GET() {
-  let tenant
-  try {
-    tenant = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('settings.view')
+  if (authError) return authError
 
   const { data } = await supabaseAdmin
     .from('tenants')
@@ -33,13 +28,8 @@ export async function GET() {
 
 // PUT — persist the full { comms, timing } preferences object.
 export async function PUT(request: Request) {
-  let tenant
-  try {
-    tenant = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
 
   const body = await request.json().catch(() => ({}))
   // Normalize before storing so we only ever persist known keys in the canonical

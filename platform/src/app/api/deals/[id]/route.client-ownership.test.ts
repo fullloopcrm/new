@@ -44,7 +44,7 @@ beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: {}, role: 'owner' }))
   h.store = {
     clients: [
       { id: 'client-A', tenant_id: 'tenant-A', name: 'Mine Client' },
