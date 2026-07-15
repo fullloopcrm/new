@@ -47,7 +47,7 @@ function chain(table: string) {
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
 vi.mock('@/lib/stripe', () => ({ createPaymentLink }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT_A }),
+  getTenantForRequest: async () => ({ tenantId: TENANT_A, role: 'admin', tenant: {} }),
   AuthError: class AuthError extends Error {},
 }))
 
