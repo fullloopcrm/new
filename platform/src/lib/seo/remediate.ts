@@ -9,6 +9,7 @@
 // ---------------------------------------------------------------------------
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
+import { safeFetch } from '../ssrf'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -37,7 +38,7 @@ async function topQueryFor(property: string, page: string): Promise<string | nul
 
 export async function fetchTitleMeta(url: string): Promise<{ title: string; meta: string }> {
   try {
-    const res = await fetch(url, { redirect: 'follow' })
+    const res = await safeFetch(url)
     const html = await res.text()
     const title = html.match(/<title[^>]*>([^<]*)<\/title>/i)?.[1]?.trim() ?? ''
     const meta =

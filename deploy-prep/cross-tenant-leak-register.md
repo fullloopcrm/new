@@ -814,6 +814,40 @@ live leaks. This section is a **negative result, not a to-do list**.
    `npx tsc --noEmit` clean; full `vitest run` 317 files / 1391 passed / 37
    skipped / 0 failed.
 
+   **P41 (2026-07-15, W2, cross-branch port, SSRF not FK-injection):**
+   `lib/tenant-health.ts`, `lib/site-readiness.ts`, `lib/site-export.ts`,
+   `lib/seo/{enrich,remediate,technical}.ts`, and `lib/onboarding-verify.ts`
+   all fetch a URL built from a tenant-controlled or admin-editable field
+   (`tenant_domains.domain`, a GSC/SEO property URL, a tenant's `domain`
+   settings field) with **zero SSRF guard** — a malicious/compromised tenant
+   or admin session could point the platform's own cron/admin server at
+   `127.0.0.1`, `169.254.169.254` (cloud metadata), or an RFC1918 host.
+   Sibling branches p1-w1/p1-w4 already found, fixed, and regression-locked
+   this exact class (`lib/ssrf.ts` + `lib/ssrf.test.ts`, commits `871b38c1`
+   on p1-w1, ported to p1-w4 as `cc99d354` + `1041187f`) but the fix was
+   **never ported to p1-w2** — confirmed via `git show <hash>` against this
+   worktree's shared object store (all worktrees share one `.git`, so the
+   commits were inspectable without leaving this worktree) and by grepping
+   this branch's `src/lib` for `safeFetch`/`ssrf`, both absent. Ported
+   verbatim: `lib/ssrf.ts` (`assertPublicUrl`/`safeFetch`, blocks loopback/
+   RFC1918/CGNAT/link-local/ULA/metadata/mapped IPs, v4+v6, re-validates every
+   redirect hop) + `lib/ssrf.test.ts` (10 cases). Applied `safeFetch`/
+   `assertPublicUrl` to all 7 call sites per the original commits' exact
+   scope. Also found one call site the original port didn't cover because it
+   didn't exist yet on p1-w1/p1-w4: the new (untracked, in-flight SEOMGR
+   rebuild) `lib/seo/health.ts` fleet-health fetcher has the identical
+   `https://www.${tenant_domains.domain}/` pattern — applied the same
+   `safeFetch` guard there too, so the newly-landing subsystem doesn't
+   reintroduce the class this same session already closed elsewhere.
+   `npx tsc --noEmit` clean. `ssrf.test.ts` 10/10 pass. Full `vitest run`
+   317/318 files, 1400/1400 passed + 37 skipped, 1 pre-existing unrelated
+   flaky timeout (`finance-export.test.ts`, confirmed passes in isolation,
+   flagged repeatedly by other workers all session, unchanged baseline). No
+   dedicated per-call-site test added, matching this exact class's estab-
+   lished project precedent (`1041187f`: relies on the shared `ssrf.test.ts`
+   suite + `tsc`, not a per-file regression test). File-only, no push/
+   deploy/DB. Did not touch referrers/referral-commissions/team-PIN routes.
+
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping

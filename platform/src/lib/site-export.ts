@@ -16,6 +16,7 @@
  * - Domain transfer is a separate, manual step (registrar-side).
  */
 import JSZip from 'jszip'
+import { safeFetch } from './ssrf'
 
 const MAX_PAGES = 80 // serverless-safe cap; log when exceeded
 const CONCURRENCY = 8
@@ -42,7 +43,7 @@ async function fetchWithTimeout(url: string): Promise<Response | null> {
   const controller = new AbortController()
   const t = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
   try {
-    return await fetch(url, { signal: controller.signal, redirect: 'follow' })
+    return await safeFetch(url, { signal: controller.signal })
   } catch {
     return null
   } finally {
