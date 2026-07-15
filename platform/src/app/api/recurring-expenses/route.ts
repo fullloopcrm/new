@@ -3,12 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { data, error } = await tenantDb(tenantId)
       .from('recurring_expenses')
       .select('*')

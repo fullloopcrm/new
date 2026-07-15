@@ -7,12 +7,15 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
     const { data, error } = await supabaseAdmin
       .from('management_applications')
       .select('*')
@@ -119,7 +122,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.edit')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
     const { id, status } = await request.json()
     if (!id || !status) return NextResponse.json({ error: 'ID and status required' }, { status: 400 })
 
