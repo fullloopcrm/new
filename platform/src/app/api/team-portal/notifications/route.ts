@@ -41,10 +41,15 @@ export async function PUT(request: NextRequest) {
         .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
         .eq('read', false)
     } else if (body.id) {
+      // Scope to this team member's own notifications (or tenant-wide
+      // broadcasts with recipient_id null) — otherwise any authenticated
+      // team member can flip another member's notification to read by
+      // guessing/enumerating ids (tenantDb only scopes by tenant_id).
       await tenantDb(auth.tid)
         .from('notifications')
         .update({ read: true })
         .eq('id', body.id)
+        .or(`recipient_id.eq.${auth.id},recipient_id.is.null`)
     }
   } catch {
     // Table may not exist yet

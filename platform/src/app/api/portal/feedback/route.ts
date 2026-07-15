@@ -11,11 +11,26 @@ export async function POST(request: Request) {
 
   const { rating, comment, booking_id } = await request.json().catch(() => ({}))
 
+  // A client-supplied booking_id must belong to this client — otherwise a
+  // logged-in client could attach their review to another client's booking
+  // within the same tenant (tenantDb only scopes by tenant_id, not owner).
+  let verifiedBookingId: string | null = null
+  if (booking_id) {
+    const { data: booking } = await tenantDb(auth.tid)
+      .from('bookings')
+      .select('id')
+      .eq('id', booking_id)
+      .eq('client_id', auth.id)
+      .single()
+    if (!booking) return NextResponse.json({ error: 'Invalid booking_id' }, { status: 400 })
+    verifiedBookingId = booking.id
+  }
+
   const { data, error } = await tenantDb(auth.tid)
     .from('reviews')
     .insert({
       client_id: auth.id,
-      booking_id: booking_id || null,
+      booking_id: verifiedBookingId,
       rating: rating || null,
       comment: comment || null,
       source: 'internal',
