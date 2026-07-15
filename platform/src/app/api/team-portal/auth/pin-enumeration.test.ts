@@ -70,11 +70,12 @@ describe('team-portal/auth PIN enumeration', () => {
     expect(statuses[5]).toBe(429)
   })
 
-  it('bucket key is slug+IP and never contains the PIN', async () => {
+  it('bucket keys are slug+IP and slug-wide, and never contain the PIN', async () => {
     await POST(req('424242'))
-    expect(rlKeys.length).toBeGreaterThan(0)
+    // One request now checks two buckets: the per-IP+slug key and the
+    // tenant-wide key that closes the rotating-IP spray gap.
+    expect(new Set(rlKeys)).toEqual(new Set(['team_portal_auth:acme:9.9.9.9', 'team_portal_auth_tenant:acme']))
     for (const k of rlKeys) {
-      expect(k).toBe('team_portal_auth:acme:9.9.9.9')
       expect(k).not.toContain('424242')
     }
   })

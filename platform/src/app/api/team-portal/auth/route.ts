@@ -20,9 +20,16 @@ export async function POST(request: Request) {
   // whole PIN space unthrottled. Key on slug+IP instead: 5 PIN guesses per IP
   // per tenant per 15 min, which both throttles enumeration and locks out a
   // spraying host for the rest of the window.
+  //
+  // A per-IP cap alone still lets a distributed/rotating-IP spray walk the
+  // whole 4-digit PIN space (1000-9999, 9000 values) unthrottled — same gap
+  // client-login closed with a tenant-wide bucket (see /api/client/login).
+  // Add the matching tenant-wide cap here so a botnet can't bypass the per-IP
+  // limit by fanning guesses across many source IPs.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
-  if (!rl.allowed) {
+  const rlIp = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
+  const rlTenant = await rateLimitDb(`team_portal_auth_tenant:${tenant_slug}`, 30, 15 * 60 * 1000, { failClosed: true })
+  if (!rlIp.allowed || !rlTenant.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 

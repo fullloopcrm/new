@@ -68,12 +68,14 @@ beforeEach(() => {
 })
 
 describe('team-portal/auth — PIN-enumeration throttle structure', () => {
-  it('distinct PIN guesses from one IP+slug collapse to a SINGLE bucket key (cardinality 1, PIN absent)', async () => {
+  it('distinct PIN guesses from one IP+slug collapse to the two fixed bucket keys (PIN absent)', async () => {
     for (let i = 0; i < 8; i++) {
       await POST(req({ pin: String(200000 + i), ip: '9.9.9.9', slug: 'acme' }))
     }
-    // Reverted per-PIN key → 8 distinct keys. Correct key → exactly 1.
-    expect(new Set(rlKeys).size).toBe(1)
+    // Reverted per-PIN key → 8+ distinct keys. Correct keying → exactly the
+    // per-IP+slug bucket plus the tenant-wide bucket, regardless of how many
+    // distinct PINs were guessed.
+    expect(new Set(rlKeys).size).toBe(2)
     for (const k of rlKeys) expect(k).not.toMatch(/20000\d/)
   })
 
@@ -104,5 +106,18 @@ describe('team-portal/auth — PIN-enumeration throttle structure', () => {
     // Same IP, different tenant "beta" is unaffected — separate bucket.
     const other = await POST(req({ pin: '999999', ip: '8.8.8.8', slug: 'beta' }))
     expect(other.status).toBe(401)
+  })
+
+  it('a spray across many DISTINCT IPs against one tenant still trips the tenant-wide bucket', async () => {
+    // Each IP below is fresh, so the per-IP+slug bucket alone would never
+    // throttle this — this is exactly the rotating-IP gap the tenant-wide
+    // bucket exists to close.
+    const statuses: number[] = []
+    for (let i = 0; i < 31; i++) {
+      const res = await POST(req({ pin: String(500000 + i), ip: `10.0.0.${i}`, slug: 'acme' }))
+      statuses.push(res.status)
+    }
+    expect(statuses.slice(0, 30).every((s) => s === 401)).toBe(true)
+    expect(statuses[30]).toBe(429)
   })
 })
