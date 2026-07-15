@@ -72,6 +72,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
+  // Confirm a reassigned team_member_id belongs to this tenant -- otherwise it
+  // gets written onto the rule AND onto every regenerated booking below, same
+  // class as this schedule's own POST/PUT/exception team_member_id checks.
+  if (teamMemberId) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   // Fall back to the schedule's stored rates when the caller omits them, so an
   // edit that doesn't resend pay_rate can't zero out cleaner payout.
   const effPayRate = payRate ?? schedule.pay_rate ?? null

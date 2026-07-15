@@ -32,6 +32,21 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'new_team_member_id required for reassign' }, { status: 400 })
   }
 
+  // Confirm a reassign target belongs to this tenant -- otherwise a foreign id
+  // gets written straight onto the materialized booking below (leaking that
+  // member's name/phone via any booking-list join) AND onto every future
+  // occurrence cron/generate-recurring generates from this exception. Same
+  // class as this schedule's own POST/PUT team_member_id checks.
+  if (type === 'reassign' && new_team_member_id) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .eq('id', new_team_member_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   // Confirm the schedule belongs to this tenant; pull duration for move end-time.
   const { data: schedule } = await supabaseAdmin
     .from('recurring_schedules')
