@@ -29,6 +29,7 @@ import { adminNewClientEmail } from '@/lib/email-templates'
 import { notify } from '@/lib/notify'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { trackError } from '@/lib/error-tracking'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -92,6 +93,17 @@ export async function POST(request: Request) {
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
+  }
+
+  // The shared INGEST_SECRET gates every standalone marketing site funneling
+  // leads into this tenant's clients/portal_leads/deals + admin email — same
+  // secret across many separate codebases, so a leak/compromise on any one
+  // site turns this into an unbounded-write + admin-email-flood vector for
+  // any known tenant_slug. Matches the sibling host-resolved /api/lead limit.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const limit = await rateLimitDb(`ingest-lead:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+  if (!limit.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 
   const name = body.name?.trim()
