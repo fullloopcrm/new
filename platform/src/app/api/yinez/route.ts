@@ -28,6 +28,27 @@ export async function POST(req: NextRequest) {
 
     let conversationId = sessionId
 
+    // A caller-supplied sessionId is an unauthenticated, attacker-controlled
+    // external id — same action-authorization-bypass class as the Telnyx
+    // call_control_id hijack (comhub/voice/control). askSelena()/
+    // insertConversationMessage() both resolve tenant from the conversation's
+    // OWN row (by design, so a conversation stays with its real owner), not
+    // from reqTenantId — so without this check, supplying another tenant's
+    // live sessionId here injects a message into, and drives Selena's reply/
+    // tool-calls against, THAT tenant's real customer conversation. Verify
+    // ownership before it's used for anything.
+    if (conversationId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', reqTenantId)
+        .maybeSingle()
+      if (!owned) {
+        return NextResponse.json({ error: 'Invalid session' }, { status: 400 })
+      }
+    }
+
     // Create conversation if new session
     if (!conversationId) {
       const webPhone = phone ? `web-${phone}` : `web-${crypto.randomUUID().slice(0, 8)}`
@@ -70,7 +91,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await insertConversationMessage({ conversation_id: conversationId, direction: 'inbound', message })
+    await insertConversationMessage(
+      { conversation_id: conversationId, direction: 'inbound', message },
+      { expectedTenantId: reqTenantId },
+    )
 
     const result = await askSelena('web', message, conversationId, phone || undefined)
     // No canned dead-end. Empty reply surfaces as "no response" to the widget,
@@ -78,9 +102,12 @@ export async function POST(req: NextRequest) {
     const reply = result.text || ''
 
     // Log outbound
-    await insertConversationMessage({
-      conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-    })
+    await insertConversationMessage(
+      {
+        conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      },
+      { expectedTenantId: reqTenantId },
+    )
 
     if (result.bookingCreated) {
       await notify({ type: 'new_booking', title: 'New Web Booking', message: 'Client confirmed booking via web chat' }).catch(() => {})
