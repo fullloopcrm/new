@@ -214,7 +214,7 @@ export default function PricingPage() {
                 addressCountry: "US",
               },
             },
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

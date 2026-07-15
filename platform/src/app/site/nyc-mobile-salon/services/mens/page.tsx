@@ -61,7 +61,7 @@ export default function MensServicesPage() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(
             faqSchema(faqs)
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -73,7 +73,7 @@ export default function MensServicesPage() {
               { name: "Services", url: "/services" },
               { name: "Men\u2019s Grooming", url: "/services/mens" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

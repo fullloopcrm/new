@@ -73,13 +73,13 @@ export default function RootLayout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(getWebsiteSchema()),
+            __html: JSON.stringify(getWebsiteSchema()).replace(/</g, '\\u003c'),
           }}
         />
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{
-            __html: JSON.stringify(getOrganizationSchema()),
+            __html: JSON.stringify(getOrganizationSchema()).replace(/</g, '\\u003c'),
           }}
         />
       </head>

@@ -422,8 +422,8 @@ export default function BusinessProfileClient({ slug, category }: { slug: string
 
   return (
     <PreLaunchGate>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
       <style>{`
         .bp-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; }
         .bp-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }

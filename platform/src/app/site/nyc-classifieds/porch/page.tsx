@@ -84,11 +84,11 @@ export default async function PorchPage() {
   return (
     <>
       <PorchRedirect />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(forumLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchFaqLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchSpeakLd) }} />
-      {itemsLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemsLd) }} />}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(forumLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchFaqLd).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(porchSpeakLd).replace(/</g, '\\u003c') }} />
+      {itemsLd && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(itemsLd).replace(/</g, '\\u003c') }} />}
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <PorchClient />
       </Suspense>

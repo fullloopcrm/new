@@ -68,10 +68,10 @@ export default async function BoroughSlugPage({ params }: { params: Promise<{ bo
     const bcSpeakLd = speakableSchema({ url: `/${borough}/${slug}` })
     return (
       <>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(bcFaqLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(bcSpeakLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(bcFaqLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(bcSpeakLd).replace(/</g, '\\u003c') }} />
         <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
           <BoroughCategoryClient boroughSlug={borough} categorySlug={slug} />
         </Suspense>
@@ -114,11 +114,11 @@ export default async function BoroughSlugPage({ params }: { params: Promise<{ bo
     const nhSpeakLd = speakableSchema({ url: `/${borough}/${slug}` })
     return (
       <>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(placeLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(nhFaqLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(nhSpeakLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(placeLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(collectionLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(nhFaqLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(nhSpeakLd).replace(/</g, '\\u003c') }} />
         <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
           <NeighborhoodPageClient boroughSlug={borough} neighborhoodSlug={slug} />
         </Suspense>

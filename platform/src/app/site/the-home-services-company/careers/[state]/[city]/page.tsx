@@ -71,7 +71,7 @@ export default async function CityJobsPage({ params }: { params: Promise<{ state
         <script
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jp) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jp).replace(/</g, '\\u003c') }}
         />
       ))}
 

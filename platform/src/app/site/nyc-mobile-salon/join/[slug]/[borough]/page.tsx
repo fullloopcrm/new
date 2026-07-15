@@ -198,13 +198,13 @@ export default async function JoinServiceBoroughPage({ params }: PageProps) {
               "Valid New York State cosmetology, barbering, esthetics, or nail specialty license required",
             jobBenefits:
               "Flexible schedule, no booth rental fees, liability insurance included, paid via Zelle or Apple Cash within 30 minutes of job completion, bonus programs, ongoing training",
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -217,7 +217,7 @@ export default async function JoinServiceBoroughPage({ params }: PageProps) {
               { name: `${service.name} Jobs`, url: `/join/${slug}` },
               { name: boroughName, url: `/join/${slug}/${borough}` },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

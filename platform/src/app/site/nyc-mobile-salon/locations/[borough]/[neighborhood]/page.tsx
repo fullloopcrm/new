@@ -89,7 +89,7 @@ export default async function NeighborhoodLocationPage({ params }: Props) {
               { name: hood, url: `/locations/${borough}/${neighborhood}` },
             ]),
             faqSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

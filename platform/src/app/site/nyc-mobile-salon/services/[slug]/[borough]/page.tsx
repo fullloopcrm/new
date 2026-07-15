@@ -95,7 +95,7 @@ export default async function ServiceBoroughPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         serviceSchema(`Mobile ${svc.name} in ${boro}`, `${svc.description} — delivered to your door in ${boro}.`, boro)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([
           { name: "Home", url: "/" },
@@ -103,8 +103,8 @@ export default async function ServiceBoroughPage({ params }: Props) {
           { name: svc.name, url: `/services/${slug}` },
           { name: boro, url: `/services/${slug}/${borough}` },
         ])
-      ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(boroughFaqs)) }} />
+      ).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(boroughFaqs)).replace(/</g, '\\u003c') }} />
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={isWomens ? { background: "linear-gradient(135deg, #E8A0BF 0%, #D4749B 100%)" } : { background: "linear-gradient(135deg, #1a1a1a 0%, #0c2340 50%, #1a1a1a 100%)" }}>

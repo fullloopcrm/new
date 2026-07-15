@@ -51,7 +51,7 @@ export default function AboutPage() {
               description:
                 "NYC interior design firm founded by designers with deep roots in New York City architecture, residential renovation, and commercial design.",
             },
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

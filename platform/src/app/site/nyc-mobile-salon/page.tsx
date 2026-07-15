@@ -170,11 +170,11 @@ export default function Home() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
@@ -189,7 +189,7 @@ export default function Home() {
             name: item.title,
             text: item.description,
           })),
-        }) }}
+        }).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
@@ -207,7 +207,7 @@ export default function Home() {
             { "@type": "Thing", name: "Mobile Barber NYC" },
             { "@type": "Thing", name: "Bridal Hair and Makeup NYC" },
           ],
-        }) }}
+        }).replace(/</g, '\\u003c') }}
       />
 
       {/* ── Hero ── */}

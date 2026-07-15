@@ -43,13 +43,13 @@ export default function GuidePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getEducationPageSchema()),
+          __html: JSON.stringify(getEducationPageSchema()).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(guideFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(guideFaqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -60,7 +60,7 @@ export default function GuidePage() {
               { name: "Home", url: "/" },
               { name: "Complete Guide", url: "/guide" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -78,7 +78,7 @@ export default function SameDayDumpsterRentalPage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

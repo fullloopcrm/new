@@ -27,7 +27,7 @@ export default function ApplicationPage() {
               { name: "Join Our Team", url: "/join" },
               { name: "Apply", url: "/join/application" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

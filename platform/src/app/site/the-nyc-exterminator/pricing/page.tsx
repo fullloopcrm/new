@@ -79,7 +79,7 @@ export default function PricingPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(pricingFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(pricingFaqs)).replace(/</g, '\\u003c'),
         }}
       />
       {/* JSON-LD: Breadcrumb Schema */}
@@ -91,7 +91,7 @@ export default function PricingPage() {
               { name: "Home", url: "/" },
               { name: "Pricing", url: "/pricing" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -102,7 +102,7 @@ export default function CheapDumpsterRentalPage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -41,10 +41,10 @@ export default function HowItWorksPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(faqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "How It Works", url: "/how-it-works" }])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* Hero */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={{ background: "linear-gradient(135deg, #7C3AED 0%, #A78BFA 40%, #C4B5FD 100%)" }}>

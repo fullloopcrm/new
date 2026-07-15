@@ -207,7 +207,7 @@ export default function JoinPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -218,7 +218,7 @@ export default function JoinPage() {
               { name: "Home", url: "/" },
               { name: "Join Our Team", url: "/join" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -276,7 +276,7 @@ export default function JoinPage() {
             },
             qualifications: "Valid New York State cosmetology, barbering, esthetics, or nail specialty license required",
             jobBenefits: "Flexible schedule, no booth rental fees, liability insurance included, weekly direct deposit, bonus programs, ongoing training",
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

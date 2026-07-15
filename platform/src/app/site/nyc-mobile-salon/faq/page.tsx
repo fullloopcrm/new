@@ -167,7 +167,7 @@ export default function FAQPage() {
       {/* JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
@@ -177,7 +177,7 @@ export default function FAQPage() {
               { name: "Home", url: "/" },
               { name: "FAQ", url: "/faq" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

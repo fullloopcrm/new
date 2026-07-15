@@ -106,7 +106,7 @@ export default function Home() {
   return (
     <main style={{ maxWidth: '1050px', margin: '0 auto', padding: '12px 24px 32px' }}>
       {schemas.map((s, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(s).replace(/</g, '\\u003c') }} />
       ))}
 
       {/* ═══════════════════════════════════════════════════════════════

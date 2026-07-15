@@ -154,7 +154,7 @@ export default function ReviewsPage() {
   return (
     <>
       {/* JSON-LD */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
 
       {/* ── 1. Hero ─────────────────────────────────────────────────── */}
       <section

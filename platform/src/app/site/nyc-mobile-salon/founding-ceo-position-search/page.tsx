@@ -211,7 +211,7 @@ export default function FoundingCEOPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -222,7 +222,7 @@ export default function FoundingCEOPage() {
               { name: "Home", url: "/" },
               { name: "Founding CEO", url: "/founding-ceo-position-search" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -266,7 +266,7 @@ export default function FoundingCEOPage() {
               "5+ years in marketplace / on-demand services. P&L ownership. NYC-based. Scaled a supply-constrained two-sided platform.",
             jobBenefits:
               "Meaningful founder-level equity stake, AI-automated operational backend, pre-built SEO engine, pre-built brand, inbound demand from day one. Pre-revenue bootstrapped — no salary during ramp.",
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

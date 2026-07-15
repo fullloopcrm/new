@@ -74,7 +74,7 @@ export default function FreeQuotePage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

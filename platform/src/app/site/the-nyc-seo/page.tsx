@@ -298,13 +298,13 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema),
+          __html: JSON.stringify(faqSchema).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(localBusinessSchema),
+          __html: JSON.stringify(localBusinessSchema).replace(/</g, '\\u003c'),
         }}
       />
 

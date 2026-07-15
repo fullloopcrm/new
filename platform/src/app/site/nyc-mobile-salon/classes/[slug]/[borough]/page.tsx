@@ -68,7 +68,7 @@ export default async function ClassBoroughPage({ params }: Props) {
       {/* Structured Data */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         serviceSchema(`${cls.name} in ${boro}`, `${cls.description} — mobile workshop in ${boro}. ${cls.duration}, groups of ${cls.groupSize}.`, boro)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([
           { name: "Home", url: "/" },
@@ -76,10 +76,10 @@ export default async function ClassBoroughPage({ params }: Props) {
           { name: cls.name, url: `/classes/${slug}` },
           { name: boro, url: `/classes/${slug}/${borough}` },
         ])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(faqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* ─── 1. Hero ─────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={heroStyle}>

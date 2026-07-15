@@ -20,7 +20,7 @@ export default function Breadcrumbs({
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getBreadcrumbSchema(allItems)),
+          __html: JSON.stringify(getBreadcrumbSchema(allItems)).replace(/</g, '\\u003c'),
         }}
       />
       <nav

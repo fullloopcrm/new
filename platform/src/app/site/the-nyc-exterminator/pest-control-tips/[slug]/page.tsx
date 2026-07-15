@@ -98,7 +98,7 @@ export default async function TipPage({
               "@type": "WebPage",
               "@id": `${SITE_URL}/pest-control-tips/${tip.slug}`,
             },
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -127,7 +127,7 @@ export default async function TipPage({
                 item: `${SITE_URL}/pest-control-tips/${tip.slug}`,
               },
             ],
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

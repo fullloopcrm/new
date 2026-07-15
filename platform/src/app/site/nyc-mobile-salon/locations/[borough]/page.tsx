@@ -213,7 +213,7 @@ export default async function BoroughPage({ params }: Props) {
               { name, url: `/locations/${borough}` },
             ]),
             faqSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -311,7 +311,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(allFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(allFaqs)).replace(/</g, '\\u003c'),
         }}
       />
 
@@ -324,7 +324,7 @@ export default function FAQPage() {
               { name: "Home", url: "/" },
               { name: "FAQ", url: "/faq" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

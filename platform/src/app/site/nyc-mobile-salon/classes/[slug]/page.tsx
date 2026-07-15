@@ -194,13 +194,13 @@ export default async function ClassPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         courseSchema({ name: `${cls.name} in NYC`, description: `${cls.description}. Hands-on workshop, ${cls.duration}, groups of ${cls.groupSize}.`, url: `https://thenycmobilesalon.com/classes/${slug}`, duration: cls.duration, groupSize: cls.groupSize })
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(faqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "Classes", url: "/classes" }, { name: cls.name, url: `/classes/${slug}` }])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* Hero */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={heroStyle}>

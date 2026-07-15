@@ -115,19 +115,19 @@ export default function BeautyPersonalCarePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(organizationSchema),
+          __html: JSON.stringify(organizationSchema).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(serviceSchema),
+          __html: JSON.stringify(serviceSchema).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema),
+          __html: JSON.stringify(faqSchema).replace(/</g, '\\u003c'),
         }}
       />
 

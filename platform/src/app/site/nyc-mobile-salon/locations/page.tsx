@@ -215,7 +215,7 @@ export default function LocationsPage() {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(
             faqSchema(faqs.map((f) => ({ q: f.q, a: f.a }))),
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -226,12 +226,12 @@ export default function LocationsPage() {
               { name: "Home", url: "/" },
               { name: "Locations", url: "/locations" },
             ]),
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()).replace(/</g, '\\u003c') }}
       />
 
       {/* ─── 1. Hero ────────────────────────────────────────────────────── */}

@@ -67,7 +67,7 @@ export default function ServicesPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(faqSchema(faqs)),
+          __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -78,7 +78,7 @@ export default function ServicesPage() {
               { name: "Home", url: "/" },
               { name: "Services", url: "/services" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

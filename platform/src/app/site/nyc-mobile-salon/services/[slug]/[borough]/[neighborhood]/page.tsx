@@ -68,7 +68,7 @@ export default async function ServiceNeighborhoodPage({ params }: Props) {
       {/* JSON-LD: Service */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         serviceSchema(`${svc.name} in ${hood}, ${boro}`, `Mobile ${svcLower} in ${hood}, ${boro}. ${svc.description}.`, `${hood}, ${boro}`)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       {/* JSON-LD: Breadcrumb */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([
@@ -78,9 +78,9 @@ export default async function ServiceNeighborhoodPage({ params }: Props) {
           { name: boro, url: `/services/${slug}/${borough}` },
           { name: hood, url: `/services/${slug}/${borough}/${neighborhood}` },
         ])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       {/* JSON-LD: FAQ */}
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }} />
 
       {/* ── Hero ─────────────────────────────────────────────────────── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={isWomens ? { background: "linear-gradient(135deg, #E8A0BF 0%, #D4749B 100%)" } : { background: "linear-gradient(135deg, #1a1a1a 0%, #0c2340 50%, #1a1a1a 100%)" }}>

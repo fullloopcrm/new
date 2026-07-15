@@ -101,10 +101,10 @@ export default function EventsPage() {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(eventFaqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "Events", url: "/events" }])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* Hero */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={{ background: "linear-gradient(135deg, #D4749B 0%, #E8A0BF 40%, #C9A96E 100%)" }}>

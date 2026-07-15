@@ -100,7 +100,7 @@ export default function HomePage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(homeFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(homeFaqs)).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -63,13 +63,13 @@ function CheckIcon() {
 export default function AboutPage() {
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "About", url: "/about" }])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(localBusinessSchema()).replace(/</g, '\\u003c') }}
       />
 
       {/* ── Hero ── */}

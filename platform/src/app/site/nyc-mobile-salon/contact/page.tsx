@@ -26,7 +26,7 @@ export default function ContactPage() {
               { name: "Home", url: "/" },
               { name: "Contact", url: "/contact" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <section className="px-4 py-20">

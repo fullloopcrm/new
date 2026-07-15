@@ -24,7 +24,7 @@ export default function BookPage() {
               { name: "Home", url: "/" },
               { name: "Book Your Appointment", url: "/book" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <section className="px-4 py-20">

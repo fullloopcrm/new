@@ -166,15 +166,15 @@ export default async function JoinServiceNeighborhoodPage({ params }: Props) {
       {/* ── JSON-LD ──────────────────────────────────────────────── */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingLd) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingLd).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(breadcrumbs)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema(breadcrumbs)).replace(/</g, '\\u003c') }}
       />
 
       {/* ── 1. Hero ──────────────────────────────────────────────── */}

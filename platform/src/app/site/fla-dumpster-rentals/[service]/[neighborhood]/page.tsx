@@ -80,19 +80,19 @@ export default async function MoneyPage({ params }: PageProps) {
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(
             getLocalBusinessSchema(service, neighborhood)
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(service.faqs)),
+          __html: JSON.stringify(getFAQPageSchema(service.faqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(breadcrumbSchema),
+          __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c'),
         }}
       />
 

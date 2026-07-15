@@ -51,7 +51,7 @@ export default function AboutPage() {
               description:
                 "NYC landscaping company founded by a born-and-raised Queens native with roots in horticulture spanning three generations.",
             },
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

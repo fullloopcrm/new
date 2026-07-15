@@ -61,7 +61,7 @@ export default async function EventNeighborhoodPage({ params }: Props) {
       {/* ── JSON-LD ── */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         serviceSchema(`${evt.name} in ${hood}, ${boro}`, `Mobile ${evt.name.toLowerCase()} in ${hood}, ${boro}. ${evt.description}.`, `${hood}, ${boro}`)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([
           { name: "Home", url: "/" },
@@ -70,8 +70,8 @@ export default async function EventNeighborhoodPage({ params }: Props) {
           { name: boro, url: `/events/${slug}/${borough}` },
           { name: hood, url: `/events/${slug}/${borough}/${neighborhood}` },
         ])
-      ) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }} />
+      ).replace(/</g, '\\u003c') }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }} />
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={{ background: "linear-gradient(135deg, #D4749B 0%, #E8A0BF 40%, #C9A96E 100%)" }}>

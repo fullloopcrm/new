@@ -90,13 +90,13 @@ export default async function EventPage({ params }: Props) {
     <>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         eventSchema({ name: `Mobile ${evt.name} in NYC`, description: `${evt.description}. Professional event beauty services across all 5 NYC boroughs.`, url: `https://thenycmobilesalon.com/events/${slug}` })
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(faqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([{ name: "Home", url: "/" }, { name: "Events", url: "/events" }, { name: evt.name, url: `/events/${slug}` }])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* Hero */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={{ background: "linear-gradient(135deg, #D4749B 0%, #E8A0BF 40%, #C9A96E 100%)" }}>

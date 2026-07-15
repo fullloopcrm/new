@@ -181,7 +181,7 @@ export default function FAQPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(allFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(allFaqs)).replace(/</g, '\\u003c'),
         }}
       />
 

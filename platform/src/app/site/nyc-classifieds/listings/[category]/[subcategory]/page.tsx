@@ -202,10 +202,10 @@ export default async function SubcategoryOrDetailPage({ params }: { params: Prom
 
     return (
       <>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scFaqLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scSpeakLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scFaqLd).replace(/</g, '\\u003c') }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scSpeakLd).replace(/</g, '\\u003c') }} />
         <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
           <SubcategoryPageClient categorySlug={category} subcategorySlug={subcategory} />
         </Suspense>
@@ -396,7 +396,7 @@ export default async function SubcategoryOrDetailPage({ params }: { params: Prom
   return (
     <>
       {schemas.map((schema, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema).replace(/</g, '\\u003c') }} />
       ))}
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <ListingDetailClient id={subcategory} />

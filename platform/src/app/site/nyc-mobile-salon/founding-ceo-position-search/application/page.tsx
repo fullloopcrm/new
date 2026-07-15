@@ -29,7 +29,7 @@ export default function FoundingCEOApplicationPage() {
               { name: "Founding CEO", url: "/founding-ceo-position-search" },
               { name: "Apply", url: "/founding-ceo-position-search/application" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

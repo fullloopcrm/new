@@ -76,7 +76,7 @@ export default async function ClassNeighborhoodPage({ params }: Props) {
       {/* JSON-LD: Service */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         serviceSchema(`${cls.name} in ${hood}, ${boro}`, `${cls.description} — mobile workshop in ${hood}, ${boro}. ${cls.duration}, groups of ${cls.groupSize}.`, `${hood}, ${boro}`)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       {/* JSON-LD: Breadcrumb */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         breadcrumbSchema([
@@ -86,11 +86,11 @@ export default async function ClassNeighborhoodPage({ params }: Props) {
           { name: boro, url: `/classes/${slug}/${borough}` },
           { name: hood, url: `/classes/${slug}/${borough}/${neighborhood}` },
         ])
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
       {/* JSON-LD: FAQ */}
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(
         faqSchema(faqs)
-      ) }} />
+      ).replace(/</g, '\\u003c') }} />
 
       {/* ── Hero ── */}
       <section className="relative overflow-hidden px-4 py-20 md:py-28" style={heroStyle}>

@@ -68,7 +68,7 @@ export default async function StatePartnershipsPage({ params }: { params: Promis
         <script
           key={i}
           type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jp) }}
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(jp).replace(/</g, '\\u003c') }}
         />
       ))}
 

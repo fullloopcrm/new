@@ -133,7 +133,7 @@ export default function BestDumpsterRentalFloridaPage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

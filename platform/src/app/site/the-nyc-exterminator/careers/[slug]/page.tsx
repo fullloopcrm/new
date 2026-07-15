@@ -124,11 +124,11 @@ export default async function NeighborhoodCareersPage({ params }: PageProps) {
     <div>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbSchema).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingSchema) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jobPostingSchema).replace(/</g, '\\u003c') }}
       />
 
       {/* Hero Section */}

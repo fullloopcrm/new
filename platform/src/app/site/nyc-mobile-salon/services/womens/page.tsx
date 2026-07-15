@@ -94,7 +94,7 @@ export default function WomensServicesPage() {
       {/* JSON-LD */}
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)) }}
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqSchema(faqs)).replace(/</g, '\\u003c') }}
       />
       <script
         type="application/ld+json"
@@ -105,7 +105,7 @@ export default function WomensServicesPage() {
               { name: "Services", url: "/services" },
               { name: "Women\u2019s Services", url: "/services/womens" },
             ])
-          ),
+          ).replace(/</g, '\\u003c'),
         }}
       />
 

@@ -69,7 +69,7 @@ export default function PestControlTipsPage() {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getFAQPageSchema(masterFaqs)),
+          __html: JSON.stringify(getFAQPageSchema(masterFaqs)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -104,7 +104,7 @@ export default function PestControlTipsPage() {
                 },
               ],
             },
-          }),
+          }).replace(/</g, '\\u003c'),
         }}
       />
 

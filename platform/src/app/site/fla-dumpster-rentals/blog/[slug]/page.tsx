@@ -50,7 +50,7 @@ export default async function BlogPostPage({ params }: Props) {
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{
-          __html: JSON.stringify(getBlogPostSchema(post)),
+          __html: JSON.stringify(getBlogPostSchema(post)).replace(/</g, '\\u003c'),
         }}
       />
       <script
@@ -59,7 +59,7 @@ export default async function BlogPostPage({ params }: Props) {
           __html: JSON.stringify(getBreadcrumbSchema([
             { name: "Blog", url: "/blog" },
             { name: post.title, url: `/blog/${post.slug}` },
-          ])),
+          ])).replace(/</g, '\\u003c'),
         }}
       />
       {/* Hero */}

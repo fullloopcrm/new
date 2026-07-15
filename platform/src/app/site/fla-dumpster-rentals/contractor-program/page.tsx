@@ -86,7 +86,7 @@ export default function ContractorProgramPage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 

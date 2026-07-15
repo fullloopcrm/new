@@ -74,7 +74,7 @@ export default function JunkRemovalVsDumpsterRentalPage() {
               },
             },
             getFAQPageSchema(faqs),
-          ]),
+          ]).replace(/</g, '\\u003c'),
         }}
       />
 
