@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { getSocialPosts } from '@/lib/social'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('campaigns.view')
+  if (authError) return authError
+
   try {
-    const { tenant } = await getTenantForRequest()
-    const posts = await getSocialPosts(tenant.id)
+    const posts = await getSocialPosts(tenant.tenantId)
     return NextResponse.json({ posts })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })

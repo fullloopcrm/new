@@ -1,12 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { getSocialAccounts, disconnectSocialAccount } from '@/lib/social'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('campaigns.view')
+  if (authError) return authError
+
   try {
-    const { tenant } = await getTenantForRequest()
-    const accounts = await getSocialAccounts(tenant.id)
+    const accounts = await getSocialAccounts(tenant.tenantId)
     // access_token is a live Facebook/Instagram Graph API credential — never
     // send it to the browser. The dashboard UI only renders platform/account
     // name/connected_at, never the token itself.

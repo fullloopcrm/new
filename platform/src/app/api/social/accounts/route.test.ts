@@ -16,6 +16,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * tenant's connected social account. Fixed to require settings.integrations
  * (the exact catalog permission built for "manage integrations", owner-only
  * by current default -- matches rbac.ts, not a new policy call).
+ *
+ * Bug 3 (missing-authz, same class): GET itself had zero permission check
+ * either -- the sidebar hides the whole Marketing/Social nav behind
+ * campaigns.view, but any authenticated tenant member could hit this route
+ * directly and read connected-account info regardless of the tenant's own
+ * campaigns.view RBAC override. Fixed to require campaigns.view (the same
+ * permission that gates the page in dashboard-shell.tsx).
  */
 
 const roleHolder = vi.hoisted(() => ({ role: 'owner' as string, tenantId: 'tenant-A' as string }))
@@ -84,6 +91,18 @@ describe('GET /api/social/accounts', () => {
       account_name: 'My Business Page',
       connected_at: '2026-01-01T00:00:00.000Z',
     })
+  })
+
+  it("PERMISSION PROBE: 'staff' role (no campaigns.view by default) is forbidden", async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(403)
+  })
+
+  it("owner (has campaigns.view) can read accounts", async () => {
+    roleHolder.role = 'owner'
+    const res = await GET()
+    expect(res.status).toBe(200)
   })
 })
 
