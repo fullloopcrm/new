@@ -43,6 +43,15 @@ async function notifyLeadEmailIfNeeded(args: {
     }
   }
 
+  // Per-tenant cap, independent of the (client-supplied, trivially spoofable)
+  // session_id the dedupe key above relies on — otherwise an anonymous caller
+  // can rotate session_id per request and trigger unbounded real sends (this
+  // path doesn't pass resendApiKey, so it always goes out via the shared
+  // platform Resend key, not the tenant's own — an email-bomb here burns
+  // platform-wide sending reputation/quota, not just one tenant's).
+  const tenantRl = await rateLimitDb(`track-lead-email:${args.tenantId}`, 20, 60 * 60 * 1000)
+  if (!tenantRl.allowed) return
+
   const business = settings.business_name || 'your business'
   const subject = `New lead: ${args.ctaType} on ${args.page || business}`
   const lines = [
