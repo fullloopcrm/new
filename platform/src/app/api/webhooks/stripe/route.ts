@@ -24,6 +24,17 @@ function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
+// Escape LIKE/ILIKE wildcards so the payer-email lookup below only ever
+// matches the literal address. Unescaped, a Stripe Checkout customer who
+// enters '%' (or any string containing '%'/'_') as their email at checkout
+// would match an arbitrary NYC Maid client on this tenant-scoped lookup —
+// letting a bogus/low-amount payment get attributed to (and mark paid) an
+// unrelated client's booking, triggering the auto cleaner-payout path below.
+// Same pattern already fixed on /api/referrers, /api/pin-reset, etc.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
@@ -311,7 +322,7 @@ export async function POST(request: Request) {
             .from('clients')
             .select('id, name')
             .eq('tenant_id', NYCMAID_TENANT_ID)
-            .ilike('email', payerEmail)
+            .ilike('email', escapeLike(payerEmail))
             .limit(1)
             .maybeSingle()
           if (mc) {
