@@ -2,13 +2,23 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
  * GET /api/social/connect/instagram — mints the Instagram OAuth authorize URL
- * (Instagram connect rides the Facebook Graph OAuth dialog). Zero prior
- * coverage. Same CWE-352 close as facebook/route.test.ts: the authorize URL
- * previously had no `state` param at all.
+ * (Instagram connect rides the Facebook Graph OAuth dialog). Same CWE-352
+ * close as facebook/route.test.ts: the authorize URL previously had no
+ * `state` param at all. Also proves the route now requires
+ * settings.integrations — connecting an account is the mutating counterpart
+ * to DELETE (disconnect), which already required that permission; connect
+ * was the gap.
  */
 
+let permissionError: unknown = null
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => (
+    permissionError
+      ? { tenant: null, error: permissionError }
+      : { tenant: { tenantId: 'tenant-A' }, error: null }
+  ),
+}))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenant: { id: 'tenant-A' } }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -18,14 +28,15 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 
+import { NextResponse } from 'next/server'
 import { GET } from './route'
-import { AuthError } from '@/lib/tenant-query'
 import { verifyOAuthState } from '@/lib/oauth-state'
 
 beforeEach(() => {
   process.env.ADMIN_TOKEN_SECRET = 'test-secret'
   process.env.FACEBOOK_APP_ID = 'fb-app-id'
   delete process.env.NEXT_PUBLIC_APP_URL
+  permissionError = null
 })
 
 describe('GET /api/social/connect/instagram', () => {
@@ -35,12 +46,10 @@ describe('GET /api/social/connect/instagram', () => {
     expect(res.status).toBe(500)
   })
 
-  it('propagates an AuthError from getTenantForRequest unchanged', async () => {
-    const tenantQuery = await import('@/lib/tenant-query')
-    vi.spyOn(tenantQuery, 'getTenantForRequest').mockRejectedValueOnce(new AuthError('Unauthorized', 401))
-
+  it('a role lacking settings.integrations is forbidden and never mints an authorize URL', async () => {
+    permissionError = NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
     const res = await GET()
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(403)
   })
 
   it('includes a state param that verifies back to the requesting tenant (CSRF close)', async () => {

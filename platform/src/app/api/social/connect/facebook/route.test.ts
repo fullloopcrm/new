@@ -2,15 +2,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
  * GET /api/social/connect/facebook — mints the Facebook OAuth authorize URL.
- * Zero prior coverage. The bug this closes: the authorize URL previously had
- * NO `state` param at all (CWE-352 OAuth login CSRF — same class already
- * fixed for Google, see src/lib/oauth-state.ts). These tests prove the state
- * param is actually present and is a real signed-tenant token, not just that
- * the route returns 200.
+ * The bug this closes: the authorize URL previously had NO `state` param at
+ * all (CWE-352 OAuth login CSRF — same class already fixed for Google, see
+ * src/lib/oauth-state.ts). These tests prove the state param is actually
+ * present and is a real signed-tenant token, not just that the route returns
+ * 200. Also proves the route now requires settings.integrations — connecting
+ * a page is the mutating counterpart to DELETE (disconnect), which already
+ * required that permission; connect was the gap.
  */
 
+let permissionError: unknown = null
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => (
+    permissionError
+      ? { tenant: null, error: permissionError }
+      : { tenant: { tenantId: 'tenant-A' }, error: null }
+  ),
+}))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenant: { id: 'tenant-A' } }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
@@ -20,14 +29,15 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 
+import { NextResponse } from 'next/server'
 import { GET } from './route'
-import { AuthError } from '@/lib/tenant-query'
 import { verifyOAuthState } from '@/lib/oauth-state'
 
 beforeEach(() => {
   process.env.ADMIN_TOKEN_SECRET = 'test-secret'
   process.env.FACEBOOK_APP_ID = 'fb-app-id'
   delete process.env.NEXT_PUBLIC_APP_URL
+  permissionError = null
 })
 
 describe('GET /api/social/connect/facebook', () => {
@@ -37,12 +47,10 @@ describe('GET /api/social/connect/facebook', () => {
     expect(res.status).toBe(500)
   })
 
-  it('propagates an AuthError from getTenantForRequest unchanged', async () => {
-    const tenantQuery = await import('@/lib/tenant-query')
-    vi.spyOn(tenantQuery, 'getTenantForRequest').mockRejectedValueOnce(new AuthError('Unauthorized', 401))
-
+  it('a role lacking settings.integrations is forbidden and never mints an authorize URL', async () => {
+    permissionError = NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
     const res = await GET()
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(403)
   })
 
   it('includes a state param that verifies back to the requesting tenant (CSRF close)', async () => {

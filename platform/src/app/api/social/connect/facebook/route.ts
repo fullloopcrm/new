@@ -1,10 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { signOAuthState } from '@/lib/oauth-state'
 
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    // Connecting a new Facebook page is the mutating counterpart to DELETE
+    // (disconnect), which requires settings.integrations -- gate connect the
+    // same way, else any authenticated tenant member could link a page the
+    // tenant then posts through.
+    const { tenant, error: authError } = await requirePermission('settings.integrations')
+    if (authError) return authError
 
     const appId = process.env.FACEBOOK_APP_ID
     if (!appId) {
@@ -15,7 +21,7 @@ export async function GET() {
     const redirectUri = `${baseUrl}/api/social/connect/facebook/callback`
     const scopes = 'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata'
 
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(signOAuthState(tenant.id))}`
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(signOAuthState(tenant.tenantId))}`
 
     return NextResponse.json({ url })
   } catch (e) {
