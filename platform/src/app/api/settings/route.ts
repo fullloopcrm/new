@@ -1,15 +1,33 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { encryptTenantSecrets } from '@/lib/secret-crypto'
+import { hasPermission } from '@/lib/rbac'
+
+// Vendor secrets + internal/billing/PII columns. Only returned to callers
+// with settings.view — every other role gets the rest of the row (business
+// hours, selena_config, telnyx_phone, etc.) that non-settings dashboard
+// panels (calendar, quotes, sms, websites, selena) rely on for prefill.
+const SENSITIVE_TENANT_FIELDS = new Set([
+  'resend_api_key', 'telnyx_api_key', 'stripe_api_key', 'imap_pass',
+  'imap_host', 'imap_user', 'anthropic_api_key', 'indexnow_key',
+  'admin_notes', 'monthly_rate', 'setup_fee',
+  'owner_email', 'owner_phone', 'owner_name',
+])
 
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    const ctx = await getTenantForRequest()
+    const canViewSettings = hasPermission(ctx.role, 'settings.view', overridesFor(ctx))
+    const tenant = canViewSettings
+      ? ctx.tenant
+      : Object.fromEntries(
+          Object.entries(ctx.tenant).filter(([key]) => !SENSITIVE_TENANT_FIELDS.has(key)),
+        )
     return NextResponse.json({ tenant })
   } catch (e) {
     if (e instanceof AuthError) {
