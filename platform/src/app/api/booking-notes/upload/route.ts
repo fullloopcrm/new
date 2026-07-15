@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: NextRequest) {
   try {
@@ -14,7 +15,8 @@ export async function POST(request: NextRequest) {
 
     if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
 
-    const ctx = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 
