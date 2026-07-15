@@ -228,6 +228,32 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/finance/cpa-tokens/route.witness.test.ts` (LOCK: foreign entity_id 404s, no row created; CONTROL: omitted entity_id and own-tenant entity_id both still create the token) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 269 files / 1151 passed / 37 skipped / 0 failed |
 
+### P15 — `portal/feedback` POST → cross-tenant `booking_id` FK injection — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/portal/feedback` (client-portal, token-authenticated) |
+| **Table** | `reviews` (FK `booking_id`) |
+| **Attack vector** | `tenant_id`/`client_id` came from the verified portal token (safe), but `booking_id` was caller-supplied and inserted **verbatim**, no ownership check. |
+| **Effect** | A client's review could reference another tenant's (or another client's) booking. No current read joins `bookings(...)` off `reviews`, so this was a dangling-reference bug rather than live exfil today — same lower-severity shape as P7, not P1. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in the client-portal broad-hunt sweep, 2026-07-14, W2) |
+| **Fix** | `booking_id`, when supplied, is now verified owned (`tenant_id=auth.tid AND client_id=auth.id`) before insert; an unowned id is silently dropped (null) rather than rejecting the feedback submission. |
+| **Regression lock** | `src/app/api/portal/feedback/route.witness.test.ts` (drops a foreign-tenant id, drops a same-tenant-other-client id, CONTROL keeps the caller's own booking id, CONTROL omitted id stays null) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 287 files / 1221 passed / 37 skipped / 0 failed |
+
+### P16 — `client/smart-schedule` GET → cross-tenant `client_id` READ  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `GET /api/client/smart-schedule` (public, unauthenticated — no portal token, no session) |
+| **Table(s)** | `clients` (read), `team_members` (read via `scoreTeamForBooking`/fallback list) |
+| **Attack vector** | `tenantId` was resolved straight off a caller-supplied `client_id` with **no ownership check at all** — unlike every sibling `/api/client/*` route, this one never called `getTenantFromHeaders()`. |
+| **Effect** | Passing a `client_id` belonging to a DIFFERENT tenant returned that tenant's team-member names, the foreign client's `preferred_team_member_id`, and (via `?suggest=1`) schedule-derived availability reasons — a cross-tenant **read** (exfil), same class as P1. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in the client-portal broad-hunt sweep, 2026-07-14, W2) |
+| **Fix** | Tenant is now always resolved from the host first (middleware signs `x-tenant-id` on every `/api/client/*` request, same as every sibling route); a supplied `client_id` is only trusted if `.eq('tenant_id', hostTenantId)` matches — a foreign id is silently ignored (falls back to host-tenant-only behavior) rather than ever selecting which tenant's data comes back. |
+| **Regression lock** | `src/app/api/client/smart-schedule/route.witness.test.ts` (a foreign tenant's client_id never resolves that tenant's crew or leaks its preferred-cleaner id; CONTROL: own-tenant client_id still resolves normally) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 289 files / 1227 passed / 37 skipped / 0 failed |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -317,7 +343,10 @@ live leaks. This section is a **negative result, not a to-do list**.
    (✅ fixed, 2026-07-13, W2) → P12 client/book POST client_id (✅ fixed,
    2026-07-14, W2, found in a broad-hunt sweep of public/unauthenticated
    routes) → P13 routes POST team_member_id (✅ fixed, 2026-07-14, W2,
-   same sweep).** All items in this register are now closed.
+   same sweep) → P15 portal/feedback POST booking_id (✅ fixed, 2026-07-14,
+   W2, client-portal sweep) → P16 client/smart-schedule GET client_id
+   (✅ fixed, 2026-07-14, W2, same sweep).** All items in this register are
+   now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
