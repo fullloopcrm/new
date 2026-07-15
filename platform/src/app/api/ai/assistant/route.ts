@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
+import { pick } from '@/lib/validate'
 
 // Tools that read or mutate CRM data require the same permission the
 // equivalent direct API route enforces — this copilot is not a bypass around RBAC.
@@ -234,7 +235,13 @@ async function executeTool(
 
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
-      const updates = input.updates as Record<string, unknown>
+      // Allowlist to exactly the fields this tool declares in its schema --
+      // the model's tool-call arguments are not schema-enforced by the
+      // Anthropic API, so passing input.updates straight to .update()
+      // would let a manipulated/prompt-injected model set arbitrary
+      // columns (e.g. tenant_id) on a row this tenant is otherwise
+      // correctly scoped to.
+      const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status'])
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -318,9 +325,12 @@ async function executeTool(
     }
 
     case 'update_client': {
+      // Allowlist to exactly the fields this tool declares in its schema --
+      // see update_bookings above for why input.updates can't be trusted verbatim.
+      const updates = pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'active'])
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(updates)
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       if (error) return JSON.stringify({ error: error.message })
