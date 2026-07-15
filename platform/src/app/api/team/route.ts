@@ -56,6 +56,16 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
+    // team.create is held by non-owner roles (admin) too. Without this check,
+    // an admin could mint a new 'owner' team member -- bypassing the "owner is
+    // never customizable" invariant that rbac.ts relies on to prevent lockout.
+    if (fields!.role === 'owner' && tenant.role !== 'owner') {
+      return NextResponse.json(
+        { error: 'Only an owner can grant the owner role' },
+        { status: 403 }
+      )
+    }
+
     // Apply tenant defaults when caller didn't provide values explicitly.
     const settings = await getSettings(tenantId)
     const fieldsWithDefaults = { ...fields! } as Record<string, unknown>

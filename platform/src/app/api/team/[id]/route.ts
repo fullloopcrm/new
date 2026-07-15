@@ -48,6 +48,26 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'role', 'hourly_rate', 'pay_rate', 'working_days', 'status', 'preferred_language', 'notes', 'avatar_url'])
 
+    // team.edit is held by non-owner roles (admin) too. Without this check, an
+    // admin could grant themselves or anyone else the 'owner' role via this
+    // field, or demote an existing owner -- bypassing the "owner is never
+    // customizable" invariant that rbac.ts relies on to prevent lockout.
+    if (tenant.role !== 'owner') {
+      const { data: existing } = await supabaseAdmin
+        .from('team_members')
+        .select('role')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .single()
+
+      if (existing?.role === 'owner' || fields.role === 'owner') {
+        return NextResponse.json(
+          { error: 'Only an owner can grant or change the owner role' },
+          { status: 403 }
+        )
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('team_members')
       .update(fields)
