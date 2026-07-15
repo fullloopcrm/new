@@ -8,7 +8,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  */
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenant: { id: 'tenant-A' } }),
+  getTenantForRequest: async () => ({ tenantId: 'tenant-A', role: 'owner', tenant: { id: 'tenant-A' } }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {

@@ -1,10 +1,12 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { postToFacebook, postToInstagram } from '@/lib/social'
 
 export async function POST(request: Request) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('campaigns.send')
+    if (authError) return authError
     const { platform, message, photoUrl, caption, imageUrl } = await request.json()
 
     if (!platform) {
@@ -15,7 +17,7 @@ export async function POST(request: Request) {
       if (!message) {
         return NextResponse.json({ error: 'Message is required for Facebook posts' }, { status: 400 })
       }
-      const result = await postToFacebook(tenant.id, message, photoUrl)
+      const result = await postToFacebook(tenant.tenantId, message, photoUrl)
       return NextResponse.json(result)
     }
 
@@ -23,7 +25,7 @@ export async function POST(request: Request) {
       if (!caption || !imageUrl) {
         return NextResponse.json({ error: 'Caption and image URL are required for Instagram posts' }, { status: 400 })
       }
-      const result = await postToInstagram(tenant.id, caption, imageUrl)
+      const result = await postToInstagram(tenant.tenantId, caption, imageUrl)
       return NextResponse.json(result)
     }
 
