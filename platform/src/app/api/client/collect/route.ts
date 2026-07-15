@@ -189,16 +189,28 @@ export async function POST(request: Request) {
     // SMS conversation handoff — lightweight: link convo to client, mark form received.
     // The tenant-specific recap message (pricing, payment instructions) lives in Selena,
     // not here. Selena will send the next appropriate message on its next turn.
+    // Guarded like /api/portal/collect: only link a conversation that actually exists,
+    // belongs to this tenant, and isn't already completed — otherwise a caller-supplied
+    // convo_id could hijack/corrupt another customer's (already finished) conversation.
     if (convo_id) {
       try {
-        await tenantDb(tenant.id)
+        const { data: convo } = await tenantDb(tenant.id)
           .from('sms_conversations')
-          .update({
-            client_id: data.id,
-            state: 'form_received',
-            updated_at: new Date().toISOString(),
-          })
+          .select('id')
           .eq('id', convo_id)
+          .is('completed_at', null)
+          .single()
+
+        if (convo) {
+          await tenantDb(tenant.id)
+            .from('sms_conversations')
+            .update({
+              client_id: data.id,
+              state: 'form_received',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', convo_id)
+        }
       } catch (e) {
         console.error('Conversation link error:', e)
       }
