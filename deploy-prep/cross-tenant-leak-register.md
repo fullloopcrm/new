@@ -416,6 +416,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1306 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new foreign-id LOCK tests failed RED (real score/review data returned instead of the not-found shape); restored, GREEN. |
 | **Rank rationale** | Same exfil class as P1/P25 (unverified caller-supplied id surfacing another tenant's data) — narrower blast radius than P27 since it requires an authenticated admin session, but still cross-tenant by construction with zero ownership check, not just a partial gap. |
 
+### P29 — `GET /api/selena` → cross-tenant `convoId` message-transcript READ  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `GET /api/selena?convoId=...` (tenant-dashboard-authed, `getTenantForRequest()`) — the conversation-transcript viewer backing `src/app/dashboard/selena/page.tsx`'s `loadMessages()` |
+| **Table(s)** | `sms_conversation_messages` — **no `tenant_id` column** (only `conversation_id UUID REFERENCES sms_conversations(id)`, migration 007) |
+| **Attack vector** | The `convoId` branch queried `sms_conversation_messages` directly off `supabaseAdmin` filtered only by `.eq('conversation_id', convoId)` — no check anywhere that the conversation belongs to the requesting tenant. The route's own sibling, `GET /api/admin/selena` (same `?convoId=` query shape, same underlying table), already does the correct check — a comment there reads "Tenant-verify: only return messages for convos owned by this tenant" — but that guard was never applied to this route. |
+| **Effect** | Any authenticated dashboard user of tenant A supplying tenant B's `sessionId`-equivalent `sms_conversations.id` gets back B's full message transcript (`direction, message, created_at` for every message) — the entire customer conversation history (names, addresses, quoted prices, anything discussed), not just a derived field. Since `sms_conversation_messages` has no `tenant_id` of its own, `tenantDb` conversion alone would not have closed this — same structural class as P0/P22/P27 (table/action with no tenant_id, ownership must be verified via the parent FK). |
+| **Verdict** | **FIXED** (was proven-LIVE; found in a broad-hunt sweep of the AI-conversation surface adjacent to the already-fixed P27/P28 findings — a fresh route, `/api/selena` is a distinct file from `/api/admin/selena` and `/api/admin-chat`, 2026-07-15, W2) |
+| **Fix** | The `convoId` branch now looks up the conversation through `tenantDb(tenantId)` (`.eq('id', convoId)`, auto-scoped to the caller's tenant) before reading its messages; a miss returns `{ messages: [] }` (matching the existing miss-shape convention on this route, same as its `/api/admin/selena` sibling). |
+| **Regression lock** | `src/app/api/selena/route.isolation.test.ts` (added to the existing POST-reset isolation file: CONTROL — own-tenant convoId returns its messages; LOCK — foreign-tenant convoId returns `[]`, not the victim's transcript; LOCK — nonexistent convoId returns `[]`) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1308 passed / 37 skipped / 1 failed (same pre-existing flaky timeout in `finance-export.test.ts` noted under P20 — passes in isolation, unrelated to this change). Mutation-verified: reverted the fix, the new foreign-convoId test failed RED (B's real message returned instead of `[]`); restored, GREEN. |
+| **Rank rationale** | Same exfil class and severity as P28 (raw transcript/data return, zero ownership check) but on the message-read path itself rather than an AI self-review — arguably worse blast radius since it returns the complete raw conversation, not a derived summary. Found by directly comparing the guarded admin twin (`/api/admin/selena`) against this unguarded twin — same "admin-side already fixed, sibling missed" asymmetry class as P9/P10/P21/P23. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -546,7 +560,12 @@ live leaks. This section is a **negative result, not a to-do list**.
    same action-authorization-bypass class as P22, on a fully public
    unauthenticated endpoint) → P28 `scoreConversation`/`selfReviewConversation`
    cross-tenant `conversation_id` read/write (✅ fixed, 2026-07-15, W2, same
-   sweep — closes a zero-check FK gap on the AI conversation-scoring surface).**
+   sweep — closes a zero-check FK gap on the AI conversation-scoring surface) →
+   P29 `GET /api/selena` cross-tenant `convoId` message-transcript READ
+   (✅ fixed, 2026-07-15, W2, found by comparing the already-guarded admin twin
+   `/api/admin/selena` against this unguarded sibling — same admin-twin-missing-
+   a-guard asymmetry as P9/P10/P21/P23, but on a table with no `tenant_id`
+   column at all, same structural class as P0/P22/P27).**
    All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
