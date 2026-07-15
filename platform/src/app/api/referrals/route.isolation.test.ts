@@ -1,3 +1,4 @@
+import { NextResponse } from 'next/server'
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
@@ -5,6 +6,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * Proves the wrapper's injected .eq('tenant_id') actually excludes a foreign
  * tenant's referral row on GET, and that POST inserts are stamped with the
  * AUTHENTICATED tenant regardless of anything in the request body.
+ *
+ * Also covers the permission gate: GET/POST previously called
+ * getTenantForRequest() directly with zero requirePermission check, unlike
+ * the sibling PUT /api/referrals/[id] (requirePermission('referrals.payout')).
+ * 'staff' (rbac.ts grants neither referrals.view nor referrals.create) could
+ * read every referral (incl. the joined referrer client name) and 'manager'
+ * (referrals.view only, no referrals.create) could POST a referral with an
+ * arbitrary commission_rate. Now gated on referrals.view / referrals.create.
  */
 
 type Row = Record<string, unknown>
@@ -44,6 +53,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 
 let currentTenant: string
+let permissionError: unknown = null
 
 vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({ tenantId: currentTenant }),
@@ -54,6 +64,14 @@ vi.mock('@/lib/tenant-query', () => ({
       this.status = status
     }
   },
+}))
+
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => (
+    permissionError
+      ? { tenant: null, error: permissionError }
+      : { tenant: { tenantId: currentTenant }, error: null }
+  ),
 }))
 
 vi.mock('@/lib/audit', () => ({ audit: async () => ({ success: true }) }))
@@ -68,6 +86,28 @@ beforeEach(() => {
     ],
   }
   currentTenant = 'tenant-A'
+  permissionError = null
+})
+
+describe('referrals — permission gate', () => {
+  it('GET is forbidden and returns no data for a role lacking referrals.view', async () => {
+    permissionError = NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+    const res = await GET()
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.referrals).toBeUndefined()
+  })
+
+  it('POST is forbidden and never inserts for a role lacking referrals.create', async () => {
+    permissionError = NextResponse.json({ error: 'Forbidden: insufficient permissions' }, { status: 403 })
+    const req = new Request('http://x/api/referrals', {
+      method: 'POST',
+      body: JSON.stringify({ name: 'Eve E', commission_rate: 50 }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(store.referrals.length).toBe(2)
+  })
 })
 
 describe('referrals GET — tenantDb isolation', () => {
