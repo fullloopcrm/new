@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 
@@ -117,7 +118,9 @@ function relativeLast(start: string, status: string | null, paymentStatus: strin
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const settings = await getSettings(tenantId)
 
     const [clientsResult, bookingsResult, schedulesResult, teamResult] = await Promise.all([

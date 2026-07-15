@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
@@ -8,7 +8,9 @@ import { getSettings } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const url = request.nextUrl
     const search = url.searchParams.get('search') || ''
     const status = url.searchParams.get('status') || ''
