@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 // Admin-side undo of an accidental check-in or check-out (looked up by booking id).
 // Ported from nycmaid bookings/[id]/reset, tenant-scoped for FullLoop
@@ -11,13 +11,9 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 // SAFETY: undo-checkout is BLOCKED once payment_status === 'paid' — money has
 // already moved and texts have gone out; the office handles those manually.
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
   const body = await request.json().catch(() => ({}))

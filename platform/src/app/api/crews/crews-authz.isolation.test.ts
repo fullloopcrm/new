@@ -66,7 +66,7 @@ function makeClient() {
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeClient(), supabase: makeClient() }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, role: 'owner' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 
