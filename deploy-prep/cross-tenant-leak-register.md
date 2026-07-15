@@ -79,6 +79,7 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Fix** | Each of `client_id`/`booking_id`/`quote_id` is now verified tenant-owned (`.eq('id',...).eq('tenant_id', tenantId)`) before the invoice insert; 404 on any miss — including a foreign `from_booking_id`/`from_quote_id` prefill reference. |
 | **Regression lock** | `src/app/api/invoices/route.witness.test.ts` — flipped from LEAK to LOCK (4 rejection tests, one per FK + from_booking_id path, + 1 same-tenant CONTROL) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 559 passed / 37 skipped / 0 failed |
+| **P36 follow-up (2026-07-15)** | `entity_id` had the identical gap — a caller-supplied override was never ownership-checked (only the tenant-scoped *default* was safe). Added to the same FK-check loop; 404 on a foreign `entity_id`. See P36 below and `route.witness.test.ts` (2 new LOCKED tests + 1 CONTROL). Re-verified: `npx tsc --noEmit` clean; full `vitest run` 315 files / 1381 passed / 37 skipped / 0 failed. |
 
 ### P3 — `quotes` POST → cross-tenant FK injection (client_id / deal_id) — ✅ **FIXED**
 
@@ -687,7 +688,17 @@ live leaks. This section is a **negative result, not a to-do list**.
    W2, found sweeping the `invoices`/`quotes`/`deals`/`jobs` financial
    surface — a fresh area — then following the naive-secret-compare
    pattern to its two remaining sites, `admin/selena/monitor` and
-   `admin/selena/sms-status`, both gating `ELCHAPO_MONITOR_KEY`).
+   `admin/selena/sms-status`, both gating `ELCHAPO_MONITOR_KEY`) → P36
+   `invoices` POST → cross-tenant `entity_id` FK injection, a gap in P2
+   itself (✅ fixed, 2026-07-15, W2, found by diffing `invoices` POST's
+   FK-check list against its finance-write siblings — `periods`,
+   `expenses`, `bank-accounts`, `cpa-tokens` — all of which verify a
+   caller-supplied `entity_id` belongs to the tenant before insert;
+   `invoices` computed a tenant-scoped *default* entity but never checked
+   an explicit `body.entity_id` override, so a foreign id could still be
+   stamped onto the row). Added `entity_id` to the same tenant-ownership
+   check loop already guarding `client_id`/`booking_id`/`quote_id` on this
+   route.
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
