@@ -8,6 +8,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
+const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf']
+
 export async function POST(request: NextRequest) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
@@ -18,6 +20,9 @@ export async function POST(request: NextRequest) {
     const type = (formData.get('type') as string | null) || 'receipt'
 
     if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json({ error: 'File type not allowed' }, { status: 400 })
+    }
     if (file.size > 50 * 1024 * 1024) {
       return NextResponse.json({ error: 'File must be under 50MB' }, { status: 400 })
     }
