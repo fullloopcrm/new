@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('leads.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     // Honor the tenant's configured attribution window — only count visits
     // within the last N hours toward source attribution.

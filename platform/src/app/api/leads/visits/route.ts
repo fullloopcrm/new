@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
-  const { getTenantForRequest, AuthError } = await import('@/lib/tenant-query')
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('leads.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'
@@ -135,8 +138,8 @@ export async function GET(request: NextRequest) {
       feed,
     })
   } catch (e) {
-    if (e instanceof (await import('@/lib/tenant-query')).AuthError) {
-      return NextResponse.json({ error: (e as Error).message }, { status: 401 })
+    if (e instanceof AuthError) {
+      return NextResponse.json({ error: e.message }, { status: e.status })
     }
     throw e
   }
