@@ -186,6 +186,8 @@ const OTHER_FIXED_OR_ROUTES = [
   'admin/activity/route.ts',
   'admin/comhub/templates/route.ts',
   'webhooks/telnyx-voice/route.ts',
+  'finance/bank-transactions/[id]/match/route.ts',
+  'cron/recurring-expenses/route.ts',
 ] as const
 
 const ALL_FIXED_OR_ROUTES = [...TENANT_SCOPED_SEARCH_ROUTES, ...OTHER_FIXED_OR_ROUTES] as const

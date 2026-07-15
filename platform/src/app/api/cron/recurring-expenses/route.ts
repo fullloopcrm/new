@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { postJournalEntry } from '@/lib/ledger'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { escapePostgrestFilterValue } from '@/lib/postgrest-or-filter'
 
 function advance(d: Date, freq: string): Date {
   const r = new Date(d)
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
       const { data: coaMatch } = await supabaseAdmin
         .from('chart_of_accounts').select('id')
         .eq('tenant_id', r.tenant_id).eq('type', 'expense')
-        .or(`subtype.eq.${r.category},name.ilike.%${r.category}%`)
+        .or(`subtype.eq.${escapePostgrestFilterValue(String(r.category))},name.ilike.${escapePostgrestFilterValue(`%${r.category}%`)}`)
         .limit(1).maybeSingle()
 
       // Find any bank CoA (or skip if none)
