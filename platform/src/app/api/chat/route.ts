@@ -68,20 +68,29 @@ export async function POST(req: NextRequest) {
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
-      // If returning client, try to link to existing client record
+      // If returning client, try to link to existing client record. Exact
+      // national-number match only -- a substring ilike() with no length
+      // floor let a short/garbage phone (e.g. a single digit) match an
+      // ARBITRARY unrelated client in the tenant and misattribute their
+      // identity onto this brand-new anonymous conversation; downstream tool
+      // handlers (e.g. selena-legacy's capture-name path) then WRITE to that
+      // wrong client's row keyed off this conversation's client_id. Same bug
+      // class as the sibling getClientProfile fix.
       if (phone) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('id, name')
-          .eq('tenant_id', tenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
-        if (client) {
-          insertData.client_id = client.id
-          insertData.booking_checklist = {
-            ...EMPTY_CHECKLIST, channel: 'web',
-            phone, name: client.name,
+        const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+        const normalizedPhone = nat(phone.replace(/\D/g, ''))
+        if (normalizedPhone.length >= 10) {
+          const { data: candidates } = await supabaseAdmin
+            .from('clients')
+            .select('id, name, phone')
+            .eq('tenant_id', tenantId)
+          const client = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+          if (client) {
+            insertData.client_id = client.id
+            insertData.booking_checklist = {
+              ...EMPTY_CHECKLIST, channel: 'web',
+              phone, name: client.name,
+            }
           }
         }
       }
