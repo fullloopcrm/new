@@ -297,7 +297,10 @@ export async function isTeamMemberPhone(
   phone: string
 ): Promise<{ isTeamMember: boolean; name?: string; id?: string }> {
   const cleanPhone = phone.replace(/\D/g, '').slice(-10)
-  if (!cleanPhone || cleanPhone.length < 7) return { isTeamMember: false }
+  // Require a real national number -- a weaker floor let a malformed/short
+  // caller-ID phone ilike-substring-match an unrelated team member, falsely
+  // routing a legitimate client's SMS out of the booking flow.
+  if (!cleanPhone || cleanPhone.length < 10) return { isTeamMember: false }
 
   const { data } = await supabaseAdmin
     .from('team_members')
@@ -362,7 +365,10 @@ export async function isDoNotService(tenantId: string, clientId: string | null):
 
 export async function isDoNotServiceByPhone(tenantId: string, phone: string): Promise<boolean> {
   const cleanPhone = phone.replace(/\D/g, '').slice(-10)
-  if (!cleanPhone || cleanPhone.length < 7) return false
+  // Require a real national number -- a weaker floor let a malformed/short
+  // caller-ID phone ilike-substring-match an unrelated do_not_service
+  // client, silently dropping a reply to a legitimate client.
+  if (!cleanPhone || cleanPhone.length < 10) return false
   const { data } = await supabaseAdmin
     .from('clients')
     .select('do_not_service')

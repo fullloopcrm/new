@@ -286,15 +286,23 @@ export async function loadContext(tenantId: string, phone: string | null, _conve
 
   if (phone && !callerIsOwner) {
     const last10 = phone.replace(/\D/g, '').slice(-10)
+    // Require a real national number before ever matching -- a short/garbage
+    // phone (e.g. a single digit typed into the public web-chat widget) would
+    // otherwise ilike-substring-match an ARBITRARY client and leak their
+    // name/address/email/last_rate/notes straight into the AI's system-prompt
+    // context on every subsequent reply. Same bug class as the already-fixed
+    // getClientProfile sibling in this file's core.ts counterpart.
     // Phone may match multiple client rows (duplicates created by lead intake vs. booking flow).
     // .maybeSingle() returned null on dupes, so Yinez was treating returning clients as brand-new.
     // Pick the canonical record: 'active' beats 'potential', then most-recent created_at.
-    const { data: clientCandidates } = await supabaseAdmin
-      .from('clients')
-      .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(5)
+    const { data: clientCandidates } = last10.length < 10
+      ? { data: [] }
+      : await supabaseAdmin
+          .from('clients')
+          .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status')
+          .eq('tenant_id', tenantId)
+          .ilike('phone', `%${last10}%`)
+          .limit(5)
 
     const client = (clientCandidates || []).slice().sort((a, b) => {
       const sa = a.status === 'active' ? 0 : 1

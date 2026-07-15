@@ -475,8 +475,14 @@ async function handleRecall(phone: string | null, tid: string): Promise<string> 
   const last10 = (phone || '').replace(/\D/g, '').slice(-10)
 
   // Look up the per-client side first, if a client matches.
+  // Require a real national number before ever matching -- 'recall' is a
+  // SELF_TOOL (callable by any client, not owner-gated; see runTool's gate
+  // above), meant to return "the CURRENT client's own memory only" per that
+  // gate's comment. A short/garbage phone with no length floor would instead
+  // ilike-substring-match an ARBITRARY client and leak their saved
+  // preferences/notes/observations to an unrelated caller.
   let clientMemories: Array<{ type: string; content: string; source: string | null; created_at: string }> = []
-  if (last10) {
+  if (last10.length === 10) {
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('id')

@@ -823,7 +823,14 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     // Store digits-only so ILIKE substring lookups by digits actually match.
     const phone = rawPhone.startsWith('web-') ? rawPhone : (cleanPhone || rawPhone)
 
-    if (cleanPhone.length >= 7 && !phone.startsWith('web-')) {
+    // Require a real national number before ever matching -- a short/garbage
+    // phone let a malformed 7-9 digit number ilike-substring-match an
+    // ARBITRARY unrelated client, silently overwriting their name and
+    // mis-linking this conversation's client_id onto their record. Same bug
+    // class already fixed on the identical sibling function in the 3
+    // per-tenant site-clone Selena libs (0d342ed4) and in
+    // platform/src/app/api/chat/route.ts (8ac9bcd2), missed here.
+    if (cleanPhone.length >= 10 && !phone.startsWith('web-')) {
       const { data: existing } = await supabaseAdmin.from('clients')
         .select('id').eq('tenant_id', tid).ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
       if (existing && existing.length > 0) {
