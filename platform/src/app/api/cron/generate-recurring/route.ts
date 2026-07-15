@@ -7,7 +7,6 @@ import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {

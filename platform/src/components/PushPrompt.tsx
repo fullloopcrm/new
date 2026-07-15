@@ -15,10 +15,13 @@ function urlBase64ToUint8Array(base64String: string): Uint8Array {
 interface PushPromptProps {
   role: 'admin' | 'team_member' | 'client'
   userId?: string
+  // Bearer token for the caller's own portal session (team-portal or client
+  // portal). The server derives team_member_id/client_id from this verified
+  // token, not from userId — userId is display-only here.
   token?: string
 }
 
-export default function PushPrompt({ role, userId, token }: PushPromptProps) {
+export default function PushPrompt({ role, token }: PushPromptProps) {
   const [pushEnabled, setPushEnabled] = useState<boolean | null>(null)
   const [pushLoading, setPushLoading] = useState(false)
   const [pushSupported, setPushSupported] = useState(false)
@@ -65,11 +68,11 @@ export default function PushPrompt({ role, userId, token }: PushPromptProps) {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          ...(token ? { Authorization: `Bearer ${token}` } : {})
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
         },
         body: JSON.stringify({
           subscription: subscription.toJSON(),
-          role
+          role,
         })
       })
 

@@ -47,6 +47,16 @@ function req(booking_id: string): Request {
   })
 }
 
+describe('team-portal/checkin POST — auth', () => {
+  it('missing bearer token → 401', async () => {
+    const res = await POST(new Request('http://x/api/team-portal/checkin', {
+      method: 'POST',
+      body: JSON.stringify({ booking_id: SHARED_ID }),
+    }))
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('team-portal/checkin POST — tenantDb isolation', () => {
   it("tenant A's worker checks in to tenant A's copy of a shared booking id, leaving tenant B's copy untouched", async () => {
     const res = await POST(req(SHARED_ID))

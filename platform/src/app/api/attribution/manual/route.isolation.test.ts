@@ -58,9 +58,11 @@ describe('attribution/manual GET — tenantDb isolation', () => {
 
 describe('attribution/manual POST — tenantDb isolation', () => {
   it("tenant A CANNOT attribute tenant B's booking by passing B's booking_id — the tenant_id filter finds no matching row, B's booking stays untouched", async () => {
-    await POST(postReq({ booking_id: 'bk-b', domain: 'evil.com' }))
+    const res = await POST(postReq({ booking_id: 'bk-b', domain: 'evil.com' }))
+    expect(res.status).toBe(404)
     const bRow = fake._all('bookings').find((r) => r.id === 'bk-b')!
     expect(bRow.attributed_domain).toBeNull()
+    expect(fake._all('notifications').find((r) => r.booking_id === 'bk-b')).toBeUndefined()
   })
 
   it("tenant A attributing its OWN booking succeeds (positive control)", async () => {

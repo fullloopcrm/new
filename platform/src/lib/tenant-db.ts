@@ -28,6 +28,12 @@ function stamp(rows: Row | Row[], tenantId: string): Row | Row[] {
   return { ...rows, tenant_id: tenantId }
 }
 
+/** Strips tenant_id from an UPDATE payload so a caller can never re-tenant a row it owns. */
+function stripTenantId(values: Row): Row {
+  const { tenant_id: _dropped, ...rest } = values
+  return rest
+}
+
 export function tenantDb(tenantId: string) {
   if (!tenantId) throw new Error('tenantDb requires a tenantId')
 
@@ -61,13 +67,11 @@ export function tenantDb(tenantId: string) {
         insert: (rows: Row | Row[]) => base.insert(stamp(rows, tenantId)),
 
         /**
-         * UPDATE auto-filtered to this tenant. tenant_id in the payload is always
-         * overridden to this wrapper's tenantId (like insert() stamps it) so a
-         * caller passing a raw request body can never reassign one of their own
-         * rows to a different tenant_id — the WHERE-clause filter alone only
-         * protects which rows can be touched, not what the SET clause writes.
+         * UPDATE auto-filtered to this tenant. tenant_id is stripped from the
+         * payload (not honored even if present) so a caller spreading a raw
+         * request body can never re-tenant a row it owns into another tenant.
          */
-        update: (values: Row) => base.update({ ...values, tenant_id: tenantId }).eq('tenant_id', tenantId),
+        update: (values: Row) => base.update(stripTenantId(values)).eq('tenant_id', tenantId),
 
         /** DELETE auto-filtered to this tenant. */
         delete: () => base.delete().eq('tenant_id', tenantId),

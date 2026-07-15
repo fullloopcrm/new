@@ -14,8 +14,9 @@ export async function GET() {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
     const redirectUri = `${baseUrl}/api/social/connect/facebook/callback`
     const scopes = 'pages_show_list,pages_read_engagement,pages_manage_posts,pages_manage_metadata'
+    const state = signOAuthState(tenant.id)
 
-    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(signOAuthState(tenant.id))}`
+    const url = `https://www.facebook.com/v19.0/dialog/oauth?client_id=${appId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${scopes}&response_type=code&state=${encodeURIComponent(state)}`
 
     return NextResponse.json({ url })
   } catch (e) {

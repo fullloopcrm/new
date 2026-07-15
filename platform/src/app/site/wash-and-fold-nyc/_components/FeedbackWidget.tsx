@@ -20,13 +20,13 @@ export default function FeedbackWidget({ source }: { source: string }) {
         body: JSON.stringify({ message, source })
       })
       if (!res.ok) {
-        setError('Failed to send feedback. Please try again.')
+        setError('Failed to submit. Please try again.')
         return
       }
       setSubmitted(true)
       setTimeout(() => { setOpen(false); setSubmitted(false); setMessage('') }, 2000)
     } catch {
-      setError('Failed to send feedback. Please try again.')
+      setError('Failed to submit. Please try again.')
     } finally {
       setSending(false)
     }

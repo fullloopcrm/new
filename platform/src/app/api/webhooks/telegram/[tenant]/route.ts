@@ -11,13 +11,14 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { insertConversationMessage } from '@/lib/sms-messages'
 import { verifyTelegramSecret } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
 
 async function logEvent(tenantId: string, type: string, title: string, message: string) {
   await supabaseAdmin
-    .from('notifications')
+    .from('notifications')  // tenant-scope-ok: tenant_id stamped from the caller's already-resolved tenantId
     .insert({ tenant_id: tenantId, type, title, message: message.slice(0, 4000) })
     .then(() => {}, () => {})
 }
@@ -39,6 +40,8 @@ interface TenantBot {
 }
 
 async function loadTenantBot(slug: string): Promise<TenantBot | null> {
+  // tenant-scope-ok: N/A for tenantDb — this IS the tenant resolution step
+  // (lookup by slug), so there is no tenantId yet to scope by.
   const { data } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
@@ -142,10 +145,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
     return NextResponse.json({ ok: true, error: 'convo_lookup_threw' })
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'inbound', message: text })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convoId, direction: 'inbound', message: text },
+    { expectedTenantId: tenant.id },
+  )
 
   let reply = ''
   try {
@@ -161,10 +164,10 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
     reply = `[agent error] ${errMsg.slice(0, 400)}`
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'outbound', message: reply })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convoId, direction: 'outbound', message: reply },
+    { expectedTenantId: tenant.id },
+  )
 
   const send = await sendTelegram(chatId, reply, botToken)
   if (!send.ok) {

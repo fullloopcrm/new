@@ -7,8 +7,8 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url)
     const code = searchParams.get('code')
-    // Verify the signed state (CSRF, CWE-352): only our own /route init can mint a
-    // state binding an Instagram account to this tenant. Forged/expired -> reject.
+    // Verify the signed state (CSRF, CWE-352): only our own /connect/instagram
+    // init can mint a state binding an account to this tenant. Forged/expired → reject.
     const tenantId = verifyOAuthState(searchParams.get('state'))
 
     if (!code) {

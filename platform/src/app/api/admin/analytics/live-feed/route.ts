@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 
 // Live visitor feed for the tenant's tracked sites. Ported from nycmaid
@@ -33,10 +33,9 @@ export async function GET() {
   }
 
   try {
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('lead_clicks')
       .select('created_at, domain, page, referrer, device, final_time, time_on_page, final_scroll, scroll_depth, user_agent')
-      .eq('tenant_id', tenantId)
       .eq('action', 'visit')
       .order('created_at', { ascending: false })
       .limit(RAW_FETCH)

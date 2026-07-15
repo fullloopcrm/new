@@ -1,70 +1,74 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { FakeSupabase } from '@/test/fake-supabase'
+import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * tenantDb conversion probe — bookings/closeout/route.ts (docs/adr/0004).
- * Proves the wrapper's injected .eq('tenant_id') keeps both the
- * needs-closeout and recently-closed lists scoped to the requesting tenant,
- * even when a foreign tenant has bookings in the same status/date window.
+ * Tenant isolation — /api/bookings/closeout (converted to tenantDb).
+ *
+ * GET-only close-out surface. Two list reads over the tenant-scoped `bookings`
+ * table (jobs needing close-out + recently closed). Both now route through
+ * tenantDb, so the injected `.eq('tenant_id')` is what filters — a booking
+ * seeded for another tenant never appears in either list, even when it would
+ * otherwise satisfy the status/payment filters.
  */
 
-vi.mock('@/lib/supabase', async () => {
-  const { createFakeSupabase } = await import('@/test/fake-supabase')
-  const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
-})
+const A = 'tid-a'
+const B = 'tid-b'
 
-let currentTenantId: string
-vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenantId }),
-  AuthError: class AuthError extends Error {
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
+vi.mock('@/lib/tenant-query', () => {
+  class AuthError extends Error {
     status: number
-    constructor(message: string, status = 401) {
+    constructor(message: string, status: number) {
       super(message)
       this.status = status
     }
-  },
-}))
-
-import { supabaseAdmin } from '@/lib/supabase'
-import { GET } from './route'
-
-const A_ID = 'tenant-A'
-const B_ID = 'tenant-B'
-const fake = supabaseAdmin as unknown as FakeSupabase
-
-beforeEach(() => {
-  fake._store.clear()
-  currentTenantId = A_ID
-  const recentCheckout = new Date().toISOString()
-  fake._seed('bookings', [
-    { id: 'a-needs', tenant_id: A_ID, status: 'completed', payment_status: 'pending', team_paid: false, start_time: '2026-01-01' },
-    { id: 'a-closed', tenant_id: A_ID, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentCheckout },
-    // Foreign tenant rows in the exact same status/date window.
-    { id: 'b-needs', tenant_id: B_ID, status: 'completed', payment_status: 'pending', team_paid: false, start_time: '2026-01-01' },
-    { id: 'b-closed', tenant_id: B_ID, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentCheckout },
-  ])
+  }
+  return {
+    AuthError,
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+  }
 })
 
-describe('bookings/closeout GET — tenantDb isolation', () => {
-  it("tenant A's recently-closed list contains ONLY its own rows (positive control)", async () => {
+import { GET } from './route'
+
+const recentClose = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString() // within 7d
+
+function seed() {
+  return {
+    bookings: [
+      // needs-closeout candidates (status in set, not fully paid)
+      { id: 'bk-a-open', tenant_id: A, status: 'completed', payment_status: 'unpaid', team_paid: false },
+      { id: 'bk-b-open', tenant_id: B, status: 'completed', payment_status: 'unpaid', team_paid: false },
+      // recently-closed candidates (paid + team_paid + recent checkout)
+      { id: 'bk-a-closed', tenant_id: A, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentClose },
+      { id: 'bk-b-closed', tenant_id: B, status: 'paid', payment_status: 'paid', team_paid: true, check_out_time: recentClose },
+    ],
+  }
+}
+
+let h: Harness
+beforeEach(() => {
+  h = createTenantDbHarness(seed())
+  holder.from = h.from
+})
+
+describe('bookings/closeout — tenant isolation', () => {
+  it('needsCloseout excludes a foreign tenant booking', async () => {
     const res = await GET()
+    expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.recentlyClosed.map((r: { id: string }) => r.id)).toEqual(['a-closed'])
+    const ids = (body.needsCloseout as Array<{ id: string }>).map((b) => b.id)
+    expect(ids).toContain('bk-a-open')
+    expect(ids).not.toContain('bk-b-open')
   })
 
-  it("tenant A's lists never include tenant B's same-shape rows", async () => {
+  it('recentlyClosed excludes a foreign tenant booking', async () => {
     const res = await GET()
     const body = await res.json()
-    const allIds = [...body.needsCloseout, ...body.recentlyClosed].map((r: { id: string }) => r.id)
-    expect(allIds).not.toContain('b-needs')
-    expect(allIds).not.toContain('b-closed')
-  })
-
-  it("tenant B sees its OWN closeout rows, not tenant A's (symmetric proof)", async () => {
-    currentTenantId = B_ID
-    const res = await GET()
-    const body = await res.json()
-    expect(body.recentlyClosed.map((r: { id: string }) => r.id)).toEqual(['b-closed'])
+    const ids = (body.recentlyClosed as Array<{ id: string }>).map((b) => b.id)
+    expect(ids).toContain('bk-a-closed')
+    expect(ids).not.toContain('bk-b-closed')
   })
 })

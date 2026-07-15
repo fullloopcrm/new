@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives

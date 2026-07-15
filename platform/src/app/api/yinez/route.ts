@@ -4,6 +4,7 @@ import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
+import { insertConversationMessage } from '@/lib/sms-messages'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 
 export const maxDuration = 60
@@ -15,7 +16,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
+    // Tenant must come from the middleware-signed header — same guard as
+    // chat/route.ts. Without this, a raw x-tenant-id header lets an attacker
+    // impersonate any tenant and pull back a client's name by phone number.
+    const headerTenantId = req.headers.get('x-tenant-id')
+    const sig = req.headers.get('x-tenant-sig')
+    if (!headerTenantId || !verifyTenantHeaderSig(headerTenantId, sig)) {
+      return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    }
+    const reqTenantId = headerTenantId
+
     let conversationId = sessionId
+
+    // A caller-supplied sessionId is an unauthenticated, attacker-controlled
+    // external id — same action-authorization-bypass class as the Telnyx
+    // call_control_id hijack (comhub/voice/control). askSelena()/
+    // insertConversationMessage() both resolve tenant from the conversation's
+    // OWN row (by design, so a conversation stays with its real owner), not
+    // from reqTenantId — so without this check, supplying another tenant's
+    // live sessionId here injects a message into, and drives Selena's reply/
+    // tool-calls against, THAT tenant's real customer conversation. Verify
+    // ownership before it's used for anything.
+    if (conversationId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', reqTenantId)
+        .maybeSingle()
+      if (!owned) {
+        return NextResponse.json({ error: 'Invalid session' }, { status: 400 })
+      }
+    }
 
     // Create conversation if new session
     if (!conversationId) {
@@ -23,25 +55,11 @@ export async function POST(req: NextRequest) {
       const insertData: Record<string, unknown> = {
         phone: webPhone, state: 'active',
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
+        tenant_id: reqTenantId,
       }
 
-      // If returning client, try to link to existing client record
-      // TENANT WALL: scope the returning-client lookup to THIS tenant.
-      // x-tenant-id is only trustworthy WITH its middleware-minted x-tenant-sig
-      // companion — verify it the SAME way /api/chat + /api/errors do. A raw
-      // forged x-tenant-id on a main-host request would otherwise select any
-      // tenant here (and leak that tenant's client name via the phone lookup).
-      // An unsigned/forged value is dropped to undefined, so the insert stays
-      // tenant-less and the tenant-scope guard rejects it rather than scoping
-      // the conversation to an attacker's target. No tenant context → skip
-      // linking rather than search globally.
-      const hdrTenantId = req.headers.get('x-tenant-id')
-      const tenantSig = req.headers.get('x-tenant-sig')
-      const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
-        ? hdrTenantId
-        : undefined
-      if (reqTenantId) insertData.tenant_id = reqTenantId
-      if (phone && reqTenantId) {
+      // If returning client, try to link to existing client record.
+      if (phone) {
         const digits = phone.replace(/\D/g, '').slice(-10)
         const { data: client } = await supabaseAdmin
           .from('clients')
@@ -73,9 +91,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'inbound', message,
-    })
+    await insertConversationMessage(
+      { conversation_id: conversationId, direction: 'inbound', message },
+      { expectedTenantId: reqTenantId },
+    )
 
     const result = await askSelena('web', message, conversationId, phone || undefined)
     // No canned dead-end. Empty reply surfaces as "no response" to the widget,
@@ -83,9 +102,12 @@ export async function POST(req: NextRequest) {
     const reply = result.text || ''
 
     // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-    })
+    await insertConversationMessage(
+      {
+        conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      },
+      { expectedTenantId: reqTenantId },
+    )
 
     if (result.bookingCreated) {
       await notify({ type: 'new_booking', title: 'New Web Booking', message: 'Client confirmed booking via web chat' }).catch(() => {})

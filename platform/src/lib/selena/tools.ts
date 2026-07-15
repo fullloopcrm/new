@@ -1078,6 +1078,23 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+
+  // cleaner_id is a caller (model-supplied) FK — the sibling assign_cleaner_to_booking
+  // tool already verifies it belongs to this tenant before writing it; this tool
+  // let the same field through unchecked via the allow-list. list_bookings embeds
+  // cleaners(name, id) off this exact column, so an unverified foreign id would
+  // read back another tenant's cleaner name on the next list_bookings call —
+  // same class as the P25 finding in deploy-prep/cross-tenant-leak-register.md.
+  if (update.cleaner_id) {
+    const { data: cleaner } = await supabaseAdmin
+      .from('cleaners')
+      .select('id')
+      .eq('id', update.cleaner_id as string)
+      .eq('tenant_id', tid)
+      .maybeSingle()
+    if (!cleaner) return JSON.stringify({ error: 'cleaner not found' })
+  }
+
   const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, updated_fields: Object.keys(update) })
@@ -1372,17 +1389,16 @@ export async function handleProcessStripeRefund(input: { booking_id: string; amo
   try {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-08-27.basil' as never })
-    // Idempotency key: a retried tool call (LLM/tool-call retry on timeout)
-    // for the same payment+amount hits the same Stripe refund instead of
-    // creating a second real refund.
+    // Keyed per booking+amount+day so an agent retry (timeout, duplicate tool
+    // call) replays the same refund instead of issuing a second one, while a
+    // genuinely distinct refund request on a later day still goes through.
+    const dayBucket = new Date().toISOString().slice(0, 10)
     const refund = await stripe.refunds.create({
       payment_intent: payment.stripe_payment_intent_id,
       amount: amountCents,
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
-    }, {
-      idempotencyKey: `selena-refund:${payment.id}:${amountCents}`,
-    })
+    }, { idempotencyKey: `refund-${input.booking_id}-${amountCents}-${dayBucket}` })
     await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
   } catch (err) {

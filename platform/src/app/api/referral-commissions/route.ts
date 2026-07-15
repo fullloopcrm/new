@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
 
@@ -79,7 +80,11 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Creates a commission ledger row + accrues it — same authz bar as the
+    // admin-only sibling action below (marking paid).
+    const { tenant, error: authError } = await requirePermission('referrals.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { booking_id } = await request.json()
     if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
@@ -141,11 +146,14 @@ export async function POST(request: Request) {
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
       .catch(err => console.error('[ref-comm] accrual post failed:', err))
 
-    await supabaseAdmin
-      .from('referrers')
-      .update({ total_earned: (ref.total_earned || 0) + commission })
-      .eq('id', ref.id)
-      .eq('tenant_id', tenantId)
+    // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) — a
+    // read-then-write here would lose an increment if two commissions land
+    // for the same referrer around the same time.
+    await supabaseAdmin.rpc('increment_referrer_earned', {
+      p_tenant_id: tenantId,
+      p_referrer_id: ref.id,
+      p_amount_cents: commission,
+    })
 
     if (ref.email) {
       notify({
@@ -172,7 +180,12 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Same permission bar as the sibling referrals/[id]/route.ts PUT — this
+    // route can also move money (marking 'paid' posts a ledger payment and
+    // bumps the referrer's total_paid), so it isn't a lower-stakes action.
+    const { tenant, error: authError } = await requirePermission('referrals.payout')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 

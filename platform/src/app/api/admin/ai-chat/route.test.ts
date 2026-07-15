@@ -10,6 +10,16 @@ import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
  * here, since a regression in either lets an unconfirmed action execute or a
  * cross-tenant row leak/mutate.
  *
+ * Also covers the cross-tenant misleading-response bug (flagged by W1):
+ * update_bookings/cancel_bookings scoped every mutation via tenantDb's
+ * implicit tenant_id filter, so a foreign-tenant id was never actually
+ * written (tenant isolation held) — but the handler used to report
+ * `success:true, updated: ids.length` / `cancelled: ids.length` regardless of
+ * how many rows the tenant filter actually matched. The response lied about
+ * what happened. Fix: `.select('id')` on the update to see which rows were
+ * really touched and reflect that honestly (success:false / updated:0 for
+ * zero matches; partial counts + not_found for a mixed batch).
+ *
  * The Anthropic SDK is mocked (no network, no real key) — each test drives a
  * scripted sequence of `messages.create` responses (tool_use then end_turn,
  * or straight to end_turn) the same way invoice-lifecycle.test.ts scripts
@@ -25,11 +35,13 @@ const h = vi.hoisted(() => ({
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
   tenant: {} as Record<string, unknown>,
+  role: 'owner' as string,
   create: vi.fn(),
   getTenantForRequest: vi.fn(),
 })) as unknown as FakeStoreHandle & {
   tenantId: string
   tenant: Record<string, unknown>
+  role: string
   create: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
   getTenantForRequest: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
 }
@@ -74,13 +86,22 @@ function toolUse(name: string, input: Record<string, unknown>, id = 'tool-1') {
   return { stop_reason: 'tool_use', content: [{ type: 'tool_use', id, name, input }] }
 }
 
+async function runTool(name: string, input: Record<string, unknown>) {
+  h.create.mockResolvedValueOnce(toolUse(name, input)).mockResolvedValueOnce(endTurn('done'))
+  await POST(chatReq([{ role: 'user', content: 'go' }]))
+  const secondCallArgs = h.create.mock.calls[1][0] as { messages: Array<{ content: unknown }> }
+  const toolResultMsg = secondCallArgs.messages.at(-1) as { content: Array<{ content: string }> }
+  return JSON.parse(toolResultMsg.content[0].content)
+}
+
 beforeEach(() => {
   h.tenantId = 'tenant-A'
   h.seq = 0
+  h.role = 'owner'
   h.tenant = { id: 'tenant-A', name: 'Acme Cleaning', industry: 'cleaning', anthropic_api_key: 'plaintext-key' }
   h.create.mockReset()
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: h.tenant }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: h.tenant, role: h.role }))
   h.store = {
     clients: [
       { id: 'client-A1', tenant_id: 'tenant-A', name: 'Alice', email: 'a@x.com', status: 'active', do_not_service: false },
@@ -89,6 +110,10 @@ beforeEach(() => {
     bookings: [
       { id: 'book-A1', tenant_id: 'tenant-A', client_id: 'client-A1', status: 'scheduled', price: 10000, start_time: '2026-08-01T10:00:00', payment_status: 'unpaid' },
       { id: 'book-B1', tenant_id: 'tenant-B', client_id: 'client-B1', status: 'scheduled', price: 10000, start_time: '2026-08-01T10:00:00', payment_status: 'unpaid' },
+    ],
+    team_members: [
+      { id: 'member-A1', tenant_id: 'tenant-A', name: 'Ann', status: 'active' },
+      { id: 'member-B1', tenant_id: 'tenant-B', name: 'Ben', status: 'active' },
     ],
   }
 })
@@ -194,19 +219,57 @@ describe('POST /api/admin/ai-chat — tool tenant isolation + confirm gates', ()
     expect(parsed.needs_confirmation).toBe(true)
   })
 
-  it('update_bookings with confirmed:true updates only the caller tenant’s own booking, never another tenant’s', async () => {
-    h.create
-      .mockResolvedValueOnce(
-        toolUse('update_bookings', { booking_ids: ['book-A1', 'book-B1'], updates: { status: 'completed' }, confirmed: true })
-      )
-      .mockResolvedValueOnce(endTurn('Updated.'))
-
-    await POST(chatReq([{ role: 'user', content: 'mark both done, confirmed' }]))
+  it('update_bookings with confirmed:true updates only the caller tenant’s own booking, never another tenant’s, and reports the true partial count', async () => {
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-A1', 'book-B1'],
+      updates: { status: 'completed' },
+      confirmed: true,
+    })
 
     expect(h.store.bookings.find((b) => b.id === 'book-A1')?.status).toBe('completed')
-    // tenantDb's own .eq('tenant_id', ...) means the cross-tenant id never matches — the
-    // other tenant's row is untouched regardless of what the response claims succeeded.
+    // tenantDb's own implicit tenant_id filter means the cross-tenant id never
+    // matches — the other tenant's row is untouched regardless of what the
+    // response claims succeeded, and the response must say so honestly.
     expect(h.store.bookings.find((b) => b.id === 'book-B1')?.status).toBe('scheduled')
+    expect(result.success).toBe(true)
+    expect(result.updated).toBe(1)
+    expect(result.not_found).toEqual(['book-B1'])
+  })
+
+  it('update_bookings: an all-foreign-tenant batch reports success:false, updated:0 (not a silent no-op success)', async () => {
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-B1'],
+      updates: { status: 'completed' },
+      confirmed: true,
+    })
+
+    expect(result).toEqual({
+      success: false,
+      updated: 0,
+      message: expect.stringContaining('nothing was updated'),
+    })
+    expect(h.store.bookings.find((b) => b.id === 'book-B1')?.status).toBe('scheduled')
+  })
+
+  it('update_bookings: an all-own-tenant batch reports the plain success shape', async () => {
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { status: 'completed' },
+      confirmed: true,
+    })
+
+    expect(result).toEqual({ success: true, updated: 1 })
+  })
+
+  it('update_bookings rejects a team_member_id that belongs to another tenant', async () => {
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { team_member_id: 'member-B1' },
+      confirmed: true,
+    })
+
+    expect(result).toEqual({ error: 'team member not found' })
+    expect(h.store.bookings.find((b) => b.id === 'book-A1')?.team_member_id).toBeUndefined()
   })
 
   it('cancel_bookings without confirmed:true asks for confirmation and never mutates', async () => {
@@ -219,14 +282,24 @@ describe('POST /api/admin/ai-chat — tool tenant isolation + confirm gates', ()
     expect(h.store.bookings.find((b) => b.id === 'book-A1')?.status).toBe('scheduled')
   })
 
-  it('cancel_bookings with confirmed:true cancels only the caller tenant’s booking', async () => {
-    h.create
-      .mockResolvedValueOnce(toolUse('cancel_bookings', { booking_ids: ['book-A1', 'book-B1'], confirmed: true }))
-      .mockResolvedValueOnce(endTurn('Cancelled.'))
-
-    await POST(chatReq([{ role: 'user', content: 'cancel both, confirmed' }]))
+  it('cancel_bookings with confirmed:true cancels only the caller tenant’s booking and reports the true partial count', async () => {
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-A1', 'book-B1'], confirmed: true })
 
     expect(h.store.bookings.find((b) => b.id === 'book-A1')?.status).toBe('cancelled')
+    expect(h.store.bookings.find((b) => b.id === 'book-B1')?.status).toBe('scheduled')
+    expect(result.success).toBe(true)
+    expect(result.cancelled).toBe(1)
+    expect(result.not_found).toEqual(['book-B1'])
+  })
+
+  it('cancel_bookings: an all-foreign-tenant batch reports success:false, cancelled:0', async () => {
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-B1'], confirmed: true })
+
+    expect(result).toEqual({
+      success: false,
+      cancelled: 0,
+      message: expect.stringContaining('nothing was cancelled'),
+    })
     expect(h.store.bookings.find((b) => b.id === 'book-B1')?.status).toBe('scheduled')
   })
 
@@ -254,6 +327,17 @@ describe('POST /api/admin/ai-chat — tool tenant isolation + confirm gates', ()
     expect(created?.tenant_id).toBe('tenant-A')
   })
 
+  it('create_booking rejects a client_id that belongs to another tenant', async () => {
+    const result = await runTool('create_booking', {
+      client_id: 'client-B1',
+      start_time: '2026-08-05T09:00:00',
+      confirmed: true,
+    })
+
+    expect(result).toEqual({ error: 'client not found' })
+    expect(h.store.bookings.find((b) => b.client_id === 'client-B1' && b.tenant_id === 'tenant-A')).toBeUndefined()
+  })
+
   it("get_client_details can never fetch another tenant's client", async () => {
     h.create
       .mockResolvedValueOnce(toolUse('get_client_details', { client_id: 'client-B1' }))
@@ -266,5 +350,52 @@ describe('POST /api/admin/ai-chat — tool tenant isolation + confirm gates', ()
     const parsed = JSON.parse(toolResultMsg.content[0].content)
     expect(parsed.error).toBeTruthy()
     expect(parsed.client).toBeUndefined()
+  })
+})
+
+describe('POST /api/admin/ai-chat — tool permission gating', () => {
+  it('staff cannot cancel_bookings (lacks bookings.edit) — the mutation never runs', async () => {
+    h.role = 'staff'
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-A1'], confirmed: true })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires bookings.edit)." })
+    expect(h.store.bookings.find((b) => b.id === 'book-A1')?.status).toBe('scheduled')
+  })
+
+  it('staff cannot update_bookings (lacks bookings.edit)', async () => {
+    h.role = 'staff'
+    const result = await runTool('update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { status: 'completed' },
+      confirmed: true,
+    })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires bookings.edit)." })
+    expect(h.store.bookings.find((b) => b.id === 'book-A1')?.status).toBe('scheduled')
+  })
+
+  it('staff cannot get_revenue_stats (lacks finance.view)', async () => {
+    h.role = 'staff'
+    const result = await runTool('get_revenue_stats', { date_from: '2026-01-01', date_to: '2026-12-31' })
+
+    expect(result).toEqual({ error: "You don't have permission to do that (requires finance.view)." })
+  })
+
+  it('staff CAN create_booking — staff has bookings.create by default', async () => {
+    h.role = 'staff'
+    const result = await runTool('create_booking', {
+      client_id: 'client-A1',
+      start_time: '2026-08-01T10:00:00',
+      confirmed: true,
+    })
+
+    expect(result.success).toBe(true)
+  })
+
+  it('manager (has bookings.edit) CAN cancel_bookings', async () => {
+    h.role = 'manager'
+    const result = await runTool('cancel_bookings', { booking_ids: ['book-A1'], confirmed: true })
+
+    expect(result).toEqual({ success: true, cancelled: 1 })
   })
 })

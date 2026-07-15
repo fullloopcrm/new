@@ -33,7 +33,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
 
   const { id } = await params
-  const { data: rows } = (await tenantDb(ctx.tenantId)
+  // tenantDb auto-scopes booking_team_members/bookings/notifications; the `tenants`
+  // row (keyed by id, no tenant_id — cross-tenant by design) stays on supabaseAdmin.
+  const db = tenantDb(ctx.tenantId)
+  const { data: rows } = (await db
     .from('booking_team_members')
     .select('team_member_id, is_lead, position')
     .eq('booking_id', id)
@@ -57,12 +60,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
 
   const { id } = await params
   const body = await req.json()
+  const db = tenantDb(ctx.tenantId)
 
   const newLead: string | null = body.lead_id || null
   const rawExtras: unknown[] = Array.isArray(body.extra_team_member_ids) ? body.extra_team_member_ids : []
   const newExtras = rawExtras.filter((x): x is string => typeof x === 'string' && x.length > 0 && x !== newLead)
   const teamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1 + newExtras.length))
-  const db = tenantDb(ctx.tenantId)
 
   // A caller assigning a booking's lead/extras must stay inside their own
   // tenant's active roster — same gate /api/client/reschedule and
@@ -81,23 +84,6 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const invalidIds = requestedMemberIds.filter((id) => !validIds.has(id))
     if (invalidIds.length > 0) {
       return NextResponse.json({ error: 'One or more team members are not available' }, { status: 400 })
-    }
-  }
-
-  // lead_id/extra_team_member_ids are caller-supplied; verify every id belongs to
-  // this tenant before writing them — closeout-summary and other reads join
-  // team_members(name, phone, hourly_rate) off booking_team_members, so a foreign
-  // id would otherwise leak another tenant's staff PII into this booking's team.
-  const candidateIds = Array.from(new Set([...(newLead ? [newLead] : []), ...newExtras]))
-  if (candidateIds.length > 0) {
-    const { data: owned } = await supabaseAdmin
-      .from('team_members')
-      .select('id')
-      .eq('tenant_id', ctx.tenantId)
-      .in('id', candidateIds)
-    const ownedIds = new Set((owned || []).map((r) => r.id))
-    if (candidateIds.some((cid) => !ownedIds.has(cid))) {
-      return NextResponse.json({ error: 'Invalid team member id' }, { status: 404 })
     }
   }
 
@@ -133,7 +119,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
   }
 
-  // Tenant context for notifications (telnyx + push)
+  // Tenant context for notifications (telnyx + push). `tenants` is keyed by id
+  // (no tenant_id column) — cross-tenant by design, stays on supabaseAdmin.
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
     .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')

@@ -256,7 +256,7 @@ export async function commitBatch(batchId: string): Promise<{ committed: number 
 
 /** Undo a committed batch — delete every row it wrote, by recorded target_id. */
 export async function undoBatch(batchId: string): Promise<{ removed: number }> {
-  const { data: batch } = await supabaseAdmin.from('import_batches').select('status').eq('id', batchId).single()
+  const { data: batch } = await supabaseAdmin.from('import_batches').select('status, tenant_id').eq('id', batchId).single()
   if (!batch) throw new Error('batch not found')
   if (batch.status !== 'committed') throw new Error(`batch is ${batch.status}, not committed`)
 
@@ -265,7 +265,14 @@ export async function undoBatch(batchId: string): Promise<{ removed: number }> {
 
   let removed = 0
   for (const r of rows || []) {
-    const { error } = await supabaseAdmin.from(r.target_table as string).delete().eq('id', r.target_id)
+    // Scoped to this batch's own tenant, not just id — target_id is
+    // server-generated (set by commitBatch right after its own tenant-stamped
+    // insert) and every call site pre-verifies batch ownership, so this isn't
+    // reachable via any request path today. Still: every other delete in this
+    // codebase scopes by tenant_id even when a call-site guard already exists
+    // (tenantDb's whole premise), and a bare `.eq('id', …)` delete is the exact
+    // shape that class of bug takes if that assumption is ever violated.
+    const { error } = await supabaseAdmin.from(r.target_table as string).delete().eq('id', r.target_id).eq('tenant_id', batch.tenant_id)
     if (!error) { await supabaseAdmin.from('import_rows').update({ target_id: null }).eq('id', r.id); removed++ }
   }
   await supabaseAdmin.from('import_batches')

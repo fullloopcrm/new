@@ -7,6 +7,13 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * booking_id is caller-supplied (query param / request body), so a worker
  * holding a valid tenant-A token could previously guess a tenant-B booking id.
  * The LEAK CONTROL case proves the store itself has no implicit tenant scoping.
+ *
+ * Also covers cross-member isolation: GET/POST (json-reference-save) only scoped
+ * bookings by tenant_id, unlike the legacy FormData POST branch (and every sibling
+ * portal route — checkin, checkout, reassign) which also requires
+ * booking.team_member_id === auth.id. Any team member with a valid tenant token
+ * could otherwise mint a signed upload URL for, or overwrite the video reference
+ * on, a booking assigned to a DIFFERENT team member in the same tenant.
  */
 
 vi.hoisted(() => {
@@ -38,6 +45,7 @@ const A_ID = 'tenant-A'
 const B_ID = 'tenant-B'
 const A_BOOKING = 'bk-a'
 const B_BOOKING = 'bk-b'
+const OTHER_MEMBER_BOOKING = 'bk-a-other-member'
 const fake = supabaseAdmin as unknown as FakeSupabase
 
 beforeEach(() => {
@@ -45,6 +53,7 @@ beforeEach(() => {
   fake._seed('bookings', [
     { id: A_BOOKING, tenant_id: A_ID, team_member_id: 'tm-a', start_time: '2026-08-01T10:00:00.000Z', service_type: 'Deep Clean', clients: { name: 'A Client' }, team_members: { name: 'A Worker' }, walkthrough_video_url: null, final_video_url: null },
     { id: B_BOOKING, tenant_id: B_ID, team_member_id: 'tm-b', start_time: '2026-08-02T10:00:00.000Z', service_type: 'B Service', clients: { name: 'B Client' }, team_members: { name: 'B Worker' }, walkthrough_video_url: null, final_video_url: null },
+    { id: OTHER_MEMBER_BOOKING, tenant_id: A_ID, team_member_id: 'tm-a-other', start_time: '2026-08-03T10:00:00.000Z', service_type: 'Deep Clean', clients: { name: 'A Client 2' }, team_members: { name: 'A Other Worker' }, walkthrough_video_url: null, final_video_url: null },
   ])
 })
 
@@ -90,5 +99,27 @@ describe('team-portal/video-upload GET/POST — tenantDb isolation', () => {
       .eq('id', B_BOOKING)
       .maybeSingle()
     expect((data as { team_member_id: string }).team_member_id).toBe('tm-b')
+  })
+
+  it('wrong-member probe: GET 404s for a booking assigned to a DIFFERENT team member (same tenant) — no signed URL leaked', async () => {
+    const token = createToken('tm-a', A_ID)
+    const res = await GET(getReq(token, OTHER_MEMBER_BOOKING) as any)
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.signedUrl).toBeUndefined()
+  })
+
+  it('wrong-member probe: POST (json) 404s and does NOT write when booking belongs to a different team member', async () => {
+    const token = createToken('tm-a', A_ID)
+    const res = await POST(postReq(token, OTHER_MEMBER_BOOKING) as any)
+    expect(res.status).toBe(404)
+    const row = fake._all('bookings').find((r) => r.id === OTHER_MEMBER_BOOKING)!
+    expect(row.final_video_url).toBeNull()
+  })
+
+  it('missing/invalid token -> 401 on both GET and POST', async () => {
+    expect((await GET(getReq('', A_BOOKING) as any)).status).toBe(401)
+    expect((await GET(getReq('bad-token', A_BOOKING) as any)).status).toBe(401)
+    expect((await POST(postReq('bad-token', A_BOOKING) as any)).status).toBe(401)
   })
 })

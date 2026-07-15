@@ -51,7 +51,16 @@ export async function POST(request: Request) {
     }
 
     const db = tenantDb(tenantId)
-    const { error } = await db
+
+    // booking_id is a caller-supplied FK. The update alone is tenant-scoped
+    // but silently no-ops (no error) on a foreign id, and a previous separate
+    // select — also scoped, but with its error ignored — meant a foreign
+    // booking_id still fell through to a false `{success:true}` AND inserted
+    // a notification row carrying that foreign booking_id (a cross-tenant FK
+    // reference on the notifications table). Chaining .select().single() on
+    // the update itself surfaces the "no match" case so a foreign booking_id
+    // is rejected before anything is written.
+    const { data: booking, error } = await db
       .from('bookings')
       .update({
         attributed_domain: String(domain).replace(/^www\./, ''),
@@ -59,15 +68,13 @@ export async function POST(request: Request) {
         attributed_at: new Date().toISOString(),
       })
       .eq('id', booking_id)
-    if (error) throw error
+      .select('id, clients(name)')
+      .single()
+    if (error || !booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
 
-    const { data: booking } = (await db
-      .from('bookings')
-      .select('clients(name)')
-      .eq('id', booking_id)
-      .single()) as { data: { clients: { name?: string } | null } | null }
-
-    const clientName = (booking?.clients as unknown as { name?: string } | null)?.name || 'Unknown'
+    const clientName = (booking.clients as unknown as { name?: string } | null)?.name || 'Unknown'
 
     await db.from('notifications').insert({
       type: 'new_lead',

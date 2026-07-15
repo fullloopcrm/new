@@ -2,9 +2,11 @@
 /**
  * Tenant-config reconcile — read-only drift detector across the places that
  * decide "which domain -> which tenant -> which site -> which Vercel project":
- *   1. tenants.domain                    (resolver checks this FIRST)
- *   2. tenant_domains (active)           (resolver fallback) — carries the
- *      authoritative routing_mode / status / vercel_project per domain
+ *   1. tenant_domains (active)           (resolver checks this FIRST — see
+ *      src/lib/tenant-lookup.ts / src/lib/tenant.ts getTenantByDomain) —
+ *      carries the authoritative routing_mode / status / vercel_project per domain
+ *   2. tenants.domain                    (resolver fallback, used only when no
+ *      active tenant_domains row matches the host)
  *   3. BESPOKE_SITE_TENANTS in src/middleware.ts (routes slug -> /site/<slug>)
  *   4. src/app/site/<slug>/              (the actual folder that renders)
  *

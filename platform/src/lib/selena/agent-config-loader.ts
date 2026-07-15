@@ -29,32 +29,35 @@ function funnelToPricing(funnel: string, hasHourly: boolean): PricingModel {
   return hasHourly ? 'hourly' : 'flat'
 }
 
-interface RawChecklistField {
-  key?: string
-  enabled?: boolean
-  required?: boolean
-  question?: string
-  sms_options?: string
-}
+// Checklist keys collected by the booking/contact flow (rate quoted from pricing,
+// day/time scheduled, name/phone/email captured on save), NOT asked as qualifying
+// questions. Everything else in the seeded checklist (service_type, notes,
+// address, bedrooms, trade-specific scope) becomes an intake question the agent
+// asks to qualify the job.
+const NON_INTAKE_CHECKLIST_KEYS = new Set(['rate', 'day', 'time', 'name', 'phone', 'email'])
 
 /**
- * F2 fix: the neutral base engine used to hardcode a generic 3-question intake
- * for EVERY non-authored tenant, ignoring tenants.selena_config.checklist_fields
- * — the per-trade checklist provisionTenant() seeds from CHECKLIST_BY_INDUSTRY
- * (industry-presets.ts) and the owner can edit in dashboard/settings. Only the
- * 19 hand-authored tenants (./tenants/index.ts) + nycmaid ever asked their real
- * trade-specific intake questions; every other vertical (dumpster, plumbing,
- * pest, ~34 more) got "What do you need? / Where are you located? / When do you
- * need it?" regardless of what CHECKLIST_BY_INDUSTRY or the owner configured.
- * This derives intake.questions from the enabled checklist fields, falling back
- * to the generic questions only when no checklist has been configured at all.
+ * Derive the agent's ordered qualifying questions from the tenant's seeded
+ * checklist_fields (CHECKLIST_BY_INDUSTRY). Falls back to a generic list when a
+ * tenant has no checklist (empty selena_config). This is the DEFAULT — an owner's
+ * authored qualifying_questions still override it via applyPersonaToConfig.
  */
-export function deriveIntakeQuestions(checklistFields: unknown, fallback: string[]): string[] {
-  const fields = Array.isArray(checklistFields) ? (checklistFields as RawChecklistField[]) : []
-  const questions = fields
-    .filter((f): f is RawChecklistField & { question: string } => Boolean(f?.enabled) && typeof f?.question === 'string' && f.question.trim().length > 0)
-    .map((f) => f.question.trim())
-  return questions.length > 0 ? questions : fallback
+export function intakeFromChecklist(checklist: unknown, fallback: string[]): string[] {
+  if (!Array.isArray(checklist)) return fallback
+  const questions = checklist
+    .filter(
+      (f): f is { key: string; enabled?: boolean; question?: unknown } =>
+        !!f && typeof f === 'object' && typeof (f as { key?: unknown }).key === 'string',
+    )
+    .filter(
+      (f) =>
+        f.enabled !== false &&
+        !NON_INTAKE_CHECKLIST_KEYS.has(f.key) &&
+        typeof f.question === 'string' &&
+        (f.question as string).trim().length > 0,
+    )
+    .map((f) => (f.question as string).trim())
+  return questions.length ? questions : fallback
 }
 
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
@@ -99,8 +102,9 @@ export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
   // (hvac, roofing, plumbing, ...) already has its own qualifying checklist
   // sitting in the DB. Before this, intake always fell back to the generic
   // 3-question list below and that per-trade checklist was never read.
+  const genericIntake = [serviceList, 'Where are you located?', 'When do you need it?']
   const checklistFields = (tenant as { selena_config?: { checklist_fields?: unknown } } | null)?.selena_config?.checklist_fields
-  const intakeQuestions = deriveIntakeQuestions(checklistFields, [serviceList, 'Where are you located?', 'When do you need it?'])
+  const intakeQuestions = intakeFromChecklist(checklistFields, genericIntake)
 
   return {
     identity: {

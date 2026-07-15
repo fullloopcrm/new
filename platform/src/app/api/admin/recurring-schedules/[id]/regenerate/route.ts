@@ -31,6 +31,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { tenant, error } = await requirePermission('schedules.edit')
   if (error) return error
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
   const { id } = await params
 
   const body = await request.json()
@@ -62,8 +63,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
 
-  const db = tenantDb(tenantId)
-
   // Confirm the schedule belongs to this tenant; pull client_id + property_id to
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
@@ -72,6 +71,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
+
+  // A caller-supplied team_member_id/cleaner_id must belong to THIS tenant —
+  // team_members has no cross-tenant FK check, and it's written into BOTH the
+  // schedule rule AND every regenerated booking row below. GET /api/bookings
+  // and GET /api/schedules embed team_members(name, phone) unscoped by tenant
+  // off these FKs, so a foreign id would leak another tenant's employee PII on
+  // the next read — same class already guarded in the sibling
+  // exception/route.ts (reassign) and POST /api/schedules.
+  if (teamMemberId) {
+    const { data: ownedMember } = await db.from('team_members').select('id').eq('id', teamMemberId as string).maybeSingle()
+    if (!ownedMember) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
 
   // Fall back to the schedule's stored rates when the caller omits them, so an
   // edit that doesn't resend pay_rate can't zero out cleaner payout.
@@ -90,7 +101,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (payRate !== null) rulePatch.pay_rate = effPayRate
   if (teamMemberId !== null) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
-  await db.from('recurring_schedules').update(rulePatch).eq('id', id)
+  await db.from('recurring_schedules').update(rulePatch).eq('id', id).eq('tenant_id', tenantId)
 
   // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
   // the cutoff forward. Completed/paid/cancelled rows are never touched. We

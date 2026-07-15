@@ -72,6 +72,38 @@ export function verifySvix(
 }
 
 /**
+ * Verify a Telegram webhook via the secret token Telegram echoes back in the
+ * X-Telegram-Bot-Api-Secret-Token header (set via setWebhook's secret_token
+ * param). Telegram updates otherwise carry NO signature — the body-supplied
+ * chat ID is not authentication, it's just a routing hint an attacker can
+ * forge. Constant-time compare, same length-then-timingSafeEqual pattern as
+ * verifySvix above.
+ *
+ * Fail-CLOSED in every case, including when expectedSecret is unset — an
+ * unconfigured secret means the endpoint's only auth is chat-ID allowlisting
+ * against a value that isn't actually secret, and these bots can trigger the
+ * Selena/Jefe agent and send messages. Callers must configure a secret via
+ * BotFather/setWebhook's secret_token param (and the matching env var /
+ * tenant column) before the webhook will accept traffic.
+ */
+export function verifyTelegramSecretToken(
+  headers: Headers,
+  expectedSecret: string | undefined
+): VerifyResult {
+  if (!expectedSecret) return { valid: false, reason: 'secret not configured' }
+
+  const provided = headers.get('x-telegram-bot-api-secret-token')
+  if (!provided) return { valid: false, reason: 'missing X-Telegram-Bot-Api-Secret-Token header' }
+
+  const expectedBuf = Buffer.from(expectedSecret, 'utf8')
+  const providedBuf = Buffer.from(provided, 'utf8')
+  if (providedBuf.length !== expectedBuf.length || !timingSafeEqual(providedBuf, expectedBuf)) {
+    return { valid: false, reason: 'secret token mismatch' }
+  }
+  return { valid: true }
+}
+
+/**
  * Verify a Telnyx-signed webhook.
  * Required headers: telnyx-signature-ed25519, telnyx-timestamp.
  * publicKey is the raw base64 public key from the Telnyx portal (no PEM header).

@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { autoReplyReviews } from '@/lib/google-reviews'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Runs on schedule — auto-replies to unreplied Google reviews
 // for all tenants with auto-reply enabled

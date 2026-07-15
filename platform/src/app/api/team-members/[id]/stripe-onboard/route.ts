@@ -42,7 +42,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         },
         business_type: 'individual',
         metadata: { team_member_id: id, tenant_id: tenantId },
-      })
+      }, { idempotencyKey: `connect-account-${tenantId}-${id}` })
       accountId = account.id
       await supabaseAdmin
         .from('team_members')

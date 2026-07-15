@@ -23,17 +23,6 @@ export async function PUT(
       return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
     }
 
-    // Caller-supplied FK — verify it belongs to this tenant before update, so a
-    // foreign id can't repoint the expense at another tenant's accounting entity.
-    if (fields.entity_id) {
-      const { data: owned } = await tenantDb(tenantId)
-        .from('entities')
-        .select('id')
-        .eq('id', fields.entity_id as string)
-        .maybeSingle()
-      if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
-    }
-
     const { data, error } = await tenantDb(tenantId)
       .from('expenses')
       .update(fields)

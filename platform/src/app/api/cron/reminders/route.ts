@@ -7,7 +7,6 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
-import { verifyCronSecret } from '@/lib/cron-auth'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,

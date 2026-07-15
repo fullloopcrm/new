@@ -1,63 +1,70 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { NextRequest } from 'next/server'
-import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
+import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * GET /api/dashboard/messages marks admin→owner messages read as a side
- * effect of loading the thread. Gated by cookie-based tenant auth
- * (SameSite=Lax), so a forged cross-site GET navigation could silently flip
- * read-state — see csrf-guard.ts. Proves the write is skipped cross-site and
- * still runs same-origin / when the header is absent (older client).
+ * GET /api/dashboard/messages marks every admin->owner message read as a
+ * side effect of loading the thread. Same forged-cross-site-GET risk as
+ * notifications (SameSite=Lax cookies ride along on top-level navigation) —
+ * see route.ts and csrf-guard.ts. Proves the write is skipped cross-site and
+ * still runs same-origin.
  */
 
-const h = vi.hoisted(() => ({
-  tenantId: 'tenant-A',
-  seq: 0,
-  store: {} as Record<string, Array<Record<string, unknown>>>,
-})) as unknown as FakeStoreHandle & { tenantId: string }
+const CTX_TENANT = 'tid-a'
 
-vi.mock('@/lib/supabase', () => {
-  const fake = makeTenantDbFake(h)
-  return { supabaseAdmin: fake, supabase: fake }
-})
-vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId, tenant: { name: 'Tenant A' }, userId: 'user-A' }),
-  AuthError: class AuthError extends Error { status = 401 },
-}))
-
-import { GET } from './route'
-
-const getReq = (secFetchSite: string | null) =>
-  new NextRequest('http://x/api/dashboard/messages', {
-    headers: secFetchSite !== null ? { 'sec-fetch-site': secFetchSite } : {},
-  })
-
-beforeEach(() => {
-  h.tenantId = 'tenant-A'
-  h.seq = 0
-  h.store = {
-    tenant_owner_messages: [
-      { id: 'msg-A1', tenant_id: 'tenant-A', direction: 'out', channel: 'platform', body: 'hi A', sender: 'admin', sender_role: 'admin', created_at: '2026-01-01', read_at: null },
-    ],
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+vi.mock('@/lib/tenant-query', () => {
+  class AuthError extends Error {
+    status: number
+    constructor(message: string, status: number) {
+      super(message)
+      this.status = status
+    }
+  }
+  return {
+    AuthError,
+    getTenantForRequest: vi.fn(async () => ({ tenantId: CTX_TENANT, tenant: { id: CTX_TENANT } })),
   }
 })
 
-describe('GET /api/dashboard/messages — cross-site mark-read guard', () => {
+import { GET } from './route'
+
+function seed() {
+  return {
+    tenant_owner_messages: [
+      { id: 'm-1', tenant_id: CTX_TENANT, direction: 'out', channel: 'platform', body: 'hi', sender: 'jeff', sender_role: 'admin', read_at: null },
+    ],
+  }
+}
+
+let h: Harness
+beforeEach(() => {
+  h = createTenantDbHarness(seed())
+  holder.from = h.from
+})
+
+function req(secFetchSite: string | null) {
+  return {
+    headers: { get: (name: string) => (name.toLowerCase() === 'sec-fetch-site' ? secFetchSite : null) },
+  } as unknown as import('next/server').NextRequest
+}
+
+describe('dashboard/messages GET — cross-site mark-read guard', () => {
   it('skips the mark-read write when Sec-Fetch-Site is cross-site', async () => {
-    const res = await GET(getReq('cross-site'))
+    const res = await GET(req('cross-site'))
     expect(res.status).toBe(200)
-    expect(h.store.tenant_owner_messages.find((m) => m.id === 'msg-A1')?.read_at).toBeNull()
+    expect(h.capture.updates.some((u) => u.table === 'tenant_owner_messages')).toBe(false)
   })
 
   it('CONTROL: still marks read for a same-origin request', async () => {
-    const res = await GET(getReq('same-origin'))
+    const res = await GET(req('same-origin'))
     expect(res.status).toBe(200)
-    expect(h.store.tenant_owner_messages.find((m) => m.id === 'msg-A1')?.read_at).not.toBeNull()
+    expect(h.capture.updates.some((u) => u.table === 'tenant_owner_messages')).toBe(true)
   })
 
   it('CONTROL: still marks read when Sec-Fetch-Site is absent (older client)', async () => {
-    const res = await GET(getReq(null))
+    const res = await GET(req(null))
     expect(res.status).toBe(200)
-    expect(h.store.tenant_owner_messages.find((m) => m.id === 'msg-A1')?.read_at).not.toBeNull()
+    expect(h.capture.updates.some((u) => u.table === 'tenant_owner_messages')).toBe(true)
   })
 })

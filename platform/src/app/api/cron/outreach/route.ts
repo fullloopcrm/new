@@ -10,7 +10,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 

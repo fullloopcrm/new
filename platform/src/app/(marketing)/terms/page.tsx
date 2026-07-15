@@ -5,6 +5,8 @@ import {
   breadcrumbSchema,
   localBusinessSchema,
 } from "@/lib/schema";
+import { getCurrentTenant } from "@/lib/tenant";
+import { getTenantTermsAddendum } from "@/lib/legal/tenant-terms-addendum";
 
 const breadcrumbs = [
   { name: "Home", url: "https://homeservicesbusinesscrm.com" },
@@ -30,7 +32,15 @@ export const metadata: Metadata = {
   },
 };
 
-export default function TermsPage() {
+export default async function TermsPage() {
+  // Per-tenant customization hook: when the current request resolves to a
+  // specific tenant (signed tenant-domain header, admin impersonation, or a
+  // logged-in Clerk member -- see getCurrentTenant()), and that tenant has a
+  // negotiated addendum on file, render it after the base platform terms.
+  // Every other visitor sees only the base terms below, unchanged.
+  const tenant = await getCurrentTenant();
+  const addendum = tenant ? await getTenantTermsAddendum(tenant.id) : null;
+
   return (
     <>
       <JsonLd
@@ -184,6 +194,47 @@ export default function TermsPage() {
           </ul>
         </div>
       </section>
+
+      {addendum && tenant && (
+        <section className="py-16 px-6 bg-slate-50 border-t border-slate-200">
+          <div className="mx-auto max-w-3xl prose prose-slate prose-headings:font-heading">
+            <h2>13. Partnership Addendum &mdash; {tenant.name}</h2>
+            <p>
+              The following terms were negotiated specifically for{" "}
+              {tenant.name} and take precedence over the corresponding
+              sections above where they conflict. Effective{" "}
+              {new Date(addendum.effective_date).toLocaleDateString("en-US", {
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+              })}
+              .
+            </p>
+            {(addendum.monthly_rate_override != null ||
+              addendum.setup_fee_override != null) && (
+              <ul>
+                {addendum.monthly_rate_override != null && (
+                  <li>
+                    Negotiated monthly rate: $
+                    {addendum.monthly_rate_override.toLocaleString()}
+                  </li>
+                )}
+                {addendum.setup_fee_override != null && (
+                  <li>
+                    Negotiated setup fee: $
+                    {addendum.setup_fee_override.toLocaleString()}
+                  </li>
+                )}
+              </ul>
+            )}
+            {addendum.custom_clauses && (
+              <p style={{ whiteSpace: "pre-wrap" }}>
+                {addendum.custom_clauses}
+              </p>
+            )}
+          </div>
+        </section>
+      )}
     </>
   );
 }

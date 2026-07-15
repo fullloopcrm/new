@@ -2,8 +2,8 @@
  * Deals (sales pipeline) — CRUD. Tenant-scoped. Ported from nycmaid.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
@@ -11,10 +11,9 @@ export async function GET() {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
-    const { data: deals, error } = await supabaseAdmin
+    const { data: deals, error } = await tenantDb(tenantId)
       .from('deals')
       .select('*, clients(id, name, email, phone, address, status, created_at)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .order('follow_up_at', { ascending: true, nullsFirst: false })
       .limit(500)
@@ -35,6 +34,7 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const {
       client_id,
@@ -53,26 +53,22 @@ export async function POST(request: Request) {
     }
 
     // client_id is a caller-supplied FK — clients has no cross-tenant FK check,
-    // and every read of this route joins clients(name/email/phone/address)
-    // unscoped by tenant, so a foreign id would leak another tenant's client
-    // PII into this tenant's pipeline. Verify ownership before insert.
+    // and the deals→clients join in every read of this route is unscoped by
+    // tenant, so a foreign id would leak another tenant's client name/email/
+    // phone/address into this tenant's pipeline. Verify ownership before insert.
     if (client_id) {
-      const { data: ownedClient } = await supabaseAdmin
-        .from('clients')
-        .select('id')
-        .eq('id', client_id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      const { data: ownedClient } = await db.from('clients').select('id').eq('id', client_id).maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
     }
 
     // Only block duplicate open deal on same client if no title was given
     // (same client can have multiple distinct deals when titled).
     if (client_id && !title) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from('deals')
         .select('id')
-        .eq('tenant_id', tenantId)
         .eq('client_id', client_id)
         .in('stage', ['new', 'qualifying', 'quoted', 'pending'])
         .limit(1)
@@ -81,10 +77,9 @@ export async function POST(request: Request) {
       }
     }
 
-    const { data: deal, error } = await supabaseAdmin
+    const { data: deal, error } = await db
       .from('deals')
       .insert({
-        tenant_id: tenantId,
         client_id: client_id || null,
         title: title || null,
         stage: stage || 'new',
@@ -100,8 +95,7 @@ export async function POST(request: Request) {
       .single()
     if (error) throw error
 
-    await supabaseAdmin.from('deal_activities').insert({
-      tenant_id: tenantId,
+    await db.from('deal_activities').insert({
       deal_id: deal.id,
       type: 'auto_created',
       description: 'Added to sales board',
@@ -120,6 +114,7 @@ export async function PUT(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id, follow_up_at, follow_up_note, notes, stage } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
@@ -150,17 +145,16 @@ export async function PUT(request: Request) {
       updates.closed_at = new Date().toISOString()
     }
 
-    const { data: deal, error } = await supabaseAdmin
+    const { data: deal, error } = await db
       .from('deals')
       .update(updates)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('*, clients(id, name, email, phone, address, status)')
       .single()
     if (error) throw error
 
     if (activities.length > 0) {
-      await supabaseAdmin.from('deal_activities').insert(activities)  // tenant-scope-ok: insert payload carries tenant_id (built above)
+      await db.from('deal_activities').insert(activities)  // tenant_id stamped by tenantDb wrapper
     }
 
     return NextResponse.json(deal)
@@ -179,8 +173,9 @@ export async function DELETE(request: Request) {
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 
-    const { error } = await supabaseAdmin.from('deals').delete().eq('id', id).eq('tenant_id', tenantId)
+    const { data, error } = await tenantDb(tenantId).from('deals').delete().eq('id', id).select('id')
     if (error) throw error
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json({ success: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

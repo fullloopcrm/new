@@ -18,6 +18,12 @@ describe('escapeHtml', () => {
     )
   })
 
+  it('escapes an attribute-breakout payload', () => {
+    // e.g. a name interpolated into an admin email that tries to break out
+    const payload = `" onmouseover="alert(1)`
+    expect(escapeHtml(payload)).toBe('&quot; onmouseover=&quot;alert(1)')
+  })
+
   it('escapes & first so entities are not double-decoded', () => {
     expect(escapeHtml('a & b')).toBe('a &amp; b')
     expect(escapeHtml('&lt;')).toBe('&amp;lt;')
@@ -28,8 +34,18 @@ describe('escapeHtml', () => {
     expect(escapeHtml(undefined)).toBe('')
   })
 
+  it('coerces non-string values to their string form', () => {
+    expect(escapeHtml(42)).toBe('42')
+    expect(escapeHtml(true)).toBe('true')
+  })
+
   it('leaves plain text untouched', () => {
     expect(escapeHtml('Jane Doe')).toBe('Jane Doe')
+  })
+
+  it('renders a name containing an ampersand as valid HTML (no visual regression)', () => {
+    // "Bob & Co" must still read as "Bob & Co" once the browser decodes it.
+    expect(escapeHtml('Bob & Co')).toBe('Bob &amp; Co')
   })
 })
 

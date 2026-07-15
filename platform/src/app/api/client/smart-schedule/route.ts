@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { scoreTeamForBooking, suggestBookingSlots } from '@/lib/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
-import { tenantDb } from '@/lib/tenant-db'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 const rl = new Map<string, { count: number; resetAt: number }>()
 const RL_WINDOW_MS = 5 * 60 * 1000
@@ -33,17 +33,26 @@ export async function GET(request: Request) {
   let clientAddress = searchParams.get('address')
   const clientId = searchParams.get('client_id')
   const hourlyRate = searchParams.get('hourly_rate')
-  let tenantId: string | null = null
+
+  // client_id was previously trusted to resolve tenantId with NO ownership
+  // check — any caller-supplied client_id (from ANY tenant) would leak that
+  // tenant's team-member names, preferred-cleaner id, and (via ?suggest=1)
+  // schedule-derived availability reasons. The host is always resolvable
+  // here (middleware signs x-tenant-id for every /api/client/* route), so
+  // require the client to actually belong to THIS host's tenant before
+  // trusting anything off it.
+  const hostTenant = await getTenantFromHeaders()
+  let tenantId: string | null = hostTenant?.id || null
   let preferredCleanerId: string | null = null
 
-  if (clientId) {
+  if (clientId && tenantId) {
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('address, tenant_id, preferred_team_member_id')
       .eq('id', clientId)
+      .eq('tenant_id', tenantId)
       .maybeSingle()
     if (client) {
-      tenantId = client.tenant_id
       preferredCleanerId = client.preferred_team_member_id || null
       if (!clientAddress) clientAddress = client.address || null
     }
@@ -55,10 +64,15 @@ export async function GET(request: Request) {
     if (!tenantId) {
       return NextResponse.json({ cleaners: [] })
     }
-    const { data: all } = await tenantDb(tenantId)
+    // team_members has no boolean `active` column — schema uses `status`
+    // ('inactive' = off-boarded). Match the scored path in src/lib/smart-schedule.ts
+    // (.neq('status','inactive')) so the fallback picker and the scored list agree
+    // on who's a valid team member instead of silently returning nothing.
+    const { data: all } = await supabaseAdmin
       .from('team_members')
       .select('id, name')
-      .eq('active', true)
+      .eq('tenant_id', tenantId)
+      .neq('status', 'inactive')
       .order('name')
     const cleaners = (all || []).map(c => ({
       id: c.id,

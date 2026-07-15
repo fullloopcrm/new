@@ -3,21 +3,25 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 
 /**
- * PostgREST .or() injection regression [fix fef4642].
+ * PostgREST .or() injection regression (LEADER 16:13, W4 recon:
+ * deploy-prep/postgrest-filter-injection-branch-audit.md — p1-w2 lacked
+ * sanitizePostgrestValue() entirely).
  *
- * User-supplied search terms were interpolated raw into supabase `.or()` filter
- * strings, where `, ( ) " \` are structural. sanitizePostgrestValue() strips
- * those, and the fix wired it into 10 routes. postgrest-safe.test.ts already
- * proves the sanitizer neutralizes payloads; the gap this file closes is that
- * each ROUTE actually calls it — a route reverting to `${raw}` passes every
- * existing test but is exploitable again.
+ * User-supplied / stored values were interpolated raw into supabase `.or()`
+ * filter strings, where `, ( ) " \` are structural. sanitizePostgrestValue()
+ * strips those, and this fix wires it into every `.or()` site the audit
+ * flagged for this branch. postgrest-safe.test.ts already proves the
+ * sanitizer neutralizes payloads; the gap this file closes is that each SITE
+ * actually calls it — a site reverting to `${raw}` passes every existing test
+ * but is exploitable again.
  *
  * Part A drives the 6 routes whose `.or()` is reachable from the exported
- * handler against a capturing DB fake and asserts the injection metacharacters
- * `"` and `\` (which never occur in any legitimate template here) never reach
- * the filter string. Part B is a source-invariant sweep over all 10 routes
- * (incl. the 4 whose `.or()` sits behind an Anthropic tool-loop / deep finance
- * preconditions) proving every `.or()` interpolation is sanitize-sourced.
+ * handler against a capturing DB fake and asserts the injection
+ * metacharacters `"` and `\` (which never occur in any legitimate template
+ * here) never reach the filter string. Part B is a source-invariant sweep
+ * over all 14 flagged sites (incl. the ones behind an Anthropic tool-loop,
+ * a webhook handler, finance preconditions, or a non-route lib module)
+ * proving every `.or()` interpolation is sanitize-sourced.
  */
 
 // A payload packed with every structural metacharacter, plus a marker that
@@ -142,13 +146,16 @@ describe('.or() injection is neutralized in each route (mocked DB)', () => {
 })
 
 /**
- * Part B — source invariant across ALL 10 routes.
+ * Part B — source invariant across all 14 flagged sites.
  *
  * Guarantees every `${...}` inside every `.or()` template literal is sourced
  * from sanitizePostgrestValue() — either inline, or via a variable assigned
- * from it in the same file. Catches the 4 routes Part A can't cheaply drive.
+ * from it in the same file. Catches the sites Part A can't cheaply drive
+ * (Anthropic tool-loop args, a Telnyx webhook payload, finance/cron
+ * preconditions, an own-session id, an already digit-stripped phone, a
+ * server-generated timestamp, and a plain lib module with no HTTP handler).
  */
-const ALL_TEN_ROUTES = [
+const ALL_FOURTEEN_SITES = [
   'src/app/api/clients/route.ts',
   'src/app/api/admin/clients/route.ts',
   'src/app/api/admin/activity/route.ts',
@@ -159,6 +166,10 @@ const ALL_TEN_ROUTES = [
   'src/app/api/announcements/unread/route.ts',
   'src/app/api/finance/bank-transactions/[id]/match/route.ts',
   'src/app/api/cron/recurring-expenses/route.ts',
+  'src/app/api/webhooks/telnyx-voice/route.ts',
+  'src/app/api/team-portal/notifications/route.ts',
+  'src/app/api/client/collect/route.ts',
+  'src/lib/selena-legacy-email.ts',
 ]
 
 // Identifiers assigned from an expression containing sanitizePostgrestValue(...)
@@ -187,16 +198,16 @@ function interpolationExprs(tpl: string): string[] {
   return out
 }
 
-describe('source invariant: every .or() interpolation is sanitize-sourced (all 10 routes)', () => {
-  for (const rel of ALL_TEN_ROUTES) {
+describe('source invariant: every .or() interpolation is sanitize-sourced (all 14 sites)', () => {
+  for (const rel of ALL_FOURTEEN_SITES) {
     it(rel, () => {
       const src = readFileSync(path.resolve(process.cwd(), rel), 'utf8')
-      expect(src, 'route must import the sanitizer').toContain('sanitizePostgrestValue')
+      expect(src, 'site must import the sanitizer').toContain('sanitizePostgrestValue')
 
       const sanitized = sanitizedIdentifiers(src)
       const templates = orTemplateLiterals(src)
       const interpolated = templates.filter((t) => interpolationExprs(t).length > 0)
-      expect(interpolated.length, 'route must have at least one interpolated .or()').toBeGreaterThan(0)
+      expect(interpolated.length, 'site must have at least one interpolated .or()').toBeGreaterThan(0)
 
       for (const tpl of templates) {
         for (const expr of interpolationExprs(tpl)) {

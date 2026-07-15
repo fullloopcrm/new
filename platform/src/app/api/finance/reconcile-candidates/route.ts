@@ -4,7 +4,7 @@
  * suggested matches (amount + date proximity).
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
@@ -30,35 +30,34 @@ export async function GET() {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on all four reads below —
+    // bank_transactions, invoices, bookings, expenses all carry tenant_id.
+    const db = tenantDb(tenantId)
 
     const [txnsRes, invRes, bookRes, expRes] = await Promise.all([
-      supabaseAdmin
+      db
         .from('bank_transactions')
         .select('id, txn_date, description, amount_cents, bank_account_id')
-        .eq('tenant_id', tenantId)
         .eq('status', 'pending')
         .order('txn_date', { ascending: false })
         .limit(300),
-      supabaseAdmin
+      db
         .from('invoices')
         .select('id, invoice_number, total_cents, amount_paid_cents, due_date, contact_name, clients(name)')
-        .eq('tenant_id', tenantId)
         .not('status', 'in', '(paid,void,refunded,draft)')
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(200),
-      supabaseAdmin
+      db
         .from('bookings')
         .select('id, start_time, price, payment_status, clients(name)')
-        .eq('tenant_id', tenantId)
         .eq('status', 'completed')
         .not('payment_status', 'in', '(paid,refunded)')
         .is('route_id', null)
         .order('start_time', { ascending: false })
         .limit(200),
-      supabaseAdmin
+      db
         .from('expenses')
         .select('id, date, category, amount, description, vendor_name')
-        .eq('tenant_id', tenantId)
         .is('matched_bank_transaction_id', null)
         .order('date', { ascending: false })
         .limit(200),

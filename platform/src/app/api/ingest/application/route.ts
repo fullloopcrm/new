@@ -17,6 +17,8 @@ import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { notify } from '@/lib/notify'
+import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -46,6 +48,18 @@ function secretMatches(provided: string | null): boolean {
 }
 
 export async function POST(request: Request) {
+  // This endpoint is gated by one INGEST_SECRET shared across every
+  // standalone tenant site, with no per-caller identity — nothing else
+  // bounds how many times an attacker can try to guess it. failClosed:true
+  // so a rate-limiter DB outage denies instead of opening unlimited secret
+  // brute-force / insert-spam. Keyed by IP, checked before the secret so a
+  // guessing attempt still counts against the caller even when it's wrong.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`ingest-application:${ip}`, 30, 10 * 60 * 1000, { failClosed: true })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   if (!secretMatches(request.headers.get('x-ingest-secret'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -116,7 +130,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'cleaner_application',
       title: 'New Team Application',
-      message: `${name} • ${body.experience || '?'} • ${tenant.name}`,
+      message: `${escapeHtml(name)} • ${escapeHtml(body.experience || '?')} • ${escapeHtml(tenant.name)}`,
     }).catch((err) => console.error('[ingest/application] notify failed:', err))
 
     return NextResponse.json({ success: true, id: data.id })

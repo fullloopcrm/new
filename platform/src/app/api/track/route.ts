@@ -44,15 +44,15 @@ async function notifyLeadEmailIfNeeded(args: {
   }
 
   const business = settings.business_name || 'your business'
+  const ctaType = escapeHtml(args.ctaType)
+  const page = args.page ? escapeHtml(args.page) : null
+  const referrer = args.referrer ? escapeHtml(args.referrer) : null
+  const utmSource = args.utmSource ? escapeHtml(args.utmSource) : null
   const subject = `New lead: ${args.ctaType} on ${args.page || business}`
-  const safeCtaType = escapeHtml(args.ctaType)
-  const safePage = args.page ? escapeHtml(args.page) : ''
-  const safeReferrer = args.referrer ? escapeHtml(args.referrer) : ''
-  const safeUtmSource = args.utmSource ? escapeHtml(args.utmSource) : ''
   const lines = [
-    `<p>A visitor just clicked a <strong>${safeCtaType}</strong> CTA${safePage ? ` on <code>${safePage}</code>` : ''}.</p>`,
-    safeReferrer ? `<p><strong>Referrer:</strong> ${safeReferrer}</p>` : '',
-    safeUtmSource ? `<p><strong>UTM source:</strong> ${safeUtmSource}</p>` : '',
+    `<p>A visitor just clicked a <strong>${ctaType}</strong> CTA${page ? ` on <code>${page}</code>` : ''}.</p>`,
+    referrer ? `<p><strong>Referrer:</strong> ${referrer}</p>` : '',
+    utmSource ? `<p><strong>UTM source:</strong> ${utmSource}</p>` : '',
     `<p><a href="${safeUrl(process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com')}/dashboard/leads">Open Leads dashboard</a></p>`,
   ].filter(Boolean).join('')
 

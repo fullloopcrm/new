@@ -25,14 +25,17 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid type' }, { status: 400 })
   }
 
-  // Tenant-scoped update — RLS belt-and-suspenders
-  const { error } = await supabaseAdmin
+  // Tenant-scoped update — chained .select().single() so a foreign booking_id
+  // (0 rows matched) surfaces as a 404 instead of a false "success" no-op.
+  const { data: updated, error } = await supabaseAdmin
     .from('bookings')
     .update(updates)
     .eq('id', booking_id)
     .eq('tenant_id', tenantId)
+    .select('id')
+    .single()
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error || !updated) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
   // A manual "client paid" is money received — record it so it reaches the
   // ledger like every other payment. Idempotent: only create a payment row if

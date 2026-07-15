@@ -1,92 +1,100 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
- * Fail-closed regression (P3-3 x P0-2 merge reconciliation). The DB-backed
- * limiter must DENY on a count error when the caller opts into failClosed, so
- * an auth-verify path (OTP/PIN) can't be brute-forced while the limiter is
- * blind to a DB outage. The default stays fail-open so a transient blip doesn't
- * 429 legitimate public traffic.
+ * Persistent DB-backed rate limiter. The security-relevant behavior is what
+ * happens when the count query FAILS: auth-critical callers pass
+ * { failClosed: true } and must be DENIED (else a DB outage disables brute-force
+ * throttling), while the default stays fail-open so a transient blip doesn't
+ * 429 public forms. We mock the Supabase client so the count query's result —
+ * including its error — is controllable per test.
  */
 
-// Toggles what the count query resolves to for the current test.
-let countResult: { count: number | null; error: { message: string } | null } = {
-  count: 0,
-  error: null,
-}
+let countResult: { count: number | null; error: unknown }
+let insertResult: { error: unknown } = { error: null }
 
-// Toggles what the insert (attempt-record write) resolves to for the current test.
-let insertResult: { error: { message: string } | null } = { error: null }
-
-vi.mock('./supabase', () => {
-  const from = () => ({
-    select: () => ({
-      eq: () => ({
-        gte: async () => countResult,
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          gte: async () => countResult,
+        }),
       }),
+      insert: async () => insertResult,
     }),
-    insert: async () => insertResult,
-  })
-  return { supabaseAdmin: { from } }
-})
+  }),
+}))
 
 import { rateLimitDb } from './rate-limit-db'
 
-beforeEach(() => {
-  countResult = { count: 0, error: null }
-  insertResult = { error: null }
-})
-
-describe('rateLimitDb failClosed', () => {
-  it('DENIES on a DB count error when failClosed is set', async () => {
-    countResult = { count: null, error: { message: 'db down' } }
-    const res = await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
-    expect(res.allowed).toBe(false)
-    expect(res.remaining).toBe(0)
-  })
-
-  it('fails OPEN by default on a DB count error (public traffic not locked out)', async () => {
-    countResult = { count: null, error: { message: 'db down' } }
-    const res = await rateLimitDb('public_form:1.2.3.4', 5, 60000)
-    expect(res.allowed).toBe(true)
-  })
-
-  it('allows within the limit when the DB is healthy', async () => {
+describe('rateLimitDb', () => {
+  beforeEach(() => {
     countResult = { count: 0, error: null }
-    const res = await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
-    expect(res.allowed).toBe(true)
+    insertResult = { error: null }
+    vi.spyOn(console, 'error').mockImplementation(() => {})
+  })
+  afterEach(() => {
+    vi.restoreAllMocks()
   })
 
-  it('blocks once the window count reaches the cap', async () => {
+  it('allows and reports remaining when under the limit', async () => {
+    countResult = { count: 2, error: null }
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl.allowed).toBe(true)
+    expect(rl.remaining).toBe(2) // 5 - 2 - 1
+  })
+
+  it('denies when the count is at/over the limit', async () => {
     countResult = { count: 5, error: null }
-    const res = await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
-    expect(res.allowed).toBe(false)
-    expect(res.remaining).toBe(0)
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl).toEqual({ allowed: false, remaining: 0 })
   })
 
-  // MED-1 regression: a failed attempt-record write (insert error) leaves the
-  // attempt uncounted. For failClosed callers that must DENY, otherwise the
-  // throttle is silently disabled on every write failure (same bypass class as
-  // the count error above).
-  it('DENIES on a DB insert error when failClosed is set', async () => {
-    countResult = { count: 0, error: null }
-    insertResult = { error: { message: 'insert failed' } }
-    const res = await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
-    expect(res.allowed).toBe(false)
-    expect(res.remaining).toBe(0)
+  it('fails CLOSED on a DB error when failClosed is set (auth-critical)', async () => {
+    countResult = { count: null, error: { message: 'db down' } }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: false, remaining: 0 })
   })
 
-  it('fails OPEN by default on a DB insert error (public traffic not locked out)', async () => {
-    countResult = { count: 0, error: null }
-    insertResult = { error: { message: 'insert failed' } }
-    const res = await rateLimitDb('public_form:1.2.3.4', 5, 60000)
-    expect(res.allowed).toBe(true)
+  it('fails OPEN on a DB error by default (public callers)', async () => {
+    countResult = { count: null, error: { message: 'db down' } }
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl.allowed).toBe(true)
   })
 
-  it('logs loudly on a DB count error regardless of mode', async () => {
+  it('logs loudly on a DB error regardless of mode', async () => {
     const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
     countResult = { count: null, error: { message: 'db down' } }
-    await rateLimitDb('portal_verify:+15551230000', 5, 60000, { failClosed: true })
+    await rateLimitDb('k', 5, 60_000, { failClosed: true })
     expect(spy).toHaveBeenCalled()
-    spy.mockRestore()
+  })
+
+  it('fails CLOSED when the insert (record-attempt) fails and failClosed is set', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: false, remaining: 0 })
+  })
+
+  it('fails OPEN when the insert fails and failClosed is not set (public callers)', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl.allowed).toBe(true)
+  })
+
+  it('logs loudly on an insert error regardless of mode', async () => {
+    const spy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    countResult = { count: 2, error: null }
+    insertResult = { error: { message: 'insert down' } }
+    await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(spy).toHaveBeenCalled()
+  })
+
+  it('still allows and reports remaining when the insert succeeds', async () => {
+    countResult = { count: 2, error: null }
+    insertResult = { error: null }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: true, remaining: 2 })
   })
 })

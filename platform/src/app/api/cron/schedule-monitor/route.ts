@@ -6,7 +6,6 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 

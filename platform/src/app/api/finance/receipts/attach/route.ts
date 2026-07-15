@@ -3,8 +3,8 @@
  * and post in one step.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry, normalizeDescription } from '@/lib/ledger'
 
@@ -13,6 +13,8 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-scopes every query on the tenant-owned tables below.
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const txnId = String(body.bank_transaction_id || '')
     const path = String(body.receipt_path || '')
@@ -20,7 +22,7 @@ export async function POST(request: Request) {
     const coaId = body.coa_id ? String(body.coa_id) : null
     if (!txnId || !path) return NextResponse.json({ error: 'bank_transaction_id + receipt_path required' }, { status: 400 })
 
-    const { data: txn } = await supabaseAdmin
+    const { data: txn } = await db
       .from('bank_transactions')
       .select('id, tenant_id, txn_date, description, amount_cents, status, bank_account_id, bank_accounts(coa_id)')
       .eq('tenant_id', tenantId)
@@ -36,7 +38,7 @@ export async function POST(request: Request) {
     // If a coa_id was also passed, post the journal and mark posted.
     if (coaId && txn.status === 'pending') {
       // Confirm coa_id belongs to this tenant — FK alone doesn't scope tenancy.
-      const { data: coaRow } = await supabaseAdmin
+      const { data: coaRow } = await db
         .from('chart_of_accounts')
         .select('id')
         .eq('id', coaId)
@@ -74,7 +76,7 @@ export async function POST(request: Request) {
       // Bump pattern
       const pattern = normalizeDescription(txn.description).slice(0, 64)
       if (pattern) {
-        const { data: existing } = await supabaseAdmin
+        const { data: existing } = await db
           .from('categorization_patterns')
           .select('id, hit_count')
           .eq('tenant_id', tenantId)
@@ -82,19 +84,19 @@ export async function POST(request: Request) {
           .eq('coa_id', coaId)
           .maybeSingle()
         if (existing) {
-          await supabaseAdmin
+          await db
             .from('categorization_patterns')
             .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
             .eq('id', existing.id)
         } else {
-          await supabaseAdmin.from('categorization_patterns').insert({
+          await db.from('categorization_patterns').insert({
             tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
           })
         }
       }
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from('bank_transactions')
       .update(updates)
       .eq('tenant_id', tenantId)

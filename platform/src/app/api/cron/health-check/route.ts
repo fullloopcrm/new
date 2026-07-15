@@ -3,7 +3,6 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 120
 

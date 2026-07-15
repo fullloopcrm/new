@@ -18,6 +18,7 @@ export async function POST(request: Request) {
   const { tenant, error: authError } = await requirePermission('bookings.create')
   if (authError) return authError
   const { tenantId } = tenant
+  const db = tenantDb(tenantId)
 
   const body = await request.json()
   const bookingInputs = body.bookings as Array<Record<string, unknown>> | undefined
@@ -30,24 +31,90 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Max 200 bookings per batch' }, { status: 400 })
   }
 
-  // client_id/team_member_id are caller-supplied per row; verify every id
-  // belongs to this tenant before insert — the response joins clients(*)/
-  // team_members(*) (full rows, incl. pin/pay_rate), so a foreign id would
-  // otherwise leak another tenant's client or staff PII in bulk.
-  const candidateClientIds = Array.from(new Set(bookingInputs.map(b => b.client_id).filter((v): v is string => typeof v === 'string')))
-  const candidateMemberIds = Array.from(new Set(bookingInputs.map(b => b.team_member_id).filter((v): v is string => typeof v === 'string')))
-  if (candidateClientIds.length > 0) {
-    const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
-    const ownedIds = new Set((ownedClients || []).map(r => r.id))
-    if (candidateClientIds.some(cid => !ownedIds.has(cid))) {
-      return NextResponse.json({ error: 'Invalid client_id in bookings array' }, { status: 404 })
+  // client_id/team_member_id are caller-supplied FKs — tenantDb only stamps
+  // tenant_id on the row being inserted, it doesn't validate a referenced id
+  // belongs to this tenant, and neither clients nor team_members has a
+  // cross-tenant FK check. Without this, a batch create could attach another
+  // tenant's client or employee to these bookings (same class as
+  // POST /api/bookings, fixed earlier this pass).
+  const requestedClientIds = Array.from(
+    new Set(bookingInputs.map((b) => b.client_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  const requestedMemberIds = Array.from(
+    new Set(bookingInputs.map((b) => b.team_member_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedClientIds.length > 0) {
+    const { data: validClients } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .in('id', requestedClientIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validClients || []).map((c) => c.id))
+    if (requestedClientIds.some((cid) => !validIds.has(cid))) {
+      return NextResponse.json({ error: 'Invalid client selection' }, { status: 400 })
     }
   }
-  if (candidateMemberIds.length > 0) {
-    const { data: ownedMembers } = await supabaseAdmin.from('team_members').select('id').eq('tenant_id', tenantId).in('id', candidateMemberIds)
-    const ownedIds = new Set((ownedMembers || []).map(r => r.id))
-    if (candidateMemberIds.some(mid => !ownedIds.has(mid))) {
-      return NextResponse.json({ error: 'Invalid team_member_id in bookings array' }, { status: 404 })
+  if (requestedMemberIds.length > 0) {
+    const { data: validMembers } = await supabaseAdmin
+      .from('team_members')
+      .select('id')
+      .in('id', requestedMemberIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validMembers || []).map((m) => m.id))
+    if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
+      return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+    }
+  }
+
+  // service_type_id is the same shape of FK as client_id/team_member_id above
+  // but was missing its ownership check entirely. POST /api/invoices?
+  // from_booking_id later embeds service_types(name, default_hourly_rate,
+  // pricing_model) off a booking's service_type_id with no tenant filter on
+  // the embedded side, so a foreign id planted here becomes a cross-tenant
+  // read one hop later (same exfil shape as the client_id/team_member_id
+  // guards above, just via a sibling table).
+  const requestedServiceTypeIds = Array.from(
+    new Set(bookingInputs.map((b) => b.service_type_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedServiceTypeIds.length > 0) {
+    const { data: validServiceTypes } = await supabaseAdmin
+      .from('service_types')
+      .select('id')
+      .in('id', requestedServiceTypeIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validServiceTypes || []).map((s) => s.id))
+    if (requestedServiceTypeIds.some((sid) => !validIds.has(sid))) {
+      return NextResponse.json({ error: 'Invalid service type selection' }, { status: 400 })
+    }
+  }
+
+  // schedule_id (top-level default + per-row override) is the same shape of FK
+  // as client_id/team_member_id/service_type_id above but was missing its
+  // ownership check entirely — recurring_schedules has its own tenant_id and no
+  // cross-tenant FK check. A poisoned schedule_id doesn't surface via any read
+  // embed today, but cron/generate-recurring's "latest booking for this
+  // schedule" lookup (src/app/api/cron/generate-recurring/route.ts) is NOT
+  // tenant-filtered, so a foreign booking sharing a victim tenant's real
+  // schedule_id with a far-future start_time permanently starves that
+  // schedule's auto-generation (cross-tenant DoS via FK injection) — same bug
+  // class as the other three FKs here, just a write-then-DoS shape instead of
+  // read-exfil.
+  const requestedScheduleIds = Array.from(
+    new Set(
+      bookingInputs
+        .map((b) => (b.schedule_id as string | undefined) || schedule_id)
+        .filter((x): x is string => typeof x === 'string' && x.length > 0),
+    ),
+  )
+  if (requestedScheduleIds.length > 0) {
+    const { data: validSchedules } = await supabaseAdmin
+      .from('recurring_schedules')
+      .select('id')
+      .in('id', requestedScheduleIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validSchedules || []).map((s) => s.id))
+    if (requestedScheduleIds.some((sid) => !validIds.has(sid))) {
+      return NextResponse.json({ error: 'Invalid schedule selection' }, { status: 400 })
     }
   }
 
@@ -74,8 +141,8 @@ export async function POST(request: Request) {
     }
   })
 
-  const { data, error } = await tenantDb(tenantId)
-    .from('bookings')
+  const { data, error } = await db
+    .from('bookings')  // tenantDb stamps tenant_id (rows already carry it — idempotent)
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 

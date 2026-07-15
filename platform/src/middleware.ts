@@ -33,8 +33,13 @@ function tenantServesSite(status: string | null | undefined): boolean {
 }
 
 function isMainHost(hostname: string): boolean {
-  // Strip port for comparison
-  const host = hostname.split(':')[0]
+  // Strip port AND lowercase for comparison — MAIN_HOSTS entries are all
+  // lowercase, so a mixed-case Host header (e.g. curl sending
+  // "WWW.FULLLOOPCRM.COM") would otherwise miss this Set, fall through to the
+  // custom-domain branch below, fail the domain lookup, and return
+  // NextResponse.next() — skipping the Clerk/admin-token auth gate entirely
+  // for the main dashboard.
+  const host = hostname.split(':')[0].toLowerCase()
   return MAIN_HOSTS.has(host)
 }
 
@@ -73,7 +78,9 @@ function isKilledRoute(pathname: string): boolean {
 }
 
 function extractSubdomain(hostname: string): string | null {
-  const host = hostname.split(':')[0]
+  // Lowercase for the same reason as isMainHost — a mixed-case tenant
+  // subdomain Host header must still match the regex below.
+  const host = hostname.split(':')[0].toLowerCase()
   // Match *.homeservicesbusinesscrm.com or *.fullloopcrm.com (carrying/holding
   // domain — tenants are served at <slug>.fullloopcrm.com until their real
   // custom domain is pointed at the platform).
@@ -261,7 +268,12 @@ export default async function middleware(req: NextRequest) {
       return rewriteToSite(req, staticTenant.id, staticTenant.slug)
     }
     try {
-      const tenant = await getTenantByDomain(hostname)
+      // Use cleanHost (port-stripped, lowercased) — NOT the raw hostname. A
+      // custom domain hit with a non-standard port on the Host header (local
+      // testing, some proxies) or mixed-case casing would otherwise never
+      // match a DB row (tenant-lookup only strips the www. prefix), silently
+      // falling through to the main site instead of the tenant's own.
+      const tenant = await getTenantByDomain(cleanHost)
       if (tenant && tenantServesSite(tenant.status)) {
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
@@ -456,6 +468,14 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   const url = req.nextUrl.clone()
   url.pathname = sitePathname
 
+  // x-tenant-sig is intentionally NOT set on response.headers below — it must
+  // stay on the internal request only (see requestHeaders further down).
+  // signTenantHeader(tenantId) is a static HMAC with no nonce/expiry, so
+  // echoing it back to the client would let any visitor to a tenant's site
+  // harvest a permanently-valid (tenantId, sig) pair and replay it on direct
+  // API calls, defeating the "only middleware can mint this" guarantee every
+  // downstream consumer (dashboard/layout, admin-auth, chat, yinez, tenant.ts,
+  // etc.) relies on.
   const response = NextResponse.rewrite(url)
   response.headers.set('x-tenant-id', tenantId)
   response.headers.set('x-tenant-slug', tenantSlug)

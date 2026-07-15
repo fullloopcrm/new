@@ -228,7 +228,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
 
     case 'update_bookings': {
       const ids = input.booking_ids as string[]
-      const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status'])
+      const updates = input.updates as Record<string, unknown>
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -240,9 +240,39 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
         })
       }
 
+      // Allow-list mutable columns — `updates` is model-supplied and was
+      // previously spread verbatim into `.update()`. The `.eq('tenant_id', …)`
+      // WHERE clause only scopes which ROW gets written, not which COLUMNS a
+      // model-hallucinated or prompt-injected `updates` object could set (e.g.
+      // `tenant_id` to donate the row to another tenant) — same mass-assignment
+      // class as P7/P8 in deploy-prep/cross-tenant-leak-register.md, just never
+      // applied to this AI tool-call surface. Matches the tool's own documented
+      // schema and src/lib/selena/tools.ts's handleUpdateBooking allow-list.
+      const allowedBookingFields = ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status']
+      const safeUpdates: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(updates)) {
+        if (allowedBookingFields.includes(k)) safeUpdates[k] = v
+      }
+
+      // team_member_id is a model-supplied FK — query_bookings/get_schedule_summary
+      // embed team_members(name) off this column with no tenant filter on the
+      // embedded side, so an unverified foreign id would surface another tenant's
+      // employee name on the next schedule lookup. Same class as P1/P11/P25/P30.
+      if (safeUpdates.team_member_id) {
+        const { data: owned } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('id', safeUpdates.team_member_id as string)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        if (!owned) return JSON.stringify({ error: 'team member not found' })
+      }
+
+      if (Object.keys(safeUpdates).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+
       const results = await Promise.all(
         ids.map(async (id) => {
-          const { error } = await supabaseAdmin.from('bookings').update(updates).eq('id', id).eq('tenant_id', tenantId)
+          const { error } = await supabaseAdmin.from('bookings').update(safeUpdates).eq('id', id).eq('tenant_id', tenantId)
           return { id, error: error?.message }
         })
       )
@@ -312,9 +342,20 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
     }
 
     case 'update_client': {
+      // Same mass-assignment gap as update_bookings above — allow-list matches
+      // this tool's own documented schema so a model-supplied `updates` object
+      // can't set `tenant_id` (row donation) or any other undocumented column.
+      const allowedClientFields = ['name', 'email', 'phone', 'address', 'notes', 'active']
+      const rawUpdates = (input.updates as Record<string, unknown>) || {}
+      const safeUpdates: Record<string, unknown> = {}
+      for (const [k, v] of Object.entries(rawUpdates)) {
+        if (allowedClientFields.includes(k)) safeUpdates[k] = v
+      }
+      if (Object.keys(safeUpdates).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'active']))
+        .update(safeUpdates)
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       if (error) return JSON.stringify({ error: error.message })
@@ -356,7 +397,7 @@ async function executeTool(name: string, input: Record<string, unknown>, tenant:
 export async function POST(request: Request) {
   try {
     const ctx = await getTenantForRequest()
-    const { tenant, tenantId } = ctx
+    const { tenant } = ctx
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })

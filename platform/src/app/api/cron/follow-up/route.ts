@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 // 3-day post-service follow-up thank you
 export async function GET(request: Request) {

@@ -3,7 +3,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { isEditableStatus, DOCUMENTS_BUCKET } from '@/lib/documents'
 
@@ -14,9 +15,10 @@ export async function GET(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: doc, error } = await supabaseAdmin
+    const { data: doc, error } = await db
       .from('documents')
       .select('*')
       .eq('tenant_id', tenantId)
@@ -25,10 +27,12 @@ export async function GET(_request: Request, { params }: Params) {
     if (error) throw error
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // Child reads are by document_id; tenantDb GAINS a tenant_id filter (these
+    // tables carry tenant_id — inserts stamp it). Storage stays on supabaseAdmin.
     const [{ data: signers }, { data: fields }, { data: activity }] = await Promise.all([
-      supabaseAdmin.from('document_signers').select('*').eq('document_id', id).order('order_index'),
-      supabaseAdmin.from('document_fields').select('*').eq('document_id', id).order('page').order('y_pct'),
-      supabaseAdmin.from('document_activity').select('id, event_type, signer_id, detail, created_at').eq('document_id', id).order('created_at', { ascending: false }).limit(200),
+      db.from('document_signers').select('*').eq('document_id', id).order('order_index'),
+      db.from('document_fields').select('*').eq('document_id', id).order('page').order('y_pct'),
+      db.from('document_activity').select('id, event_type, signer_id, detail, created_at').eq('document_id', id).order('created_at', { ascending: false }).limit(200),
     ])
 
     // Signed URL for the original PDF (short-lived)
@@ -64,10 +68,11 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('documents')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -84,7 +89,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const assignables = ['title', 'message', 'sign_order', 'expires_at', 'consent_text'] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('documents')
       .update(updates)
       .eq('tenant_id', tenantId)
@@ -105,9 +110,10 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('documents')
       .select('status, original_path, signed_path')
       .eq('tenant_id', tenantId)
@@ -124,7 +130,7 @@ export async function DELETE(_request: Request, { params }: Params) {
       await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).remove(paths)
     }
 
-    const { error } = await supabaseAdmin
+    const { error } = await db
       .from('documents')
       .delete()
       .eq('tenant_id', tenantId)

@@ -29,14 +29,18 @@ function FeedbackForm() {
     setSending(true)
     setError('')
     try {
-      await fetch('/api/feedback', {
+      const res = await fetch('/api/feedback', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message, source })
       })
+      if (!res.ok) {
+        setError('Failed to submit. Please try again.')
+        return
+      }
       setSubmitted(true)
     } catch {
-      setError('Unable to reach the server. Check your connection and try again.')
+      setError('Failed to submit. Please try again.')
     } finally {
       setSending(false)
     }

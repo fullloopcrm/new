@@ -35,6 +35,7 @@ const holder = vi.hoisted(() => ({
 
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => TENANT }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 10 }) }))
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ open_365: true }) }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [] }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false }))
@@ -44,10 +45,6 @@ vi.mock('@/lib/audit', () => ({ audit: vi.fn(async () => {}) }))
 vi.mock('@/lib/admin-contacts', () => ({ emailAdmins: vi.fn(async () => {}) }))
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
-vi.mock('@/lib/client-properties', () => ({
-  resolveProperty: vi.fn(async () => null),
-  applyPropertyToBookingClient: vi.fn(() => {}),
-}))
 vi.mock('@/lib/messaging/client-email', () => ({ bookingReceivedEmail: () => ({ subject: 's', html: 'h' }) }))
 vi.mock('@/lib/messaging/client-sms', () => ({ clientSmsTemplates: () => ({ bookingReceived: () => 'sms' }) }))
 vi.mock('@/lib/email-templates', () => ({
@@ -95,7 +92,8 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'clients') {
-        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { do_not_service: false }, error: null }) }) }) }) }
+        const result = { data: { do_not_service: false }, error: null }
+        return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => result, maybeSingle: async () => result }) }) }) }
       }
       if (table === 'bookings') return bookingsSelectBuilder()
       return stubChain()
@@ -110,7 +108,7 @@ vi.mock('@/lib/supabase', () => ({
           b.tenant_id === args.p_tenant_id &&
           b.client_id === args.p_client_id &&
           b.start_time >= (args.p_day_start as string) &&
-          b.start_time <= (args.p_day_end as string) &&
+          b.start_time < (args.p_day_end as string) &&
           (args.p_active_statuses as string[]).includes(b.status),
       )
       if (dup) return { data: { created: false, reason: 'duplicate_date' }, error: null }

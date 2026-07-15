@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 const CHECKLIST_FIELDS = ['name', 'phone', 'service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'address', 'email']
 
@@ -216,11 +217,10 @@ export async function POST(req: NextRequest) {
       }
 
       if (newConvoId) {
-        await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-          conversation_id: newConvoId,
-          direction: 'outbound',
-          message: recoveryText,
-        })
+        await insertConversationMessage(
+          { conversation_id: newConvoId, direction: 'outbound', message: recoveryText },
+          { expectedTenantId: tenantId },
+        )
       }
     }
 

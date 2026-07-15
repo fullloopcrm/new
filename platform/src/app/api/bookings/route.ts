@@ -103,21 +103,58 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
 
-    // client_id/property_id/team_member_id/service_type_id are cross-table
-    // FKs — confirm each belongs to this tenant before inserting, or a
-    // caller could attribute the booking to another tenant's row and
-    // exfiltrate its PII via the clients()/team_members()/client_properties()
-    // joins on this route's own insert response and on GET.
-    const fkChecks: Array<[string | undefined, string]> = [
-      [validated.client_id as string | undefined, 'clients'],
-      [validated.property_id as string | undefined, 'client_properties'],
-      [validated.team_member_id as string | undefined, 'team_members'],
-      [validated.service_type_id as string | undefined, 'service_types'],
-    ]
-    for (const [fkId, table] of fkChecks) {
-      if (!fkId) continue
-      const { data: owned } = await db.from(table).select('id').eq('id', fkId).maybeSingle()
-      if (!owned) return NextResponse.json({ error: `Invalid ${table}` }, { status: 400 })
+    // client_id is a caller-supplied FK — verify it belongs to this tenant before
+    // any read/write touches it, so a foreign id can't attach another tenant's
+    // client to this booking.
+    const { data: ownedClient } = await supabaseAdmin
+      .from('clients')
+      .select('id')
+      .eq('id', validated.client_id as string)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!ownedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
+    // property_id is a caller-supplied FK too — client_properties carries its
+    // own tenant_id and no cross-tenant FK check, and is written verbatim to
+    // create_admin_booking_atomic's p_property_id with no ownership check on
+    // either side (app layer or RPC). GET /api/bookings embeds
+    // client_properties(*) unscoped by tenant off this exact column, so a
+    // foreign id here leaks another tenant's client address/lat-long on the
+    // very next booking list read — same exfil shape as P1/P11/P17. Same
+    // guard already applied to POST /api/client/recurring and
+    // POST /api/admin/recurring-schedules; this sibling route accepted the
+    // id verbatim.
+    if (validated.property_id) {
+      const { data: ownedProperty } = await supabaseAdmin
+        .from('client_properties')
+        .select('id')
+        .eq('id', validated.property_id as string)
+        .eq('client_id', validated.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedProperty) {
+        return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+      }
+    }
+
+    // team_member_id is a caller-supplied FK too — team_members has no
+    // cross-tenant FK check, so without this a foreign id would sail through
+    // (the working-hours/cap lookup below silently no-ops when the row isn't
+    // found for this tenant, it doesn't reject) and the atomic RPC's row
+    // lock doesn't check for a match either — verify ownership here, before
+    // `force` or anything downstream can bypass it.
+    if (validated.team_member_id) {
+      const { data: ownedMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('id', validated.team_member_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
     }
 
     // Tenant rule: require_team_member forces a team_member_id at create time.
@@ -140,49 +177,44 @@ export async function POST(request: Request) {
       }
     }
 
-    // Check for team member scheduling conflicts, honoring booking_buffer_minutes
-    // so back-to-back jobs always leave the configured gap.
+    // Scheduling-conflict window + daily-cap inputs, computed here but
+    // CHECKED atomically below (create_admin_booking_atomic) alongside the
+    // INSERT — see migrations/2026_07_13_admin_booking_atomic.sql. Folding a
+    // separate SELECT-then-branch here into the same DB call as the insert
+    // closes a TOCTOU race: two concurrent creates assigning the same
+    // team_member_id could otherwise both read a clean pre-insert state and
+    // both pass before either INSERT landed (same shape as
+    // migrations/2026_07_13_job_claim_atomic.sql).
+    let conflictStart: string | null = null
+    let conflictEnd: string | null = null
+    let bufferNote = ''
     if (validated.team_member_id && validated.start_time) {
       const endTime = validated.end_time || new Date(new Date(validated.start_time as string).getTime() + 3 * 3600000).toISOString()
       const bufferMs = Math.max(0, settings.booking_buffer_minutes) * 60_000
-      const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
-      const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
-
-      // tenantDb's select() takes a non-literal `columns` param, which widens
-      // supabase-js's column-string type inference — cast to the shape actually selected.
-      const { data: conflicts } = (await db
-        .from('bookings')
-        .select('id, start_time, end_time')
-        .eq('team_member_id', validated.team_member_id)
-        .not('status', 'in', '("cancelled","no_show")')
-        .lt('start_time', endWithBuffer)
-        .gt('end_time', startWithBuffer)) as { data: { id: string; start_time: string; end_time: string | null }[] | null }
-
-      if (conflicts && conflicts.length > 0) {
-        const bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
-        return NextResponse.json({
-          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            start: c.start_time,
-            end: c.end_time,
-          }))
-        }, { status: 409 })
-      }
+      conflictStart = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
+      conflictEnd = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
+      bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
     }
 
-    // Working-hours + daily max-jobs enforcement at assignment — mirrors the
-    // smart-schedule scorer so a manual/agent pick can't violate what suggestions
-    // enforce. (force bypasses, like the day-off + conflict guards above.)
+    // Working-hours enforcement at assignment — mirrors the smart-schedule
+    // scorer so a manual/agent pick can't violate what suggestions enforce.
+    // (force bypasses, like the day-off guard above.) The daily-cap number
+    // itself is only captured here (capLimit); the actual count check moves
+    // into the atomic call below so it can't race the insert.
+    let capLimit: number | null = null
+    let capMemberName: string | undefined
+    const bookingDate = validated.start_time ? (validated.start_time as string).split('T')[0] : ''
+    const dayStart = bookingDate ? `${bookingDate}T00:00:00` : null
+    const dayEnd = bookingDate ? `${bookingDate}T23:59:59` : null
     if (validated.team_member_id && validated.start_time && !body.force) {
-      const bookingDate = (validated.start_time as string).split('T')[0]
-      // tenantDb's select() takes a non-literal `columns` param, which widens
-      // supabase-js's column-string type inference — cast to the shape actually selected.
-      const { data: member } = (await db
+      // Ownership already verified above (ownedMember) — tenant_id filter here
+      // is defense in depth since this lookup goes through supabaseAdmin directly.
+      const { data: member } = await supabaseAdmin
         .from('team_members')
         .select('name, schedule, max_jobs_per_day')
         .eq('id', validated.team_member_id as string)
-        .single()) as { data: { name: string; schedule: Record<string, unknown> | null; max_jobs_per_day: number | null } | null }
+        .eq('tenant_id', tenantId)
+        .single()
       if (member) {
         const startMin = timestampToMin(validated.start_time as string)
         const endMin = validated.end_time
@@ -198,27 +230,22 @@ export async function POST(request: Request) {
             unavailable: true, reason: 'outside_hours',
           }, { status: 409 })
         }
-        // Daily job cap.
         if (member.max_jobs_per_day) {
-          const { count } = await db
-            .from('bookings')
-            .select('id', { count: 'exact', head: true })
-            .eq('team_member_id', validated.team_member_id)
-            .gte('start_time', bookingDate + 'T00:00:00')
-            .lte('start_time', bookingDate + 'T23:59:59')
-            .not('status', 'in', '("cancelled","no_show")')
-          if ((count || 0) >= Number(member.max_jobs_per_day)) {
-            return NextResponse.json({
-              error: `${member.name} is already at their ${member.max_jobs_per_day}-job limit for ${bookingDate}.`,
-              unavailable: true, reason: 'max_jobs',
-            }, { status: 409 })
-          }
+          capLimit = Number(member.max_jobs_per_day)
+          capMemberName = member.name as string
         }
       }
     }
 
-    // Look up service type name if service_type_id provided. Tenant-scoped via
-    // db so a service_type_id from another tenant can't be used here.
+    // service_type_id is a caller-supplied FK too — the tenant-scoped lookup
+    // below used to only gate whether the NAME got copied onto the booking,
+    // but still passed the raw (possibly foreign) id through to the INSERT
+    // unconditionally. A foreign id planted here doesn't leak directly off
+    // this route, but POST /api/invoices?from_booking_id embeds
+    // service_types(name, default_hourly_rate, pricing_model) off this exact
+    // FK with no tenant filter on the embedded side — so a dangling foreign
+    // service_type_id here becomes a cross-tenant read one hop later. Reject
+    // instead of silently keeping the id, same as client_id/team_member_id above.
     if (validated.service_type_id) {
       // tenantDb's select() takes a non-literal `columns` param, which widens
       // supabase-js's column-string type inference — cast to the shape actually selected.
@@ -226,8 +253,11 @@ export async function POST(request: Request) {
         .from('service_types')
         .select('name')
         .eq('id', validated.service_type_id as string)
-        .single()) as { data: { name: string } | null }
-      if (svc) (validated as Record<string, unknown>).service_type = svc.name
+        .maybeSingle()) as { data: { name: string } | null }
+      if (!svc) {
+        return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      }
+      (validated as Record<string, unknown>).service_type = svc.name
     }
 
     // Status: auto_confirm_bookings overrides everything else; otherwise honor
@@ -236,10 +266,55 @@ export async function POST(request: Request) {
       ? 'confirmed'
       : (settings.default_booking_status || 'scheduled')
 
-    const { data, error } = await db
+    // Atomic create: the scheduling-conflict check, the daily-cap check, and
+    // the INSERT all run inside one supabaseAdmin.rpc('create_admin_booking_atomic', ...)
+    // call — see migrations/2026_07_13_admin_booking_atomic.sql.
+    const { data: claim, error: claimError } = await supabaseAdmin.rpc('create_admin_booking_atomic', {
+      p_tenant_id: tenantId,
+      p_client_id: validated.client_id,
+      p_property_id: validated.property_id ?? null,
+      p_team_member_id: validated.team_member_id ?? null,
+      p_service_type_id: validated.service_type_id ?? null,
+      p_service_type: (validated as Record<string, unknown>).service_type ?? null,
+      p_start_time: validated.start_time,
+      p_end_time: validated.end_time ?? null,
+      p_notes: validated.notes ?? null,
+      p_special_instructions: validated.special_instructions ?? null,
+      p_status: newStatus,
+      p_conflict_start: conflictStart,
+      p_conflict_end: conflictEnd,
+      p_day_start: dayStart,
+      p_day_end: dayEnd,
+      p_max_jobs_per_day: capLimit,
+    })
+    if (claimError) {
+      return NextResponse.json({ error: claimError.message }, { status: 500 })
+    }
+    if (!claim?.created) {
+      if (claim?.reason === 'conflict') {
+        return NextResponse.json({
+          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
+          conflicts: (claim.conflicts || []).map((c: { id: string; start: string; end: string }) => ({
+            id: c.id,
+            start: c.start,
+            end: c.end,
+          })),
+        }, { status: 409 })
+      }
+      if (claim?.reason === 'max_jobs') {
+        return NextResponse.json({
+          error: `${capMemberName} is already at their ${capLimit}-job limit for ${bookingDate}.`,
+          unavailable: true, reason: 'max_jobs',
+        }, { status: 409 })
+      }
+      return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
+    }
+
+    const { data, error } = await supabaseAdmin
       .from('bookings')
-      .insert({ ...validated, status: newStatus })
       .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .eq('id', claim.booking.id)
+      .eq('tenant_id', tenantId)
       .single()
 
     if (error) {

@@ -12,7 +12,24 @@ export async function POST(request: NextRequest) {
     const { type, booking_id, message } = body
 
     if (type === '15min_warning') {
-      // Insert in-app notification for admin
+      // booking_id is a caller-supplied FK — notifications has no cross-tenant
+      // FK check of its own, so an unvalidated id would let this tenant attach
+      // a notification row to another tenant's booking. Verify ownership
+      // (tenantDb auto-scopes by tenant_id) before any write; a miss 400s.
+      let booking: { client_id: string | null; check_in_time: string | null; hourly_rate: number | null; clients: unknown } | null = null
+      if (booking_id) {
+        const { data } = await db
+          .from('bookings')
+          .select('client_id, check_in_time, hourly_rate, clients(name, phone)')
+          .eq('id', booking_id)
+          .maybeSingle()
+        if (!data) {
+          return NextResponse.json({ error: 'Booking not found' }, { status: 400 })
+        }
+        booking = data
+      }
+
+      // Insert in-app notification for admin (tenant_id stamped by tenantDb)
       await db.from('notifications').insert({
         type: '15min_warning',
         title: '15-Min Heads Up',
@@ -24,35 +41,27 @@ export async function POST(request: NextRequest) {
       })
 
       // Also send SMS to client if booking has a client with phone
-      if (booking_id) {
-        const { data: booking } = await db
-          .from('bookings')
-          .select('client_id, check_in_time, hourly_rate, clients(name, phone)')
-          .eq('id', booking_id)
-          .single()
+      if (booking?.client_id) {
+        const client = booking.clients as unknown as { name: string; phone: string | null } | null
+        const clientName = client?.name?.split(' ')[0] || 'there'
 
-        if (booking?.client_id) {
-          const client = booking.clients as unknown as { name: string; phone: string | null } | null
-          const clientName = client?.name?.split(' ')[0] || 'there'
-
-          // Calculate estimated amount for the SMS
-          let amountStr = ''
-          if (booking.check_in_time && booking.hourly_rate) {
-            const hours = (Date.now() - new Date(booking.check_in_time).getTime()) / 3600000
-            amountStr = ` (~$${Math.round(hours * booking.hourly_rate)})`
-          }
-
-          await notify({
-            tenantId,
-            type: 'check_out' as const,
-            title: '15-Min Heads Up',
-            message: `Hi ${clientName}! Your team will be wrapping up in about 15 minutes${amountStr}. Thank you!`,
-            channel: 'sms',
-            recipientType: 'client',
-            recipientId: booking.client_id,
-            bookingId: booking_id,
-          })
+        // Calculate estimated amount for the SMS
+        let amountStr = ''
+        if (booking.check_in_time && booking.hourly_rate) {
+          const hours = (Date.now() - new Date(booking.check_in_time).getTime()) / 3600000
+          amountStr = ` (~$${Math.round(hours * booking.hourly_rate)})`
         }
+
+        await notify({
+          tenantId,
+          type: 'check_out' as const,
+          title: '15-Min Heads Up',
+          message: `Hi ${clientName}! Your team will be wrapping up in about 15 minutes${amountStr}. Thank you!`,
+          channel: 'sms',
+          recipientType: 'client',
+          recipientId: booking.client_id,
+          bookingId: booking_id,
+        })
       }
 
       return NextResponse.json({ success: true })
@@ -95,7 +104,8 @@ export async function GET(request: NextRequest) {
     // navigation, so skip the mark-read WRITE (not the read) when Sec-Fetch-Site
     // says this GET was forged from another site — see csrf-guard.ts.
     if (markRead === 'true' && !isCrossSiteRequest(request.headers)) {
-      // Mark all as read by updating metadata
+      // Mark all as read by updating metadata. tenantDb adds .eq(tenant_id) so a
+      // stray id from another tenant can never be flipped here.
       const ids = (data || []).map((n) => n.id)
       if (ids.length > 0) {
         await db

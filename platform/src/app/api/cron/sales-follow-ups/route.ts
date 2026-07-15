@@ -9,7 +9,6 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 

@@ -5,7 +5,6 @@ import { notify } from '@/lib/notify'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300 // Vercel pro plan
 

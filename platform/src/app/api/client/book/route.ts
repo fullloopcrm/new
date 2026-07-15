@@ -16,6 +16,8 @@ import { autoAttributeBooking } from '@/lib/attribution'
 import { resolveProperty, applyPropertyToBookingClient } from '@/lib/client-properties'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getSettings } from '@/lib/settings'
+import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { randomInt, randomBytes } from 'crypto'
@@ -60,27 +62,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
 
-    // This is a PUBLIC, unauthenticated endpoint and body.client_id comes
-    // straight from the caller's localStorage (see client dashboards) with no
-    // server-side session binding. Confirm it belongs to THIS tenant before
-    // trusting it for anything below -- otherwise a client_id from a
-    // different tenant gets a real booking created under it, and that
-    // foreign client's name/phone/address (and, via resolveProperty, their
-    // property address) gets pulled into this tenant's dashboard through the
-    // clients()/client_properties() joins on GET /api/bookings, a
-    // cross-tenant PII leak reachable by any anonymous visitor (same class
-    // already fixed on the staff-facing creation routes this session).
-    // Doubles as the do-not-service (DNS) gate.
+    // body.client_id is caller-supplied and wholly unauthenticated (this is the
+    // public new/returning-customer booking form) — clients has no cross-tenant
+    // FK check, so a foreign id was previously accepted verbatim: create_booking_
+    // atomic's ownership PERFORM doesn't reject a no-match, and the read-back
+    // below embeds clients(*) unscoped, so another tenant's client PII (name/
+    // phone/email/address) would return in this response, and the confirmation
+    // email/SMS a few lines down would be sent to THAT client, not the caller.
+    // Verify ownership up front — 404 before any booking work runs — which also
+    // covers the do-not-service gate below.
     if (body.client_id) {
-      const { data: dnsCheck } = await tenantDb(tenant.id)
+      const { data: ownedClient } = await supabaseAdmin
         .from('clients')
         .select('do_not_service')
         .eq('id', body.client_id as string)
-        .single()
-      if (!dnsCheck) {
+        .eq('tenant_id', tenant.id)
+        .maybeSingle()
+      if (!ownedClient) {
         return NextResponse.json({ error: 'Client not found' }, { status: 404 })
       }
-      if (dnsCheck.do_not_service) {
+      if (ownedClient.do_not_service) {
         const contactPhone = tenant.phone || ''
         return NextResponse.json({
           error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
@@ -166,20 +167,11 @@ export async function POST(request: Request) {
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
     if (body.date && body.time && !startTime) {
-      // Parse "H:MM AM/PM" (or 24h "H:MM") robustly. A fixed lookup map only
-      // covering 9am-4pm silently fell back to 9am for any slot outside that
-      // range (e.g. the 7/8am and 5/6pm slots several booking forms offer) —
-      // nycmaid hit and fixed this same bug; port the regex parser here too.
-      const m = String(body.time).match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i)
-      let hour = 9
-      let minute = 0
-      if (m) {
-        hour = parseInt(m[1], 10)
-        minute = parseInt(m[2], 10)
-        const ap = m[3]?.toUpperCase()
-        if (ap === 'PM' && hour < 12) hour += 12
-        if (ap === 'AM' && hour === 12) hour = 0
-      }
+      // Parse any slot label (incl. evening/24-7 slots), not just a fixed 9am-4pm map.
+      // Slot labels come from hourToLabel (@/lib/time-slots) and are always
+      // on the hour, so minute is always 0.
+      const hour = labelToHour(body.time as string) ?? 9
+      const minute = 0
       const duration = Number(body.estimated_hours) || 2
       const pad = (n: number) => n.toString().padStart(2, '0')
       startTime = `${body.date}T${pad(hour)}:${pad(minute)}:00`
@@ -191,11 +183,15 @@ export async function POST(request: Request) {
     const tokenExpiresAt = new Date(startTime)
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 24)
 
-    // Holiday gate
-    const { isHoliday } = await import('@/lib/holidays')
-    const holidayName = isHoliday(startTime.split('T')[0])
-    if (holidayName) {
-      return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+    // Holiday gate — skipped for open_365 / 24-7 tenants (emergency trades book
+    // on holidays). Mirrors checkAvailability, which already exempts open_365.
+    const { open_365 } = await getSettings(tenant.id)
+    if (!open_365) {
+      const { isHoliday } = await import('@/lib/holidays')
+      const holidayName = isHoliday(startTime.split('T')[0])
+      if (holidayName) {
+        return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+      }
     }
 
     const bookingDate = startTime.split('T')[0]
@@ -284,6 +280,11 @@ export async function POST(request: Request) {
     // check followed by a separate INSERT — two concurrent submits (double-
     // click, slow-connection double-tap) could both read count=0 and both
     // pass before either INSERT landed, creating two bookings same-day.
+    // Same naive-datetime boundary strings the old count check used (no tz
+    // suffix — Postgres parses them in the session timezone, unchanged).
+    const nextDayDate = new Date(`${bookingDate}T00:00:00Z`)
+    nextDayDate.setUTCDate(nextDayDate.getUTCDate() + 1)
+    const nextBookingDate = nextDayDate.toISOString().split('T')[0]
     const { data: claim, error: claimError } = await supabaseAdmin.rpc('create_booking_atomic', {
       p_tenant_id: tenant.id,
       p_client_id: clientId,
@@ -303,7 +304,7 @@ export async function POST(request: Request) {
       p_referrer_id: referrerId,
       p_ref_code: (body.ref_code as string) || null,
       p_day_start: `${bookingDate}T00:00:00`,
-      p_day_end: `${bookingDate}T23:59:59`,
+      p_day_end: `${nextBookingDate}T00:00:00`,
       p_active_statuses: ['scheduled', 'pending', 'confirmed', 'in_progress'],
     })
     if (claimError) return NextResponse.json({ error: claimError.message }, { status: 500 })

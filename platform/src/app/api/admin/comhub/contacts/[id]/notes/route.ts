@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 
@@ -11,6 +11,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
+  const db = tenantDb(tenantId)
   const { id } = await ctx.params
 
   const body = await req.json().catch(() => null) as {
@@ -20,7 +21,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   } | null
   if (!body) return NextResponse.json({ error: 'invalid body' }, { status: 400 })
 
-  const { data: contact } = await supabaseAdmin
+  const { data: contact } = await db
     .from('comhub_contacts')
     .select('id, client_id')
     .eq('id', id)
@@ -43,7 +44,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     : undefined
   if (notesValue === undefined) return NextResponse.json({ ok: true, noop: true })
 
-  const { error } = await supabaseAdmin
+  // update-by-client_id GAINS a tenant filter (client_id came from a tenant-scoped contact)
+  const { error } = await db
     .from('clients')
     .update({ notes: notesValue })
     .eq('id', contact.client_id)

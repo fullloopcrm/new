@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
 
@@ -17,13 +18,13 @@ export async function GET(req: NextRequest) {
 
     if (convoId) {
       // Tenant-verify: only return messages for convos owned by this tenant.
-      // sms_conversation_messages itself has no tenant_id column (only
-      // conversation_id -> sms_conversations), so scoping has to happen here.
-      const { data: convo } = await supabaseAdmin
+      // sms_conversation_messages has no tenant_id column of its own — the
+      // conversation_id FK is the only scoping surface, so it must be checked
+      // here (same pattern as GET /api/admin/selena).
+      const { data: convo } = await db
         .from('sms_conversations')
         .select('id')
         .eq('id', convoId)
-        .eq('tenant_id', tenantId)
         .maybeSingle()
       if (!convo) return NextResponse.json({ messages: [] })
 
@@ -180,11 +181,10 @@ export async function POST(req: NextRequest) {
         // mis-tag: this row used to fall back to the column DEFAULT ('nycmaid')
         // instead of the caller's own tenant, see route.reset-insert-tenant-tag.witness.test.ts)
         if (newConvoId) {
-          await db.from('sms_conversation_messages').insert({
-            conversation_id: newConvoId,
-            direction: 'outbound',
-            message: recoveryMsg,
-          })
+          await insertConversationMessage(
+            { conversation_id: newConvoId, direction: 'outbound', message: recoveryMsg },
+            { expectedTenantId: tenantId },
+          )
         }
       }
     }

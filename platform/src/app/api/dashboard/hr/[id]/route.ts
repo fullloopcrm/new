@@ -17,8 +17,8 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (permErr) return permErr
   try {
     const { tenantId } = tenant
-    const { id } = await ctx.params
     const db = tenantDb(tenantId)
+    const { id } = await ctx.params
 
     const { data: member, error: memberErr } = await db
       .from('team_members')
@@ -69,8 +69,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   if (permErr) return permErr
   try {
     const { tenantId } = tenant
-    const { id } = await ctx.params
     const db = tenantDb(tenantId)
+    const { id } = await ctx.params
 
     // Confirm the member belongs to this tenant before writing anything.
     const { data: member } = await db

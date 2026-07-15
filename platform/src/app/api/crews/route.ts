@@ -4,8 +4,10 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
+// crew_members has NO tenant_id column (join table keyed by crew_id + team_member_id),
+// so it cannot be tenant-scoped by tenantDb and stays on supabaseAdmin.
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
@@ -65,10 +67,12 @@ export async function PATCH(request: Request) {
 
     const db = tenantDb(tenantId)
 
-    // Verify the crew belongs to THIS tenant before any mutation, including
-    // member replacement below — crew_members has no tenant_id column of its
-    // own, so without this check a caller could pass a foreign tenant's crew
-    // id and setMembers() would wipe and rewrite that tenant's roster.
+    // Ownership gate: a foreign (cross-tenant) crew id must 404 here, before any
+    // write. Without this, an empty patch ({ id, member_ids }) skips the
+    // tenantDb-scoped crews UPDATE entirely and falls straight into
+    // setMembers(), which used to scope only by crew_id — wiping and
+    // repopulating another tenant's crew roster (see
+    // deploy-prep/cross-tenant-leak-register.md P0).
     const { data: owned } = await db.from('crews').select('id').eq('id', id).maybeSingle()
     if (!owned) return NextResponse.json({ error: 'Crew not found' }, { status: 404 })
 
@@ -95,7 +99,8 @@ export async function DELETE(request: Request) {
     const { tenantId } = await getTenantForRequest()
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    await tenantDb(tenantId).from('crews').delete().eq('id', id)
+    const { data } = await tenantDb(tenantId).from('crews').delete().eq('id', id).select('id')
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Crew not found' }, { status: 404 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -105,23 +110,17 @@ export async function DELETE(request: Request) {
 }
 
 // Replace a crew's members with the given set (verified to belong to the tenant).
-// crew_members has no tenant_id column of its own — callers MUST verify the
-// crewId belongs to tenantId before calling this (see the PATCH ownership
-// check above); this function trusts that check and only re-verifies the
-// member ids themselves.
+// crew_members has no tenant_id, so its delete/insert are scoped only by
+// crew_id — re-verify the crew itself belongs to tenantId as the FIRST line
+// here (not just at each call site) so every current and future caller is
+// covered by construction, per deploy-prep/cross-tenant-leak-register.md P0.
 async function setMembers(tenantId: string, crewId: string, memberIds: string[]) {
-  // SECURITY: re-verify the crew belongs to this tenant BEFORE mutating its
-  // members. crew_members has no tenant_id column, so a bare
-  // `.delete().eq('crew_id', crewId)` would let an owner of tenant A wipe or
-  // pollute tenant B's crew by guessing B's crew UUID. Scope the check through
-  // the tenant-owned crews table; if the crew isn't in this tenant, do nothing.
-  const { data: owned } = await supabaseAdmin
-    .from('crews').select('id').eq('id', crewId).eq('tenant_id', tenantId).maybeSingle()
+  const { data: owned } = await tenantDb(tenantId).from('crews').select('id').eq('id', crewId).maybeSingle()
   if (!owned) return
   await supabaseAdmin.from('crew_members').delete().eq('crew_id', crewId)
   if (memberIds.length === 0) return
   const { data: valid } = await tenantDb(tenantId)
     .from('team_members').select('id').in('id', memberIds)
-  const rows = ((valid || []) as unknown as { id: string }[]).map((m) => ({ crew_id: crewId, team_member_id: m.id }))
+  const rows = (valid || []).map((m) => ({ crew_id: crewId, team_member_id: m.id }))
   if (rows.length) await supabaseAdmin.from('crew_members').insert(rows)
 }

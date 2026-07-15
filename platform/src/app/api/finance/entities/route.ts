@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+// GET reads via listEntities(), which is already tenant-scoped (.eq('tenant_id')).
 import { listEntities } from '@/lib/entity'
 
 export async function GET() {
@@ -22,18 +23,19 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-injects/stamps tenant_id on the update + insert below.
+    const db = tenantDb(tenantId)
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
     // If make_default, unset any existing default first (unique partial index enforces one)
     if (body.make_default) {
-      await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
+      await db.from('entities').update({ is_default: false }).eq('is_default', true)
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('entities')
       .insert({
-        tenant_id: tenantId,
         name: body.name,
         legal_name: body.legal_name || null,
         ein: body.ein || null,

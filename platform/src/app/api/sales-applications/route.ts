@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
@@ -133,7 +134,7 @@ export async function POST(request: Request) {
       tenantId,
       type: 'team_member_added',
       title: 'New Sales Partner Application',
-      message: `${name} applied for Commission Sales Partner`,
+      message: `${escapeHtml(name)} applied for Commission Sales Partner`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { applicantName: name, phone: cleanPhone, videoUrl: video_url, role: 'commission_sales_partner' },

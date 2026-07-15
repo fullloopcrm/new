@@ -1,82 +1,159 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { FakeSupabase } from '@/test/fake-supabase'
+import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * tenantDb conversion probe — bookings/batch/route.ts (docs/adr/0004).
- * Proves the wrapper stamps every row in a bulk-create with the requesting
- * tenant's id — even though the caller no longer builds tenant_id into each
- * row at all — and that a batch created for tenant A never touches or
- * becomes visible under tenant B's existing booking for the same client_id.
+ * Tenant isolation — POST /api/bookings/batch (converted to tenantDb).
+ *
+ * Bulk-create path. The isolation guarantee is the STAMP: every row is inserted
+ * through tenantDb, which stamps tenant_id last — so a request body that forges a
+ * foreign tenant_id on a booking row still lands under the ACTING tenant. The
+ * probe forges tenant B on the payload and asserts the captured insert is tenant A.
+ *
+ * Rows are created with status 'pending' so the (first-row-only) SMS/email notify
+ * branch is skipped — this test asserts tenant-safety of the write, not delivery.
  */
 
-vi.mock('@/lib/supabase', async () => {
-  const { createFakeSupabase } = await import('@/test/fake-supabase')
-  const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
-})
+const A = 'tid-a'
+const B = 'tid-b'
 
-let currentTenantId: string
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
 vi.mock('@/lib/require-permission', () => ({
-  requirePermission: async () => ({ tenant: { tenantId: currentTenantId }, error: null }),
+  requirePermission: vi.fn(async () => ({
+    tenant: { tenantId: A, tenant: { id: A }, role: 'owner', userId: 'u1' },
+    error: null,
+  })),
 }))
-vi.mock('@/lib/email', () => ({ sendEmail: async () => ({}) }))
-vi.mock('@/lib/sms', () => ({ sendSMS: async () => ({}) }))
-vi.mock('@/lib/messaging/client-sms', () => ({ clientSmsTemplatesFor: async () => ({ bookingConfirmation: () => 'sms' }) }))
-vi.mock('@/lib/messaging/team-sms-resolver', () => ({ teamSmsTemplates: () => ({ jobAssignment: () => 'sms' }) }))
 
-import { supabaseAdmin } from '@/lib/supabase'
+// Notify libs — no-op; the pending-status rows never reach them, mocked defensively.
+vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
+vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
+vi.mock('@/lib/sms-templates', () => ({ smsJobAssignment: vi.fn(() => 'msg') }))
+vi.mock('@/lib/messaging/client-sms', () => ({
+  clientSmsTemplatesFor: vi.fn(async () => ({ bookingConfirmation: () => 'msg' })),
+}))
+
 import { POST } from './route'
 
-const A_ID = 'tenant-A'
-const B_ID = 'tenant-B'
-const CLIENT_A = 'client-a'
-const fake = supabaseAdmin as unknown as FakeSupabase
-
+let h: Harness
 beforeEach(() => {
-  fake._store.clear()
-  currentTenantId = A_ID
-  fake._seed('tenants', [{ id: A_ID, name: 'A Co' }, { id: B_ID, name: 'B Co' }])
-  fake._seed('bookings', [
-    { id: 'b-existing', tenant_id: B_ID, client_id: CLIENT_A, start_time: '2026-08-01T10:00:00', status: 'scheduled' },
-  ])
+  h = createTenantDbHarness({
+    bookings: [],
+    clients: [
+      { id: 'c1', tenant_id: A },
+      { id: 'c2', tenant_id: A },
+      { id: 'c-foreign', tenant_id: B },
+    ],
+    team_members: [
+      { id: 'tm-a', tenant_id: A },
+      { id: 'tm-foreign', tenant_id: B },
+    ],
+    service_types: [
+      { id: 'svc-a', tenant_id: A },
+      { id: 'svc-foreign', tenant_id: B },
+    ],
+    recurring_schedules: [
+      { id: 'sched-a', tenant_id: A },
+      { id: 'sched-foreign', tenant_id: B },
+    ],
+  })
+  holder.from = h.from
 })
 
-function req(bookings: Array<Record<string, unknown>>): Request {
-  return new Request('http://x/api/bookings/batch', { method: 'POST', body: JSON.stringify({ bookings }) })
+function post(bookings: unknown[]) {
+  return POST(new Request('http://t/api/bookings/batch', { method: 'POST', body: JSON.stringify({ bookings }) }))
 }
 
-describe('bookings/batch POST — tenantDb isolation', () => {
-  it("stamps every row in the batch with tenant A's id via tenantDb, even though input rows carry no tenant_id at all", async () => {
-    const res = await POST(req([
-      { client_id: CLIENT_A, start_time: '2026-08-02T10:00:00', end_time: '2026-08-02T12:00:00', status: 'pending' },
-      { client_id: CLIENT_A, start_time: '2026-08-03T10:00:00', end_time: '2026-08-03T12:00:00', status: 'pending' },
-    ]))
+describe('bookings/batch POST — tenant isolation', () => {
+  it('positive control: bulk-creates rows for the acting tenant', async () => {
+    const res = await post([
+      { client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+      { client_id: 'c2', start_time: '2020-01-02T10:00:00Z', end_time: '2020-01-02T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
     expect(res.status).toBe(200)
-    const body = await res.json()
-    expect(body.created).toBe(2)
-    expect((body.bookings as { tenant_id: string }[]).every((b) => b.tenant_id === A_ID)).toBe(true)
+    expect((await res.json()).created).toBe(2)
   })
 
-  it("a batch created for tenant A leaves tenant B's existing same-client_id booking untouched and invisible to A", async () => {
-    await POST(req([
-      { client_id: CLIENT_A, start_time: '2026-08-04T10:00:00', end_time: '2026-08-04T12:00:00', status: 'pending' },
-    ]))
-    const aRows = fake._all('bookings').filter((b) => b.client_id === CLIENT_A && b.tenant_id === A_ID)
-    expect(aRows.length).toBe(1)
-    const bRows = fake._all('bookings').filter((b) => b.tenant_id === B_ID)
-    expect(bRows.length).toBe(1)
+  it('stamp: a forged foreign tenant_id on a payload row is overridden to the acting tenant', async () => {
+    await post([
+      { tenant_id: B, client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins).toBeDefined()
+    expect(ins!.rows.length).toBeGreaterThan(0)
+    expect(ins!.rows.every((r) => r.tenant_id === A)).toBe(true)
   })
-})
 
-describe('LEAK CONTROL', () => {
-  it("reading bookings by client_id ALONE (no tenant_id filter) WOULD return both tenants' rows for the same client_id — proves the route's tenantDb scoping above is load-bearing", async () => {
-    await POST(req([
-      { client_id: CLIENT_A, start_time: '2026-08-05T10:00:00', end_time: '2026-08-05T12:00:00', status: 'pending' },
-    ]))
-    const { data } = await supabaseAdmin
-      .from('bookings') // tenant-scope-ok: deliberate unscoped LEAK CONTROL probe, proves the route's tenantDb filter is load-bearing
-      .select('id, tenant_id')
-      .eq('client_id', CLIENT_A)
-    expect((data as { tenant_id: string }[]).map((r) => r.tenant_id).sort()).toEqual([A_ID, B_ID])
+  it('cross-tenant client_id probe: rejects the whole batch when any row targets a foreign client', async () => {
+    const res = await post([
+      { client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+      { client_id: 'c-foreign', start_time: '2020-01-02T10:00:00Z', end_time: '2020-01-02T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('cross-tenant team_member_id probe: rejects the whole batch when any row targets a foreign team member', async () => {
+    const res = await post([
+      { client_id: 'c1', team_member_id: 'tm-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant client_id + team_member_id succeed', async () => {
+    const res = await post([
+      { client_id: 'c1', team_member_id: 'tm-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].team_member_id).toBe('tm-a')
+  })
+
+  it('cross-tenant service_type_id probe: rejects the whole batch when any row targets a foreign service type (P20)', async () => {
+    const res = await post([
+      { client_id: 'c1', service_type_id: 'svc-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant service_type_id succeeds (P20)', async () => {
+    const res = await post([
+      { client_id: 'c1', service_type_id: 'svc-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].service_type_id).toBe('svc-a')
+  })
+
+  it('cross-tenant schedule_id probe: rejects the whole batch when a row targets a foreign schedule (P38)', async () => {
+    const res = await post([
+      { client_id: 'c1', schedule_id: 'sched-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('cross-tenant top-level schedule_id probe: rejects the whole batch when the request-level default targets a foreign schedule (P38)', async () => {
+    const res = await POST(new Request('http://t/api/bookings/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        schedule_id: 'sched-foreign',
+        bookings: [{ client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' }],
+      }),
+    }))
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant schedule_id succeeds (P38)', async () => {
+    const res = await post([
+      { client_id: 'c1', schedule_id: 'sched-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].schedule_id).toBe('sched-a')
   })
 })

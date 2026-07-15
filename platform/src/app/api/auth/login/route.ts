@@ -6,7 +6,7 @@ import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeHtml } from '@/lib/escape-html'
-import { safeEqual } from '@/lib/secret-compare'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function POST(request: Request) {
   try {
@@ -14,21 +14,28 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 
-    // Durable rate limiting (survives serverless cold starts, unlike an
-    // in-memory Map which resets per-instance and gives no real protection
-    // against distributed/concurrent brute force). Fail-closed: a DB outage
-    // denies rather than allowing unlimited attempts while blind.
+    // Persistent (DB-backed) rate limiting, fail-closed. This endpoint used to
+    // rate-limit via an in-memory Map, which resets every cold start and is
+    // per-instance under concurrent serverless invocations — an attacker gets
+    // a fresh set of attempts on every new lambda instance, effectively no
+    // limit at all. failClosed: true so a rate-limiter DB outage denies the
+    // login instead of silently letting brute force through while blind,
+    // matching every other auth-critical endpoint (admin-auth, client/login,
+    // portal/auth, etc).
     const rl = await rateLimitDb(`auth_login:${ip}`, 5, 5 * 60 * 1000, { failClosed: true })
     if (!rl.allowed) {
       await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
       return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
     }
 
-    // Empty ADMIN_PASSWORD must never authorize the PIN-fallback path below —
-    // `(process.env.ADMIN_PASSWORD || '').trim()` used to default to '', so an
-    // unconfigured secret + an empty submitted password compared equal and
-    // handed out a full owner session with zero credentials.
-    const adminPassword = (process.env.ADMIN_PASSWORD || '').trim()
+    // Deliberately NOT `|| ''` — an unconfigured ADMIN_PASSWORD must never
+    // resolve to an empty string here. `safeEqual(password, adminPassword)`
+    // below would then grant a full owner session to a request that sends
+    // `password: ""` (or omits it, since JSON destructuring makes it
+    // `undefined` and the typeof guard below rejects that — but an explicit
+    // empty string in the body would match). Same fail-open shape as the
+    // ADMIN_PASSWORD HMAC-secret fix in lib/nycmaid/auth.ts.
+    const adminPassword = process.env.ADMIN_PASSWORD?.trim() || null
 
     // Try user-based login first (email + password)
     if (email && password) {
@@ -84,10 +91,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Fallback: legacy PIN-based login. Reject if ADMIN_PASSWORD is unset —
-    // otherwise an empty submitted password would match an empty adminPassword,
-    // a zero-config admin-session bypass. Constant-time compare avoids a
-    // timing oracle on the PIN itself.
+    // Fallback: legacy PIN-based login. `adminPassword` is null (never '')
+    // when unconfigured, so this can't be satisfied by an empty/omitted body
+    // password even if ADMIN_PASSWORD is unset. Constant-time compare — a naive
+    // === leaks the password byte-by-byte via timing (same class already fixed
+    // for CRON_SECRET/ADMIN_PIN across cron/admin routes, de510a4e/413adc6f).
     if (adminPassword && typeof password === 'string' && safeEqual(password, adminPassword)) {
       const session = createSessionCookie()
       const cookieStore = await cookies()
@@ -122,10 +130,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, user: { name: 'Admin', role: 'owner' } })
     }
 
-    // Failed attempt — already recorded by the rateLimitDb call above.
-    // rl.remaining <= 2 means this was the 3rd+ attempt in the window.
+    // Notify security once brute-force pressure is evident (3rd+ attempt in
+    // the window), same threshold the old in-memory counter used.
     if (rl.remaining <= 2) {
-      await notify({ type: 'security', title: 'Failed Login', message: `Repeated failed login attempts from ${ip}` })
+      await notify({ type: 'security', title: 'Failed Login', message: `Failed login attempt from ${ip} (${rl.remaining} attempts remaining before lockout)` })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })

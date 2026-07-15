@@ -185,6 +185,24 @@ describe('ledgerBalanceSheet', () => {
     expect(r.balanced).toBe(true)
   })
 
+  it('classifies liabilities and equity credit-positive alongside assets', async () => {
+    seedLine(A, { debit: 200000, entryDate: '2026-06-01', type: 'asset', code: '1000', name: 'Cash' })
+    seedLine(A, { credit: 50000, entryDate: '2026-06-01', type: 'liability', code: '2000', name: 'Payable' })
+    seedLine(A, { credit: 150000, entryDate: '2026-06-01', type: 'equity', code: '3000', name: 'Owner Equity' })
+    const r = await ledgerBalanceSheet(A, '2026-07-31')
+    expect(r.assets).toEqual([{ code: '1000', name: 'Cash', balance_cents: 200000 }])
+    expect(r.liabilities).toEqual([{ code: '2000', name: 'Payable', balance_cents: 50000 }])
+    expect(r.equity).toEqual([{ code: '3000', name: 'Owner Equity', balance_cents: 150000 }])
+    expect(r.balanced).toBe(true)
+  })
+
+  it('flags balanced=false when assets do not equal liabilities+equity', async () => {
+    seedLine(A, { debit: 500000, entryDate: '2026-06-01', type: 'asset', code: '1000', name: 'Cash' })
+    seedLine(A, { credit: 50000, entryDate: '2026-06-01', type: 'liability', code: '2000', name: 'Payable' })
+    const r = await ledgerBalanceSheet(A, '2026-07-31')
+    expect(r.balanced).toBe(false)
+  })
+
   it('drops zero-balance accounts', async () => {
     seedLine(A, { debit: 500, entryDate: '2026-07-01', type: 'asset', code: '1000', name: 'Cash' })
     seedLine(A, { credit: 500, entryDate: '2026-07-01', type: 'asset', code: '1000', name: 'Cash' }) // nets to zero

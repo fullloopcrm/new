@@ -233,6 +233,36 @@ describe('getSettings — selena_config derived fields', () => {
   })
 })
 
+/**
+ * F1 — getSettings().funnel_mode. When a tenant's selena_config carries no
+ * explicit funnel_mode (every tenant provisioned before funnel_mode was seeded),
+ * the resolved funnel must come from the TRADE ARCHETYPE: project/lead verticals
+ * quote-first ('pipeline'), everything else books. An explicit selena_config
+ * choice always wins.
+ */
+describe('getSettings funnel_mode — archetype default (F1)', () => {
+  it('project vertical with empty selena_config resolves to pipeline (quote-first)', async () => {
+    tenantsResponse.value = { data: baseTenant({ industry: 'roofing', selena_config: {} }) }
+    expect((await getSettings('tenant-1')).funnel_mode).toBe('pipeline')
+  })
+
+  it('booking trade with empty selena_config stays on booking', async () => {
+    tenantsResponse.value = { data: baseTenant({ industry: 'cleaning', selena_config: {} }) }
+    expect((await getSettings('tenant-1')).funnel_mode).toBe('booking')
+  })
+
+  it('explicit selena_config.funnel_mode overrides the archetype default', async () => {
+    // Owner deliberately set a roofing tenant to direct booking — honor it.
+    tenantsResponse.value = { data: baseTenant({ industry: 'roofing', selena_config: { funnel_mode: 'booking' } }) }
+    expect((await getSettings('tenant-1')).funnel_mode).toBe('booking')
+  })
+
+  it('explicit lead_only is preserved', async () => {
+    tenantsResponse.value = { data: baseTenant({ industry: 'roofing', selena_config: { funnel_mode: 'lead_only' } }) }
+    expect((await getSettings('tenant-1')).funnel_mode).toBe('lead_only')
+  })
+})
+
 describe('getSettings — notification_preferences integration (normalizePrefs)', () => {
   it('derives reminder timing + booking_reminder/daily_summary flags from real defaults', async () => {
     tenantsResponse.value = { data: baseTenant({ notification_preferences: null }) }

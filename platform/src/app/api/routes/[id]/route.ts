@@ -44,19 +44,21 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
-    // team_member_id is caller-supplied; verify it belongs to this tenant before
-    // writing it (GET joins team_members(name, phone, home_lat/lng), so a foreign
-    // id would otherwise leak another tenant's staff PII onto this route).
-    if (updates.team_member_id) {
+    // team_member_id is a caller-supplied FK — team_members has no cross-tenant
+    // FK check, and GET /api/routes(/[id]) embeds team_members(name, phone,
+    // home_lat/lng) unscoped by tenant off this column, so a foreign id would
+    // leak another tenant's employee name/phone/home address on the next read
+    // (and POST /api/routes/[id]/publish would text that foreign employee via
+    // this tenant's own SMS account). POST /api/routes already verifies this
+    // FK before insert; this PATCH path let it through unchecked.
+    if ('team_member_id' in updates && updates.team_member_id) {
       const { data: tm } = await supabaseAdmin
         .from('team_members')
         .select('id')
         .eq('tenant_id', tenantId)
-        .eq('id', updates.team_member_id)
-        .single()
-      if (!tm) {
-        return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
-      }
+        .eq('id', updates.team_member_id as string)
+        .maybeSingle()
+      if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
     }
 
     if ('stops' in body && Array.isArray(body.stops)) {

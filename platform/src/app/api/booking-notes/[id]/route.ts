@@ -13,6 +13,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   }
 
   const { id } = await params
+  // tenantDb scopes the note lookup + delete to ctx.tenantId; the delete GAINS a
+  // tenant_id filter it previously lacked. Storage stays on supabaseAdmin (no tenant_id).
   const db = tenantDb(ctx.tenantId)
   const { data: note } = (await db.from('booking_notes').select('images').eq('id', id).single()) as {
     data: { images: string[] | null } | null

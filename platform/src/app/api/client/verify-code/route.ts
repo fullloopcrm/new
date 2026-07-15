@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'

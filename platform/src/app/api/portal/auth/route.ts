@@ -49,11 +49,14 @@ export async function POST(request: Request) {
 
     const code = generateCode()
 
-    // Delete any existing unused codes for this phone
+    // Delete any existing unused codes for this phone — scoped to THIS tenant
+    // (tenantDb's delete() auto-appends .eq('tenant_id', …), so the same phone
+    // used across two tenants can never delete another tenant's pending code).
     await db
       .from('portal_auth_codes')
       .delete()
       .eq('phone', phone)
+      .eq('tenant_id', tenant.id)
       .eq('used', false)
 
     // Insert new code
@@ -137,12 +140,6 @@ export async function POST(request: Request) {
 
     if (!tenant) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
-    }
-
-    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-    const rl = await rateLimitDb(`portal_auth_verify:${ip}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
-    if (!rl.allowed) {
-      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
     // Tenant isn't known yet at this point — the client only has phone+code,

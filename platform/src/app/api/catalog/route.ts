@@ -8,7 +8,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
 const ITEM_TYPES = ['service', 'project', 'product']
@@ -23,10 +23,9 @@ function num(v: unknown): number | null {
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
-      .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true })
     if (error) throw error
     // Legacy/seeded rows carry the hourly rate in the OLD booking column
@@ -61,10 +60,9 @@ export async function POST(request: Request) {
     const item_type = ITEM_TYPES.includes(body.item_type as string) ? (body.item_type as string) : 'service'
     const per_unit = PER_UNITS.includes(body.per_unit as string) ? (body.per_unit as string) : 'job'
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .insert({
-        tenant_id: tenantId,
         name,
         description: (body.description as string) || null,
         item_type,
@@ -116,11 +114,10 @@ export async function PATCH(request: Request) {
       if (body.per_unit !== 'custom') patch.unit_label = null
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .update(patch)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .single()
     if (error) throw error
@@ -138,8 +135,9 @@ export async function DELETE(request: Request) {
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
-    const { error } = await supabaseAdmin.from('service_types').delete().eq('id', id).eq('tenant_id', tenantId)
+    const { data, error } = await tenantDb(tenantId).from('service_types').delete().eq('id', id).select('id')
     if (error) throw error
+    if (!data || data.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

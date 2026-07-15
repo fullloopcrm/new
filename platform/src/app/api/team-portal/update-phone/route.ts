@@ -1,45 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
-import { safeEqual, signWithSecret } from '@/lib/secret-compare'
+import { verifyPhoneFixupToken } from '@/lib/nycmaid/phone-fixup-token'
 
 // Token format: <team_member_id>.<expiry_ms>.<sig> signed with ADMIN_PASSWORD.
-// Matches the signing side in cron/phone-fixup/route.ts.
-
-function sign(payload: string): string {
-  return signWithSecret(payload, process.env.ADMIN_PASSWORD)
-}
-
-interface ParsedToken {
-  valid: boolean
-  teamMemberId?: string
-  reason?: 'malformed' | 'bad_signature' | 'expired'
-}
-
-function parseToken(token: string): ParsedToken {
-  if (!token) return { valid: false, reason: 'malformed' }
-  const parts = token.split('.')
-  if (parts.length !== 3) return { valid: false, reason: 'malformed' }
-  const [teamMemberId, expiry, sig] = parts
-  if (!teamMemberId || !expiry || !sig) return { valid: false, reason: 'malformed' }
-  // sign() throws if ADMIN_PASSWORD is unset — fail closed (bad_signature)
-  // rather than signing with a publicly-computable '' key.
-  let expected: string
-  try {
-    expected = sign(`${teamMemberId}.${expiry}`)
-  } catch {
-    return { valid: false, reason: 'bad_signature' }
-  }
-  if (!safeEqual(expected, sig)) return { valid: false, reason: 'bad_signature' }
-  const expiryMs = Number(expiry)
-  if (!Number.isFinite(expiryMs) || Date.now() > expiryMs) return { valid: false, reason: 'expired' }
-  return { valid: true, teamMemberId }
-}
+// Sign/verify live in lib/nycmaid/phone-fixup-token.ts (shared with the
+// cron/phone-fixup minter) so both ends fail closed together.
 
 export async function GET(request: Request) {
   const url = new URL(request.url)
   const token = url.searchParams.get('token') || ''
-  const parsed = parseToken(token)
+  const parsed = verifyPhoneFixupToken(token)
   if (!parsed.valid) return NextResponse.json({ error: parsed.reason || 'invalid' }, { status: 400 })
 
   const { data: member } = await supabaseAdmin
@@ -54,7 +25,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({})) as { token?: string; phone?: string }
-  const parsed = parseToken(body.token || '')
+  const parsed = verifyPhoneFixupToken(body.token || '')
   if (!parsed.valid) return NextResponse.json({ error: parsed.reason || 'invalid' }, { status: 400 })
 
   const phoneCheck = validateUsPhone(body.phone)

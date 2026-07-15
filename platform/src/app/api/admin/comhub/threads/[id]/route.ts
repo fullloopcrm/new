@@ -66,6 +66,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     disposition?: 'waiting_customer' | 'waiting_admin' | 'closed_booked' | 'closed_lost' | 'closed_spam' | null
   }
 
+  // assignee_id is a caller-supplied FK into tenant_members (migrations/2026_05_19_comhub.sql)
+  // with no cross-tenant FK check of its own — verify it belongs to THIS tenant
+  // before writing it, same guard class as every other FK-injection fix in
+  // deploy-prep/cross-tenant-leak-register.md. A null clears the assignment and
+  // is always allowed.
+  if (body.assignee_id) {
+    const { data: ownedMember } = await supabaseAdmin
+      .from('tenant_members')
+      .select('id')
+      .eq('id', body.assignee_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!ownedMember) {
+      return NextResponse.json({ error: 'Invalid assignee' }, { status: 400 })
+    }
+  }
+
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (body.status) patch.status = body.status
   if (body.snoozed_until !== undefined) patch.snoozed_until = body.snoozed_until

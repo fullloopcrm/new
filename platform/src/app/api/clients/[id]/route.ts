@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -13,11 +13,10 @@ export async function GET(
     const { tenantId } = await getTenantForRequest()
     const { id } = await params
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .select('*')
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .single()
 
     if (error || !data) {
@@ -46,11 +45,24 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
 
-    const { data, error } = await supabaseAdmin
+    // preferred_team_member_id is a caller-supplied FK — verify it's tenant-owned
+    // before writing it, matching the same guard the client-portal twin
+    // (PUT /api/client/preferred-cleaner) already enforces.
+    if (fields.preferred_team_member_id) {
+      const { data: ownedMember } = await tenantDb(tenantId)
+        .from('team_members')
+        .select('id')
+        .eq('id', fields.preferred_team_member_id as string)
+        .maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .update(fields)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -80,14 +92,17 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
-    const { error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
+      .select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     await audit({ tenantId, action: 'client.deleted', entityType: 'client', entityId: id })

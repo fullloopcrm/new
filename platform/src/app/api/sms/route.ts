@@ -1,7 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 // GET /api/sms
 // ?conversation_id=X  → messages for that conversation
@@ -9,6 +11,7 @@ import { sendSMS } from '@/lib/sms'
 export async function GET(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
     if (conversationId) {
@@ -24,7 +27,7 @@ export async function GET(request: NextRequest) {
       }
 
       // Verify conversation belongs to this tenant
-      const { data: convo } = await supabaseAdmin
+      const { data: convo } = await db
         .from('sms_conversations')
         .select('id')
         .eq('id', conversationId)
@@ -39,7 +42,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Return conversations list with client info
-    const { data: conversations, error } = await supabaseAdmin
+    const { data: conversations, error } = await db
       .from('sms_conversations')
       .select('*, clients(name, phone)')
       .eq('tenant_id', tenantId)
@@ -64,6 +67,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const body = await request.json()
     const { conversation_id, client_id, message } = body
 
@@ -78,7 +82,7 @@ export async function POST(request: NextRequest) {
 
     // Look up or create conversation if none provided
     if (!convoId) {
-      const { data: existing } = await supabaseAdmin
+      const { data: existing } = await db
         .from('sms_conversations')
         .select('id')
         .eq('tenant_id', tenantId)
@@ -93,7 +97,7 @@ export async function POST(request: NextRequest) {
         convoId = existing.id
       } else {
         // Get client phone for new conversation
-        const { data: client } = await supabaseAdmin
+        const { data: client } = await db
           .from('clients')
           .select('phone')
           .eq('id', client_id)
@@ -102,7 +106,7 @@ export async function POST(request: NextRequest) {
 
         const cleanPhone = client?.phone?.replace(/\D/g, '').slice(-10) || ''
 
-        const { data: newConvo, error: createError } = await supabaseAdmin
+        const { data: newConvo, error: createError } = await db
           .from('sms_conversations')
           .insert({
             tenant_id: tenantId,
@@ -122,22 +126,17 @@ export async function POST(request: NextRequest) {
 
     // Insert outbound message
     const now = new Date().toISOString()
-    const { data: msg, error: msgError } = await supabaseAdmin
-      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      .insert({
-        conversation_id: convoId,
-        direction: 'outbound',
-        message,
-      })
-      .select()
-      .single()
+    const { data: msg, error: msgError } = await insertConversationMessage(
+      { conversation_id: convoId, direction: 'outbound', message },
+      { expectedTenantId: tenantId, returnRow: true },
+    )
 
     if (msgError) {
       return NextResponse.json({ error: msgError.message }, { status: 500 })
     }
 
     // Update last_message_at on conversation
-    await supabaseAdmin
+    await db
       .from('sms_conversations')
       .update({ last_message_at: now })
       .eq('id', convoId)
@@ -153,7 +152,7 @@ export async function POST(request: NextRequest) {
 
       if (tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         // Get client phone number
-        const { data: client } = await supabaseAdmin
+        const { data: client } = await db
           .from('clients')
           .select('phone')
           .eq('id', client_id)

@@ -19,11 +19,29 @@ vi.mock('next/navigation', () => ({
 
 import ClientPortalPage from './page'
 
+// This test environment's Node build exposes a non-functional global
+// `localStorage` (no backing file configured) that shadows jsdom's real
+// implementation, so `localStorage.setItem` throws "is not a function"
+// unrelated to anything under test. Stub a minimal in-memory implementation
+// scoped to this file only.
+function createMemoryStorage(): Storage {
+  const store = new Map<string, string>()
+  return {
+    getItem: (key: string) => store.get(key) ?? null,
+    setItem: (key: string, value: string) => { store.set(key, value) },
+    removeItem: (key: string) => { store.delete(key) },
+    clear: () => store.clear(),
+    key: (index: number) => Array.from(store.keys())[index] ?? null,
+    get length() { return store.size },
+  }
+}
+
 describe('site/book client portal login', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
     push.mockReset()
     replace.mockReset()
+    vi.stubGlobal('localStorage', createMemoryStorage())
   })
 
   function fillAndSubmitPin() {

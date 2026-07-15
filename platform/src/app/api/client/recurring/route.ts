@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
@@ -10,6 +11,14 @@ import { protectClientAPI } from '@/lib/client-auth'
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
 // it from there.
+//
+// Auth: client session cookie (protectClientAPI), scoped to the tenant
+// resolved from the request's domain (getTenantFromHeaders) — same pattern as
+// the other /api/client/* routes. client_id in the body must match the
+// session's own client_id. Without this, an unauthenticated caller could spin
+// up a real recurring booking series (with real pricing) against any client
+// and overwrite their preferred_team_member_id
+// (deploy-prep/none-write-routes-triage.md row 3).
 //
 // Recurring discount: weekly 20%, biweekly/monthly 10%. Only available to
 // repeat clients (must have ≥1 completed booking).
@@ -64,46 +73,19 @@ export async function POST(request: Request) {
   if (auth instanceof NextResponse) return auth
   const tenantId = tenant.id
 
-  // Any caller-supplied team member ids (preferred lead + extras) must belong to
-  // THIS tenant — otherwise a client could bind another tenant's cleaner to their
-  // schedule/bookings. Validate up front and reject unknown/cross-tenant ids.
-  const suppliedMemberIds = [...(cleaner_id ? [cleaner_id] : []), ...extras]
-  if (suppliedMemberIds.length > 0) {
-    const { data: validMembers } = await tenantDb(tenantId)
-      .from('team_members')
-      .select('id')
-      .in('id', suppliedMemberIds)
-    const validIds = new Set((validMembers || []).map((m) => m.id))
-    const unknown = suppliedMemberIds.filter((id) => !validIds.has(id))
-    if (unknown.length > 0) {
-      return NextResponse.json({ error: 'Invalid cleaner selection' }, { status: 400 })
-    }
-  }
-
-  // Confirm property_id/cleaner_id/extra_cleaner_ids (if given) belong to this
-  // tenant -- otherwise a foreign id gets written into recurring_schedules and
-  // 6 future bookings (plus clients.preferred_team_member_id), a persistent
-  // cross-tenant FK write, same class already fixed on POST /api/bookings
-  // (534a5834) and the sibling /api/client/preferred-cleaner route.
+  // Validate a caller-supplied property_id belongs to THIS client (client/book
+  // never trusts a caller-supplied property_id at all — it always resolves one
+  // server-side off the client's own address; this route deviates from that
+  // pattern by accepting one directly, so it must be checked here instead).
   if (property_id) {
-    const { data: propertyRow } = await supabaseAdmin
-      .from('client_properties').select('id').eq('id', property_id).eq('tenant_id', tenantId).single()
-    if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
-  }
-  if (cleaner_id) {
-    const { data: leadRow } = await supabaseAdmin
-      .from('team_members').select('id, active').eq('id', cleaner_id).eq('tenant_id', tenantId).single()
-    if (!leadRow || leadRow.active === false) {
-      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
-    }
-  }
-  if (extras.length > 0) {
-    const { data: extraRows } = await supabaseAdmin
-      .from('team_members').select('id, active').eq('tenant_id', tenantId).in('id', extras)
-    const validIds = new Set((extraRows || []).filter((r) => r.active !== false).map((r) => r.id))
-    if (validIds.size !== extras.length) {
-      return NextResponse.json({ error: 'One or more team members not available' }, { status: 400 })
-    }
+    const { data: prop } = await supabaseAdmin
+      .from('client_properties')
+      .select('id')
+      .eq('id', property_id)
+      .eq('client_id', client_id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!prop) return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
   }
 
   // Repeat-client gate

@@ -20,7 +20,7 @@ export default function FeedbackWidget({ source }: { source: string }) {
         body: JSON.stringify({ message, source })
       })
       if (!res.ok) {
-        setError('Failed to send feedback. Please try again.')
+        setError('Failed to submit. Please try again.')
         return
       }
       setSubmitted(true)

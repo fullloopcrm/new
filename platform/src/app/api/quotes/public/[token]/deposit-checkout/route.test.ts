@@ -175,4 +175,14 @@ describe('POST /api/quotes/public/[token]/deposit-checkout — customer pays a p
     expect((await res.json()).error).toMatch(/no deposit due/i)
     expect(h.createSession).not.toHaveBeenCalled()
   })
+
+  it('unknown token 404s — no session, no event', async () => {
+    h.quote = null
+
+    const res = await POST(req('tok_bogus'), ctx('tok_bogus'))
+
+    expect(res.status).toBe(404)
+    expect(h.createSession).not.toHaveBeenCalled()
+    expect(h.logQuoteEvent).not.toHaveBeenCalled()
+  })
 })

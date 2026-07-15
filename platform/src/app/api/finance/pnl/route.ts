@@ -5,7 +5,7 @@
  *     expenses by category, gross + net.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId) // auto-scopes the raw-source bookings/expenses reads
     const url = new URL(request.url)
     const now = new Date()
     const from = url.searchParams.get('from') || monthStart(now).toISOString().slice(0, 10)
@@ -35,10 +36,9 @@ export async function GET(request: Request) {
     }
 
     // Revenue: paid bookings in window (by payment_date), or completed bookings with price
-    let bookingsQ = supabaseAdmin
+    let bookingsQ = db
       .from('bookings')
       .select('id, price, team_member_pay, actual_hours, payment_status, payment_date, start_time, status')
-      .eq('tenant_id', tenantId)
       .gte('start_time', from)
       .lte('start_time', toTs)
     if (entityId) bookingsQ = bookingsQ.eq('entity_id', entityId)
@@ -63,10 +63,9 @@ export async function GET(request: Request) {
     }
 
     // Expenses by category
-    let expQ = supabaseAdmin
+    let expQ = db
       .from('expenses')
       .select('category, amount, date, tax_deductible')
-      .eq('tenant_id', tenantId)
       .gte('date', from)
       .lte('date', to)
     if (entityId) expQ = expQ.eq('entity_id', entityId)

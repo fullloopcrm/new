@@ -2,9 +2,10 @@ import { NextRequest, NextResponse } from 'next/server'
 import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
 import { askSelena as askYinez } from '@/lib/selena/agent'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -28,6 +29,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tenant mismatch' }, { status: 400 })
     }
     const tenantId = headerTenantId
+    // Auto-scoping wrapper: select/insert on tenant-owned tables are forced to
+    // this tenant, so tenant_id can't be forgotten or forged (P1 hardening).
+    const db = tenantDb(tenantId)
 
     let conversationId = sessionId
 
@@ -35,17 +39,16 @@ export async function POST(req: NextRequest) {
     if (!conversationId) {
       const webPhone = phone ? `web-${phone}` : `web-${crypto.randomUUID().slice(0, 8)}`
       const insertData: Record<string, unknown> = {
-        phone: webPhone, state: 'active', tenant_id: tenantId,
+        phone: webPhone, state: 'active',
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
       // If returning client, try to link to existing client record
       if (phone) {
         const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
+        const { data: client } = await db
           .from('clients')
           .select('id, name')
-          .eq('tenant_id', tenantId)
           .ilike('phone', `%${digits}%`)
           .limit(1).single()
         if (client) {
@@ -57,8 +60,8 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const { data: convo } = await supabaseAdmin
-        .from('sms_conversations')  // tenant-scope-ok: insert payload carries tenant_id (built above)
+      const { data: convo } = await db
+        .from('sms_conversations')  // tenant_id stamped by tenantDb wrapper
         .insert(insertData)
         .select('id')
         .single()
@@ -73,9 +76,10 @@ export async function POST(req: NextRequest) {
     }
 
     // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'inbound', message,
-    })
+    await insertConversationMessage(
+      { conversation_id: conversationId, direction: 'inbound', message },
+      { expectedTenantId: tenantId },
+    )
 
     // NYC Maid runs the REAL Yinez agent (src/lib/selena/agent) — warm voice,
     // self-book redirect, memory/skills. Other tenants stay on the legacy
@@ -96,10 +100,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'outbound',
-      message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-    })
+    await insertConversationMessage(
+      {
+        conversation_id: conversationId, direction: 'outbound',
+        message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      },
+      { expectedTenantId: tenantId },
+    )
 
     // Booking notification
     if (bookingCreated) {

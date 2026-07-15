@@ -26,7 +26,7 @@ async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ 
   let contactId: string | null = (existing && existing[0]?.id) || null
 
   if (!contactId && member.phone) {
-    const { data } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', { p_phone: member.phone, p_name: member.name })
+    const { data } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: member.phone, p_name: member.name })
     contactId = (data as string) || null
     if (contactId) {
       await supabaseAdmin.from('comhub_contacts').update({ team_member_id: teamMemberId }).eq('id', contactId)
@@ -34,7 +34,7 @@ async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ 
   }
   if (!contactId) return { contactId: null, threadId: null, tenantId: member.tenant_id || null }
 
-  const { data: tId } = await supabaseAdmin.rpc('comhub_get_or_create_thread', { p_contact_id: contactId, p_channel: 'web' })
+  const { data: tId } = await supabaseAdmin.rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: 'web' })
   return { contactId, threadId: (tId as string) || null, tenantId: member.tenant_id || null }
 }
 

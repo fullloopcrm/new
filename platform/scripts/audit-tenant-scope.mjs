@@ -92,6 +92,12 @@ for (const file of files) {
   // itself (lib/tenant-db.ts adds .eq('tenant_id', …) internally) even though
   // the literal string "tenant_id" never appears at the call site.
   const lines = readFileSync(file, 'utf8').split('\n')
+  // src/lib/tenant-db.ts wraps supabaseAdmin so select/update/delete are
+  // auto-filtered by tenant_id and insert/upsert auto-stamp it — none of
+  // which ever produces a literal `.eq('tenant_id', ...)` in the source, so
+  // the regex-based scan below can't see it. Track every local var assigned
+  // straight from tenantDb(...) (conventionally `db`, but also `q`/`query`
+  // in a few routes) so calls chained off it are recognized as scoped.
   const tenantDbVars = new Set()
   for (const line of lines) {
     const vm = line.match(TENANT_DB_VAR_RX)
@@ -119,6 +125,7 @@ for (const file of files) {
     const tenantDbWrapped = TENANT_DB_CALL_RX.test(lookBehind) ||
       [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(chainRootLine))
     if (tenantDbWrapped) continue
+
 
     const chain = lines.slice(i, i + 12).join('\n')
     // Wrapper-scoped calls already `continue`d above, so reaching here means

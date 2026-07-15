@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -26,11 +26,10 @@ export async function PUT(
     const body = await request.json()
     const updates = pick(body, EDITABLE_SERVICE_FIELDS)
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .update(updates)
       .eq('id', id)
-      .eq('tenant_id', tenantId)
       .select()
       .single()
 
@@ -59,14 +58,17 @@ export async function DELETE(
     const { tenantId } = _authTenant
     const { id } = await params
 
-    const { error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .delete()
       .eq('id', id)
-      .eq('tenant_id', tenantId)
+      .select('id')
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data || data.length === 0) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
     await audit({ tenantId, action: 'service.deleted', entityType: 'service', entityId: id })

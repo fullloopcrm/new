@@ -7,13 +7,13 @@
  */
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getBatchReview, commitBatch, undoBatch } from '@/lib/import-staging'
 
-/** Confirm the batch belongs to this tenant. */
+/** Confirm the batch belongs to this tenant (tenantDb enforces the scope in-query). */
 async function ownsBatch(batchId: string, tenantId: string): Promise<boolean> {
-  const { data } = await supabaseAdmin.from('import_batches').select('tenant_id').eq('id', batchId).single()
-  return !!data && data.tenant_id === tenantId
+  const { data } = await tenantDb(tenantId).from('import_batches').select('tenant_id').eq('id', batchId).single()
+  return !!data
 }
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {

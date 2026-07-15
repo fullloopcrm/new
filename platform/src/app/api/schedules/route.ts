@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -56,37 +55,44 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
 
-    // client_id/team_member_id/service_type_id are caller-supplied FKs with no
-    // cross-tenant FK check, and every read of recurring_schedules joins
-    // clients(name)/team_members(name) unscoped by tenant, so a foreign id
-    // would leak another tenant's data into this tenant's schedule list.
-    // Verify ownership before insert.
-    const { data: ownedClient } = await supabaseAdmin
-      .from('clients')
-      .select('id')
-      .eq('id', v.client_id as string)
-      .eq('tenant_id', tenantId)
-      .maybeSingle()
-    if (!ownedClient) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-
-    if (v.team_member_id) {
-      const { data: ownedTeamMember } = await supabaseAdmin
-        .from('team_members')
-        .select('id')
-        .eq('id', v.team_member_id as string)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!ownedTeamMember) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    // client_id/team_member_id are caller-supplied FKs — tenantDb only stamps
+    // tenant_id on the row being inserted, it doesn't validate a referenced id
+    // belongs to this tenant, and neither clients nor team_members has a
+    // cross-tenant FK check. GET /api/schedules embeds clients(name)/
+    // team_members(name) unscoped by tenant off these FKs, and every generated
+    // booking below carries the same foreign id, which GET /api/bookings then
+    // embeds with full PII (name/phone/address) — same exfil class as the
+    // already-fixed POST /api/bookings (client_id) and POST /api/admin/
+    // recurring-schedules (team_member_id).
+    const { data: ownedClient } = await db.from('clients').select('id').eq('id', v.client_id as string).maybeSingle()
+    if (!ownedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
-
+    if (v.team_member_id) {
+      const { data: ownedMember } = await db.from('team_members').select('id').eq('id', v.team_member_id as string).maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+    // service_type_id is the same shape of FK — checked here (before the
+    // schedule/booking inserts below, which both write it verbatim) rather
+    // than only gating the name-copy further down, which left the raw id
+    // writable regardless. POST /api/invoices?from_booking_id later embeds
+    // service_types(name, default_hourly_rate, pricing_model) off a
+    // generated booking's service_type_id with no tenant filter on the
+    // embedded side, so a dangling foreign id here becomes a cross-tenant
+    // read one hop later.
+    let serviceTypeName: string | null = null
     if (v.service_type_id) {
-      const { data: ownedServiceType } = await supabaseAdmin
+      const { data: ownedService } = await db
         .from('service_types')
-        .select('id')
+        .select('name')
         .eq('id', v.service_type_id as string)
-        .eq('tenant_id', tenantId)
         .maybeSingle()
-      if (!ownedServiceType) return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      if (!ownedService) {
+        return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      }
+      serviceTypeName = ownedService.name
     }
 
     // Create schedule
@@ -120,17 +126,6 @@ export async function POST(request: Request) {
       weeksToGenerate: 4,
     })
 
-    // Look up service type name
-    let serviceType = null
-    if (v.service_type_id) {
-      const { data: svc } = await db
-        .from('service_types')
-        .select('name')
-        .eq('id', v.service_type_id as string)
-        .single()
-      serviceType = svc?.name || null
-    }
-
     const bookings = dates.map((d) => {
       const endTime = new Date(d)
       endTime.setHours(endTime.getHours() + ((v.duration_hours as number) || 3))
@@ -138,7 +133,7 @@ export async function POST(request: Request) {
         client_id: v.client_id,
         team_member_id: v.team_member_id || null,
         service_type_id: v.service_type_id || null,
-        service_type: serviceType,
+        service_type: serviceTypeName,
         schedule_id: schedule.id,
         start_time: d.toISOString(),
         end_time: endTime.toISOString(),
@@ -151,7 +146,7 @@ export async function POST(request: Request) {
     })
 
     if (bookings.length > 0) {
-      await db.from('bookings').insert(bookings)
+      await db.from('bookings').insert(bookings)  // tenantDb stamps tenant_id on every row
     }
 
     await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getSettings } from '@/lib/settings'
+import { tenantDb } from '@/lib/tenant-db'
 
 /**
  * GET /api/clients/analytics
@@ -14,15 +14,15 @@ import { getSettings } from '@/lib/settings'
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const settings = await getSettings(tenantId)
     const dayMs = 24 * 60 * 60 * 1000
     const activeCutoff = new Date(Date.now() - settings.active_client_threshold_days * dayMs).toISOString()
     const atRiskCutoff = new Date(Date.now() - settings.at_risk_threshold_days * dayMs).toISOString()
 
-    const { data: bookings, error } = await supabaseAdmin
+    const { data: bookings, error } = await db
       .from('bookings')
       .select('client_id, price, start_time, status, clients(name)')
-      .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .order('start_time', { ascending: false })
 

@@ -11,11 +11,27 @@ export async function POST(request: Request) {
 
   const { rating, comment, booking_id } = await request.json().catch(() => ({}))
 
-  const { data, error } = await tenantDb(auth.tid)
+  const db = tenantDb(auth.tid)
+
+  // booking_id is caller-supplied — verify it's actually this client's own
+  // booking for this tenant before attaching it, otherwise a forged id would
+  // let a review reference another tenant's (or another client's) booking.
+  let ownedBookingId: string | null = null
+  if (booking_id) {
+    const { data: booking } = await db
+      .from('bookings')
+      .select('id')
+      .eq('id', booking_id)
+      .eq('client_id', auth.id)
+      .maybeSingle()
+    ownedBookingId = booking?.id || null
+  }
+
+  const { data, error } = await db
     .from('reviews')
     .insert({
       client_id: auth.id,
-      booking_id: booking_id || null,
+      booking_id: ownedBookingId,
       rating: rating || null,
       comment: comment || null,
       source: 'internal',

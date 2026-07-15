@@ -114,7 +114,7 @@ export async function POST(request: Request) {
   // joins on GET here and the client_properties()/team_members() joins on
   // GET /api/bookings, a cross-tenant PII leak (same class fixed on the
   // plain schedules route in 4c0e3635).
-  const { data: clientRow } = await supabaseAdmin
+  const { data: clientRow } = await db
     .from('clients')
     .select('id')
     .eq('id', client_id)
@@ -122,16 +122,36 @@ export async function POST(request: Request) {
     .single()
   if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
 
-  if (property_id) {
-    const { data: propertyRow } = await supabaseAdmin
-      .from('client_properties').select('id').eq('id', property_id).eq('tenant_id', tenantId).single()
-    if (!propertyRow) return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+  // A caller-supplied team_member_id/cleaner_id must belong to THIS tenant —
+  // team_members has no cross-tenant FK check, so without this a tenant admin
+  // could create a recurring schedule (and every generated booking) assigned
+  // to another tenant's employee. Same bug class as [id]/route.ts PUT and
+  // [id]/exception/route.ts POST.
+  if (teamMemberId) {
+    const { data: memberRow } = await db
+      .from('team_members')
+      .select('id')
+      .eq('id', teamMemberId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!memberRow) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
   }
 
-  if (teamMemberId) {
-    const { data: memberRow } = await supabaseAdmin
-      .from('team_members').select('id').eq('id', teamMemberId).eq('tenant_id', tenantId).single()
-    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  // A caller-supplied property_id must belong to THIS client + tenant —
+  // client_properties has its own tenant_id and no cross-tenant FK check.
+  // GET /api/bookings embeds client_properties(*) unscoped by tenant off
+  // bookings.property_id, so a foreign id here would leak another tenant's
+  // client address/lat-long on every subsequent booking list read. Same
+  // guard already applied to POST /api/client/recurring; this sibling
+  // admin route accepted the id verbatim.
+  if (property_id) {
+    const { data: propertyRow } = await db
+      .from('client_properties')
+      .select('id')
+      .eq('id', property_id)
+      .eq('client_id', client_id)
+      .maybeSingle()
+    if (!propertyRow) return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
   }
 
   // Dates: use those provided by the frontend, else generate 6 weeks.
@@ -206,7 +226,7 @@ export async function POST(request: Request) {
   })
 
   const { data: bookings, error: batchError } = await db
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: insert rows carry tenant_id (built above)
     .insert(rows)
     .select('id')
 

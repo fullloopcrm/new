@@ -1,72 +1,72 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import type { FakeSupabase } from '@/test/fake-supabase'
+import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * tenantDb conversion probe — bookings/stats/route.ts (docs/adr/0004).
- * Proves the wrapper's injected .eq('tenant_id') keeps every stat (upcoming,
- * completed, revenue) scoped to the requesting tenant even when a foreign
- * tenant has bookings that would otherwise inflate the counts/revenue.
+ * Tenant isolation — GET /api/bookings/stats (converted to tenantDb).
+ *
+ * The four dashboard counts (upcoming / thisWeek / completed / revenue) all read
+ * `bookings` through tenantDb, so a foreign tenant's bookings never bump another
+ * tenant's counts or revenue. Times are set relative to `now` so each seeded row
+ * lands unambiguously inside (or outside) its window regardless of run date.
  */
 
-vi.mock('@/lib/supabase', async () => {
-  const { createFakeSupabase } = await import('@/test/fake-supabase')
-  const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
-})
+const A = 'tid-a'
+const B = 'tid-b'
 
-let currentTenantId: string
-vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenantId }),
-  AuthError: class AuthError extends Error {
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
+
+vi.mock('@/lib/tenant-query', () => {
+  class AuthError extends Error {
     status: number
-    constructor(message: string, status = 401) {
+    constructor(message: string, status: number) {
       super(message)
       this.status = status
     }
-  },
-}))
-
-import { supabaseAdmin } from '@/lib/supabase'
-import { GET } from './route'
-
-const A_ID = 'tenant-A'
-const B_ID = 'tenant-B'
-const fake = supabaseAdmin as unknown as FakeSupabase
-
-beforeEach(() => {
-  fake._store.clear()
-  currentTenantId = A_ID
-  const monthStart = new Date(new Date().getFullYear(), new Date().getMonth(), 1).toISOString()
-  fake._seed('bookings', [
-    { id: 'a1', tenant_id: A_ID, status: 'scheduled', start_time: monthStart, payment_status: 'paid', payment_date: monthStart, price: 100 },
-    { id: 'a2', tenant_id: A_ID, status: 'completed', start_time: monthStart, payment_status: 'pending', payment_date: null, price: 50 },
-    // Foreign tenant with identical-shaped rows that must never bleed into A's stats.
-    { id: 'b1', tenant_id: B_ID, status: 'scheduled', start_time: monthStart, payment_status: 'paid', payment_date: monthStart, price: 9999 },
-    { id: 'b2', tenant_id: B_ID, status: 'completed', start_time: monthStart, payment_status: 'paid', payment_date: monthStart, price: 9999 },
-  ])
+  }
+  return {
+    AuthError,
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+  }
 })
 
-describe('bookings/stats GET — tenantDb isolation', () => {
-  it("tenant A's stats reflect ONLY its own bookings (positive control)", async () => {
-    const res = await GET()
-    const body = await res.json()
-    expect(body.upcoming).toBe(1)
-    expect(body.completed).toBe(1)
-    expect(body.revenue).toBe(100)
-  })
+import { GET } from './route'
 
-  it("tenant A's revenue/counts never include tenant B's higher-value bookings", async () => {
-    const res = await GET()
-    const body = await res.json()
-    expect(body.revenue).not.toBe(9999)
-    expect(body.upcoming).not.toBe(2)
-  })
+function seed() {
+  const now = Date.now()
+  const future = new Date(now + 2 * 24 * 60 * 60 * 1000).toISOString() // +2d → in this-week window
+  const earlierToday = new Date(now - 2 * 60 * 60 * 1000).toISOString() // -2h → same month, before now
+  return {
+    bookings: [
+      // A: upcoming + thisWeek (scheduled, in-window start)
+      { id: 'a-up', tenant_id: A, status: 'scheduled', start_time: future, payment_status: 'unpaid' },
+      // A: completed this month (paid revenue 100)
+      { id: 'a-c1', tenant_id: A, status: 'completed', start_time: earlierToday, payment_status: 'paid', payment_date: earlierToday, price: 100 },
+      // A: completed this month (paid revenue 250)
+      { id: 'a-c2', tenant_id: A, status: 'paid', start_time: earlierToday, payment_status: 'paid', payment_date: earlierToday, price: 250 },
+      // B: would bump upcoming + thisWeek if it leaked
+      { id: 'b-up', tenant_id: B, status: 'scheduled', start_time: future, payment_status: 'unpaid' },
+      // B: would bump completed + revenue (999) if it leaked
+      { id: 'b-c', tenant_id: B, status: 'completed', start_time: earlierToday, payment_status: 'paid', payment_date: earlierToday, price: 999 },
+    ],
+  }
+}
 
-  it("tenant B sees its OWN stats, not tenant A's (symmetric proof)", async () => {
-    currentTenantId = B_ID
+let h: Harness
+beforeEach(() => {
+  h = createTenantDbHarness(seed())
+  holder.from = h.from
+})
+
+describe('bookings/stats — tenant isolation', () => {
+  it("counts and revenue reflect only the acting tenant's bookings", async () => {
     const res = await GET()
+    expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.completed).toBe(1)
-    expect(body.revenue).toBe(19998) // both B rows are paid — never A's 100
+
+    expect(body.upcoming).toBe(1) // a-up only (b-up excluded)
+    expect(body.thisWeek).toBe(1) // a-up only
+    expect(body.completed).toBe(2) // a-c1 + a-c2 (b-c excluded)
+    expect(body.revenue).toBe(350) // 100 + 250; B's 999 must not leak
   })
 })

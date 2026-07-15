@@ -145,6 +145,11 @@ describe('fail closed when ADMIN_PASSWORD is unset', () => {
     expect(() => createSessionCookie('user-1')).toThrow()
   })
 
+  it('createClientSession() throws instead of signing with an empty secret', () => {
+    delete process.env.ADMIN_PASSWORD
+    expect(() => createClientSession('client-1')).toThrow()
+  })
+
   it('verifySessionCookie() rejects (fail-closed, no throw) a cookie that was validly signed while the secret WAS configured, once the secret is removed', () => {
     const cookie = createSessionCookie('user-1') // signed while ADMIN_PASSWORD=SECRET
     delete process.env.ADMIN_PASSWORD

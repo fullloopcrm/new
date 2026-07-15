@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { runAutoVerify } from '@/lib/seo/auto-verify'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

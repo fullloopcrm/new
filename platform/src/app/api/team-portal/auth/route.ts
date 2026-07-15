@@ -35,7 +35,14 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
   }
 
-  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${pin}`, 5, 15 * 60 * 1000, { failClosed: true })
+  // Bucket must NOT include the guessed pin itself -- keying by the value
+  // under attack (as this route previously did) gives every distinct guess
+  // its own fresh bucket, so a brute-forcer that never repeats a guess is
+  // never throttled. Every sibling PIN/credential-guessing route in this
+  // codebase (admin-auth, auth/login, client/login) keys by caller identity
+  // (tenant+ip) instead -- match that here.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`team_portal_auth:${tenant_slug}:${ip}`, 5, 15 * 60 * 1000, { failClosed: true })
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
@@ -10,10 +10,9 @@ export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('team_members')
       .select('*')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
     if (error) {
@@ -68,9 +67,9 @@ export async function POST(request: Request) {
     const crypto = await import('node:crypto')
     const pin = String(1000 + crypto.randomInt(0, 9000))
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await tenantDb(tenantId)
       .from('team_members')
-      .insert({ ...fieldsWithDefaults, tenant_id: tenantId, pin })
+      .insert({ ...fieldsWithDefaults, pin })
       .select()
       .single()
 

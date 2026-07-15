@@ -10,6 +10,11 @@ import { requirePermission } from '@/lib/require-permission'
 // single team member on a single booking. Inserts team_member_payouts row
 // and, if the team member is the booking lead, flips bookings.team_member_paid.
 //
+// Reached from the shared /dashboard bookings closeout widget (every tenant's
+// own admin), not just the platform admin panel — must accept a tenant_admin
+// session, not requireAdmin()'s super_admin-only token. See schedule-issues
+// fix (commit 05176c2f) for the same bug class.
+//
 // body: { cleaner_id: string, amount_cents: number, method: 'zelle'|'venmo'|'cashapp'|'cash'|'other' }
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('bookings.edit')
@@ -61,6 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .from('bookings')
       .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
       .eq('id', id)
+      .eq('tenant_id', tenantId)
   }
 
   return NextResponse.json({ ok: true, payout: payoutRow })

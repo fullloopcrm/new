@@ -4,7 +4,7 @@
  * Outflows: recurring expenses scheduled in window
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
@@ -20,6 +20,10 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    // tenantDb auto-injects .eq('tenant_id', tenantId) on every read below.
+    // bookings/invoices/recurring_expenses all carry tenant_id; the optional
+    // entity_id filter stays as a WITHIN-tenant scope, not a tenant boundary.
+    const db = tenantDb(tenantId)
     const url = new URL(request.url)
     const entityId = entityIdFromUrl(url)
     const weeks = Math.min(12, Math.max(1, Number(url.searchParams.get('weeks')) || 4))
@@ -31,27 +35,24 @@ export async function GET(request: Request) {
     const endTs = `${endIso}T23:59:59Z`
 
     // bookings is tenant-level (no entity_id); invoices + recurring_expenses take the filter.
-    const bookingsQ = supabaseAdmin
+    const bookingsQ = db
       .from('bookings')
       .select('id, price, start_time, payment_status')
-      .eq('tenant_id', tenantId)
       .gte('start_time', now.toISOString())
       .lte('start_time', endTs)
       .not('status', 'in', '(cancelled,no_show)')
 
-    let invoicesQ = supabaseAdmin
+    let invoicesQ = db
       .from('invoices')
       .select('id, total_cents, amount_paid_cents, due_date')
-      .eq('tenant_id', tenantId)
       .not('status', 'in', '(paid,void,refunded,draft)')
       .gte('due_date', nowIso)
       .lte('due_date', endIso)
     if (entityId) invoicesQ = invoicesQ.eq('entity_id', entityId)
 
-    let recurringQ = supabaseAdmin
+    let recurringQ = db
       .from('recurring_expenses')
       .select('id, label, amount_cents, frequency, next_due_date, start_date, active')
-      .eq('tenant_id', tenantId)
       .eq('active', true)
     if (entityId) recurringQ = recurringQ.eq('entity_id', entityId)
 

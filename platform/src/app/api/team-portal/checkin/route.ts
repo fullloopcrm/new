@@ -19,6 +19,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
   }
 
+  // tenantDb auto-scopes every query to auth.tid (the tenant HMAC-bound in the
+  // portal token). SELECT/UPDATE are filtered by tenant_id automatically.
   const db = tenantDb(auth.tid)
 
   // Verify booking belongs to this team member

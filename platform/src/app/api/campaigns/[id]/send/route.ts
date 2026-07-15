@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
@@ -15,10 +15,11 @@ export async function POST(
 
   try {
     const { tenantId, tenant } = tenantCtx
+    const db = tenantDb(tenantId)
     const { id } = await params
 
     // Get campaign
-    const { data: campaign } = await supabaseAdmin
+    const { data: campaign } = await db
       .from('campaigns')
       .select('*')
       .eq('id', id)
@@ -43,7 +44,7 @@ export async function POST(
     // Get recipients (active clients). Per-channel marketing opt-outs are
     // enforced below so a client who opted out of SMS/email marketing is never
     // sent a campaign on that channel (CAN-SPAM / TCPA).
-    const { data: clients } = await supabaseAdmin
+    const { data: clients } = await db
       .from('clients')
       .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent')
       .eq('tenant_id', tenantId)
@@ -120,8 +121,8 @@ export async function POST(
       }
     }
 
-    // Update campaign
-    await supabaseAdmin
+    // Update campaign (update-by-id GAINS a tenant filter via tenantDb)
+    await db
       .from('campaigns')
       .update({
         status: 'sent',

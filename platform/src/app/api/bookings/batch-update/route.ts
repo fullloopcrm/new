@@ -7,6 +7,8 @@ import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
 import { pick } from '@/lib/validate'
 
+// Same allowlist as PUT /api/bookings/[id] — kept in sync so a batch edit can
+// touch exactly the same fields a single edit can, no more.
 const UPDATABLE_FIELDS = [
   'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
   'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
@@ -33,31 +35,76 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'updates array required' }, { status: 400 })
     }
 
-    // Allow-list writable fields (raw u.data was previously spread straight into
-    // .update(), permitting mass-assignment of any column incl. tenant_id itself).
-    const sanitized = updates.map((u: { id: string; data: Record<string, unknown> }) => ({
+    // u.data used to be applied to .update() unfiltered — a caller-supplied
+    // tenant_id in the payload would have re-tenanted the row (the WHERE
+    // clause only gates WHICH row is touched, not what the SET clause can
+    // contain). Allowlisted to the same fields PUT /api/bookings/[id] permits.
+    const allowedUpdates = (updates as { id: string; data: Record<string, unknown> }[]).map((u) => ({
       id: u.id,
       data: pick<Record<string, unknown>>(u.data, [...UPDATABLE_FIELDS]),
     }))
 
-    // client_id/team_member_id are caller-supplied; verify every id belongs to
-    // this tenant before any write — the response joins clients(name, phone,
-    // email)/team_members(name, phone, email), so a foreign id would otherwise
-    // leak another tenant's PII in bulk.
-    const candidateClientIds = Array.from(new Set(sanitized.map(u => u.data.client_id).filter((v): v is string => typeof v === 'string')))
-    const candidateMemberIds = Array.from(new Set(sanitized.map(u => u.data.team_member_id).filter((v): v is string => typeof v === 'string')))
-    if (candidateClientIds.length > 0) {
-      const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
-      const ownedIds = new Set((ownedClients || []).map(r => r.id))
-      if (candidateClientIds.some(cid => !ownedIds.has(cid))) {
-        return NextResponse.json({ error: 'Invalid client_id in updates array' }, { status: 404 })
+    // client_id/team_member_id/service_type_id are caller-supplied FKs too —
+    // clients/team_members/service_types have no cross-tenant FK check, and
+    // this route's own response embeds clients(name, phone, email) +
+    // team_members(name, phone, email) off the row, so a foreign id would
+    // leak another tenant's PII in the response itself. Same guard as the
+    // sibling PUT /api/bookings/[id] (register P11) — this batch route only
+    // ever checked team_member_id, missing client_id and service_type_id.
+    const requestedClientIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.client_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedClientIds.length > 0) {
+      const { data: validClients } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .in('id', requestedClientIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validClients || []).map((c) => c.id))
+      if (requestedClientIds.some((cid) => !validIds.has(cid))) {
+        return NextResponse.json({ error: 'Invalid client selection' }, { status: 400 })
       }
     }
-    if (candidateMemberIds.length > 0) {
-      const { data: ownedMembers } = await supabaseAdmin.from('team_members').select('id').eq('tenant_id', tenantId).in('id', candidateMemberIds)
-      const ownedIds = new Set((ownedMembers || []).map(r => r.id))
-      if (candidateMemberIds.some(mid => !ownedIds.has(mid))) {
-        return NextResponse.json({ error: 'Invalid team_member_id in updates array' }, { status: 404 })
+
+    const requestedMemberIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.team_member_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedMemberIds.length > 0) {
+      const { data: validMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .in('id', requestedMemberIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validMembers || []).map((m) => m.id))
+      if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
+        return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+      }
+    }
+
+    const requestedServiceTypeIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.service_type_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedServiceTypeIds.length > 0) {
+      const { data: validServiceTypes } = await supabaseAdmin
+        .from('service_types')
+        .select('id')
+        .in('id', requestedServiceTypeIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validServiceTypes || []).map((s) => s.id))
+      if (requestedServiceTypeIds.some((sid) => !validIds.has(sid))) {
+        return NextResponse.json({ error: 'Invalid service type selection' }, { status: 400 })
       }
     }
 
@@ -67,7 +114,7 @@ export async function PUT(request: Request) {
     // independent of the mass-assignment/FK-ownership guards above.
     const db = tenantDb(tenantId)
     const results = await Promise.all(
-      sanitized.map(async (u) => {
+      allowedUpdates.map(async (u) => {
         const { data, error } = await db
           .from('bookings')
           .update(u.data)

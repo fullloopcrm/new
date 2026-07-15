@@ -2,8 +2,8 @@
  * Quote by id — read, update (draft-only), delete.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
 
@@ -14,8 +14,9 @@ export async function GET(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('quotes')
       .select('*, clients(id, name, email, phone, address)')
       .eq('tenant_id', tenantId)
@@ -24,7 +25,7 @@ export async function GET(_request: Request, { params }: Params) {
     if (error) throw error
     if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const { data: activity } = await supabaseAdmin
+    const { data: activity } = await db
       .from('quote_activity')
       .select('id, event_type, detail, created_at, ip_address, user_agent')
       .eq('quote_id', id)
@@ -44,10 +45,11 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('quotes')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -58,20 +60,6 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot edit accepted or converted quotes' }, { status: 400 })
     }
 
-    // client_id is a cross-table FK — confirm it belongs to this tenant before
-    // writing it, or a caller could reassign the quote to another tenant's
-    // client and exfiltrate that client's name/email/phone/address via the
-    // clients() join on this same route's GET.
-    if ('client_id' in body && body.client_id) {
-      const { data: client } = await supabaseAdmin
-        .from('clients')
-        .select('id')
-        .eq('id', body.client_id)
-        .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
-    }
-
     const updates: Record<string, unknown> = {}
     const assignables = [
       'title', 'description',
@@ -80,18 +68,22 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
-    // Confirm a reassigned client_id belongs to this tenant -- otherwise a
-    // foreign client's name/email/phone/address gets pulled into this quote
-    // via the clients() join on GET (same class already fixed on
-    // deals/[id] PATCH and quotes/invoices create in 7907701b).
+    // client_id is a caller-supplied FK — GET embeds clients(name/email/phone/
+    // address) off this row, so a foreign id would leak another tenant's client
+    // PII on the next read. Verify ownership before the update runs.
     if ('client_id' in updates && updates.client_id) {
-      const { data: clientRow } = await supabaseAdmin
-        .from('clients').select('id').eq('id', updates.client_id as string).eq('tenant_id', tenantId).single()
-      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      const { data: ownedClient } = await db
+        .from('clients')
+        .select('id')
+        .eq('id', updates.client_id as string)
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
     }
 
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
-      const { data: current } = await supabaseAdmin
+      const { data: current } = await db
         .from('quotes')
         .select('line_items, tax_rate_bps, discount_cents')
         .eq('id', id)
@@ -116,7 +108,7 @@ export async function PATCH(request: Request, { params }: Params) {
       const dval = Math.max(0, Math.round(Number(body.deposit_value) || 0))
       let total = updates.total_cents as number | undefined
       if (total == null) {
-        const { data: c2 } = await supabaseAdmin.from('quotes').select('total_cents').eq('id', id).single()
+        const { data: c2 } = await db.from('quotes').select('total_cents').eq('id', id).single()
         total = Number(c2?.total_cents) || 0
       }
       updates.deposit_type = dtype
@@ -144,7 +136,7 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.fulfillment_type = body.fulfillment_type
     }
 
-    const { data, error } = await supabaseAdmin
+    const { data, error } = await db
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
@@ -176,8 +168,9 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('quotes')
       .select('status')
       .eq('tenant_id', tenantId)
@@ -187,7 +180,7 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (existing.status === 'accepted' || existing.status === 'converted') {
       return NextResponse.json({ error: 'Cannot delete accepted or converted quotes' }, { status: 400 })
     }
-    const { error } = await supabaseAdmin.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
+    const { error } = await db.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
     if (error) throw error
     return NextResponse.json({ ok: true })
   } catch (err) {

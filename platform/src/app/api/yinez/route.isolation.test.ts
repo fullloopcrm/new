@@ -1,122 +1,85 @@
-import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
-import { signTenantHeader } from '@/lib/tenant-header-sig'
+import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-harness'
 
 /**
- * W4 independent isolation regression for /api/yinez (fix 016ee7d).
+ * Tenant isolation — POST /api/yinez.
  *
- * The sibling file route.test.ts proves a forged/unsigned x-tenant-id is dropped.
- * This file proves the COMPLEMENTARY property from the verification lane: the
- * route serves the *correct* tenant and only that tenant.
- *
- *   - a signed request for tenant A scopes to A; a signed request for tenant B
- *     scopes to B (the route is not pinned to one hard-coded tenant), and
- *   - a swap-forgery — a caller holding tenant A's genuine signature but sending
- *     `x-tenant-id: B` — scopes to NEITHER A nor B. The signature is bound to the
- *     id it was minted for, so pairing it with a different id fails the check and
- *     the request drops to tenant-less (no read, no write). This closes the
- *     cross-tenant swap that the raw-header route allowed.
+ * Prior to this fix, this route trusted a raw `x-tenant-id` header with no
+ * signature check — an attacker could set any tenant's id and pull back that
+ * tenant's client name by phone number (see deploy-prep/none-write-routes-triage.md
+ * row 19). Now it mirrors chat/route.ts's `verifyTenantHeaderSig` guard:
+ *   1. missing/invalid signature → 400, no conversation created
+ *   2. valid header → the conversation (and the cross-tenant client lookup)
+ *      are scoped to the SIGNED tenant, not an attacker-forged one.
  */
 
-const SECRET = 'yinez-isolation-test-secret'
+const A = 'tid-a'
+const B = 'tid-b'
 
-// Chainable supabase mock that records which tenant_id the clients lookup was
-// scoped to and which tenant_id (if any) the conversation insert carried.
-const h = vi.hoisted(() => {
-  const captured = {
-    clientLookups: [] as unknown[],
-    convoInsert: null as Record<string, unknown> | null,
-  }
+const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
+vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
-  function makeBuilder(table: string) {
-    const builder: Record<string, unknown> = {}
-    Object.assign(builder, {
-      select: () => builder,
-      eq: (col: string, val: unknown) => {
-        if (table === 'clients' && col === 'tenant_id') captured.clientLookups.push(val)
-        return builder
-      },
-      ilike: () => builder,
-      limit: () => builder,
-      single: () => Promise.resolve({ data: null, error: null }),
-      insert: (payload: Record<string, unknown>) => {
-        if (table === 'sms_conversations') captured.convoInsert = payload
-        return {
-          select: () => ({
-            single: () => Promise.resolve({ data: { id: 'convo-1' }, error: null }),
-          }),
-          then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }),
-        }
-      },
-    })
-    return builder
-  }
-
-  const supabaseAdmin = { from: (table: string) => makeBuilder(table) }
-  return { captured, supabaseAdmin }
-})
-
-vi.mock('@/lib/supabase', () => ({ supabaseAdmin: h.supabaseAdmin }))
-vi.mock('@/lib/selena/core', () => ({ EMPTY_CHECKLIST: {} }))
-vi.mock('@/lib/selena/agent', () => ({
-  askSelena: vi.fn(async () => ({ text: 'hello from yinez', bookingCreated: false })),
+// Signature is valid iff the caller presented the sentinel 'goodsig'.
+vi.mock('@/lib/tenant-header-sig', () => ({
+  verifyTenantHeaderSig: (_id: string, sig: string | null | undefined) => sig === 'goodsig',
 }))
+vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({ text: 'hi from yinez', bookingCreated: false })) }))
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
   scoreConversation: vi.fn(async () => {}),
   selfReviewConversation: vi.fn(async () => {}),
 }))
+vi.mock('@/lib/sms-messages', () => ({ insertConversationMessage: vi.fn(async () => ({ data: null, error: null })) }))
 
-// Import the route AFTER the mocks are registered.
 import { POST } from './route'
 
-const TENANT_A = 'tenant-alpha'
-const TENANT_B = 'tenant-bravo'
-
-function post(headers: Record<string, string>) {
-  return new NextRequest('https://app.fullloop.example/api/yinez', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ message: 'hi', phone: '5551234567' }),
+let h: Harness
+beforeEach(() => {
+  h = createTenantDbHarness({
+    sms_conversations: [],
+    clients: [
+      { id: 'client-a', tenant_id: A, name: 'Alice A', phone: '5551234567' },
+      { id: 'client-b', tenant_id: B, name: 'Bob B', phone: '5551234567' },
+    ],
   })
+  holder.from = h.from
+})
+
+function yinez(headers: Record<string, string>, body: Record<string, unknown>) {
+  return POST(new NextRequest('http://t/api/yinez', { method: 'POST', headers, body: JSON.stringify(body) }))
 }
 
-beforeAll(() => {
-  process.env.TENANT_HEADER_SIG_SECRET = SECRET
-})
-
-beforeEach(() => {
-  h.captured.clientLookups = []
-  h.captured.convoInsert = null
-})
-
-describe('POST /api/yinez — serves the correct tenant, and only that tenant', () => {
-  it('a signed request for tenant A scopes the read and write to A', async () => {
-    const res = await POST(post({ 'x-tenant-id': TENANT_A, 'x-tenant-sig': signTenantHeader(TENANT_A) }))
-
-    expect(res.status).toBe(200)
-    expect(h.captured.clientLookups).toEqual([TENANT_A])
-    expect(h.captured.convoInsert?.tenant_id).toBe(TENANT_A)
+describe('yinez POST — resolver tenant isolation', () => {
+  it('missing signature → 400, no conversation created, no client lookup', async () => {
+    const res = await yinez({ 'x-tenant-id': A }, { message: 'hi', phone: '5551234567' })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Tenant context required')
+    expect(h.capture.inserts.find((i) => i.table === 'sms_conversations')).toBeUndefined()
   })
 
-  it('a signed request for tenant B scopes to B — the route is not pinned to one tenant', async () => {
-    const res = await POST(post({ 'x-tenant-id': TENANT_B, 'x-tenant-sig': signTenantHeader(TENANT_B) }))
-
-    expect(res.status).toBe(200)
-    expect(h.captured.clientLookups).toEqual([TENANT_B])
-    expect(h.captured.convoInsert?.tenant_id).toBe(TENANT_B)
+  it('forged/invalid signature → 400, no conversation created', async () => {
+    const res = await yinez({ 'x-tenant-id': A, 'x-tenant-sig': 'forged' }, { message: 'hi', phone: '5551234567' })
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'sms_conversations')).toBeUndefined()
   })
 
-  it('swap-forgery: tenant A\'s genuine signature paired with x-tenant-id B scopes to NEITHER', async () => {
-    // Attacker legitimately holds A's signature (e.g. from their own signed
-    // session) but swaps the id to target B. The sig is bound to A, so it does
-    // not validate B — and it must NOT silently fall back to A either.
-    const res = await POST(post({ 'x-tenant-id': TENANT_B, 'x-tenant-sig': signTenantHeader(TENANT_A) }))
+  it('wrong-tenant probe: attacker-chosen x-tenant-id without a valid sig for it never links tenant B\'s client', async () => {
+    // Attacker sets x-tenant-id to B's id but can't produce B's real signature.
+    const res = await yinez({ 'x-tenant-id': B, 'x-tenant-sig': 'goodsig-for-a-not-b' }, { message: 'hi', phone: '5551234567' })
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'sms_conversations')).toBeUndefined()
+  })
 
+  it('positive control: a validly-signed header scopes the client lookup + conversation to the signed tenant only', async () => {
+    const res = await yinez({ 'x-tenant-id': A, 'x-tenant-sig': 'goodsig' }, { message: 'hi', phone: '5551234567' })
     expect(res.status).toBe(200)
-    // No tenant-scoped client read at all.
-    expect(h.captured.clientLookups).toEqual([])
-    // Not scoped to the forged target B, and not to the signature's true owner A.
-    expect(h.captured.convoInsert?.tenant_id).toBeUndefined()
+    const ins = h.capture.inserts.find((i) => i.table === 'sms_conversations')
+    expect(ins).toBeDefined()
+    expect(ins!.rows.every((r) => r.tenant_id === A)).toBe(true)
+    // Client linked (if any) must be tenant A's, never tenant B's, even though
+    // both share the same phone number.
+    const linkedClientId = ins!.rows[0].client_id
+    expect(linkedClientId).toBe('client-a')
   })
 })

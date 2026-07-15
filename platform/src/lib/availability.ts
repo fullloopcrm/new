@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
+import { hourToLabel, slotStartHours } from '@/lib/time-slots'
 
 export interface AvailabilitySlot {
   time: string
@@ -21,20 +22,7 @@ export interface TeamMemberAvailability {
   conflict?: string
 }
 
-const DEFAULT_BUSINESS_START = 9
-const DEFAULT_BUSINESS_END = 17
 const BUFFER_MINUTES = 60 // travel buffer between jobs — aligned with smart-schedule + schedule-monitor
-
-// 24-hour -> "9:00 AM" style label, for any hour 0-23 (tenant business hours
-// are configurable per-tenant via business_hours_start/end; this used to be a
-// fixed 9-16 lookup table that silently clipped any tenant whose hours ran
-// outside that window — see F4).
-function formatHourLabel(hour: number): string {
-  const h = ((hour % 24) + 24) % 24
-  const ampm = h >= 12 ? 'PM' : 'AM'
-  const hr = h % 12 || 12
-  return `${hr}:00 ${ampm}`
-}
 
 const toMinutes = (timeStr: string) => {
   const timePart = timeStr.split('T')[1] || '00:00'
@@ -146,7 +134,9 @@ export async function checkAvailability(
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
 
-  // Open-365 tenants (e.g. nycmaid) never treat a holiday as closed.
+  // Open-365 tenants (e.g. nycmaid, 24-7 emergency trades) never treat a holiday
+  // as closed. The business-hours window is per-tenant too, so a 24-7 trade that
+  // sets 0–24 hours can surface any-time slots.
   if (!open_365) {
     const holidayName = isHoliday(date)
     if (holidayName) {
@@ -162,17 +152,14 @@ export async function checkAvailability(
 
   const existingBookings = await getBookingsForDay(tenantId, date)
   const durationMin = durationHours * 60
-  // Per-tenant hours (set in onboarding/dashboard settings, default 9-5) —
-  // previously hardcoded to 9-5 here regardless of what the tenant configured,
-  // the business-hours half of F4's bug.
-  const businessStart = settings.business_hours_start ?? DEFAULT_BUSINESS_START
-  const businessEnd = settings.business_hours_end ?? DEFAULT_BUSINESS_END
-  const lastStartHour = businessEnd - durationHours
+  // Previously hardcoded to 9-5 here regardless of what the tenant configured
+  // (the business-hours half of F4's bug) — slotStartHours() below now reads
+  // the tenant's actual business_hours_start/end.
   const nowMinutes = now.getHours() * 60 + now.getMinutes()
 
   const slots: AvailabilitySlot[] = []
 
-  for (let hour = businessStart; hour <= lastStartHour; hour++) {
+  for (const hour of slotStartHours(settings.business_hours_start, settings.business_hours_end, durationHours)) {
     const slotStartMin = hour * 60
     const slotEndMin = slotStartMin + durationMin
 
@@ -187,7 +174,7 @@ export async function checkAvailability(
       return !result.conflict
     })
 
-    slots.push({ time: formatHourLabel(hour), available: hasAvailableMember })
+    slots.push({ time: hourToLabel(hour), available: hasAvailableMember })
   }
 
   return { slots }

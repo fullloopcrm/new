@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
+import { entityIdFromUrl, getDefaultEntityId, isEntityOwnedByTenant } from '@/lib/entity'
 import {
   normalizeLineItems,
   computeTotals,
@@ -140,6 +140,14 @@ export async function POST(request: Request) {
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
+    // entity_id is a caller-supplied FK too — sibling finance writes (periods,
+    // expenses, bank-accounts, cpa-tokens) all verify it belongs to this tenant
+    // before insert; this route computed a tenant-scoped default but never
+    // checked a caller-supplied override, so a foreign id could scope this
+    // invoice to another tenant's accounting entity.
+    if (body.entity_id && !(await isEntityOwnedByTenant(tenantId, body.entity_id))) {
+      return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     // client_id/booking_id/quote_id are cross-table FKs — confirm each belongs

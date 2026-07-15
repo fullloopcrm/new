@@ -81,4 +81,11 @@ describe('POST /api/admin/bookings/[id]/cleaner-payout — tenant isolation', ()
     const bookingB = h.store.bookings.find((b) => b.id === 'book-B1')
     expect(bookingB?.team_member_paid).toBeUndefined()
   })
+
+  it('rejects a missing/invalid amount before touching the database', async () => {
+    const res = await POST(postReq({ cleaner_id: 'tm-1', amount_cents: 0 }), { params: params('book-A1') })
+
+    expect(res.status).toBe(400)
+    expect(h.store.team_member_payouts).toHaveLength(0)
+  })
 })

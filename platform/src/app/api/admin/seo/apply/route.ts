@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/require-admin'
 import { applyOverride, revertOverride } from '@/lib/seo/overrides'
-import { safeEqual } from '@/lib/secret-compare'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

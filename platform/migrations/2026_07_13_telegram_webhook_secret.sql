@@ -1,0 +1,18 @@
+-- Per-tenant Telegram webhook secret token (P1/W2 webhooks security).
+--
+-- Telegram inbound updates carried NO signature verification — the only
+-- "auth" was a body-supplied chat ID, which an attacker can forge in the
+-- POST payload itself. This column stores the secret Telegram echoes back
+-- in the X-Telegram-Bot-Api-Secret-Token header (set via BotFather/
+-- setWebhook's secret_token param), so the per-tenant route
+-- (/api/webhooks/telegram/[tenant]) can verify it with a constant-time
+-- compare before trusting the payload.
+--
+-- Encrypted at rest via secret-crypto (added to ENCRYPTED_TENANT_FIELDS),
+-- same as telegram_bot_token.
+--
+-- NULL = no secret configured yet. The route FAILS OPEN (accepts
+-- unauthenticated updates, same as today) for any tenant with this unset —
+-- it does not break tenants who haven't rotated in a secret token yet. Set a
+-- secret token via BotFather + save it here to close the gap per tenant.
+alter table tenants add column if not exists telegram_webhook_secret text;

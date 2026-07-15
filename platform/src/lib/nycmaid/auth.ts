@@ -68,9 +68,10 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
       if (!safeEqual(signToken(token), signature)) return { valid: false }
       return { valid: true }
     }
-  } catch {
+  } catch (err) {
     // ADMIN_PASSWORD not configured — signToken() throws rather than sign
     // with a publicly-computable '' key. Fail closed: no session is valid.
+    console.error('[nycmaid/auth] verifySessionCookie failed closed:', err instanceof Error ? err.message : err)
     return { valid: false }
   }
 
@@ -159,8 +160,9 @@ export function verifyClientSession(cookie: string): string | null {
   const payload = `${clientId}.${timestamp}`
   try {
     if (!safeEqual(signToken(payload), signature)) return null
-  } catch {
+  } catch (err) {
     // ADMIN_PASSWORD not configured — fail closed, same as verifySessionCookie.
+    console.error('[nycmaid/auth] verifyClientSession failed closed:', err instanceof Error ? err.message : err)
     return null
   }
   // Sessions valid for 30 days

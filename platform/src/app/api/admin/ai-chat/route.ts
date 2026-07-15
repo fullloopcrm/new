@@ -14,14 +14,19 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 
-// Tools that mutate data require the same permission the equivalent direct
-// API route enforces (e.g. /api/bookings/[id] PUT requires bookings.edit) —
-// the AI chat is a copilot, not a bypass around RBAC.
+// Tools that mutate data or expose finance figures must be gated behind the
+// SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
+// -> bookings.edit, clients/[id].PUT -> clients.edit, etc). Without this, any
+// tenant member reaching this chat widget — including 'staff', which lacks
+// bookings.edit/clients.edit/finance.view — could have the assistant perform
+// actions the REST API would 403 on directly. NOTE: api/ai/assistant/route.ts
+// has the same tool-execution shape and the same gap (unguarded) — not fixed here.
 const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
   update_bookings: 'bookings.edit',
   cancel_bookings: 'bookings.edit',
   update_client: 'clients.edit',
   create_booking: 'bookings.create',
+  get_revenue_stats: 'finance.view',
 }
 
 const tools: Anthropic.Tool[] = [
@@ -177,7 +182,7 @@ export async function executeTool(
 
   const requiredPermission = TOOL_PERMISSIONS[name]
   if (requiredPermission && !hasPermission(role, requiredPermission, overrides)) {
-    return JSON.stringify({ error: 'You do not have permission to do that.' })
+    return JSON.stringify({ error: `You don't have permission to do that (requires ${requiredPermission}).` })
   }
 
   switch (name) {
@@ -234,18 +239,49 @@ export async function executeTool(
         })
       }
 
+      // team_member_id is a model-supplied FK — query_bookings/get_schedule_summary
+      // embed team_members(name) off this column with no tenant filter on the
+      // embedded side, so an unverified foreign id would surface another tenant's
+      // employee name on the next schedule lookup. Same class as P1/P11/P25/P30/P32.
+      if (updates.team_member_id) {
+        const { data: owned } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .maybeSingle()
+        if (!owned) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await db
+          const { data, error } = await db
             .from('bookings')
             .update(updates)
             .eq('id', id)
-          return { id, error: error?.message }
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
         })
       )
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
-      return JSON.stringify({ success: true, updated: ids.length })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const updatedCount = results.length - notFound.length
+      if (updatedCount === 0) {
+        return JSON.stringify({
+          success: false,
+          updated: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was updated.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          updated: updatedCount,
+          not_found: notFound,
+          message: `${updatedCount}/${ids.length} booking(s) updated. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, updated: updatedCount })
     }
 
     case 'cancel_bookings': {
@@ -260,16 +296,34 @@ export async function executeTool(
       }
       const results = await Promise.all(
         ids.map(async id => {
-          const { error } = await db
+          const { data, error } = await db
             .from('bookings')
             .update({ status: 'cancelled' })
             .eq('id', id)
-          return { id, error: error?.message }
+            .select('id')
+          return { id, error: error?.message, matched: (data?.length ?? 0) > 0 }
         })
       )
       const failed = results.filter(r => r.error)
       if (failed.length > 0) return JSON.stringify({ error: `${failed.length}/${ids.length} failed`, details: failed })
-      return JSON.stringify({ success: true, cancelled: ids.length })
+      const notFound = results.filter(r => !r.matched).map(r => r.id)
+      const cancelledCount = results.length - notFound.length
+      if (cancelledCount === 0) {
+        return JSON.stringify({
+          success: false,
+          cancelled: 0,
+          message: `None of the ${ids.length} booking id(s) belong to this business — nothing was cancelled.`,
+        })
+      }
+      if (notFound.length > 0) {
+        return JSON.stringify({
+          success: true,
+          cancelled: cancelledCount,
+          not_found: notFound,
+          message: `${cancelledCount}/${ids.length} booking(s) cancelled. ${notFound.length} id(s) did not match a booking for this business.`,
+        })
+      }
+      return JSON.stringify({ success: true, cancelled: cancelledCount })
     }
 
     case 'get_schedule_summary': {
@@ -324,6 +378,27 @@ export async function executeTool(
           service_type: input.service_type || 'regular',
         })
       }
+      // client_id and team_member_id are model-supplied FKs — verify both
+      // belong to this tenant before insert. query_bookings/get_schedule_summary
+      // embed clients(name)/team_members(name) off these columns with no
+      // tenant filter on the embedded side, so an unverified foreign id would
+      // read back another tenant's client/employee name on the next lookup.
+      const { data: ownedClient } = await db
+        .from('clients')
+        .select('id')
+        .eq('id', input.client_id as string)
+        .maybeSingle()
+      if (!ownedClient) return JSON.stringify({ error: 'client not found' })
+
+      if (input.team_member_id) {
+        const { data: ownedMember } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', input.team_member_id as string)
+          .maybeSingle()
+        if (!ownedMember) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const startTime = input.start_time as string
       let endTime = input.end_time as string | undefined
       if (!endTime) {

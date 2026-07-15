@@ -3,9 +3,9 @@
  * PATCH → { payment_id, status }
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { logJobEvent, type PaymentStatus } from '@/lib/jobs'
 
 type Params = { params: Promise<{ id: string }> }
@@ -17,6 +17,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.expenses')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const { payment_id, status } = (await request.json().catch(() => ({}))) as {
       payment_id?: string
@@ -29,10 +30,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const patch: Record<string, unknown> = { status }
     if (status === 'paid') patch.paid_at = new Date().toISOString()
 
-    const { data: payment, error } = await supabaseAdmin
+    const { data: payment, error } = await db
       .from('job_payments')
       .update(patch)
-      .eq('tenant_id', tenantId)
       .eq('job_id', id)
       .eq('id', payment_id)
       .select('id, label, amount_cents, status, paid_at')

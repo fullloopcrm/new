@@ -42,10 +42,16 @@ async function getTenantScorerConfig(tenantId: string): Promise<TenantScorerConf
 export async function scoreConversation(tenantId: string, conversationId: string): Promise<ScoreResult> {
   const config = await getTenantScorerConfig(tenantId)
 
+  // conversationId is caller-supplied (POST /api/admin/selena/score accepts
+  // any conversation_id from an authenticated admin of ANY tenant) — verify
+  // it belongs to this tenant before reading or writing it, otherwise an
+  // admin could pull another tenant's conversation into its quality_score/
+  // quality_issues columns (cross-tenant row mutation).
   const { data: convo } = await supabaseAdmin
     .from('sms_conversations')
     .select('outcome, booking_checklist, name, created_at, completed_at, updated_at')
     .eq('id', conversationId)
+    .eq('tenant_id', tenantId)
     .single()
 
   const { data: messages } = await supabaseAdmin
@@ -191,6 +197,20 @@ export async function selfReviewConversation(
 ): Promise<{ review: string; score: number; improvements: string[] }> {
   const config = await getTenantScorerConfig(tenantId)
 
+  // conversationId is caller-supplied (POST /api/admin/selena/score accepts
+  // any conversation_id from an authenticated admin of ANY tenant) — verify
+  // it belongs to this tenant before reading its transcript or writing to it.
+  // Without this, an admin could read another tenant's client conversation
+  // via the AI review text, and pollute this tenant's own selena_memory with
+  // the victim's client_id (see the insert below).
+  const { data: convo } = await supabaseAdmin
+    .from('sms_conversations')
+    .select('outcome, name, client_id')
+    .eq('id', conversationId)
+    .eq('tenant_id', tenantId)
+    .maybeSingle()
+  if (!convo) return { review: 'Conversation not found', score: 0, improvements: [] }
+
   const { data: messages } = await supabaseAdmin
     .from('sms_conversation_messages')
     .select('direction, message')
@@ -200,12 +220,6 @@ export async function selfReviewConversation(
   if (!messages?.length) return { review: 'No messages to review', score: 0, improvements: [] }
 
   const transcript = messages.map(m => `${m.direction === 'inbound' ? 'CLIENT' : 'AGENT'}: ${m.message}`).join('\n')
-
-  const { data: convo } = await supabaseAdmin
-    .from('sms_conversations')
-    .select('outcome, name, client_id')
-    .eq('id', conversationId)
-    .single()
 
   const tenantRules = config.rules_summary || `
 - Do not ask name as the first question

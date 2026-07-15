@@ -36,7 +36,7 @@ interface FixPlan {
   acknowledgeOnly: boolean
 }
 
-async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
+async function buildFixPlan(issue: IssueRow, tenantId: string): Promise<FixPlan> {
   const ack: FixPlan = {
     description: `Mark "${issue.type.replace(/_/g, ' ')}" as resolved (no data change).`,
     changes: [],
@@ -52,6 +52,7 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
     .from('bookings')
     .select('id, start_time, end_time, price, hourly_rate, team_member_id, status')
     .eq('id', issue.booking_id)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!booking) return ack
@@ -104,11 +105,12 @@ export async function POST(request: Request) {
     .from('schedule_issues')
     .select('id, tenant_id, type, message, booking_id, team_member_id, status')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!issue) return NextResponse.json({ error: 'Issue not found' }, { status: 404 })
 
-  const plan = await buildFixPlan(issue as IssueRow)
+  const plan = await buildFixPlan(issue as IssueRow, tenantId)
 
   if (!apply) {
     return NextResponse.json({ preview: plan, applied: false })
@@ -123,7 +125,7 @@ export async function POST(request: Request) {
     bookingUpdates[ch.id][ch.field] = ch.to
   }
   for (const [bookingId, fields] of Object.entries(bookingUpdates)) {
-    await db.from('bookings').update(fields).eq('id', bookingId)
+    await db.from('bookings').update(fields).eq('id', bookingId).eq('tenant_id', tenantId)
   }
 
   await db
@@ -135,6 +137,7 @@ export async function POST(request: Request) {
       resolution_note: plan.description,
     })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
 
   return NextResponse.json({ preview: plan, applied: true })
 }

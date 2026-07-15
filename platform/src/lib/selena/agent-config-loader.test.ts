@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
-import { buildPriceCopy, deriveIntakeQuestions } from './agent-config-loader'
+import { buildPriceCopy } from './agent-config-loader'
 import { buildPlaybook } from './build-playbook'
 import { CHECKLIST_BY_INDUSTRY } from '@/lib/industry-presets'
 import type { ServiceType } from '@/lib/settings'
@@ -74,176 +74,88 @@ describe('buildPriceCopy — carries real service rates (F3 fix)', () => {
 })
 
 /**
- * F2 — CHECKLIST_BY_INDUSTRY never reached the live agent for any tenant riding
- * the neutral base engine (every industry without a hand-authored config file —
- * ~34 of 53 verticals). getAgentConfig() hardcoded a generic 3-question intake
- * and silently ignored tenants.selena_config.checklist_fields, the per-trade
- * checklist provisionTenant() seeds and the owner can edit in dashboard/settings.
- * deriveIntakeQuestions() is the extracted fix: it now sources intake.questions
- * from the configured checklist, falling back to the generic questions only when
- * nothing has been configured.
- */
-describe('deriveIntakeQuestions — per-trade checklist reaches the live agent (F2 fix)', () => {
-  const fallback = ['What do you need?', 'Where are you located?', 'When do you need it?']
-
-  it('a non-cleaning trade (dumpster) gets its real CHECKLIST_BY_INDUSTRY questions, not the generic fallback', () => {
-    const questions = deriveIntakeQuestions(CHECKLIST_BY_INDUSTRY.dumpster, fallback)
-    expect(questions[0]).toMatch(/dumpster size/i)
-    expect(questions).not.toEqual(fallback)
-  })
-
-  it('every industry preset checklist survives the derivation with at least one question', () => {
-    for (const [industry, fields] of Object.entries(CHECKLIST_BY_INDUSTRY)) {
-      const questions = deriveIntakeQuestions(fields, fallback)
-      expect(questions.length, `industry "${industry}" produced no intake questions`).toBeGreaterThan(0)
-      expect(questions, `industry "${industry}" fell through to the generic fallback`).not.toEqual(fallback)
-    }
-  })
-
-  it('disabled fields are excluded from the derived questions', () => {
-    const questions = deriveIntakeQuestions(
-      [
-        { key: 'service_type', enabled: true, required: true, question: 'What service?', sms_options: '' },
-        { key: 'notes', enabled: false, required: false, question: 'Should never appear.', sms_options: '' },
-      ],
-      fallback,
-    )
-    expect(questions).toEqual(['What service?'])
-  })
-
-  it('falls back to the generic questions when checklist_fields is unset (null/undefined)', () => {
-    expect(deriveIntakeQuestions(undefined, fallback)).toEqual(fallback)
-    expect(deriveIntakeQuestions(null, fallback)).toEqual(fallback)
-  })
-
-  it('falls back to the generic questions when checklist_fields is an empty array', () => {
-    expect(deriveIntakeQuestions([], fallback)).toEqual(fallback)
-  })
-
-  it('falls back to the generic questions when every field is disabled', () => {
-    const allDisabled = [
-      { key: 'service_type', enabled: false, required: true, question: 'What service?', sms_options: '' },
-    ]
-    expect(deriveIntakeQuestions(allDisabled, fallback)).toEqual(fallback)
-  })
-
-  it('is defensive against malformed data (not an array)', () => {
-    expect(deriveIntakeQuestions({ not: 'an array' }, fallback)).toEqual(fallback)
-    expect(deriveIntakeQuestions('garbage', fallback)).toEqual(fallback)
-  })
-
-  it('the cleaning checklist (bedrooms/bathrooms) still derives correctly for a non-authored cleaning tenant', () => {
-    const questions = deriveIntakeQuestions(CHECKLIST_BY_INDUSTRY.cleaning, fallback)
-    expect(questions.some((q) => /bedrooms/i.test(q))).toBe(true)
-  })
-})
-
-/**
- * Regression (F2): getAgentConfig() hardcoded a generic 3-question intake
- * (service list / location / timing) for EVERY non-nyc-maid tenant, so
- * provision-tenant.ts's per-industry CHECKLIST_BY_INDUSTRY checklist — already
- * seeded into tenants.selena_config.checklist_fields at signup — never reached
- * the agent for any trade (hvac, roofing, plumbing, ...). Only cleaning
- * tenants got a checklist-shaped intake, and only by accident (the generic
- * 3-question fallback happens to look plausible for cleaning too).
+ * F2 — the active agent ignored the seeded per-trade checklist and always used a
+ * generic 3-question intake. getAgentConfig now derives intake.questions from the
+ * tenant's selena_config.checklist_fields, so a pest/roofing/HVAC tenant asks real
+ * trade questions. Contact/schedule keys (rate/day/time/name/phone/email) are the
+ * flow's job, not qualifying questions, so they're excluded.
  *
- * This test proves a non-cleaning trade (hvac) gets ITS trade checklist —
- * not the generic fallback — and that a tenant with no selena_config still
- * falls back to the generic 3-question intake (no regression for legacy rows).
- * Exercises getAgentConfig() end-to-end (mocked DB), complementing the
- * deriveIntakeQuestions() unit tests above.
+ * Supabase is mocked: the tenant fetch resolves via .single(); the service_types
+ * fetch (used by getSettings) resolves via the terminal .order().
  */
 
-type Eqs = Record<string, unknown>
 let tenantRow: Record<string, unknown> | null
+let serviceRows: unknown[]
 
-function builder(table: string) {
-  const eqs: Eqs = {}
+function from(table: string) {
   const chain = {
     select: () => chain,
-    eq: (col: string, val: unknown) => {
-      eqs[col] = val
-      return chain
-    },
+    eq: () => chain,
+    order: () => Promise.resolve({ data: serviceRows, error: null }),
     single: async () => ({ data: table === 'tenants' ? tenantRow : null, error: null }),
-    order: () => chain,
-    then: (resolve: (v: { data: unknown[]; error: null }) => unknown) =>
-      resolve({ data: [], error: null }),
   }
   return chain
 }
 
 vi.mock('@/lib/supabase', () => ({
-  supabaseAdmin: { from: (table: string) => builder(table) },
+  supabaseAdmin: { from },
+  supabase: { from },
 }))
 
-vi.mock('@/lib/settings', () => ({
-  getSettings: async () => ({
-    business_name: 'Acme HVAC',
-    service_types: [],
-    standard_rate: 0,
-    payment_methods: ['zelle'],
-    funnel_mode: 'booking' as const,
-  }),
-}))
-
-import { getAgentConfig } from './agent-config-loader'
-
-const HVAC_CHECKLIST = [
-  { key: 'service_type', enabled: true, required: true, question: 'Ask tune-up, repair, install, or duct cleaning — system type.', sms_options: 'Tune-up,Repair,Install,Duct clean' },
-  { key: 'notes', enabled: true, required: true, question: 'Ask for the job details — scope, condition, and anything specific they need.', sms_options: '' },
-  { key: 'rate', enabled: true, required: true, question: 'Quote the rate.', sms_options: '' },
-  { key: 'name', enabled: true, required: true, question: 'Ask for full name.', sms_options: '' },
-  { key: 'phone', enabled: false, required: false, question: 'Ask for phone (disabled for this tenant).', sms_options: '' },
-]
+import { getAgentConfig, intakeFromChecklist } from './agent-config-loader'
+import { clearSettingsCache } from '@/lib/settings'
 
 beforeEach(() => {
+  clearSettingsCache()
+  serviceRows = [{ name: 'General Pest Control', default_duration_hours: 1, default_hourly_rate: 95, active: true }]
   tenantRow = null
 })
 
-describe('getAgentConfig — per-trade intake checklist (F2)', () => {
-  it('feeds a non-cleaning trade (hvac) its own checklist_fields instead of the generic 3-question intake', async () => {
+describe('getAgentConfig intake — seeded checklist reaches the agent (F2)', () => {
+  it('uses the per-trade checklist questions, excluding contact/schedule keys', async () => {
     tenantRow = {
-      name: 'Acme HVAC',
-      phone: '555-1234',
-      email: 'hi@acmehvac.com',
-      domain: 'acmehvac.com',
-      website_url: null,
-      industry: 'hvac',
-      agent_name: 'Jefe',
-      address: null,
-      selena_config: { checklist_fields: HVAC_CHECKLIST },
+      id: 'p1', name: 'Ace Pest', industry: 'pest', agent_name: 'Yinez',
+      selena_config: { checklist_fields: CHECKLIST_BY_INDUSTRY.pest },
     }
-
-    const cfg = await getAgentConfig('tenant-hvac')
-
+    const cfg = await getAgentConfig('p1')
     expect(cfg.intake.questions).toEqual([
-      'Ask tune-up, repair, install, or duct cleaning — system type.',
-      'Ask for the job details — scope, condition, and anything specific they need.',
-      'Quote the rate.',
-      'Ask for full name.',
+      'Ask general, rodents, termites, or bed bugs.',
+      'Ask pest type, severity, where they see them, and property type.',
+      'Ask for address.',
     ])
-    // disabled fields are excluded
-    expect(cfg.intake.questions).not.toContain('Ask for phone (disabled for this tenant).')
-    // and it must NOT be the old generic fallback
+    // The generic hardcoded intake must be gone.
     expect(cfg.intake.questions).not.toContain('Where are you located?')
+    // Contact/schedule keys are NOT intake questions.
+    expect(cfg.intake.questions).not.toContain('Ask for phone.')
+    expect(cfg.intake.questions).not.toContain('Quote service rate.')
   })
 
-  it('falls back to the generic 3-question intake when selena_config has no checklist_fields (legacy tenant)', async () => {
-    tenantRow = {
-      name: 'Acme HVAC',
-      phone: '555-1234',
-      email: 'hi@acmehvac.com',
-      domain: 'acmehvac.com',
-      website_url: null,
-      industry: 'hvac',
-      agent_name: 'Jefe',
-      address: null,
-      selena_config: {},
-    }
+  it('falls back to the generic intake when the tenant has no checklist', async () => {
+    tenantRow = { id: 'e1', name: 'Empty Co', industry: 'general', agent_name: 'Jefe', selena_config: {} }
+    const cfg = await getAgentConfig('e1')
+    expect(cfg.intake.questions).toHaveLength(3)
+    expect(cfg.intake.questions).toContain('Where are you located?')
+    expect(cfg.intake.questions).toContain('When do you need it?')
+  })
+})
 
-    const cfg = await getAgentConfig('tenant-legacy')
+describe('intakeFromChecklist (F2)', () => {
+  const fallback = ['fallback question']
 
-    expect(cfg.intake.questions).toEqual(['What do you need help with?', 'Where are you located?', 'When do you need it?'])
+  it('drops disabled fields and contact/schedule keys, keeps scope questions', () => {
+    const checklist = [
+      { key: 'service_type', enabled: true, question: 'What type?' },
+      { key: 'notes', enabled: true, question: 'Describe the job.' },
+      { key: 'address', enabled: true, question: 'Where?' },
+      { key: 'rate', enabled: true, question: 'Quote it.' },
+      { key: 'phone', enabled: true, question: 'Ask for phone.' },
+      { key: 'bedrooms', enabled: false, question: 'How many bedrooms?' },
+    ]
+    expect(intakeFromChecklist(checklist, fallback)).toEqual(['What type?', 'Describe the job.', 'Where?'])
+  })
+
+  it('returns the fallback for a non-array or empty result', () => {
+    expect(intakeFromChecklist(undefined, fallback)).toBe(fallback)
+    expect(intakeFromChecklist([{ key: 'rate', enabled: true, question: 'Quote.' }], fallback)).toBe(fallback)
   })
 })

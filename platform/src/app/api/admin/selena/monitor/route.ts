@@ -9,7 +9,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { safeEqual } from '@/lib/secret-compare'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 function authorized(request: NextRequest): boolean {
   const expected = process.env.ELCHAPO_MONITOR_KEY

@@ -3,6 +3,7 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { documentOriginalPath, logDocEvent, DOCUMENTS_BUCKET } from '@/lib/documents'
@@ -17,10 +18,9 @@ export async function GET(request: Request) {
     const status = url.searchParams.get('status')
     const limit = Math.min(500, Number(url.searchParams.get('limit')) || 100)
 
-    let q = supabaseAdmin
+    let q = tenantDb(tenantId)
       .from('documents')
       .select('*, document_signers(id, name, email, role, status, order_index)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(limit)
     if (status) q = q.eq('status', status)
@@ -40,6 +40,7 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const form = await request.formData()
     const file = form.get('file') as File | null
     const title = String(form.get('title') || '').trim()
@@ -74,10 +75,9 @@ export async function POST(request: Request) {
     }
 
     // Insert row first to get id for path
-    const { data: doc, error: dErr } = await supabaseAdmin
+    const { data: doc, error: dErr } = await db
       .from('documents')
       .insert({
-        tenant_id: tenantId,
         title,
         message,
         sign_order: signOrder,
@@ -96,11 +96,11 @@ export async function POST(request: Request) {
         upsert: true,
       })
     if (upErr) {
-      await supabaseAdmin.from('documents').delete().eq('id', doc.id)
+      await db.from('documents').delete().eq('id', doc.id)
       return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 })
     }
 
-    await supabaseAdmin
+    await db
       .from('documents')
       .update({ original_path: path })
       .eq('id', doc.id)

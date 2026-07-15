@@ -3,6 +3,15 @@
  * Handles: checkout completion, payments table insert, tip detection,
  * cleaner auto-payout via Stripe Connect (when team_member has stripe_account_id),
  * client/cleaner/admin notifications.
+ *
+ * tenantDb triage (P1/W2 c): N/A for this whole file. tenant_id is derived
+ * per-event from Stripe metadata / an existence lookup (booking id, quote id,
+ * invoice id, prospect id) that differs by event type and branch — several
+ * branches (self-serve tenant signup: entities/prospects/tenant_invites) run
+ * BEFORE any tenant exists at all. Every downstream read/write already
+ * carries an explicit `.eq('tenant_id', …)` filter or stamp; idempotency on
+ * the money-moving paths is handled separately (see the payments UNIQUE
+ * constraint + the payout idempotencyKey added in this same branch).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -56,6 +65,16 @@ export async function POST(request: Request) {
       // booking, resolve booking + tenant here so it routes to the booking-payment
       // path below, not the Full Loop signup path. Strictly additive — a prospect's
       // client_reference_id won't match a booking id, so signups are unaffected.
+      //
+      // `client_reference_id` is a caller-editable URL query param on a Stripe
+      // Payment Link — Stripe never validates or restricts its value. Trusting
+      // the referenced booking's tenant_id outright would let anyone holding ANY
+      // tenant's static payment_link URL pay through it with a foreign tenant's
+      // booking id appended, crediting that payment — and triggering a real
+      // Stripe Connect payout — to a booking the payer never actually paid for.
+      // Close the gap by confirming the Payment Link Stripe says was actually
+      // used for this checkout is the one configured for the referenced
+      // booking's own tenant, before trusting the resolution.
       if (!bookingId && session.client_reference_id) {
         const { data: refBooking } = await supabaseAdmin
           .from('bookings')
@@ -63,8 +82,24 @@ export async function POST(request: Request) {
           .eq('id', session.client_reference_id)
           .maybeSingle()
         if (refBooking) {
-          bookingId = refBooking.id
-          tenantId = tenantId || refBooking.tenant_id
+          const { data: refTenant } = await supabaseAdmin
+            .from('tenants')
+            .select('payment_link')
+            .eq('id', refBooking.tenant_id)
+            .maybeSingle()
+          let linkMatchesTenant = false
+          if (refTenant?.payment_link && typeof session.payment_link === 'string') {
+            try {
+              const usedLink = await stripe.paymentLinks.retrieve(session.payment_link)
+              linkMatchesTenant = usedLink.url === refTenant.payment_link
+            } catch (e) {
+              console.error('[stripe] payment link ownership check failed:', e)
+            }
+          }
+          if (linkMatchesTenant) {
+            bookingId = refBooking.id
+            tenantId = tenantId || refBooking.tenant_id
+          }
         }
       }
 
@@ -400,17 +435,19 @@ export async function POST(request: Request) {
         stripe_payment_intent_id: typeof session.payment_intent === 'string' ? session.payment_intent : null,
       }).select('id').single()
 
-      if (payInsertErr) {
-        if (payInsertErr.code === '23505') {
+      if (payInsertErr || !bookingPayment?.id) {
+        if ((payInsertErr as { code?: string } | null)?.code === '23505') {
+          // Duplicate delivery raced us on the UNIQUE stripe_session_id — the
+          // first delivery already recorded the payment (and paid the cleaner).
           return NextResponse.json({ received: true, idempotent: true })
         }
-        console.error('[stripe] booking payment insert failed:', payInsertErr)
-        return NextResponse.json({ received: true, error: 'insert_failed' })
+        // Genuine insert failure: do NOT proceed to pay the cleaner against a
+        // payment we failed to record. 500 so Stripe redelivers and we retry.
+        console.error(`[stripe] booking payment insert failed for ${bookingId}:`, payInsertErr)
+        return NextResponse.json({ error: 'payment insert failed' }, { status: 500 })
       }
-      if (bookingPayment?.id) {
-        postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
-          .catch(err => console.error('[stripe] booking revenue post failed:', err))
-      }
+      postPaymentRevenue({ tenantId, paymentId: bookingPayment.id })
+        .catch(err => console.error('[stripe] booking revenue post failed:', err))
 
       // 2. Update booking
       await supabaseAdmin

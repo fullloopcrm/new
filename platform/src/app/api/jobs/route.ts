@@ -7,7 +7,7 @@
  */
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 
 interface PaymentRow {
   amount_cents: number
@@ -31,12 +31,12 @@ function rollup(payments: PaymentRow[], nowIso: string) {
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const nowIso = new Date().toISOString()
 
-    const { data: jobs, error } = await supabaseAdmin
+    const { data: jobs, error } = await db
       .from('jobs')
       .select('id, title, status, total_cents, created_at, client_id, clients(name), job_payments(amount_cents, status, due_at)')
-      .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(500)
     if (error) {

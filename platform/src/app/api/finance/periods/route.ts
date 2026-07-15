@@ -48,6 +48,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
     }
 
+    // Caller-supplied FK — verify it belongs to this tenant before upsert, so a
+    // foreign id can't scope this tenant's period to another tenant's accounting
+    // entity (surfaced back on read via the GET route's entities(name) embed, and
+    // the on-conflict key includes entity_id so a foreign id opens a distinct row).
+    if (body.entity_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('entities')
+        .select('id')
+        .eq('id', body.entity_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('accounting_periods')
       .upsert({

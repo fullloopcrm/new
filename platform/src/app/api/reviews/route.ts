@@ -38,7 +38,23 @@ export async function POST(request: Request) {
       source: { type: 'string', max: 100 },
       status: { type: 'string', max: 50 },
     })
-    if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+    if (vError || !fields) return NextResponse.json({ error: vError ?? 'Invalid request body' }, { status: 400 })
+
+    // client_id is a caller-supplied FK — clients has no cross-tenant FK
+    // check, and GET's clients(name) join on this table is unscoped by
+    // tenant, so a foreign client_id would leak another tenant's client
+    // name into this tenant's review list. Verify ownership before insert.
+    if (fields.client_id) {
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', fields.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
 
     const { data, error } = await supabaseAdmin
       .from('reviews')

@@ -1,3 +1,10 @@
+// tenantDb triage (P1/W2 c): N/A for this whole file. Every supabaseAdmin
+// call here is hardcoded to NYCMAID_TENANT_ID (see below) rather than a
+// per-request tenantId, and several lookups (comhub_active_calls by
+// Telnyx call_control_id, comhub_admin_presence) are keyed by Telnyx's own
+// identifiers before any tenant context exists — the pattern tenantDb is not
+// built for. Existing `.eq('tenant_id', …)` filters are the enforced
+// invariant; some call sites already carry a `tenant-scope-ok` note.
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { createGooglePost, generateGooglePost, getGooglePosts } from '@/lib/google-posts'
 import { requirePermission } from '@/lib/require-permission'
+import { createGooglePost, generateGooglePost, getGooglePosts } from '@/lib/google-posts'
 
 // GET — list all posts for tenant
 export async function GET() {

@@ -209,7 +209,12 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             .ilike('email', fromAddr)
             .limit(1)
             .single()
-          if (!paused && !dnsClient?.do_not_service) {
+          // nycmaid: Yinez/Selena email auto-reply hardcoded off per Jeff
+          // 2026-05-29 (source: cron/comhub-email `if (true || paused ...)`)
+          // — she wasn't checking schedule availability when replying.
+          // Inbound is still mirrored above so admin handles it manually.
+          // Ported tenant-gated rather than dropped; other tenants unaffected.
+          if (!paused && !dnsClient?.do_not_service && tenantId !== NYCMAID_TENANT_ID) {
             const result = await askSelena('email', text || subject || '', threadId as string, undefined)
             if (result.text) {
               const replySubject = subject ? `Re: ${subject.replace(/^(re:\s*)+/i, '')}` : '(no subject)'

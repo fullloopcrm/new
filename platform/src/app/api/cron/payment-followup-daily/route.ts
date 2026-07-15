@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
-import { verifyCronSecret } from '@/lib/cron-auth'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -44,8 +44,11 @@ function etHour(now: Date): number {
 }
 
 export async function GET(request: Request) {
-  const cronAuthError = verifyCronSecret(request)
-  if (cronAuthError) return cronAuthError
+  const auth = request.headers.get('authorization')
+  const validSecret = !!auth && !!process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)
+  if (!validSecret && request.headers.get('x-vercel-cron') !== '1') {
+    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  }
 
   const now = new Date()
   const hour = etHour(now)

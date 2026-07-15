@@ -9,6 +9,16 @@ import { COMM_TIMING } from './comms-registry'
  * default for every tenant until restart.
  */
 describe('defaultCommTiming', () => {
+  it('mirrors the registry defaults exactly', () => {
+    expect(defaultCommTiming()).toEqual({
+      reminder_days: [3, 1],
+      reminder_hours_before: [2],
+      review_delay_hours: 2,
+      daily_summary_hour: 0,
+      payment_reminder_hours: 24,
+    })
+  })
+
   it('returns array fields that are independent copies, not shared references', () => {
     const a = defaultCommTiming()
     const b = defaultCommTiming()

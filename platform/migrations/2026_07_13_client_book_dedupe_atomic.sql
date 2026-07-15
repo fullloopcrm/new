@@ -5,7 +5,9 @@
 -- two statements with a gap between them and no unique constraint backing
 -- the check. Two concurrent submits for the same client (double-click,
 -- double-tap on a slow connection) could both read count=0 and both pass
--- before either INSERT landed, creating two bookings for the same day.
+-- before either INSERT landed, creating two bookings for the same day
+-- (same TOCTOU shape as the team-portal jobs/claim daily-cap race — see
+-- migrations/2026_07_13_job_claim_atomic.sql).
 --
 -- Fix: fold the duplicate check and the INSERT into one plpgsql function,
 -- with `SELECT ... FOR UPDATE` locking the client's row first. A concurrent

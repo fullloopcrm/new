@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 export async function GET() {
   let tenant

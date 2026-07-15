@@ -3,15 +3,18 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
-// GET /api/client/preferred-cleaner?client_id=X
-// Returns the client's current preferred team member + the list of team
-// members they've actually worked with.
+// GET /api/client/preferred-cleaner
+// Auth: client session cookie (protectClientAPI), scoped to the tenant
+// resolved from the request's domain — a caller-supplied client_id alone is
+// never trusted. Returns the client's current preferred team member + the
+// list of team members they've actually worked with.
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const { searchParams } = new URL(request.url)
   const clientId = searchParams.get('client_id')
+  if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
 
   // Ownership gate: without it, a known client_id leaks that client's preferred
   // and familiar cleaners to anyone. Session must match this tenant + client_id.
@@ -53,13 +56,12 @@ export async function GET(request: Request) {
 }
 
 // PUT /api/client/preferred-cleaner
-// body: { client_id, preferred_cleaner_id (or null to clear) }
+// Auth: client session cookie (protectClientAPI). body: { client_id, preferred_cleaner_id (or null to clear) }
 export async function PUT(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
 
   const body = await request.json()
-  if (!body.client_id) return NextResponse.json({ error: 'client_id required' }, { status: 400 })
 
   // Ownership gate: a forged client_id must not set another client's preferred
   // cleaner. Session must match this tenant + client_id.

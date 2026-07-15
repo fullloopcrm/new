@@ -8,7 +8,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 // x-tenant-id header injected by middleware on the tenant host — NOT admin
 // auth, so it is safe to expose to anonymous site visitors. Size/type limited
 // to keep it from being abused as open storage. Writes to the shared `uploads`
-// bucket under <tenantId>/<folder>/.
+// bucket under <tenantId>/lead-media/.
 const MAX_SIZE = 25 * 1024 * 1024 // 25MB
 const ALLOWED_TYPES = [
   'image/jpeg',

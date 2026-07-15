@@ -10,7 +10,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
-import { safeEqual } from '@/lib/secret-compare'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 async function authorize(req: NextRequest): Promise<{ tenantId: string } | NextResponse> {
   // Header only — a ?key= query param gets written to access logs, browser
@@ -18,7 +18,7 @@ async function authorize(req: NextRequest): Promise<{ tenantId: string } | NextR
   const monitorKey = req.headers.get('x-monitor-key') || ''
   const tenantParam = req.nextUrl.searchParams.get('tenant_id')
 
-  if (process.env.ELCHAPO_MONITOR_KEY && safeEqual(monitorKey, process.env.ELCHAPO_MONITOR_KEY)) {
+  if (monitorKey && process.env.ELCHAPO_MONITOR_KEY && safeEqual(monitorKey, process.env.ELCHAPO_MONITOR_KEY)) {
     if (!tenantParam) {
       return NextResponse.json({ error: 'tenant_id query param required for monitor key access' }, { status: 400 })
     }

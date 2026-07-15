@@ -10,6 +10,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 
 // GET/PUT are admin actions (review + approve/reject candidates) and must be
 // permission-gated like the canonical /api/team-applications route. This
@@ -106,7 +107,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_lead',
       title: 'New Management Application',
-      message: `${name} applied for ${position || 'operations-coordinator'}`,
+      message: `${escapeHtml(name)} applied for ${escapeHtml(position || 'operations-coordinator')}`,
       channel: 'email',
       recipientType: 'admin',
       metadata: { name, email: normalizedEmail, phone: cleanPhone, resume_url, video_url },

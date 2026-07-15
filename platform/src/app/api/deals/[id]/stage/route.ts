@@ -2,8 +2,8 @@
  * Move a deal to a new stage. Logs a stage_change activity.
  */
 import { NextResponse } from 'next/server'
-import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantDb } from '@/lib/tenant-db'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, stageMeta } from '@/lib/pipeline'
 
@@ -16,6 +16,7 @@ export async function POST(request: Request, { params }: Params) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
     const to = String(body.stage || '')
@@ -24,10 +25,9 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Invalid stage: ${to}` }, { status: 400 })
     }
 
-    const { data: existing } = await supabaseAdmin
+    const { data: existing } = await db
       .from('deals')
       .select('stage, title, value_cents, probability')
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -52,17 +52,15 @@ export async function POST(request: Request, { params }: Params) {
       if (wasDefaultProb) updates.probability = newMeta.defaultProbability
     }
 
-    const { data: updated, error } = await supabaseAdmin
+    const { data: updated, error } = await db
       .from('deals')
       .update(updates)
-      .eq('tenant_id', tenantId)
       .eq('id', id)
       .select('*, clients(id, name, email, phone)')
       .single()
     if (error) throw error
 
-    await supabaseAdmin.from('deal_activities').insert({
-      tenant_id: tenantId,
+    await db.from('deal_activities').insert({
       deal_id: id,
       type: 'stage_change',
       description: `Moved from ${existing.stage || 'lead'} to ${to}`
@@ -74,10 +72,9 @@ export async function POST(request: Request, { params }: Params) {
     // and not already converted) so it can be scheduled. Idempotent + best-effort.
     if (to === 'sold') {
       try {
-        const { data: q } = await supabaseAdmin
+        const { data: q } = await db
           .from('quotes')
           .select('id')
-          .eq('tenant_id', tenantId)
           .eq('deal_id', id)
           .is('converted_job_id', null)
           .order('created_at', { ascending: false })

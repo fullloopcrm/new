@@ -69,6 +69,10 @@ export default function AdminFeedbackPage() {
       .catch(() => setLoading(false))
   }, [])
 
+  // Both PATCH calls used to update local state unconditionally after the
+  // fetch, whether or not it actually succeeded — a network error or 500
+  // left the UI claiming "actioned" / "saved" while the server never
+  // persisted the change. Local state now only advances on a real res.ok.
   async function updateStatus(id: string, status: string) {
     try {
       const res = await fetch('/api/feedback', {

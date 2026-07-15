@@ -83,6 +83,11 @@ describe('generateRecurringDates — counts per type', () => {
     expect(dates).toEqual([])
   })
 
+  it('an unknown recurringType falls through to an empty array', () => {
+    const dates = generateRecurringDates({ recurringType: 'nope' as RecurringType, startDate: start, weeksToGenerate: 4 })
+    expect(dates).toHaveLength(0)
+  })
+
   it('does not mutate the caller-supplied startDate', () => {
     const original = noon(2026, 0, 5)
     const snapshot = original.getTime()

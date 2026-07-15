@@ -7,7 +7,6 @@ import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 300
 

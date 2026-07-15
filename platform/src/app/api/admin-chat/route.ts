@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { askSelena } from '@/lib/selena/agent'
+import { insertConversationMessage } from '@/lib/sms-messages'
 
 export const maxDuration = 60
 
@@ -28,6 +29,24 @@ export async function POST(req: NextRequest) {
 
   const ownerPhone = getOwnerPhone()
   let sessionId: string = body.sessionId || ''
+
+  if (sessionId) {
+    // sessionId is caller-supplied. askSelena() below resolves its tenant
+    // context (loadContext, RBAC-gated tools, brand rewrite) purely from the
+    // sms_conversations row for this id — NOT from the caller's authenticated
+    // tenant. Without this check, a manager+ from tenant A could pass another
+    // tenant's admin-dashboard conversation id and get Selena to read/act on
+    // tenant B's data and return it directly in this response.
+    const { data: owned } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('tenant_id', tenant.tenantId)
+      .maybeSingle()
+    if (!owned) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+  }
 
   if (!sessionId) {
     // The unique partial index `idx_sms_conv_active_phone` only allows ONE active
@@ -67,18 +86,18 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-    .insert({ conversation_id: sessionId, direction: 'inbound', message })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: sessionId, direction: 'inbound', message },
+    { expectedTenantId: tenant.tenantId },
+  )
 
   const result = await askSelena('web', message, sessionId, ownerPhone)
   const reply = result.text || '(no reply)'
 
-  await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-    .insert({ conversation_id: sessionId, direction: 'outbound', message: reply })
-    .then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: sessionId, direction: 'outbound', message: reply },
+    { expectedTenantId: tenant.tenantId },
+  )
 
   return NextResponse.json({ reply, sessionId, toolsCalled: result.toolsCalled })
 }

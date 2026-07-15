@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { supabaseAdmin } from '@/lib/supabase'
+import { tenantDb } from '@/lib/tenant-db'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 
 export async function GET(request: NextRequest) {
@@ -9,6 +9,7 @@ export async function GET(request: NextRequest) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
+    const db = tenantDb(tenantId) // auto-scopes the bookings reads below
     const period = request.nextUrl.searchParams.get('period') || 'month'
 
     const now = new Date()
@@ -25,10 +26,9 @@ export async function GET(request: NextRequest) {
       dateFrom = new Date(now.getFullYear(), 0, 1) // YTD
     }
 
-    const { data: bookings } = await supabaseAdmin
+    const { data: bookings } = await db
       .from('bookings')
       .select('price, payment_date, payment_status')
-      .eq('tenant_id', tenantId)
       .in('payment_status', ['paid'])
       .gte('payment_date', dateFrom.toISOString())
 
@@ -48,10 +48,9 @@ export async function GET(request: NextRequest) {
       const twelveMonthsAgo = new Date()
       twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
 
-      const { data: monthlyBookings } = await supabaseAdmin
+      const { data: monthlyBookings } = await db
         .from('bookings')
         .select('price, payment_date')
-        .eq('tenant_id', tenantId)
         .eq('payment_status', 'paid')
         .gte('payment_date', twelveMonthsAgo.toISOString())
 

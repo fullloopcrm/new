@@ -2,7 +2,6 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { getSocialAccounts, disconnectSocialAccount } from '@/lib/social'
-import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {

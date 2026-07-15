@@ -20,6 +20,7 @@ vi.mock('@/lib/nycmaid/auth', () => ({
   createSessionCookie: vi.fn(() => 'session-token'),
   hashPassword: vi.fn((p: string) => `hashed:${p}`),
 }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 5 })) }))
 vi.mock('next/headers', () => ({
   cookies: vi.fn(async () => ({ set: vi.fn() })),
 }))

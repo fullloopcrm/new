@@ -17,6 +17,8 @@ import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
 import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
+import { insertConversationMessage } from '@/lib/sms-messages'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'email_from' | 'domain'>
 
@@ -136,7 +138,7 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
     .eq('client_id', client.id)
     .eq('phone', emailKey)
     .eq('expired', false)
-    .or(`completed_at.is.null,completed_at.gte.${tenMinAgoIso}`)
+    .or(`completed_at.is.null,completed_at.gte.${sanitizePostgrestValue(tenMinAgoIso)}`)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -168,22 +170,18 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
   const cleaned = extractNewContent(email.text || '')
   if (!cleaned) return { handled: false, skipped_reason: 'empty_after_strip', conversation_id: convo.id }
 
-  await supabaseAdmin.from('sms_conversation_messages').insert({
-    conversation_id: convo.id,
-    tenant_id: tenant.id,
-    direction: 'inbound',
-    message: cleaned,
-  }).then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convo.id, direction: 'inbound', message: cleaned },
+    { expectedTenantId: tenant.id },
+  )
 
   const result = await askSelena(tenant.id, 'email', cleaned, convo.id, client.phone || undefined)
   const reply = result.text || `Thanks for reaching out — we'll get back to you shortly.`
 
-  await supabaseAdmin.from('sms_conversation_messages').insert({
-    conversation_id: convo.id,
-    tenant_id: tenant.id,
-    direction: 'outbound',
-    message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
-  }).then(() => {}, () => {})
+  await insertConversationMessage(
+    { conversation_id: convo.id, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim() },
+    { expectedTenantId: tenant.id },
+  )
 
   const html = formatHtmlReply(reply, tenant)
   const replySubject = buildReplySubject(email.subject, tenant.name)

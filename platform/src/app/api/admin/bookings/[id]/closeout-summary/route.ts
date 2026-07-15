@@ -11,6 +11,11 @@ import { requirePermission } from '@/lib/require-permission'
 // time breakdown, bill math (with discounts itemized), every payment row,
 // over/under-payment + tip detection, per-team-member share + paid status,
 // and the audit trail of SMS sent for the booking. All money values in cents.
+//
+// Reached from the shared /dashboard bookings closeout widget (every tenant's
+// own admin), not just the platform admin panel — must accept a tenant_admin
+// session, not requireAdmin()'s super_admin-only token. See schedule-issues
+// fix (commit 05176c2f) for the same bug class.
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('bookings.view')
   if (authError) return authError
@@ -40,6 +45,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('booking_team_members')
     .select('team_member_id, is_lead, position, team_members(id, name, phone, hourly_rate)')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('position', { ascending: true })
 
   const teamMembers: Array<{ team_member_id: string; name: string; phone: string | null; is_lead: boolean; hourly_rate: number | null }> = []
@@ -57,18 +63,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     .from('payments')
     .select('id, amount_cents, tip_cents, method, stripe_session_id, stripe_payment_intent_id, reference_id, created_at')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   const { data: payouts } = await db
     .from('team_member_payouts')
     .select('id, team_member_id, amount_cents, stripe_transfer_id, stripe_payout_id, instant, created_at, status')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   const { data: smsLog } = await db
     .from('sms_logs')
     .select('id, sms_type, recipient, status, created_at')
     .eq('booking_id', id)
+    .eq('tenant_id', tenantId)
     .order('created_at', { ascending: true })
 
   // Time breakdown

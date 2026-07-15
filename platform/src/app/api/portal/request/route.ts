@@ -68,6 +68,10 @@ export async function POST(request: NextRequest) {
     })
   }
 
+  // bodyHtml is raw HTML (see OwnerAlertInput) — noteLines carry client-supplied
+  // serviceName/preferredDate/notes verbatim, so each line must be escaped
+  // before interpolation or a crafted request pipes stored XSS into the
+  // owner's inbox (same class as the 327ea8f4 email-XSS fixes elsewhere).
   await ownerAlert({
     tenantId: auth.tid,
     kicker: 'Portal request',

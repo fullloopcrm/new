@@ -37,7 +37,10 @@ export async function POST(request: Request) {
       const fullName = `${firstName} ${lastName}`.trim()
 
       if (email) {
-        // Update any tenant_members records that reference this Clerk user
+        // Update any tenant_members records that reference this Clerk user.
+        // tenant-scope-ok: N/A for tenantDb — a Clerk user is looked up by
+        // clerk_user_id, not a known tenant_id; the row's tenant is whatever
+        // it already belongs to, so there is no tenantId to scope the query by.
         const { data: members } = await supabaseAdmin
           .from('tenant_members')
           .select('id')
@@ -57,7 +60,8 @@ export async function POST(request: Request) {
     }
 
     case 'user.deleted': {
-      // Deactivate tenant memberships for deleted users
+      // Deactivate tenant memberships for deleted users.
+      // tenant-scope-ok: N/A for tenantDb — same clerk_user_id-keyed lookup as above.
       await supabaseAdmin
         .from('tenant_members')
         .update({ status: 'inactive' })

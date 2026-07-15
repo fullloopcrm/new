@@ -1,107 +1,208 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 
-// Mock supabaseAdmin before importing tenant-db — tests the REAL wrapper
-// implementation (not the in-memory test fake used by route isolation tests).
-const { eqMock, baseMock, fromMock } = vi.hoisted(() => {
-  const eqMock = vi.fn()
-  const baseMock = {
-    select: vi.fn(),
-    insert: vi.fn(),
-    update: vi.fn(),
-    delete: vi.fn(),
-    upsert: vi.fn(),
+/**
+ * tenantDb (src/lib/tenant-db.ts) — the auto-scoping wrapper that makes
+ * `.eq('tenant_id', …)` the DEFAULT instead of a thing every route has to
+ * remember. service_role bypasses RLS, so this wrapper is the primary
+ * cross-tenant guard until DB-layer RLS lands.
+ *
+ * Contract locked here:
+ *   - select  → base.select(...).eq('tenant_id', tid)   (tenant filter FIRST)
+ *   - update  → base.update(v).eq('tenant_id', tid), tenant_id STRIPPED from v
+ *   - delete  → base.delete().eq('tenant_id', tid)
+ *   - insert  → base.insert(rows) with tenant_id STAMPED on every row
+ *   - upsert  → base.upsert(rows) with tenant_id STAMPED on every row
+ *   - empty tenantId throws (fail closed, never an unscoped query)
+ *
+ * WRONG-TENANT PROBE: a caller can never smuggle another tenant's id through
+ * an insert/upsert payload — the wrapper's stamp OVERRIDES it — a caller can
+ * never re-tenant a row it owns via an update payload — the wrapper STRIPS
+ * tenant_id before it reaches PostgREST — and a query built for tenant A only
+ * ever carries tenant A's id.
+ *
+ * supabaseAdmin is mocked with a recording query builder so we can assert the
+ * exact .eq filters and stamped payloads the wrapper produces without a DB.
+ */
+
+const { captured } = vi.hoisted(() => ({ captured: [] as CapturedOp[] }))
+
+type CapturedOp = {
+  table: string
+  op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
+  eqs: [string, unknown][]
+  cols?: string
+  opts?: unknown
+  rows?: unknown
+  vals?: unknown
+}
+
+vi.mock('@/lib/supabase', () => {
+  function makeOp(table: string, op: CapturedOp['op']): CapturedOp & Record<string, unknown> {
+    const rec: CapturedOp & Record<string, unknown> = { table, op, eqs: [] }
+    // Chainable filter methods return the same recorder so callers can keep chaining.
+    const self = rec as unknown as Record<string, (...a: unknown[]) => unknown>
+    self.eq = (col: unknown, val: unknown) => {
+      rec.eqs.push([col as string, val])
+      return rec
+    }
+    for (const m of ['in', 'is', 'not', 'ilike', 'order', 'limit', 'single', 'select']) {
+      self[m] = () => rec
+    }
+    captured.push(rec)
+    return rec
   }
-  const fromMock = vi.fn(() => baseMock)
-  return { eqMock, baseMock, fromMock }
+  return {
+    supabaseAdmin: {
+      from(table: string) {
+        return {
+          select(cols: string, opts?: unknown) {
+            const r = makeOp(table, 'select')
+            r.cols = cols
+            r.opts = opts
+            return r
+          },
+          insert(rows: unknown) {
+            const r = makeOp(table, 'insert')
+            r.rows = rows
+            return r
+          },
+          update(vals: unknown) {
+            const r = makeOp(table, 'update')
+            r.vals = vals
+            return r
+          },
+          delete() {
+            return makeOp(table, 'delete')
+          },
+          upsert(rows: unknown, opts?: unknown) {
+            const r = makeOp(table, 'upsert')
+            r.rows = rows
+            r.opts = opts
+            return r
+          },
+        }
+      },
+    },
+  }
 })
 
-vi.mock('./supabase', () => ({
-  supabaseAdmin: {
-    from: fromMock,
-  },
-}))
-
+// Import AFTER the mock is registered.
 import { tenantDb } from './tenant-db'
 
-describe('tenantDb', () => {
-  beforeEach(() => {
-    vi.clearAllMocks()
-    eqMock.mockReturnValue('eq-result')
-    baseMock.select.mockReturnValue({ eq: eqMock })
-    baseMock.update.mockReturnValue({ eq: eqMock })
-    baseMock.delete.mockReturnValue({ eq: eqMock })
-    baseMock.insert.mockReturnValue('insert-result')
-    baseMock.upsert.mockReturnValue('upsert-result')
+const TENANT_A = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+const TENANT_B = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb'
+
+beforeEach(() => {
+  captured.length = 0
+})
+
+describe('tenantDb — construction', () => {
+  it('throws when tenantId is empty (fail closed)', () => {
+    expect(() => tenantDb('')).toThrow(/requires a tenantId/)
   })
 
-  it('throws if tenantId is empty', () => {
-    expect(() => tenantDb('')).toThrow('tenantDb requires a tenantId')
+  it('returns a scoped client for a valid tenantId', () => {
+    expect(() => tenantDb(TENANT_A)).not.toThrow()
+  })
+})
+
+describe('tenantDb — select auto-scopes to tenant', () => {
+  it('adds .eq(tenant_id) as the FIRST filter', () => {
+    tenantDb(TENANT_A).from('bookings').select('*').eq('status', 'completed')
+    expect(captured).toHaveLength(1)
+    const op = captured[0]
+    expect(op).toMatchObject({ table: 'bookings', op: 'select', cols: '*' })
+    expect(op.eqs[0]).toEqual(['tenant_id', TENANT_A])
+    // caller's own filter is preserved, after the tenant filter
+    expect(op.eqs).toContainEqual(['status', 'completed'])
   })
 
-  it('from() delegates to supabaseAdmin.from with the given table name', () => {
-    tenantDb('tenant-A').from('bookings')
-    expect(fromMock).toHaveBeenCalledWith('bookings')
+  it('forwards select options (count/head) to PostgREST', () => {
+    tenantDb(TENANT_A).from('notifications').select('id', { count: 'exact', head: true })
+    expect(captured[0].opts).toEqual({ count: 'exact', head: true })
+    expect(captured[0].eqs[0]).toEqual(['tenant_id', TENANT_A])
+  })
+})
+
+describe('tenantDb — update / delete auto-scope to tenant', () => {
+  it('update carries the tenant filter', () => {
+    tenantDb(TENANT_A).from('deals').update({ stage: 'won' }).eq('id', 'deal-1')
+    const op = captured[0]
+    expect(op).toMatchObject({ table: 'deals', op: 'update', vals: { stage: 'won' } })
+    expect(op.eqs[0]).toEqual(['tenant_id', TENANT_A])
+    expect(op.eqs).toContainEqual(['id', 'deal-1'])
   })
 
-  it('select() defaults to "*" and always filters by tenant_id', () => {
-    const result = tenantDb('tenant-A').from('bookings').select()
-    expect(baseMock.select).toHaveBeenCalledWith('*', undefined)
-    expect(eqMock).toHaveBeenCalledWith('tenant_id', 'tenant-A')
-    expect(result).toBe('eq-result')
+  it('does not mutate the caller-supplied update payload object', () => {
+    const payload = { stage: 'won', tenant_id: TENANT_B }
+    tenantDb(TENANT_A).from('deals').update(payload).eq('id', 'deal-1')
+    expect(payload).toEqual({ stage: 'won', tenant_id: TENANT_B })
   })
 
-  it('select() passes custom columns and opts through to the base builder', () => {
-    tenantDb('tenant-A').from('bookings').select('id,status', { count: 'exact' })
-    expect(baseMock.select).toHaveBeenCalledWith('id,status', { count: 'exact' })
-    expect(eqMock).toHaveBeenCalledWith('tenant_id', 'tenant-A')
+  it('delete carries the tenant filter', () => {
+    tenantDb(TENANT_A).from('deals').delete().eq('id', 'deal-1')
+    const op = captured[0]
+    expect(op).toMatchObject({ table: 'deals', op: 'delete' })
+    expect(op.eqs[0]).toEqual(['tenant_id', TENANT_A])
+  })
+})
+
+describe('tenantDb — insert / upsert stamp tenant_id', () => {
+  it('stamps tenant_id on a single-row insert', () => {
+    tenantDb(TENANT_A).from('clients').insert({ name: 'Ada' })
+    expect(captured[0].rows).toEqual({ name: 'Ada', tenant_id: TENANT_A })
   })
 
-  it('insert() stamps tenant_id on a single row', () => {
-    tenantDb('tenant-A').from('bookings').insert({ id: 'b1', status: 'new' })
-    expect(baseMock.insert).toHaveBeenCalledWith({ id: 'b1', status: 'new', tenant_id: 'tenant-A' })
-  })
-
-  it('insert() stamps tenant_id on every row of an array', () => {
-    tenantDb('tenant-A').from('bookings').insert([{ id: 'b1' }, { id: 'b2' }])
-    expect(baseMock.insert).toHaveBeenCalledWith([
-      { id: 'b1', tenant_id: 'tenant-A' },
-      { id: 'b2', tenant_id: 'tenant-A' },
+  it('stamps tenant_id on every row of a batch insert', () => {
+    tenantDb(TENANT_A).from('clients').insert([{ name: 'Ada' }, { name: 'Bo' }])
+    expect(captured[0].rows).toEqual([
+      { name: 'Ada', tenant_id: TENANT_A },
+      { name: 'Bo', tenant_id: TENANT_A },
     ])
   })
 
-  it('insert() overrides a caller-supplied tenant_id rather than trusting it', () => {
-    tenantDb('tenant-A').from('bookings').insert({ id: 'b1', tenant_id: 'attacker-tenant' })
-    expect(baseMock.insert).toHaveBeenCalledWith({ id: 'b1', tenant_id: 'tenant-A' })
+  it('stamps tenant_id on upsert rows', () => {
+    tenantDb(TENANT_A).from('hr_employee_profiles').upsert({ member_id: 'm1' }, { onConflict: 'member_id' })
+    expect(captured[0].rows).toEqual({ member_id: 'm1', tenant_id: TENANT_A })
+    expect(captured[0].opts).toEqual({ onConflict: 'member_id' })
+  })
+})
+
+describe('tenantDb — WRONG-TENANT PROBE (cross-tenant isolation)', () => {
+  it('a query built for tenant A never carries tenant B', () => {
+    tenantDb(TENANT_A).from('bookings').select('*').eq('id', 'x')
+    const tenantEqs = captured[0].eqs.filter(([c]) => c === 'tenant_id')
+    expect(tenantEqs).toEqual([['tenant_id', TENANT_A]])
+    // the other tenant's id appears nowhere in this query
+    expect(JSON.stringify(captured[0])).not.toContain(TENANT_B)
   })
 
-  it('update() filters by tenant_id after applying the values', () => {
-    const result = tenantDb('tenant-A').from('bookings').update({ status: 'done' })
-    expect(baseMock.update).toHaveBeenCalledWith({ status: 'done', tenant_id: 'tenant-A' })
-    expect(eqMock).toHaveBeenCalledWith('tenant_id', 'tenant-A')
-    expect(result).toBe('eq-result')
+  it('a forged tenant_id in an INSERT payload is overridden, not honored', () => {
+    // Attacker (or a copy-paste bug) tries to write a row into tenant B while
+    // operating as tenant A. The wrapper must clobber the forged id.
+    tenantDb(TENANT_A).from('clients').insert({ name: 'mole', tenant_id: TENANT_B })
+    expect(captured[0].rows).toEqual({ name: 'mole', tenant_id: TENANT_A })
+    expect((captured[0].rows as { tenant_id: string }).tenant_id).not.toBe(TENANT_B)
   })
 
-  it('update() overrides a caller-supplied tenant_id rather than trusting it', () => {
-    tenantDb('tenant-A').from('bookings').update({ status: 'done', tenant_id: 'attacker-tenant' })
-    expect(baseMock.update).toHaveBeenCalledWith({ status: 'done', tenant_id: 'tenant-A' })
+  it('a forged tenant_id in an UPSERT payload is overridden', () => {
+    tenantDb(TENANT_A).from('clients').upsert([{ name: 'mole', tenant_id: TENANT_B }])
+    expect(captured[0].rows).toEqual([{ name: 'mole', tenant_id: TENANT_A }])
   })
 
-  it('delete() filters by tenant_id', () => {
-    const result = tenantDb('tenant-A').from('bookings').delete()
-    expect(baseMock.delete).toHaveBeenCalledWith()
-    expect(eqMock).toHaveBeenCalledWith('tenant_id', 'tenant-A')
-    expect(result).toBe('eq-result')
-  })
-
-  it('upsert() stamps tenant_id and forwards onConflict opts', () => {
-    tenantDb('tenant-A').from('bookings').upsert({ id: 'b1' }, { onConflict: 'id' })
-    expect(baseMock.upsert).toHaveBeenCalledWith({ id: 'b1', tenant_id: 'tenant-A' }, { onConflict: 'id' })
-  })
-
-  it('scopes to the tenantId captured at tenantDb() call time, independent of other instances', () => {
-    tenantDb('tenant-A').from('bookings').select()
-    tenantDb('tenant-B').from('bookings').select()
-    expect(eqMock).toHaveBeenNthCalledWith(1, 'tenant_id', 'tenant-A')
-    expect(eqMock).toHaveBeenNthCalledWith(2, 'tenant_id', 'tenant-B')
+  it('BREAK: a forged tenant_id in an UPDATE payload cannot re-tenant a row', () => {
+    // Attacker scenario: a route spreads a raw request body into .update()
+    // (e.g. `update({ ...body })` instead of an allowlisted `pick()`), and
+    // the body includes `tenant_id: TENANT_B`. Because the WHERE clause is
+    // still scoped to TENANT_A, the attacker can only ever touch a row it
+    // already owns -- but without stripping, PostgREST would happily SET
+    // tenant_id = TENANT_B on that row, moving the attacker's own record
+    // into tenant B's namespace (data pollution / self-service tenant hop).
+    tenantDb(TENANT_A).from('clients').update({ name: 'mole', tenant_id: TENANT_B }).eq('id', 'row-1')
+    const op = captured[0]
+    expect(op.vals).not.toHaveProperty('tenant_id')
+    expect(op.vals).toEqual({ name: 'mole' })
+    // the WHERE-side tenant filter is untouched and still TENANT_A
+    expect(op.eqs[0]).toEqual(['tenant_id', TENANT_A])
   })
 })

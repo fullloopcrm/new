@@ -40,6 +40,30 @@ export async function POST(request: Request) {
     }
 
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
+    const coaId = body.coa_id || null
+
+    // Caller-supplied FKs — verify each belongs to this tenant before insert, so
+    // a foreign id can't attach another tenant's entity or GL account (both
+    // surfaced back on read via the GET route's entities()/chart_of_accounts()
+    // embeds).
+    if (body.entity_id) {
+      const { data: owned } = await supabaseAdmin
+        .from('entities')
+        .select('id')
+        .eq('id', entityId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
+    if (coaId) {
+      const { data: owned } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', coaId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 404 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('bank_accounts')
@@ -51,7 +75,7 @@ export async function POST(request: Request) {
         type: body.type || 'checking',
         mask: body.mask || null,
         currency: body.currency || 'USD',
-        coa_id: body.coa_id || null,
+        coa_id: coaId,
       })
       .select('*')
       .single()

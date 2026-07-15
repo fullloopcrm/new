@@ -28,7 +28,9 @@ import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { notify } from '@/lib/notify'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import { trackError } from '@/lib/error-tracking'
+import { escapeHtml } from '@/lib/escape-html'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -73,6 +75,15 @@ function secretMatches(provided: string | null): boolean {
 }
 
 export async function POST(request: Request) {
+  // Sibling of ingest/application — same shared-secret-with-no-per-caller-
+  // identity shape, so it needs the same fail-closed brute-force/spam bound.
+  // See that route's comment for the full rationale.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`ingest-lead:${ip}`, 30, 10 * 60 * 1000, { failClosed: true })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   if (!secretMatches(request.headers.get('x-ingest-secret'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
@@ -200,7 +211,7 @@ export async function POST(request: Request) {
       tenantId: tenant.id,
       type: 'new_client',
       title: 'New Lead',
-      message: `${name}${phone ? ' • ' + phone : ''}`,
+      message: `${escapeHtml(name)}${phone ? ' • ' + escapeHtml(phone) : ''}`,
     }).catch((err) => console.error('[ingest/lead] notify error:', err))
 
     try {

@@ -20,9 +20,9 @@ export async function PATCH(
 ) {
   try {
     const { tenantId } = await getTenantForRequest()
+    const db = tenantDb(tenantId)
     const { id } = await params
     const { status } = await request.json()
-    const db = tenantDb(tenantId)
 
     // Get current booking
     const { data: booking } = (await db

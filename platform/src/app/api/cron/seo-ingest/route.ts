@@ -1,7 +1,6 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { ingestAllProperties } from '@/lib/seo/ingest'
-import { verifyCronSecret } from '@/lib/cron-auth'
 
 // gsc.ts signs a JWT with node:crypto — must run on the Node runtime, not edge.
 export const runtime = 'nodejs'

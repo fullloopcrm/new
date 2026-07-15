@@ -84,6 +84,18 @@ describe('GET /api/social/connect/instagram/callback — CSRF (signed state) gat
       vi.useRealTimers()
     }
   })
+
+  it('rejects a state signed for one tenant but tampered to claim another', async () => {
+    const real = signOAuthState('tenant-real')
+    const [, exp, sig] = real.split('.')
+    const tampered = `tenant-spoofed.${exp}.${sig}`
+
+    const res = await GET(cbReq({ code: 'auth-code', state: tampered }))
+
+    expect(res.status).toBe(307)
+    expect(res.headers.get('location')).toContain('error=bad_state')
+    expect(h.saveSocialAccount).not.toHaveBeenCalled()
+  })
 })
 
 describe('GET /api/social/connect/instagram/callback — success path', () => {

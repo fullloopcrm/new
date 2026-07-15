@@ -11,7 +11,10 @@ export async function POST(request: Request) {
   const { booking_id } = await request.json()
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })
 
-  const { data: booking } = await tenantDb(tenant.tenantId)
+  // tenantDb scopes the booking read + update; the `tenants` row (keyed by id, no
+  // tenant_id column — cross-tenant by design) stays on supabaseAdmin.
+  const db = tenantDb(tenant.tenantId)
+  const { data: booking } = await db
     .from('bookings')
     .select('id, price, service_type')
     .eq('id', booking_id)
@@ -43,7 +46,7 @@ export async function POST(request: Request) {
     })
 
     // Save link URL to booking
-    await tenantDb(tenant.tenantId)
+    await db
       .from('bookings')
       .update({ payment_link: link.url })
       .eq('id', booking.id)

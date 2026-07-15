@@ -25,6 +25,12 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export const maxDuration = 300
 
+// Auth: team-portal Bearer token (verifyToken, same as checkin/checkout).
+// Previously this had ZERO authentication — anyone who knew/guessed a
+// bookingId could trigger a real client-facing "pay now" SMS + admin alerts
+// on demand (deploy-prep/none-write-routes-triage.md row 6). The team app
+// already sends the token (src/app/team/page.tsx handleHeadsUp); this just
+// starts checking it.
 export async function POST(req: NextRequest) {
   try {
     // Auth: field-staff bearer token. This route fires real admin + client SMS
@@ -46,7 +52,7 @@ export async function POST(req: NextRequest) {
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
       .single()) as { data: {
-        id: string; tenant_id: string; start_time: string; end_time: string | null
+        id: string; tenant_id: string; team_member_id: string | null; start_time: string; end_time: string | null
         check_in_time: string | null; check_out_time: string | null; service_type: string | null
         hourly_rate: number | null; pay_rate: number | null; price: number | null; notes: string | null
         max_hours: number | null; team_size: number | null; client_id: string | null
@@ -181,6 +187,7 @@ export async function POST(req: NextRequest) {
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
+      .eq('tenant_id', auth.tid)
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]

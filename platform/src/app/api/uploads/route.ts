@@ -17,9 +17,13 @@ export async function POST(request: NextRequest) {
   const formData = await request.formData()
   const file = formData.get('file') as File | null
   const rawFolder = (formData.get('folder') as string) || 'general'
-  // Client-supplied — strip to a safe slug so a crafted 'folder' can't inject
-  // '../' or extra path segments into the storage key (same class as ext below).
-  const folder = rawFolder.replace(/[^a-z0-9-]/gi, '').slice(0, 40) || 'general'
+  // Caller-supplied path segments — never splice them into the storage key
+  // raw. A value like `../other-tenant-id` (folder) or a crafted filename
+  // (ext) can escape this tenant's prefix in the shared `uploads` bucket
+  // (same class as public-upload's 7c17cb47 fix). Strip to a safe charset
+  // instead of hardcoding a single folder, since this route is genuinely
+  // multi-purpose (avatars, documents, etc across the dashboard).
+  const folder = rawFolder.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 40) || 'general'
 
   if (!file) return NextResponse.json({ error: 'No file provided' }, { status: 400 })
   if (file.size > MAX_SIZE) return NextResponse.json({ error: 'File too large (max 5MB)' }, { status: 400 })

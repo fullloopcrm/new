@@ -151,6 +151,10 @@
     {
       "path": "/api/cron/tenant-health",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/gdpr-purge",
+      "schedule": "0 9 * * *"
     }
   ]
 }
