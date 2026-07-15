@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { getCurrentTenantId } from '@/lib/tenant'
 
 interface IssueRow {
   id: string
@@ -35,7 +36,7 @@ interface FixPlan {
   acknowledgeOnly: boolean
 }
 
-async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
+async function buildFixPlan(issue: IssueRow, tenantId: string): Promise<FixPlan> {
   const ack: FixPlan = {
     description: `Mark "${issue.type.replace(/_/g, ' ')}" as resolved (no data change).`,
     changes: [],
@@ -48,6 +49,7 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
     .from('bookings')
     .select('id, start_time, end_time, price, hourly_rate, team_member_id, status')
     .eq('id', issue.booking_id)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!booking) return ack
@@ -81,6 +83,7 @@ async function buildFixPlan(issue: IssueRow): Promise<FixPlan> {
 export async function POST(request: Request) {
   const authError = await requireAdmin()
   if (authError) return authError
+  const tenantId = await getCurrentTenantId()
 
   const body = await request.json().catch(() => ({}))
   const id = body.id as string | undefined
@@ -92,11 +95,12 @@ export async function POST(request: Request) {
     .from('schedule_issues')
     .select('id, type, message, booking_id, team_member_id, status')
     .eq('id', id)
+    .eq('tenant_id', tenantId)
     .maybeSingle()
 
   if (!issue) return NextResponse.json({ error: 'Issue not found' }, { status: 404 })
 
-  const plan = await buildFixPlan(issue as IssueRow)
+  const plan = await buildFixPlan(issue as IssueRow, tenantId)
 
   if (!apply) {
     return NextResponse.json({ preview: plan, applied: false })
@@ -109,7 +113,7 @@ export async function POST(request: Request) {
     bookingUpdates[ch.id][ch.field] = ch.to
   }
   for (const [bookingId, fields] of Object.entries(bookingUpdates)) {
-    await supabaseAdmin.from('bookings').update(fields).eq('id', bookingId)
+    await supabaseAdmin.from('bookings').update(fields).eq('id', bookingId).eq('tenant_id', tenantId)
   }
 
   await supabaseAdmin
@@ -121,6 +125,7 @@ export async function POST(request: Request) {
       resolution_note: plan.description,
     })
     .eq('id', id)
+    .eq('tenant_id', tenantId)
 
   return NextResponse.json({ preview: plan, applied: true })
 }
