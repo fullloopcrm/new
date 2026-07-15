@@ -1912,3 +1912,64 @@ round to find genuinely fresh, never-reviewed files; it surfaced 9:
 
 No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
 verify). File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 18:57 order) — P49, fixed: unauthenticated referrer +
+commission-ledger PII/financial oracle.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order with
+a fresh angle: the referrer-portal cluster (`referrers/*`,
+`referral-commissions`), which every prior register entry mentioning it had
+explicitly stated was left untouched ("Did not touch referrers/referral-
+commissions/team-PIN routes" — logged 4 separate times across workers).
+
+Found a real, still-open gap the codebase's own tests half-document:
+
+- **`GET /api/referrers?code=|email=`** — no auth at all, tenant-scoped only
+  by the resolved Host header. Returns `name/email/referral_code/
+  total_earned/total_paid/preferred_payout/created_at` for any caller who
+  supplies a referral code (small guessable keyspace: name-prefix + 3
+  digits) or a referrer's email. Only mitigation was a persistent, fail-
+  closed rate limiter (10/10min/IP) — slows brute force, doesn't close the
+  disclosure, and a known email bypasses the guessing problem entirely.
+- **`GET /api/referral-commissions?referrer_id=...`** — no auth, no rate
+  limit at all. Given any referrer UUID, returns that referrer's full
+  commission ledger: client names, gross/commission amounts, status,
+  `paid_via`, plus the referrer's own name/email/code via the join.
+
+`src/app/site/referral/page.test.tsx`'s file-header comment already
+documents that this *exact pair* of endpoints was "the vulnerability" the
+referrer-portal frontend was migrated off of, onto a Bearer-token-gated
+`GET /api/referrers/[code]` (HMAC-signed session token, `crypto.
+timingSafeEqual` verify, `scope:'ref'` binding — solid). But that migration
+only moved the *frontend* caller. The old backend routes were never closed
+— a separate later pass (`route.rate-limit.test.ts`'s header comment) even
+re-confirmed the disclosure ("PII oracle") and *only* hardened the rate
+limiter, not the auth. Confirmed via repo-wide grep of every `/api/
+referrers` and `/api/referral-commissions` reference: zero first-party
+callers use either unauthenticated branch today — the referrer dashboard,
+the admin dashboard (`BookingsAdmin.tsx`'s `loadReferrers()`), and every
+booking-flow `?ref=CODE` consumer all go through different, already-safe
+paths. This is the same "UI moved on, API hole never closed" shape as
+P45/P47/P48, just found in a cluster nobody had opened yet.
+
+**Fix:** gated both unauthenticated branches behind `requireAdmin()` —
+same bar every other lookup path in these two routes already uses (the
+no-param admin-session path in `referral-commissions`, `search-recipients`,
+etc.). POST (referrer signup) and the token-gated `[code]` dashboard route
+are untouched — both were already correctly scoped/authenticated.
+
+New `route.auth.test.ts` in each directory (5 tests total: unauthenticated
+code lookup, unauthenticated email lookup, unauthenticated `referrer_id`
+lookup all 401 with zero DB touch; authenticated admin gets served in
+both). Mutation-verified via `git show HEAD` revert to real pre-fix code:
+all 3 core assertions RED (200 instead of 401, referrer/commission data
+returned), restored, all 5 GREEN. Updated the pre-existing
+`route.rate-limit.test.ts` to mock `requireAdmin` authorized so it keeps
+testing rate-limit behavior in isolation from the new auth gate.
+`npx tsc --noEmit` clean. `audit-tenant-scope.mjs`'s 1 finding
+(`seo/recipes.ts`) is the same pre-existing untouched-file baseline drift
+noted in the 18:51 round, unrelated to this change. Full suite 336/336
+files, 1465/1465 tests pass (37 pre-existing skips, unchanged), 0
+regressions.
+
+Commit `099a2e15`. Logged as P49. File-only, no push/deploy/DB.
