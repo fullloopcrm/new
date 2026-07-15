@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '../preview/route'
@@ -67,14 +67,9 @@ type CleanerRow = {
 }
 
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
-  const tenantId = ctx.tenantId
+  const { tenant: authTenant, error: authError } = await requirePermission('bookings.create')
+  if (authError) return authError
+  const tenantId = authTenant.tenantId
 
   const body = await request.json().catch(() => ({}))
   const {

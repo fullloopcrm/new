@@ -1,15 +1,10 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('schedules.view')
+  if (authError) return authError
 
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || 'open,acknowledged'
@@ -28,13 +23,8 @@ export async function GET(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('schedules.edit')
+  if (authError) return authError
 
   const { id, status, resolution_note } = await request.json()
   if (!id || !status) return NextResponse.json({ error: 'id and status required' }, { status: 400 })

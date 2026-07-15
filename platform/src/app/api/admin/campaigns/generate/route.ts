@@ -3,12 +3,15 @@
  * to keep the output consistent with the calling tenant's brand.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('campaigns.create')
+    if (authError) return authError
+    const { tenant } = authTenant
     const { prompt, channel } = await request.json()
 
     if (!prompt || typeof prompt !== 'string') {

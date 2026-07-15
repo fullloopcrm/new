@@ -38,7 +38,7 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: TENANT_A }),
+  getTenantForRequest: async () => ({ tenantId: TENANT_A, role: 'owner', tenant: {} }),
   AuthError: class AuthError extends Error {},
 }))
 vi.mock('@/lib/tenant-site', () => ({
