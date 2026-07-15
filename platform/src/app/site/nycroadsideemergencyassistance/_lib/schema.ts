@@ -656,7 +656,8 @@ export function JsonLd({ schema }: { schema: JsonLdValue }): ReactElement {
       createElement("script", {
         key: i,
         type: "application/ld+json",
-        dangerouslySetInnerHTML: { __html: JSON.stringify(item) },
+        // JSON.stringify doesn't escape '<', letting a '</script>' payload close the tag early.
+        dangerouslySetInnerHTML: { __html: JSON.stringify(item).replace(/</g, "\\u003c") },
       }),
     ),
   );

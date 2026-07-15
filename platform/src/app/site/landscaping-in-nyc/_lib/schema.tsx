@@ -294,10 +294,12 @@ export function JsonLd({
 }: {
   data: Record<string, unknown> | Record<string, unknown>[];
 }) {
+  // JSON.stringify doesn't escape '<', letting a '</script>' payload close the tag early.
+  const json = JSON.stringify(data).replace(/</g, '\\u003c');
   return (
     <script
       type="application/ld+json"
-      dangerouslySetInnerHTML={{ __html: JSON.stringify(data) }}
+      dangerouslySetInnerHTML={{ __html: json }}
     />
   );
 }
