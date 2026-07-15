@@ -24,7 +24,10 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.
 vi.mock('@/lib/tenant-header-sig', () => ({
   verifyTenantHeaderSig: (_id: string, sig: string | null | undefined) => sig === 'goodsig',
 }))
-vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({ text: 'hi from yinez', bookingCreated: false })) }))
+vi.mock('@/lib/selena/agent', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/selena/agent')>('@/lib/selena/agent')
+  return { askSelena: vi.fn(async () => ({ text: 'hi from yinez', bookingCreated: false })), normalizePhoneDigits: actual.normalizePhoneDigits }
+})
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
   scoreConversation: vi.fn(async () => {}),

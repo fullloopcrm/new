@@ -1816,3 +1816,50 @@ social posting) plus a handful of never-swept operator routes. All clean:
 
 No new P-number. `npx tsc --noEmit` not needed (no code changed, read-only
 audit). File-only, no push/deploy/DB.
+
+### P48 — `POST /api/chat` + `POST /api/yinez` new-conversation phone-link → floor-less `ilike` substring match, same-tenant PII misattribution/corruption  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+Both public/unauthenticated web-chat widgets' "returning client" lookup
+(`if (phone) { ... }` block in the new-conversation branch) matched
+`clients.phone` with `.ilike('phone', '%<last-10-digits>%')` and **zero
+length floor** — a short/garbage phone (e.g. a single digit typed into the
+widget) matched an ARBITRARY unrelated client in the tenant. The route then
+set `insertData.client_id` to that wrong client and copied their real
+`name` into the new conversation's `booking_checklist`. Downstream Selena
+tool handlers (capture-name, booking flows) WRITE to `clients` keyed off
+that `client_id`, so this was a same-tenant misattribution/corruption
+vector, not just a stray read — an anonymous visitor could silently attach
+their conversation to (and later mutate) an unrelated customer's record.
+
+Same bug class already fixed repeatedly this session (P45, W1's 17:24
+round, W3's 16:57/17:07 rounds) via commits `8ac9bcd2`/`c62807d6`/
+`56f5df22`/`e4b1511e` — but those commits landed on **p1-w1/p1-w3 only**.
+Verified via `git branch --contains` that none of them are ancestors of
+p1-w2, and this branch's own inline lookups in `chat/route.ts` (line 52)
+and `yinez/route.ts` (line 68) were never independently fixed here (W2's
+17:04 P45 round fixed 5 *other* sites — `selena/agent.ts` `loadContext()`,
+`selena/tools.ts` `handleRecall()`, and the 3 site-clone `getClientProfile`
+functions — but not these two routes' own inline blocks; W2's 18:03 round
+marked `chat` "clean" checking only the header-sig tenant gate, missing
+this separate bug in the same file).
+
+**Fix:** both routes now use the established `normalizePhoneDigits()`
+export from `src/lib/selena/agent.ts` (exact 10-digit national-number
+match, no substring), fetching tenant-scoped candidates and filtering
+in-memory — matching the exact pattern from `8ac9bcd2`/`c62807d6`.
+`chat/route.ts` uses the `tenantDb` wrapper (auto-scoped); `yinez/route.ts`
+keeps its existing `supabaseAdmin` + explicit `.eq('tenant_id', ...)`.
+
+New `route.phone-match.test.ts` per route (2 tests each: malformed 1-digit
+phone must NOT link, exact 10-digit match still links correctly).
+Mutation-verified via `cp`-based backup/restore against real pre-fix code
+(`git show HEAD`): both "does NOT attach" assertions RED against the
+reverted code (unrelated client's id leaked in both routes), restored,
+all 4 GREEN. Also had to extend 3 pre-existing test files' `@/lib/selena/
+agent` mocks (`chat/route.isolation.test.ts`, `yinez/route.isolation.test.ts`,
+`yinez/route.witness.test.ts`) to re-export the real `normalizePhoneDigits`
+via `vi.importActual`, since those routes now import it alongside the
+already-mocked `askSelena`.
+
+`npx tsc --noEmit` clean. Full suite 334 files/1460 passed/37 skipped/0
+failed, 0 regressions. File-only, no push/deploy/DB.

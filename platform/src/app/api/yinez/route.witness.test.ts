@@ -43,7 +43,10 @@ vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
   selfReviewConversation: selfReviewConversationMock,
 }))
 const askSelenaMock = vi.hoisted(() => vi.fn(async () => ({ text: 'Selena reply', toolsCalled: [], bookingCreated: false })))
-vi.mock('@/lib/selena/agent', () => ({ askSelena: askSelenaMock }))
+vi.mock('@/lib/selena/agent', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/selena/agent')>('@/lib/selena/agent')
+  return { askSelena: askSelenaMock, normalizePhoneDigits: actual.normalizePhoneDigits }
+})
 const insertConversationMessageMock = vi.hoisted(() =>
   vi.fn(async (_input: Record<string, unknown>, _opts?: Record<string, unknown>) => ({ data: null, error: null })),
 )

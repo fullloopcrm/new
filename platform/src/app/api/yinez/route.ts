@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askSelena } from '@/lib/selena/agent'
+import { askSelena, normalizePhoneDigits } from '@/lib/selena/agent'
 import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
@@ -58,20 +58,26 @@ export async function POST(req: NextRequest) {
         tenant_id: reqTenantId,
       }
 
-      // If returning client, try to link to existing client record.
+      // If returning client, try to link to existing client record. Exact
+      // national-number match only -- a substring ilike() with no length
+      // floor let a short/garbage phone match an ARBITRARY unrelated client
+      // in the tenant and misattribute their identity onto this brand-new
+      // anonymous conversation; downstream tool handlers then WRITE to that
+      // wrong client's row keyed off this conversation's client_id.
       if (phone) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('id, name')
-          .eq('tenant_id', reqTenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
-        if (client) {
-          insertData.client_id = client.id
-          insertData.booking_checklist = {
-            ...EMPTY_CHECKLIST, channel: 'web',
-            phone, name: client.name,
+        const normalizedPhone = normalizePhoneDigits(phone)
+        if (normalizedPhone) {
+          const { data: candidates } = await supabaseAdmin
+            .from('clients')
+            .select('id, name, phone')
+            .eq('tenant_id', reqTenantId)
+          const client = candidates?.find((c: { phone?: string }) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+          if (client) {
+            insertData.client_id = client.id
+            insertData.booking_checklist = {
+              ...EMPTY_CHECKLIST, channel: 'web',
+              phone, name: client.name,
+            }
           }
         }
       }

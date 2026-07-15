@@ -30,7 +30,10 @@ vi.mock('@/lib/selena-legacy', () => ({
   getQuickReplies: () => [],
   askSelena: vi.fn(async () => ({ text: 'hello from selena', checklist: {}, bookingCreated: false })),
 }))
-vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({ text: 'yinez', bookingCreated: false })) }))
+vi.mock('@/lib/selena/agent', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/selena/agent')>('@/lib/selena/agent')
+  return { askSelena: vi.fn(async () => ({ text: 'yinez', bookingCreated: false })), normalizePhoneDigits: actual.normalizePhoneDigits }
+})
 vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/sms-messages', () => ({ insertConversationMessage: vi.fn(async () => ({ data: null, error: null })) }))
