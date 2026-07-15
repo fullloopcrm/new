@@ -2,8 +2,10 @@
 /**
  * Tenant-config reconcile — read-only drift detector across the FOUR places
  * that currently decide "which domain -> which tenant -> which site":
- *   1. tenants.domain          (resolver checks this FIRST)
- *   2. tenant_domains (active)  (resolver fallback)
+ *   1. tenant_domains (active) (resolver checks this FIRST — see
+ *      src/lib/tenant-lookup.ts / src/lib/tenant.ts getTenantByDomain)
+ *   2. tenants.domain          (resolver fallback, used only when no active
+ *      tenant_domains row matches the host)
  *   3. BESPOKE_SITE_TENANTS in src/middleware.ts (routes slug -> /site/<slug>)
  *   4. src/app/site/<slug>/    (the actual folder that renders)
  *
@@ -90,11 +92,11 @@ for (const t of tenants) {
 
   // Drift A: tenants.domain set but not mirrored in active tenant_domains
   if (t.domain && !activeTd.some((r) => norm(r.domain) === norm(t.domain))) {
-    add('WARN', t.slug, `tenants.domain=${t.domain} has NO matching active tenant_domains row (resolver uses tenants.domain; tenant_domains is out of sync)`)
+    add('WARN', t.slug, `tenants.domain=${t.domain} has NO matching active tenant_domains row (resolver falls through to the tenants.domain fallback for this host; not yet migrated to tenant_domains-first)`)
   }
-  // Drift B: active tenant_domains but tenants.domain empty (resolver still works via fallback, but split brain)
+  // Drift B: active tenant_domains but tenants.domain empty (resolver still works via primary lookup, but split brain)
   if (!t.domain && activeTd.length) {
-    add('INFO', t.slug, `no tenants.domain; relies on tenant_domains fallback (${activeTd.map((r) => r.domain).join(', ')})`)
+    add('INFO', t.slug, `no tenants.domain; resolves via tenant_domains (primary) only (${activeTd.map((r) => r.domain).join(', ')})`)
   }
   // Drift C: bespoke-routed but folder missing (guard should catch; double-check)
   if (isBespoke && !folderOk) add('CRIT', t.slug, `in BESPOKE_SITE_TENANTS but /site/${t.slug} has no homepage`)
