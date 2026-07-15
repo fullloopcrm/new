@@ -1973,3 +1973,61 @@ files, 1465/1465 tests pass (37 pre-existing skips, unchanged), 0
 regressions.
 
 Commit `099a2e15`. Logged as P49. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 19:09 order) — P50, fixed: dashboard tenant-resolution
+split-brain between the display path and the write path.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order with a
+fresh angle inside my own owned lane (tenant resolution + callers): compared
+the two central `Tenant`-resolving functions call-by-call instead of
+file-by-file, the way the P1-SCHEMA-SPEC.md comment already requires for
+`getTenantByDomain`'s tenant_domains/tenants.domain agreement — but nobody had
+done that comparison for the *auth-path priority order* of `tenant.ts`'s
+`getCurrentTenant()` (used by `DashboardLayout` — 8 callers) vs.
+`tenant-query.ts`'s `getTenantForRequest()` (used by ~171 `/api/dashboard/*`
+route files) before.
+
+Found they resolved auth precedence in **opposite order**:
+- `getCurrentTenant()`: signed tenant-domain header FIRST, then admin-PIN
+  impersonation cookie, then Clerk impersonation, then membership.
+- `getTenantForRequest()`: impersonation cookie FIRST, then signed
+  tenant-domain header, then Clerk.
+
+This is reachable, not theoretical: `admin-auth/route.ts`'s own comment states
+the global super-admin PIN "works on any host," and neither `admin_token` nor
+`fl_impersonate` sets a cookie `domain` (both host-only, confirmed in
+`impersonation.ts` + `setAdminCookie()`). So a super admin who starts
+impersonating tenant A (setting `fl_impersonate=A` while browsing wherever
+they were), then separately logs into tenant B's own custom domain directly
+via the any-host global PIN — without first clicking "stop impersonating" —
+ends up with BOTH a valid signed `x-tenant-id=B` header AND a still-valid
+`fl_impersonate=A` cookie on that same host. `DashboardLayout` explicitly
+gates and renders based on the header path (`src/app/dashboard/layout.tsx`
+lines 20-38: requires the admin/tenant-admin token before trusting the
+header, then calls `getCurrentTenant()`, which — being header-first — returns
+tenant B, matching the gate). But every `/api/dashboard/*` fetch from that
+same rendered page calls `getTenantForRequest()`, which — being
+impersonation-first — silently resolved to tenant A instead. Net effect: the
+UI legitimately displays "you are viewing Tenant B," but every booking/
+client/finance write from that page lands on Tenant A's rows instead —
+same silent-cross-tenant-write shape as this session's other misattribution
+fixes, just triggered by admin session state instead of an external attacker.
+
+**Fix:** reordered `getTenantForRequest()` to check the signed header path
+before the impersonation cookie, matching `getCurrentTenant()`'s order and
+the `DashboardLayout` gate semantics — the tenant a request's own signed
+domain header identifies now always wins over a leftover impersonation
+cookie from a different session.
+
+New `WRONG-TENANT PROBE` test in `tenant-query.test.ts` (header for tenant B
++ stale impersonation cookie for tenant A both present → asserts the
+resolved tenant is B, and that tenant A's row is never even queried).
+Mutation-verified via `cp`-based backup/restore against real pre-fix code
+(`git show HEAD`): RED against the reverted (impersonation-first) ordering
+(resolved `t-A` instead of `t-B`), restored, GREEN. `npx tsc --noEmit` clean.
+`audit-tenant-scope.mjs`'s 1 finding (`seo/recipes.ts`) is the same
+pre-existing untouched-file baseline drift noted in prior rounds, unrelated.
+Full suite 336/336 files, 1466/1466 tests pass (37 pre-existing skips,
+unchanged), 0 regressions (1465 baseline + 1 new test).
+
+Commit `b634e5e1`. Logged as P50. File-only, no push/deploy/DB.
