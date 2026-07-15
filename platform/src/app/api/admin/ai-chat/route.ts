@@ -216,6 +216,15 @@ export async function executeTool(
         })
       }
 
+      if (updates.team_member_id) {
+        const { data: teamMember } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .maybeSingle()
+        if (!teamMember) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const results = await Promise.all(
         ids.map(async id => {
           const { error } = await db
@@ -306,6 +315,22 @@ export async function executeTool(
           service_type: input.service_type || 'regular',
         })
       }
+      const { data: client } = await db
+        .from('clients')
+        .select('id')
+        .eq('id', input.client_id as string)
+        .maybeSingle()
+      if (!client) return JSON.stringify({ error: 'client not found' })
+
+      if (input.team_member_id) {
+        const { data: teamMember } = await db
+          .from('team_members')
+          .select('id')
+          .eq('id', input.team_member_id as string)
+          .maybeSingle()
+        if (!teamMember) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const startTime = input.start_time as string
       let endTime = input.end_time as string | undefined
       if (!endTime) {
