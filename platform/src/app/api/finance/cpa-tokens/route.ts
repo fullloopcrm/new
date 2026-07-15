@@ -33,11 +33,27 @@ export async function POST(request: Request) {
     const expiresAt = body.expires_in_days
       ? new Date(Date.now() + Number(body.expires_in_days) * 86400000).toISOString()
       : null
+
+    // entity_id is a caller-supplied FK — entities has its own tenant_id and no
+    // cross-tenant FK check, and it's surfaced back unscoped via this route's own
+    // GET (`entities(name)` embed). Same class as the bank-accounts/expenses/
+    // periods entity_id fixes (P4-P6 in the leak register).
+    let entityId: string | null = body.entity_id || null
+    if (entityId) {
+      const { data: owned } = await supabaseAdmin
+        .from('entities')
+        .select('id')
+        .eq('id', entityId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('cpa_access_tokens')
       .insert({
         tenant_id: tenantId,
-        entity_id: body.entity_id || null,
+        entity_id: entityId,
         cpa_name: body.cpa_name || null,
         cpa_email: body.cpa_email || null,
         token,
