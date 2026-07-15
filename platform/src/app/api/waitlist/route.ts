@@ -13,6 +13,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { requirePermission } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 interface WaitlistEntry {
   id: string
@@ -105,27 +106,16 @@ export async function GET() {
   return NextResponse.json(entries)
 }
 
-// Public lead capture. Rate-limited per IP so it can't be spammed.
-const rl = new Map<string, { count: number; resetAt: number }>()
-const RL_WINDOW_MS = 10 * 60 * 1000
-const RL_MAX = 5
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const e = rl.get(ip)
-  if (!e || now > e.resetAt) {
-    rl.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS })
-    return false
-  }
-  e.count++
-  return e.count > RL_MAX
-}
-
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ ok: false, error: 'Tenant context required' }, { status: 400 })
 
+  // Public lead capture. Rate-limited per IP so it can't be spammed. DB-backed
+  // (not in-memory) so the cap survives serverless cold starts and holds across
+  // concurrent instances — see rate-limit-db.ts.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(`${tenant.id}:${ip}`)) {
+  const { allowed } = await rateLimitDb(`waitlist:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+  if (!allowed) {
     return NextResponse.json({ ok: false, error: 'Too many requests' }, { status: 429 })
   }
 

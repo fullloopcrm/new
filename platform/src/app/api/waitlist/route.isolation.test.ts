@@ -72,6 +72,7 @@ vi.mock('@/lib/tenant-site', () => ({
 
 vi.mock('@/lib/notify', () => ({ notify: async () => ({}) }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins: async () => ({}) }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true }) }))
 
 import { GET, POST } from './route'
 

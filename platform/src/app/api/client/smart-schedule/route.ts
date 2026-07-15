@@ -1,27 +1,17 @@
 import { NextResponse } from 'next/server'
 import { scoreTeamForBooking, suggestBookingSlots } from '@/lib/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
-
-const rl = new Map<string, { count: number; resetAt: number }>()
-const RL_WINDOW_MS = 5 * 60 * 1000
-const RL_MAX = 30
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const e = rl.get(ip)
-  if (!e || now > e.resetAt) {
-    rl.set(ip, { count: 1, resetAt: now + RL_WINDOW_MS })
-    return false
-  }
-  e.count++
-  return e.count > RL_MAX
-}
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Public-safe wrapper around scoreCleanersForBooking. Strips fields that
 // could leak other clients' info before returning. NO admin auth — public
 // + portal-authenticated callers both use this.
 export async function GET(request: Request) {
+  // DB-backed (not in-memory) so the cap survives serverless cold starts and
+  // holds across concurrent instances — see rate-limit-db.ts.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(ip)) {
+  const { allowed } = await rateLimitDb(`client_smart_schedule:${ip}`, 30, 5 * 60 * 1000)
+  if (!allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 

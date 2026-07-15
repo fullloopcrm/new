@@ -3,31 +3,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
 // the middleware-injected x-tenant-slug header (or tenant_slug in body);
 // admin GET/PUT/DELETE go through requirePermission and stay tenant-scoped.
-
-// Rate limiting: 3 applications per 10 minutes per IP.
-const rateLimits = new Map<string, { count: number; resetAt: number }>()
-const RATE_LIMIT_WINDOW_MS = 10 * 60 * 1000
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  if (rateLimits.size > 1000) {
-    for (const [key, val] of rateLimits) {
-      if (val.resetAt <= now) rateLimits.delete(key)
-    }
-  }
-  const entry = rateLimits.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimits.set(ip, { count: 1, resetAt: now + RATE_LIMIT_WINDOW_MS })
-    return false
-  }
-  entry.count++
-  return entry.count > 3
-}
 
 // GET - List sales applications (admin only, tenant-scoped)
 export async function GET() {
@@ -51,8 +32,11 @@ export async function GET() {
 
 // POST - Submit new sales application (public, tenant from header/body)
 export async function POST(request: Request) {
+  // DB-backed (not in-memory) so the cap survives serverless cold starts and
+  // holds across concurrent instances — see rate-limit-db.ts.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(ip)) {
+  const { allowed } = await rateLimitDb(`sales_applications:${ip}`, 3, 10 * 60 * 1000)
+  if (!allowed) {
     return NextResponse.json({ error: 'Too many submissions. Try again later.' }, { status: 429 })
   }
 

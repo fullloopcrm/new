@@ -20,6 +20,7 @@ let currentTenant: { id: string }
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => currentTenant,
 }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true }) }))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { GET, POST } from './route'

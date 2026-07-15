@@ -1,26 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 
-// Rate limiting: 3 uploads per 10 minutes per IP
-const rateLimits = new Map<string, { count: number; resetAt: number }>()
-
-function isRateLimited(ip: string): boolean {
-  const now = Date.now()
-  const entry = rateLimits.get(ip)
-  if (!entry || now > entry.resetAt) {
-    rateLimits.set(ip, { count: 1, resetAt: now + 10 * 60 * 1000 })
-    return false
-  }
-  entry.count++
-  return entry.count > 3
-}
-
 export async function POST(request: NextRequest) {
+  // DB-backed (not in-memory) so the cap survives serverless cold starts and
+  // holds across concurrent instances — see rate-limit-db.ts.
   const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-  if (isRateLimited(ip)) {
+  const { allowed } = await rateLimitDb(`team_applications_upload:${ip}`, 3, 10 * 60 * 1000)
+  if (!allowed) {
     return NextResponse.json({ error: 'Too many uploads. Try again later.' }, { status: 429 })
   }
 
