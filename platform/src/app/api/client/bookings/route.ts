@@ -3,6 +3,14 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
+// Escape LIKE/ILIKE wildcards so the caller's own (self-registered, unvalidated)
+// email is matched literally -- clients.email is caller-controlled via the public
+// /api/client/book endpoint with no character restrictions, so an unescaped '%'
+// or '_' here would pull in every other client's bookings within the tenant.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -29,7 +37,7 @@ export async function GET(request: Request) {
     const { data: emailMatches } = await tenantDb(tenant.id)
       .from('clients')
       .select('id')
-      .ilike('email', clientRecord.email.trim())
+      .ilike('email', escapeLike(clientRecord.email.trim()))
     if (emailMatches) {
       for (const m of emailMatches) if (!clientIds.includes(m.id)) clientIds.push(m.id)
     }
