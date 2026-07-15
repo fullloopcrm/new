@@ -1,6 +1,8 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requireAdmin } from '@/lib/require-admin'
 
 // SQL to create table:
 // CREATE TABLE platform_feedback (
@@ -15,7 +17,9 @@ import { sendEmail } from '@/lib/email'
 
 export async function GET() {
   // Admin only — used by /admin/feedback
-  // No auth check here since admin layout handles it
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const { data, error } = await supabaseAdmin
     .from('platform_feedback')
     .select('*')
@@ -32,8 +36,18 @@ export async function GET() {
   return NextResponse.json({ feedback: data || [], unread: unreadCount || 0 })
 }
 
-export async function POST(request: Request) {
+export async function POST(request: NextRequest) {
   try {
+    // Anonymous, unauthenticated endpoint with unbounded platform_feedback
+    // writes plus an admin notification email per submission and zero
+    // throttling — same abuse class the sibling public forms (contact,
+    // inquiry, leads) already guard against.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const limit = await rateLimitDb(`feedback:${ip}`, 5, 10 * 60 * 1000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Too many submissions. Please wait a few minutes.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { message, category } = body
 
@@ -82,6 +96,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   // Mark feedback as read / add notes — admin use
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   try {
     const body = await request.json()
     const { id, status, admin_notes } = body

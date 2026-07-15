@@ -10,12 +10,22 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { logQuoteEvent } from '@/lib/quote'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
 export async function POST(_request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Public, unauthenticated — every call creates a real Stripe Checkout
+    // Session (a paid API call). Without a limit, a single valid token could
+    // be replayed to spam Stripe session creation. Keyed by token, not IP, so
+    // rotating source IPs doesn't bypass it. Mirrors invoices/public/[token]/checkout.
+    const limit = await rateLimitDb(`deposit-checkout:${token}`, 10, 10 * 60 * 1000)
+    if (!limit.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Please wait a few minutes and try again.' }, { status: 429 })
+    }
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')
