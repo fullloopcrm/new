@@ -3,11 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('finance.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { data, error } = await supabaseAdmin
       .from('recurring_expenses')
       .select('*')
@@ -25,7 +28,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('finance.expenses')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json()
     if (!body.label || !body.amount_cents || !body.frequency) {
       return NextResponse.json({ error: 'label, amount_cents, frequency required' }, { status: 400 })

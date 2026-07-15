@@ -39,7 +39,7 @@ const params = (id: string) => ({ params: Promise.resolve({ id }) })
 beforeEach(() => {
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A, role: 'owner' }))
   h.store = {
     quotes: [{ id: 'q-1', tenant_id: TENANT_A, status: 'draft', client_id: 'client-A1' }],
     clients: [{ id: 'client-A1', tenant_id: TENANT_A, name: 'Pat A' }, { id: 'client-B1', tenant_id: TENANT_B, name: 'Pat B (secret)' }],

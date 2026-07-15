@@ -10,14 +10,17 @@
  * Idempotent on quotes.converted_job_id.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { convertSaleToJob, type PaymentPlanItem, type JobSessionInput } from '@/lib/jobs'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('sales.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const body = (await request.json().catch(() => ({}))) as {
       payments?: PaymentPlanItem[]

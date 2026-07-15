@@ -3,12 +3,15 @@
  * Assignable to a job session/booking so a whole team schedules at once.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { data: crews, error } = await supabaseAdmin
       .from('crews')
       .select('id, name, color, active, crew_members(team_member_id, team_members(id, name))')
@@ -33,7 +36,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.create')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -57,7 +62,9 @@ export async function POST(request: Request) {
 
 export async function PATCH(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -82,7 +89,9 @@ export async function PATCH(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const id = new URL(request.url).searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
     await supabaseAdmin.from('crews').delete().eq('id', id).eq('tenant_id', tenantId)

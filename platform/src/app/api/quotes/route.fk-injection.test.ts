@@ -42,7 +42,7 @@ const postReq = (body: unknown) => new Request('http://x', { method: 'POST', bod
 beforeEach(() => {
   h.seq = 0
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A, role: 'owner' }))
   h.store = {
     quotes: [],
     clients: [
