@@ -36,13 +36,18 @@
 -- ALTER FUNCTION ... SET search_path is repeatable. Safe to re-run.
 
 -- ── post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) ────
+-- NOTE (leader, pre-run live check): prod grants also include an EXPLICIT
+-- direct grant to `anon` (not just via PUBLIC) — REVOKE FROM PUBLIC alone
+-- would NOT remove that. Added an explicit anon revoke below.
 REVOKE EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) FROM anon;
 REVOKE EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) TO service_role;
 ALTER  FUNCTION post_journal_entry(UUID, UUID, DATE, TEXT, TEXT, UUID, UUID, JSONB) SET search_path = public, pg_temp;
 
 -- ── cpa_token_bump_usage(TEXT) ────────────────────────────────────────────
 REVOKE EXECUTE ON FUNCTION cpa_token_bump_usage(TEXT) FROM authenticated;
+REVOKE EXECUTE ON FUNCTION cpa_token_bump_usage(TEXT) FROM anon;
 REVOKE EXECUTE ON FUNCTION cpa_token_bump_usage(TEXT) FROM PUBLIC;
 GRANT  EXECUTE ON FUNCTION cpa_token_bump_usage(TEXT) TO service_role;
 ALTER  FUNCTION cpa_token_bump_usage(TEXT) SET search_path = public, pg_temp;
