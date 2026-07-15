@@ -368,6 +368,29 @@ async function executeTool(
           service_type: input.service_type || 'regular',
         })
       }
+      // client_id and team_member_id are model-supplied FKs — verify both
+      // belong to this tenant before insert. query_bookings/get_schedule_summary
+      // embed clients(name)/team_members(name) off these columns with no
+      // tenant filter on the embedded side, so an unverified foreign id would
+      // read back another tenant's client/employee name on the next lookup.
+      const { data: ownedClient } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', input.client_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!ownedClient) return JSON.stringify({ error: 'client not found' })
+
+      if (input.team_member_id) {
+        const { data: ownedMember } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('id', input.team_member_id as string)
+          .eq('tenant_id', tenantId)
+          .maybeSingle()
+        if (!ownedMember) return JSON.stringify({ error: 'team member not found' })
+      }
+
       const startTime = input.start_time as string
       let endTime = input.end_time as string | undefined
       if (!endTime) {

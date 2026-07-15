@@ -50,6 +50,10 @@ function seed() {
       { id: 'book-A1', tenant_id: CTX_TENANT, client_id: 'client-A1', status: 'scheduled', price: 10000 },
       { id: 'book-B1', tenant_id: OTHER_TENANT, client_id: 'client-B1', status: 'scheduled', price: 10000 },
     ],
+    clients: [
+      { id: 'client-A1', tenant_id: CTX_TENANT },
+      { id: 'client-B1', tenant_id: OTHER_TENANT },
+    ],
   }
 }
 
