@@ -66,6 +66,19 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // A foreign client_id here would be joined back as clients(name, email,
+    // phone, address) on every subsequent GET -- a cross-tenant PII leak if
+    // not scoped to this tenant (same class already guarded on quote create).
+    if ('client_id' in updates && updates.client_id) {
+      const { data: c } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', updates.client_id as string)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await supabaseAdmin
         .from('quotes')
