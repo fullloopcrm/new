@@ -7,6 +7,35 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { paginateAll } from '@/lib/finance-export'
+
+interface BookingRevenueRow {
+  id: string
+  start_time: string
+  price: number
+  team_member_pay: number
+  payment_status: string
+  payment_method: string | null
+  payment_date: string | null
+  clients: unknown
+}
+
+interface ExpenseRow {
+  date: string
+  category: string
+  subcategory?: string
+  amount: number
+  vendor_name?: string
+  description?: string
+  payment_method?: string
+  tax_deductible?: boolean
+}
+
+interface ContractorPayRow {
+  team_member_id: string | null
+  team_member_pay: number
+  team_members: unknown
+}
 
 function csvEscape(v: string | number | null | undefined): string {
   if (v == null) return ''
@@ -29,39 +58,44 @@ export async function GET(request: Request) {
     const from = `${year}-01-01`
     const to = `${year}-12-31T23:59:59Z`
 
-    const bookingsQ = supabaseAdmin
-      .from('bookings')
-      .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, clients(name)')
-      .eq('tenant_id', tenantId)
-      .gte('start_time', from)
-      .lte('start_time', to)
-      .in('payment_status', ['paid', 'partial'])
-    let expensesQ = supabaseAdmin
-      .from('expenses')
-      .select('date, category, subcategory, amount, vendor_name, description, payment_method, tax_deductible')
-      .eq('tenant_id', tenantId)
-      .gte('date', from.slice(0, 10))
-      .lte('date', to.slice(0, 10))
-      .order('date', { ascending: true })
-    if (entityId) expensesQ = expensesQ.eq('entity_id', entityId)
-
-    const [
-      { data: bookings },
-      { data: expenses },
-      { data: contractorRows },
-    ] = await Promise.all([
-      bookingsQ,
-      expensesQ,
+    // Paginated — a busy tenant's annual bookings/expenses can exceed the
+    // project's 1000-row PostgREST cap, which would otherwise silently
+    // truncate the tax export with no error.
+    const [bookings, expenses, contractorRows] = await Promise.all([
+      paginateAll<BookingRevenueRow>((offset, limit) =>
+        supabaseAdmin
+          .from('bookings')
+          .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, clients(name)')
+          .eq('tenant_id', tenantId)
+          .gte('start_time', from)
+          .lte('start_time', to)
+          .in('payment_status', ['paid', 'partial'])
+          .range(offset, offset + limit - 1),
+      ),
+      paginateAll<ExpenseRow>((offset, limit) => {
+        let q = supabaseAdmin
+          .from('expenses')
+          .select('date, category, subcategory, amount, vendor_name, description, payment_method, tax_deductible')
+          .eq('tenant_id', tenantId)
+          .gte('date', from.slice(0, 10))
+          .lte('date', to.slice(0, 10))
+          .order('date', { ascending: true })
+        if (entityId) q = q.eq('entity_id', entityId)
+        return q.range(offset, offset + limit - 1)
+      }),
       // 1099 totals from the REAL pay signal — every paid job's team_member_pay,
       // not just Stripe payouts (contractors paid by any method are captured).
-      supabaseAdmin
-        .from('bookings')
-        .select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name, tax_business_name, tax_ein, tax_ssn_last4)')
-        .eq('tenant_id', tenantId)
-        .gte('start_time', from)
-        .lte('start_time', to)
-        .in('payment_status', ['paid', 'partial'])
-        .gt('team_member_pay', 0),
+      paginateAll<ContractorPayRow>((offset, limit) =>
+        supabaseAdmin
+          .from('bookings')
+          .select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name, tax_business_name, tax_ein, tax_ssn_last4)')
+          .eq('tenant_id', tenantId)
+          .gte('start_time', from)
+          .lte('start_time', to)
+          .in('payment_status', ['paid', 'partial'])
+          .gt('team_member_pay', 0)
+          .range(offset, offset + limit - 1),
+      ),
     ])
 
     const lines: string[] = []

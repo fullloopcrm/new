@@ -23,6 +23,32 @@ export function toCsv(rows: Record<string, unknown>[]): string {
   return lines.join('\n')
 }
 
+const EXPORT_PAGE_SIZE = 1000
+const EXPORT_MAX_ROWS = 200_000
+
+/**
+ * Pages a Supabase query in EXPORT_PAGE_SIZE chunks. The project's default
+ * PostgREST max-rows cap (1000) silently truncates any unpaginated query —
+ * this is the same cap `buildTrialBalance`/`ledgerProfitAndLoss` already page
+ * around. Use for any tax/export query that isn't already date-bounded to a
+ * small result set.
+ */
+export async function paginateAll<T>(
+  buildQuery: (offset: number, limit: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<T[]> {
+  const rows: T[] = []
+  let offset = 0
+  for (;;) {
+    const { data, error } = await buildQuery(offset, EXPORT_PAGE_SIZE)
+    if (error) throw new Error(error.message)
+    const page = data || []
+    rows.push(...page)
+    if (page.length < EXPORT_PAGE_SIZE || offset >= EXPORT_MAX_ROWS) break
+    offset += EXPORT_PAGE_SIZE
+  }
+  return rows
+}
+
 interface LineRow { coa_id: string; coa_code: string; coa_name: string; coa_type: string; debits: number; credits: number }
 
 // Supabase line limit — if a trial balance actually hits this, we page.
@@ -73,35 +99,58 @@ export async function buildTrialBalance(tenantId: string, entityId: string | nul
   return out
 }
 
-export async function buildGeneralLedger(tenantId: string, entityId: string | null, from: string, to: string) {
-  let q = supabaseAdmin
-    .from('journal_lines')
-    .select('debit_cents, credit_cents, memo, chart_of_accounts!inner(code, name, type), journal_entries!inner(entry_date, memo, source)')
-    .eq('tenant_id', tenantId)
-  if (entityId) q = q.eq('entity_id', entityId)
-  const { data } = await q
-    .gte('journal_entries.entry_date', from)
-    .lte('journal_entries.entry_date', to)
-    .limit(50000)
+// Same class of cap as TRIAL_BALANCE_PAGE — page through journal lines so an
+// active tenant's annual general ledger isn't silently cut off at a flat
+// .limit(). GENERAL_LEDGER_MAX_ROWS is a safety valve, not an expected size;
+// hitting it sets `.truncated` on the result instead of failing silently.
+const GENERAL_LEDGER_PAGE = 5000
+const GENERAL_LEDGER_MAX_ROWS = 200_000
 
+export async function buildGeneralLedger(
+  tenantId: string, entityId: string | null, from: string, to: string,
+): Promise<Array<Record<string, string | number>> & { truncated?: boolean }> {
   const rows: Array<Record<string, string | number>> = []
-  for (const row of (data || []) as unknown as Array<{
-    debit_cents: number
-    credit_cents: number
-    memo: string | null
-    chart_of_accounts: { code: string; name: string; type: string }
-    journal_entries: { entry_date: string; memo: string | null; source: string | null }
-  }>) {
-    rows.push({
-      date: row.journal_entries.entry_date,
-      account: `${row.chart_of_accounts.code} ${row.chart_of_accounts.name}`,
-      type: row.chart_of_accounts.type,
-      debit: ((row.debit_cents || 0) / 100).toFixed(2),
-      credit: ((row.credit_cents || 0) / 100).toFixed(2),
-      memo: row.memo || row.journal_entries.memo || '',
-      source: row.journal_entries.source || '',
-    })
+  let offset = 0
+  let truncated = false
+
+  for (;;) {
+    let q = supabaseAdmin
+      .from('journal_lines')
+      .select('debit_cents, credit_cents, memo, chart_of_accounts!inner(code, name, type), journal_entries!inner(entry_date, memo, source)')
+      .eq('tenant_id', tenantId)
+    if (entityId) q = q.eq('entity_id', entityId)
+    const { data } = await q
+      .gte('journal_entries.entry_date', from)
+      .lte('journal_entries.entry_date', to)
+      .range(offset, offset + GENERAL_LEDGER_PAGE - 1)
+
+    const page = (data || []) as unknown as Array<{
+      debit_cents: number
+      credit_cents: number
+      memo: string | null
+      chart_of_accounts: { code: string; name: string; type: string }
+      journal_entries: { entry_date: string; memo: string | null; source: string | null }
+    }>
+
+    for (const row of page) {
+      rows.push({
+        date: row.journal_entries.entry_date,
+        account: `${row.chart_of_accounts.code} ${row.chart_of_accounts.name}`,
+        type: row.chart_of_accounts.type,
+        debit: ((row.debit_cents || 0) / 100).toFixed(2),
+        credit: ((row.credit_cents || 0) / 100).toFixed(2),
+        memo: row.memo || row.journal_entries.memo || '',
+        source: row.journal_entries.source || '',
+      })
+    }
+
+    if (page.length < GENERAL_LEDGER_PAGE) break
+    offset += GENERAL_LEDGER_PAGE
+    if (offset >= GENERAL_LEDGER_MAX_ROWS) { truncated = true; break }
   }
+
   rows.sort((a, b) => String(a.date).localeCompare(String(b.date)))
-  return rows
+  const out = rows as Array<Record<string, string | number>> & { truncated?: boolean }
+  if (truncated) out.truncated = true
+  return out
 }

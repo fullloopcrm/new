@@ -29,9 +29,13 @@ export default function CpaAccessPage() {
   useEffect(() => { load() }, [load])
 
   async function create() {
+    // parseInt(days) || null previously collapsed "0" (and NaN) to the same
+    // `null` payload the server reads as "never expires" — typing 0 to
+    // request an immediately-expiring token instead created a permanent one.
+    const parsed = parseInt(days, 10)
     await fetch('/api/finance/cpa-tokens', {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ cpa_name: name, cpa_email: email, expires_in_days: parseInt(days) || null }),
+      body: JSON.stringify({ cpa_name: name, cpa_email: email, expires_in_days: Number.isNaN(parsed) ? null : parsed }),
     })
     setName(''); setEmail(''); load()
   }

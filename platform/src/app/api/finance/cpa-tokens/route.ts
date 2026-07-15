@@ -30,8 +30,13 @@ export async function POST(request: Request) {
     const { tenantId } = _authTenant
     const body = await request.json().catch(() => ({}))
     const token = randomBytes(24).toString('base64url')
-    const expiresAt = body.expires_in_days
-      ? new Date(Date.now() + Number(body.expires_in_days) * 86400000).toISOString()
+    // `!= null` (not truthy) — `expires_in_days: 0` means "expires immediately",
+    // not "no expiration". A truthy check silently turns a 0-day request into a
+    // permanent read-access token into the tenant's full general ledger.
+    const daysRaw = body.expires_in_days
+    const days = daysRaw != null ? Number(daysRaw) : null
+    const expiresAt = days != null && Number.isFinite(days)
+      ? new Date(Date.now() + Math.max(days, 0) * 86400000).toISOString()
       : null
 
     // entity_id is a caller-supplied FK — entities has its own tenant_id and no

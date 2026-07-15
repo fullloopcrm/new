@@ -42,7 +42,13 @@ export async function GET(request: Request, { params }: Params) {
     }))))
     const gl = await buildGeneralLedger(tenantId, entityId, from, to)
     zip.file('general_ledger.csv', toCsv(gl))
-    zip.file('README.txt', `CPA Package ${year}\nRead-only access via token. Generated ${new Date().toISOString()}\n`)
+    const truncationWarning = (tb.truncated || gl.truncated)
+      ? '\n*** WARNING: This tenant has more journal activity than this export can include in one pass. trial_balance.csv and/or general_ledger.csv may be INCOMPLETE. Ask the tenant to export a narrower date range or a single entity from their dashboard. ***\n'
+      : ''
+    if (tb.truncated || gl.truncated) {
+      console.error('GET /api/cpa/[token]/year-end-zip truncated', { tenantId, entityId, year, tbTruncated: !!tb.truncated, glTruncated: !!gl.truncated })
+    }
+    zip.file('README.txt', `CPA Package ${year}\nRead-only access via token. Generated ${new Date().toISOString()}\n${truncationWarning}`)
 
     const buf = await zip.generateAsync({ type: 'arraybuffer' })
     return new NextResponse(buf, {
