@@ -3,6 +3,22 @@ import type Anthropic from '@anthropic-ai/sdk'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
+import { hasPermission, type Permission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
+
+// Tools that read or mutate CRM data require the same permission the
+// equivalent direct API route enforces — this copilot is not a bypass around RBAC.
+const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  search_clients: 'clients.view',
+  search_team_members: 'team.view',
+  query_bookings: 'bookings.view',
+  update_bookings: 'bookings.edit',
+  cancel_bookings: 'bookings.edit',
+  get_schedule_summary: 'bookings.view',
+  get_client_details: 'clients.view',
+  update_client: 'clients.edit',
+  get_revenue_stats: 'finance.view',
+}
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -161,7 +177,18 @@ const tools: Anthropic.Tool[] = [
   },
 ]
 
-async function executeTool(name: string, input: Record<string, unknown>, tenantId: string): Promise<string> {
+async function executeTool(
+  name: string,
+  input: Record<string, unknown>,
+  tenantId: string,
+  role: string,
+  overrides: ReturnType<typeof overridesFor>
+): Promise<string> {
+  const requiredPermission = TOOL_PERMISSIONS[name]
+  if (requiredPermission && !hasPermission(role, requiredPermission, overrides)) {
+    return JSON.stringify({ error: 'You do not have permission to do that.' })
+  }
+
   switch (name) {
     case 'search_clients': {
       const q = (input.query as string).trim()
@@ -333,7 +360,9 @@ async function executeTool(name: string, input: Record<string, unknown>, tenantI
 
 export async function POST(request: Request) {
   try {
-    const { tenant, tenantId } = await getTenantForRequest()
+    const tenantContext = await getTenantForRequest()
+    const { tenant, tenantId, role } = tenantContext
+    const overrides = overridesFor(tenantContext)
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })
@@ -373,7 +402,7 @@ export async function POST(request: Request) {
         const toolResults = []
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(block.name, block.input as Record<string, unknown>, tenantId)
+            const result = await executeTool(block.name, block.input as Record<string, unknown>, tenantId, role, overrides)
             toolResults.push({
               type: 'tool_result' as const,
               tool_use_id: block.id,
