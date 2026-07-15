@@ -17,16 +17,23 @@ async function findClient(tenantId: string, input: string) {
   if (byEmail) return byEmail
 
   const digits = trimmed.replace(/\D/g, '')
-  if (digits.length >= 7) {
+  if (digits.length >= 10) {
+    // Exact national-number match only. A prior `endsWith()` fuzzy match here
+    // let a caller-supplied phone that was merely a SUFFIX of an unrelated
+    // client's stored number resolve to that client's name/phone/email — same
+    // bug class already fixed in verify-code's phone lookup (p1-w2 8fc5f304).
+    // Compare last-10-digits so 10- vs 11-digit (leading US "1") stored
+    // formats still match, but partials never do.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const target = nat(digits)
     const { data: clients } = await supabaseAdmin
       .from('clients')
       .select('id, phone, email, name')
       .eq('tenant_id', tenantId)
     if (clients) {
       const match = clients.find(c => {
-        const cDigits = (c.phone || '').replace(/\D/g, '')
-        if (!cDigits || cDigits.length < 7) return false
-        return cDigits === digits || cDigits.endsWith(digits) || digits.endsWith(cDigits)
+        const cDigits = nat((c.phone || '').replace(/\D/g, ''))
+        return cDigits.length >= 10 && cDigits === target
       })
       if (match) return match
     }
