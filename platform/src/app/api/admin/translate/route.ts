@@ -3,12 +3,15 @@
  * team flow); body can override `target` to translate to another language.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const tenant = ctx.tenant
     const { text, target = 'Spanish' } = await request.json()
 
     if (!text || typeof text !== 'string') {
