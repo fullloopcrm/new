@@ -788,6 +788,32 @@ live leaks. This section is a **negative result, not a to-do list**.
    pre-fix code, GREEN after restore). `npx tsc --noEmit` clean; full
    `vitest run` 316 files / 1389 passed / 37 skipped / 0 failed.
 
+   **P40 (2026-07-15, W2):** `undoBatch()` in `src/lib/import-staging.ts`
+   (the CSV client/schedule-import commit/undo engine behind
+   `POST /api/dashboard/import/batch/[id]`) deleted each committed row by
+   `.eq('id', r.target_id)` alone — zero `tenant_id` filter on the delete
+   itself. Found broad-hunting a fresh area (`dashboard/import/*`,
+   `dashboard/hr/*`, `documents/*`, `jobs/*` — all otherwise clean and
+   already hardened from prior sessions) and reading past the API-layer
+   `ownsBatch()` gate into the library engine it delegates to. Not
+   independently exploitable today: the API route pre-verifies the batch
+   belongs to the caller's tenant before calling `undoBatch`, and
+   `target_id`/`target_table` on `import_rows` are set exclusively by
+   `commitBatch`'s own tenant-stamped insert — no request path lets a caller
+   influence either value directly. Same "worth closing as defense-in-depth"
+   class as P38/P39: every other delete/update in this codebase scopes by
+   `tenant_id` even when a call-site guard already exists (that's
+   `tenantDb`'s whole premise, per its own header comment), and this was the
+   one exception. Fixed: delete now also filters
+   `.eq('tenant_id', batch.tenant_id)`. Witness added at
+   `src/lib/import-staging.test.ts` (new file — no prior test coverage
+   existed for this engine) with a wrong-tenant probe: an `import_rows`
+   pointer targeting a row owned by a different tenant than the batch now
+   survives undo untouched. Mutation-verified via cp-based backup/restore
+   (RED — victim row deleted — against pre-fix code, GREEN after restore).
+   `npx tsc --noEmit` clean; full `vitest run` 317 files / 1391 passed / 37
+   skipped / 0 failed.
+
    All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
