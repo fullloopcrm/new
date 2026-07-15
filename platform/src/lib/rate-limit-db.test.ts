@@ -10,6 +10,8 @@ import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
  */
 
 let countResult: { count: number | null; error: unknown }
+// Toggles what the insert (attempt-record write) resolves to for the current test.
+let insertResult: { error: unknown } = { error: null }
 
 vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({
@@ -19,7 +21,7 @@ vi.mock('@supabase/supabase-js', () => ({
           gte: async () => countResult,
         }),
       }),
-      insert: async () => ({ error: null }),
+      insert: async () => insertResult,
     }),
   }),
 }))
@@ -29,6 +31,7 @@ import { rateLimitDb } from './rate-limit-db'
 describe('rateLimitDb', () => {
   beforeEach(() => {
     countResult = { count: 0, error: null }
+    insertResult = { error: null }
     vi.spyOn(console, 'error').mockImplementation(() => {})
   })
   afterEach(() => {
@@ -65,5 +68,23 @@ describe('rateLimitDb', () => {
     countResult = { count: null, error: { message: 'db down' } }
     await rateLimitDb('k', 5, 60_000, { failClosed: true })
     expect(spy).toHaveBeenCalled()
+  })
+
+  // MED-1 regression: a failed attempt-record write (insert error) leaves the
+  // attempt uncounted. For failClosed callers that must DENY, otherwise the
+  // throttle is silently disabled on every write failure (same bypass class as
+  // the count-error path above).
+  it('DENIES on a DB insert error when failClosed is set', async () => {
+    countResult = { count: 0, error: null }
+    insertResult = { error: { message: 'insert failed' } }
+    const rl = await rateLimitDb('k', 5, 60_000, { failClosed: true })
+    expect(rl).toEqual({ allowed: false, remaining: 0 })
+  })
+
+  it('fails OPEN by default on a DB insert error (public traffic not locked out)', async () => {
+    countResult = { count: 0, error: null }
+    insertResult = { error: { message: 'insert failed' } }
+    const rl = await rateLimitDb('k', 5, 60_000)
+    expect(rl.allowed).toBe(true)
   })
 })

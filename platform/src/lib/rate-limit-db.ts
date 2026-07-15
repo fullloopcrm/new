@@ -48,7 +48,13 @@ export async function rateLimitDb(
     .insert({ bucket_key: bucketKey })
 
   if (insertErr) {
-    console.error('[rate-limit-db] insert failed:', insertErr.message)
+    console.error(`[rate-limit-db] insert failed (failClosed=${failClosed}):`, insertErr.message)
+    // Same bypass class as the count-error path above: a failed write means
+    // this attempt is unrecorded, so failClosed callers must deny rather than
+    // let an unthrottled request through. Public callers stay fail-open.
+    if (failClosed) {
+      return { allowed: false, remaining: 0 }
+    }
   }
 
   return { allowed: true, remaining: maxRequests - current - 1 }
