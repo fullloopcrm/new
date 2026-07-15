@@ -39,6 +39,23 @@ function normalizeField(f: Partial<FieldInput>): FieldInput | { error: string } 
   }
 }
 
+// A field's signer_id must belong to this document (and thus this tenant) —
+// otherwise a caller could attach a field to another tenant's signer, which
+// creates a dangling cross-tenant FK whose raw id then surfaces to this
+// document's own signers via the public token endpoint's fields[].signer_id.
+async function findInvalidSignerId(tenantId: string, documentId: string, signerIds: string[]): Promise<boolean> {
+  const uniqueIds = [...new Set(signerIds)]
+  if (uniqueIds.length === 0) return false
+  const { data: validSigners } = await supabaseAdmin
+    .from('document_signers')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('document_id', documentId)
+    .in('id', uniqueIds)
+  const validIds = new Set((validSigners || []).map(s => s.id))
+  return uniqueIds.some(sid => !validIds.has(sid))
+}
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
@@ -78,6 +95,9 @@ export async function POST(request: Request, { params }: Params) {
     const normalized = normalizeField(body)
     if ('error' in normalized) return NextResponse.json({ error: normalized.error }, { status: 400 })
 
+    const invalidSigner = await findInvalidSignerId(tenantId, id, [normalized.signer_id])
+    if (invalidSigner) return NextResponse.json({ error: 'Invalid signer_id' }, { status: 400 })
+
     const { data, error } = await supabaseAdmin
       .from('document_fields')
       .insert({ ...normalized, tenant_id: tenantId, document_id: id })
@@ -115,6 +135,9 @@ export async function PUT(request: Request, { params }: Params) {
       if ('error' in n) return NextResponse.json({ error: n.error }, { status: 400 })
       normalized.push(n)
     }
+
+    const invalidSigner = await findInvalidSignerId(tenantId, id, normalized.map(n => n.signer_id))
+    if (invalidSigner) return NextResponse.json({ error: 'Invalid signer_id' }, { status: 400 })
 
     await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
     if (normalized.length > 0) {
