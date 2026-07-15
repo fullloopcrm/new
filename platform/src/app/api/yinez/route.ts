@@ -71,15 +71,23 @@ export async function POST(req: NextRequest) {
 
       // If returning client, try to link to existing client record.
       // No tenant context → skip linking rather than search globally.
+      // Exact national-number match only (mirrors /api/chat's fix for this
+      // exact bug class) -- a substring ilike() with no length floor let a
+      // short phone typed into this public unauthenticated web-chat widget
+      // match an ARBITRARY unrelated client and leak their name straight
+      // into this brand-new conversation's context.
+      const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
       if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
-        const digits = phone.replace(/\D/g, '').slice(-10)
-        const { data: client } = await supabaseAdmin
-          .from('clients')
-          .select('id, name')
-          .eq('tenant_id', reqTenantId)
-          .ilike('phone', `%${digits}%`)
-          .limit(1).single()
+        const normalizedPhone = nat(phone.replace(/\D/g, ''))
+        let client: { id: string; name: string | null } | undefined
+        if (normalizedPhone.length >= 10) {
+          const { data: candidates } = await supabaseAdmin
+            .from('clients')
+            .select('id, name, phone')
+            .eq('tenant_id', reqTenantId)
+          client = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+        }
         if (client) {
           insertData.client_id = client.id
           insertData.booking_checklist = {

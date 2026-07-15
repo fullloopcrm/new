@@ -232,13 +232,21 @@ export async function POST(request: NextRequest) {
 
     // Dedup against an existing client by phone when we have one, else by email
     // (email-only marketing leads). No contact match → treated as new.
+    // Exact national-number match only (mirrors ingest/lead's fix for this
+    // exact bug class) -- a substring ilike() with no length floor let a
+    // short/malformed phone match an ARBITRARY unrelated client in this
+    // tenant and silently overwrite their name/email/notes/consent/status.
+    // This is a public unauthenticated form, so a crafted short phone is
+    // fully attacker-controlled.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
     const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
+    const normalizedPhone = nat(cleanPhone)
     let existing: { id: string }[] | null = null
-    if (cleanPhone) {
-      const r = await supabaseAdmin
-        .from('clients').select('id').eq('tenant_id', tenant.id)
-        .ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
-      existing = r.data
+    if (normalizedPhone.length >= 10) {
+      const { data: candidates } = await supabaseAdmin
+        .from('clients').select('id, phone').eq('tenant_id', tenant.id)
+      const match = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+      existing = match ? [{ id: match.id }] : null
     } else if (email) {
       const r = await supabaseAdmin
         .from('clients').select('id').eq('tenant_id', tenant.id)

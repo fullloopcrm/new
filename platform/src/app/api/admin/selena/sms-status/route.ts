@@ -47,8 +47,15 @@ export async function GET(req: NextRequest) {
     .limit(limit)
 
   if (phone) {
+    // Floor at a full 10-digit national number before filtering -- without
+    // it, a short/malformed phone query param would substring-match and
+    // return OTHER clients' SMS message content within this tenant (same
+    // ilike-substring bug class fixed elsewhere; this is a read-only filter
+    // so a length floor is sufficient, no need for exact-match candidates).
     const digits = phone.replace(/\D/g, '').slice(-10)
-    query = query.ilike('sms_conversations.phone', `%${digits}%`)
+    if (digits.length >= 10) {
+      query = query.ilike('sms_conversations.phone', `%${digits}%`)
+    }
   }
 
   const { data: logs, error } = await query

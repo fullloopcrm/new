@@ -23,15 +23,22 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   let clientId = contact.client_id as string | null
   let teamMemberId = contact.team_member_id as string | null
 
-  if (!clientId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+  // Exact national-number match only (mirrors ingest/lead's fix for this
+  // exact bug class) -- a substring ilike() with no length floor let a
+  // short/malformed inbound contact phone match an ARBITRARY unrelated
+  // client/team_member in this tenant, and the mismatch gets PERSISTED
+  // below (comhub_contacts.client_id/team_member_id), misattributing every
+  // future message on this contact to the wrong person's profile/history.
+  const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+  const normalizedContactPhone = contact.phone ? nat(contact.phone.replace(/\D/g, '')) : ''
+
+  if (!clientId && normalizedContactPhone.length >= 10) {
+    const { data: candidates } = await supabaseAdmin
       .from('clients')
-      .select('id')
+      .select('id, phone')
       .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) clientId = matched[0].id
+    const match = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedContactPhone)
+    if (match) clientId = match.id
   }
   if (!clientId && contact.email) {
     const { data: matched } = await supabaseAdmin
@@ -42,15 +49,13 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       .limit(1)
     if (matched && matched.length > 0) clientId = matched[0].id
   }
-  if (!teamMemberId && contact.phone) {
-    const last10 = contact.phone.replace(/\D/g, '').slice(-10)
-    const { data: matched } = await supabaseAdmin
+  if (!teamMemberId && normalizedContactPhone.length >= 10) {
+    const { data: candidates } = await supabaseAdmin
       .from('team_members')
-      .select('id')
+      .select('id, phone')
       .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(1)
-    if (matched && matched.length > 0) teamMemberId = matched[0].id
+    const match = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedContactPhone)
+    if (match) teamMemberId = match.id
   }
   if (!teamMemberId && contact.email) {
     const { data: matched } = await supabaseAdmin

@@ -30,18 +30,24 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, phone, and email are all required.' }, { status: 400 })
     }
 
-    // Find-or-create the client (dedupe by phone last-10, then email).
+    // Find-or-create the client (dedupe by phone, then email). Exact
+    // national-number match only (mirrors ingest/lead's fix for this exact
+    // bug class) -- a substring ilike() with only a 7-digit floor let a
+    // short/malformed phone match an ARBITRARY unrelated client in this
+    // tenant and link the new deal (plus its client(*) response embed) to
+    // the wrong client.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
     const cleanPhone = phone.replace(/\D/g, '')
+    const normalizedPhone = nat(cleanPhone)
     let clientId: string | null = null
 
-    if (cleanPhone.length >= 7) {
-      const { data } = await supabaseAdmin
+    if (normalizedPhone.length >= 10) {
+      const { data: candidates } = await supabaseAdmin
         .from('clients')
-        .select('id')
+        .select('id, phone')
         .eq('tenant_id', tenantId)
-        .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-        .limit(1)
-      if (data && data.length > 0) clientId = data[0].id
+      const match = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+      if (match) clientId = match.id
     }
     if (!clientId && email) {
       const { data } = await supabaseAdmin
