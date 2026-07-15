@@ -2031,3 +2031,68 @@ Full suite 336/336 files, 1466/1466 tests pass (37 pre-existing skips,
 unchanged), 0 regressions (1465 baseline + 1 new test).
 
 Commit `b634e5e1`. Logged as P50. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 19:23 order) — P51, fixed: `/join` invite acceptance not**
+**bound to the invited identity → cross-tenant owner-access grant.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order,
+fresh angle inside my own resolver lane: audited every caller that writes
+`tenant_members` (the table `getCurrentTenant()` — the live dashboard
+resolver in `tenant.ts` I already refactored for P50 — trusts to decide
+which tenant a signed-in session belongs to). Found the write path was
+unguarded.
+
+`/join/[token]/page.tsx` and `/join/[token]/accept/page.tsx` both: look up
+`tenant_invites` by token, and — if the browser currently holds *any* valid
+`admin_session` cookie (`getOwnerUserId()`, backed by the `admin_users`
+table via `/api/auth/login`) — insert a `tenant_members` row for
+`invite.tenant_id` keyed on that signed-in identity's id, with
+`role: invite.role || 'owner'`. Neither page ever checked that the
+signed-in identity's own email matched `tenant_invites.email`.
+
+`admin_users` is a shared, out-of-band-provisioned identity pool (no
+self-serve signup route exists anywhere in the repo — accounts are
+provisioned directly in the DB), not scoped per tenant. So: any admin with
+a valid login (down to the lowest `'staff'` role) who opens a
+leaked/forwarded/guessed invite token for a tenant they were never invited
+to becomes a `tenant_members` row for that tenant — commonly `role:'owner'`,
+since that's the invite-creation default (`admin/invites/route.ts` line 56).
+The next time that same session visits `/dashboard` on the main domain
+(no tenant custom-domain header, no impersonation), `getCurrentTenant()`
+falls through to exactly this `tenant_members` lookup and resolves the
+victim tenant — full owner-level dashboard access to that tenant's
+clients/bookings/payments/financials. Invite tokens are unguessable
+(32-byte `crypto.randomBytes`), but this class of bug — trusting "whichever
+session happens to be active" instead of binding the grant to the intended
+recipient — is the same "close ownership gaps by construction" shape as
+P22/P47: not exploitable by guessing, but a single leaked/forwarded link
+(email forward, shared inbox, screen share, support ticket) becomes a full
+account takeover instead of a no-op.
+
+**Fix:** extracted the shared accept logic (previously duplicated near-
+verbatim across both pages) into `lib/accept-invite.ts`, and added the
+missing identity check: the signed-in admin's email (`getAdminUser()`,
+which resolves the same `admin_session` cookie to the full `admin_users`
+row instead of just an id) must case-insensitively match `invite.email`
+before any `tenant_members` row is written or the invite is marked
+accepted. A legacy PIN-only session (no real per-user email) can never
+match and is correctly rejected. On mismatch, `/join/[token]` now renders
+an explicit "Wrong Account" message instead of silently granting access;
+`/join/[token]/accept` redirects back to `/join/[token]` to show it. No
+schema change, no behavior change for the matching-identity (legitimate)
+case.
+
+New `accept-invite.test.ts` (4 tests) with a WRONG-TENANT PROBE: a signed-in
+admin whose email doesn't match the invite must be rejected before any
+`tenant_members` insert, invite-accepted update, or tenant-activation write
+happens. Mutation-verified via `cp`-based backup/restore against the real
+pre-fix logic (short-circuited the email check to always pass): both attack
+assertions went RED (`status: 'accepted'` — cross-tenant membership silently
+granted to a mismatched identity, including the legacy-PIN case), restored,
+all 4 GREEN. `npx tsc --noEmit` clean. `audit-tenant-scope.mjs`'s 1 finding
+(`seo/recipes.ts`) is the same pre-existing untouched-file baseline drift
+noted in prior rounds, unrelated. Full suite 337/337 files, 1470/1470 tests
+pass (37 pre-existing skips, unchanged), 0 regressions (1466 baseline + 4
+new tests).
+
+Commit `15fb3ac1`. Logged as P51. File-only, no push/deploy/DB.
