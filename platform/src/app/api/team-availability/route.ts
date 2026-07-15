@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkTeamAvailability } from '@/lib/availability'
-import { getCurrentTenant } from '@/lib/tenant'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 /**
@@ -10,10 +10,8 @@ import { supabaseAdmin } from '@/lib/supabase'
  * GET /api/team-availability?date=2026-03-15&start_time=10:00&duration=3&exclude_booking=uuid&client_id=uuid
  */
 export async function GET(request: NextRequest) {
-  const tenant = await getCurrentTenant()
-  if (!tenant) {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
 
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
@@ -27,7 +25,7 @@ export async function GET(request: NextRequest) {
   }
 
   // Get base availability
-  const members = await checkTeamAvailability(tenant.id, date, startTime, duration, excludeBooking)
+  const members = await checkTeamAvailability(tenant.tenantId, date, startTime, duration, excludeBooking)
 
   // Smart ranking data
   let preferredMemberId: string | null = null
@@ -41,7 +39,7 @@ export async function GET(request: NextRequest) {
       .from('clients')
       .select('preferred_team_member_id, requirements')
       .eq('id', clientId)
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .single()
 
     preferredMemberId = client?.preferred_team_member_id || null
@@ -52,7 +50,7 @@ export async function GET(request: NextRequest) {
     const { data: history } = await supabaseAdmin
       .from('bookings')
       .select('team_member_id')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .eq('client_id', clientId)
       .not('team_member_id', 'is', null)
       .in('status', ['completed', 'paid', 'scheduled', 'confirmed', 'in_progress'])
@@ -69,7 +67,7 @@ export async function GET(request: NextRequest) {
   const { data: memberDetails } = await supabaseAdmin
     .from('team_members')
     .select('id, skills')
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .eq('status', 'active')
 
   const memberSkills: Record<string, string[]> = {}
@@ -83,7 +81,7 @@ export async function GET(request: NextRequest) {
   const { data: dayBookings } = await supabaseAdmin
     .from('bookings')
     .select('team_member_id')
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenant.tenantId)
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
     .not('status', 'in', '("cancelled","no_show")')
