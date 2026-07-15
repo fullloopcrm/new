@@ -158,6 +158,7 @@ export async function POST(req: NextRequest) {
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
+      .eq('tenant_id', auth.tid)
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]
