@@ -3,6 +3,12 @@
  * resolved from host. Mirrors /api/apply/signed-url so tenant marketing sites
  * can PUT media straight to Supabase storage (bypassing the 4.5 MB serverless
  * request-body cap that broke uploads routed through a function).
+ *
+ * The mime check below is UX-only, not enforcement: createSignedUploadUrl()
+ * takes no mime/size options, so the actual PUT (uploadToSignedUrl, direct
+ * browser-to-Supabase, never touching this route) can send any Content-Type/size.
+ * Real enforcement is the 'uploads' bucket's allowed_mime_types/file_size_limit —
+ * see src/lib/migrations/2026_07_15_uploads_bucket_restrict.sql.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'

@@ -1,6 +1,12 @@
 /**
  * Returns a pre-signed upload URL so the client can PUT directly to Supabase
  * storage — avoids piping big files through this server. Public, tenant from host.
+ *
+ * The mime/size checks below are UX-only, not enforcement: createSignedUploadUrl()
+ * takes no mime/size options, so the actual PUT (uploadToSignedUrl, direct
+ * browser-to-Supabase, never touching this route) can send any Content-Type/size.
+ * Real enforcement is the 'uploads' bucket's allowed_mime_types/file_size_limit —
+ * see src/lib/migrations/2026_07_15_uploads_bucket_restrict.sql.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'node:crypto'
