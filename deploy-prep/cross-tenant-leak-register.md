@@ -1412,3 +1412,106 @@ recording so a future pass doesn't have to re-derive this):**
   checkout`, `webhooks/stripe` (the two Connect-payout call sites at lines
   480/496, not the one flagged above) are each correctly wrapped in an
   `isNycMaid(...)` check — P44's missing-gate pattern is not repeated there.
+
+**2026-07-15 (W2, 16:38 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue controlled broad-hunt, lower-risk surface"
+order into a fresh batch not previously touched by this register — every one
+already correctly tenant-scoped (no P-number assigned — recorded here so a
+future pass doesn't re-spend time on the same files):
+- `cron/reminders` — the one cron missing from P44's 30-file sweep list; every
+  booking/notification query is `.eq('tenant_id', tenantId)` inside the same
+  per-tenant loop shape as every other cron, and its `isNycMaid(tenantId)`
+  gates are correctly present (2 call sites), same as every sibling cron
+  P44 already audited.
+- `jobs`, `jobs/[id]` (GET/PATCH), `jobs/[id]/payments` (PATCH) — all
+  `tenantDb`-scoped; `job_payments.tenant_id` (migration
+  `2026_07_02_jobs_projects.sql`) means the PATCH's `.eq('job_id',
+  id).eq('id', payment_id)` is auto-scoped by `tenantDb.update()`'s own
+  `.eq('tenant_id', tenantId)`, so a foreign `job_id`/`payment_id` combo
+  matches nothing — safe by construction, same shape as register item B2.
+- `payments/checkout`, `payments/link` — both verify `booking_id` via
+  `.eq('id', booking_id).eq('tenant_id', tenant.tenantId)` (the latter via
+  `tenantDb`) before any Stripe call.
+- `invoices/public/[token]`, `invoices/public/[token]/checkout`,
+  `quotes/public/[token]`, `quotes/public/[token]/accept`,
+  `quotes/public/[token]/deposit-checkout` — all token-scoped; every
+  downstream `deal_id`/`tenant_id` reference is read off the already-resolved
+  row, never caller-supplied. Stripe metadata (`invoice_id`/`quote_id`/
+  `tenant_id`) is server-set and immutable at the API layer, same "metadata
+  path unaffected" class as P33's fix note.
+- `invoices/[id]/send` — `body.to_email`/`body.to_phone` let a caller
+  redirect their OWN invoice to an arbitrary address; not a cross-tenant leak
+  (the invoice data belongs to the caller's own tenant), out of this
+  register's threat model.
+- `routes/auto-build`, `routes/[id]/publish` — `team_member_id` is always
+  derived from a tenant-scoped `bookings`/`routes` embed, never caller-supplied.
+- `schedules/[id]/pause` (POST/DELETE) — `tenantDb`-scoped throughout.
+- `sms/send` — sends to an arbitrary caller-supplied phone number via the
+  tenant's own Telnyx credentials; no FK/cross-tenant data involved.
+- `social/post`, `social/posts`, `social/accounts` — no caller-supplied FK,
+  all keyed off `tenant.tenantId`.
+- `team-portal/jobs/claim` → `claim_job_atomic()` RPC (migration
+  `2026_07_13_job_claim_atomic.sql`) — booking UPDATE guarded by `AND
+  b.tenant_id = p_tenant_id` inside the function itself.
+- `team-portal/jobs/release`, `team-portal/rating`, `team-portal/running-late`,
+  `team-portal/checkin` — every booking/member lookup is
+  `.eq('tenant_id', auth.tid)` **and** `.eq('team_member_id', auth.id)` (a
+  member can only ever act on their OWN assigned booking).
+- `team-members/[id]/stripe-onboard` (POST/GET) — `team_members` row fetched
+  `.eq('tenant_id', tenantId).eq('id', id)` before any Stripe Connect call;
+  `metadata.tenant_id`/`team_member_id` on the created account are
+  server-set.
+- `finance/payroll` (POST) — `team_member_id` verified tenant-owned
+  (`.eq('id', team_member_id).eq('tenant_id', tenantId)`) before the
+  `payroll_payments` insert; the follow-up `bookings` status update is also
+  `tenant_id`-scoped.
+- `finance/mark-paid` — `booking_id` update is tenant-scoped
+  (`.eq('id', booking_id)` inside a tenant-filtered query per its own inline
+  comment); the `client_id` written to `payments` is read off that
+  already-tenant-verified booking, not caller-supplied.
+No code changed this pass (nothing to fix); `npx tsc --noEmit` not run since
+no `.ts` edits were made. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 16:45 order) — finance/* reporting endpoints sweep
+(`ar-aging`, `pnl`, `trial-balance`, `bank-import`): negative result, 2 test
+gaps closed.**
+- `ar-aging` — fully `tenantDb`-scoped (invoices + bookings both auto-filtered
+  `.eq('tenant_id', tenantId)`); already has `route.isolation.test.ts`. Clean.
+- `pnl` — default path calls `ledgerProfitAndLoss(tenantId, ...)`, which
+  scopes `journal_lines` by `.eq('tenant_id', tenantId)`; the `?source=raw`
+  escape hatch is `tenantDb`-scoped. Already has `route.isolation.test.ts`
+  covering the raw path + a wrong-tenant probe in `ledger-reports.test.ts`
+  covering the ledger path. Clean.
+- `trial-balance` — thin wrapper around `ledgerTrialBalance(tenant.tenantId,
+  ...)`, same `streamLedgerLines` tenant-scoping as `pnl`/`balance-sheet`. No
+  route-level isolation test (consistent with `balance-sheet`, which is the
+  same shape — routes with no raw-table reads of their own get their coverage
+  from `ledger-reports.test.ts` instead). **Gap found:** unlike its siblings
+  `ledgerProfitAndLoss` and `ledgerBalanceSheet`, `ledgerTrialBalance` had no
+  wrong-tenant probe test in `ledger-reports.test.ts` — an asymmetry, not a
+  live bug (same shared `streamLedgerLines().eq('tenant_id', tenantId)` all
+  three functions call, already proven safe by the other two probes).
+  **Closed:** added the missing probe (tenant B's 9,000,000-cent line must not
+  appear in tenant A's account rows/totals). Verified it catches the exact bug
+  class: temporarily stripped `streamLedgerLines`'s `.eq('tenant_id',
+  tenantId)`, both this new probe AND the pre-existing `ledgerBalanceSheet`
+  probe went RED (9,010,000 leaked in); restored, GREEN.
+- `bank-import` — verifies caller-supplied `bank_account_id` via a raw
+  `supabaseAdmin` query (`.eq('tenant_id', tenantId).eq('id',
+  bankAccountId)`, not `tenantDb`) before any parse/insert; the subsequent
+  duplicate-fingerprint checks are scoped by that already-tenant-verified
+  `bank_account_id` (safe by construction — the id uniquely belongs to one
+  tenant); `bank_import_batches`/`bank_transactions` inserts stamp
+  `tenant_id: tenantId` explicitly. **Gap found:** no isolation test existed
+  for this route (unlike `bank-accounts`, `bank-transactions`, etc.).
+  **Closed:** new `route.isolation.test.ts` — wrong-tenant probe (tenant A
+  posting a real CSV against tenant B's `bank_account_id` → 404, zero rows
+  inserted into `bank_import_batches`/`bank_transactions`) + positive control
+  (own account → 200, every inserted row stamped `tenant_id: A`). Verified the
+  probe catches the bug: temporarily stripped the route's own `.eq('tenant_id',
+  tenantId)` on the `bank_accounts` lookup, the wrong-tenant probe went RED
+  (200 instead of 404); restored, GREEN.
+No production code changed — both fixes were test-coverage additions closing
+gaps against already-correct code, not bug fixes. `npx tsc --noEmit` clean.
+Full `api/finance/*` suite (32 files, 70 tests) green. File-only, no
+push/deploy/DB.

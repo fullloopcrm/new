@@ -272,4 +272,14 @@ describe('ledgerTrialBalance', () => {
     const tb = await ledgerTrialBalance(TENANT_A, '2026-07-01', '2026-07-31')
     expect(tb.rows).toEqual([{ code: '2000', name: 'Clearing', debit_cents: 100, credit_cents: 100 }])
   })
+
+  it('wrong-tenant probe: another tenant\'s debits/credits never mix into this tenant\'s account rows or totals', async () => {
+    rows = [
+      line(TENANT_A, '2026-07-05', { type: 'asset', code: '1000', name: 'Cash' }, { debit: 500 }),
+      line(TENANT_B, '2026-07-05', { type: 'asset', code: '1000', name: 'Cash' }, { debit: 9000000 }),
+    ]
+    const tb = await ledgerTrialBalance(TENANT_A, '2026-07-01', '2026-07-31')
+    expect(tb.rows).toEqual([{ code: '1000', name: 'Cash', debit_cents: 500, credit_cents: 0 }])
+    expect(tb.total_debits_cents).toBe(500)
+  })
 })
