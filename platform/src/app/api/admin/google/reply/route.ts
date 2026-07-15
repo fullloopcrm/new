@@ -5,11 +5,14 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId } = ctx
     const { reviewId, reply } = await request.json()
 
     if (!reviewId || !reply?.trim()) {

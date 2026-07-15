@@ -80,7 +80,7 @@ beforeEach(() => {
   h.tenant = { id: 'tenant-A', name: 'Acme Cleaning', industry: 'cleaning', anthropic_api_key: 'plaintext-key' }
   h.create.mockReset()
   h.getTenantForRequest.mockReset()
-  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: h.tenant }))
+  h.getTenantForRequest.mockImplementation(async () => ({ tenantId: h.tenantId, tenant: h.tenant, role: 'admin' }))
   h.store = {
     clients: [
       { id: 'client-A1', tenant_id: 'tenant-A', name: 'Alice', email: 'a@x.com', status: 'active', do_not_service: false },

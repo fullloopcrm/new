@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
@@ -68,13 +68,10 @@ type CleanerRow = {
 }
 
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  // Blasts SMS to team members over the tenant's own Telnyx number — same
+  // gate as the team-wide broadcast-guidelines send.
+  const { tenant: ctx, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
   const tenantId = ctx.tenantId
 
   const body = await request.json().catch(() => ({}))

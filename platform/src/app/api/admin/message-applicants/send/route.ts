@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
 
@@ -20,16 +20,12 @@ type ApplicantRow = {
 }
 
 export async function POST(request: Request) {
-  let tenantId: string
-  let tenant: { telnyx_api_key: string | null; telnyx_phone: string | null }
-  try {
-    const ctx = await getTenantForRequest()
-    tenantId = ctx.tenantId
-    tenant = ctx.tenant
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Blasts SMS to applicants over the tenant's own Telnyx number — same
+  // gate as the team-wide broadcast-guidelines send (hiring pipeline).
+  const { tenant: ctx, error: authError } = await requirePermission('team.edit')
+  if (authError) return authError
+  const tenantId = ctx.tenantId
+  const tenant = ctx.tenant
 
   const body = await request.json().catch(() => ({}))
   const { applicant_ids, message, confirmed } = body as {

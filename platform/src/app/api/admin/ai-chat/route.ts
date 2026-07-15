@@ -9,7 +9,8 @@ import Anthropic from '@anthropic-ai/sdk'
 import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { pick } from '@/lib/validate'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 const tools: Anthropic.Tool[] = [
@@ -359,7 +360,12 @@ export async function executeTool(
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    // Copilot tools can mutate bookings/clients and surface revenue — gate
+    // on the same permission that guards those mutations directly, so a
+    // role without bookings.edit can't get the AI to do it on their behalf.
+    const { tenant: ctx, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId, tenant } = ctx
     const { messages } = await request.json()
     if (!Array.isArray(messages)) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })

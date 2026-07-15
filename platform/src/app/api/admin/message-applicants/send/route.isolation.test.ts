@@ -26,6 +26,7 @@ vi.mock('@/lib/tenant-query', () => ({
   getTenantForRequest: async () => ({
     tenantId: h.tenantId,
     tenant: { telnyx_api_key: 'key-' + h.tenantId, telnyx_phone: '+15550000000' },
+    role: 'admin',
   }),
   AuthError: class AuthError extends Error { status = 401 },
 }))

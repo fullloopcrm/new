@@ -3,12 +3,15 @@
  * before posting via /api/admin/google/reply. Tenant-aware.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 
 export async function POST(request: Request) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant: ctx, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenant } = ctx
     const { reviewerName, rating, comment } = await request.json()
 
     if (typeof rating !== 'number') {
