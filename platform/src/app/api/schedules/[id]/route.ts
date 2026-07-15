@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
@@ -9,7 +10,9 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
 
     const [{ data: schedule }, { data: bookings }] = await Promise.all([
@@ -45,7 +48,9 @@ export async function PUT(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions'])
@@ -78,7 +83,9 @@ export async function DELETE(
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('schedules.edit')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { id } = await params
 
     // Cancel future bookings
