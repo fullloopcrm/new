@@ -39,9 +39,32 @@ export async function PUT(request: Request) {
       data: pick(u.data, UPDATABLE_FIELDS),
     }))
 
-    // team_member_id is a caller-supplied FK too — team_members has no
-    // cross-tenant FK check, so without this a batch edit could assign
-    // another tenant's employee to every booking in the series.
+    // client_id/team_member_id/service_type_id are caller-supplied FKs too —
+    // clients/team_members/service_types have no cross-tenant FK check, and
+    // this route's own response embeds clients(name, phone, email) +
+    // team_members(name, phone, email) off the row, so a foreign id would
+    // leak another tenant's PII in the response itself. Same guard as the
+    // sibling PUT /api/bookings/[id] (register P11) — this batch route only
+    // ever checked team_member_id, missing client_id and service_type_id.
+    const requestedClientIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.client_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedClientIds.length > 0) {
+      const { data: validClients } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .in('id', requestedClientIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validClients || []).map((c) => c.id))
+      if (requestedClientIds.some((cid) => !validIds.has(cid))) {
+        return NextResponse.json({ error: 'Invalid client selection' }, { status: 400 })
+      }
+    }
+
     const requestedMemberIds = Array.from(
       new Set(
         allowedUpdates
@@ -58,6 +81,25 @@ export async function PUT(request: Request) {
       const validIds = new Set((validMembers || []).map((m) => m.id))
       if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
         return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+      }
+    }
+
+    const requestedServiceTypeIds = Array.from(
+      new Set(
+        allowedUpdates
+          .map((u) => u.data.service_type_id)
+          .filter((x): x is string => typeof x === 'string' && x.length > 0),
+      ),
+    )
+    if (requestedServiceTypeIds.length > 0) {
+      const { data: validServiceTypes } = await supabaseAdmin
+        .from('service_types')
+        .select('id')
+        .in('id', requestedServiceTypeIds)
+        .eq('tenant_id', tenantId)
+      const validIds = new Set((validServiceTypes || []).map((s) => s.id))
+      if (requestedServiceTypeIds.some((sid) => !validIds.has(sid))) {
+        return NextResponse.json({ error: 'Invalid service type selection' }, { status: 400 })
       }
     }
 

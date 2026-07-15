@@ -22,6 +22,8 @@ const TENANT = 'tid-a'
 const holder = vi.hoisted(() => ({
   bookings: new Map<string, Record<string, unknown>>(),
   members: new Map<string, { id: string; tenant_id: string }>(),
+  clients: new Map<string, { id: string; tenant_id: string }>(),
+  serviceTypes: new Map<string, { id: string; tenant_id: string }>(),
   updateCalls: [] as { table: string; values: Record<string, unknown>; id: string }[],
 }))
 
@@ -43,6 +45,36 @@ vi.mock('@/lib/supabase', () => ({
                   .map((id) => holder.members.get(id))
                   .filter((m): m is { id: string; tenant_id: string } => !!m && m.tenant_id === tenantId)
                   .map((m) => ({ id: m.id })),
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'clients') {
+        return {
+          select: () => ({
+            in: (_col: string, ids: string[]) => ({
+              eq: async (_c: string, tenantId: string) => ({
+                data: ids
+                  .map((id) => holder.clients.get(id))
+                  .filter((c): c is { id: string; tenant_id: string } => !!c && c.tenant_id === tenantId)
+                  .map((c) => ({ id: c.id })),
+                error: null,
+              }),
+            }),
+          }),
+        }
+      }
+      if (table === 'service_types') {
+        return {
+          select: () => ({
+            in: (_col: string, ids: string[]) => ({
+              eq: async (_c: string, tenantId: string) => ({
+                data: ids
+                  .map((id) => holder.serviceTypes.get(id))
+                  .filter((s): s is { id: string; tenant_id: string } => !!s && s.tenant_id === tenantId)
+                  .map((s) => ({ id: s.id })),
                 error: null,
               }),
             }),
@@ -91,10 +123,16 @@ function req(updates: unknown) {
 beforeEach(() => {
   holder.bookings.clear()
   holder.members.clear()
+  holder.clients.clear()
+  holder.serviceTypes.clear()
   holder.updateCalls.length = 0
   holder.bookings.set('bk-1', { id: 'bk-1', tenant_id: TENANT, start_time: '2026-08-01T10:00:00Z', status: 'scheduled' })
   holder.members.set('tm-a', { id: 'tm-a', tenant_id: TENANT })
   holder.members.set('tm-foreign', { id: 'tm-foreign', tenant_id: 'tid-b' })
+  holder.clients.set('c-a', { id: 'c-a', tenant_id: TENANT })
+  holder.clients.set('c-foreign', { id: 'c-foreign', tenant_id: 'tid-b' })
+  holder.serviceTypes.set('st-a', { id: 'st-a', tenant_id: TENANT })
+  holder.serviceTypes.set('st-foreign', { id: 'st-foreign', tenant_id: 'tid-b' })
 })
 
 describe('batch-update — tenant_id injection is stripped from the update payload', () => {
@@ -128,5 +166,46 @@ describe('batch-update — cross-tenant team_member_id guard', () => {
     expect(res.status).toBe(200)
     const call = holder.updateCalls.find((c) => c.id === 'bk-1')
     expect(call!.values.team_member_id).toBe('tm-a')
+  })
+})
+
+/**
+ * WITNESS — cross-tenant client_id/service_type_id FK injection on
+ * PUT /api/bookings/batch-update.
+ *
+ * BUG (fixed here): this route only ever verified team_member_id ownership;
+ * client_id and service_type_id — both in the same UPDATABLE_FIELDS
+ * allowlist — were written verbatim with no ownership check, unlike the
+ * sibling PUT /api/bookings/[id] (register P11) which checks all three. The
+ * route's own response embeds clients(name, phone, email) off the row, so a
+ * foreign client_id leaks another tenant's client PII in the response.
+ */
+describe('batch-update — cross-tenant client_id guard', () => {
+  it('rejects the whole batch when any update targets a foreign client (wrong-tenant probe)', async () => {
+    const res = await PUT(req([{ id: 'bk-1', data: { client_id: 'c-foreign' } }]))
+    expect(res.status).toBe(400)
+    expect(holder.updateCalls.length).toBe(0)
+  })
+
+  it('same-tenant client_id succeeds', async () => {
+    const res = await PUT(req([{ id: 'bk-1', data: { client_id: 'c-a' } }]))
+    expect(res.status).toBe(200)
+    const call = holder.updateCalls.find((c) => c.id === 'bk-1')
+    expect(call!.values.client_id).toBe('c-a')
+  })
+})
+
+describe('batch-update — cross-tenant service_type_id guard', () => {
+  it('rejects the whole batch when any update targets a foreign service type (wrong-tenant probe)', async () => {
+    const res = await PUT(req([{ id: 'bk-1', data: { service_type_id: 'st-foreign' } }]))
+    expect(res.status).toBe(400)
+    expect(holder.updateCalls.length).toBe(0)
+  })
+
+  it('same-tenant service_type_id succeeds', async () => {
+    const res = await PUT(req([{ id: 'bk-1', data: { service_type_id: 'st-a' } }]))
+    expect(res.status).toBe(200)
+    const call = holder.updateCalls.find((c) => c.id === 'bk-1')
+    expect(call!.values.service_type_id).toBe('st-a')
   })
 })

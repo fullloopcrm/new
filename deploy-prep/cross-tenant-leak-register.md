@@ -241,6 +241,32 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/portal/feedback/route.witness.test.ts` (drops a foreign-tenant id, drops a same-tenant-other-client id, CONTROL keeps the caller's own booking id, CONTROL omitted id stays null) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 287 files / 1221 passed / 37 skipped / 0 failed |
 
+### P17 — `bookings/batch-update` PUT → cross-tenant `client_id`/`service_type_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `PUT /api/bookings/batch-update` (unconverted, raw `supabaseAdmin`) |
+| **Table** | `bookings` — `client_id`/`service_type_id` in the `UPDATABLE_FIELDS` allow-list, no ownership check |
+| **Attack vector** | This route already allow-lists PATCH-style columns via `pick()` (same list as `PUT /api/bookings/[id]`, register P11) and already verified `team_member_id` ownership — but `client_id` and `service_type_id`, both in the same allow-list, were written verbatim with no ownership check. |
+| **Effect** | The route's own response embeds `clients(name, phone, email)` off each updated row, so a foreign `client_id` leaks another tenant's client PII in the response to the very PUT that set it — same exfil shape as P11, just on the sibling batch route. |
+| **Verdict** | **FIXED** (was proven-LIVE; found sweeping remaining booking/scheduling routes for the P11 FK-ownership gap, 2026-07-14, W2) |
+| **Fix** | `client_id` and `service_type_id` are now each verified tenant-owned (same pattern as the existing `team_member_id` check) before any update in the batch runs; 400 on any miss. |
+| **Regression lock** | `src/app/api/bookings/batch-update/route.test.ts` (LOCK: foreign client_id/service_type_id 400s, no update issued; CONTROL: own-tenant ids still apply) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 291 files / 1247 passed / 37 skipped / 0 failed |
+
+### P18 — `admin/recurring-schedules/[id]/regenerate` POST → cross-tenant `team_member_id`/`cleaner_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/recurring-schedules/[id]/regenerate` (converted, `tenantDb`) |
+| **Table** | `recurring_schedules` (rule patch) + `bookings` (every regenerated row) — FK `team_member_id`/`cleaner_id` alias |
+| **Attack vector** | A caller-supplied `team_member_id` (or its `cleaner_id` alias) was written verbatim into both the schedule rule update and every regenerated booking row, with no ownership check at all — unlike the sibling `exception/route.ts` (reassign) and `POST /api/schedules`, which both verify the same FK. |
+| **Effect** | `GET /api/bookings` and `GET /api/schedules` embed `team_members(name, phone)` unscoped by tenant off these FKs, so a foreign id would leak another tenant's employee PII on the next read — same exfil class as P13. |
+| **Verdict** | **FIXED** (was proven-LIVE; found in the same booking/scheduling sweep as P17, 2026-07-14, W2) |
+| **Fix** | `teamMemberId` (covering both the `team_member_id` and `cleaner_id` body aliases), when supplied, is now verified tenant-owned via `tenantDb` before it's used in either the rule patch or the generated rows; 400 on miss. |
+| **Regression lock** | `src/app/api/admin/recurring-schedules/[id]/regenerate/route.isolation.test.ts` (LOCK: foreign id via either alias 400s, no rule update or booking insert; CONTROL: own-tenant id is stamped on both) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 291 files / 1247 passed / 37 skipped / 0 failed |
+
 ### P16 — `client/smart-schedule` GET → cross-tenant `client_id` READ  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
@@ -345,8 +371,11 @@ live leaks. This section is a **negative result, not a to-do list**.
    routes) → P13 routes POST team_member_id (✅ fixed, 2026-07-14, W2,
    same sweep) → P15 portal/feedback POST booking_id (✅ fixed, 2026-07-14,
    W2, client-portal sweep) → P16 client/smart-schedule GET client_id
-   (✅ fixed, 2026-07-14, W2, same sweep).** All items in this register are
-   now closed.
+   (✅ fixed, 2026-07-14, W2, same sweep) → P17 bookings/batch-update PUT
+   client_id/service_type_id (✅ fixed, 2026-07-14, W2, booking/scheduling
+   sweep) → P18 admin/recurring-schedules/[id]/regenerate POST
+   team_member_id/cleaner_id (✅ fixed, 2026-07-14, W2, same sweep).** All
+   items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the

@@ -73,6 +73,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
+  // A caller-supplied team_member_id/cleaner_id must belong to THIS tenant —
+  // team_members has no cross-tenant FK check, and it's written into BOTH the
+  // schedule rule AND every regenerated booking row below. GET /api/bookings
+  // and GET /api/schedules embed team_members(name, phone) unscoped by tenant
+  // off these FKs, so a foreign id would leak another tenant's employee PII on
+  // the next read — same class already guarded in the sibling
+  // exception/route.ts (reassign) and POST /api/schedules.
+  if (teamMemberId) {
+    const { data: ownedMember } = await db.from('team_members').select('id').eq('id', teamMemberId as string).maybeSingle()
+    if (!ownedMember) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+  }
+
   // Fall back to the schedule's stored rates when the caller omits them, so an
   // edit that doesn't resend pay_rate can't zero out cleaner payout.
   const effPayRate = payRate ?? schedule.pay_rate ?? null

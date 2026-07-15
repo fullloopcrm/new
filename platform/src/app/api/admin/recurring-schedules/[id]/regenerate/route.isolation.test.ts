@@ -28,6 +28,10 @@ function seed() {
       { id: 'sch-a', tenant_id: A, client_id: 'cli-a', property_id: null, pay_rate: 100, hourly_rate: 50 },
       { id: 'sch-b', tenant_id: B, client_id: 'cli-b', property_id: null, pay_rate: 100, hourly_rate: 50 },
     ],
+    team_members: [
+      { id: 'tm-a1', tenant_id: A },
+      { id: 'tm-b1', tenant_id: B },
+    ],
     bookings: [] as Record<string, unknown>[],
   }
 }
@@ -39,9 +43,9 @@ beforeEach(() => {
 })
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
-function regen(id: string) {
+function regen(id: string, extra: Record<string, unknown> = {}) {
   return POST(
-    new Request('http://t/x', { method: 'POST', body: JSON.stringify({ dates: ['2020-01-01'], preferred_time: '09:00', service_type: 'Standard' }) }),
+    new Request('http://t/x', { method: 'POST', body: JSON.stringify({ dates: ['2020-01-01'], preferred_time: '09:00', service_type: 'Standard', ...extra }) }),
     params(id),
   )
 }
@@ -61,5 +65,40 @@ describe('admin/recurring-schedules/[id]/regenerate POST — tenant isolation', 
     expect(res.status).toBe(404)
     expect((await res.json()).error).toBe('Schedule not found')
     expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+})
+
+/**
+ * WITNESS — cross-tenant team_member_id/cleaner_id FK injection.
+ *
+ * BUG (fixed here): a caller-supplied team_member_id (or its cleaner_id
+ * alias) was written verbatim into BOTH the schedule rule update AND every
+ * regenerated booking row, with no check that it belonged to the acting
+ * tenant. GET /api/bookings and GET /api/schedules embed team_members(name,
+ * phone) unscoped by tenant off these FKs, so a foreign id would leak
+ * another tenant's employee PII on the next read.
+ */
+describe('admin/recurring-schedules/[id]/regenerate POST — cross-tenant team_member_id guard', () => {
+  it('cross-tenant team_member_id probe: rejects a foreign tenant\'s team member with 400', async () => {
+    const res = await regen('sch-a', { team_member_id: 'tm-b1' })
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+    const ruleUpdate = h.capture.updates.find((u) => u.table === 'recurring_schedules')
+    expect(ruleUpdate).toBeUndefined()
+  })
+
+  it('cross-tenant cleaner_id (nycmaid alias) probe: rejects a foreign tenant\'s team member with 400', async () => {
+    const res = await regen('sch-a', { cleaner_id: 'tm-b1' })
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant team_member_id succeeds and is stamped on the schedule + generated bookings', async () => {
+    const res = await regen('sch-a', { team_member_id: 'tm-a1' })
+    expect(res.status).toBe(200)
+    const bookingInsert = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(bookingInsert?.rows[0]?.team_member_id).toBe('tm-a1')
+    const ruleUpdate = h.capture.updates.find((u) => u.table === 'recurring_schedules')
+    expect(ruleUpdate?.values?.team_member_id).toBe('tm-a1')
   })
 })
