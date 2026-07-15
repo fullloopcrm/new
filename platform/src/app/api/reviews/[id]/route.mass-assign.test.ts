@@ -18,7 +18,7 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn().mockResolvedValue({ tenantId: 'tenant-a' }),
+  getTenantForRequest: vi.fn().mockResolvedValue({ tenantId: 'tenant-a', role: 'owner' }),
   AuthError: class AuthError extends Error {},
 }))
 

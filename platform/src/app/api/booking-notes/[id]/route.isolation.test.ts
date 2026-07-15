@@ -25,7 +25,7 @@ vi.mock('@/lib/supabase', async () => {
 
 let currentTenantId: string
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: currentTenantId }),
+  getTenantForRequest: async () => ({ tenantId: currentTenantId, role: 'owner' }),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {
