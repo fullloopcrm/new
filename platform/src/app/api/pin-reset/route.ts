@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin, isValidAdminPin } from '@/lib/admin-pin'
+import { safeEqual } from '@/lib/secret-compare'
 
 /**
  * Self-service tenant-member PIN reset. Runs on a tenant's own domain: the
@@ -227,7 +228,7 @@ export async function POST(request: Request) {
         { status: 503 },
       )
     }
-    if (!stored || stored.code !== code) {
+    if (!stored || !safeEqual(stored.code, code)) {
       return NextResponse.json({ error: 'Code expired or incorrect.' }, { status: 400 })
     }
 

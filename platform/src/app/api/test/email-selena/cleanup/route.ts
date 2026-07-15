@@ -4,6 +4,7 @@
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeEqual } from '@/lib/secret-compare'
 
 const TEST_TAG = 'selena-email-test'
 
@@ -14,7 +15,7 @@ export async function POST(request: NextRequest) {
   }
 
   const body = (await request.json().catch(() => null)) as { key?: string; tenant_id?: string } | null
-  if (!body || body.key !== expectedToken) {
+  if (!body || !safeEqual(body.key, expectedToken)) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 

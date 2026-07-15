@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { safeEqual } from '@/lib/secret-compare'
 import { generateCode, createToken } from './token'
 
 // Verification codes now stored in portal_auth_codes table (serverless-safe)
@@ -152,7 +153,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Code expired or not found' }, { status: 400 })
     }
 
-    if (stored.code !== code) {
+    if (!safeEqual(stored.code, code)) {
       return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
     }
 
