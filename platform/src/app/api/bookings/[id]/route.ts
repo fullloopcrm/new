@@ -54,6 +54,27 @@ export async function PUT(
     const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
     const db = tenantDb(tenantId)
 
+    // Same FK-injection class already fixed on POST /api/bookings and
+    // POST /api/bookings/batch: a foreign client_id/team_member_id/
+    // service_type_id would otherwise leak that stranger's name/phone/
+    // address/pin via this route's own post-update join, and (for
+    // team_member_id) fire a real job-assignment SMS to them over this
+    // tenant's own Telnyx number. tenantDb only scopes the booking row
+    // itself, not the FK targets, so each caller-supplied id must be
+    // confirmed to belong to this tenant before the update runs.
+    if (fields.client_id) {
+      const { data: clientRow } = await db.from('clients').select('id').eq('id', fields.client_id as string).single()
+      if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    if (fields.team_member_id) {
+      const { data: memberRow } = await db.from('team_members').select('id').eq('id', fields.team_member_id as string).single()
+      if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+    }
+    if (fields.service_type_id) {
+      const { data: svcRow } = await db.from('service_types').select('id').eq('id', fields.service_type_id as string).single()
+      if (!svcRow) return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+    }
+
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
       // Get the booking's start_time (from update or existing record)

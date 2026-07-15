@@ -86,6 +86,29 @@ describe('bookings/[id] PUT — tenantDb isolation', () => {
   })
 })
 
+describe('bookings/[id] PUT — FK-injection guard (client_id / team_member_id ownership)', () => {
+  const FOREIGN_CLIENT = '33333333-3333-3333-3333-333333333333'
+  const FOREIGN_TM = '44444444-4444-4444-4444-444444444444'
+
+  it("rejects a client_id belonging to another tenant -- otherwise that stranger's name/phone/address would join into the response", async () => {
+    fake._seed('clients', [{ id: FOREIGN_CLIENT, tenant_id: B_ID, name: 'Foreign Client', phone: '+15555550001' }])
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ client_id: FOREIGN_CLIENT }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(404)
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.client_id).not.toBe(FOREIGN_CLIENT)
+  })
+
+  it("rejects a team_member_id belonging to another tenant -- otherwise that stranger's name/phone/pin would join into the response and a real job-assignment SMS would fire to their real phone", async () => {
+    fake._seed('team_members', [{ id: FOREIGN_TM, tenant_id: B_ID, name: 'Foreign Member', phone: '+15555550002', pin: '9999' }])
+    const req = new Request('http://x', { method: 'PUT', body: JSON.stringify({ team_member_id: FOREIGN_TM, force: true }) })
+    const res = await PUT(req, paramsFor(SHARED_ID))
+    expect(res.status).toBe(404)
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.team_member_id).not.toBe(FOREIGN_TM)
+  })
+})
+
 describe('bookings/[id] DELETE — tenantDb isolation', () => {
   it("tenant A deleting its OWN same-id booking leaves tenant B's booking intact", async () => {
     const res = await DELETE(new Request('http://x'), paramsFor(SHARED_ID))

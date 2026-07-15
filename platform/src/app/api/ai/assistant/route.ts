@@ -244,6 +244,21 @@ async function executeTool(
       const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status'])
       const confirmed = input.confirmed as boolean
 
+      // Same FK-injection class as bookings/[id] PUT: this handler updates
+      // via supabaseAdmin (service role) scoped only by the booking's own
+      // tenant_id, so a model-supplied team_member_id pointing at another
+      // tenant's team member would still be accepted and joined into
+      // downstream reads/notifications. Confirm it belongs to this tenant first.
+      if (updates.team_member_id) {
+        const { data: memberRow } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .eq('tenant_id', tenantId)
+          .single()
+        if (!memberRow) return JSON.stringify({ error: 'Team member not found' })
+      }
+
       if (!confirmed) {
         return JSON.stringify({
           needs_confirmation: true,

@@ -109,4 +109,15 @@ describe('ai/assistant update_bookings tool — updates must be allowlisted', ()
     expect(booking.tenant_id).toBe('tenant-A')
     expect(booking.status).toBe('confirmed')
   })
+
+  it("rejects a team_member_id belonging to another tenant -- same FK-injection class as bookings/[id] PUT: a manipulated/prompt-injected tool call could reassign a booking to a foreign tenant's team member, joining that stranger's identity into downstream reads/notifications", async () => {
+    fake._seed('team_members', [{ id: 'tm-foreign', tenant_id: 'attacker-tenant', name: 'Foreign Member' }])
+    toolCallQueue = [{
+      name: 'update_bookings',
+      input: { booking_ids: ['b1'], updates: { team_member_id: 'tm-foreign' }, confirmed: true },
+    }]
+    await POST(req())
+    const booking = fake._all('bookings').find((b) => b.id === 'b1')!
+    expect(booking.team_member_id).not.toBe('tm-foreign')
+  })
 })
