@@ -77,8 +77,14 @@ export async function POST(req: NextRequest) {
     activeCallRowId = data?.id ?? null
   }
 
-  if (!customerCallId) {
-    return NextResponse.json({ error: 'could not resolve customer_call_id' }, { status: 400 })
+  // Ownership must be VERIFIED, not just the id present: a caller-supplied
+  // customer_call_id that doesn't resolve to a row scoped to this tenant is
+  // rejected here rather than passed through to Telnyx — tenants without
+  // their own Telnyx account share the platform fallback API key, so an
+  // unverified call_control_id could drive (hold/mute/hangup/transfer/speak/
+  // dtmf) another tenant's live call.
+  if (!customerCallId || !activeCallRowId) {
+    return NextResponse.json({ error: 'call not found for this tenant' }, { status: 404 })
   }
 
   let result: { ok: boolean; detail?: unknown }
