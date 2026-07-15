@@ -13,6 +13,15 @@ import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped -- returns null for anything shorter (a short or partial phone
+// must never resolve to an existing client). Mirrors client/collect.
+function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 export async function POST(request: Request) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
@@ -31,18 +40,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, phone, and email are all required.' }, { status: 400 })
     }
 
-    // Find-or-create the client (dedupe by phone last-10, then email).
-    const cleanPhone = phone.replace(/\D/g, '')
+    // Find-or-create the client (dedupe by exact phone match, then email).
+    // A substring/suffix ilike here (previously length>=7, matched anywhere
+    // in the stored phone) let a short or partial phone entry silently
+    // attach this new lead/deal to an unrelated existing client. Mirrors
+    // the exact-match fix already applied to client/collect and siblings.
     let clientId: string | null = null
+    const normalizedPhone = normalizePhoneDigits(phone)
 
-    if (cleanPhone.length >= 7) {
-      const { data } = await supabaseAdmin
+    if (normalizedPhone) {
+      const { data: candidates } = await supabaseAdmin
         .from('clients')
-        .select('id')
+        .select('id, phone')
         .eq('tenant_id', tenantId)
-        .ilike('phone', `%${cleanPhone.slice(-10)}%`)
-        .limit(1)
-      if (data && data.length > 0) clientId = data[0].id
+      const match = candidates?.find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+      if (match) clientId = match.id
     }
     if (!clientId && email) {
       const { data } = await supabaseAdmin
