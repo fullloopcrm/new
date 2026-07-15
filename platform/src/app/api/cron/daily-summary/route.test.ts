@@ -26,7 +26,10 @@ vi.mock('@/lib/sms-templates', () => ({
 
 let tenantsRows: Array<{ id: string; name: string; telnyx_api_key: string | null; telnyx_phone: string | null; resend_api_key: string | null }>
 let schedulesRows: Array<{ id: string; client_id: string; recurring_type: string; clients: { name: string } }>
-let latestBookingByScheduleId: Record<string, { start_time: string } | null>
+// Bookings fixtures, keyed by BOTH schedule_id and tenant_id — a poisoned
+// cross-tenant row shares schedule_id with a legit tenant's schedule but
+// must not be matched (see P38-class wrong-tenant probe below).
+let bookingRows: Array<{ schedule_id: string; tenant_id: string; start_time: string }>
 // Simulates rows already sitting in the DB from a prior cron run.
 let seededNotifications: Array<{ tenant_id: string; type: string; message: string; created_at: string }>
 const insertedNotifications: Array<Record<string, unknown>> = []
@@ -65,7 +68,15 @@ function builder(table: string) {
     },
     single: async () => {
       if (table === 'bookings') {
-        const fixture = latestBookingByScheduleId[eqs.schedule_id as string]
+        // Faithful to the real query builder: a `.eq('tenant_id', …)` call
+        // that's actually present in the chain narrows the match; if the
+        // route regresses and drops that call, `tenant_id` never lands in
+        // `eqs` and this mock — like real Postgres without the filter —
+        // matches on schedule_id alone, across every tenant.
+        const matches = bookingRows
+          .filter((b) => b.schedule_id === eqs.schedule_id && ('tenant_id' in eqs ? b.tenant_id === eqs.tenant_id : true))
+          .sort((a, b) => (a.start_time < b.start_time ? 1 : -1))
+        const fixture = matches[0]
         return { data: fixture ?? null, error: fixture ? null : { code: 'PGRST116' } }
       }
       return { data: null, error: null }
@@ -116,10 +127,10 @@ beforeEach(() => {
     { id: 'sched-alice', client_id: 'c-alice', recurring_type: 'weekly', clients: { name: 'Alice' } },
     { id: 'sched-bob', client_id: 'c-bob', recurring_type: 'biweekly', clients: { name: 'Bob' } },
   ]
-  latestBookingByScheduleId = {
-    'sched-alice': { start_time: soon },
-    'sched-bob': { start_time: soon },
-  }
+  bookingRows = [
+    { schedule_id: 'sched-alice', tenant_id: NYCMAID_TENANT_ID, start_time: soon },
+    { schedule_id: 'sched-bob', tenant_id: NYCMAID_TENANT_ID, start_time: soon },
+  ]
 })
 
 describe('daily-summary cron — recurring_expiring dedup scope', () => {
@@ -143,6 +154,33 @@ describe('daily-summary cron — recurring_expiring dedup scope', () => {
       (n) => n.type === 'recurring_expiring' && String(n.message).includes('Bob')
     )
     expect(bobInserted).toBeTruthy()
+    const aliceInserted = insertedNotifications.find(
+      (n) => n.type === 'recurring_expiring' && String(n.message).includes('Alice')
+    )
+    expect(aliceInserted).toBeFalsy()
+  })
+})
+
+describe('daily-summary cron — recurring-expiration lookup is tenant-scoped (P38-class)', () => {
+  it('does not treat a foreign tenant\'s booking under the same schedule_id as this schedule\'s latest booking', async () => {
+    // Alice's own tenant has NO booking for her schedule — only a
+    // same-schedule_id row planted under a different tenant exists. Without
+    // the tenant_id filter, the cron would pick that up as "the latest
+    // booking" and fire an expiring warning derived from foreign data.
+    schedulesRows = [
+      { id: 'sched-alice', client_id: 'c-alice', recurring_type: 'weekly', clients: { name: 'Alice' } },
+    ]
+    const soon = new Date(Date.now() + 10 * 24 * 60 * 60 * 1000).toISOString()
+    bookingRows = [
+      { schedule_id: 'sched-alice', tenant_id: 'tenant-evil', start_time: soon },
+    ]
+    seededNotifications = []
+
+    const res = await GET(req())
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    expect(body.details[0].expiring).toBe(0)
     const aliceInserted = insertedNotifications.find(
       (n) => n.type === 'recurring_expiring' && String(n.message).includes('Alice')
     )

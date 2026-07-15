@@ -182,10 +182,16 @@ export async function GET(request: Request) {
       .returns<RecurringScheduleWithClient[]>()
 
     for (const schedule of schedules || []) {
+      // tenant_id filter is required, not just defense-in-depth: without it, a
+      // booking sharing this schedule_id from ANY tenant would count as "the
+      // latest booking" for THIS schedule when deciding whether to warn the
+      // client their recurring service is ending soon (same unscoped-lookup
+      // bug as cron/generate-recurring, P38).
       const { data: latestBooking } = await supabaseAdmin
         .from('bookings')
         .select('start_time')
         .eq('schedule_id', schedule.id)
+        .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'pending'])
         .order('start_time', { ascending: false })
         .limit(1)

@@ -532,6 +532,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 316 files / 1388 passed / 37 skipped / 0 failed |
 | **Rank rationale** | First DoS-shaped finding in this register (P0 was destructive-but-direct, P33 was real-money, everything else was read-exfil or dangling-ref) — placed last since the blast radius (starved scheduling, recoverable by removing the poisoned row) is lower than any FIXED finding above it. |
 
+### P39 — `cron/daily-summary` unscoped "latest booking for schedule_id" lookup — same class as P38  ⚠️ **CROSS-TENANT LOGIC LEAK** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `GET /api/cron/daily-summary` (`src/app/api/cron/daily-summary/route.ts`, CRON_SECRET-gated) — the "recurring expiration, 30-day warning" section |
+| **Table** | `bookings` read by `schedule_id` alone, same shape as the query P38 fixed in `cron/generate-recurring` |
+| **Attack vector** | P38's writeup claimed "checked every route that reads `recurring_schedules`/`bookings.schedule_id` — all double-filter `tenant_id` AND `schedule_id`" — that check missed this sibling cron. `daily-summary` iterates every tenant, then for each of that tenant's `recurring_schedules` rows queries `bookings` filtered ONLY by `.eq('schedule_id', schedule.id)` (no `tenant_id`) to find "the latest booking," to decide whether to send a "your recurring service ends soon" warning. |
+| **Effect** | With P38's `bookings/batch` fix now in place, this specific injection vector (a caller planting a foreign-tenant-referencing `schedule_id` on a new booking) is closed, so this isn't independently exploitable today — but it's the identical unscoped-lookup construction, is a live latent bug (any already-planted poisoned row, or a future second injection site, would still trigger it), and the fix is the same one-line pattern already established and accepted for the sibling cron. Impact if triggered: a foreign tenant's booking sharing this `schedule_id` gets read as "the latest booking" for a schedule it doesn't belong to, producing an expiration warning (or false-suppression of one) derived from another tenant's data instead of the schedule's own tenant. |
+| **Verdict** | **FIXED** (found broad-hunting a fresh area per LEADER order — grepped every `.eq('schedule_id', …)` site across `src/app/api/cron/*` looking for the exact P38 construction repeated elsewhere; `daily-summary` was the one other unscoped hit, 2026-07-15, W2) |
+| **Fix** | Added `.eq('tenant_id', tenantId)` to the `bookings` lookup, mirroring P38's `generate-recurring` fix exactly. |
+| **Regression lock** | `src/app/api/cron/daily-summary/route.test.ts` — new wrong-tenant probe: a schedule with no booking under its own tenant but a same-`schedule_id` booking planted under a foreign tenant must NOT be treated as that schedule's latest booking (0 expiring warnings fired). Mutation-verified via `git stash` on just the route fix (RED — the probe fails, wrongly firing 1 warning — against the pre-fix query; GREEN after restore). |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 316 files / 1389 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same DoS/logic-leak family as P38, lower severity — the primary injection vector is already closed, so this is defense-in-depth against latent/future exposure rather than a currently-exploitable path. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -759,6 +773,20 @@ live leaks. This section is a **negative result, not a to-do list**.
    tests — per-row and top-level `schedule_id` — + 1 CONTROL).
    `npx tsc --noEmit` clean; full `vitest run` 316 files / 1388 passed /
    37 skipped / 0 failed.
+
+   **P39 (2026-07-15, W2):** Same unscoped "latest booking for schedule_id"
+   construction as P38, found in the sibling cron `daily-summary` — P38's own
+   writeup claimed every such read was checked, but this one was missed.
+   Found by grepping `.eq('schedule_id', …)` across `src/app/api/cron/*` for
+   the exact P38 shape rather than trusting that prior claim. The primary
+   injection vector (bookings/batch) is already closed by P38, so this isn't
+   independently exploitable today, but it's the same latent construction and
+   worth closing as defense-in-depth. Fixed with the identical one-line
+   `.eq('tenant_id', tenantId)` addition. Witness: new wrong-tenant probe in
+   `src/app/api/cron/daily-summary/route.test.ts`, mutation-verified via git
+   stash (RED — false expiring warning fires off foreign-tenant data — against
+   pre-fix code, GREEN after restore). `npx tsc --noEmit` clean; full
+   `vitest run` 316 files / 1389 passed / 37 skipped / 0 failed.
 
    All items in this register are closed.
 
