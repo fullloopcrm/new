@@ -72,6 +72,26 @@ export async function POST(request: Request) {
       .single()
     if (!member) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
 
+    // Double-submit guard: a duplicate POST (double-click, client retry) for the
+    // same member + pay period must not create a second payroll_payments row --
+    // each row gets its own id, so postPayrollToLedger's (source='payroll',
+    // source_id=row.id) dedup can't catch it downstream; the worker would be
+    // paid and booked twice. Only dedup when both period bounds are supplied,
+    // matching the partial unique index in migration 062.
+    if (period_start && period_end) {
+      const { data: dupe } = await supabaseAdmin
+        .from('payroll_payments')
+        .select()
+        .eq('tenant_id', tenantId)
+        .eq('team_member_id', team_member_id)
+        .eq('period_start', period_start)
+        .eq('period_end', period_end)
+        .maybeSingle()
+      if (dupe) {
+        return NextResponse.json({ payment: dupe, duplicate: true }, { status: 200 })
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
@@ -86,6 +106,24 @@ export async function POST(request: Request) {
       .single()
 
     if (error) {
+      // Concurrency backstop for the check-then-insert guard above: two
+      // simultaneous submits can both pass the SELECT before either INSERT
+      // lands. Migration 062's unique index makes the loser's insert raise a
+      // unique violation (23505); resolve it to the winner's row instead of
+      // erroring, same pattern as postJournalEntry's 23505 handling.
+      if ((error as { code?: string }).code === '23505' && period_start && period_end) {
+        const { data: existing } = await supabaseAdmin
+          .from('payroll_payments')
+          .select()
+          .eq('tenant_id', tenantId)
+          .eq('team_member_id', team_member_id)
+          .eq('period_start', period_start)
+          .eq('period_end', period_end)
+          .maybeSingle()
+        if (existing) {
+          return NextResponse.json({ payment: existing, duplicate: true }, { status: 200 })
+        }
+      }
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
