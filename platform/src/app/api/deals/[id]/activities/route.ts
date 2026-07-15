@@ -4,13 +4,16 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 const ALLOWED_TYPES = ['note', 'call', 'text', 'email', 'quote_sent'] as const
 
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
 
     // Verify deal belongs to tenant before returning activities.
@@ -41,7 +44,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
 
 export async function POST(request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const { type, description } = await request.json()
 

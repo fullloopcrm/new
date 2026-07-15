@@ -3,7 +3,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, stageMeta } from '@/lib/pipeline'
 
 type Params = { params: Promise<{ id: string }> }
@@ -12,7 +13,9 @@ const VALID = new Set(PIPELINE_STAGES.map(s => s.value))
 
 export async function POST(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json()
     const to = String(body.stage || '')

@@ -4,12 +4,15 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, computeForecast, computeStageTotals } from '@/lib/pipeline'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const url = new URL(request.url)
     const includeClosed = url.searchParams.get('include_closed') !== '0'
     const monthsAhead = Math.min(12, Number(url.searchParams.get('months')) || 6)
