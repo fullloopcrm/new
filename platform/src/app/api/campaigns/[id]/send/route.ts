@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(
   _request: Request,
@@ -104,8 +105,8 @@ export async function POST(
 
     for (const client of clients) {
       const personalizedBody = campaign.body
-        .replace(/\{name\}/g, client.name)
-        .replace(/\{business\}/g, tenant.name)
+        .replace(/\{name\}/g, escapeHtml(client.name))
+        .replace(/\{business\}/g, escapeHtml(tenant.name))
 
       // Tenant rule: auto_unsubscribe appends a reply-STOP / unsubscribe
       // footer to every outbound email body so each send is one-click

@@ -7,6 +7,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { escapeHtml } from '@/lib/escape-html'
 
 /**
  * POST /api/bookings/batch
@@ -116,7 +117,7 @@ export async function POST(request: Request) {
         sendEmail({
           to: client.email,
           subject: `Booking confirmed for ${bookingDate}`,
-          html: `<p>Hi ${client.name || 'there'},</p><p>Your booking on <strong>${bookingDate}</strong> is confirmed.</p>`,
+          html: `<p>Hi ${escapeHtml(client.name) || 'there'},</p><p>Your booking on <strong>${bookingDate}</strong> is confirmed.</p>`,
           from: fromEmail,
           resendApiKey: resendKey,
         }).catch(err => console.error('[batch] client email error:', err))

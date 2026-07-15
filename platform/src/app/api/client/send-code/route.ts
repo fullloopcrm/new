@@ -5,12 +5,13 @@ import { sendSMS } from '@/lib/sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt } from 'crypto'
+import { escapeHtml } from '@/lib/escape-html'
 
 function codeEmailHtml(businessName: string, code: string): string {
   return `
     <div style="font-family:system-ui,-apple-system,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
-      <h2 style="margin:0 0 12px 0;">Your ${businessName} verification code</h2>
-      <p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0;">${code}</p>
+      <h2 style="margin:0 0 12px 0;">Your ${escapeHtml(businessName)} verification code</h2>
+      <p style="font-size:32px;font-weight:700;letter-spacing:4px;margin:16px 0;">${escapeHtml(code)}</p>
       <p style="color:#666;font-size:14px;">This code expires in 10 minutes.</p>
     </div>`
 }

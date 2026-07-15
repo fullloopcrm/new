@@ -1,5 +1,6 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail } from './email'
+import { escapeHtml } from './escape-html'
 
 type SecurityEvent = {
   tenantId: string
@@ -7,6 +8,16 @@ type SecurityEvent = {
   description: string
   ip?: string
   userAgent?: string
+}
+
+export function securityAlertHtml(tenantName: string, title: string, description: string, ip?: string): string {
+  return `
+          <h2>Security Alert for ${escapeHtml(tenantName)}</h2>
+          <p><strong>${escapeHtml(title)}</strong></p>
+          <p>${escapeHtml(description)}</p>
+          ${ip ? `<p><small>IP: ${escapeHtml(ip)}</small></p>` : ''}
+          <p><small>If this wasn't you, please contact support immediately.</small></p>
+        `
 }
 
 export async function logSecurityEvent(event: SecurityEvent) {
@@ -42,13 +53,7 @@ export async function logSecurityEvent(event: SecurityEvent) {
         to: tenant.email,
         subject: `Security Alert: ${getSecurityTitle(event.type)}`,
         resendApiKey: tenant.resend_api_key,
-        html: `
-          <h2>Security Alert for ${tenant.name}</h2>
-          <p><strong>${getSecurityTitle(event.type)}</strong></p>
-          <p>${event.description}</p>
-          ${event.ip ? `<p><small>IP: ${event.ip}</small></p>` : ''}
-          <p><small>If this wasn't you, please contact support immediately.</small></p>
-        `,
+        html: securityAlertHtml(tenant.name, getSecurityTitle(event.type), event.description, event.ip),
       })
     }
   }

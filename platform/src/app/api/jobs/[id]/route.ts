@@ -10,6 +10,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -112,8 +113,9 @@ export async function PATCH(request: Request, { params }: Params) {
           tenantId,
           subject: `Job complete — ${title}`,
           kicker: 'Job complete',
+          // heading is escaped downstream by emailShell — only bodyHtml is inserted raw.
           heading: `${title} is wrapped`,
-          bodyHtml: `<p style="margin:0"><strong>${title}</strong> was marked complete. Total <strong>${money}</strong>.</p>`,
+          bodyHtml: `<p style="margin:0"><strong>${escapeHtml(title)}</strong> was marked complete. Total <strong>${money}</strong>.</p>`,
           sms: `Job complete: ${title} (${money}).`,
         })
       }

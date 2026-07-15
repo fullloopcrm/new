@@ -207,8 +207,8 @@ export async function POST(request: NextRequest) {
             html: customerConfirmationHtml({
               tenantName: tenant.name,
               primaryColor: tenant.primary_color,
-              heading: `Thanks for applying, ${name.split(' ')[0]}!`,
-              intro: `We received your application${body.position ? ` for ${body.position}` : ''} and our team will review it and follow up soon.`,
+              heading: `Thanks for applying, ${escapeHtml(name.split(' ')[0])}!`,
+              intro: `We received your application${body.position ? ` for ${escapeHtml(body.position)}` : ''} and our team will review it and follow up soon.`,
               businessAddress: (tenant as { address?: string | null }).address ?? undefined,
             }),
           })
@@ -413,7 +413,7 @@ export async function POST(request: NextRequest) {
           html: customerConfirmationHtml({
             tenantName: tenant.name,
             primaryColor: tenant.primary_color,
-            heading: `Thanks, ${name.split(' ')[0]}!`,
+            heading: `Thanks, ${escapeHtml(name.split(' ')[0])}!`,
             intro: `We received your request and a team member will reach out shortly to confirm the details and your time.`,
             discountCents: body.selfBook ? discountCents : undefined,
             businessAddress: (tenant as { address?: string | null }).address ?? undefined,

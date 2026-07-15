@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   try {
@@ -52,10 +53,13 @@ export async function POST(request: Request) {
     // Send email if available
     if (client.email) {
       try {
+        const htmlMessage = `Hi ${escapeHtml(client.name)}, thank you for choosing ${escapeHtml(tenant.name)}! We'd love your feedback.${
+          googleUrl ? ` Leave us a review: <a href="${safeUrl(googleUrl)}">${escapeHtml(googleUrl)}</a>` : ''
+        }`
         await sendEmail({
           to: client.email,
           subject: `How was your experience with ${tenant.name}?`,
-          html: `<p>${message.replace(/\n/g, '<br>')}</p>`,
+          html: `<p>${htmlMessage}</p>`,
           resendApiKey: tenant.resend_api_key,
         })
       } catch (e) {

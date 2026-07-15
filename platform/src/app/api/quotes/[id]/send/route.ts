@@ -10,6 +10,7 @@ import { sendEmail } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -61,7 +62,7 @@ export async function POST(request: Request, { params }: Params) {
         const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
         if (!apiKey) throw new Error('No Resend API key configured for tenant')
         const fromEmail = tenant.email_from || `quotes@${tenant.domain || 'fullloopcrm.com'}`
-        const greeting = quote.contact_name ? `Hi ${quote.contact_name},` : 'Hi there,'
+        const greeting = quote.contact_name ? `Hi ${escapeHtml(quote.contact_name)},` : 'Hi there,'
         const validLine = quote.valid_until
           ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US')}.</p>` : ''
         const depositLine = quote.deposit_cents > 0
@@ -73,7 +74,7 @@ export async function POST(request: Request, { params }: Params) {
           heading: "Let's make it official.",
           bodyHtml: `
             <p style="margin:0 0 14px">${greeting}</p>
-            <p style="margin:0 0 14px">Your proposal <strong>${quote.quote_number}</strong>${quote.title ? ` — ${quote.title}` : ''} is ready. Total <strong>${formatCents(quote.total_cents)}</strong>.${depositLine}</p>
+            <p style="margin:0 0 14px">Your proposal <strong>${escapeHtml(quote.quote_number)}</strong>${quote.title ? ` — ${escapeHtml(quote.title)}` : ''} is ready. Total <strong>${formatCents(quote.total_cents)}</strong>.${depositLine}</p>
             <p style="margin:0 0 14px">Review the details, sign, and (if a deposit is set) pay online whenever you're ready.</p>
             ${validLine}
           `,
@@ -151,7 +152,7 @@ export async function POST(request: Request, { params }: Params) {
       subject: `Proposal sent — ${quote.quote_number}`,
       kicker: 'Proposal sent',
       heading: `${quote.quote_number} is out the door`,
-      bodyHtml: `<p style="margin:0 0 12px">Sent to ${quote.contact_name || 'the customer'} via ${sentVia}.</p><p style="margin:0"><strong>${formatCents(quote.total_cents)}</strong>${quote.deposit_cents > 0 ? ` · deposit ${formatCents(quote.deposit_cents)}` : ''}</p>`,
+      bodyHtml: `<p style="margin:0 0 12px">Sent to ${escapeHtml(quote.contact_name || 'the customer')} via ${sentVia}.</p><p style="margin:0"><strong>${formatCents(quote.total_cents)}</strong>${quote.deposit_cents > 0 ? ` · deposit ${formatCents(quote.deposit_cents)}` : ''}</p>`,
       sms: `Proposal ${quote.quote_number} (${formatCents(quote.total_cents)}) sent to ${quote.contact_name || 'customer'}.`,
     })
 

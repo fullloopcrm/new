@@ -209,16 +209,16 @@ export function adminNewLeadEmail(lead: any, sourceLabel: string) {
 
 export function adminNewApplicationEmail(app: any) {
   const rows = [
-    ['Name', app.name],
-    ['Email', app.email],
-    ['Phone', app.phone],
-    ['Position', app.position],
-    ['Borough', app.borough],
-    ['Experience', app.experience],
-    ['Portfolio URL', app.portfolioUrl],
-    ['Portfolio File', app.portfolioFileUrl ? `<a href="${app.portfolioFileUrl}" style="color:#92400e;">View Portfolio</a>` : null],
-    ['Resume', app.resumeUrl ? `<a href="${app.resumeUrl}" style="color:#92400e;">Download Resume</a>` : 'Not uploaded'],
-    ['Message', app.message],
+    ['Name', app.name ? escapeHtml(app.name) : app.name],
+    ['Email', app.email ? escapeHtml(app.email) : app.email],
+    ['Phone', app.phone ? escapeHtml(app.phone) : app.phone],
+    ['Position', app.position ? escapeHtml(app.position) : app.position],
+    ['Borough', app.borough ? escapeHtml(app.borough) : app.borough],
+    ['Experience', app.experience ? escapeHtml(app.experience) : app.experience],
+    ['Portfolio URL', app.portfolioUrl ? escapeHtml(app.portfolioUrl) : app.portfolioUrl],
+    ['Portfolio File', app.portfolioFileUrl ? `<a href="${escapeHtml(app.portfolioFileUrl)}" style="color:#92400e;">View Portfolio</a>` : null],
+    ['Resume', app.resumeUrl ? `<a href="${escapeHtml(app.resumeUrl)}" style="color:#92400e;">Download Resume</a>` : 'Not uploaded'],
+    ['Message', app.message ? escapeHtml(app.message) : app.message],
   ]
     .filter(([, val]) => val)
     .map(([label, val]) => `
