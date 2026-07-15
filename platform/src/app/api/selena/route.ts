@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
@@ -9,7 +10,9 @@ const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day'
 
 export async function GET(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const { searchParams } = new URL(req.url)
     const convoId = searchParams.get('convoId')
@@ -104,7 +107,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const { conversationId } = await req.json()
     if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
