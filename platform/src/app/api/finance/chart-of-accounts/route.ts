@@ -42,6 +42,19 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'code, name, type required' }, { status: 400 })
     }
 
+    // parent_id is a caller-supplied self-referencing FK — chart_of_accounts
+    // carries its own tenant_id with no cross-tenant constraint, same class as
+    // the coa_id/entity_id checks already applied on bank-accounts/expenses/
+    // periods/bank-transactions in this module. Verify ownership before insert.
+    if (body.parent_id) {
+      const { data: owned } = await tenantDb(tenantId)
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.parent_id)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid parent_id' }, { status: 400 })
+    }
+
     // tenantDb.insert stamps tenant_id last, so a forged body value can't win.
     const { data, error } = await tenantDb(tenantId)
       .from('chart_of_accounts')
