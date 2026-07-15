@@ -4,13 +4,13 @@
  * The tenant's site hosts /api/indexnow?key=... for ownership verification.
  *
  * GET /api/indexnow?key=... — ownership-verification callback (tenant from host).
- * POST /api/indexnow — submit URLs. Bearer CRON_SECRET OR tenant-scoped admin.
+ * POST /api/indexnow — submit URLs. Bearer CRON_SECRET OR settings.integrations admin.
  *   body: { tenantId?, urls: string[] }
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { safeEqual } from '@/lib/secret-compare'
 
 export async function GET(request: NextRequest) {
@@ -29,20 +29,19 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   // Two auth modes:
   //   1. Cron-style: Bearer CRON_SECRET + tenantId in body.
-  //   2. Admin session via getTenantForRequest().
+  //   2. Admin session — gated on settings.integrations (this spends the
+  //      tenant's IndexNow key against a third-party API, same bucket as
+  //      every other integration-key action; a bare tenant-context check
+  //      would let any authenticated staff member submit URLs).
   let tenantId: string | null = null
   const authHeader = request.headers.get('authorization')
   if (authHeader && process.env.CRON_SECRET && safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     const body = await request.clone().json().catch(() => ({}))
     tenantId = body.tenantId || null
   } else {
-    try {
-      const ctx = await getTenantForRequest()
-      tenantId = ctx.tenantId
-    } catch (e) {
-      if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
-      throw e
-    }
+    const { tenant, error: authError } = await requirePermission('settings.integrations')
+    if (authError) return authError
+    tenantId = tenant.tenantId
   }
   if (!tenantId) return NextResponse.json({ error: 'tenantId required' }, { status: 400 })
 
