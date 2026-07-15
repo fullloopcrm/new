@@ -178,6 +178,15 @@ export function isOwner(phone: string | null | undefined): boolean {
   return list.includes(norm)
 }
 
+// National (US) 10-digit number with an optional leading country-code '1'
+// stripped from either side -- returns null for anything shorter (a short or
+// malformed phone must never resolve to an existing client).
+export function normalizePhoneDigits(raw: string): string | null {
+  const digits = raw.replace(/\D/g, '')
+  const national = digits.length === 11 && digits.startsWith('1') ? digits.slice(1) : digits
+  return national.length === 10 ? national : null
+}
+
 // nycmaid's well-known UUID — when the tenant being served IS nycmaid, the
 // hardcoded references inside YINEZ_PROMPT are correct as-is.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
@@ -262,18 +271,24 @@ export async function loadContext(tenantId: string, phone: string | null, _conve
   }
 
   if (phone && !isOwner(phone)) {
-    const last10 = phone.replace(/\D/g, '').slice(-10)
+    // Full, exact digit match only -- an ilike substring match on a short or
+    // malformed phone (e.g. a single digit from an anonymous web-chat
+    // visitor) would match an ARBITRARY unrelated client and leak their
+    // address/notes/memories into this conversation's AI context.
+    const normalizedPhone = normalizePhoneDigits(phone)
     // Phone may match multiple client rows (duplicates created by lead intake vs. booking flow).
     // .maybeSingle() returned null on dupes, so Yinez was treating returning clients as brand-new.
     // Pick the canonical record: 'active' beats 'potential', then most-recent created_at.
-    const { data: clientCandidates } = await supabaseAdmin
-      .from('clients')
-      .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status')
-      .eq('tenant_id', tenantId)
-      .ilike('phone', `%${last10}%`)
-      .limit(5)
+    const { data: clientCandidates } = normalizedPhone
+      ? await supabaseAdmin
+          .from('clients')
+          .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status, phone')
+          .eq('tenant_id', tenantId)
+      : { data: null }
 
-    const client = (clientCandidates || []).slice().sort((a, b) => {
+    const client = (clientCandidates || [])
+      .filter((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone)
+      .slice().sort((a, b) => {
       const sa = a.status === 'active' ? 0 : 1
       const sb = b.status === 'active' ? 0 : 1
       if (sa !== sb) return sa - sb

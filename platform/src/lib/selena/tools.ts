@@ -4,7 +4,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
-import { isOwner, type YinezResult } from '@/lib/selena/agent'
+import { isOwner, normalizePhoneDigits, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
@@ -463,17 +463,20 @@ async function handleRecordSkillUse(input: { name: string }, tid: string): Promi
 // surface every global lesson + active skill so he can audit what Yinez knows.
 
 async function handleRecall(phone: string | null, tid: string): Promise<string> {
-  const last10 = (phone || '').replace(/\D/g, '').slice(-10)
+  // Full, exact digit match only -- an ilike substring match on a short or
+  // malformed phone (e.g. a single digit from an anonymous web-chat visitor)
+  // would match an ARBITRARY unrelated client and leak their private
+  // yinez_memory notes into this conversation.
+  const normalizedPhone = phone ? normalizePhoneDigits(phone) : null
 
   // Look up the per-client side first, if a client matches.
   let clientMemories: Array<{ type: string; content: string; source: string | null; created_at: string }> = []
-  if (last10) {
-    const { data: client } = await supabaseAdmin
+  if (normalizedPhone) {
+    const { data: candidates } = await supabaseAdmin
       .from('clients')
-      .select('id')
+      .select('id, phone')
       .eq('tenant_id', tid)
-      .ilike('phone', `%${last10}%`)
-      .maybeSingle()
+    const client = (candidates || []).find((c) => normalizePhoneDigits(c.phone || '') === normalizedPhone) || null
     if (client) {
       const { data } = await supabaseAdmin
         .from('yinez_memory')

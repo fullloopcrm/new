@@ -1515,3 +1515,62 @@ No production code changed — both fixes were test-coverage additions closing
 gaps against already-correct code, not bug fixes. `npx tsc --noEmit` clean.
 Full `api/finance/*` suite (32 files, 70 tests) green. File-only, no
 push/deploy/DB.
+
+**2026-07-15 (W2, 16:52 order) — P45: unauthenticated arbitrary-client PII
+leak via zero/weak-floor phone match, 5 call sites, none previously fixed on
+this branch.**
+
+While re-checking whether the `ilike('phone', '%...%')`-no-length-floor bug
+class (already fixed at several sites by other workers, e.g. `getClientProfile`
+in `selena/core.ts`/`selena-legacy.ts`, the new-conversation phone link in
+`chat/route.ts`/`yinez/route.ts`) was fully closed, found this branch (p1-w2)
+had never received ANY of those fixes — confirmed via `git branch --contains`
+that commits `c2f1ccb9`/`8ac9bcd2` (p1-w1) and `c62807d6` (p1-w3) are absent
+here. Rather than duplicate those 4 already-fixed-elsewhere call sites (same
+convention as W1's 16:15 referral-commissions note — avoids a redundant diff
+at merge), searched for OTHER call sites of the same bug class that are
+**still unfixed on every branch** (`p1-w1`, `p1-w3`, `p1-w4`,
+`integ/wave2-2026-07-14`), via `git show <branch>:<path>`. Found and fixed 5:
+
+- `src/lib/selena/agent.ts`'s `loadContext()` — the per-turn context builder
+  called on EVERY message from POST `/api/chat` (Yinez engine) and POST
+  `/api/yinez`, both unauthenticated public web-chat widgets. Zero length
+  floor on the caller-supplied `phone` before `ilike`-matching `clients`. A
+  visitor typing a single digit as their "phone" got an ARBITRARY unrelated
+  client's address/last-rate/notes/preferred-cleaner and up to 10 of their
+  `yinez_memory` entries injected straight into the AI's system context for
+  THAT conversation — the bot then converses using it as if it were the
+  visitor's own data. Worse than a plain read leak: it's the live system
+  prompt for an ongoing unauthenticated chat.
+- `src/lib/selena/tools.ts`'s `handleRecall()` (the `recall` tool) — same
+  zero-floor bug (`if (last10)` truthy check, not a length check), gated only
+  by `SELF_TOOLS` membership which explicitly makes `recall` reachable on
+  ANY client channel, not owner-only. Leaks `yinez_memory` notes the same way.
+- `src/app/site/{nyc-mobile-salon,wash-and-fold-hoboken,wash-and-fold-nyc}/_lib/selena.ts`'s
+  `getClientProfile()` — the identical zero-floor bug in the 3 bespoke
+  per-tenant site clones, previously flagged by W1 (16:41 report) as "same
+  fix would apply if anyone wants it done" but never applied anywhere
+  (confirmed absent on p1-w1/w3/w4 too). These are the site's own AI
+  chat-widget backend (not an operator/admin dashboard clone under
+  `platform/CLAUDE.md`'s "Known debt" carve-out), so this is a bug fix, not
+  a feature extension of the deprecated clones.
+
+Fixed all 5 the same way as the established `normalizePhoneDigits` pattern
+from `c62807d6`: require a full, exact 10-digit match (normalizing an
+optional leading US '1'), never an `ilike` substring. `agent.ts` exports the
+helper; `tools.ts` imports it; each site clone gets its own local copy
+(matching that file's existing self-contained-clone convention).
+
+New tests: `agent.load-context-phone-match.test.ts` (4),
+`tools.recall-phone-match.test.ts` (3), one
+`selena.get-client-profile-phone-match.test.ts` per site clone (3 each, 9
+total) — 16 new tests. Mutation-verified via cp-based backup/restore (not
+git stash) against the real pre-fix code for `agent.ts`, `tools.ts`, and
+`wash-and-fold-nyc`'s clone (spot-check representative of the 3, byte-
+identical logic): every attack assertion went RED, restored, all GREEN.
+`npx tsc --noEmit` clean. Full suite 326/326 files, 1434/1434 tests pass, 37
+skipped (unchanged baseline), 0 regressions. `audit-tenant-scope.mjs`'s 1
+finding (`seo/recipes.ts`) is pre-existing baseline drift in an untracked
+file none of my changes touch — not introduced by this fix.
+`audit-supabase-admin-gate.mjs` doesn't exist on this branch (p1-w1-only).
+File-only, no push/deploy/DB.
