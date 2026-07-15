@@ -66,6 +66,15 @@ export async function POST(request: Request) {
       if (!c) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
+    // Same class as client_id above: a foreign deal_id would create a
+    // dangling cross-tenant FK on this quote (and on the deal_activities row
+    // inserted below), so confirm it belongs to this tenant first.
+    const dealId = typeof body.deal_id === 'string' && body.deal_id ? body.deal_id : null
+    if (dealId) {
+      const { data: d } = await supabaseAdmin.from('deals').select('id').eq('id', dealId).eq('tenant_id', tenantId).single()
+      if (!d) return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
+    }
+
     // Resolve the deposit into a concrete cents amount so the public page and
     // checkout never recompute. flat = cents; percent = basis points.
     const deposit_type = ['flat', 'percent'].includes(body.deposit_type) ? body.deposit_type : 'none'
@@ -92,7 +101,7 @@ export async function POST(request: Request) {
       .insert({
         tenant_id: tenantId,
         client_id: clientId,
-        deal_id: body.deal_id || null,
+        deal_id: dealId,
         quote_number,
         status: 'draft',
         title: body.title || null,

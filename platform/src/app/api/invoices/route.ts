@@ -63,6 +63,7 @@ export async function POST(request: Request) {
     // Optional: generate from booking
     let prefillLineItems: unknown[] | null = null
     let prefillContact: Record<string, unknown> = {}
+    let verifiedBookingId: string | null = null
     if (body.from_booking_id) {
       const { data: booking } = await supabaseAdmin
         .from('bookings')
@@ -71,6 +72,8 @@ export async function POST(request: Request) {
         .eq('id', body.from_booking_id)
         .single()
       if (booking) {
+        verifiedBookingId = body.from_booking_id
+
         const model = (booking.service_types?.pricing_model as string) || 'hourly'
         const hours = Number(booking.actual_hours) || 0
         const rate = Number(booking.service_types?.default_hourly_rate) || 0
@@ -160,6 +163,24 @@ export async function POST(request: Request) {
     }
     const clientId = directClientId || (prefillContact as { client_id?: string }).client_id || null
 
+    // Same class as client_id/entity_id above: a directly-supplied booking_id
+    // or quote_id (as opposed to from_booking_id/from_quote_id, which are
+    // already tenant-verified via the prefill lookups above) was inserted
+    // verbatim with no ownership check -- a dangling cross-tenant FK.
+    const directBookingId = typeof body.booking_id === 'string' && body.booking_id ? body.booking_id : null
+    if (directBookingId) {
+      const { data: b } = await supabaseAdmin.from('bookings').select('id').eq('id', directBookingId).eq('tenant_id', tenantId).single()
+      if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+    const bookingId = directBookingId || verifiedBookingId
+
+    const directQuoteId = typeof body.quote_id === 'string' && body.quote_id ? body.quote_id : null
+    if (directQuoteId) {
+      const { data: q } = await supabaseAdmin.from('quotes').select('id').eq('id', directQuoteId).eq('tenant_id', tenantId).single()
+      if (!q) return NextResponse.json({ error: 'Quote not found' }, { status: 404 })
+    }
+    const quoteId = directQuoteId || (prefillContact as { quote_id?: string }).quote_id || null
+
     // invoice_number is derived from a COUNT() snapshot (generateInvoiceNumber),
     // so two concurrent creates in the same tenant/month can compute the same
     // number. The (tenant_id, invoice_number) unique index rejects the second
@@ -177,8 +198,8 @@ export async function POST(request: Request) {
           tenant_id: tenantId,
           entity_id: entityId,
           client_id: clientId,
-          booking_id: body.booking_id || body.from_booking_id || null,
-          quote_id: body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null,
+          booking_id: bookingId,
+          quote_id: quoteId,
           invoice_number,
           status: 'draft',
           title: body.title || (prefillContact as { title?: string }).title || null,
