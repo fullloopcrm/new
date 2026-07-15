@@ -25,6 +25,9 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: currentTenantId }, error: null }),
+}))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { GET, POST } from './route'

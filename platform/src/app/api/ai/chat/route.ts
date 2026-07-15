@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: Request) {
   try {
-    const { tenant, tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('campaigns.view')
+    if (authError) return authError
+    const { tenant, tenantId } = authTenant
 
     if (!tenant.anthropic_api_key && !process.env.ANTHROPIC_API_KEY) {
       return NextResponse.json({ error: 'AI not configured' }, { status: 503 })

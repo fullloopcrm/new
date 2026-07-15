@@ -9,7 +9,8 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { attributeByAddress } from '@/lib/attribution'
 import { extractZip, getNeighborhoodFromZip, getDomainsForNeighborhood } from '@/lib/domains'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface AttributedBooking {
   attributed_domain: string | null
@@ -20,7 +21,9 @@ interface AttributedBooking {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const reset = new URL(request.url).searchParams.get('reset') === 'true'
 
     if (reset) {
@@ -97,7 +100,9 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const bookingId = new URL(request.url).searchParams.get('booking_id')
 
     if (bookingId) {

@@ -4,11 +4,14 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
 
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast to the shape actually selected.
@@ -44,7 +47,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('bookings.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { booking_id, domain } = await request.json()
     if (!booking_id || !domain) {
       return NextResponse.json({ error: 'Missing booking_id or domain' }, { status: 400 })
