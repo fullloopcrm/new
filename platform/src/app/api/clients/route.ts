@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 export async function GET(request: NextRequest) {
   try {
@@ -26,7 +27,7 @@ export async function GET(request: NextRequest) {
       .range(offset, offset + limit - 1)
 
     if (search) {
-      query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+      query = query.or(buildIlikeOrFilter(['name', 'email', 'phone'], search))
     }
     if (status) {
       query = query.eq('status', status)

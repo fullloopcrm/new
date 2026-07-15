@@ -11,6 +11,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 // Tools that mutate data require the same permission the equivalent direct
 // API route enforces (e.g. /api/bookings/[id] PUT requires bookings.edit) —
@@ -191,7 +192,7 @@ async function executeTool(
         .from('clients')
         .select('id, name, email, phone, address, status, do_not_service, notes')
         .eq('tenant_id', tenantId)
-        .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,address.ilike.%${q}%`)
+        .or(buildIlikeOrFilter(['name', 'email', 'phone', 'address'], q))
         .limit(10)
       return JSON.stringify(error ? { error: error.message } : data)
     }

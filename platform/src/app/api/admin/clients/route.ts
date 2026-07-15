@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -22,7 +23,7 @@ export async function GET(request: NextRequest) {
 
   if (tenantId) query = query.eq('tenant_id', tenantId)
   if (search) {
-    query = query.or(`name.ilike.%${search}%,email.ilike.%${search}%,phone.ilike.%${search}%`)
+    query = query.or(buildIlikeOrFilter(['name', 'email', 'phone'], search))
   }
   if (status) query = query.eq('status', status)
 

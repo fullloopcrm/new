@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 // GET /api/admin/comhub/search-recipients?q=<query>&limit=10
 // Tenant-scoped search across clients + team_members for the compose modal.
@@ -15,20 +16,20 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '10', 10) || 10, 25)
   if (q.length < 2) return NextResponse.json({ results: [] })
 
-  const ql = `%${q}%`
+  const orFilter = buildIlikeOrFilter(['name', 'phone', 'email'], q)
 
   const [{ data: clients }, { data: members }] = await Promise.all([
     supabaseAdmin
       .from('clients')
       .select('id, name, phone, email, do_not_service')
       .eq('tenant_id', tenantId)
-      .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
+      .or(orFilter)
       .limit(limit),
     supabaseAdmin
       .from('team_members')
       .select('id, name, phone, email')
       .eq('tenant_id', tenantId)
-      .or(`name.ilike.${ql},phone.ilike.${ql},email.ilike.${ql}`)
+      .or(orFilter)
       .limit(limit),
   ])
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
+import { escapePostgrestFilterValue } from '@/lib/postgrest-or-filter'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -622,7 +623,7 @@ export async function POST(req: NextRequest) {
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, customer_phone, status')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .or(`customer_call_id.eq.${escapePostgrestFilterValue(callControlId)},admin_call_id.eq.${escapePostgrestFilterValue(callControlId)}`)
       .single()
     if (!active || !url) return NextResponse.json({ ok: true })
 
@@ -669,7 +670,7 @@ export async function POST(req: NextRequest) {
     const { data: active } = await supabaseAdmin
       .from('comhub_active_calls')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
       .select('id, thread_id, contact_id, status, customer_phone')
-      .or(`customer_call_id.eq.${callControlId},admin_call_id.eq.${callControlId}`)
+      .or(`customer_call_id.eq.${escapePostgrestFilterValue(callControlId)},admin_call_id.eq.${escapePostgrestFilterValue(callControlId)}`)
       .single()
     if (active) {
       await logVoiceMessage({

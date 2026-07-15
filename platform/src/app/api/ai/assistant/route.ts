@@ -5,6 +5,7 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 // Tools that read or mutate CRM data require the same permission the
 // equivalent direct API route enforces — this copilot is not a bypass around RBAC.
@@ -196,7 +197,7 @@ async function executeTool(
         .from('clients')
         .select('id, name, email, phone, address, active, notes')
         .eq('tenant_id', tenantId)
-        .or(`name.ilike.%${q}%,email.ilike.%${q}%,phone.ilike.%${q}%,address.ilike.%${q}%`)
+        .or(buildIlikeOrFilter(['name', 'email', 'phone', 'address'], q))
         .limit(10)
       if (error) return JSON.stringify({ error: error.message })
       return JSON.stringify(data)

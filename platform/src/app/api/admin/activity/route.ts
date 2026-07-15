@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
 
 // Cross-tenant activity log. Reads audit_logs across ALL tenants (super-admin
 // view). Tenant-scoped operators use /api/audit + /dashboard/activity instead.
@@ -29,7 +30,7 @@ export async function GET(request: NextRequest) {
   if (entityType) query = query.eq('entity_type', entityType)
   if (from) query = query.gte('created_at', from)
   if (to) query = query.lte('created_at', to)
-  if (q) query = query.or(`entity_id.ilike.%${q}%,user_id.ilike.%${q}%`)
+  if (q) query = query.or(buildIlikeOrFilter(['entity_id', 'user_id'], q))
 
   const { data, count, error } = await query
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
