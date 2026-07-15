@@ -50,6 +50,26 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
 
+    // client_id/team_member_id are caller-supplied FKs — tenantDb only stamps
+    // tenant_id on the row being inserted, it doesn't validate a referenced id
+    // belongs to this tenant, and neither clients nor team_members has a
+    // cross-tenant FK check. GET /api/schedules embeds clients(name)/
+    // team_members(name) unscoped by tenant off these FKs, and every generated
+    // booking below carries the same foreign id, which GET /api/bookings then
+    // embeds with full PII (name/phone/address) — same exfil class as the
+    // already-fixed POST /api/bookings (client_id) and POST /api/admin/
+    // recurring-schedules (team_member_id).
+    const { data: ownedClient } = await db.from('clients').select('id').eq('id', v.client_id as string).maybeSingle()
+    if (!ownedClient) {
+      return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+    if (v.team_member_id) {
+      const { data: ownedMember } = await db.from('team_members').select('id').eq('id', v.team_member_id as string).maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
     // Create schedule
     const { data: schedule, error } = await db
       .from('recurring_schedules')

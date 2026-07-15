@@ -134,6 +134,23 @@ export async function POST(request: Request) {
     if (!memberRow) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
   }
 
+  // A caller-supplied property_id must belong to THIS client + tenant —
+  // client_properties has its own tenant_id and no cross-tenant FK check.
+  // GET /api/bookings embeds client_properties(*) unscoped by tenant off
+  // bookings.property_id, so a foreign id here would leak another tenant's
+  // client address/lat-long on every subsequent booking list read. Same
+  // guard already applied to POST /api/client/recurring; this sibling
+  // admin route accepted the id verbatim.
+  if (property_id) {
+    const { data: propertyRow } = await db
+      .from('client_properties')
+      .select('id')
+      .eq('id', property_id)
+      .eq('client_id', client_id)
+      .maybeSingle()
+    if (!propertyRow) return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
+  }
+
   // Dates: use those provided by the frontend, else generate 6 weeks.
   let dates: string[] = Array.isArray(body.dates)
     ? body.dates.filter((d: unknown): d is string => typeof d === 'string')

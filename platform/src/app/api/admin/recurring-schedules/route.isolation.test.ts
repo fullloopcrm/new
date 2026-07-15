@@ -41,6 +41,10 @@ function seed() {
       { id: 'tm-a1', tenant_id: CTX_TENANT },
       { id: 'tm-b1', tenant_id: OTHER_TENANT },
     ],
+    client_properties: [
+      { id: 'prop-a', tenant_id: CTX_TENANT, client_id: 'c-a' },
+      { id: 'prop-b', tenant_id: OTHER_TENANT, client_id: 'c-b' },
+    ],
     bookings: [],
   }
 }
@@ -101,5 +105,38 @@ describe('admin/recurring-schedules POST — cross-tenant team_member_id guard',
     expect(res.status).toBe(200)
     const insert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
     expect(insert?.rows[0]?.team_member_id).toBe('tm-a1')
+  })
+})
+
+/**
+ * POST — cross-tenant property_id regression test.
+ *
+ * BUG (fixed here): a caller-supplied `property_id` was written straight into
+ * the new `recurring_schedules` row AND every generated `bookings` row, with
+ * no check that it belonged to the acting tenant's client. client_properties
+ * has its own tenant_id and no cross-tenant FK check; GET /api/bookings embeds
+ * client_properties(*) unscoped by tenant off bookings.property_id, so a
+ * foreign id here would leak another tenant's client address/lat-long. Same
+ * guard already applied to POST /api/client/recurring.
+ */
+describe('admin/recurring-schedules POST — cross-tenant property_id guard', () => {
+  it('cross-tenant property_id probe: rejects a foreign tenant\'s property with 400', async () => {
+    const res = await POST(postReq({
+      client_id: 'c-a', property_id: 'prop-b', recurring_type: 'weekly', start_date: '2026-08-10',
+    }))
+    expect(res.status).toBe(400)
+    const insert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(insert).toBeUndefined()
+  })
+
+  it('same-tenant property_id succeeds and is stamped on the schedule + generated bookings', async () => {
+    const res = await POST(postReq({
+      client_id: 'c-a', property_id: 'prop-a', recurring_type: 'weekly', start_date: '2026-08-10', dates: ['2026-08-10'],
+    }))
+    expect(res.status).toBe(200)
+    const scheduleInsert = h.capture.inserts.find((i) => i.table === 'recurring_schedules')
+    expect(scheduleInsert?.rows[0]?.property_id).toBe('prop-a')
+    const bookingInsert = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(bookingInsert?.rows[0]?.property_id).toBe('prop-a')
   })
 })
