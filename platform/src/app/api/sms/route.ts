@@ -77,6 +77,22 @@ export async function POST(request: NextRequest) {
 
     let convoId = conversation_id
 
+    // Caller-supplied conversation_id — verify it belongs to this tenant
+    // before writing into it. Same FK-injection class as other conversation_id
+    // trust bugs already fixed elsewhere: a foreign convoId would let this
+    // tenant's caller insert into another tenant's SMS thread.
+    if (convoId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', convoId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) {
+        return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+    }
+
     // Look up or create conversation if none provided
     if (!convoId) {
       const { data: existing } = await supabaseAdmin

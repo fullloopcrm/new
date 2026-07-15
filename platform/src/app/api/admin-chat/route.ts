@@ -29,6 +29,22 @@ export async function POST(req: NextRequest) {
   const ownerPhone = getOwnerPhone()
   let sessionId: string = body.sessionId || ''
 
+  if (sessionId) {
+    // Caller-supplied session id — verify it belongs to this tenant before
+    // writing into it or handing it to askSelena. Same FK-injection class as
+    // POST /api/sms's conversation_id: a foreign sessionId would let this
+    // tenant's caller read/append to another tenant's admin-chat thread.
+    const { data: owned } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('tenant_id', tenant.tenantId)
+      .maybeSingle()
+    if (!owned) {
+      return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+    }
+  }
+
   if (!sessionId) {
     // The unique partial index `idx_sms_conv_active_phone` only allows ONE active
     // (completed_at IS NULL AND expired = false) conversation per phone. Without a
