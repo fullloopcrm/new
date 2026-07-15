@@ -267,6 +267,19 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/admin/recurring-schedules/[id]/regenerate/route.isolation.test.ts` (LOCK: foreign id via either alias 400s, no rule update or booking insert; CONTROL: own-tenant id is stamped on both) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 291 files / 1247 passed / 37 skipped / 0 failed |
 
+### P19 — `finance/chart-of-accounts` POST → cross-tenant `parent_id` FK injection  💰 — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/finance/chart-of-accounts` (converted, `tenantDb`) |
+| **Table** | `chart_of_accounts` — self-referencing FK `parent_id` (migration 032) |
+| **Attack vector** | `body.parent_id` was inserted verbatim with no ownership check — the one FK left in the finance module without the guard every sibling already has (`coa_id` on bank-accounts/bank-transactions, `entity_id` on expenses/periods/cpa-tokens). |
+| **Effect** | No live `GET` currently joins/embeds `parent_id`, so today's blast radius is a dangling cross-tenant link rather than an active read-exfil — lower severity than P4-P18, but the same class the rest of this module treats as must-fix defense-in-depth (a future hierarchical-CoA report reading `parent_id` would inherit the gap silently). |
+| **Verdict** | **FIXED** (found in a finance/payroll edge-case sweep, 2026-07-14, W2) |
+| **Fix** | `parent_id`, when supplied, is now verified tenant-owned via `tenantDb` before insert; 400 on miss. |
+| **Regression lock** | `src/app/api/finance/chart-of-accounts/route.witness.test.ts` (LOCK: foreign parent_id 400s, no insert; CONTROL x2: omitted + own-tenant parent_id both succeed) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 292 files / 1250 passed / 37 skipped / 0 failed |
+
 ### P16 — `client/smart-schedule` GET → cross-tenant `client_id` READ  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
@@ -374,8 +387,10 @@ live leaks. This section is a **negative result, not a to-do list**.
    (✅ fixed, 2026-07-14, W2, same sweep) → P17 bookings/batch-update PUT
    client_id/service_type_id (✅ fixed, 2026-07-14, W2, booking/scheduling
    sweep) → P18 admin/recurring-schedules/[id]/regenerate POST
-   team_member_id/cleaner_id (✅ fixed, 2026-07-14, W2, same sweep).** All
-   items in this register are now closed.
+   team_member_id/cleaner_id (✅ fixed, 2026-07-14, W2, same sweep) → P19
+   finance/chart-of-accounts POST parent_id (✅ fixed, 2026-07-14, W2,
+   finance/payroll edge-case sweep).** All items in this register are now
+   closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
