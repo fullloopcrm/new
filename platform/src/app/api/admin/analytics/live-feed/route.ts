@@ -1,11 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 // Live visitor feed for the tenant's tracked sites. Ported from nycmaid
 // admin/analytics/live-feed, tenant-scoped for FullLoop (filters lead_clicks by
 // tenant_id — nycmaid was single-tenant). Returns the most recent visit events,
 // bot-filtered, capped at LIMIT.
+//
+// Gated on campaigns.view: this is marketing/analytics data (same fold as
+// GET /api/google/status and GET /api/social/posts) — 'staff' lacks
+// campaigns.view by default and shouldn't be able to read it by calling the
+// API directly even though the dashboard nav hides this page for that role.
 
 const LIMIT = 100
 const RAW_FETCH = 400
@@ -24,13 +29,9 @@ interface LiveVisit {
 }
 
 export async function GET() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('campaigns.view')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   try {
     const { data, error } = await supabaseAdmin

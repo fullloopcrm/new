@@ -1,10 +1,14 @@
 import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { hasPermission } from '@/lib/rbac'
+import { overridesFor } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId, userId } = await getTenantForRequest()
+    const ctx = await getTenantForRequest()
+    const { tenantId, userId } = ctx
+    const canViewLeads = hasPermission(ctx.role, 'leads.view', overridesFor(ctx))
 
     const [
       { count: clientCount },
@@ -68,7 +72,7 @@ export async function GET() {
     return NextResponse.json({
       clients: clientCount || 0,
       bookings: bookingCount || 0,
-      leads: leadCount || 0,
+      leads: canViewLeads ? (leadCount || 0) : 0,
       notifications: notificationCount || 0,
       connect: connectUnread,
     })
