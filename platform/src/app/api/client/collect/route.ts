@@ -29,14 +29,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })
     }
 
-    const cleanPhone = phone.replace(/\D/g, '')
-    const { data: existing } = await supabaseAdmin
-      .from('clients')
-      .select('id, status')
-      .eq('tenant_id', tenant.id)
-      .or(`phone.ilike.%${cleanPhone.slice(-10)}%`)
-      .limit(1)
-    const existingClient = existing?.[0]
+    // Exact national-number match only. A prior `.ilike(%...%)` substring match
+    // here let a short/malformed phone (e.g. "5" -> ilike.%5%) resolve to an
+    // ARBITRARY unrelated client and overwrite their name/email/address/notes
+    // -- same bug class already fixed in client/check + verify-code's phone
+    // lookup, but this instance writes instead of just leaking a read.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const cleanPhone = nat(phone.replace(/\D/g, ''))
+    let existingClient: { id: string; status: string } | undefined
+    if (cleanPhone.length >= 10) {
+      const { data: candidates } = await supabaseAdmin
+        .from('clients')
+        .select('id, status, phone')
+        .eq('tenant_id', tenant.id)
+      existingClient = candidates?.find(c => nat((c.phone || '').replace(/\D/g, '')) === cleanPhone)
+    }
 
     // Referrer resolution (tenant-scoped)
     let referrerId: string | null = null
