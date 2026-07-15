@@ -29,6 +29,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
+    // booking_id is a caller-supplied FK with no cross-tenant check at the DB
+    // layer — verify it belongs to this tenant before trusting it, same class
+    // already guarded for client_id above (see reviews/route.ts + reviews/[id]/route.ts).
+    if (booking_id) {
+      const { data: booking } = await supabaseAdmin
+        .from('bookings')
+        .select('id')
+        .eq('id', booking_id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (!booking) {
+        return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      }
+    }
+
     // Create review request record
     const { data: review } = await supabaseAdmin
       .from('reviews')
