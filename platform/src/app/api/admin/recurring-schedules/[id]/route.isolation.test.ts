@@ -43,6 +43,9 @@ beforeEach(() => {
       { id: 'book-B1', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
       { id: 'book-X1', tenant_id: 'tenant-B', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
     ],
+    team_members: [
+      { id: 'tm-new', tenant_id: 'tenant-A' },
+    ],
   }
 })
 

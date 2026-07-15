@@ -37,7 +37,7 @@ const rateLimitDb = vi.fn(async () => ({ allowed: true, remaining: 4 }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: (...args: unknown[]) => rateLimitDb(...(args as [])) }))
 
 function req(body: unknown): Request {
-  return { json: async () => body } as unknown as Request
+  return { json: async () => body, headers: new Headers() } as unknown as Request
 }
 
 function setTenantHeader(tenantId: string) {

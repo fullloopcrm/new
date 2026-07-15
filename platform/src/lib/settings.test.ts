@@ -118,9 +118,9 @@ describe('getSettings — service types + standard_rate derivation', () => {
     }
     const settings = await getSettings('tenant-1')
     expect(settings.service_types).toEqual([
-      { name: 'Standard Clean', default_hours: 3, active: true },
-      { name: 'Deep Clean', default_hours: 2, active: true }, // null -> fallback 2
-      { name: 'Retired Service', default_hours: 2, active: false },
+      { name: 'Standard Clean', default_hours: 3, active: true, rate: 50 },
+      { name: 'Deep Clean', default_hours: 2, active: true, rate: 80 }, // null -> fallback 2
+      { name: 'Retired Service', default_hours: 2, active: false, rate: 40 },
     ])
   })
 

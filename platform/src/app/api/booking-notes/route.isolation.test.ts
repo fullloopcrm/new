@@ -34,6 +34,10 @@ function builder(table: string) {
       store[table] = [...(store[table] || []), insertedRow as Row]
       return { data: insertedRow, error: null }
     },
+    maybeSingle: async () => {
+      const found = (store[table] || []).filter((r) => matches(r, eqs))
+      return { data: found[0] ?? null, error: null }
+    },
     then: (resolve: (v: { data: Row[]; error: null }) => unknown) =>
       resolve({ data: (store[table] || []).filter((r) => matches(r, eqs)), error: null }),
   }
@@ -61,6 +65,9 @@ import { GET, POST } from './route'
 
 beforeEach(() => {
   store = {
+    bookings: [
+      { id: 'shared-booking', tenant_id: 'tenant-A' },
+    ],
     booking_notes: [
       { id: 'note-a', tenant_id: 'tenant-A', booking_id: 'shared-booking', author_type: 'admin', author_name: 'Admin A', content: 'Note from A' },
       { id: 'note-b', tenant_id: 'tenant-B', booking_id: 'shared-booking', author_type: 'admin', author_name: 'Admin B', content: 'Note from B' },

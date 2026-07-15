@@ -201,8 +201,12 @@ describe('getTenantForRequest — signed tenant-domain header path', () => {
       tenantId === 't-1' ? { memberId: 'member-5', role: 'manager' } : null,
     )
     getOwnerUserId.mockResolvedValue(null)
-    resolve = (table, eqs) =>
-      table === 'tenants' && eqs.id === 't-1' ? { data: tenantRow(), error: null } : { data: null, error: null }
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.id === 'member-5' && eqs.tenant_id === 't-1')
+        return { data: { role: 'manager' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-1') return { data: tenantRow(), error: null }
+      return { data: null, error: null }
+    }
 
     const ctx = await getTenantForRequest()
     expect(ctx.userId).toBe('member-5')

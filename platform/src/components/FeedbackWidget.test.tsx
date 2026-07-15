@@ -30,7 +30,7 @@ describe('FeedbackWidget', () => {
     openAndFill('this is broken')
     fireEvent.click(screen.getByText('Submit'))
 
-    expect(await screen.findByText(/failed to submit/i)).toBeInTheDocument()
+    expect(await screen.findByText(/failed to send feedback/i)).toBeInTheDocument()
     await waitFor(() => expect(screen.getByText('Submit')).not.toBeDisabled())
     // Never reached the "thank you" success state.
     expect(screen.queryByText('Thank you!')).not.toBeInTheDocument()

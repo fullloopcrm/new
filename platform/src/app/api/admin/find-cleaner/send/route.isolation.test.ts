@@ -24,7 +24,7 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: async () => ({ tenantId: h.tenantId }),
+  getTenantForRequest: async () => ({ tenantId: h.tenantId, role: 'owner' }),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 vi.mock('@/lib/sms', () => ({

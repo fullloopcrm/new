@@ -74,8 +74,10 @@ describe('POST /api/notifications — tenant isolation', () => {
   it("tenant A cannot trigger a client SMS by forging tenant B's booking_id (IDOR)", async () => {
     h.tenantId = 'tenant-A'
     const res = await POST(postReq({ type: '15min_warning', booking_id: 'bkB', message: 'test' }))
-    expect(res.status).toBe(200)
-    // The scoped booking lookup finds nothing for a foreign booking_id -> no SMS to B's client.
+    // The scoped booking lookup finds nothing for a foreign booking_id -- ownership
+    // is verified before any write, so a miss 400s the whole request (no notification
+    // row, no SMS to B's client).
+    expect(res.status).toBe(400)
     expect(notifyCalls).toEqual([])
   })
 
