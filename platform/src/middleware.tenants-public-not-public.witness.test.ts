@@ -23,13 +23,9 @@ import { NextRequest } from 'next/server'
  * comment notes the sibling buyer funnel was already restored 2026-06-22, so if
  * `/apply` (hiring) is ever un-killed this API 307s for every anonymous visitor.
  *
- * STATUS: read-only verification lane, no middleware edit (route-registration
- * change is leader/Jeff-gated same as prior fixes).
- *   • WITNESS (it.fails): the desired behavior — `/api/tenants/public` passes
- *     through to the route handler (no redirect) — currently does NOT hold.
- *     When `/api/tenants/public(.*)` is added to `isPublicRoute` in
- *     `src/middleware.ts`, this test flips to a hard pass; remove `.fails`
- *     and it becomes a permanent regression lock.
+ * STATUS: FIXED — `/api/tenants/public(.*)` was added to `isPublicRoute` in
+ *   `src/middleware.ts`. This test is now a permanent regression lock proving
+ *   the route passes through without a redirect.
  *   • POSITIVE CONTROL: `/api/tenant/public` (singular — already registered
  *     via the admin-cookie bypass list's `/api/tenant/public` prefix AND, more
  *     importantly, is exercised live in prod per the curl probe) is used here
@@ -54,8 +50,8 @@ async function isRedirectedToSignIn(pathAndQuery: string): Promise<boolean> {
 }
 
 describe('middleware isPublicRoute — /api/tenants/public (plural) registration gap', () => {
-  it.fails(
-    'WITNESS: GET /api/tenants/public?slug=nycmaid on the main host should pass through (public, no-auth route handler) but is redirected to /sign-in',
+  it(
+    'GET /api/tenants/public?slug=nycmaid on the main host passes through (public, no-auth route handler), not redirected to /sign-in',
     async () => {
       const redirected = await isRedirectedToSignIn('/api/tenants/public?slug=nycmaid')
       expect(redirected, 'request was redirected to /sign-in instead of reaching the route handler').toBe(false)
