@@ -42,11 +42,15 @@ async function getTenantScorerConfig(tenantId: string): Promise<TenantScorerConf
 export async function scoreConversation(tenantId: string, conversationId: string): Promise<ScoreResult> {
   const config = await getTenantScorerConfig(tenantId)
 
+  // A conversation_id alone doesn't scope tenancy — confirm ownership before
+  // reading or scoring another tenant's transcript.
   const { data: convo } = await supabaseAdmin
     .from('sms_conversations')
     .select('outcome, booking_checklist, name, created_at, completed_at, updated_at')
     .eq('id', conversationId)
+    .eq('tenant_id', tenantId)
     .single()
+  if (!convo) return { score: 0, issues: ['No data'], strengths: [] }
 
   const { data: messages } = await supabaseAdmin
     .from('sms_conversation_messages')
@@ -54,7 +58,7 @@ export async function scoreConversation(tenantId: string, conversationId: string
     .eq('conversation_id', conversationId)
     .order('created_at', { ascending: true })
 
-  if (!convo || !messages?.length) return { score: 0, issues: ['No data'], strengths: [] }
+  if (!messages?.length) return { score: 0, issues: ['No data'], strengths: [] }
 
   const selenaMessages = messages.filter(m => m.direction === 'outbound').map(m => m.message)
   const clientMessages = messages.filter(m => m.direction === 'inbound').map(m => m.message)
@@ -191,6 +195,16 @@ export async function selfReviewConversation(
 ): Promise<{ review: string; score: number; improvements: string[] }> {
   const config = await getTenantScorerConfig(tenantId)
 
+  // A conversation_id alone doesn't scope tenancy — confirm ownership before
+  // reading transcript content or spending an AI review call on it.
+  const { data: convo } = await supabaseAdmin
+    .from('sms_conversations')
+    .select('outcome, name, client_id')
+    .eq('id', conversationId)
+    .eq('tenant_id', tenantId)
+    .single()
+  if (!convo) return { review: 'No messages to review', score: 0, improvements: [] }
+
   const { data: messages } = await supabaseAdmin
     .from('sms_conversation_messages')
     .select('direction, message')
@@ -200,12 +214,6 @@ export async function selfReviewConversation(
   if (!messages?.length) return { review: 'No messages to review', score: 0, improvements: [] }
 
   const transcript = messages.map(m => `${m.direction === 'inbound' ? 'CLIENT' : 'AGENT'}: ${m.message}`).join('\n')
-
-  const { data: convo } = await supabaseAdmin
-    .from('sms_conversations')
-    .select('outcome, name, client_id')
-    .eq('id', conversationId)
-    .single()
 
   const tenantRules = config.rules_summary || `
 - Do not ask name as the first question
