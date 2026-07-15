@@ -64,6 +64,16 @@ export async function POST(request: Request) {
       // booking, resolve booking + tenant here so it routes to the booking-payment
       // path below, not the Full Loop signup path. Strictly additive — a prospect's
       // client_reference_id won't match a booking id, so signups are unaffected.
+      //
+      // `client_reference_id` is a caller-editable URL query param on a Stripe
+      // Payment Link — Stripe never validates or restricts its value. Trusting
+      // the referenced booking's tenant_id outright would let anyone holding ANY
+      // tenant's static payment_link URL pay through it with a foreign tenant's
+      // booking id appended, crediting that payment — and triggering a real
+      // Stripe Connect payout — to a booking the payer never actually paid for.
+      // Close the gap by confirming the Payment Link Stripe says was actually
+      // used for this checkout is the one configured for the referenced
+      // booking's own tenant, before trusting the resolution.
       if (!bookingId && session.client_reference_id) {
         const { data: refBooking } = await supabaseAdmin
           .from('bookings')
@@ -71,8 +81,24 @@ export async function POST(request: Request) {
           .eq('id', session.client_reference_id)
           .maybeSingle()
         if (refBooking) {
-          bookingId = refBooking.id
-          tenantId = tenantId || refBooking.tenant_id
+          const { data: refTenant } = await supabaseAdmin
+            .from('tenants')
+            .select('payment_link')
+            .eq('id', refBooking.tenant_id)
+            .maybeSingle()
+          let linkMatchesTenant = false
+          if (refTenant?.payment_link && typeof session.payment_link === 'string') {
+            try {
+              const usedLink = await stripe.paymentLinks.retrieve(session.payment_link)
+              linkMatchesTenant = usedLink.url === refTenant.payment_link
+            } catch (e) {
+              console.error('[stripe] payment link ownership check failed:', e)
+            }
+          }
+          if (linkMatchesTenant) {
+            bookingId = refBooking.id
+            tenantId = tenantId || refBooking.tenant_id
+          }
         }
       }
 
