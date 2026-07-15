@@ -45,6 +45,13 @@ function secretMatches(provided: string | null): boolean {
   return timingSafeEqual(a, b)
 }
 
+// Escape LIKE/ILIKE wildcards so the dedup lookup only ever matches the
+// literal name (Postgres default LIKE escape char is backslash). Same
+// pattern already fixed on /api/referrers, /api/client/check, /api/pin-reset.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   if (!secretMatches(request.headers.get('x-ingest-secret'))) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -83,7 +90,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('tenant_id', tenant.id)
         .eq('phone', cleanPhone)
-        .ilike('name', name)
+        .ilike('name', escapeLike(name))
         .limit(1)
         .maybeSingle()
       if (existing) {
