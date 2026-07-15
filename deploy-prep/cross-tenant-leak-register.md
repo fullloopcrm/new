@@ -546,6 +546,22 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 316 files / 1389 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Same DoS/logic-leak family as P38, lower severity — the primary injection vector is already closed, so this is defense-in-depth against latent/future exposure rather than a currently-exploitable path. |
 
+### P40 — `POST /api/sms` (new-conversation branch) → cross-tenant `client_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/sms` (converted to `tenantDb`), new-conversation branch (no `conversation_id` supplied and no existing open conversation for the caller's tenant + `client_id`) |
+| **Table** | `sms_conversations.client_id` (FK → `clients`, which carries its own `tenant_id`) |
+| **Attack vector** | `client_id` is a caller-supplied body field. The route looked it up with `.eq('id', client_id).eq('tenant_id', tenantId)` to fetch a phone number for the new row, but never checked whether that lookup actually found a row — a foreign `client_id` just produced `client == null` (so `cleanPhone` fell back to `''`), and execution fell straight through to `db.from('sms_conversations').insert({ tenant_id: tenantId, client_id, phone: cleanPhone })`. `tenantDb.insert()` only stamps the row's own `tenant_id`; it does not validate FK columns, so the foreign `client_id` was written verbatim. |
+| **Effect** | `GET /api/sms` (conversation list) does `db.from('sms_conversations').select('*, clients(name, phone)').eq('tenant_id', tenantId)` — a PostgREST embed that follows the FK regardless of the embedded row's own tenant. A conversation planted with a foreign `client_id` would resolve that embed to the OTHER tenant's client name + phone number, surfaced directly in the caller's own SMS conversation list on the very next fetch. Same exfil shape as P1/P11/P17/P20 (unvalidated FK + an unscoped read-side embed). |
+| **Verdict** | **FIXED** (found in a controlled broad-hunt sweep of a fresh batch — `attribution`, `bookings`(+subroutes), `booking-notes`, `campaigns`, `catalog`, `crews`, `feedback`, `ingest`, `lead`, `lead-media`, `notifications`, `portal`(deferred, not yet swept), `projects`, `prospects`, `reviews`, `schedule`, `sidebar-counts`, `sms`, `team-members`, `tenant(s)`, `google`, `connect`, `cpa`, `selena`, `send-booking-emails`, `seo`, `push`, `yinez`, `docs`, `import-clients`, `migrate-cleaner-notifications`, `migrate-sms`, `test-emails` — 64 route files, per LEADER order "continue controlled broad-hunt, lower-risk surface," 2026-07-15, W2) |
+| **Fix** | Added an explicit `if (!client) return 404` gate right after the ownership-scoped `clients` lookup, before the `sms_conversations` insert — same "miss must 404, not fall through" shape as every other FK guard in this file. |
+| **Regression lock** | `src/app/api/sms/route.isolation.test.ts` — 2 new tests: positive control (tenant A starts a conversation with its own client, asserts the inserted row's `client_id`/`phone`), wrong-tenant probe (tenant A posts tenant B's `client_id`, asserts 404 `'Client not found'` and no `sms_conversations` row is created with that `client_id`). |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 319 files / 1413 passed / 37 skipped / 0 failed |
+| **Rank rationale** | Same read-exfil family as P1/P11/P17/P20 — placed last chronologically; severity is comparable to those (PII leak, not a live-action hijack or real-money path), gated behind an authenticated dashboard session (not a public/unauthenticated route) and requiring the attacker to already know or guess a foreign tenant's `client_id` UUID. |
+
+Rest of this batch (63 files) came back clean — every other caller-supplied FK (`booking_id`, `channel_id`, `campaign_id`, `crew_id`/`team_member_id`, `service_type_id`, `reviewId`, `sessionId`/`conversationId`) was already ownership-verified before use, matching patterns already documented above. `portal/*` (13 files) was not reached this round — deferred to a future sweep.
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)

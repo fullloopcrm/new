@@ -11,6 +11,13 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * The probe requests messages for ANOTHER tenant's conversation and asserts the
  * gate fires — a 404 with NO messages leaked — even though the raw message fetch
  * would have returned rows.
+ *
+ * Tenant isolation — POST /api/sms (new-conversation branch). `client_id` is a
+ * caller-supplied FK; without an ownership check, a foreign client_id would be
+ * written straight into this tenant's new sms_conversations row, and GET
+ * /api/sms's `clients(name, phone)` embed would then leak that foreign
+ * client's PII on the very next list fetch. The probe posts a foreign
+ * tenant's client_id and asserts a 404 with NO conversation row created.
  */
 
 const A = 'tid-a'
@@ -26,7 +33,7 @@ vi.mock('@/lib/tenant-query', () => ({
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
 vi.mock('@/lib/sms-messages', () => ({ insertConversationMessage: vi.fn(async () => ({ data: null, error: null })) }))
 
-import { GET } from './route'
+import { GET, POST } from './route'
 
 function seed() {
   return {
@@ -37,6 +44,10 @@ function seed() {
     sms_conversation_messages: [
       { id: 'm-a', conversation_id: 'cv-a', direction: 'inbound', message: 'hello A' },
       { id: 'm-b', conversation_id: 'cv-b', direction: 'inbound', message: 'secret B' },
+    ],
+    clients: [
+      { id: 'cl-a', tenant_id: A, phone: '2125551111' },
+      { id: 'cl-b', tenant_id: B, phone: '3105552222' },
     ],
   }
 }
@@ -49,6 +60,14 @@ beforeEach(() => {
 
 function get(conversationId: string) {
   return GET(new NextRequest(`http://t/api/sms?conversation_id=${conversationId}`))
+}
+
+function post(body: Record<string, unknown>) {
+  return POST(new NextRequest('http://t/api/sms', {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  }))
 }
 
 describe('sms GET messages — tenant isolation', () => {
@@ -64,5 +83,23 @@ describe('sms GET messages — tenant isolation', () => {
     const body = await res.json()
     expect(body.error).toBe('Conversation not found')
     expect(body.messages).toBeUndefined()
+  })
+})
+
+describe('sms POST new-conversation client_id — tenant isolation', () => {
+  it('positive control: tenant A starts a conversation with its OWN client', async () => {
+    const res = await post({ client_id: 'cl-a', message: 'hi there' })
+    expect(res.status).toBe(201)
+    const created = h.capture.inserts.find((i) => i.table === 'sms_conversations')
+    expect(created?.rows[0]).toMatchObject({ tenant_id: A, client_id: 'cl-a', phone: '2125551111' })
+  })
+
+  it("wrong-tenant probe: tenant B's client_id 404s — no conversation is created and no PII lands cross-tenant", async () => {
+    const res = await post({ client_id: 'cl-b', message: 'hi there' })
+    expect(res.status).toBe(404)
+    const body = await res.json()
+    expect(body.error).toBe('Client not found')
+    const created = h.capture.inserts.find((i) => i.table === 'sms_conversations' && i.rows.some((r) => r.client_id === 'cl-b'))
+    expect(created).toBeUndefined()
   })
 })

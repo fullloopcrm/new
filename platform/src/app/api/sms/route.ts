@@ -96,13 +96,23 @@ export async function POST(request: NextRequest) {
       if (existing) {
         convoId = existing.id
       } else {
-        // Get client phone for new conversation
+        // client_id is a caller-supplied FK — sms_conversations has no ownership
+        // check of its own on that column, and GET /api/sms embeds
+        // clients(name, phone) off it, so a foreign id would silently land a
+        // cross-tenant client on this tenant's conversation and leak that
+        // client's PII through the very next list fetch. A miss must 404, not
+        // fall through with an empty phone (same class as the bookings/deals/
+        // connect-channels client_id-injection fixes elsewhere in this file).
         const { data: client } = await db
           .from('clients')
           .select('phone')
           .eq('id', client_id)
           .eq('tenant_id', tenantId)
           .single()
+
+        if (!client) {
+          return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+        }
 
         const cleanPhone = client?.phone?.replace(/\D/g, '').slice(-10) || ''
 
