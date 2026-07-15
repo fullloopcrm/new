@@ -14,9 +14,14 @@ import { overridesFor } from '@/lib/require-permission'
 // bookings.edit/clients.edit/finance.view — could have the assistant perform
 // actions the REST API would 403 on directly.
 const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  search_clients: 'clients.view',
+  get_client_details: 'clients.view',
+  update_client: 'clients.edit',
+  search_team_members: 'team.view',
+  query_bookings: 'bookings.view',
+  get_schedule_summary: 'bookings.view',
   update_bookings: 'bookings.edit',
   cancel_bookings: 'bookings.edit',
-  update_client: 'clients.edit',
   get_revenue_stats: 'finance.view',
 }
 
