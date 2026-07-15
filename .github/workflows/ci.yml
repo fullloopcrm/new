@@ -38,6 +38,13 @@ jobs:
         # The 91 baselined legacy candidates are triaged separately; new leaks can't merge.
         run: node scripts/audit-tenant-scope.mjs
 
+      - name: supabaseAdmin-gate guard
+        # Fails if a NEW route file calls supabaseAdmin without a tenant/permission
+        # gate (requirePermission/tenantDb/etc) — the bug shape behind nearly every
+        # cross-tenant IDOR fixed across this project. 72 baselined legacy routes
+        # are triaged separately; new ungated routes can't merge.
+        run: node scripts/audit-supabase-admin-gate.mjs
+
       - name: Lint
         # Blocking: `eslint src --quiet` is error-clean today (verified 2026-07-04),
         # so this catches any NEW eslint error. Warnings are suppressed by --quiet.
