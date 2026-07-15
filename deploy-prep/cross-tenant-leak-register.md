@@ -348,6 +348,46 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/clients/[id]/route.isolation.test.ts` (LOCK: foreign `tm-b` 404s, row's `preferred_team_member_id` stays unset; CONTROL: own-tenant `tm-a` succeeds and is stamped) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 297 files / 1283 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, the new foreign-id test failed RED (200 instead of 404, id written); restored, GREEN. |
 
+### P24 — `admin/comhub/threads/[id]` PATCH → cross-tenant `assignee_id` FK injection
+
+| | |
+|---|---|
+| **Route / op** | `PATCH /api/admin/comhub/threads/[id]` (admin-authed, `requireAdmin()` + `getCurrentTenantId()`) |
+| **Table** | `comhub_threads` — `assignee_id UUID REFERENCES tenant_members(id)` (migrations/2026_05_19_comhub.sql), no ownership check |
+| **Attack vector** | The thread row update itself is tenant-scoped (`.eq('id', id).eq('tenant_id', tenantId)`), but `body.assignee_id` was written verbatim with no check that the `tenant_members` row it references belongs to the acting tenant — same dangling-FK class as P7/P15/P19/P21/P23. |
+| **Effect** | No live read currently embeds `tenant_members` off `assignee_id` (both `GET /api/admin/comhub/threads` and `GET /api/admin/comhub/threads/[id]` return it as a bare UUID; grepped every other call site — none), so today this is a dangling cross-tenant reference, not active read-exfil. Recorded and closed per this register's standing policy (P19/P23) that any FK column missing its sibling's ownership check gets fixed regardless of a currently-live read path, since a future assignee-name embed would silently inherit the gap. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of `admin/comhub/*` routes adjacent to the already-fixed P22 voice-hijack finding, 2026-07-15, W2) |
+| **Fix** | `assignee_id`, when truthy, is now verified tenant-owned (`supabaseAdmin.from('tenant_members').select('id').eq('id', ...).eq('tenant_id', tenantId).maybeSingle()`) before the update runs; 400 on miss. `null` (unassign) is always allowed without a lookup. |
+| **Regression lock** | `src/app/api/admin/comhub/threads/[id]/route.witness.test.ts` (LOCK: foreign `mem-b` 400s, row's `assignee_id` stays null; CONTROL: own-tenant `mem-a` succeeds and is stamped, `null` still clears, field-only update with no `assignee_id` still passes) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 298 files / 1287 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, the new foreign-id test failed RED (200 instead of 400, id written); restored, GREEN. |
+
+### P25 — Yinez/Selena owner AI tools → cross-tenant `cleaner_id`/`client_id` FK injection via `assign_cleaner_to_booking` / `create_manual_booking` / `block_cleaner_dates`  ⚠️ **DATA EXFIL**
+
+| | |
+|---|---|
+| **Route / op** | `src/lib/selena/tools.ts` — `runTool()` dispatch for the owner-facing Yinez/Selena AI assistant tools (invoked from `/api/admin/selena`, `/api/selena`, `/api/admin/comhub/yinez/send`, and the SMS/Telegram owner channel). Distinct attack surface from every prior finding: the caller-supplied id isn't a raw HTTP body field, it's a tool-call argument the model fills in from conversation — same "action-authorization" shape as P22 (Telnyx voice hijack), not the FK-injection-via-POST-body shape of P1-P21/P23/P24. |
+| **Table(s)** | `bookings.cleaner_id`, `bookings.suggested_cleaner_id`, `bookings.client_id` (via `create_manual_booking`), `cleaner_blocks.cleaner_id` — none had an ownership check before this fix. |
+| **Attack vector** | `handleAssignCleaner` updated `bookings.cleaner_id = input.cleaner_id` scoped only by the booking's own `tenant_id` — the `cleaner_id` FK itself was never verified tenant-owned. `handleCreateManualBooking` inserted `client_id: input.client_id` and `suggested_cleaner_id: input.cleaner_id` the same way. `handleBlockCleanerDates` inserted `cleaner_blocks.cleaner_id = input.cleaner_id` unverified. |
+| **Effect** | **Read-exfil, not just dangling-FK:** `handleListBookings` (the `list_bookings` tool) selects `bookings.*, clients(name), cleaners(name, id)` — a Postgrest embed keyed off `client_id`/`cleaner_id`. So if tenant A's Yinez assigns booking to tenant B's `cleaner_id`, or creates a booking against tenant B's `client_id`, the very next `list_bookings` call for tenant A returns tenant B's cleaner/client **name** in the embed. `handleGetSmartSuggestion` also embeds `cleaners(name)` off the same FK. `cleaner_blocks.cleaner_id` has no live embed today (dangling-FK only, same lower-severity class as P7/P19/P21/P23/P24) but is closed under the same standing policy. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of the AI-agent tool-call surface — a fresh area distinct from every prior HTTP-route sweep in this register — 2026-07-15, W2) |
+| **Fix** | `handleAssignCleaner` and `handleBlockCleanerDates` now verify `input.cleaner_id` is tenant-owned (`cleaners` lookup `.eq('id',...).eq('tenant_id', tid)`) before writing it; error returned on miss, no write. `handleCreateManualBooking` verifies both `input.client_id` (`clients` lookup) and, when supplied, `input.cleaner_id`, before the insert. |
+| **Regression lock** | `src/lib/selena/tools.cleaner-fk.witness.test.ts` (7 tests: 4 LOCK — foreign cleaner_id/client_id rejected before any write/insert across all 3 tools; 3 CONTROL — own-tenant ids still succeed and are stamped correctly) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 299 files / 1294 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, all 4 new foreign-id LOCK tests failed RED (`ok:true` / row written instead of the `error` response); restored, GREEN. |
+| **Rank rationale** | First finding in this register on the AI-tool-call surface rather than an HTTP route body — same class of risk (unverified caller-supplied FK) reached through a different channel. Ranked with the data-exfil group since the `cleaner_id`/`client_id` paths have a live embed read, unlike the pure-dangling-FK findings. |
+
+### P26 — `notifications` POST (`15min_warning`) → cross-tenant `booking_id` FK injection — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/notifications` (`type: '15min_warning'`, converted to `tenantDb`) — team-dashboard-triggered 15-minute-remaining heads-up |
+| **Table** | `notifications` (FK `booking_id`) |
+| **Attack vector** | `booking_id` was caller-supplied and inserted into `notifications` **verbatim**, unconditionally, before any ownership check ran. A second `db.from('bookings').select(...).eq('id', booking_id).single()` existed further down but only gated the follow-up client SMS branch — a foreign id there just silently no-opped that branch (tenantDb's implicit `.eq('tenant_id', …)` filtered it out), it never blocked the notification row from being written first. |
+| **Effect** | No live read currently embeds `bookings` off `notifications` (grepped every `select('*'…)`/embed site: `GET /api/notifications`, `GET /api/team-portal/notifications`, `GET /api/admin/notifications` all read bare columns, no join) — so today this is a dangling cross-tenant reference, not active read-exfil. Recorded and closed under this register's standing policy (P19/P23/P24) that any FK column missing its sibling's ownership check gets fixed regardless of a currently-live read path, since a future notifications↔bookings embed would silently inherit the gap. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of the `notifications` table's write sites — a fresh area, not previously in this register — 2026-07-15, W2) |
+| **Fix** | `booking_id`, when supplied, is now verified tenant-owned (`tenantDb`-scoped `bookings` lookup) **before** the `notifications` insert runs; a miss 400s and no row is written. The booking row fetched for the ownership check is reused for the existing SMS branch instead of re-fetching. |
+| **Regression lock** | `src/app/api/notifications/route.witness.test.ts` (LOCK: foreign-tenant and nonexistent booking_id both 400, no notification row, no SMS sent; CONTROL: own-tenant booking_id creates the notification and sends the SMS, omitted booking_id still creates the notification with no SMS) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 300 files / 1298 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, both new foreign/nonexistent-id LOCK tests failed RED (200 instead of 400); restored, GREEN. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -457,7 +497,22 @@ live leaks. This section is a **negative result, not a to-do list**.
    credential finding in this register, distinct from the FK-injection
    shape of P1-P21) → P23 clients PUT [id] preferred_team_member_id
    (✅ fixed, 2026-07-15, W2, found sweeping `clients/*` routes — same
-   admin-twin-missing-a-client-portal-guard asymmetry as P9/P10/P21).**
+   admin-twin-missing-a-client-portal-guard asymmetry as P9/P10/P21) → P24
+   admin/comhub/threads/[id] PATCH assignee_id (✅ fixed, 2026-07-15, W2,
+   found in a broad-hunt sweep of `admin/comhub/*` routes adjacent to the
+   already-fixed P22 voice-hijack finding — same dangling-FK class as
+   P7/P15/P19/P21/P23, closed as defense-in-depth with no live read-exfil
+   found today) → P25 Yinez/Selena owner AI tools (assign_cleaner_to_booking /
+   create_manual_booking / block_cleaner_dates) cross-tenant cleaner_id/
+   client_id FK injection (✅ fixed, 2026-07-15, W2, found in a broad-hunt
+   sweep of the AI-agent tool-call surface in `src/lib/selena/tools.ts` — a
+   fresh area distinct from every prior HTTP-route sweep; live read-exfil via
+   list_bookings' clients(name)/cleaners(name,id) embeds, same severity class
+   as P1/P11) → P26 notifications POST (15min_warning) booking_id
+   (✅ fixed, 2026-07-15, W2, found in a broad-hunt sweep of the
+   `notifications` table's write sites — a fresh area — closed as
+   defense-in-depth, same dangling-FK class as P7/P15/P19/P21/P23/P24, no
+   live read-exfil found today).**
    All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
