@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin } from '@/lib/admin-pin'
 import { sendLoginAlert } from '@/lib/login-alert'
+import { safeEqual } from '@/lib/secret-compare'
 import crypto from 'crypto'
 
 const ADMIN_PIN = process.env.ADMIN_PIN || ''
@@ -118,7 +119,7 @@ export async function POST(request: Request) {
   }
 
   // 1) Global super-admin PIN — god-mode, works on any host (Jeff). Unchanged.
-  if (ADMIN_PIN && pin === ADMIN_PIN) {
+  if (ADMIN_PIN && safeEqual(pin, ADMIN_PIN)) {
     const res = NextResponse.json({ success: true, role: 'super_admin' })
     setAdminCookie(res, createAdminToken())
     await sendLoginAlert({ ip, ua, who: 'Super Admin (platform)' })

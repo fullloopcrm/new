@@ -97,6 +97,16 @@ const CASES: Array<{ file: string; vulnerable: RegExp }> = [
     file: 'src/lib/nycmaid/auth.ts',
     vulnerable: /authHeader\s*===\s*`Bearer \$\{cronSecret\}`/,
   },
+  // Fifth batch: /api/admin-auth (global super-admin PIN gate, distinct from
+  // /api/auth/login) — missed by the original queue-c sweep. `pin ===
+  // ADMIN_PIN` leaked the platform god-mode PIN one byte at a time via
+  // response timing; the route's own HMAC token verifies (verifyAdminToken/
+  // verifyTenantAdminToken) already used crypto.timingSafeEqual, only the
+  // raw PIN compare was left unguarded.
+  {
+    file: 'src/app/api/admin-auth/route.ts',
+    vulnerable: /pin\s*===\s*ADMIN_PIN/,
+  },
 ]
 
 describe('constant-time secret compare invariant (queue-c)', () => {
