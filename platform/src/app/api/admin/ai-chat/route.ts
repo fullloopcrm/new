@@ -12,6 +12,7 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { buildIlikeOrFilter } from '@/lib/postgrest-or-filter'
+import { pick } from '@/lib/validate'
 
 // Tools that mutate data require the same permission the equivalent direct
 // API route enforces (e.g. /api/bookings/[id] PUT requires bookings.edit) —
@@ -228,8 +229,29 @@ async function executeTool(
 
     case 'update_bookings': {
       const ids = (input.booking_ids as string[]) || []
-      const updates = (input.updates as Record<string, unknown>) || {}
+      // Allowlist to exactly the fields this tool declares in its schema --
+      // the model's tool-call arguments are not schema-enforced by the
+      // Anthropic API, so passing input.updates straight to .update() would
+      // let a manipulated/prompt-injected model set arbitrary columns (e.g.
+      // tenant_id) on a row this tenant is otherwise correctly scoped to.
+      const updates = pick(input.updates, ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status', 'payment_method'])
       const confirmed = input.confirmed as boolean
+
+      // Same FK-injection class as bookings/[id] PUT (51b4bb02) and
+      // ai/assistant's update_bookings: this handler updates via
+      // supabaseAdmin (service role) scoped only by the booking's own
+      // tenant_id, so a model-supplied team_member_id pointing at another
+      // tenant's team member would still be accepted and joined into
+      // downstream reads/notifications. Confirm it belongs to this tenant first.
+      if (updates.team_member_id) {
+        const { data: memberRow } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('id', updates.team_member_id as string)
+          .eq('tenant_id', tenantId)
+          .single()
+        if (!memberRow) return JSON.stringify({ error: 'Team member not found' })
+      }
 
       if (!confirmed) {
         return JSON.stringify({
@@ -316,9 +338,12 @@ async function executeTool(
     }
 
     case 'update_client': {
+      // Allowlist to exactly the fields this tool declares in its schema --
+      // see update_bookings above for why input.updates can't be trusted verbatim.
+      const updates = pick(input.updates, ['name', 'email', 'phone', 'address', 'notes', 'status', 'do_not_service'])
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(updates)
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       return JSON.stringify(error ? { error: error.message } : { success: true })
