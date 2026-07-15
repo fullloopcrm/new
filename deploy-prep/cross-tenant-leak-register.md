@@ -942,6 +942,39 @@ live leaks. This section is a **negative result, not a to-do list**.
    deploy/DB. Did not touch referrers/referral-commissions/team-PIN routes
    or `GET /api/team`, `GET /api/team/[id]`, `GET /api/dashboard`.
 
+   **P43 (2026-07-15, W2):** `update_bookings`/`update_client` in
+   `src/app/api/ai/assistant/route.ts` (the client-widget AI tool-call
+   dispatch, distinct from `src/lib/selena/tools.ts` and `admin/ai-chat`)
+   spread a model-supplied `updates` object verbatim into `.update()` with
+   no column allow-list — the exact P7/P8 mass-assignment shape, just never
+   applied to this AI tool-call surface. `update_bookings` already had a
+   `team_member_id` ownership check (an earlier P1/P11/P25/P30-class fix,
+   already regression-locked), but nothing stopped `updates.tenant_id` from
+   donating the booking to another tenant, since the `.eq('tenant_id', …)`
+   WHERE clause only scopes which ROW is written, not which COLUMNS the
+   model-supplied object can set. `update_client` had zero guard of any kind
+   on its `updates` object. Found continuing the broad-hunt into a fresh
+   area (the `ai/assistant` route had never been swept for the mass-
+   assignment class, only the FK-ownership class) and cross-checking against
+   `src/lib/selena/tools.ts`'s `handleUpdateBooking`, which already
+   allow-lists mutable fields with a comment explaining exactly this risk.
+   Fixed: both tools now allow-list mutable columns matching their own
+   documented tool schema (`update_bookings`: `team_member_id`, `status`,
+   `price`, `notes`, `start_time`, `end_time`, `payment_status`;
+   `update_client`: `name`, `email`, `phone`, `address`, `notes`, `active`)
+   before the update runs; the existing `team_member_id` ownership check now
+   runs against the allow-listed value. Regression lock: added 3 tests to
+   the existing `src/app/api/ai/assistant/route.witness.test.ts` (2 LOCKED —
+   a `tenant_id` key in `updates` never overwrites the row's own tenant_id
+   on either tool, allowed fields still apply; 1 CONTROL — an undocumented
+   column in `update_client`'s `updates` is silently dropped, documented
+   fields still apply). Mutation-verified via cp-based backup/restore:
+   reverted the fix, all 3 new tests failed RED (`tenant_id` donated to
+   tenant B, undocumented column written); restored, GREEN. `npx tsc
+   --noEmit` clean; full `vitest run` 319 files / 1411 passed / 37 skipped /
+   0 failed. Commit `7efca465`. File-only, no push/deploy/DB. Did not touch
+   referrers/referral-commissions routes.
+
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
    finance FK class turned up three more live instances of the exact P7 pattern
