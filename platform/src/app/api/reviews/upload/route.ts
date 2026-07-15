@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import crypto from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
 const VIDEO_TYPES = ['video/mp4', 'video/quicktime', 'video/webm']
@@ -19,6 +20,15 @@ export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) {
     return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
+  }
+
+  // Unauthenticated + no rate limit == an anonymous caller could loop this
+  // to write unlimited 100MB video objects into the shared `uploads` bucket,
+  // burning storage cost/quota against this (or any) tenant. Cap per IP.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`reviews-upload:${ip}`, 20, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many uploads. Try again later.' }, { status: 429 })
   }
 
   try {

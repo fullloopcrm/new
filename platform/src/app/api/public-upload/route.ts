@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Public, tenant-aware file upload for marketing-site forms (e.g. a photo of
 // the vehicle on a roadside booking form). Tenant is resolved from the signed
@@ -22,6 +23,15 @@ export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) {
     return NextResponse.json({ success: false, error: 'Tenant not found for this host' }, { status: 404 })
+  }
+
+  // Unauthenticated + no rate limit == an anonymous caller could loop this
+  // to write unlimited 25MB objects into the shared `uploads` bucket,
+  // burning storage cost/quota against this (or any) tenant. Cap per IP.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`public-upload:${ip}`, 20, 60 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ success: false, error: 'Too many uploads. Try again later.' }, { status: 429 })
   }
 
   const formData = await request.formData()
