@@ -54,27 +54,40 @@ export async function POST(req: NextRequest) {
   }
   const action = body.action as Action
 
-  let customerCallId = body.customer_call_id || ''
+  // customer_call_id is a caller-supplied Telnyx call_control_id. Tenants
+  // without their own Telnyx account share the platform's TELNYX_API_KEY
+  // (comhub-voice-config.ts), so call_control_ids for DIFFERENT tenants can
+  // live in the SAME Telnyx account — an admin of tenant A supplying tenant
+  // B's customer_call_id would otherwise let telnyxAction() below execute
+  // hold/mute/hangup/transfer/speak/dtmf against tenant B's live customer
+  // call using tenant A's (or the shared) API key. The previous code only
+  // used this tenant-scoped lookup to *optionally* fill activeCallRowId for
+  // the DB update — it never gated whether the Telnyx action ran. Now the
+  // Telnyx call id is ONLY ever taken from a row that already matched this
+  // tenant; a miss 404s instead of falling through to the shared-account
+  // Telnyx call.
+  let customerCallId = ''
   let activeCallRowId: string | null = null
-  if (!customerCallId && body.active_call_id) {
+  if (body.active_call_id) {
     const { data } = await supabaseAdmin
       .from('comhub_active_calls')
       .select('id, customer_call_id')
       .eq('id', body.active_call_id)
       .eq('tenant_id', tenantId)
       .single()
-    if (data) {
-      customerCallId = data.customer_call_id
-      activeCallRowId = data.id
-    }
-  } else if (customerCallId) {
+    if (!data) return NextResponse.json({ error: 'Active call not found' }, { status: 404 })
+    customerCallId = data.customer_call_id
+    activeCallRowId = data.id
+  } else if (body.customer_call_id) {
     const { data } = await supabaseAdmin
       .from('comhub_active_calls')
-      .select('id')
-      .eq('customer_call_id', customerCallId)
+      .select('id, customer_call_id')
+      .eq('customer_call_id', body.customer_call_id)
       .eq('tenant_id', tenantId)
       .single()
-    activeCallRowId = data?.id ?? null
+    if (!data) return NextResponse.json({ error: 'Active call not found' }, { status: 404 })
+    customerCallId = data.customer_call_id
+    activeCallRowId = data.id
   }
 
   if (!customerCallId) {

@@ -321,6 +321,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 296 files / 1277 passed / 37 skipped / 0 failed |
 | **Rank rationale** | Same class and severity as P15 — placed after P20 since found in a later sweep specifically checking whether P15's guard was applied consistently across every route that writes `reviews.booking_id`. |
 
+### P22 — `admin/comhub/voice/control` POST → cross-tenant Telnyx call hijack via `customer_call_id`  ⚠️ **LIVE-ACTION HIJACK** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/admin/comhub/voice/control` — admin-authed mid-call controls (hold/unhold/mute/unmute/hangup/transfer_blind/transfer_warm/speak/dtmf) on an in-progress Telnyx call |
+| **Table** | `comhub_active_calls` (no write leak — this is an **action-authorization** bypass, not a data insert/read) |
+| **Attack vector** | Not the usual FK-injection shape — this is a new class for the register. Tenants without their own Telnyx account share the platform's `TELNYX_API_KEY` (`src/lib/comhub-voice-config.ts`: "tenants without their own config keep using the shared platform account"), so Telnyx `call_control_id`s for **different tenants can exist in the same Telnyx account**. The route accepts a caller-supplied `customer_call_id` directly and used it unconditionally to call `telnyxAction(cfg.apiKey, customerCallId, …)`; the tenant-scoped `comhub_active_calls` lookup only *optionally* populated `activeCallRowId` for a later DB bookkeeping update — a lookup miss (foreign tenant's call) did **not** block the Telnyx action from firing. |
+| **Effect** | An authenticated admin of tenant A supplying tenant B's live `customer_call_id` (e.g. `{customer_call_id: 'ccid-b-live', action: 'hangup'}`) could hold, mute, hang up, blind/warm-transfer to an attacker-controlled number, speak arbitrary TTS into, or send DTMF into tenant B's live customer phone call — using the shared platform Telnyx key, with **zero server-side ownership check** on the call id itself. Real-time hijack of another business's live customer call, not a data leak. |
+| **Verdict** | **FIXED** (was proven-LIVE — mutation-verified: reverting the fix makes the cross-tenant probe return 200 and fire the Telnyx `fetch`; found in a broad-hunt sweep of ComHub voice routes, 2026-07-14, W2) |
+| **Fix** | `customerCallId` is now *only* ever taken from a `comhub_active_calls` row that already matched `.eq('tenant_id', tenantId)` (both the `active_call_id` and `customer_call_id` input paths) — a miss 404s before `telnyxAction()`/`fetch` runs, instead of falling through to the shared-account Telnyx call. Legitimate calls are unaffected: the webhook (`webhooks/telnyx-voice`) inserts the `comhub_active_calls` row, tenant-stamped from the verified Telnyx event payload, before the admin UI can act on a live call. |
+| **Regression lock** | `src/app/api/admin/comhub/voice/control/route.witness.test.ts` (foreign-tenant `customer_call_id` 404s + fetch never called; foreign-tenant `active_call_id` 404s + fetch never called; CONTROL: caller-tenant `customer_call_id` succeeds + correct Telnyx URL; CONTROL: caller-tenant `active_call_id` succeeds) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 297 files / 1281 passed / 37 skipped / 0 failed |
+| **Rank rationale** | New class for this register (action-authorization bypass via a shared-credential fallback, not FK-injection) — ranked with the exfil-tier entries because the blast radius (real-time control of a live customer call: hangup, TTS injection, transfer) is at least as severe as a data leak, even though exploitation requires knowing/guessing another tenant's in-flight `call_control_id`. Worth flagging for Q3: any other route that resolves a caller-supplied *external* id (Telnyx, Stripe, etc.) against a **shared** platform credential should get the same "ownership lookup gates execution, not just bookkeeping" audit — `comhub/voice/dial` was checked in the same pass and is NOT vulnerable (it only ever *creates* new calls scoped to the resolved tenant/contact, never accepts an external call id to act on). |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -423,8 +437,12 @@ live leaks. This section is a **negative result, not a to-do list**.
    prefill — a regression/incompleteness in P1's original fix) → P21
    reviews/request POST booking_id (✅ fixed, 2026-07-14, W2, found checking
    whether P15's guard was applied consistently across every route that
-   writes reviews.booking_id — it wasn't, on the admin-side twin).** All
-   items in this register are now closed.
+   writes reviews.booking_id — it wasn't, on the admin-side twin) → P22
+   admin/comhub/voice/control cross-tenant Telnyx call hijack via
+   customer_call_id (✅ fixed, 2026-07-14, W2, found in a broad-hunt sweep of
+   ComHub voice routes — the first action-authorization-bypass-via-shared-
+   credential finding in this register, distinct from the FK-injection
+   shape of P1-P21).** All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
