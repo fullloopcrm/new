@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
@@ -7,8 +7,11 @@ import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('team.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
 
     const { data, error } = await supabaseAdmin
       .from('team_members')
