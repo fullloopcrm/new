@@ -163,6 +163,29 @@ describe('admin-auth — rate limit fails closed on DB outage', () => {
   })
 })
 
+describe('admin-auth — super-admin PIN comparison', () => {
+  // The global ADMIN_PIN gates god-mode access to every tenant, so it must use
+  // the same constant-time-compare convention as CRON_SECRET (de510a4e) rather
+  // than a naive === that leaks the PIN byte-by-byte via timing.
+  it('rejects a same-length wrong PIN', async () => {
+    countResult = { count: 0, error: null }
+
+    const { POST } = await import('./route')
+    const res = await POST(req({ pin: 'super-secret-piX' })) // same length as 'super-secret-pin'
+
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a wrong-length PIN without throwing', async () => {
+    countResult = { count: 0, error: null }
+
+    const { POST } = await import('./route')
+    const res = await POST(req({ pin: 'x' }))
+
+    expect(res.status).toBe(401)
+  })
+})
+
 describe('admin-auth — tenant-admin PIN is scoped to the signed tenant, not global', () => {
   it('wrong-tenant probe: a PIN valid for tenant B is rejected when the signed request resolves to tenant A', async () => {
     const { hashAdminPin } = await import('@/lib/admin-pin')
