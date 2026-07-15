@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
+import { escapeHtml } from '@/lib/escape-html'
 
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
@@ -61,12 +62,12 @@ export async function POST(request: Request) {
       subject: `[FL] New Lead: ${business_name}`,
       html: `
         <h2>New Lead Request</h2>
-        <p><strong>Name:</strong> ${name}</p>
-        <p><strong>Email:</strong> ${email}</p>
-        <p><strong>Phone:</strong> ${phone || 'Not provided'}</p>
-        <p><strong>Business:</strong> ${business_name}</p>
-        <p><strong>Industry:</strong> ${industry || 'Not specified'}</p>
-        ${message ? `<p><strong>Message:</strong> ${message}</p>` : ''}
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${escapeHtml(email)}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(phone) || 'Not provided'}</p>
+        <p><strong>Business:</strong> ${escapeHtml(business_name)}</p>
+        <p><strong>Industry:</strong> ${escapeHtml(industry) || 'Not specified'}</p>
+        ${message ? `<p><strong>Message:</strong> ${escapeHtml(message)}</p>` : ''}
         <br>
         <p><a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/admin">View in Admin</a></p>
       `,
