@@ -5,6 +5,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -29,7 +30,35 @@ export async function POST(req: NextRequest) {
     }
     const tenantId = headerTenantId
 
+    // Unauthenticated + no rate limit == a scripted caller could loop this to
+    // run up real Anthropic API spend and flood sms_conversation_messages.
+    // Cap per tenant+IP; generous enough for a real back-and-forth chat.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`chat:${tenantId}:${ip}`, 20, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     let conversationId = sessionId
+
+    // A client-supplied sessionId must belong to THIS tenant's conversation.
+    // Without this check, a visitor to tenantId's own site could pass any
+    // other tenant's sms_conversations.id and the reused conversation would
+    // run end-to-end as that foreign tenant: askYinez re-derives its entire
+    // tenant context (Anthropic key, business config, client PII, message
+    // history) purely from the conversation row's tenant_id, and the legacy
+    // askSelena path reads/writes booking_checklist by conversationId alone
+    // with no tenant filter. Same pattern as the /api/admin-chat and
+    // /api/yinez fixes.
+    if (conversationId) {
+      const { data: owned } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', conversationId)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!owned) conversationId = undefined
+    }
 
     // Create conversation if new session
     if (!conversationId) {

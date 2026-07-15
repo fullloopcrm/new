@@ -1,22 +1,26 @@
 /**
  * Per-tenant service area (local/national + states + zones).
- * GET  → resolved ServiceArea for the current tenant (no secrets).
+ * GET  → resolved ServiceArea for the current tenant (no secrets), gated on
+ *        settings.view to match PUT's settings.edit and respect the tenant's
+ *        own RBAC customization (e.g. a revoked staff override).
  * PUT  → persist a new ServiceArea into tenants.selena_config.
- * Used by the team-page coverage map, onboarding, and Settings.
+ * Used by the operator dashboard's team page + Settings (not public).
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getServiceArea, parseServiceArea, withServiceArea } from '@/lib/service-area'
 
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+
     const { data } = await supabaseAdmin
       .from('tenants')
       .select('selena_config')
-      .eq('id', tenant.id)
+      .eq('id', tenant.tenantId)
       .single()
     return NextResponse.json({ serviceArea: getServiceArea(data?.selena_config) })
   } catch (e) {

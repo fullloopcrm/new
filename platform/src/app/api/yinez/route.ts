@@ -4,6 +4,8 @@ import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
+import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -14,7 +16,50 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
+    // x-tenant-id is only trustworthy WITH its middleware-minted x-tenant-sig
+    // companion — verify it the SAME way /api/chat + /api/errors do. This
+    // route is public and unauthenticated (isPublicRoute skips Clerk on the
+    // main host), so a raw forged x-tenant-id would otherwise select any
+    // tenant and leak that tenant's client name via the phone lookup below.
+    // An unsigned/forged value is dropped to undefined.
+    const hdrTenantId = req.headers.get('x-tenant-id')
+    const tenantSig = req.headers.get('x-tenant-sig')
+    const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
+      ? hdrTenantId
+      : undefined
+
+    // Unauthenticated, invokes the Anthropic API per message — a scripted
+    // caller could loop this to run up real API spend and flood
+    // sms_conversation_messages. Cap per tenant(+"unverified" if unsigned)+IP.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`yinez:${reqTenantId || 'unverified'}:${ip}`, 20, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     let conversationId = sessionId
+
+    // A client-supplied sessionId must belong to THIS tenant's conversation.
+    // Without this check, any caller could pass another tenant's
+    // sms_conversations.id: resolveTenantForConversation() in
+    // lib/selena/agent.ts derives the AI agent's entire tenant context — its
+    // Anthropic key, business config, client PII, message history — purely
+    // from the conversation row's tenant_id, not from the caller. This route
+    // is fully unauthenticated, so an unverified sessionId reuse would let
+    // anyone hijack any tenant's conversation end-to-end. If we have no
+    // verified tenant context at all, we cannot prove ownership either, so
+    // reuse is rejected and a fresh conversation is created instead.
+    if (conversationId) {
+      const owned = reqTenantId
+        ? (await supabaseAdmin
+            .from('sms_conversations')
+            .select('id')
+            .eq('id', conversationId)
+            .eq('tenant_id', reqTenantId)
+            .maybeSingle()).data
+        : null
+      if (!owned) conversationId = undefined
+    }
 
     // Create conversation if new session
     if (!conversationId) {
@@ -24,14 +69,8 @@ export async function POST(req: NextRequest) {
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
-      // If returning client, try to link to existing client record
-      // TENANT WALL: scope the returning-client lookup to THIS tenant
-      // (x-tenant-id is set + signed by middleware from the domain). Without it,
-      // a phone could match another tenant's client and leak their name here.
+      // If returning client, try to link to existing client record.
       // No tenant context → skip linking rather than search globally.
-      const reqTenantId = req.headers.get('x-tenant-id')
-      // tenant-scope guard (added by the security work) rejects tenant-less inserts —
-      // scope the conversation to this tenant from the signed header.
       if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
         const digits = phone.replace(/\D/g, '').slice(-10)
