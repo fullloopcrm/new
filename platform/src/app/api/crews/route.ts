@@ -3,14 +3,16 @@
  * Assignable to a job session/booking so a whole team schedules at once.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('team.view')
+    if (authError) return authError
+    const { tenantId } = tenant
     const { data: crews, error } = await tenantDb(tenantId)
       .from('crews')
       .select('id, name, color, active, crew_members(team_member_id, team_members(id, name))')
