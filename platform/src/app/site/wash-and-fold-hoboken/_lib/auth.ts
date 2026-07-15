@@ -4,6 +4,7 @@ import { createHmac, randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/app/site/wash-and-fold-hoboken/_lib/supabase'
 import type { AdminRole } from '@/app/site/wash-and-fold-hoboken/_lib/roles'
 import { canAccessAPI } from '@/app/site/wash-and-fold-hoboken/_lib/roles'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 // Session token = random value signed with ADMIN_PASSWORD as secret
 // Can't be forged without knowing the password
@@ -41,7 +42,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [userId, token, timestamp, signature] = parts
     if (!userId || !token || !timestamp || !signature) return { valid: false }
     const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!safeEqual(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true, userId }
@@ -52,7 +53,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [token, timestamp, signature] = parts
     if (!token || !timestamp || !signature) return { valid: false }
     const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!safeEqual(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true } // Legacy session, no userId — treated as owner
@@ -62,7 +63,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (parts.length === 2) {
     const [token, signature] = parts
     if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
+    if (!safeEqual(signToken(token), signature)) return { valid: false }
     return { valid: true }
   }
 
@@ -196,7 +197,7 @@ export function verifyClientSession(cookie: string): string | null {
   const [clientId, timestamp, signature] = parts
   if (!clientId || !timestamp || !signature) return null
   const payload = `${clientId}.${timestamp}`
-  if (signToken(payload) !== signature) return null
+  if (!safeEqual(signToken(payload), signature)) return null
   // Sessions valid for 30 days
   const age = Date.now() - parseInt(timestamp)
   if (age > 30 * 24 * 60 * 60 * 1000) return null
@@ -236,7 +237,7 @@ export function protectCronAPI(request: Request): NextResponse | null {
   }
 
   // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
-  if (authHeader === `Bearer ${cronSecret}`) {
+  if (authHeader && safeEqual(authHeader, `Bearer ${cronSecret}`)) {
     return null
   }
 

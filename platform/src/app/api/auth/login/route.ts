@@ -6,6 +6,7 @@ import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeHtml } from '@/lib/escape-html'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function POST(request: Request) {
   try {
@@ -27,11 +28,11 @@ export async function POST(request: Request) {
     }
 
     // Deliberately NOT `|| ''` — an unconfigured ADMIN_PASSWORD must never
-    // resolve to an empty string here. `password === adminPassword` below
-    // would then grant a full owner session to a request that sends
+    // resolve to an empty string here. `safeEqual(password, adminPassword)`
+    // below would then grant a full owner session to a request that sends
     // `password: ""` (or omits it, since JSON destructuring makes it
-    // `undefined` and `undefined === ''` is false — but an explicit empty
-    // string in the body would match). Same fail-open shape as the
+    // `undefined` and the typeof guard below rejects that — but an explicit
+    // empty string in the body would match). Same fail-open shape as the
     // ADMIN_PASSWORD HMAC-secret fix in lib/nycmaid/auth.ts.
     const adminPassword = process.env.ADMIN_PASSWORD?.trim() || null
 
@@ -83,8 +84,10 @@ export async function POST(request: Request) {
 
     // Fallback: legacy PIN-based login. `adminPassword` is null (never '')
     // when unconfigured, so this can't be satisfied by an empty/omitted body
-    // password even if ADMIN_PASSWORD is unset.
-    if (adminPassword && password === adminPassword) {
+    // password even if ADMIN_PASSWORD is unset. Constant-time compare — a naive
+    // === leaks the password byte-by-byte via timing (same class already fixed
+    // for CRON_SECRET/ADMIN_PIN across cron/admin routes, de510a4e/413adc6f).
+    if (adminPassword && typeof password === 'string' && safeEqual(password, adminPassword)) {
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {

@@ -3,6 +3,7 @@ import { NextResponse } from 'next/server'
 import { createHmac, randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/app/site/the-nyc-interior-designer/_lib/supabase'
 import type { AdminRole } from '@/app/site/the-nyc-interior-designer/_lib/roles'
+import { safeEqual } from '@/lib/timing-safe-equal'
 
 function signToken(token: string): string {
   const secret = process.env.ADMIN_PASSWORD || ''
@@ -34,7 +35,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [userId, token, timestamp, signature] = parts
     if (!userId || !token || !timestamp || !signature) return { valid: false }
     const payload = `${userId}.${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!safeEqual(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true, userId }
@@ -44,7 +45,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
     const [token, timestamp, signature] = parts
     if (!token || !timestamp || !signature) return { valid: false }
     const payload = `${token}.${timestamp}`
-    if (signToken(payload) !== signature) return { valid: false }
+    if (!safeEqual(signToken(payload), signature)) return { valid: false }
     const created = parseInt(timestamp, 36)
     if (Date.now() - created > 24 * 60 * 60 * 1000) return { valid: false }
     return { valid: true }
@@ -53,7 +54,7 @@ export function verifySessionCookie(cookie: string): { valid: boolean; userId?: 
   if (parts.length === 2) {
     const [token, signature] = parts
     if (!token || !signature) return { valid: false }
-    if (signToken(token) !== signature) return { valid: false }
+    if (!safeEqual(signToken(token), signature)) return { valid: false }
     return { valid: true }
   }
 
@@ -154,7 +155,7 @@ export function protectCronAPI(request: Request): NextResponse | null {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   }
 
-  if (authHeader === `Bearer ${cronSecret}`) {
+  if (authHeader && safeEqual(authHeader, `Bearer ${cronSecret}`)) {
     return null
   }
 
