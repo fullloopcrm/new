@@ -10,7 +10,7 @@
  *   4. Inserts into payments + updates booking; if no match, opens unmatched_payments
  *   5. Marks the email as read so we don't double-process
  *
- * POST is the trigger entry. Auth: ?key=ELCHAPO_MONITOR_KEY OR cron Bearer.
+ * POST is the trigger entry. Auth: cron Bearer OR ELCHAPO_MONITOR_KEY in the JSON body.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -36,9 +36,8 @@ interface TenantRow {
 async function authorize(req: NextRequest): Promise<boolean> {
   const auth = req.headers.get('authorization')
   if (safeEqual(auth, process.env.CRON_SECRET ? `Bearer ${process.env.CRON_SECRET}` : undefined)) return true
-  const url = req.nextUrl
-  const key = url.searchParams.get('key')
-  if (safeEqual(key, process.env.ELCHAPO_MONITOR_KEY)) return true
+  // Header/body only -- a URL query-param key leaks into access/proxy logs
+  // and browser history, unlike a header or a POST body.
   try {
     const body = await req.json()
     if (safeEqual(body?.key, process.env.ELCHAPO_MONITOR_KEY)) return true
