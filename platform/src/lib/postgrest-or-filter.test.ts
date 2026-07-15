@@ -188,6 +188,7 @@ const OTHER_FIXED_OR_ROUTES = [
   'webhooks/telnyx-voice/route.ts',
   'finance/bank-transactions/[id]/match/route.ts',
   'cron/recurring-expenses/route.ts',
+  'announcements/unread/route.ts',
 ] as const
 
 const ALL_FIXED_OR_ROUTES = [...TENANT_SCOPED_SEARCH_ROUTES, ...OTHER_FIXED_OR_ROUTES] as const
