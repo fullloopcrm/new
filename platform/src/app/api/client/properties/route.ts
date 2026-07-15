@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 import {
   listProperties,
   addProperty,
@@ -11,12 +13,17 @@ import {
 
 // Client-portal multi-address management. Ported from nycmaid; tenant scoping is
 // handled inside the lib (rows carry the client's tenant_id).
-// Auth: admins pass through; otherwise the caller must be the client (PIN cookie).
+// Auth: admins pass through; otherwise the caller must be the client (PIN cookie),
+// verified with the tenant-bound client-auth session (matches every sibling
+// /api/client/* route) — NOT the legacy nycmaid/auth client session, which is
+// signed with the platform-wide ADMIN_PASSWORD and carries no tenant binding.
 async function authClient(clientId: string | null | undefined): Promise<NextResponse | { isAdmin: boolean }> {
   if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
   const isAdmin = await isAdminAuthenticated()
   if (!isAdmin) {
-    const auth = await protectClientAPI(clientId)
+    const tenant = await getTenantFromHeaders()
+    if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    const auth = await protectClientAPI(tenant.id, clientId)
     if (auth instanceof NextResponse) return auth
   }
   return { isAdmin }

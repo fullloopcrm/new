@@ -30,8 +30,12 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 let currentClientId: string
-vi.mock('@/lib/nycmaid/auth', () => ({
+let currentTenantId: string
+vi.mock('@/lib/client-auth', () => ({
   protectClientAPI: async () => ({ clientId: currentClientId }),
+}))
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: async () => ({ id: currentTenantId }),
 }))
 
 import { supabaseAdmin } from '@/lib/supabase'
@@ -46,6 +50,7 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 beforeEach(() => {
   fake._store.clear()
   currentClientId = CLIENT_A
+  currentTenantId = A_ID
   fake._seed('clients', [
     { id: CLIENT_A, tenant_id: A_ID, phone: '+15550001', email: null, name: 'Client A' },
     { id: CLIENT_B, tenant_id: B_ID, phone: '+15550002', email: null, name: 'Client B' },

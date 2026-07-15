@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
-import { protectClientAPI } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 
 async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null }> {
   const { data: client } = await supabaseAdmin
@@ -46,7 +47,10 @@ async function getClientThreadId(clientId: string): Promise<{ tenantId: string |
 }
 
 export async function GET() {
-  const auth = await protectClientAPI()
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
   if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
   const { clientId } = auth
 
@@ -67,7 +71,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await protectClientAPI()
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
   if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
   const { clientId } = auth
 
