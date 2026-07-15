@@ -76,6 +76,22 @@ export async function POST(request: NextRequest) {
 
     let targetChannelId = channel_id
 
+    // A caller-supplied channel_id must belong to THIS team member's own
+    // tenant — otherwise a team member could inject a message (explicitly
+    // stamped with their own tenant_id below) under a foreign channel_id,
+    // which then surfaces in that channel's real owner's inbox
+    // (connect/messages GET reads connect_messages by channel_id alone,
+    // with no tenant_id filter).
+    if (targetChannelId) {
+      const { data: owned } = await supabaseAdmin
+        .from('connect_channels')
+        .select('id')
+        .eq('id', targetChannelId)
+        .eq('tenant_id', auth.tid)
+        .single()
+      if (!owned) targetChannelId = null
+    }
+
     // If no channel_id provided, use general channel
     if (!targetChannelId) {
       let { data: channel } = await supabaseAdmin

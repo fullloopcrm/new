@@ -91,6 +91,21 @@ export async function POST(request: NextRequest) {
 
     let targetChannelId = channel_id
 
+    // A caller-supplied channel_id must belong to THIS client's own channel —
+    // otherwise a client could inject a message (stamped with their own
+    // tenant_id via tenantDb) under a foreign channel_id, which then surfaces
+    // in that channel's real owner's inbox (connect/messages GET reads
+    // connect_messages by channel_id alone, with no tenant_id filter).
+    if (targetChannelId) {
+      const { data: owned } = (await db
+        .from('connect_channels')
+        .select('id')
+        .eq('id', targetChannelId)
+        .eq('client_id', auth.id)
+        .single()) as { data: { id: string } | null }
+      if (!owned) targetChannelId = null
+    }
+
     if (!targetChannelId) {
       let { data: channel } = (await db
         .from('connect_channels')
