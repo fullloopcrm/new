@@ -33,8 +33,11 @@ const h = vi.hoisted(() => {
       },
       ilike: () => builder,
       limit: () => builder,
+      gte: () => builder,
       // clients returning-client lookup terminates here
       single: () => Promise.resolve({ data: null, error: null }),
+      // rateLimitDb's count query (rate_limit_events) awaits the chain directly.
+      then: (resolve: (v: { count: number; error: null }) => unknown) => resolve({ count: 0, error: null }),
       insert: (payload: Record<string, unknown>) => {
         if (table === 'sms_conversations') captured.convoInsert = payload
         // Supports both shapes: `.insert(x)` awaited directly (messages) and

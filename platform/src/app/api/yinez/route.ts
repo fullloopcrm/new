@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -24,6 +25,14 @@ export async function POST(req: NextRequest) {
     const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
       ? hdrTenantId
       : undefined
+
+    // Same cost-abuse exposure as /api/chat: unauthenticated, invokes the
+    // Anthropic API per message. Cap per tenant(+"unknown" if unverified)+IP.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`yinez:${reqTenantId || 'unverified'}:${ip}`, 20, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     let conversationId = sessionId
 
