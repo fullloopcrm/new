@@ -255,6 +255,7 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
   const sipUsernameRef = useRef<string>('')
   const sessionIdRef = useRef<string>('')
   const credentialIdRef = useRef<string>('')
+  const credentialOwnerTokenRef = useRef<string>('')
   const heartbeatTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const callStartRef = useRef<number | null>(null)
   const durationTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -463,13 +464,15 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
           const detail = await res.json().catch(() => ({}))
           throw new Error(detail.detail || detail.error || `token endpoint ${res.status}`)
         }
-        const { login_token, sip_username, credential_id } = (await res.json()) as {
+        const { login_token, sip_username, credential_id, credential_owner_token } = (await res.json()) as {
           login_token: string
           sip_username: string
           credential_id: string
+          credential_owner_token: string
         }
         if (!login_token) throw new Error('no login_token in token response')
         credentialIdRef.current = credential_id
+        credentialOwnerTokenRef.current = credential_owner_token || ''
         sipUsernameRef.current = sip_username
 
         const sdk = (await import('@telnyx/webrtc')) as unknown as {
@@ -666,7 +669,10 @@ export default function Softphone({ initialDestination, onCallStateChange }: Sof
         void fetch('/api/admin/comhub/voice/token', {
           method: 'DELETE',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ credential_id: credentialIdRef.current }),
+          body: JSON.stringify({
+            credential_id: credentialIdRef.current,
+            credential_owner_token: credentialOwnerTokenRef.current,
+          }),
           keepalive: true,
         }).catch(() => null)
       }

@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
+import { signCredentialOwner, verifyCredentialOwner } from '@/lib/comhub-voice-credential-token'
 
 // POST /api/admin/comhub/voice/token { session_id? }
 // Per-session Telnyx telephony credential + short-lived JWT for the browser
@@ -92,6 +93,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({
     login_token: loginToken,
     credential_id: credentialId,
+    credential_owner_token: signCredentialOwner(credentialId, tenantId),
     sip_username: sipUsername,
     sip_password: sipPassword || undefined,
     sip_address: sipUsername ? `sip:${sipUsername}@sip.telnyx.com` : null,
@@ -102,7 +104,7 @@ export async function POST(req: NextRequest) {
   })
 }
 
-// DELETE /api/admin/comhub/voice/token { credential_id }
+// DELETE /api/admin/comhub/voice/token { credential_id, credential_owner_token }
 export async function DELETE(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -110,10 +112,19 @@ export async function DELETE(req: NextRequest) {
   const tenantId = await getCurrentTenantId()
   const cfg = await resolveTenantVoiceConfig(tenantId)
 
-  const body = (await req.json().catch(() => ({}))) as { credential_id?: string } | null
+  const body = (await req.json().catch(() => ({}))) as
+    { credential_id?: string; credential_owner_token?: string } | null
   const credentialId = body?.credential_id || ''
   if (!credentialId || credentialId === cfg.telephonyCredentialId) {
     return NextResponse.json({ ok: true, note: 'shared credential, not deleted' })
+  }
+  // Tenants without their own Telnyx account share the platform API key
+  // (resolveTenantVoiceConfig), so cfg.apiKey alone can't prove this tenant
+  // minted `credentialId` — an admin of ANY tenant on the shared key could
+  // otherwise kill another tenant's live softphone session by supplying its
+  // credential_id. Require the signed ownership token minted alongside it.
+  if (!verifyCredentialOwner(body?.credential_owner_token, credentialId, tenantId)) {
+    return NextResponse.json({ ok: true, note: 'not owned by this tenant, not deleted' })
   }
   if (!cfg.apiKey) return NextResponse.json({ ok: true })
   try {
