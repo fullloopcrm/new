@@ -12,7 +12,8 @@
  * Tenant + job scoped: the booking must belong to this tenant AND this job.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type RawSession } from '@/lib/jobs'
 
@@ -48,8 +49,11 @@ async function readShapedSession(sessionId: string) {
 }
 
 export async function PATCH(request: Request, { params }: Params) {
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id: jobId, sessionId } = await params
     const body = (await request.json().catch(() => ({}))) as {
       start_time?: string
@@ -180,8 +184,11 @@ export async function PATCH(request: Request, { params }: Params) {
 }
 
 export async function DELETE(_request: Request, { params }: Params) {
+  const { tenant, error: authError } = await requirePermission('bookings.delete')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id: jobId, sessionId } = await params
 
     const current = await loadOwnedSession(tenantId, jobId, sessionId)

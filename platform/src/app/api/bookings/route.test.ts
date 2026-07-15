@@ -188,13 +188,15 @@ beforeEach(() => {
 })
 
 describe('GET /api/bookings — permission + tenant isolation', () => {
-  it('propagates an AuthError from getTenantForRequest unchanged', async () => {
-    const { AuthError } = await import('@/lib/tenant-query')
-    h.getTenantForRequest.mockRejectedValueOnce(new AuthError('Unauthorized', 401))
+  it('returns the permission error unchanged and never lists bookings', async () => {
+    h.requirePermission.mockResolvedValueOnce({
+      tenant: null,
+      error: new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }),
+    })
 
     const res = await GET(getReq())
 
-    expect(res.status).toBe(401)
+    expect(res.status).toBe(403)
   })
 
   it("only ever returns the caller tenant's own bookings", async () => {
