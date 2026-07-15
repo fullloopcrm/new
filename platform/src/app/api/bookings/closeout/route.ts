@@ -1,11 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // GET — fetch jobs needing close-out + recently closed
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
 
     // Jobs needing close-out: completed/in_progress but not fully closed
     // "Fully closed" = payment_status is paid AND team_paid is true
