@@ -11,11 +11,14 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function POST(req: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('finance.payroll')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { unmatchedPaymentId, bookingId } = await req.json()
     if (!unmatchedPaymentId || !bookingId) {
       return NextResponse.json({ error: 'unmatchedPaymentId and bookingId required' }, { status: 400 })
