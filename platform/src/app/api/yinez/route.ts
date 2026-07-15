@@ -15,7 +15,35 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
 
+    // TENANT WALL: only trust x-tenant-id together with its middleware-minted
+    // x-tenant-sig companion — verify it the SAME way /api/chat + /api/errors
+    // do. Computed up front because it also gates conversation *reuse* below,
+    // not just creation.
+    const hdrTenantId = req.headers.get('x-tenant-id')
+    const tenantSig = req.headers.get('x-tenant-sig')
+    const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
+      ? hdrTenantId
+      : undefined
+
     let conversationId = sessionId
+
+    // A caller-supplied sessionId is otherwise trusted with zero ownership
+    // check: askSelena() resolves ALL downstream tool/data access purely from
+    // sms_conversations.tenant_id for this id (resolveTenantForConversation
+    // in lib/selena/agent.ts). Without this check, this fully-unauthenticated
+    // public widget endpoint would let anyone pass another tenant's
+    // conversation id and get Selena to load/act on THAT tenant's
+    // bookings/clients, plus write into their conversation transcript.
+    if (conversationId) {
+      const { data: existingConvo } = await supabaseAdmin
+        .from('sms_conversations')
+        .select('id, tenant_id')
+        .eq('id', conversationId)
+        .maybeSingle()
+      if (!existingConvo || (existingConvo.tenant_id || null) !== (reqTenantId || null)) {
+        conversationId = undefined
+      }
+    }
 
     // Create conversation if new session
     if (!conversationId) {
@@ -25,21 +53,11 @@ export async function POST(req: NextRequest) {
         booking_checklist: { ...EMPTY_CHECKLIST, channel: 'web', phone: phone || null },
       }
 
-      // If returning client, try to link to existing client record
-      // TENANT WALL: scope the returning-client lookup to THIS tenant.
-      // x-tenant-id is only trustworthy WITH its middleware-minted x-tenant-sig
-      // companion — verify it the SAME way /api/chat + /api/errors do. A raw
-      // forged x-tenant-id on a main-host request would otherwise select any
-      // tenant here (and leak that tenant's client name via the phone lookup).
-      // An unsigned/forged value is dropped to undefined, so the insert stays
-      // tenant-less and the tenant-scope guard rejects it rather than scoping
-      // the conversation to an attacker's target. No tenant context → skip
-      // linking rather than search globally.
-      const hdrTenantId = req.headers.get('x-tenant-id')
-      const tenantSig = req.headers.get('x-tenant-sig')
-      const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
-        ? hdrTenantId
-        : undefined
+      // If returning client, try to link to existing client record.
+      // An unsigned/forged tenant header is dropped to undefined, so the
+      // insert stays tenant-less and the tenant-scope guard rejects it rather
+      // than scoping the conversation to an attacker's target. No tenant
+      // context → skip linking rather than search globally.
       if (reqTenantId) insertData.tenant_id = reqTenantId
       if (phone && reqTenantId) {
         const digits = phone.replace(/\D/g, '').slice(-10)

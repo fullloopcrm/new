@@ -21,20 +21,33 @@ const h = vi.hoisted(() => {
   const captured = {
     clientLookups: [] as unknown[], // tenant_id values the clients table was filtered by
     convoInsert: null as Record<string, unknown> | null,
+    convoLookupIds: [] as string[], // ids the sms_conversations table was looked up by (reuse path)
   }
+  // Configurable per-test: what an existing-conversation-by-id lookup returns.
+  let existingConvo: { id: string; tenant_id: string | null } | null = null
 
   function makeBuilder(table: string) {
     const builder: Record<string, unknown> = {}
+    let lastIdEq: unknown = undefined
     Object.assign(builder, {
       select: () => builder,
       eq: (col: string, val: unknown) => {
         if (table === 'clients' && col === 'tenant_id') captured.clientLookups.push(val)
+        if (table === 'sms_conversations' && col === 'id') lastIdEq = val
         return builder
       },
       ilike: () => builder,
       limit: () => builder,
       // clients returning-client lookup terminates here
       single: () => Promise.resolve({ data: null, error: null }),
+      // sms_conversations reuse-check lookup terminates here
+      maybeSingle: () => {
+        if (table === 'sms_conversations' && lastIdEq !== undefined) {
+          captured.convoLookupIds.push(lastIdEq as string)
+          return Promise.resolve({ data: existingConvo, error: null })
+        }
+        return Promise.resolve({ data: null, error: null })
+      },
       insert: (payload: Record<string, unknown>) => {
         if (table === 'sms_conversations') captured.convoInsert = payload
         // Supports both shapes: `.insert(x)` awaited directly (messages) and
@@ -52,13 +65,18 @@ const h = vi.hoisted(() => {
   }
 
   const supabaseAdmin = { from: (table: string) => makeBuilder(table) }
-  return { captured, supabaseAdmin }
+  return {
+    captured,
+    supabaseAdmin,
+    setExistingConvo: (v: { id: string; tenant_id: string | null } | null) => { existingConvo = v },
+  }
 })
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: h.supabaseAdmin }))
 vi.mock('@/lib/selena/core', () => ({ EMPTY_CHECKLIST: {} }))
 vi.mock('@/lib/selena/agent', () => ({
-  askSelena: vi.fn(async () => ({ text: 'hello from yinez', bookingCreated: false })),
+  askSelena: vi.fn(async (_channel: string, _message: string, conversationId: string) =>
+    ({ text: 'hello from yinez', bookingCreated: false, conversationId })),
 }))
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
@@ -68,14 +86,16 @@ vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
 
 // Import the route AFTER the mocks are registered.
 import { POST } from './route'
+import { askSelena } from '@/lib/selena/agent'
 
 const VICTIM = 'tenant-victim'
+const ATTACKER_TENANT = 'tenant-attacker'
 
-function post(headers: Record<string, string>) {
+function post(headers: Record<string, string>, body: Record<string, unknown> = {}) {
   return new NextRequest('https://app.fullloop.example/api/yinez', {
     method: 'POST',
     headers: { 'content-type': 'application/json', ...headers },
-    body: JSON.stringify({ message: 'hi', phone: '5551234567' }),
+    body: JSON.stringify({ message: 'hi', phone: '5551234567', ...body }),
   })
 }
 
@@ -86,6 +106,9 @@ beforeAll(() => {
 beforeEach(() => {
   h.captured.clientLookups = []
   h.captured.convoInsert = null
+  h.captured.convoLookupIds = []
+  h.setExistingConvo(null)
+  vi.mocked(askSelena).mockClear()
 })
 
 describe('POST /api/yinez — forgeable x-tenant-id tenant wall', () => {
@@ -126,5 +149,50 @@ describe('POST /api/yinez — forgeable x-tenant-id tenant wall', () => {
     expect(h.captured.clientLookups).toEqual([VICTIM])
     // Conversation is written into the signed tenant.
     expect(h.captured.convoInsert?.tenant_id).toBe(VICTIM)
+  })
+})
+
+describe('POST /api/yinez — caller-supplied sessionId cannot hijack another tenant\'s conversation', () => {
+  it("rejects a sessionId belonging to a DIFFERENT tenant than the caller's signed header — starts a fresh conversation instead of reusing the victim's", async () => {
+    h.setExistingConvo({ id: 'victim-convo-1', tenant_id: VICTIM })
+    const sig = signTenantHeader(ATTACKER_TENANT)
+
+    const res = await POST(post(
+      { 'x-tenant-id': ATTACKER_TENANT, 'x-tenant-sig': sig },
+      { sessionId: 'victim-convo-1' },
+    ))
+
+    expect(res.status).toBe(200)
+    // The reuse-check looked up the supplied id...
+    expect(h.captured.convoLookupIds).toEqual(['victim-convo-1'])
+    // ...but it did NOT get reused: askSelena must never see the victim's
+    // conversation id, and a brand-new conversation was created instead.
+    expect(vi.mocked(askSelena).mock.calls[0]?.[2]).toBe('convo-1')
+    expect(h.captured.convoInsert?.tenant_id).toBe(ATTACKER_TENANT)
+  })
+
+  it('rejects an unauthenticated caller (no signed tenant header) supplying a sessionId that belongs to a real tenant', async () => {
+    h.setExistingConvo({ id: 'victim-convo-1', tenant_id: VICTIM })
+
+    const res = await POST(post({}, { sessionId: 'victim-convo-1' }))
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(askSelena).mock.calls[0]?.[2]).toBe('convo-1')
+    expect(h.captured.convoInsert?.tenant_id).toBeUndefined()
+  })
+
+  it('reuses the conversation when the sessionId genuinely belongs to the signed-in tenant', async () => {
+    h.setExistingConvo({ id: 'own-convo-1', tenant_id: VICTIM })
+    const sig = signTenantHeader(VICTIM)
+
+    const res = await POST(post(
+      { 'x-tenant-id': VICTIM, 'x-tenant-sig': sig },
+      { sessionId: 'own-convo-1' },
+    ))
+
+    expect(res.status).toBe(200)
+    expect(vi.mocked(askSelena).mock.calls[0]?.[2]).toBe('own-convo-1')
+    // Reused, not recreated.
+    expect(h.captured.convoInsert).toBeNull()
   })
 })
