@@ -1,19 +1,21 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getGoogleTokens, getGoogleBusiness } from '@/lib/google'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Dashboard-level Google status check
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('campaigns.view')
+    if (authError) return authError
 
-    const tokens = await getGoogleTokens(tenant.id)
+    const tokens = await getGoogleTokens(tenant.tenantId)
     if (!tokens) {
       return NextResponse.json({ connected: false })
     }
 
-    const business = await getGoogleBusiness(tenant.id)
+    const business = await getGoogleBusiness(tenant.tenantId)
     if (!business?.location_name) {
       return NextResponse.json({ connected: false, error: 'No location found' })
     }
@@ -22,7 +24,7 @@ export async function GET() {
     const { data: reviews } = await supabaseAdmin
       .from('google_reviews')
       .select('rating')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
 
     const allReviews = reviews || []
     const avgRating = allReviews.length > 0
@@ -33,13 +35,13 @@ export async function GET() {
     const { count: postCount } = await supabaseAdmin
       .from('google_posts')
       .select('id', { count: 'exact', head: true })
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
 
     // Check auto-reply setting
     const { data: autoReplySetting } = await supabaseAdmin
       .from('tenant_settings')
       .select('google_auto_reply')
-      .eq('tenant_id', tenant.id)
+      .eq('tenant_id', tenant.tenantId)
       .single()
 
     return NextResponse.json({
