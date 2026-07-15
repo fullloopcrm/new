@@ -17,6 +17,17 @@ export async function GET(req: NextRequest) {
     const since = searchParams.get('since')
 
     if (convoId) {
+      // Tenant-verify: only return messages for convos owned by this tenant.
+      // sms_conversation_messages has no tenant_id column of its own — the
+      // conversation_id FK is the only scoping surface, so it must be checked
+      // here (same pattern as GET /api/admin/selena).
+      const { data: convo } = await db
+        .from('sms_conversations')
+        .select('id')
+        .eq('id', convoId)
+        .maybeSingle()
+      if (!convo) return NextResponse.json({ messages: [] })
+
       const { data: messages } = await supabaseAdmin
         .from('sms_conversation_messages')
         .select('direction, message, created_at')
