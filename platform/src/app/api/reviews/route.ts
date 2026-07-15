@@ -37,6 +37,24 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
+    // client_id is a caller-supplied FK with no cross-tenant check at the DB
+    // layer, and GET /api/reviews joins clients(name) off it unscoped by
+    // tenant -- an unverified client_id would let a caller plant a review
+    // pointing at a foreign tenant's client, then leak that client's name
+    // back out on the next GET (same class already guarded on PUT).
+    const clientId = (fields as Record<string, unknown>).client_id as string | null
+    if (clientId) {
+      const { data: client } = await supabaseAdmin
+        .from('clients')
+        .select('id')
+        .eq('id', clientId)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (!client) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
+
     const { data, error } = await supabaseAdmin
       .from('reviews')
       .insert({ ...fields, tenant_id: tenantId })
