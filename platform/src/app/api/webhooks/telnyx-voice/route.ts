@@ -449,6 +449,20 @@ export async function POST(req: NextRequest) {
     p.from &&
     !leg
   ) {
+    // Telnyx may redeliver a webhook on timeout/non-2xx. Without this guard a
+    // redelivered call.initiated re-dials every admin ring target (duplicate
+    // outbound calls) and re-logs the "incoming call" message, even though
+    // `customer_call_id` is UNIQUE on comhub_active_calls (the later insert
+    // fails silently and the retry proceeds with side effects anyway).
+    const { data: existingCall } = await supabaseAdmin
+      .from('comhub_active_calls')
+      .select('id')
+      .eq('customer_call_id', callControlId)
+      .maybeSingle()
+    if (existingCall) {
+      return NextResponse.json({ ok: true, note: 'duplicate delivery, already handled' })
+    }
+
     const { data: cId } = await supabaseAdmin.rpc('comhub_get_or_create_contact_by_phone', {
       p_tenant_id: NYCMAID_TENANT_ID,
       p_phone: p.from,

@@ -40,6 +40,7 @@ vi.mock('@/lib/supabase', () => ({
         limit: () => chain,
         order: () => chain,
         single: () => Promise.resolve({ data: { id: 'row-1' }, error: null }),
+        maybeSingle: () => Promise.resolve({ data: null, error: null }),
         then: (resolve: (v: unknown) => void) => resolve({ data: [], error: null }),
       }
       return chain
