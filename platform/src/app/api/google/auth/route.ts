@@ -1,11 +1,14 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { signOAuthState } from '@/lib/oauth-state'
 
 // Dashboard-level Google OAuth — business owner connects their own Google
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('campaigns.view')
+    if (authError) return authError
+    const { tenant } = authTenant
 
     const clientId = process.env.GOOGLE_CLIENT_ID
     if (!clientId) {

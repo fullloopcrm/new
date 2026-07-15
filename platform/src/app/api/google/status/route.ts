@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getGoogleTokens, getGoogleBusiness } from '@/lib/google'
 import { supabaseAdmin } from '@/lib/supabase'
 
 // Dashboard-level Google status check
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('campaigns.view')
+    if (authError) return authError
+    const { tenant } = authTenant
 
     const tokens = await getGoogleTokens(tenant.id)
     if (!tokens) {

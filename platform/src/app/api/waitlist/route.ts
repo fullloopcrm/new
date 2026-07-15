@@ -9,10 +9,10 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
+import { requirePermission } from '@/lib/require-permission'
 
 interface WaitlistEntry {
   id: string
@@ -49,13 +49,9 @@ interface SmsConvoRow {
 }
 
 export async function GET() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
+  const { tenantId } = authTenant
 
   const entries: WaitlistEntry[] = []
 

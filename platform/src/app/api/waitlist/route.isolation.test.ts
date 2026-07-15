@@ -62,6 +62,9 @@ vi.mock('@/lib/tenant-query', () => ({
     }
   },
 }))
+vi.mock('@/lib/require-permission', () => ({
+  requirePermission: async () => ({ tenant: { tenantId: currentTenant }, error: null }),
+}))
 
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: currentTenant, phone: null }),
