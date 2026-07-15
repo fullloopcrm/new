@@ -48,9 +48,22 @@ export async function POST(
       )
     }
 
-    // Mark as sending immediately to narrow the race window for concurrent
-    // duplicate requests (matches the pattern in /api/campaigns/send).
-    await supabaseAdmin.from('campaigns').update({ status: 'sending' }).eq('id', id)
+    // Atomic claim: two concurrent sends both read the same pre-send status
+    // and would both pass the checks above -- CAS on that exact status so
+    // only one request can flip it to 'sending'. The loser gets null back
+    // instead of falling through to double-blast every active client.
+    const { data: claimed } = await supabaseAdmin
+      .from('campaigns')
+      .update({ status: 'sending' })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .eq('status', campaign.status)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
 
     // Get recipients (active clients). Per-channel marketing opt-outs are
     // enforced below so a client who opted out of SMS/email marketing is never

@@ -35,11 +35,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
-    // Mark as sending
-    await supabaseAdmin
+    // Atomic claim: two concurrent sends would both read status 'draft' and
+    // both pass the check above -- CAS on status='draft' so only one request
+    // can flip it to 'sending'. The loser gets null back instead of falling
+    // through to insert duplicate campaign_recipients rows and double-send.
+    const { data: claimed } = await supabaseAdmin
       .from('campaigns')
       .update({ status: 'sending' })
       .eq('id', campaign_id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
 
     // Fetch audience
     let query = supabaseAdmin
