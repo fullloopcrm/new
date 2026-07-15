@@ -93,6 +93,25 @@ export async function POST(request: NextRequest) {
       }
 
       targetChannelId = channel?.id
+    } else {
+      // Caller-supplied channel_id: the field-staff frontend only ever echoes
+      // back its own resolved general-channel id (src/app/team/connect/page.tsx),
+      // so any request naming a different channel is off-path or forged. Without
+      // this check a team member could inject a 'team'-sender message into a
+      // client's or referrer's channel_id (obtained via a leak or forged
+      // request), since tenantDb() only scopes the insert to the tenant, not to
+      // a channel the team member is actually authorized to post in. Matches
+      // the ownership check added for the client-side portal/connect route.
+      const { data: ownedChannel } = await tenantDb(auth.tid)
+        .from('connect_channels') // tenant-scope-ok: tenantDb() scopes the select
+        .select('id')
+        .eq('id', targetChannelId)
+        .eq('type', 'general')
+        .single()
+
+      if (!ownedChannel) {
+        return NextResponse.json({ error: 'Channel not found' }, { status: 403 })
+      }
     }
 
     if (!targetChannelId) return NextResponse.json({ error: 'No channel' }, { status: 400 })
