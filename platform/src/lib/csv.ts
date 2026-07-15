@@ -6,7 +6,9 @@ export function toCSV(data: Record<string, unknown>[], columns?: string[]): stri
     cols.map(col => {
       const val = row[col]
       if (val === null || val === undefined) return ''
-      const str = String(val)
+      let str = String(val)
+      // Neutralize CSV formula injection (Excel/Sheets treat leading =, +, -, @, tab, CR as a formula).
+      if (/^[=+\-@\t\r]/.test(str)) str = `'${str}`
       return str.includes(',') || str.includes('"') || str.includes('\n')
         ? `"${str.replace(/"/g, '""')}"`
         : str
