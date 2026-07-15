@@ -1,12 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { createGooglePost, generateGooglePost, getGooglePosts } from '@/lib/google-posts'
 
 // GET — list all posts for tenant
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
-    const posts = await getGooglePosts(tenant.id)
+    const { tenant, error: authError } = await requirePermission('reviews.view')
+    if (authError) return authError
+    const posts = await getGooglePosts(tenant.tenantId)
     return NextResponse.json({ posts })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
@@ -17,12 +19,13 @@ export async function GET() {
 // POST — create a new Google Business post
 export async function POST(request: NextRequest) {
   try {
-    const { tenant } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
     const { summary, generateAI, topic, callToActionType, callToActionUrl, photoUrl } = await request.json()
 
     // Generate AI content if requested
     if (generateAI) {
-      const generated = await generateGooglePost(tenant.id, topic)
+      const generated = await generateGooglePost(tenant.tenantId, topic)
       return NextResponse.json({ generatedPost: generated })
     }
 
@@ -31,7 +34,7 @@ export async function POST(request: NextRequest) {
     }
 
     const result = await createGooglePost({
-      tenantId: tenant.id,
+      tenantId: tenant.tenantId,
       summary,
       callToActionType,
       callToActionUrl,
