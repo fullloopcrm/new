@@ -1,18 +1,11 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { createCheckoutSession } from '@/lib/stripe'
 
 export async function POST(request: Request) {
-  let tenant
-  try {
-    tenant = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) {
-      return NextResponse.json({ error: err.message }, { status: err.status })
-    }
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
 
   const { booking_id } = await request.json()
   if (!booking_id) return NextResponse.json({ error: 'booking_id required' }, { status: 400 })

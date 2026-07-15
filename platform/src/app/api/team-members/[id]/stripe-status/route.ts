@@ -6,7 +6,12 @@
  * from the hosted onboarding flow; if charges/payouts/transfers are ready,
  * flips stripe ready flag on the team_member row and notifies admins.
  *
- * GET returns the current live status (used by the onboarding completion page).
+ * GET returns the current live status.
+ *
+ * Requires an authenticated tenant session (matches stripe-onboard's GET) —
+ * the only caller (stripe-onboard/complete page) is unauthenticated and
+ * unwired to any real return_url, so there is no legitimate unauthenticated
+ * use to preserve.
  *
  * Multi-tenant: uses tenant.stripe_api_key when present, falls back to env.
  */
@@ -15,7 +20,7 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { decryptSecret } from '@/lib/secret-crypto'
 
 function getStripe(key: string | null | undefined): Stripe {
@@ -25,34 +30,11 @@ function getStripe(key: string | null | undefined): Stripe {
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-async function resolveTenantForTeamMember(teamMemberId: string) {
-  // Prefer tenant from request headers (middleware injects it) but fall
-  // back to looking it up off the team_members row so this endpoint works
-  // when hit directly by Stripe redirect without host-based middleware.
-  const headerTenant = await getTenantFromHeaders()
-  if (headerTenant) return headerTenant
-
-  const { data: tm } = await supabaseAdmin
-    .from('team_members')
-    .select('tenant_id')
-    .eq('id', teamMemberId)
-    .single()
-  if (!tm?.tenant_id) return null
-
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', tm.tenant_id)
-    .single()
-  return tenant
-}
-
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
 
-    const tenant = await resolveTenantForTeamMember(id)
-    if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    const { tenant } = await getTenantForRequest()
 
     const { data: teamMember } = await supabaseAdmin
       .from('team_members')
@@ -99,6 +81,9 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
       details_submitted: account.details_submitted,
     })
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     console.error('[stripe-status] POST error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }
@@ -107,8 +92,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const tenant = await resolveTenantForTeamMember(id)
-    if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    const { tenant } = await getTenantForRequest()
 
     const { data: tm } = await supabaseAdmin
       .from('team_members')
@@ -128,6 +112,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       details_submitted: account.details_submitted,
     })
   } catch (err) {
+    if (err instanceof AuthError) {
+      return NextResponse.json({ error: err.message }, { status: err.status })
+    }
     console.error('[stripe-status] GET error:', err)
     return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
   }
