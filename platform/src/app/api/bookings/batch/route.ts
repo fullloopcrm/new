@@ -66,6 +66,28 @@ export async function POST(request: Request) {
     }
   }
 
+  // service_type_id is the same shape of FK as client_id/team_member_id above
+  // but was missing its ownership check entirely. POST /api/invoices?
+  // from_booking_id later embeds service_types(name, default_hourly_rate,
+  // pricing_model) off a booking's service_type_id with no tenant filter on
+  // the embedded side, so a foreign id planted here becomes a cross-tenant
+  // read one hop later (same exfil shape as the client_id/team_member_id
+  // guards above, just via a sibling table).
+  const requestedServiceTypeIds = Array.from(
+    new Set(bookingInputs.map((b) => b.service_type_id).filter((x): x is string => typeof x === 'string' && x.length > 0)),
+  )
+  if (requestedServiceTypeIds.length > 0) {
+    const { data: validServiceTypes } = await supabaseAdmin
+      .from('service_types')
+      .select('id')
+      .in('id', requestedServiceTypeIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validServiceTypes || []).map((s) => s.id))
+    if (requestedServiceTypeIds.some((sid) => !validIds.has(sid))) {
+      return NextResponse.json({ error: 'Invalid service type selection' }, { status: 400 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)

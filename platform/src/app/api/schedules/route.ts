@@ -69,6 +69,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
       }
     }
+    // service_type_id is the same shape of FK — checked here (before the
+    // schedule/booking inserts below, which both write it verbatim) rather
+    // than only gating the name-copy further down, which left the raw id
+    // writable regardless. POST /api/invoices?from_booking_id later embeds
+    // service_types(name, default_hourly_rate, pricing_model) off a
+    // generated booking's service_type_id with no tenant filter on the
+    // embedded side, so a dangling foreign id here becomes a cross-tenant
+    // read one hop later.
+    let serviceTypeName: string | null = null
+    if (v.service_type_id) {
+      const { data: ownedService } = await db
+        .from('service_types')
+        .select('name')
+        .eq('id', v.service_type_id as string)
+        .maybeSingle()
+      if (!ownedService) {
+        return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      }
+      serviceTypeName = ownedService.name
+    }
 
     // Create schedule
     const { data: schedule, error } = await db
@@ -101,17 +121,6 @@ export async function POST(request: Request) {
       weeksToGenerate: 4,
     })
 
-    // Look up service type name
-    let serviceType = null
-    if (v.service_type_id) {
-      const { data: svc } = await db
-        .from('service_types')
-        .select('name')
-        .eq('id', v.service_type_id as string)
-        .single()
-      serviceType = svc?.name || null
-    }
-
     const bookings = dates.map((d) => {
       const endTime = new Date(d)
       endTime.setHours(endTime.getHours() + ((v.duration_hours as number) || 3))
@@ -119,7 +128,7 @@ export async function POST(request: Request) {
         client_id: v.client_id,
         team_member_id: v.team_member_id || null,
         service_type_id: v.service_type_id || null,
-        service_type: serviceType,
+        service_type: serviceTypeName,
         schedule_id: schedule.id,
         start_time: d.toISOString(),
         end_time: endTime.toISOString(),

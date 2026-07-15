@@ -4,9 +4,9 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
 /**
  * WITNESS — cross-tenant READ + FK injection on POST /api/bookings. FIXED.
  *
- * UNCONVERTED route (raw `supabaseAdmin`). See deploy-prep/cross-tenant-leak-register.md P1.
+ * UNCONVERTED route (raw `supabaseAdmin`). See deploy-prep/cross-tenant-leak-register.md P1, P20.
  *
- * Two defects, both now closed:
+ * Three defects, all now closed:
  *
  *  1. SERVICE-TYPE NAME READ (cross-tenant READ): the `service_types` lookup now
  *     carries `.eq('tenant_id', tenantId)`, so a foreign `service_type_id` matches
@@ -15,6 +15,15 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  *  2. CLIENT_ID FK INJECTION: `client_id` is now verified owned by the acting
  *     tenant (`clients` lookup scoped `.eq('tenant_id', tenantId)`) before any
  *     other work runs; a foreign id 404s before insert.
+ *
+ *  3. SERVICE_TYPE_ID DANGLING-FK INJECTION (P20): the tenant-scoped lookup in
+ *     (1) originally only gated whether the NAME got copied — a foreign id was
+ *     still written verbatim to `bookings.service_type_id`. That dangling FK
+ *     surfaces one hop later via `POST /api/invoices?from_booking_id`, which
+ *     embeds `service_types(name, default_hourly_rate, pricing_model)` off
+ *     this exact column with no tenant filter on the embedded side. The route
+ *     now 404s on a foreign/nonexistent `service_type_id` instead of silently
+ *     keeping it, so the FK itself can never be foreign.
  *
  * LOCKED: these assertions prove the guards fire. A regression that removes
  * either `.eq('tenant_id', ...)` filter flips them back to a leak.
@@ -144,21 +153,20 @@ beforeEach(() => {
 })
 
 describe('bookings POST — cross-tenant READ + FK injection LOCKED', () => {
-  it('LOCKED: a foreign service_type_id is scoped out — its name never reaches tenant A\'s booking', async () => {
+  it('LOCKED: a foreign service_type_id 404s before any booking is inserted (P20)', async () => {
     const res = await POST(
       postReq({ client_id: 'client-a', service_type_id: 'svc-b', start_time: '2026-08-01T10:00:00Z' }),
     )
-    expect(res.status).toBe(201)
-    const json = (await res.json()) as { booking: Record<string, unknown> }
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
 
-    // Tenant B's service-type name must NOT cross into tenant A's booking.
-    // (Post-atomic-fix, the unset value is an explicit column NULL — same as
-    // a real Postgres insert — rather than an absent JS key.)
-    expect(json.booking.service_type).toBeNull()
-
-    const row = h.capture.inserts.find((i) => i.table === 'bookings')!.rows[0]
-    expect(row.tenant_id).toBe(CTX_TENANT)
-    expect(row.service_type).toBeNull()
+  it('LOCKED: a nonexistent service_type_id 404s before any booking is inserted (P20)', async () => {
+    const res = await POST(
+      postReq({ client_id: 'client-a', service_type_id: 'svc-does-not-exist', start_time: '2026-08-01T10:00:00Z' }),
+    )
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
   })
 
   it('LOCKED: a foreign client_id 404s before any booking is inserted', async () => {

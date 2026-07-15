@@ -6,12 +6,20 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  *
  * Converted route (tenantDb), but tenantDb only stamps/filters the ROW's OWN
  * tenant_id on insert — it does not validate a caller-supplied client_id/
- * team_member_id FK belongs to this tenant. GET /api/schedules embeds
- * clients(name)/team_members(name) unscoped by tenant off these FKs, and every
- * generated booking below carries the same foreign id, which GET /api/bookings
- * then embeds with full client/team-member PII (name/phone/address) — same
- * exfil class as the already-fixed POST /api/bookings (register P1) and
- * POST /api/admin/recurring-schedules (team_member_id guard).
+ * team_member_id/service_type_id FK belongs to this tenant. GET /api/schedules
+ * embeds clients(name)/team_members(name) unscoped by tenant off these FKs, and
+ * every generated booking below carries the same foreign id, which GET
+ * /api/bookings then embeds with full client/team-member PII (name/phone/
+ * address) — same exfil class as the already-fixed POST /api/bookings
+ * (register P1) and POST /api/admin/recurring-schedules (team_member_id guard).
+ *
+ * service_type_id (P20): originally only gated whether the NAME got copied
+ * onto generated bookings — the raw id was still written verbatim to both the
+ * `recurring_schedules` row and every generated booking regardless. That
+ * dangling FK surfaces via POST /api/invoices?from_booking_id, which embeds
+ * service_types(name, default_hourly_rate, pricing_model) off a booking's
+ * service_type_id with no tenant filter on the embedded side. Now 404s before
+ * either insert runs.
  *
  * LOCKED: these assertions prove the ownership guards fire.
  */
@@ -67,7 +75,10 @@ function seed() {
       { id: 'tm-a', tenant_id: CTX_TENANT, name: 'A-Member' },
       { id: 'tm-b', tenant_id: OTHER_TENANT, name: 'B-Member' },
     ],
-    service_types: [] as Record<string, unknown>[],
+    service_types: [
+      { id: 'svc-a', tenant_id: CTX_TENANT, name: 'Alpha Standard Clean' },
+      { id: 'svc-b', tenant_id: OTHER_TENANT, name: 'Bravo Deep Clean' },
+    ],
   }
 }
 
@@ -103,5 +114,29 @@ describe('schedules POST — cross-tenant FK injection LOCKED', () => {
     const bookingInsert = h.capture.inserts.find((i) => i.table === 'bookings')
     expect(bookingInsert).toBeDefined()
     expect(bookingInsert!.rows[0].client_id).toBe('client-a')
+  })
+
+  it('LOCKED: a foreign service_type_id 404s before any schedule or booking is inserted (P20)', async () => {
+    const res = await POST(postReq({ client_id: 'client-a', service_type_id: 'svc-b', recurring_type: 'weekly' }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'recurring_schedules')).toBeUndefined()
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('LOCKED: a nonexistent service_type_id 404s before any schedule or booking is inserted (P20)', async () => {
+    const res = await POST(postReq({ client_id: 'client-a', service_type_id: 'svc-does-not-exist', recurring_type: 'weekly' }))
+    expect(res.status).toBe(404)
+    expect(h.capture.inserts.find((i) => i.table === 'recurring_schedules')).toBeUndefined()
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('CONTROL: own-tenant service_type_id creates a schedule + bookings with the correct name copied', async () => {
+    const res = await POST(postReq({ client_id: 'client-a', service_type_id: 'svc-a', recurring_type: 'weekly' }))
+    expect(res.status).toBe(201)
+    const schedule = h.capture.inserts.find((i) => i.table === 'recurring_schedules')!.rows[0]
+    expect(schedule.service_type_id).toBe('svc-a')
+    const bookingInsert = h.capture.inserts.find((i) => i.table === 'bookings')!
+    expect(bookingInsert.rows[0].service_type_id).toBe('svc-a')
+    expect(bookingInsert.rows[0].service_type).toBe('Alpha Standard Clean')
   })
 })

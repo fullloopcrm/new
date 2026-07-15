@@ -49,6 +49,10 @@ beforeEach(() => {
       { id: 'tm-a', tenant_id: A },
       { id: 'tm-foreign', tenant_id: B },
     ],
+    service_types: [
+      { id: 'svc-a', tenant_id: A },
+      { id: 'svc-foreign', tenant_id: B },
+    ],
   })
   holder.from = h.from
 })
@@ -101,5 +105,22 @@ describe('bookings/batch POST — tenant isolation', () => {
     expect(res.status).toBe(200)
     const ins = h.capture.inserts.find((i) => i.table === 'bookings')
     expect(ins!.rows[0].team_member_id).toBe('tm-a')
+  })
+
+  it('cross-tenant service_type_id probe: rejects the whole batch when any row targets a foreign service type (P20)', async () => {
+    const res = await post([
+      { client_id: 'c1', service_type_id: 'svc-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant service_type_id succeeds (P20)', async () => {
+    const res = await post([
+      { client_id: 'c1', service_type_id: 'svc-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].service_type_id).toBe('svc-a')
   })
 })

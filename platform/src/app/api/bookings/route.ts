@@ -204,8 +204,15 @@ export async function POST(request: Request) {
       }
     }
 
-    // Look up service type name if service_type_id provided — scoped to this
-    // tenant so a foreign service_type_id can't read another tenant's name.
+    // service_type_id is a caller-supplied FK too — the tenant-scoped lookup
+    // below used to only gate whether the NAME got copied onto the booking,
+    // but still passed the raw (possibly foreign) id through to the INSERT
+    // unconditionally. A foreign id planted here doesn't leak directly off
+    // this route, but POST /api/invoices?from_booking_id embeds
+    // service_types(name, default_hourly_rate, pricing_model) off this exact
+    // FK with no tenant filter on the embedded side — so a dangling foreign
+    // service_type_id here becomes a cross-tenant read one hop later. Reject
+    // instead of silently keeping the id, same as client_id/team_member_id above.
     if (validated.service_type_id) {
       const { data: svc } = await supabaseAdmin
         .from('service_types')
@@ -213,7 +220,10 @@ export async function POST(request: Request) {
         .eq('id', validated.service_type_id as string)
         .eq('tenant_id', tenantId)
         .maybeSingle()
-      if (svc) (validated as Record<string, unknown>).service_type = svc.name
+      if (!svc) {
+        return NextResponse.json({ error: 'Service type not found' }, { status: 404 })
+      }
+      (validated as Record<string, unknown>).service_type = svc.name
     }
 
     // Status: auto_confirm_bookings overrides everything else; otherwise honor
