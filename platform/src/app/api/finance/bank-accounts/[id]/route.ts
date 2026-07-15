@@ -16,6 +16,19 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of ['name', 'institution', 'type', 'mask', 'coa_id', 'active', 'current_balance_cents', 'as_of_date']) {
       if (k in body) updates[k] = body[k]
     }
+    // Re-pointing coa_id at another tenant's chart_of_accounts row would post
+    // real journal lines against it the next time a transaction on this
+    // account is categorized (bank-transactions/[id], receipts/attach, and
+    // match all trust this account's coa_id as already tenant-validated).
+    if (updates.coa_id) {
+      const { data: coaRow } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', updates.coa_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+    }
     const { data, error } = await supabaseAdmin
       .from('bank_accounts')
       .update(updates)

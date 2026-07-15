@@ -39,6 +39,23 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Entity not found' }, { status: 404 })
     }
 
+    // A foreign coa_id here isn't just a GET-time chart_of_accounts(code,name)
+    // leak: bank-transactions/[id], receipts/attach, and bank-transactions/
+    // [id]/match all trust this account's coa_id verbatim as one side of a
+    // journal entry (they only validate the OTHER, caller-supplied coa_id).
+    // A foreign coa_id here would post real journal lines against another
+    // tenant's chart of accounts, which then joins straight into this
+    // tenant's own trial balance / general ledger / CPA exports.
+    if (body.coa_id) {
+      const { data: coaRow } = await supabaseAdmin
+        .from('chart_of_accounts')
+        .select('id')
+        .eq('id', body.coa_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+    }
+
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
     const { data, error } = await supabaseAdmin
