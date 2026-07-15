@@ -50,6 +50,9 @@ export async function POST(request: NextRequest) {
   if (!name || typeof name !== 'string') {
     return NextResponse.json({ error: 'Name is required' }, { status: 400 })
   }
+  if (role === 'owner' && tenant.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+  }
   const memberRole = VALID_ROLES.includes(role) ? role : 'staff'
 
   // Generate a per-tenant-unique 6-digit PIN (retry on the rare collision).
@@ -129,6 +132,9 @@ export async function PUT(request: NextRequest) {
   if (role) {
     if (!validRoles.includes(role)) {
       return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
+    }
+    if (role === 'owner' && tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
     }
     update.role = role
   }
