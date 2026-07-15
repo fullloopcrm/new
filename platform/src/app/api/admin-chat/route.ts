@@ -30,6 +30,24 @@ export async function POST(req: NextRequest) {
   const ownerPhone = getOwnerPhone()
   let sessionId: string = body.sessionId || ''
 
+  if (sessionId) {
+    // sessionId is caller-supplied. askSelena() below resolves its tenant
+    // context (loadContext, RBAC-gated tools, brand rewrite) purely from the
+    // sms_conversations row for this id — NOT from the caller's authenticated
+    // tenant. Without this check, a manager+ from tenant A could pass another
+    // tenant's admin-dashboard conversation id and get Selena to read/act on
+    // tenant B's data and return it directly in this response.
+    const { data: owned } = await supabaseAdmin
+      .from('sms_conversations')
+      .select('id')
+      .eq('id', sessionId)
+      .eq('tenant_id', tenant.tenantId)
+      .maybeSingle()
+    if (!owned) {
+      return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+    }
+  }
+
   if (!sessionId) {
     // The unique partial index `idx_sms_conv_active_phone` only allows ONE active
     // (completed_at IS NULL AND expired = false) conversation per phone. Without a
