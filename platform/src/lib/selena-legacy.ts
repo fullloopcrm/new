@@ -836,6 +836,13 @@ async function handleAddToWaitlist(tenantId: string, input: Record<string, unkno
 export async function getClientProfile(tenantId: string, phone: string): Promise<string> {
   try {
     const cleanPhone = phone.replace(/\D/g, '').slice(-10)
+    // No length floor let a short/garbage phone (e.g. a single digit typed
+    // into the public web-chat widget) ilike-substring-match an ARBITRARY
+    // client in the tenant and leak their name/address/email/notes/booking
+    // history straight into the AI's CLIENT PROFILE context -- reachable
+    // unauthenticated via POST /api/chat's `phone` field on the web channel.
+    // Require a real national number before ever matching.
+    if (cleanPhone.length < 10) return JSON.stringify({ error: 'Client not found' })
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('id, name, email, phone, address, notes, active, created_at')

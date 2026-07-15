@@ -1833,6 +1833,15 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
   try {
     const tid = tenantId || NYCMAID_TENANT_ID
     const lookupPhone = phone.replace(/\D/g, '').slice(-10)
+    // No length floor let a short/garbage phone (e.g. a single digit typed
+    // into the public web-chat widget) ilike-substring-match an ARBITRARY
+    // client in the tenant and leak their name/address/email/notes/
+    // do_not_service/booking history/yinez_memory straight into the AI's
+    // CLIENT PROFILE context -- reachable unauthenticated via POST /api/chat's
+    // `phone` field on the web channel (askYinez). Require a real national
+    // number before ever matching. Same fix as the legacy engine's sibling
+    // getClientProfile in selena-legacy.ts.
+    if (lookupPhone.length < 10) return JSON.stringify({ error: 'Client not found' })
     const { data: client } = await supabaseAdmin.from('clients')
       .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
       .eq('tenant_id', tid)
