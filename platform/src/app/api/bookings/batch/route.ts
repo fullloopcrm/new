@@ -88,6 +88,36 @@ export async function POST(request: Request) {
     }
   }
 
+  // schedule_id (top-level default + per-row override) is the same shape of FK
+  // as client_id/team_member_id/service_type_id above but was missing its
+  // ownership check entirely — recurring_schedules has its own tenant_id and no
+  // cross-tenant FK check. A poisoned schedule_id doesn't surface via any read
+  // embed today, but cron/generate-recurring's "latest booking for this
+  // schedule" lookup (src/app/api/cron/generate-recurring/route.ts) is NOT
+  // tenant-filtered, so a foreign booking sharing a victim tenant's real
+  // schedule_id with a far-future start_time permanently starves that
+  // schedule's auto-generation (cross-tenant DoS via FK injection) — same bug
+  // class as the other three FKs here, just a write-then-DoS shape instead of
+  // read-exfil.
+  const requestedScheduleIds = Array.from(
+    new Set(
+      bookingInputs
+        .map((b) => (b.schedule_id as string | undefined) || schedule_id)
+        .filter((x): x is string => typeof x === 'string' && x.length > 0),
+    ),
+  )
+  if (requestedScheduleIds.length > 0) {
+    const { data: validSchedules } = await supabaseAdmin
+      .from('recurring_schedules')
+      .select('id')
+      .in('id', requestedScheduleIds)
+      .eq('tenant_id', tenantId)
+    const validIds = new Set((validSchedules || []).map((s) => s.id))
+    if (requestedScheduleIds.some((sid) => !validIds.has(sid))) {
+      return NextResponse.json({ error: 'Invalid schedule selection' }, { status: 400 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)

@@ -53,6 +53,10 @@ beforeEach(() => {
       { id: 'svc-a', tenant_id: A },
       { id: 'svc-foreign', tenant_id: B },
     ],
+    recurring_schedules: [
+      { id: 'sched-a', tenant_id: A },
+      { id: 'sched-foreign', tenant_id: B },
+    ],
   })
   holder.from = h.from
 })
@@ -122,5 +126,34 @@ describe('bookings/batch POST — tenant isolation', () => {
     expect(res.status).toBe(200)
     const ins = h.capture.inserts.find((i) => i.table === 'bookings')
     expect(ins!.rows[0].service_type_id).toBe('svc-a')
+  })
+
+  it('cross-tenant schedule_id probe: rejects the whole batch when a row targets a foreign schedule (P38)', async () => {
+    const res = await post([
+      { client_id: 'c1', schedule_id: 'sched-foreign', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('cross-tenant top-level schedule_id probe: rejects the whole batch when the request-level default targets a foreign schedule (P38)', async () => {
+    const res = await POST(new Request('http://t/api/bookings/batch', {
+      method: 'POST',
+      body: JSON.stringify({
+        schedule_id: 'sched-foreign',
+        bookings: [{ client_id: 'c1', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' }],
+      }),
+    }))
+    expect(res.status).toBe(400)
+    expect(h.capture.inserts.find((i) => i.table === 'bookings')).toBeUndefined()
+  })
+
+  it('same-tenant schedule_id succeeds (P38)', async () => {
+    const res = await post([
+      { client_id: 'c1', schedule_id: 'sched-a', start_time: '2020-01-01T10:00:00Z', end_time: '2020-01-01T12:00:00Z', service_type: 'Clean', price: 100, status: 'pending' },
+    ])
+    expect(res.status).toBe(200)
+    const ins = h.capture.inserts.find((i) => i.table === 'bookings')
+    expect(ins!.rows[0].schedule_id).toBe('sched-a')
   })
 })

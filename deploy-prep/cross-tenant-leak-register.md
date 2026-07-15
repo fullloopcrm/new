@@ -518,6 +518,20 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean. Full `vitest run` — 309 files / 1342 passed / 37 skipped / 0 failed. |
 | **Rank rationale** | Lower blast radius than P33 (no direct money movement — `payments.client_id` is a display/attribution field, not itself authorization for a transfer) but same proven FK-injection construction as the rest of this register; bundled with the naive-compare fix since both were found auditing the same file in the same pass. |
 
+### P38 — `bookings/batch` POST → cross-tenant `schedule_id` FK injection → `cron/generate-recurring` DoS  ⚠️ **CROSS-TENANT DoS** — ✅ **FIXED**
+
+| | |
+|---|---|
+| **Route / op** | `POST /api/bookings/batch` (converted to `tenantDb`) |
+| **Table** | `bookings.schedule_id` (FK → `recurring_schedules`, which carries its own `tenant_id`) |
+| **Attack vector** | This route already verifies `client_id`/`team_member_id`/`service_type_id` ownership (P20's fix) — `schedule_id` (both the per-row override and the request-level default) was the one sibling FK left unchecked, inserted verbatim. A caller in tenant A can set `schedule_id` to tenant B's real `recurring_schedules.id`. |
+| **Effect** | No read embed exposes this today (checked every route that reads `recurring_schedules`/`bookings.schedule_id` — all double-filter `tenant_id` AND `schedule_id`), so this isn't a read-exfil like P1/P11. But `GET`-less `cron/generate-recurring` (`src/app/api/cron/generate-recurring/route.ts`) determines whether a schedule has "already generated far enough" by reading the single latest `bookings.start_time` for that `schedule_id` **with no `tenant_id` filter** — a platform-wide cron intentionally scanning all tenants' schedules, but the per-schedule booking lookup wasn't scoped to the schedule's own tenant. A's poisoned booking with a far-future `start_time` sharing B's real `schedule_id` makes the cron believe B's schedule is generated 4+ weeks out forever, permanently starving B's recurring bookings — a cross-tenant denial-of-service via FK injection, not a data leak. (New bookings the cron creates are still correctly stamped `tenant_id: schedule.tenant_id`, so this isn't a cross-tenant write of the schedule's own bookings, only a poisoned read that gates whether generation runs at all.) |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of `team-portal/*` looking for a fresh area per LEADER order, which surfaced no live issues; pivoted to the sibling `bookings/*` write surface and diffed `bookings/batch`'s FK-check list against `POST /api/bookings`'s, 2026-07-15, W2) |
+| **Fix** | `schedule_id` (top-level default + per-row override, same shape as the existing three checks) is now verified tenant-owned (`recurring_schedules` `.eq('id',...).eq('tenant_id', tenantId)`) before insert; 400 on any miss. `cron/generate-recurring`'s "latest booking" lookup now also filters `.eq('tenant_id', schedule.tenant_id)` as the required close on the DoS vector itself — closing only the injection point without this would leave any already-planted poisoned row (or a not-yet-discovered second injection site) still able to starve generation. |
+| **Regression lock** | `src/app/api/bookings/batch/route.isolation.test.ts` — 3 new tests: foreign per-row `schedule_id` and foreign top-level `schedule_id` both 400 with no insert; same-tenant `schedule_id` still succeeds. |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 316 files / 1388 passed / 37 skipped / 0 failed |
+| **Rank rationale** | First DoS-shaped finding in this register (P0 was destructive-but-direct, P33 was real-money, everything else was read-exfil or dangling-ref) — placed last since the blast radius (starved scheduling, recoverable by removing the poisoned row) is lower than any FIXED finding above it. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -699,7 +713,6 @@ live leaks. This section is a **negative result, not a to-do list**.
    stamped onto the row). Added `entity_id` to the same tenant-ownership
    check loop already guarding `client_id`/`booking_id`/`quote_id` on this
    route.
-   All items in this register are closed.
 
    **P37 (2026-07-15, W2):** `PATCH /api/routes/[id]` cross-tenant
    `team_member_id` FK injection — same class as P1/P25/P30/P32/P34, and a
@@ -723,6 +736,31 @@ live leaks. This section is a **negative result, not a to-do list**.
    Witness added at `src/app/api/routes/[id]/route.witness.test.ts`
    (2 LOCKED + 2 CONTROL), mutation-verified via git stash (RED 200 against
    pre-fix code, GREEN 404 after restore).
+
+   **P38 (2026-07-15, W2):** `POST /api/bookings/batch` cross-tenant
+   `schedule_id` FK injection, the one FK sibling `client_id`/`team_member_id`/
+   `service_type_id` (P20) left unchecked on this route — inserted verbatim,
+   both the per-row override and the request-level default. No read embed
+   exposes it today, but `cron/generate-recurring`'s unscoped "latest booking
+   for this schedule_id" lookup meant a poisoned row with a far-future
+   `start_time` sharing a victim tenant's real `schedule_id` would permanently
+   starve that tenant's recurring-booking auto-generation — a cross-tenant DoS
+   via FK injection, not a read leak, the first DoS-shaped finding in this
+   register. Found broad-hunting `team-portal/*` per LEADER order (turned up
+   clean — every write there is properly `auth.id`/`auth.tid`-scoped or
+   ownership-checked), then pivoting to `bookings/*` siblings and diffing
+   `bookings/batch`'s FK-check list against `POST /api/bookings`'s. Fixed:
+   `schedule_id` added to the same tenant-ownership check loop as the other
+   three FKs (400 on a foreign id, no insert); `cron/generate-recurring`'s
+   lookup now also filters `.eq('tenant_id', schedule.tenant_id)`, closing the
+   DoS vector itself in case of an already-planted poisoned row or any
+   not-yet-found second injection site. Witness added at
+   `src/app/api/bookings/batch/route.isolation.test.ts` (2 new rejection
+   tests — per-row and top-level `schedule_id` — + 1 CONTROL).
+   `npx tsc --noEmit` clean; full `vitest run` 316 files / 1388 passed /
+   37 skipped / 0 failed.
+
+   All items in this register are closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the

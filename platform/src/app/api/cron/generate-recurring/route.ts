@@ -43,11 +43,16 @@ export async function GET(request: Request) {
   let totalGenerated = 0
 
   for (const schedule of schedules) {
-    // Find the latest booking for this schedule
+    // Find the latest booking for this schedule. tenant_id filter is required,
+    // not just defense-in-depth: without it, a booking from ANY tenant sharing
+    // this schedule_id (e.g. a poisoned FK planted via another tenant's own
+    // POST /api/bookings/batch) would count toward "already generated far
+    // enough" for THIS schedule, permanently starving its auto-generation.
     const { data: latest } = await supabaseAdmin
       .from('bookings')
       .select('start_time')
       .eq('schedule_id', schedule.id)
+      .eq('tenant_id', schedule.tenant_id)
       .order('start_time', { ascending: false })
       .limit(1)
 
