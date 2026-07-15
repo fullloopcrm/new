@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -11,19 +11,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 
 export async function GET() {
-  try {
-    const { tenantId } = await getTenantForRequest()
-    const { data, error } = await supabaseAdmin
-      .from('projects')
-      .select('*, clients(name)')
-      .eq('tenant_id', tenantId)
-      .order('start_date', { ascending: true })
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ projects: data || [] })
-  } catch (e) {
-    if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
-    throw e
-  }
+  const { tenant, error: authError } = await requirePermission('bookings.view')
+  if (authError) return authError
+
+  const { data, error } = await supabaseAdmin
+    .from('projects')
+    .select('*, clients(name)')
+    .eq('tenant_id', tenant.tenantId)
+    .order('start_date', { ascending: true })
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  return NextResponse.json({ projects: data || [] })
 }
 
 export async function POST(request: Request) {

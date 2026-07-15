@@ -9,8 +9,8 @@
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 
@@ -27,13 +27,9 @@ interface WaitlistEntry {
 }
 
 export async function GET() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant, error: authError } = await requirePermission('leads.view')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const entries: WaitlistEntry[] = []
 
