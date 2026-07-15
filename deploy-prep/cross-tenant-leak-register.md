@@ -335,6 +335,19 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 297 files / 1281 passed / 37 skipped / 0 failed |
 | **Rank rationale** | New class for this register (action-authorization bypass via a shared-credential fallback, not FK-injection) — ranked with the exfil-tier entries because the blast radius (real-time control of a live customer call: hangup, TTS injection, transfer) is at least as severe as a data leak, even though exploitation requires knowing/guessing another tenant's in-flight `call_control_id`. Worth flagging for Q3: any other route that resolves a caller-supplied *external* id (Telnyx, Stripe, etc.) against a **shared** platform credential should get the same "ownership lookup gates execution, not just bookkeeping" audit — `comhub/voice/dial` was checked in the same pass and is NOT vulnerable (it only ever *creates* new calls scoped to the resolved tenant/contact, never accepts an external call id to act on). |
 
+### P23 — `clients` PUT `[id]` → cross-tenant `preferred_team_member_id` FK injection (admin-side twin of `client/preferred-cleaner`)
+
+| | |
+|---|---|
+| **Route / op** | `PUT /api/clients/[id]` (operator dashboard, converted to `tenantDb`) |
+| **Table** | `clients` — `preferred_team_member_id` in the PATCH-style allow-list (`pick()`), no ownership check |
+| **Attack vector** | The client-portal twin `PUT /api/client/preferred-cleaner` already verifies `body.preferred_cleaner_id` is tenant-owned (`team_members` lookup scoped by `tenant_id`) before writing it — but this operator-side route accepted `preferred_team_member_id` from the body and wrote it verbatim with no ownership check at all, the same asymmetry class as P9/P10/P21 (client-facing route guarded, admin-side twin never got the same guard). |
+| **Effect** | No live `GET`/embed currently joins `team_members` off `clients.preferred_team_member_id` (confirmed: `team-availability`, `client/smart-schedule`, and `lib/smart-schedule.ts` all only compare the raw id against an already tenant-scoped member list, and the dashboard client page resolves the name client-side against its own tenant-scoped `teamMembers` fetch) — so today this is a dangling-FK gap, not live read-exfil, same lower severity as P7/P15/P19/P21. Recorded as defense-in-depth per this register's standing policy (P19) that any FK column missing its sibling's ownership check gets closed regardless of a currently-live read path, since a future report/embed would silently inherit the gap. |
+| **Verdict** | **FIXED** (found in a broad-hunt sweep of `clients/*` routes, 2026-07-15, W2) |
+| **Fix** | `preferred_team_member_id`, when supplied, is now verified tenant-owned (`tenantDb(tenantId).from('team_members').select('id').eq('id', ...).maybeSingle()`) before the update runs; 404 on miss. Same pattern as the `client/preferred-cleaner` guard. |
+| **Regression lock** | `src/app/api/clients/[id]/route.isolation.test.ts` (LOCK: foreign `tm-b` 404s, row's `preferred_team_member_id` stays unset; CONTROL: own-tenant `tm-a` succeeds and is stamped) |
+| **Verified** | `npx tsc --noEmit` clean; full `vitest run` 297 files / 1283 passed / 37 skipped / 0 failed. Mutation-verified: reverted the fix, the new foreign-id test failed RED (200 instead of 404, id written); restored, GREEN. |
+
 ---
 
 ## 2. Already-blocked — regression locks (no fix needed)
@@ -442,7 +455,10 @@ live leaks. This section is a **negative result, not a to-do list**.
    customer_call_id (✅ fixed, 2026-07-14, W2, found in a broad-hunt sweep of
    ComHub voice routes — the first action-authorization-bypass-via-shared-
    credential finding in this register, distinct from the FK-injection
-   shape of P1-P21).** All items in this register are now closed.
+   shape of P1-P21) → P23 clients PUT [id] preferred_team_member_id
+   (✅ fixed, 2026-07-15, W2, found sweeping `clients/*` routes — same
+   admin-twin-missing-a-client-portal-guard asymmetry as P9/P10/P21).**
+   All items in this register are now closed.
 
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the

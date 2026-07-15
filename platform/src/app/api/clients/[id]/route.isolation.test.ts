@@ -46,6 +46,10 @@ function seed() {
       { id: 'cli-a', tenant_id: A, name: 'A Client', status: 'active' },
       { id: 'cli-b', tenant_id: B, name: 'B Client', status: 'active' },
     ],
+    team_members: [
+      { id: 'tm-a', tenant_id: A, name: 'A Member' },
+      { id: 'tm-b', tenant_id: B, name: 'B Member' },
+    ],
   }
 }
 
@@ -102,5 +106,28 @@ describe('clients/[id] — tenant isolation', () => {
     const body = await res.json()
     expect(body.success).toBe(true)
     expect((h.seed.clients as Array<{ id: string }>).find((r) => r.id === 'cli-a')).toBeUndefined()
+  })
+
+  // preferred_team_member_id is a caller-supplied FK. The client-portal twin
+  // (PUT /api/client/preferred-cleaner) already verifies it's tenant-owned
+  // before writing it; this operator-side PUT was missing the same guard.
+  it('PUT rejects a foreign-tenant preferred_team_member_id and leaves the row untouched', async () => {
+    const res = await PUT(
+      new Request('http://t/api/clients/cli-a', { method: 'PUT', body: JSON.stringify({ preferred_team_member_id: 'tm-b' }) }),
+      params('cli-a'),
+    )
+    expect(res.status).toBe(404)
+    const a = (h.seed.clients as Array<{ id: string; preferred_team_member_id?: string }>).find((r) => r.id === 'cli-a')
+    expect(a?.preferred_team_member_id).toBeUndefined()
+  })
+
+  it('PUT accepts an own-tenant preferred_team_member_id', async () => {
+    const res = await PUT(
+      new Request('http://t/api/clients/cli-a', { method: 'PUT', body: JSON.stringify({ preferred_team_member_id: 'tm-a' }) }),
+      params('cli-a'),
+    )
+    expect(res.status).toBe(200)
+    const a = (h.seed.clients as Array<{ id: string; preferred_team_member_id?: string }>).find((r) => r.id === 'cli-a')
+    expect(a?.preferred_team_member_id).toBe('tm-a')
   })
 })

@@ -45,6 +45,20 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
 
+    // preferred_team_member_id is a caller-supplied FK — verify it's tenant-owned
+    // before writing it, matching the same guard the client-portal twin
+    // (PUT /api/client/preferred-cleaner) already enforces.
+    if (fields.preferred_team_member_id) {
+      const { data: ownedMember } = await tenantDb(tenantId)
+        .from('team_members')
+        .select('id')
+        .eq('id', fields.preferred_team_member_id as string)
+        .maybeSingle()
+      if (!ownedMember) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
     const { data, error } = await tenantDb(tenantId)
       .from('clients')
       .update(fields)
