@@ -1863,3 +1863,52 @@ already-mocked `askSelena`.
 
 `npx tsc --noEmit` clean. Full suite 334 files/1460 passed/37 skipped/0
 failed, 0 regressions. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 18:51 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order.
+Ground was thin — most of the 502 route files have now been named
+somewhere in this register or the LEADER-CHANNEL history across all
+workers. Rebuilt the diff-of-all-routes-vs-history approach from the P47
+round to find genuinely fresh, never-reviewed files; it surfaced 9:
+
+- **`admin-auth/me`** — platform admin-token check OR Clerk `tenant_members`
+  lookup keyed on the caller's own `clerk_user_id`; only ever returns the
+  caller's own identity, no caller-suppliable id. Clean.
+- **`admin/security`** — `requireAdmin()`-gated (Jeff-only platform
+  super-admin), returns `security_events`/`audit_log` across all tenants by
+  design (same god-mode class as `admin/finance`, `admin/monitoring/status`,
+  etc., already an established out-of-scope precedent). Clean.
+- **`admin/comhub/channels`** POST — `requireAdmin()` gate first, then
+  `getCurrentTenantId()` to stamp the new channel's `tenant_id`. Same shape
+  as the other 13 `admin/comhub/*` files P46 already confirmed safe
+  (`getCurrentTenant()`'s header-tenant path is a problem only when it's the
+  *sole* auth gate; here `requireAdmin()` runs first). Clean.
+- **`admin/requests/proposal`** POST — `requireAdmin()`-gated, writes
+  `partner_requests` (pre-tenant leads, not tenant-scoped data). Clean.
+- **`finance/backfill`** POST — `requirePermission('finance.expenses')` +
+  every read/write `.eq('tenant_id', tenantId)`. Clean.
+- **`finance/revenue`** GET — `requirePermission('finance.view')` +
+  `tenantDb(tenantId)` auto-scoped reads + `ledgerProfitAndLoss(tenantId,...)`.
+  Clean.
+- **`finance/bank-transactions/suggest`** POST — `requirePermission
+  ('finance.expenses')` + `suggestPending(tenant_id)`, every query inside
+  scoped `.eq('tenant_id', tenant_id)`. Clean.
+- **`documents/public/[token]/{route,decline,consent}`** — the 3 signer
+  token-endpoints not individually named before (base document GET already
+  covered; `sign` already had its XSS fix logged separately). All 3 resolve
+  `signer`/`document_id` from the `public_token` row first and scope every
+  subsequent read/write off that resolved id, never a caller-supplied id —
+  same 192-bit-token, no-IDOR shape W4 already verified-solid for this
+  token family. Clean.
+- **`admin/recurring-schedules/[id]/pause`** (POST+DELETE) — flagged as a
+  candidate because W1's `tenantDb()` migration of this route landed on
+  **p1-w1 only** (commit `ad9d200a`), confirmed absent here via `git branch
+  --contains` (same cross-branch-drift pattern as P45/P48). This branch's
+  copy still uses raw `supabaseAdmin`, but every mutating query already
+  carries an explicit `.eq('tenant_id', tenantId)` alongside `.eq('id', id)`
+  — functionally safe, just not yet DRY'd to the wrapper. Not a security
+  gap, so not touched (that's a separate cleanup lane, not this one's
+  mandate).
+
+No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
