@@ -25,6 +25,13 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (!validRoles.includes(body.role)) {
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }
+      // settings.edit is granted to the 'admin' role by default (and can be
+      // customized onto lower roles too) — without this check, any non-owner
+      // holding settings.edit could grant themselves (or anyone) the 'owner'
+      // role via this endpoint, which is full, always-on access per rbac.ts.
+      if (body.role === 'owner' && tenant.role !== 'owner') {
+        return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+      }
       updates.role = body.role
     }
 
