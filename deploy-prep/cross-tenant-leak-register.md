@@ -1089,6 +1089,75 @@ starts from a fresh area instead of re-covering this list.
    No code changed this pass (nothing to fix); `npx tsc --noEmit` not run
    since no `.ts` edits were made. File-only, no push/deploy/DB.
 
+   **2026-07-15 (W2, 14:57 refill) — negative-result sweep, no fix needed:**
+   continued the leader's "controlled broad-hunt, lower-risk surface" order into
+   a fresh batch of ~40 route files across ~30 directories not previously
+   touched by this register — every one already correctly tenant-scoped (no
+   P-number assigned — recorded here so a future pass doesn't re-spend time on
+   the same files):
+   - `quote-templates`, `recurring-expenses` (+`[id]`), `service-area`,
+     `service-types`, `pipeline` — all reads/writes `.eq('tenant_id',...)` or
+     `tenantDb`-scoped; `service-area`'s PUT is `settings.edit`-gated and only
+     ever touches the acting tenant's own `tenants` row.
+   - `territories/options`, `service-types` GET — intentionally public,
+     status-only, no tenant PII (by design, matches the `availability`/
+     `client/smart-schedule` public-read pattern already in this register).
+   - `permissions/me`, `pin-reset`, `team-availability`, `user/preferences`,
+     `setup-checklist` — every DB call keyed off a server-resolved
+     `tenantId`/`memberId` (never a caller-supplied id); `pin-reset`'s
+     `member_id`/`tenant_id` combo comes from `findMember()` which is itself
+     `tenantId`-scoped, and PIN-clash/verify checks are all
+     `.eq('tenant_id',...)`.
+   - `sales-applications`, `cleaner-applications` (nycmaid alias →
+     `team-applications`), `management-applications` (+`draft`,
+     `signed-url`, `upload`), `apply`, `apply-ceo` — public POSTs resolve
+     tenant from the host header (`getTenantFromHeaders`), admin GET/PUT are
+     `requirePermission`-gated and `.eq('tenant_id',...)`; the only
+     caller-supplied fields (`resume_url`/`photo_url`/`video_url`) are opaque
+     strings, not FK ids into another tenant-scoped table, so there's no
+     FK-injection surface here (different shape from the P1/P11/P13 class).
+   - `client-analytics`, `changelog` (+`[id]`), `domain-notes`, `errors`,
+     `security/events`, `audit`, `availability` — all reads scoped by
+     `tenant_id`/`tenantDb`; `changelog` and `errors` are intentionally
+     platform-wide (`platform_announcements`, unauthenticated error intake)
+     and only trust a caller-attributed `tenantId` when the signed
+     `x-tenant-id`/`x-tenant-sig` header pair verifies.
+   - `track`, `waitlist`, `contact`, `inquiry`, `requests` — public lead-
+     capture forms; `track`/`inquiry`/`requests` intentionally accept a
+     caller-declared `tenant_id` on insert-only tracking/marketing rows
+     (nullable, `tenant-scope-ok` exception class already used elsewhere in
+     this file — there is no read-back that could exfil another tenant's
+     data through them), `contact`/`waitlist` resolve tenant from the host
+     header and every downstream `clients`/`deals`/`portal_leads` write is
+     `.eq('tenant_id', tenant.id)`.
+   - `unsubscribe` — requires a signed token (`verifyUnsubscribeToken`); the
+     `clientId`/`tenantId` used in the update come from the token payload,
+     never the request body/query directly.
+   - `uploads`, `public-upload`, `management-applications/signed-url`,
+     `management-applications/upload` — storage keys are prefixed with a
+     server-resolved `tenant.id`/`tenant.tenantId` (not caller-controlled;
+     folder/extension inputs are charset-stripped so a `../<other-tenant>`
+     segment can't escape the prefix, matching the fix already documented in
+     `uploads`' own inline comment).
+   - `leads` (root POST), `leads/attribution`, `leads/block`, `leads/domains`,
+     `leads/override`, `leads/verify`, `leads/feed`, `leads/visits` — every
+     admin route is `tenantId`/`tenantDb`-scoped or `requirePermission`-gated
+     with a `.eq('tenant_id',...)` update; `leads/override` and
+     `leads/verify` both re-verify row ownership via the `tenant_id` filter
+     before mutating (already-blocked shape, not exploitable); the public
+     POST `leads/visits` tracking-pixel insert is the same
+     caller-declared-`tenant_id`, insert-only, no-read-back exception as
+     `track`/`inquiry` above.
+   - `indexnow`, `tenant-sitemap`, `internal/deploy-hook` — `indexnow`'s
+     cron-style auth path intentionally accepts an arbitrary `tenantId` in
+     the body (CRON_SECRET bearer = trusted internal caller acting on behalf
+     of any tenant, not a leak); `tenant-sitemap` is an intentionally public,
+     unauthenticated sitemap endpoint (services/areas only, no PII);
+     `internal/deploy-hook` is Vercel-HMAC-signed with no tenant concept at
+     all.
+   No code changed this pass (nothing to fix); `npx tsc --noEmit` not run
+   since no `.ts` edits were made. File-only, no push/deploy/DB.
+
    **P8 sibling sweep (2026-07-13, W2, not in the original register):** grepping
    for the same `.from(<table>).update(body)` full-body-spread shape outside the
    finance FK class turned up three more live instances of the exact P7 pattern
