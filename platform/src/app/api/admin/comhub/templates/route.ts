@@ -3,7 +3,6 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
-import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 // GET /api/admin/comhub/templates?channel=sms|email|all
 export async function GET(req: NextRequest) {

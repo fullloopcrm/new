@@ -4,7 +4,6 @@ import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
-import { escapeHtml } from './escape-html'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
