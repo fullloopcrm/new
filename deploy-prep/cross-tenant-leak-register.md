@@ -2096,3 +2096,68 @@ pass (37 pre-existing skips, unchanged), 0 regressions (1466 baseline + 4
 new tests).
 
 Commit `15fb3ac1`. Logged as P51. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 19:37 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order.
+Rebuilt the diff-all-502-routes-vs-history approach (literal full-path match
+against this register + LEADER-CHANNEL, stricter than the fuzzy pass used at
+18:51) — surfaced 25 candidates, most of which collapsed to already-reviewed
+brace-expanded groups (`admin/businesses/[id]/{activate,profile,readiness,
+selena-preview,site-export}`, `documents/public/[token]/{route,decline,
+consent}`, `admin/monitoring/status`, `admin/requests/*`,
+`admin/send-apology-batch`) once expanded. 13 were genuinely fresh reads:
+
+- **`finance/balance-sheet`, `finance/trial-balance`, `finance/cash-flow`**
+  — all `requirePermission('finance.view')`-gated, tenant_id always the
+  primary scope on every `journal_lines`/`bookings`/`invoices`/
+  `recurring_expenses` query; the caller-supplied `?entity_id=` from
+  `entityIdFromUrl()` is layered ON TOP of the tenant filter (never
+  instead of it), so a foreign entity_id just yields zero rows — same
+  documented-safe shape as P14's note on `cpa/[token]/year-end-zip`'s
+  double-filter. Clean.
+- **`finance/bank-connect/session`** — `requirePermission('finance.expenses')`,
+  operates only on the resolved tenant's own Stripe key/customer, no
+  caller-supplied id. Clean.
+- **`team-portal/jobs/release`** — caller-supplied `booking_id` gated by a
+  single atomic `.eq('tenant_id', auth.tid).eq('team_member_id', auth.id)`
+  update; a foreign or not-mine booking 403s with the row untouched. Clean.
+- **`team-portal/config`** — token-derived `auth.tid` only, no caller-supplied
+  id. Clean.
+- **`admin/calendar`** — `requireAdmin()` (confirmed via `admin-auth/route.ts`
+  that this token role is EXCLUSIVELY the global platform super-admin, never
+  a tenant-level PIN — `verifyAdminToken()` hard-codes
+  `data.role === 'super_admin'`) with an optional `tenant_id` query param;
+  omitting it returns bookings across every tenant by design. Same
+  established god-mode class as `admin/finance`/`admin/security`/
+  `admin/monitoring/status`. Clean, not a new precedent.
+- **`admin/comhub/voice/cleanup`, `admin/changelog`, `admin/email`,
+  `admin/google/status`, `admin/requests/[id]/proposal-checkout`,
+  `admin-auth/logout`** — all `requireAdmin()`-gated (super-admin only) or
+  operate on pre-tenant lead data; any tenant_id used is either the
+  super-admin's own explicit param (by-design cross-tenant admin tooling)
+  or the resolved caller's own tenant. Clean.
+- **`cron/confirmation-reminder`** — loops `tenants` then scopes every
+  `bookings`/`sms_logs` query by that loop's own `tenant_id`, including the
+  SMS-dedupe check. Clean.
+- **`cron/refresh-job-postings`** — no caller-supplied id at all, pure cache
+  revalidation over a static path list. Clean.
+
+Also re-verified my own resolver lane specifically (middleware.ts,
+tenant-lookup.ts's and tenant.ts's two `getTenantByDomain` implementations,
+tenant-header-sig.ts's HMAC verify, tenant-site.ts's `getTenantFromHeaders`)
+end-to-end for any drift since the P50 fix — both `getTenantByDomain`
+implementations remain reconciled (tenant_domains-first, tenants.domain
+fallback retained, TRANSITION ASSERT-AND-REFUSE guard on divergence,
+identical www-stripping) and `verifyTenantHeaderSig` uses a constant-time
+compare. Checked every other `tenant_members`-writing call site for the
+same identity-binding gap P51 closed on `/join`: `admin/users/route.ts`
+(POST, PIN-based member creation) scopes strictly by the caller's own
+resolved `tenant.tenantId` from `requirePermission`, never a caller-supplied
+one; `webhooks/clerk/route.ts` only ever UPDATEs existing rows keyed by a
+Svix-verified `clerk_user_id`, never inserts; `pin-reset/route.ts`'s
+self-service reset resolves the target member via a tenant-scoped
+`findMember(tenantId, contact)` before touching `member_pin_reset_codes`,
+rate-limited on both send and verify. No sibling gap found.
+
+No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
