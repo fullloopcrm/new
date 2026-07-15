@@ -16,10 +16,16 @@ import { overridesFor } from '@/lib/require-permission'
 // API route enforces (e.g. /api/bookings/[id] PUT requires bookings.edit) —
 // the AI chat is a copilot, not a bypass around RBAC.
 const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
+  search_clients: 'clients.view',
+  search_team_members: 'team.view',
+  query_bookings: 'bookings.view',
   update_bookings: 'bookings.edit',
   cancel_bookings: 'bookings.edit',
+  get_schedule_summary: 'bookings.view',
+  get_client_details: 'clients.view',
   update_client: 'clients.edit',
   create_booking: 'bookings.create',
+  get_revenue_stats: 'finance.view',
 }
 
 const tools: Anthropic.Tool[] = [
