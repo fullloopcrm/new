@@ -20,6 +20,14 @@ export async function POST(request: Request) {
     const coaId = body.coa_id ? String(body.coa_id) : null
     if (!txnId || !path) return NextResponse.json({ error: 'bank_transaction_id + receipt_path required' }, { status: 400 })
 
+    // receipt_path is client-supplied and points into the shared 'receipts'
+    // storage bucket (tenant-prefixed: tenants/<tenantId>/...). Without this
+    // check a caller could attach another tenant's uploaded receipt path to
+    // their own transaction — same class of gap as the coa_id check below.
+    if (!path.startsWith(`tenants/${tenantId}/`)) {
+      return NextResponse.json({ error: 'Invalid receipt_path' }, { status: 400 })
+    }
+
     const { data: txn } = await supabaseAdmin
       .from('bank_transactions')
       .select('id, tenant_id, txn_date, description, amount_cents, status, bank_account_id, bank_accounts(coa_id)')
