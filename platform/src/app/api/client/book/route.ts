@@ -29,6 +29,13 @@ function defaultServiceType(industry: string | null | undefined): string {
     || SERVICE_PRESETS.general[0].name
 }
 
+// Escape LIKE/ILIKE wildcards so an attacker-supplied email is matched
+// literally (this is a public, unauthenticated endpoint) — otherwise
+// email:'%' below can attach a guest booking to an arbitrary existing client.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
 }
@@ -96,7 +103,7 @@ export async function POST(request: Request) {
       const { data: byEmail } = await tenantDb(tenant.id)
         .from('clients')
         .select('id')
-        .ilike('email', emailLower)
+        .ilike('email', escapeLike(emailLower))
         .maybeSingle()
       if (byEmail) clientId = byEmail.id
 

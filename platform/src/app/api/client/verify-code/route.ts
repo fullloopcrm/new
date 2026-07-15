@@ -6,6 +6,13 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
 import { randomInt } from 'crypto'
 
+// Escape LIKE/ILIKE wildcards so an attacker-supplied email is matched
+// literally, not as a pattern (Postgres default LIKE escape char is
+// backslash). Without this, email:'%' below matches every client row.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -86,7 +93,7 @@ export async function POST(request: Request) {
       const { data: emailMatches } = await tenantDb(tenant.id)
         .from('clients')
         .select('*')
-        .ilike('email', email.trim())
+        .ilike('email', escapeLike(email.trim()))
         .order('created_at', { ascending: true })
         .limit(1)
       client = (emailMatches?.[0] as typeof client) || null
