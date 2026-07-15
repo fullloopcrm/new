@@ -422,12 +422,17 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
     }
 
     const phone = convo?.phone || `web-${conversationId.slice(0, 8)}`
-    const cleanPhone = phone.replace(/\D/g, '')
+    // Exact national-number match only -- a substring ilike() with no
+    // length floor let a short/garbage phone match an ARBITRARY unrelated
+    // client and misattribute (then overwrite) their record. Same bug
+    // class as the fixed platform/src/app/api/chat/route.ts sibling.
+    const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
+    const normalizedPhone = nat(phone.replace(/\D/g, ''))
 
-    if (cleanPhone.length >= 7 && !phone.startsWith('web-')) {
-      const { data: existing } = await supabaseAdmin.from('clients')
-        .select('id').ilike('phone', `%${cleanPhone.slice(-10)}%`).limit(1)
-      if (existing && existing.length > 0) {
+    if (normalizedPhone.length >= 10 && !phone.startsWith('web-')) {
+      const { data: candidates } = await supabaseAdmin.from('clients').select('id, phone')
+      const existing = (candidates || []).filter((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedPhone)
+      if (existing.length > 0) {
         await supabaseAdmin.from('clients').update({ name }).eq('id', existing[0].id)
         await supabaseAdmin.from('sms_conversations')
           .update({ client_id: existing[0].id, name, phone, updated_at: new Date().toISOString() })
@@ -727,6 +732,12 @@ async function handleAddToWaitlist(input: Record<string, unknown>, conversationI
 export async function getClientProfile(phone: string): Promise<string> {
   try {
     const lookupPhone = phone.replace(/\D/g, '').slice(-10)
+    // No length floor let a short/garbage phone (e.g. a single digit typed
+    // into the public web-chat widget) ilike-substring-match an ARBITRARY
+    // client and leak their name/address/email/notes/booking history
+    // straight into the AI's CLIENT PROFILE context. Require a real
+    // national number before ever matching (same fix as selena-legacy.ts).
+    if (lookupPhone.length < 10) return JSON.stringify({ error: 'Client not found' })
     const { data: client } = await supabaseAdmin
       .from('clients')
       .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
