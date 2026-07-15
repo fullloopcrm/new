@@ -193,4 +193,72 @@ describe('middleware — custom domain routing wiring', () => {
     expect(res!.headers.get('x-tenant-slug')).toBe('the-florida-maid')
     expect(domainSpy).not.toHaveBeenCalled()
   })
+
+  // Host normalization: getTenantByDomain (tenant-lookup.ts) only strips the
+  // www. prefix — it does not strip a port suffix or lowercase. middleware
+  // must do that normalization itself before calling it (cleanHost), or a
+  // custom domain hit with a port on the Host header (local testing, some
+  // proxies) or non-lowercase casing never matches a DB row and silently
+  // falls through to the main site instead of the tenant's own.
+  it('strips a port suffix from the Host header before calling getTenantByDomain', async () => {
+    const domainSpy = vi.fn(async (domain: string) => (domain === 'www.acmecustom.com' ? acme : null))
+    byDomain = domainSpy
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.acmecustom.com:8443/', { headers: { host: 'www.acmecustom.com:8443' } })
+    const res = await middleware(req)
+
+    expect(domainSpy).toHaveBeenCalledWith('www.acmecustom.com')
+    expect(res!.headers.get('x-tenant-id')).toBe('tenant-acme')
+  })
+
+  it('lowercases a mixed-case Host header before calling getTenantByDomain', async () => {
+    const domainSpy = vi.fn(async (domain: string) => (domain === 'www.acmecustom.com' ? acme : null))
+    byDomain = domainSpy
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://WWW.ACMECUSTOM.COM/', { headers: { host: 'WWW.ACMECUSTOM.COM' } })
+    const res = await middleware(req)
+
+    expect(domainSpy).toHaveBeenCalledWith('www.acmecustom.com')
+    expect(res!.headers.get('x-tenant-id')).toBe('tenant-acme')
+  })
+})
+
+describe('middleware — main-host / subdomain Host-header case sensitivity', () => {
+  // isMainHost() and extractSubdomain() must lowercase the Host header before
+  // matching, same as canonicalHost/cleanHost do elsewhere in this file. A
+  // mixed-case Host (e.g. a client or proxy sending "WWW.FULLLOOPCRM.COM")
+  // previously missed the (all-lowercase) MAIN_HOSTS set, so isMainHost()
+  // returned false for the actual main host. The request then fell into the
+  // custom-domain routing branch, the domain lookup found nothing, and
+  // middleware returned NextResponse.next() — completely skipping the
+  // Clerk/admin-token auth gate in the "Main site / dashboard" block below,
+  // for a protected path like /dashboard.
+  it('still applies the Clerk/admin-token auth gate on the main host when Host arrives uppercase', async () => {
+    const domainSpy = vi.fn(async () => null)
+    byDomain = domainSpy
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://WWW.FULLLOOPCRM.COM/dashboard', {
+      headers: { host: 'WWW.FULLLOOPCRM.COM' },
+    })
+    const res = await middleware(req)
+
+    // Not admin-authenticated and not a public route -> must redirect to
+    // sign-in, NOT fall through as an unauthenticated NextResponse.next().
+    expect(domainSpy).not.toHaveBeenCalled()
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('resolves a tenant subdomain whose Host header arrives mixed-case', async () => {
+    bySlug = async (slug) => (slug === 'acme' ? acme : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://ACME.fullloopcrm.com/', { headers: { host: 'ACME.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(res!.headers.get('x-tenant-id')).toBe('tenant-acme')
+  })
 })
