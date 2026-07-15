@@ -71,7 +71,7 @@ export async function POST(request: Request, { params }: Params) {
           heading: "Let's make it official.",
           bodyHtml: `
             <p style="margin:0 0 14px">${greeting}</p>
-            <p style="margin:0 0 14px">Your proposal <strong>${quote.quote_number}</strong>${quote.title ? ` — ${quote.title}` : ''} is ready. Total <strong>${formatCents(quote.total_cents)}</strong>.${depositLine}</p>
+            <p style="margin:0 0 14px">Your proposal <strong>${escapeHtml(quote.quote_number)}</strong>${quote.title ? ` — ${escapeHtml(quote.title)}` : ''} is ready. Total <strong>${formatCents(quote.total_cents)}</strong>.${depositLine}</p>
             <p style="margin:0 0 14px">Review the details, sign, and (if a deposit is set) pay online whenever you're ready.</p>
             ${validLine}
           `,

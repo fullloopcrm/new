@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -183,7 +184,7 @@ export async function POST(request: Request, { params }: Params) {
       subject: hasDeposit ? `Signed — awaiting deposit (${quote.quote_number})` : `SOLD — ${quote.quote_number}`,
       kicker: hasDeposit ? 'Signed — awaiting deposit' : 'Sold',
       heading: hasDeposit ? `${signature_name} signed — deposit next` : `${signature_name} accepted — it's a sale`,
-      bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${quote.quote_number}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : (isRecurring ? ' · closed to Sold, recurring series created' : isBooking ? ' · closed to Sold, booking created' : ' · closed to Sold, job created')}</p>`,
+      bodyHtml: `<p style="margin:0 0 12px">Proposal <strong>${escapeHtml(quote.quote_number)}</strong> was accepted & signed.</p><p style="margin:0"><strong>${(quote.total_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })}</strong>${hasDeposit ? ` · deposit ${(quote.deposit_cents / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' })} due` : (isRecurring ? ' · closed to Sold, recurring series created' : isBooking ? ' · closed to Sold, booking created' : ' · closed to Sold, job created')}</p>`,
       sms: hasDeposit
         ? `${signature_name} signed ${quote.quote_number}. Awaiting deposit.`
         : `SOLD: ${signature_name} accepted ${quote.quote_number}. ${isRecurring ? 'Recurring series created — first visits scheduled.' : isBooking ? 'Booking created — schedule it.' : 'Job created — schedule it.'}`,
