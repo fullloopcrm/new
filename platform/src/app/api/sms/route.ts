@@ -15,18 +15,7 @@ export async function GET(request: NextRequest) {
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
     if (conversationId) {
-      // Return messages for a specific conversation
-      const { data: messages, error } = await supabaseAdmin
-        .from('sms_conversation_messages')
-        .select('*')
-        .eq('conversation_id', conversationId)
-        .order('created_at', { ascending: true })
-
-      if (error) {
-        return NextResponse.json({ error: error.message }, { status: 500 })
-      }
-
-      // Verify conversation belongs to this tenant
+      // Verify conversation belongs to this tenant before reading its messages
       const { data: convo } = await supabaseAdmin
         .from('sms_conversations')
         .select('id')
@@ -36,6 +25,17 @@ export async function GET(request: NextRequest) {
 
       if (!convo) {
         return NextResponse.json({ error: 'Conversation not found' }, { status: 404 })
+      }
+
+      // Return messages for a specific conversation
+      const { data: messages, error } = await supabaseAdmin
+        .from('sms_conversation_messages')
+        .select('*')
+        .eq('conversation_id', conversationId)
+        .order('created_at', { ascending: true })
+
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
       }
 
       return NextResponse.json({ messages: messages || [] })
