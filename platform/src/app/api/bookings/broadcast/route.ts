@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -94,9 +95,9 @@ export async function POST(request: Request) {
             <p style="font-size: 28px; font-weight: bold; color: #16a34a; margin: 0 0 10px 0;">$${payRate}/hr</p>
             <p style="margin: 5px 0;"><strong>Date:</strong> ${jobDate}</p>
             <p style="margin: 5px 0;"><strong>Time:</strong> ${jobTime}${endTime ? ` - ${endTime}` : ''}</p>
-            <p style="margin: 5px 0;"><strong>Location:</strong> ${client?.address || 'TBD'}</p>
-            ${booking.service_type ? `<p style="margin: 5px 0;"><strong>Service:</strong> ${booking.service_type}</p>` : ''}
-            ${booking.notes ? `<p style="margin: 10px 0; padding: 10px; background: #fef9c3; border-radius: 6px;"><strong>Notes:</strong> ${booking.notes}</p>` : ''}
+            <p style="margin: 5px 0;"><strong>Location:</strong> ${escapeHtml(client?.address || 'TBD')}</p>
+            ${booking.service_type ? `<p style="margin: 5px 0;"><strong>Service:</strong> ${escapeHtml(booking.service_type)}</p>` : ''}
+            ${booking.notes ? `<p style="margin: 10px 0; padding: 10px; background: #fef9c3; border-radius: 6px;"><strong>Notes:</strong> ${escapeHtml(booking.notes)}</p>` : ''}
           </div>
           <div style="padding: 20px; text-align: center;">
             <p style="color: #666; font-size: 14px;">Log in to your team portal to claim this job.</p>
