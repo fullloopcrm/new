@@ -26,7 +26,15 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ member: data })
+    // pin is a team-portal login credential. team.view (this route's only
+    // gate) is held by 'staff' by default, but the PIN card view is only
+    // meant for roles that actually manage the team (owner/admin/manager) —
+    // strip it for staff so the lowest tier can't harvest a teammate's
+    // login PIN via this endpoint.
+    const { pin: _pin, ...withoutPin } = data
+    const member = tenant.role === 'staff' ? withoutPin : data
+
+    return NextResponse.json({ member })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

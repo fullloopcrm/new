@@ -76,3 +76,19 @@ describe('GET /api/team/[id] — permission gate', () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('GET /api/team/[id] — credential exposure', () => {
+  it('owner still sees pin (intentional admin card view)', async () => {
+    const res = await GET(new Request('http://x'), params('tm-A1'))
+    const json = await res.json()
+    expect(json.member.pin).toBe('4821')
+  })
+
+  it("PIN PROBE: staff (has team.view by default) cannot harvest a teammate's pin via this endpoint", async () => {
+    h.role = 'staff'
+    const res = await GET(new Request('http://x'), params('tm-A1'))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.member).not.toHaveProperty('pin')
+  })
+})

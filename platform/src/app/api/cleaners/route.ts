@@ -19,7 +19,15 @@ export async function GET() {
     .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  // pin is a team-portal login credential, not roster data — strip it here,
+  // same as /api/team's list endpoint. No consumer of this legacy shim
+  // (dashboard/team, BookingsAdmin, jobs/crews) reads it, and team.view is
+  // held by 'staff' by default, so leaving it in select('*') would let any
+  // staff-tier dashboard user harvest every teammate's plaintext PIN.
+  const team = (data || []).map(({ pin: _pin, ...rest }) => rest)
+
+  return NextResponse.json(team)
 }
 
 export async function POST(request: NextRequest) {
