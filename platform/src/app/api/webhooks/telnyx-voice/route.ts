@@ -326,20 +326,29 @@ async function maybeSendMissedCallSMS(opts: {
   contactId: string
 }): Promise<void> {
   // Cooldown: don't blast the same number twice within the window.
+  // Scoped to this tenant — comhub_missed_call_sms is per-tenant data, and an
+  // unscoped lookup would let one tenant's cooldown silently suppress another
+  // tenant's missed-call SMS to the same phone number (e.g. a shared/reused
+  // number calling two different businesses within the window).
   const cutoff = new Date(Date.now() - MISSED_CALL_SMS_COOLDOWN_MIN * 60_000).toISOString()
   const { data: recent } = await supabaseAdmin
-    .from('comhub_missed_call_sms')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
+    .from('comhub_missed_call_sms')
     .select('id')
+    .eq('tenant_id', opts.tenantId)
     .eq('customer_phone', opts.customerPhone)
     .gte('sent_at', cutoff)
     .limit(1)
   if (recent && recent.length > 0) return
 
   // Don't SMS a cleaner number — they'd just get confused. Skip if the phone
-  // matches a known cleaner.
+  // matches a known cleaner OF THIS TENANT. cleaners.tenant_id is NOT NULL
+  // (migrations/2026_05_09_tenant_id_core.sql) — an unscoped match here would
+  // let a cleaner registered under a different tenant permanently block their
+  // own number from ever receiving a missed-call SMS as a customer elsewhere.
   const { data: cleanerMatch } = await supabaseAdmin
     .from('cleaners')
     .select('id')
+    .eq('tenant_id', opts.tenantId)
     .eq('phone', opts.customerPhone)
     .limit(1)
   if (cleanerMatch && cleanerMatch.length > 0) return
