@@ -4364,3 +4364,69 @@ round's fresh work, so they aren't at risk of being lost. No code changes
 made to any of that carried-over work beyond what was already reported.
 
 File-only, no push/deploy/DB.
+
+## 2026-07-16 06:23 round (W2) — P76, fixed: `GET /api/audit` had zero
+permission check — live default-role bug, not override-only
+
+Continuing the broad-hunt (leader order 06:23, lower-risk surface,
+file-only). Re-scanned every `api/*` route file for the "calls
+`getTenantForRequest`/`tenantDb` but never `requirePermission`" shape used
+to find P59-P75 (75 candidate files this pass), then cross-referenced each
+against `rbac.ts`'s actual permission list looking for an exact-name match
+the route was skipping. `api/audit/route.ts` matched immediately —
+`rbac.ts` defines `'audit.view'` specifically for this resource, but the
+handler only called `getTenantForRequest()` (proves tenant membership at
+ANY role) with zero permission check, reading the full tenant `audit_logs`
+table (every recorded user action for the tenant) for anyone in the
+tenant regardless of role.
+
+**Not override-only, unlike most of this session's prior findings** — by
+default `rbac.ts` grants `audit.view` to `owner`/`admin` only; `manager`
+and `staff` get neither. So this was live against the hard-coded defaults
+(same class as P72's referrals bug): any manager- or staff-tier member
+could already read the entire tenant audit log with zero role check, no
+`role_permissions` override needed to trigger it.
+
+**Fix:** switched from a raw `getTenantForRequest()` call to
+`requirePermission('audit.view')` (matches the family convention already
+used across P71-P75's fixes and every other permission-gated route in the
+codebase) — one call now covers both the auth check and the permission
+check. `tenant.tenantId` off the returned `TenantContext` was already the
+correct field name used by the existing `tenantDb(tenant.tenantId)` call,
+no other call-site changes needed.
+
+**Regression lock:** new `route.rbac.test.ts` (5 tests: owner passes,
+admin passes — both have `audit.view` by default — manager and staff are
+both forbidden with no override needed, and an explicit
+override-revocation probe blocks admin when a tenant sets
+`role_permissions.admin['audit.view'] = false`). Mutation-verified via
+`git stash` against the real pre-fix `route.ts`: 3 of 5 probes went RED
+(manager 200 instead of 403, staff 200 instead of 403, override-revoked
+admin 200 instead of 403) pre-fix, restored, all 5 GREEN post-fix.
+Pre-existing `route.isolation.test.ts` (2 tests: cross-tenant log
+exclusion, `entity_type` filter) still passes unchanged — it mocks
+`getTenantForRequest` returning role `'owner'`, which has `audit.view` by
+default, so the isolation behavior it wraps is undisturbed.
+
+`npx tsc --noEmit`: clean. Full suite: 399 files, 1732 passed + 37
+skipped, 0 regressions (was 398/1727). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+**Remaining candidates from this round's 75-file scan, not yet checked:**
+most are either genuinely public/webhook routes (rate-limited lead-capture
+forms like `waitlist`/`send-booking-emails` resolving tenant from host
+headers, not a logged-in session — correctly ungated), routes already
+covered by a separate admin-session auth layer (`api/admin/*`, not yet
+individually re-verified this round), or don't map to an existing named
+`rbac.ts` permission (would need a new permission added, larger scope than
+this round). Notable ones worth a future pass: `schedules/route.ts` +
+`schedules/[id]/route.ts` (`schedules.view`/`schedules.edit` exist and
+look like exact-match candidates, same shape as this fix, not yet
+verified), `notifications/route.ts` (`notifications.view` exists),
+`reviews/[id]/route.ts` (P74 gated the base `/api/reviews` collection but
+not this sibling — same shape as P75's `clients/[id]/activity` gap).
+Flagging rather than fixing all of them this round to keep this round's
+diff small and independently verifiable.
+
+File-only, no push/deploy/DB.
