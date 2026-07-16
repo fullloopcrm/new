@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 interface IssueRow {
   id: string
@@ -80,13 +80,8 @@ async function buildFixPlan(issue: IssueRow, tenantId: string): Promise<FixPlan>
 }
 
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error: authError } = await requirePermission('schedules.edit')
+  if (authError) return authError
 
   const body = await request.json().catch(() => ({}))
   const id = body.id as string | undefined

@@ -4928,3 +4928,83 @@ pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
 round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:44 round (W2) — P86, fixed: `PUT /api/admin/schedule-issues`
++ `POST /api/admin/schedule-issues/fix` had zero permission check —
+any staff-tier member could rewrite a booking's `price` or unassign/
+reassign its `team_member_id`/`status`
+
+Continuing the broad-hunt (leader order 07:44, "lower-risk surface").
+`schedule-issues/route.ts` GET+PUT and `schedule-issues/fix/route.ts` POST
+only called `getTenantForRequest()` (proves tenant membership at ANY
+role), no `requirePermission` anywhere, even though rbac.ts already
+defines `schedules.view`/`schedules.edit` for this exact resource family
+(used by `schedules/route.ts`, `schedules/[id]/route.ts`,
+`schedules/[id]/pause/route.ts` per P77/P78).
+
+More severe than a typical missing-gate finding: `fix/route.ts` POST with
+`apply: true` writes directly to `bookings.price` (the `price_mismatch`
+autofix recalculates and overwrites the booking price) and to
+`bookings.team_member_id`/`status` (the `day_off` autofix unassigns the
+crew member and resets status to `pending`) — a real money/assignment
+mutation, same class as P81/P82's payment/finance gaps, reachable via the
+"Resolve" button on the dashboard's Schedule Issues panel.
+
+Not override-only: by default `rbac.ts` grants `schedules.edit` to
+`owner`/`admin`/`manager` only — `staff` gets neither. So any staff-tier
+member could already resolve/dismiss an issue (schedule-issues PUT) or
+directly overwrite a booking's price / strip its assigned crew member
+(fix POST), zero role check, no override needed — same class as
+P70-P85. GET is override-only (staff has `schedules.view` by default).
+
+**Fix:** `requirePermission('schedules.view')` on GET,
+`requirePermission('schedules.edit')` on PUT (`schedule-issues/route.ts`)
+and on POST (`schedule-issues/fix/route.ts`), matching the sibling
+`schedules/*` gates.
+
+**Noticed, not fixed (functional bug, not a leak):** the dashboard's
+`ScheduleIssues.tsx` component calls `DELETE /api/admin/schedule-issues?id=`
+(Dismiss) and `POST /api/admin/schedule-issues` (Clear all & rescan), but
+`schedule-issues/route.ts` only exports `GET`/`PUT` — those two buttons
+405 silently (`.catch(() => {})`). Pre-existing, unrelated to RBAC, out of
+this lane's scope — flagging for whoever next touches this panel.
+
+**Regression lock:** 2 new `route.rbac.test.ts` files (12 tests total: 5 on
+`schedule-issues/route.ts` GET+PUT, 3 owner-succeeds/staff-forbidden/
+override-revoked probes plus a zero-mutation assertion on the staff-PUT
+probe; 3 on `schedule-issues/fix/route.ts` POST, incl. an assertion that
+`bookings.price` is unchanged when a staff-tier POST is correctly 403'd).
+Mutation-verified via `git checkout stash@{0} -- <path>` restore after a
+`git stash push` of just the 2 fixed `route.ts` files: 5 of 12 probes went
+RED pre-fix, restored, all 12 GREEN post-fix.
+
+**Harness hazard hit mid-round, resolved safely:** confirmed via `ps` a
+second, stale `.worker-driver.sh` process for this exact worktree
+(PID 2278, running since Tue 11AM, alongside this session's PID 51162) —
+the same live concurrent-process collision W1 (07:08) and W3 (07:19)
+already flagged for `/tmp` files and git-stash respectively. This round it
+hit `git stash pop` directly: between my `git stash push -- <2 files>` and
+`git stash pop`, the stale process pushed its own unrelated stash entry
+(an in-progress fix to `management-applications/draft/route.ts`, an
+IP-collision bug in the draft-save keying — not mine, not touched here);
+my `pop` popped *its* top-of-stack entry instead of mine, applying that
+unrelated diff to my working tree and dropping it, while my own content
+survived one level down. Recovered without loss: confirmed via
+`git stash show -p stash@{0}` that my fix was still intact there,
+restored just my 2 files via `git checkout stash@{0} -- <path>` (leaving
+the foreign file's uncommitted change untouched — not mine to discard),
+then dropped the now-redundant stash entry. The foreign
+`management-applications/draft/route.ts` change remains uncommitted in
+this worktree, unstaged by me. Recommending again (3rd time tonight) that
+the fleet/harness kill duplicate `.worker-driver.sh` processes per
+worktree — this is now confirmed to have actually corrupted a working-tree
+operation, not just a theoretical risk.
+
+`npx tsc --noEmit`: clean. Full suite: 418 files, 1838 passed + 37
+skipped, 0 regressions (was 416/1830). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
