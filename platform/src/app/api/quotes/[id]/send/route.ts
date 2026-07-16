@@ -123,10 +123,27 @@ export async function POST(request: Request, { params }: Params) {
     const sentVia =
       results.email?.ok && results.sms?.ok ? 'both' : results.email?.ok ? 'email' : 'sms'
 
-    await supabaseAdmin
+    // Check-then-act, not atomic: `quote.status` above is a stale snapshot --
+    // the public accept/decline routes (already CAS-guarded on their own end)
+    // can land between that read and this write. A blind `status: 'sent'`
+    // write would silently revert a concurrent accept/decline back to 'sent'.
+    // Only advance to 'sent' when the DB row's status hasn't moved since the
+    // read; otherwise just record the send without touching status.
+    const { data: sentUpdate } = await supabaseAdmin
       .from('quotes')
       .update({ status: 'sent', sent_at: new Date().toISOString(), sent_via: sentVia })
       .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .eq('status', quote.status)
+      .select('id')
+      .maybeSingle()
+    if (!sentUpdate) {
+      await supabaseAdmin
+        .from('quotes')
+        .update({ sent_at: new Date().toISOString(), sent_via: sentVia })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+    }
 
     await logQuoteEvent({
       quote_id: id,
@@ -138,7 +155,10 @@ export async function POST(request: Request, { params }: Params) {
     // Announce to the deal's pipeline timeline on the FIRST send only (drafts
     // are created silently now, so this is where a proposal enters the pipeline).
     // quote.status is the pre-update value → 'draft' means this is the first send.
-    if (quote.status === 'draft' && quote.deal_id) {
+    // Gated on `sentUpdate` too: if the draft->sent transition above didn't
+    // actually land (status changed concurrently), this isn't really "the
+    // first send" from this request's perspective — skip the duplicate note.
+    if (sentUpdate && quote.status === 'draft' && quote.deal_id) {
       await supabaseAdmin.from('deal_activities').insert({
         tenant_id: tenantId,
         deal_id: quote.deal_id,

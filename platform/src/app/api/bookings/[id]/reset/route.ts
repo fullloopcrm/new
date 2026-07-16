@@ -40,14 +40,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (booking.payment_status === 'paid') {
       return NextResponse.json({ error: 'Payment already collected — undo manually; money/texts already went out.' }, { status: 400 })
     }
+    // Check-then-act, not atomic: the payment_status/check_out_time guards above
+    // read a stale snapshot -- a concurrent payment (record-payment, Stripe
+    // webhook) or another reset request can land in the gap. Re-assert both in
+    // THIS update's own WHERE so a payment that just landed can't be silently
+    // undone by this reset.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .update({ status: 'in_progress', check_out_time: null, check_out_location: null, actual_hours: null })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .eq('check_out_time', booking.check_out_time)
+      // payment_status can be NULL (never billed) -- plain .neq('payment_status',
+      // 'paid') would exclude those rows too, since NULL <> 'paid' is NULL, not
+      // true, in SQL. Explicitly allow NULL alongside anything not 'paid'.
+      .or('payment_status.is.null,payment_status.neq.paid')
       .select('*, clients(name), team_members!bookings_team_member_id_fkey(name)')
-      .single()
+      .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This booking changed concurrently (e.g. payment landed) — refresh and retry' },
+        { status: 409 },
+      )
+    }
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
       type: 'check_out_reset',
@@ -65,14 +81,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (booking.check_out_time) {
     return NextResponse.json({ error: 'Undo check-out first' }, { status: 400 })
   }
+  // Same TOCTOU class as the check-out branch above: `booking.check_in_time`/
+  // `check_out_time` are a stale snapshot -- a concurrent check-out can land
+  // between the read and this write. Re-assert both in THIS update's own
+  // WHERE so a check-out that just happened can't be silently undone.
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({ status: 'scheduled', check_in_time: null, check_in_location: null, fifteen_min_alert_time: null })
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .eq('check_in_time', booking.check_in_time)
+    .is('check_out_time', null)
     .select('*, clients(name), team_members!bookings_team_member_id_fkey(name)')
-    .single()
+    .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) {
+    return NextResponse.json(
+      { error: 'This booking changed concurrently (e.g. checked out) — refresh and retry' },
+      { status: 409 },
+    )
+  }
   await supabaseAdmin.from('notifications').insert({
     tenant_id: tenantId,
     type: 'check_in_reset',

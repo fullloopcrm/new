@@ -32,26 +32,47 @@ export async function GET(request: Request, { params }: Params) {
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Expire if past valid_until
-    if (quote.valid_until && quote.status === 'sent') {
+    // Resolve the status transition (expire past valid_until, else bump
+    // sent->viewed on first view) against the status as READ above, then apply
+    // both it and the view-tracking fields in one write.
+    const originalStatus = quote.status as string
+    let nextStatus: string | null = null
+    if (quote.valid_until && originalStatus === 'sent') {
       const validUntil = new Date(quote.valid_until as string)
-      if (validUntil < new Date()) {
-        await supabaseAdmin.from('quotes').update({ status: 'expired' }).eq('id', quote.id)
-        quote.status = 'expired'
-        await logQuoteEvent({ quote_id: quote.id, tenant_id: quote.tenant_id, event_type: 'expired' })
-      }
+      if (validUntil < new Date()) nextStatus = 'expired'
     }
+    if (nextStatus === null && originalStatus === 'sent') nextStatus = 'viewed'
 
-    // Record view — first view bumps status to 'viewed'
     const now = new Date().toISOString()
-    const update: Record<string, unknown> = {
+    const baseUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (quote.view_count || 0) + 1,
     }
-    if (!quote.first_viewed_at) update.first_viewed_at = now
-    if (quote.status === 'sent') update.status = 'viewed'
+    if (!quote.first_viewed_at) baseUpdate.first_viewed_at = now
 
-    await supabaseAdmin.from('quotes').update(update).eq('id', quote.id)
+    // Check-then-act, not atomic: `originalStatus` is a stale snapshot -- the
+    // public accept/decline routes (already CAS-guarded on their own end) can
+    // land between the read above and this write. Re-assert the pre-read
+    // status in THIS update's own WHERE so a concurrent accept/decline can't
+    // be silently reverted to 'expired'/'viewed'.
+    const { data: updated } = await supabaseAdmin
+      .from('quotes')
+      .update(nextStatus ? { ...baseUpdate, status: nextStatus } : baseUpdate)
+      .eq('id', quote.id)
+      .eq('status', originalStatus)
+      .select('status')
+      .maybeSingle()
+
+    let finalStatus = updated?.status ?? originalStatus
+    if (!updated) {
+      // Status changed concurrently — record the view metadata only, and
+      // reflect the current (not stale) status in the response below.
+      await supabaseAdmin.from('quotes').update(baseUpdate).eq('id', quote.id)
+      const { data: current } = await supabaseAdmin.from('quotes').select('status').eq('id', quote.id).maybeSingle()
+      finalStatus = current?.status ?? originalStatus
+    } else if (nextStatus === 'expired') {
+      await logQuoteEvent({ quote_id: quote.id, tenant_id: quote.tenant_id, event_type: 'expired' })
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
@@ -65,7 +86,7 @@ export async function GET(request: Request, { params }: Params) {
     const publicQuote = {
       id: quote.id,
       quote_number: quote.quote_number,
-      status: update.status || quote.status,
+      status: finalStatus,
       title: quote.title,
       description: quote.description,
       contact_name: quote.contact_name,

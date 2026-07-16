@@ -26,22 +26,40 @@ export async function GET(request: Request, { params }: Params) {
     if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const now = new Date().toISOString()
-    const update: Record<string, unknown> = {
+    const baseUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (invoice.view_count || 0) + 1,
     }
-    if (!invoice.first_viewed_at) update.first_viewed_at = now
-    if (invoice.status === 'sent') update.status = 'viewed'
+    if (!invoice.first_viewed_at) baseUpdate.first_viewed_at = now
 
-    // Check overdue
+    let nextStatus: string | null = null
+    if (invoice.status === 'sent') nextStatus = 'viewed'
     if (invoice.due_date && !['paid', 'void', 'refunded'].includes(invoice.status)) {
       const due = new Date(invoice.due_date as string)
-      if (due < new Date() && invoice.status !== 'overdue') {
-        update.status = 'overdue'
-      }
+      if (due < new Date() && invoice.status !== 'overdue') nextStatus = 'overdue'
     }
 
-    await supabaseAdmin.from('invoices').update(update).eq('id', invoice.id)
+    // Check-then-act, not atomic: `invoice.status` above is a stale snapshot --
+    // a concurrent payment (record-payment, Stripe webhook) can land between
+    // that read and this write. Re-assert the pre-read status in THIS update's
+    // own WHERE so a payment that just landed (bumping status to
+    // 'partial'/'paid') can't be silently reverted to 'viewed'/'overdue'.
+    const { data: updated } = await supabaseAdmin
+      .from('invoices')
+      .update(nextStatus ? { ...baseUpdate, status: nextStatus } : baseUpdate)
+      .eq('id', invoice.id)
+      .eq('status', invoice.status)
+      .select('status')
+      .maybeSingle()
+
+    let finalStatus = updated?.status ?? invoice.status
+    if (!updated) {
+      // Status changed concurrently — record the view metadata only, and
+      // reflect the current (not stale) status in the response below.
+      await supabaseAdmin.from('invoices').update(baseUpdate).eq('id', invoice.id)
+      const { data: current } = await supabaseAdmin.from('invoices').select('status').eq('id', invoice.id).maybeSingle()
+      finalStatus = current?.status ?? invoice.status
+    }
 
     await logInvoiceEvent({
       invoice_id: invoice.id,
@@ -55,7 +73,7 @@ export async function GET(request: Request, { params }: Params) {
     const publicInvoice = {
       id: invoice.id,
       invoice_number: invoice.invoice_number,
-      status: update.status || invoice.status,
+      status: finalStatus,
       title: invoice.title,
       description: invoice.description,
       contact_name: invoice.contact_name,

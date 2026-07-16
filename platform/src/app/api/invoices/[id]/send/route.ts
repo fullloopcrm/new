@@ -99,11 +99,26 @@ export async function POST(request: Request, { params }: Params) {
     const sentVia =
       results.email?.ok && results.sms?.ok ? 'both' : results.email?.ok ? 'email' : 'sms'
 
-    const newStatus = invoice.status === 'draft' ? 'sent' : invoice.status
-    await db
+    // Check-then-act, not atomic: `invoice.status` above is a stale snapshot --
+    // a concurrent payment (record-payment, Stripe webhook) or a void can land
+    // between that read and this write. A blind `status: newStatus` write would
+    // silently revert whatever the concurrent action just set (e.g. flip a
+    // just-paid invoice's status back to 'sent'). Only advance draft->sent when
+    // the DB row is still 'draft'; otherwise record the send without touching
+    // status.
+    const { data: draftAdvanced } = await db
       .from('invoices')
-      .update({ status: newStatus, sent_at: new Date().toISOString(), sent_via: sentVia })
+      .update({ status: 'sent', sent_at: new Date().toISOString(), sent_via: sentVia })
       .eq('id', id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle()
+    if (!draftAdvanced) {
+      await db
+        .from('invoices')
+        .update({ sent_at: new Date().toISOString(), sent_via: sentVia })
+        .eq('id', id)
+    }
 
     await logInvoiceEvent({
       invoice_id: id,
