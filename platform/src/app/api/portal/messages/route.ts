@@ -1,6 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { protectClientAPI } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
+
+// Was calling lib/nycmaid/auth's legacy protectClientAPI() (platform-wide
+// ADMIN_PASSWORD-signed, 3-part cookie, no tenant binding) instead of
+// lib/client-auth's tenant-bound version that /api/client/login and
+// /api/client/verify-code actually mint (4-part clientId.tenantId.ts.sig,
+// PORTAL_SECRET-signed). Same root cause as the /api/client/properties fix:
+// a real client_session cookie never validated here at all, so the
+// client-portal messaging feature was silently broken for every real client.
 
 async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null }> {
   const { data: client } = await supabaseAdmin
@@ -43,8 +52,11 @@ async function getClientThreadId(clientId: string): Promise<{ tenantId: string |
 }
 
 export async function GET() {
-  const auth = await protectClientAPI()
-  if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
+  if (auth instanceof NextResponse) return auth
   const { clientId } = auth
 
   const { threadId } = await getClientThreadId(clientId)
@@ -63,8 +75,11 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await protectClientAPI()
-  if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
+  if (auth instanceof NextResponse) return auth
   const { clientId } = auth
 
   const body = await req.json().catch(() => null) as { body?: string } | null
