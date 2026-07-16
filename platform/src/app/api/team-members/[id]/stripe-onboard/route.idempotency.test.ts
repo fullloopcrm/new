@@ -76,6 +76,7 @@ beforeEach(() => {
   idempotencyStore.clear()
   realAccountCount = 0
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
+  process.env.ADMIN_TOKEN_SECRET = 'test_admin_secret'
 })
 
 describe('team-members/[id]/stripe-onboard — concurrent double-click does not mint two Connect accounts', () => {

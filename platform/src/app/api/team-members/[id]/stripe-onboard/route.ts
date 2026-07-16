@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { signOAuthState } from '@/lib/oauth-state'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -52,10 +53,13 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
+    // Signed token binding this tenant+team-member pair, consumed by
+    // stripe-status's host-header-less fallback (see that route for why).
+    const returnToken = signOAuthState(`${tenantId}:${id}`)
     const link = await stripe.accountLinks.create({
       account: accountId,
       refresh_url: `${baseUrl}/dashboard/team/${id}?stripe=refresh`,
-      return_url: `${baseUrl}/dashboard/team/${id}?stripe=connected`,
+      return_url: `${baseUrl}/dashboard/team/${id}?stripe=connected&t=${encodeURIComponent(returnToken)}`,
       type: 'account_onboarding',
     })
 

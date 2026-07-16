@@ -17,6 +17,7 @@ import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { verifyOAuthState } from '@/lib/oauth-state'
 
 function getStripe(key: string | null | undefined): Stripe {
   // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
@@ -25,33 +26,44 @@ function getStripe(key: string | null | undefined): Stripe {
   return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
-async function resolveTenantForTeamMember(teamMemberId: string) {
-  // Prefer tenant from request headers (middleware injects it) but fall
-  // back to looking it up off the team_members row so this endpoint works
-  // when hit directly by Stripe redirect without host-based middleware.
+async function resolveTenantForTeamMember(teamMemberId: string, token: string | null) {
+  // Prefer tenant from request headers (middleware injects it) but fall back
+  // to a signed token (minted by the authenticated /stripe-onboard POST for
+  // this exact tenant+team-member pair) so this endpoint still works when hit
+  // directly by Stripe's return-URL redirect, which lands on the main
+  // dashboard host — no host-based x-tenant-id header is ever injected there.
+  //
+  // Previously this fallback looked the tenant up straight off the
+  // team_members row keyed by the caller-supplied id, with no proof the
+  // caller had any right to that id. That made the tenant_id used for every
+  // downstream `.eq('tenant_id', ...)` check circular — derived from the very
+  // id it was supposed to be validating — so any anonymous caller could read
+  // (and, on first success, mutate + trigger an admin notify/SMS for) any
+  // tenant's team member's Stripe Connect status by guessing/knowing a UUID.
+  // Same CSRF-binding HMAC pattern as lib/oauth-state.ts's social-OAuth
+  // callbacks closes it: the token can only be forged by a tenant.edit-
+  // authenticated caller, for this specific team member, within 15 minutes.
   const headerTenant = await getTenantFromHeaders()
   if (headerTenant) return headerTenant
 
-  const { data: tm } = await supabaseAdmin
-    .from('team_members')
-    .select('tenant_id')
-    .eq('id', teamMemberId)
-    .single()
-  if (!tm?.tenant_id) return null
+  const verified = verifyOAuthState(token)
+  if (!verified) return null
+  const [tenantId, boundTeamMemberId] = verified.split(':')
+  if (!tenantId || boundTeamMemberId !== teamMemberId) return null
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
     .select('*')
-    .eq('id', tm.tenant_id)
+    .eq('id', tenantId)
     .single()
   return tenant
 }
 
-export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
 
-    const tenant = await resolveTenantForTeamMember(id)
+    const tenant = await resolveTenantForTeamMember(id, req.nextUrl.searchParams.get('t'))
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const { data: teamMember } = await supabaseAdmin
@@ -104,10 +116,10 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
   }
 }
 
-export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
-    const tenant = await resolveTenantForTeamMember(id)
+    const tenant = await resolveTenantForTeamMember(id, req.nextUrl.searchParams.get('t'))
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
 
     const { data: tm } = await supabaseAdmin
