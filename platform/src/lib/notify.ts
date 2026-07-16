@@ -68,6 +68,7 @@ export type NotificationType =
   | 'error'
   | 'referral_lead'
   | 'cleaner_application'
+  | 'seo_digest'
 
 export async function notify({
   tenantId,
@@ -129,7 +130,7 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address, owner_email')
     .eq('id', tenantId)
     .single()
 
@@ -149,7 +150,10 @@ export async function notify({
     phone = data?.phone || null
   } else if (recipientType === 'admin') {
     const { data } = await supabaseAdmin.from('tenant_members').select('email').eq('tenant_id', tenantId).eq('role', 'owner').single()
-    email = data?.email || null
+    // tenant_members has no 'owner' row for most tenants (checked live: 17/22
+    // active tenants) — fall back to tenants.owner_email, which IS populated
+    // for nearly all of them, rather than silently skipping the send.
+    email = data?.email || (tenant as { owner_email?: string | null }).owner_email || null
   }
 
   // Build branded HTML for email channel
