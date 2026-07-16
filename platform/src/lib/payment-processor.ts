@@ -87,6 +87,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       team_member_id,
       client_id,
       team_member_pay,
+      team_member_paid,
       actual_hours,
       hourly_rate,
       pay_rate,
@@ -242,7 +243,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
 
   // Team member auto-pay via Stripe Connect
   let cleanerPaidCents = 0
-  if (teamMember?.stripe_account_id && booking.team_member_id) {
+  // team_member_paid guard: this booking may already have been paid out by a
+  // prior processPayment call carrying a DIFFERENT referenceId (e.g. a
+  // client's Zelle payment reconciled twice under two transaction refs, or a
+  // duplicate finalize-match call). The idempotency key below is scoped to
+  // (bookingId, referenceId), so a distinct referenceId is never deduped —
+  // without this guard a second call re-transfers real money to the team
+  // member for a job already paid out.
+  if (teamMember?.stripe_account_id && booking.team_member_id && !booking.team_member_paid) {
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {

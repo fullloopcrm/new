@@ -362,7 +362,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, team_member_paid, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -456,7 +456,14 @@ export async function POST(request: Request) {
 
       // 4. Auto-pay cleaner if connected to Stripe Connect
       let payoutSent = false
-      if (tm?.stripe_account_id && booking.team_member_id) {
+      // team_member_paid guard: this booking may already have been paid out by
+      // a prior checkout.session.completed delivery for a DIFFERENT session_id
+      // (e.g. client double-paid a reusable static Payment Link, or a fresh
+      // session was created for an already-paid booking). The insert-guard
+      // above only dedupes the SAME session.id — it does not stop a second,
+      // genuinely distinct session from re-triggering a real Stripe transfer
+      // to the cleaner for a job already paid out.
+      if (tm?.stripe_account_id && booking.team_member_id && !(booking as { team_member_paid?: boolean | null }).team_member_paid) {
         try {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
