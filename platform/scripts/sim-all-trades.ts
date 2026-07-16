@@ -1125,9 +1125,42 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     })
     add('job: created from accepted quote', !!jobRes.job_id && !jobRes.already_converted)
 
-    const { data: job } = await supabase.from('jobs').select('id, status, total_cents').eq('id', jobRes.job_id).single()
+    const { data: job } = await supabase.from('jobs').select('id, status, total_cents, client_id').eq('id', jobRes.job_id).single()
     add('job: status scheduled', job?.status === 'scheduled', job?.status)
     add('job: total = quote total', job?.total_cents === quote.total_cents)
+
+    // ================= 3a. CLIENT AUTO-CREATE + REPEAT-CUSTOMER DEDUPE =================
+    // createJobFromQuote() "mirrors the booking convert path" (src/lib/jobs.ts)
+    // by resolving-or-creating a `clients` row from the quote's contact info —
+    // real behavior every one of these project sales exercises, but never once
+    // asserted here (the only existing check for this, "sell: client
+    // auto-created from quote", covers the plain single-booking convert path
+    // earlier in this file, not the project/job path). Also never exercised
+    // anywhere: the dedupe-by-email half of that same function — a repeat
+    // customer coming back for a second project (a referral did this reroof
+    // last summer; the customer they told call about their OWN roof) must
+    // resolve to the SAME client row, not silently create a duplicate contact
+    // that would split their history across two client records.
+    add('job: client auto-created from quote contact info (mirrors booking convert path)', !!job?.client_id, job?.client_id)
+    const { data: autoClient } = await supabase.from('clients').select('name, email, phone, address, source').eq('id', job?.client_id || '').maybeSingle()
+    add('client: name/email/phone/address match the quote contact exactly', autoClient?.name === cfg.lead.contactName && autoClient?.email === cfg.lead.contactEmail && autoClient?.phone === cfg.lead.contactPhone && autoClient?.address === cfg.lead.address, JSON.stringify(autoClient))
+    add("client: source recorded as 'quote' (not silently blank)", autoClient?.source === 'quote', autoClient?.source)
+
+    const repeatQuoteNumber = await generateQuoteNumber(tenant.id)
+    const { data: repeatQuote } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, client_id: null, quote_number: repeatQuoteNumber, status: 'accepted',
+      title: `${cfg.quoteTitle} (repeat customer — second property)`, contact_name: cfg.lead.contactName,
+      contact_email: cfg.lead.contactEmail, contact_phone: cfg.lead.contactPhone, service_address: cfg.lead.address,
+      line_items: lineItems, subtotal_cents: totals.subtotal_cents, tax_rate_bps: cfg.taxRateBps,
+      tax_cents: totals.tax_cents, discount_cents: 0, total_cents: totals.total_cents, public_token: generatePublicToken(),
+      accepted_at: new Date().toISOString(), signature_name: cfg.lead.contactName,
+    }).select('id').single()
+    const repeatJobRes = repeatQuote ? await createJobFromQuote(tenant.id, repeatQuote.id) : null
+    add('repeat-customer: second project converts to its own job (not merged into the first)', !!repeatJobRes?.job_id && repeatJobRes.job_id !== jobRes.job_id && !repeatJobRes.already_converted, JSON.stringify(repeatJobRes))
+    const { data: repeatJob } = repeatJobRes ? await supabase.from('jobs').select('client_id').eq('id', repeatJobRes.job_id).single() : { data: null }
+    add('repeat-customer: second job resolves to the SAME client (dedupe by email, no duplicate contact)', !!repeatJob?.client_id && repeatJob.client_id === job?.client_id, `${repeatJob?.client_id} vs ${job?.client_id}`)
+    const { data: clientRows } = await supabase.from('clients').select('id').eq('tenant_id', tenant.id).eq('email', cfg.lead.contactEmail)
+    add('repeat-customer: exactly one client row for this email (no duplicate created)', (clientRows?.length || 0) === 1, `${clientRows?.length} rows`)
 
     const { data: jobPays } = await supabase.from('job_payments').select('id, label, kind, amount_cents, status, trigger').eq('job_id', jobRes.job_id).order('sort_order')
     add(`job: milestone payment plan (${plan.length} items)`, (jobPays?.length || 0) === plan.length, `${jobPays?.length} payments`)
@@ -1629,13 +1662,18 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     }
 
     // ================= 9. REVIEWS =================
+    // Linked to the real client record resolved in 3a above (not null) — every
+    // prior scenario left this hardcoded null despite the job already having a
+    // real client_id, which would have made this the tenant's ENTIRE review
+    // history invisible from that customer's client record in production.
     const { data: review, error: revErr } = await supabase.from('reviews').insert({
-      tenant_id: tenant.id, client_id: null, booking_id: jobBookings?.[jobBookings.length - 1]?.id || null,
+      tenant_id: tenant.id, client_id: job?.client_id || null, booking_id: jobBookings?.[jobBookings.length - 1]?.id || null,
       team_member_id: worker?.id || null, rating: cfg.review.rating, comment: cfg.review.comment,
       source: 'google', status: 'published', name: cfg.lead.contactName, text: cfg.review.comment,
       completed_at: new Date().toISOString(), published_at: new Date().toISOString(),
     }).select('id, rating').single()
     add('review: customer review recorded', !!review && !revErr && review.rating === cfg.review.rating, revErr?.message)
+    add('review: linked to the real client record (visible from that customer\'s history, not orphaned)', !!job?.client_id, job?.client_id)
 
     const { reviewRequestEmail } = await import('../src/lib/email-templates')
     const reviewHtml = reviewRequestEmail({ tenantName: bizName, clientName: cfg.lead.contactName, feedbackUrl: `https://${slug}.example.com/review` })
