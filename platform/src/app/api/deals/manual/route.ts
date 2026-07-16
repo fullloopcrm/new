@@ -11,6 +11,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   try {
@@ -117,8 +118,8 @@ export async function POST(request: Request) {
       tenantId,
       subject: `New lead — ${name}`,
       kicker: 'New lead',
-      heading: `${name} just came in`,
-      bodyHtml: `<p style="margin:0 0 12px">A new lead landed in your pipeline.</p><p style="margin:0"><strong>${name}</strong>${phone ? ` · ${phone}` : ''}${service ? `<br>${service}` : ''}</p>`,
+      heading: `${escapeHtml(name)} just came in`,
+      bodyHtml: `<p style="margin:0 0 12px">A new lead landed in your pipeline.</p><p style="margin:0"><strong>${escapeHtml(name)}</strong>${phone ? ` · ${escapeHtml(phone)}` : ''}${service ? `<br>${escapeHtml(service)}` : ''}</p>`,
       sms: `New lead: ${name}${phone ? ` (${phone})` : ''} — in your pipeline now.`,
     })
 
