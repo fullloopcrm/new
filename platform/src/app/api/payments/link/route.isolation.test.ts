@@ -18,7 +18,10 @@ const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn(async () => ({ tenantId: A })),
+  // role: 'owner' has bookings.edit by default, so the requirePermission('bookings.edit')
+  // gate added to this route doesn't interfere with the cross-tenant isolation
+  // behavior this file tests.
+  getTenantForRequest: vi.fn(async () => ({ tenantId: A, role: 'owner', tenant: { id: A } })),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 
