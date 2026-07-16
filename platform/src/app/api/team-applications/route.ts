@@ -150,15 +150,35 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'ID and status required' }, { status: 400 })
     }
 
+    // The UI only ever offers Approve/Reject from the Pending queue -- once an
+    // application has moved to approved/rejected, a stale second tab or a
+    // double-click racing the first response used to blindly re-fire this
+    // update anyway, re-approving a just-rejected applicant (or vice versa)
+    // and, on approve, sending a second "you're in" welcome email. Guard the
+    // write on its own WHERE so only a still-pending row can transition.
     const { data, error } = await supabaseAdmin
       .from('team_applications')
       .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenant.tenantId)
+      .eq('status', 'pending')
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (!data) {
+      const { data: existing } = await supabaseAdmin
+        .from('team_applications')
+        .select('status')
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .maybeSingle()
+      if (existing) {
+        return NextResponse.json({ error: `Application already ${existing.status}` }, { status: 409 })
+      }
+      return NextResponse.json({ error: 'Application not found' }, { status: 404 })
+    }
 
     // On approval, provision the applicant as a team member (PIN + portal) and
     // email them. Best-effort: a failure here must never undo the status update.

@@ -32,20 +32,31 @@ export async function POST() {
       return NextResponse.json({ approved: 0, provisioned: 0, failures: [], message: 'No pending applications' })
     }
 
-    // Flip them all to approved first (single UPDATE), then provision+email each.
+    // Flip them all to approved (single UPDATE), then provision+email each.
+    // Re-check status:'pending' in the UPDATE's own WHERE -- between the
+    // fetch above and this write, a single approve/reject click (PUT) could
+    // have already decided one of these rows. Without the re-check this
+    // would blindly overwrite that decision back to 'approved' and
+    // provision/email an applicant an admin had just rejected. .select()
+    // back only the rows this call actually won, so provisioning never runs
+    // for a row that lost the race.
     const ids = pending.map((p) => p.id)
-    const { error: updErr } = await supabaseAdmin
+    const { data: won, error: updErr } = await supabaseAdmin
       .from('team_applications')
       .update({ status: 'approved' })
       .in('id', ids)
       .eq('tenant_id', tenant.tenantId)
+      .eq('status', 'pending')
+      .select('id, name, email, phone, address')
 
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+
+    const approved = won || []
 
     // Provision + email each applicant. Best-effort, isolated per applicant.
     const failures: Array<{ id: string; name: string | null; error: string }> = []
     let provisioned = 0
-    for (const app of pending) {
+    for (const app of approved) {
       try {
         await provisionApprovedApplicant(tenant.tenantId, app as ApprovedApplication)
         provisioned++
@@ -55,7 +66,7 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      approved: pending.length,
+      approved: approved.length,
       provisioned,
       failures,
     })
