@@ -4882,3 +4882,49 @@ finding in untracked `src/lib/seo/recipes.ts` as every prior round
 (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:37 round (W2) — P85, fixed: `GET/PUT /api/settings/notifications`
+had zero permission check — any staff-tier member could overwrite tenant-wide
+comms/notification preferences
+
+Continuing the broad-hunt (leader order 07:37, "lower-risk surface"). Both
+handlers only called `getTenantForRequest()` (proves tenant membership at
+ANY role), no `requirePermission` anywhere, even though sibling
+`/api/settings/*` routes (`settings/services`, `settings/team`,
+`settings/permissions`, `settings/page-config`) are already gated behind
+`settings.view`/`settings.edit`. This route — which persists
+`tenants.notification_preferences` (comms channel prefs + timing) and
+reads back derived email/SMS capability flags — was missed, same class as
+P80/P83.
+
+Not override-only: by default `rbac.ts` grants `settings.edit` to
+`owner`/`admin` only, and `settings.view` to `owner`/`admin`/`manager`
+only — `staff` gets neither. So any staff-tier member could already
+overwrite the tenant's full notification-preferences object via PUT, with
+zero role check, no override needed — same class as P70-P84. (Raw
+`resend_api_key`/`telnyx_api_key` values are NOT returned by GET —
+`deriveCapabilities` only derives booleans — so this is a
+permission/mutation gap, not a secret-leak.)
+
+**Fix:** `requirePermission('settings.view')` on GET,
+`requirePermission('settings.edit')` on PUT, matching the pattern already
+used by `settings/services` (P80) and every other `/api/settings/*` route.
+
+**Regression lock:** new `route.rbac.test.ts` (5 tests: owner-succeeds
+controls on GET+PUT, staff-forbidden default-role probes on GET+PUT with a
+zero-mutation assertion on the PUT probe, one override-revocation probe on
+admin for PUT). Mutation-verified via `git stash` of just the fixed
+`route.ts`: 3 of 5 probes went RED pre-fix (staff-forbidden GET,
+staff-forbidden PUT, admin-override-revoked PUT; the owner-succeeds
+controls are trivially true both pre- and post-fix since raw
+`getTenantForRequest()` never blocked anyone), restored, all 5 GREEN
+post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 416 files, 1830 passed + 37
+skipped, 0 regressions (was 415/1825). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
