@@ -96,6 +96,20 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
       }
 
+      // This flow trusts a client-reported `url` after an out-of-band signed
+      // upload — nothing previously checked it actually points at the file
+      // that was signed. A caller with a valid portal token for their own
+      // booking could set `url` to any arbitrary string (external domain,
+      // another tenant's object), which then renders as a <video src> in the
+      // admin dashboard. Require it to be inside this tenant+booking+type's
+      // own storage prefix, matching the path the GET handler signs.
+      const { data: prefixUrl } = supabaseAdmin.storage
+        .from('uploads')
+        .getPublicUrl(`${auth.tid}/job-videos/${booking_id}/${type}-`)
+      if (typeof url !== 'string' || !url.startsWith(prefixUrl.publicUrl)) {
+        return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+      }
+
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
       await supabaseAdmin.from('bookings').update({
         [field]: url,

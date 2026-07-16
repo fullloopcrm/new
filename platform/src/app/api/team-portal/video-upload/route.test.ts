@@ -71,7 +71,10 @@ vi.mock('@/lib/supabase', () => {
               ? { data: null, error: signedUrlError }
               : { data: { signedUrl: 'https://signed.example/upload', token: 'tok-1' }, error: null },
           upload: async () => (uploadError ? { error: uploadError } : { error: null }),
-          getPublicUrl: () => ({ data: { publicUrl: 'https://cdn.example/video.mp4' } }),
+          // Real Supabase echoes the path back in the public URL — the mock
+          // does too, so the route's prefix-validation (JSON POST flow) can
+          // be exercised with a realistic path-derived URL vs. a foreign one.
+          getPublicUrl: (path: string) => ({ data: { publicUrl: `https://cdn.example/storage/v1/object/public/uploads/${path}` } }),
         }),
       },
     },
@@ -182,11 +185,25 @@ describe('team-portal/video-upload POST — signed-URL save (JSON)', () => {
   })
 
   it('ALLOWS the assigned member and stamps the correct video field + tenant filter', async () => {
-    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: 'https://x/video.mp4' }))
+    const validUrl = `https://cdn.example/storage/v1/object/public/uploads/${TENANT}/job-videos/${BOOKING_A}/walkthrough-1700000000-abc123.mp4`
+    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: validUrl }))
     expect(res.status).toBe(200)
     expect(updates).toHaveLength(1)
-    expect(updates[0].payload.walkthrough_video_url).toBe('https://x/video.mp4')
+    expect(updates[0].payload.walkthrough_video_url).toBe(validUrl)
     expect(updates[0].tenantEq).toBe(TENANT)
+  })
+
+  it('REJECTS (400) a url outside this tenant/booking/type\'s own storage prefix and writes nothing', async () => {
+    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: 'https://evil.example/payload.mp4' }))
+    expect(res.status).toBe(400)
+    expect(updates).toHaveLength(0)
+  })
+
+  it('REJECTS (400) a url pointing at a DIFFERENT booking\'s storage path', async () => {
+    const otherBookingUrl = `https://cdn.example/storage/v1/object/public/uploads/${TENANT}/job-videos/some-other-booking/walkthrough-1700000000-abc123.mp4`
+    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: otherBookingUrl }))
+    expect(res.status).toBe(400)
+    expect(updates).toHaveLength(0)
   })
 })
 
@@ -219,7 +236,7 @@ describe('team-portal/video-upload POST — legacy FormData', () => {
     const res = await POST(formReq({ file: smallFile(), booking_id: BOOKING_A, type: 'final' }))
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.url).toBe('https://cdn.example/video.mp4')
-    expect(updates[0].payload.final_video_url).toBe('https://cdn.example/video.mp4')
+    expect(body.url).toContain(`/uploads/${TENANT}/job-videos/${BOOKING_A}/final-`)
+    expect(updates[0].payload.final_video_url).toBe(body.url)
   })
 })
