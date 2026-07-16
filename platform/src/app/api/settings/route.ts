@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
@@ -7,10 +7,26 @@ import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { encryptTenantSecrets } from '@/lib/secret-crypto'
 
+// Fields the settings UI has zero read-back consumers for (grepped
+// dashboard/**, no component reads these) — stripped even for authorized
+// viewers, same as GET /api/social/accounts stripping its access_token.
+// Deliberately NOT included: stripe_api_key/resend_api_key/imap_pass/
+// anthropic_api_key/indexnow_key — settings/page.tsx prefills these into
+// editable inputs (form.X || '') so operators can see/update an existing
+// key without retyping it; stripping them would blank the field on load
+// and risk wiping the stored key on the next save.
+const NEVER_RETURNED_FIELDS = ['google_tokens', 'telegram_bot_token', 'telegram_webhook_secret'] as const
+
 export async function GET() {
   try {
-    const { tenant } = await getTenantForRequest()
-    return NextResponse.json({ tenant })
+    const { tenant, error: authError } = await requirePermission('settings.view')
+    if (authError) return authError
+
+    const safeTenant = { ...tenant.tenant }
+    for (const field of NEVER_RETURNED_FIELDS) {
+      delete (safeTenant as Record<string, unknown>)[field]
+    }
+    return NextResponse.json({ tenant: safeTenant })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

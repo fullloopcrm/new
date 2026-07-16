@@ -3557,3 +3557,74 @@ header + wrong-secret → 401, correct CRON_SECRET → 200).
 `npx tsc --noEmit`: clean. `npx vitest run src/app/api/cron/`: 11 files,
 26 tests, all pass. File-only, no push/deploy/DB — no env vars or infra
 touched, just the two route files + their tests.
+
+## 2026-07-15 23:16 round (W2) — P60, fixed: `GET /api/settings` had zero
+permission gate, leaking every integration secret to any role including
+`staff`
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle vs. every prior round: swept every `select('*')`-on-`tenants`
+call site for the same excessive-exposure-to-a-low-privilege-role class
+already found on `team_members` (this session, W3, 866f49c2/eeaf7286) and
+on `social/accounts`/`google/posts` (yesterday's 663917aa) — but on the
+`tenants` table itself, which is the highest-value target of the three
+(payment/SMS/email/AI provider credentials, not just PII).
+
+`GET /api/settings` called only `getTenantForRequest()` (proves you belong
+to *some* tenant, at *any* role) and returned the full unfiltered
+`select('*')` tenants row verbatim. Unlike `PUT` on the same file (already
+gated `settings.edit`), the GET had no permission check at all — a direct
+deviation from the RBAC catalog's own model, which defines `settings.view`
+specifically to let `owner`/`admin`/`manager` read settings while **`staff`
+holds it not at all** (`rbac.ts` line 75-83: staff gets clients/bookings/
+team/schedules/reviews/sales/notifications view, never settings.*). Any
+`staff`-tier tenant member could call the endpoint directly (no UI needed)
+and receive:
+
+- `stripe_api_key`, `telnyx_api_key`, `resend_api_key`, `imap_pass`,
+  `anthropic_api_key`, `indexnow_key` — encrypted-at-rest (AES-256-GCM) IF
+  `SECRET_ENCRYPTION_KEY` is provisioned, but `secret-crypto.ts` explicitly
+  degrades to **storing these in plaintext** when the key is unset
+  (`encryptTenantSecrets`'s own warning: "storing tenant secrets in
+  PLAINTEXT"), so exposure severity is env-dependent and unverifiable
+  file-only.
+- `google_tokens.access_token` — a live ~1hr Google Business Profile/Graph
+  bearer token, stored **always plaintext by design** (`lib/google.ts`
+  line 26: "access_token is short-lived so kept plain"; only
+  `refresh_token` gets its own independent encryption). A `staff` account
+  could use this to act as the tenant's Google Business identity (post
+  updates, reply to reviews) for up to an hour, repeatable on demand.
+- `telegram_bot_token` / `telegram_webhook_secret` — encrypted-at-rest,
+  same plaintext-if-no-key caveat as above.
+
+**Fix:** gated `GET` behind `requirePermission('settings.view')`, matching
+the permission catalog's own description and `PUT`'s existing
+`settings.edit` gate (same remediation shape as 663917aa). Additionally
+stripped `google_tokens` / `telegram_bot_token` / `telegram_webhook_secret`
+from the response for *authorized* viewers too — grepped `dashboard/**`
+end to end, zero components read these three back. **Deliberately did NOT
+strip** `stripe_api_key`/`resend_api_key`/`imap_pass`/`anthropic_api_key`/
+`indexnow_key`: `dashboard/settings/page.tsx` explicitly prefills each into
+an editable `<input value={form.X || ''}>` (lines ~1016-1141) so an
+operator can see a key is configured and edit around it without retyping —
+first-draft of this fix stripped those too, mutation-testing caught the
+correct RBAC-gate probes going RED but didn't catch this until a second,
+targeted grep for each individual field name proved they ARE read back;
+stripping them would have blanked the edit form and risked silently wiping
+a tenant's stored key on the next unrelated settings save. Corrected before
+committing.
+
+**Regression lock:** new `route.rbac.test.ts` (5 tests) — owner/manager
+(both hold `settings.view`) get 200; `staff` (doesn't) gets 403 with zero
+`tenant` field in the body; an authorized owner's response has
+`google_tokens`/`telegram_bot_token`/`telegram_webhook_secret` stripped but
+still carries the five vendor keys the edit form depends on. Mutation-
+verified via `git stash` against real pre-fix `route.ts`: both real probes
+(staff→403, google_tokens-stripped) RED against the original code (200 and
+raw-object-present respectively), restored, all GREEN.
+
+`npx tsc --noEmit`: clean. Full suite: 346 files, 1514 passed + 37 skipped
+(unchanged baseline), 0 regressions. `npm run audit:tenant`: 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` (unrelated WIP feature, not
+touched by this change, not introduced by it). File-only, no push/deploy/
+DB.
