@@ -1,6 +1,13 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { pick } from '@/lib/validate'
+
+// Columns an admin may edit on an announcement. Whitelist prevents
+// mass-assignment of id / created_at via a crafted request body.
+const EDITABLE_ANNOUNCEMENT_FIELDS = [
+  'title', 'body', 'type', 'target', 'target_value', 'priority', 'published',
+]
 
 export async function PUT(
   request: Request,
@@ -11,10 +18,11 @@ export async function PUT(
 
   const { id } = await params
   const body = await request.json()
+  const updates = pick(body, EDITABLE_ANNOUNCEMENT_FIELDS)
 
   const { error } = await supabaseAdmin
     .from('platform_announcements')
-    .update(body)
+    .update(updates)
     .eq('id', id)
 
   if (error) {
