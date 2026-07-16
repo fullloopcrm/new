@@ -52,12 +52,23 @@ export function generateRecurringDates({
       }
       break
 
-    case 'monthly_date':
+    case 'monthly_date': {
+      // Anchor each date off the ORIGINAL startDate (day-of-month) + i months,
+      // clamped to that target month's actual last day — not iterative
+      // current.setMonth() mutation, which overflows a 31st into next month
+      // (Jan 31 + 1mo = "Feb 31" -> rolls to Mar 3) and then permanently
+      // drifts every subsequent iteration (Mar 3 -> Apr 3 -> ...), never
+      // landing on the 31st/30th/29th again.
+      const targetDom = current.getDate()
       for (let i = 0; i < weeksToGenerate; i++) {
-        dates.push(new Date(current))
-        current.setMonth(current.getMonth() + 1)
+        const anchor = new Date(current.getFullYear(), current.getMonth() + i, 1,
+          current.getHours(), current.getMinutes(), current.getSeconds(), current.getMilliseconds())
+        const daysInMonth = new Date(anchor.getFullYear(), anchor.getMonth() + 1, 0).getDate()
+        anchor.setDate(Math.min(targetDom, daysInMonth))
+        dates.push(anchor)
       }
       break
+    }
 
     case 'monthly_weekday': {
       // Same weekday, same week-of-month
@@ -68,15 +79,29 @@ export function generateRecurringDates({
           dates.push(new Date(current))
         } else {
           const next = new Date(current)
-          next.setMonth(next.getMonth() + i)
+          // setDate(1) MUST run before setMonth() — current's day-of-month
+          // (e.g. 31) is still set on `next` at this point, so advancing the
+          // month first overflows a target month shorter than 31 days (e.g.
+          // Feb) into the month after it, before setDate(1) ever runs.
           next.setDate(1)
-          // Find the nth occurrence of targetDay
+          next.setMonth(next.getMonth() + i)
+          const daysInMonth = new Date(next.getFullYear(), next.getMonth() + 1, 0).getDate()
+          // Find the nth occurrence of targetDay, but a "5th <weekday>" doesn't
+          // exist in every month. Search only within the target month; if it
+          // never reaches weekOfMonth occurrences, fall back to the LAST
+          // occurrence in that month instead of letting the unbounded search
+          // roll into (and past) the following month entirely.
           let count = 0
-          while (count < weekOfMonth) {
-            if (next.getDay() === targetDay) count++
-            if (count < weekOfMonth) next.setDate(next.getDate() + 1)
+          let lastMatch: Date | null = null
+          for (let day = 1; day <= daysInMonth; day++) {
+            next.setDate(day)
+            if (next.getDay() === targetDay) {
+              count++
+              lastMatch = new Date(next)
+              if (count === weekOfMonth) break
+            }
           }
-          dates.push(next)
+          dates.push(count >= weekOfMonth ? next : (lastMatch || next))
         }
       }
       break
