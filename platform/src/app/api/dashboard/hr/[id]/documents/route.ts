@@ -7,6 +7,15 @@ import { requirePermission } from '@/lib/require-permission'
 
 const DOC_STATUSES = ['pending', 'submitted', 'approved', 'rejected', 'expired']
 
+// Same bug class fixed elsewhere in this codebase (team_members photo_url,
+// management-applications, onboarding-profile, admin notes): a free-text
+// *_url field stored verbatim from the request body, with no render sink
+// today but nothing stopping a future one from rendering it as <a href>.
+// Reject anything that isn't a plain http(s) URL before it reaches the DB.
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value)
+}
+
 async function assertMember(tenantId: string, memberId: string): Promise<boolean> {
   const { data } = await supabaseAdmin
     .from('team_members')
@@ -35,6 +44,9 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     if (!body.doc_type?.trim()) return NextResponse.json({ error: 'doc_type required' }, { status: 400 })
     if (body.status && !DOC_STATUSES.includes(body.status))
       return NextResponse.json({ error: 'invalid status' }, { status: 400 })
+    const fileUrl = body.file_url?.trim() || null
+    if (fileUrl && !isHttpUrl(fileUrl))
+      return NextResponse.json({ error: 'invalid file_url' }, { status: 400 })
 
     const { data, error } = await supabaseAdmin
       .from('hr_documents')
@@ -44,7 +56,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
         doc_type: body.doc_type.trim(),
         label: body.label?.trim() || null,
         status: body.status || 'pending',
-        file_url: body.file_url?.trim() || null,
+        file_url: fileUrl,
         issued_on: body.issued_on || null,
         expires_on: body.expires_on || null,
       })
@@ -75,6 +87,11 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     if (!body.document_id) return NextResponse.json({ error: 'document_id required' }, { status: 400 })
     if (body.status && !DOC_STATUSES.includes(body.status))
       return NextResponse.json({ error: 'invalid status' }, { status: 400 })
+    if (body.file_url != null) {
+      const trimmed = body.file_url.trim()
+      if (trimmed && !isHttpUrl(trimmed))
+        return NextResponse.json({ error: 'invalid file_url' }, { status: 400 })
+    }
 
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if ('status' in body) patch.status = body.status
