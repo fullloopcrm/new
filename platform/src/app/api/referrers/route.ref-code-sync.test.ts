@@ -27,9 +27,13 @@ vi.mock('@/lib/supabase', () => {
     let payload: Row = {}
     const c: Record<string, unknown> = {
       select: (cols?: string) => { if (table === 'referrers' && kind !== 'insert') getSelectCols = cols || ''; return c },
-      insert: (p: Row) => { kind = 'insert'; payload = p; inserts.push({ table, payload: p }); return c },
+      insert: (p: Row) => {
+        kind = 'insert'; payload = p; inserts.push({ table, payload: p })
+        return table === 'rate_limit_events' ? Promise.resolve({ error: null }) : c
+      },
       eq: () => c,
       ilike: () => c,
+      gte: () => c,
       single: async () => {
         if (kind === 'insert' && table === 'referrers') {
           return { data: { id: 'ref-1', ...payload }, error: null }

@@ -23,8 +23,10 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    gte: () => c,
     order: () => c,
     maybeSingle: async () => ({ data: matched()[0] || null, error: null }),
+    insert: async (row: Row) => { rowsOf().push(row); return { error: null } },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => resolve({ data: matched(), error: null }),
   }
   return c

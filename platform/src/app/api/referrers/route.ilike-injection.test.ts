@@ -47,8 +47,13 @@ vi.mock('@/lib/supabase', () => {
     let rows: Row[] = table === 'referrers' ? [...referrerRows] : []
     const c: Record<string, unknown> = {
       select: () => c,
-      insert: (p: Row) => { rows = [{ id: 'new-ref', ...p }]; return c },
+      insert: (p: Row) => {
+        if (table === 'rate_limit_events') return Promise.resolve({ error: null })
+        rows = [{ id: 'new-ref', ...p }]
+        return c
+      },
       eq: (col: string, val: unknown) => { rows = rows.filter((r) => r[col] === val); return c },
+      gte: () => c,
       ilike: (col: string, pattern: string) => {
         const re = likeToRegExp(pattern)
         rows = rows.filter((r) => re.test(String(r[col] ?? '')))
