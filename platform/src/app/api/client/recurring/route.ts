@@ -71,6 +71,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // A caller-supplied property_id must belong to THIS client (and, via tenantDb's
+  // auto tenant_id filter, this tenant) — otherwise a client could attach another
+  // client's (or another tenant's) saved address to their own recurring schedule.
+  // bookingAddress()/applyPropertyToBookingClient() (lib/client-properties.ts)
+  // treat client_properties as the authoritative address for dispatch, admin, and
+  // team-portal check-in navigation, so an unvalidated property_id both leaks the
+  // other property's address and can send a crew to the wrong location.
+  if (property_id) {
+    const { data: validProperty } = await tenantDb(tenantId)
+      .from('client_properties')
+      .select('id')
+      .eq('id', property_id)
+      .eq('client_id', client_id)
+      .maybeSingle()
+    if (!validProperty) {
+      return NextResponse.json({ error: 'Invalid property selection' }, { status: 400 })
+    }
+  }
+
   // Repeat-client gate
   const { count: priorCount } = await tenantDb(tenantId)
     .from('bookings')
