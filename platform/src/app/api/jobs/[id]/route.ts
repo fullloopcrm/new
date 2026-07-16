@@ -89,33 +89,64 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
-    // Read the prior status BEFORE writing so a same-value PATCH (double-click
-    // on "Mark Complete", a client retry, a stale tab resubmitting) can be told
-    // apart from a real transition. Without this, re-PATCHing the same status
-    // re-fires the timeline event, re-attempts payment release, and — for
-    // 'completed' — re-sends the owner "Job complete" SMS/email every time.
-    let priorStatus: JobStatus | null = null
+    // Atomic claim on the status transition: `neq('status', body.status)` in
+    // the WHERE clause means only a request that actually FLIPS the status
+    // can match a row. Reading the prior status before a separate write (the
+    // old approach) let two concurrent PATCHes with the same target status
+    // (double-click on "Mark Complete", a client retry, two tabs open on the
+    // same job) both read the status BEFORE either write landed and both
+    // conclude "this is a real transition" — re-firing the timeline event,
+    // re-attempting payment release, and re-sending the owner "Job complete"
+    // SMS/email for every racing request. The loser's UPDATE now matches 0
+    // rows and is treated as a no-op, same as an already-applied same-value
+    // re-PATCH.
+    let job: Record<string, unknown> | null = null
+    let didTransition = false
     if (body.status !== undefined) {
-      const { data: existing } = await supabaseAdmin
+      const { data: won, error: wErr } = await supabaseAdmin
         .from('jobs')
-        .select('status')
+        .update(patch)
         .eq('tenant_id', tenantId)
         .eq('id', id)
+        .neq('status', body.status)
+        .select('*')
         .maybeSingle()
-      if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-      priorStatus = existing.status as JobStatus
+      if (wErr) return NextResponse.json({ error: 'Failed' }, { status: 500 })
+      if (won) {
+        job = won
+        didTransition = true
+      } else {
+        // Either the job doesn't exist, or the status already equals the
+        // target (race loser / same-value re-PATCH) — apply any other
+        // patched fields (title/notes/etc.) unconditionally and read back.
+        const { status: _s, started_at: _sa, completed_at: _ca, ...otherPatch } = patch
+        const { data: existing, error: eErr } = await supabaseAdmin
+          .from('jobs')
+          .update(otherPatch)
+          .eq('tenant_id', tenantId)
+          .eq('id', id)
+          .select('*')
+          .maybeSingle()
+        if (eErr) return NextResponse.json({ error: 'Failed' }, { status: 500 })
+        if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+        job = existing
+      }
+    } else {
+      const { data, error } = await supabaseAdmin
+        .from('jobs')
+        .update(patch)
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .select('*')
+        .maybeSingle()
+      if (error) return NextResponse.json({ error: 'Failed' }, { status: 500 })
+      if (!data) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      job = data
     }
 
-    const { data: job, error } = await supabaseAdmin
-      .from('jobs')
-      .update(patch)
-      .eq('tenant_id', tenantId)
-      .eq('id', id)
-      .select('*')
-      .single()
-    if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    if (!job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (body.status && body.status !== priorStatus) {
+    if (didTransition && body.status) {
       await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: body.status, detail: {} })
       // Release stage-gated payments (e.g. a final milestone) when the job completes.
       await releasePaymentsForEvent(tenantId, id, body.status)
