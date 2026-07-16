@@ -3111,3 +3111,84 @@ regardless, since it silently no-ops today.
 
 No new P-number (bounded/unreachable observation, not a live exploitable gap).
 No code changed. `tsc` N/A (no edits). File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-15 22:09 round (W2) — negative result: per-tenant Telegram webhook
+clean; one doc-vs-code mismatch found in AI-agent tenant resolution, confirmed
+unreachable-with-impact, not fixed
+
+Fresh angle: the prior "webhooks not yet in this register" note (§4, W2
+post-P39 refill) covered `webhooks/telegram` — but that's Jeff's own
+single-tenant owner bot at `webhooks/telegram/route.ts`. A SEPARATE,
+never-reviewed file, `webhooks/telegram/[tenant]/route.ts`, is the real
+multi-tenant surface: each tenant can run its own Telegram bot (`tenants.
+telegram_bot_token`), registered with Telegram to hit this URL with the
+tenant's slug in the path.
+
+**Result: correctly hardened, no gap.** Verified end-to-end: (1) bot token +
+webhook secret are stored encrypted (`decryptSecret`) and the inbound request
+is rejected with 401 unless it carries Telegram's `X-Telegram-Bot-Api-Secret-
+Token` header matching the tenant's own decrypted secret
+(`verifyTelegramSecretToken`) — a caller cannot address another tenant's bot
+without that tenant's own secret; (2) even with a valid secret, the update is
+further gated to that tenant's own registered owner `chat_id` (`tenant.
+telegram_chat_id`), replying "This bot is private." to anyone else; (3) the
+synthetic conversation phone key (`tg-${tenant.id}-${chatId}`) bakes the
+tenant id into the lookup itself, so the `.eq('phone', syntheticPhone)`
+convo-resolution query (no explicit `.eq('tenant_id', ...)` alongside it) is
+safe-by-construction, same "tenant id embedded in the key" shape already
+established elsewhere in this register; (4) every write in the handler
+(`sms_conversations` insert, `notifications` insert via `logEvent`) stamps
+`tenant_id: tenant.id` from the already-verified tenant, not a caller value.
+
+**One thing found while tracing this route's call into the agent
+(`askSelena('telegram', text, convoId, ownerPhone())`), not a live leak but
+worth fixing eventually:** `resolveTenantForConversation()` (`src/lib/
+selena/agent.ts:159`) has a doc comment claiming it "falls back to the
+default tenant (nycmaid) if the conversation row pre-dates the tenant
+column," but the actual code falls back to `getCurrentTenantId()` — the
+*ambient HTTP-request* ("ambient" — i.e., not derived from any
+tenant/booking, conversation, or client entity in the current call chain, but
+inferred implicitly from whatever ambient signals like headers or session
+cookies are available on the *currently executing* request) resolver from
+`lib/tenant.ts` (signed `x-tenant-id` header → admin-PIN/Clerk impersonation
+→ Clerk membership), a completely different mechanism than the comment
+describes. That fallback function can also throw (`getCurrentTenantId()`
+throws `'No tenant context'` when nothing resolves), directly contradicting
+this function's own "Never throws — Yinez must keep talking" guarantee,
+since the `try/catch` in `resolveTenantForConversation` only wraps the
+`sms_conversations` lookup, not the fallback call itself.
+
+**Confirmed this is NOT a live cross-tenant leak:** `sms_conversations.
+tenant_id` is `NOT NULL` at the schema level (`007_missing_tables.sql`), so
+no existing conversation row can ever lack a tenant id — the "pre-dates the
+tenant column" scenario the comment describes cannot occur in this schema.
+The fallback is reachable only when `conversationId` itself doesn't resolve
+to any row at all (garbage id or a transient query error), and even then,
+both call sites (`askSelena`'s outer wrapper and `askSelenaCore`'s own outer
+try/catch) already swallow the resulting throw and return an empty response
+— no crash, no data returned, no cross-tenant write, just a logged server
+error. So the practical blast radius today is "an malformed conversationId
+silently no-ops the agent reply" for a channel where every real caller
+already creates the conversation row with a stamped `tenant_id` moments
+before referencing it (confirmed for the Telegram route read above; not
+re-verified for all 8 other `askSelena` callers in this round, since the
+schema constraint alone is sufficient to rule out the leak this register
+tracks regardless of caller).
+
+**Not fixed this round:** the doc comment is wrong and the "never throws"
+contract is technically violated internally, but correcting the fallback
+behavior (e.g., wrap `getCurrentTenantId()` in its own try/catch defaulting
+to `NYCMAID_TENANT_ID`, matching what the comment always claimed) touches a
+function with 8+ live callers across chat/SMS/Telegram/admin-AI surfaces for
+a path that's already effectively unreachable with real impact — the
+fix-vs-regression-risk tradeoff isn't clearly worth it standalone. Flagging
+here so whoever next touches `selena/agent.ts` fixes the comment to match
+reality (or fixes the fallback to actually match the comment) rather than
+trusting either the stale doc or the silent-empty-response behavior as
+intentional.
+
+No new P-number (confirmed non-exploitable given the `NOT NULL` schema
+constraint). No code changed. `tsc` N/A (no edits). File-only, no
+push/deploy/DB.
