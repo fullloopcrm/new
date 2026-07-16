@@ -40,6 +40,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Review must be under 2000 characters' }, { status: 400 })
     }
 
+    // images/video_url are expected to come from this tenant's own
+    // reviews/upload endpoint, but nothing previously checked that — a
+    // caller could POST any string, which is later rendered as a raw
+    // <a href>/<video src> on the public reviews widget (ReviewsList.tsx).
+    // Same bug class already fixed in sales-applications/management-applications
+    // this session: require each URL to live inside this tenant's own
+    // review-media storage prefix.
+    const { data: imgPrefix } = supabaseAdmin.storage.from('uploads').getPublicUrl(`${tenant.id}/review-images/`)
+    const { data: vidPrefix } = supabaseAdmin.storage.from('uploads').getPublicUrl(`${tenant.id}/review-videos/`)
+    const safeImages = Array.isArray(images)
+      ? images.filter((u): u is string => typeof u === 'string' && u.startsWith(imgPrefix.publicUrl)).slice(0, 5)
+      : []
+    if (Array.isArray(images) && safeImages.length !== images.slice(0, 5).length) {
+      return NextResponse.json({ error: 'Invalid image URL' }, { status: 400 })
+    }
+    if (video_url && (typeof video_url !== 'string' || !video_url.startsWith(vidPrefix.publicUrl))) {
+      return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+    }
+
     let client_id: string | null = null
     let verified = false
     const normalizedEmail = email ? String(email).toLowerCase().trim() : null
@@ -67,7 +86,7 @@ export async function POST(request: Request) {
         service_type: service_type || null,
         neighborhood: neighborhood || null,
         team_member_name: team_member_name || null,
-        images: Array.isArray(images) ? images.slice(0, 5) : [],
+        images: safeImages,
         video_url: video_url || null,
         status: 'pending',
         verified,

@@ -49,6 +49,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tenant, name, and phone are required' }, { status: 400 })
     }
 
+    // photo_url is expected to come from this route's own upload endpoint
+    // (team-applications/upload), but nothing previously checked that — a
+    // caller could POST any string, which is later rendered as <img src> in
+    // the admin dashboard (dashboard/team/page.tsx). Require it to live
+    // inside the team-photos bucket's public applications/ prefix, matching
+    // the storage-prefix validation already applied to sales-applications
+    // and management-applications this session.
+    if (photo_url) {
+      const { data: photoPrefix } = supabaseAdmin.storage
+        .from('team-photos')
+        .getPublicUrl('applications/')
+      if (typeof photo_url !== 'string' || !photo_url.startsWith(photoPrefix.publicUrl)) {
+        return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 })
+      }
+    }
+
     // Look up tenant
     const { data: tenantData } = await supabaseAdmin
       .from('tenants')
