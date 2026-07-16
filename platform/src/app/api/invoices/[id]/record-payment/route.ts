@@ -41,6 +41,14 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Cannot record payment on ${invoice.status} invoice` }, { status: 400 })
     }
 
+    const remainingCents = (invoice.total_cents || 0) - (invoice.amount_paid_cents || 0)
+    if (amountCents > remainingCents) {
+      return NextResponse.json(
+        { error: `Amount exceeds remaining balance of ${remainingCents} cents` },
+        { status: 400 }
+      )
+    }
+
     // Insert payment — DB trigger recomputes invoice.amount_paid_cents and status.
     const { data: payment, error: pErr } = await supabaseAdmin
       .from('payments')
