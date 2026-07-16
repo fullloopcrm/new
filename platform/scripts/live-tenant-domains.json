@@ -1,0 +1,27 @@
+{
+  "_comment": "Live tenant domains for post-deploy re-probe (gated-wave-plan.md WAVE 5). Sourced from scripts/verify-protected-tenants.mjs PROTECTED list, cross-referenced against each site's metadataBase/canonical URL in src/app/site/<slug>. Keep in sync with that list when tenants are added/removed. 'confirmed:false' entries have no verified live hostname in-repo -- probe skips them and flags for manual confirmation instead of guessing.",
+  "domains": [
+    { "slug": "nycmaid", "domain": "thenycmaid.com", "confirmed": true },
+    { "slug": "we-pay-you-junk", "domain": "wepayyoujunkremoval.com", "confirmed": true },
+    { "slug": "nyc-mobile-salon", "domain": "thenycmobilesalon.com", "confirmed": true },
+    { "slug": "the-florida-maid", "domain": "thefloridamaid.com", "confirmed": true },
+    { "slug": "the-nyc-exterminator", "domain": "thenycexterminator.com", "confirmed": true },
+    { "slug": "nyc-tow", "domain": "thenyctowingservice.com", "confirmed": true },
+    { "slug": "nycroadsideemergencyassistance", "domain": "nycroadsideemergencyassistance.com", "confirmed": true },
+    { "slug": "theroadsidehelper", "domain": "theroadsidehelper.com", "confirmed": true },
+    { "slug": "toll-trucks-near-me", "domain": "tolltrucksnearme.com", "confirmed": true, "note": "gated-wave-plan.md WAVE 6: NS points at cancelled SiteGround zone (SERVFAIL), expect failure until repointed to Vercel." },
+    { "slug": "sunnyside-clean-nyc", "domain": "cleaningservicesunnysideny.com", "confirmed": true },
+    { "slug": "wash-and-fold-nyc", "domain": "washandfoldnyc.com", "confirmed": true },
+    { "slug": "wash-and-fold-hoboken", "domain": null, "confirmed": false, "note": "metadataBase in src/app/site/wash-and-fold-hoboken/layout.tsx incorrectly points at thenycmaid.com (likely copy-paste bug); no verified hostname found in-repo. Matches gated-wave-plan.md WAVE 6 open item 'confirm live domain + fix canonical'. Do not probe until confirmed." },
+    { "slug": "landscaping-in-nyc", "domain": "landscapinginnyc.com", "confirmed": true },
+    { "slug": "debt-service-ratio-loan", "domain": "debtserviceratioloan.com", "confirmed": true },
+    { "slug": "fla-dumpster-rentals", "domain": "fladumpsterrentals.com", "confirmed": true, "note": "gated-wave-plan.md WAVE 6: nameservers reported unreachable, expect failure until DNS repointed." },
+    { "slug": "stretch-ny", "domain": "stretchny.com", "confirmed": true },
+    { "slug": "stretch-service", "domain": "stretchservice.com", "confirmed": true },
+    { "slug": "the-home-services-company", "domain": "thehomeservicescompany.com", "confirmed": true },
+    { "slug": "the-nyc-interior-designer", "domain": "thenycinteriordesigner.com", "confirmed": true },
+    { "slug": "the-nyc-marketing-company", "domain": "thenycmarketingcompany.com", "confirmed": true },
+    { "slug": "the-nyc-seo", "domain": "thenycseo.com", "confirmed": true },
+    { "slug": "consortium-nyc", "domain": "consortiumnyc.com", "confirmed": true }
+  ]
+}

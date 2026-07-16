@@ -13,7 +13,8 @@
 // sitemap, no impressions) over healthy money pages. Anything skipped is logged.
 // ---------------------------------------------------------------------------
 import { supabaseAdmin } from '@/lib/supabase'
-import { listSitemaps, inspectUrl, type UrlInspection } from './gsc'
+import { listSitemaps, inspectUrl, type UrlInspection, type SitemapEntry } from './gsc'
+import { captureAndEvaluate } from './index-cliff'
 import { safeFetch } from '../ssrf'
 
 const URLS_PER_PROPERTY = 20 // URL Inspection calls per property per run
@@ -44,7 +45,7 @@ function isIndexed(r: UrlInspection): boolean {
 // Sitemaps — health + the URL list to inspect against.
 // ---------------------------------------------------------------------------
 async function scanSitemaps(prop: Property): Promise<string[]> {
-  let entries
+  let entries: SitemapEntry[]
   try {
     entries = await listSitemaps(prop.property)
   } catch {
@@ -67,6 +68,15 @@ async function scanSitemaps(prop: Property): Promise<string[]> {
       },
       { onConflict: 'property,sitemap_url' },
     )
+  }
+
+  // Indexation-cliff detection — snapshot today's summed indexed count and
+  // compare against the trailing baseline (SEOMGR-NEXT-SESSION.md step 3).
+  // Best-effort: a snapshot/detection failure shouldn't sink the technical scan.
+  try {
+    await captureAndEvaluate({ property: prop.property, tenant_id: prop.tenant_id }, entries)
+  } catch (e) {
+    console.error(`[seo/technical] index-cliff ${prop.property}: ${e instanceof Error ? e.message : e}`)
   }
 
   // Pull the actual <loc> URLs so we know what the site WANTS indexed.

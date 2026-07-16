@@ -151,6 +151,14 @@
     {
       "path": "/api/cron/tenant-health",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/seo-index-cliff",
+      "schedule": "0 8 * * 2"
+    },
+    {
+      "path": "/api/cron/seo-alerts",
+      "schedule": "15 8 * * 2"
     }
   ]
 }
