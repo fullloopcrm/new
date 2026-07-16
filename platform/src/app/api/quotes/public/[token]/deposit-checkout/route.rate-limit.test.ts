@@ -29,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
             id: 'quote-A',
             tenant_id: 'tenant-A',
             quote_number: 'Q-1',
-            status: 'sent',
+            status: 'accepted',
             contact_email: 'buyer@example.com',
             deposit_cents: 5000,
             deposit_paid_cents: 0,

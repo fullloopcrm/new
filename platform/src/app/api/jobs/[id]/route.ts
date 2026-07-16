@@ -89,6 +89,23 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
+    // Read the prior status BEFORE writing so a same-value PATCH (double-click
+    // on "Mark Complete", a client retry, a stale tab resubmitting) can be told
+    // apart from a real transition. Without this, re-PATCHing the same status
+    // re-fires the timeline event, re-attempts payment release, and — for
+    // 'completed' — re-sends the owner "Job complete" SMS/email every time.
+    let priorStatus: JobStatus | null = null
+    if (body.status !== undefined) {
+      const { data: existing } = await supabaseAdmin
+        .from('jobs')
+        .select('status')
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .maybeSingle()
+      if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      priorStatus = existing.status as JobStatus
+    }
+
     const { data: job, error } = await supabaseAdmin
       .from('jobs')
       .update(patch)
@@ -98,7 +115,7 @@ export async function PATCH(request: Request, { params }: Params) {
       .single()
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    if (body.status) {
+    if (body.status && body.status !== priorStatus) {
       await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: body.status, detail: {} })
       // Release stage-gated payments (e.g. a final milestone) when the job completes.
       await releasePaymentsForEvent(tenantId, id, body.status)
