@@ -4663,3 +4663,159 @@ pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
 round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:13 round (W2) — P81, fixed: `payments/checkout` +
+`payments/link` POST had zero permission check — live default-role bug
+on money-moving routes
+
+Continuing the broad-hunt (leader order 07:09, lower-risk surface,
+file-only). Same detection scan as P77-P80: every `api/*/route.ts` calling
+`getTenantForRequest`/`tenantDb` but never `requirePermission`, worked the
+resulting ~73-file candidate list, prioritizing mutating handlers on
+sensitive resources. `src/app/api/payments/checkout/route.ts` (POST,
+mints a Stripe checkout session for a booking) and
+`src/app/api/payments/link/route.ts` (POST, mints a Stripe payment link
++ writes it onto the booking) both only called raw `getTenantForRequest()`,
+no `requirePermission` anywhere in either file — same gap shape as
+P70-P80, this time on routes that trigger real Stripe transactions rather
+than just reading/writing DB rows.
+
+Not override-only: by default `rbac.ts` grants `bookings.edit` to
+`owner`/`admin`/`manager` only — `staff` gets only `bookings.view`/
+`bookings.create`. So any staff-tier member could already trigger a live
+Stripe checkout session or mint a payable Stripe link against any booking
+in the tenant, with zero role check, no override needed — same class as
+P70/P72/P76-P80.
+
+**Fix:** `requirePermission('bookings.edit')` on both POST handlers,
+matching the convention already used for single-booking mutations
+(`bookings/[id]/route.ts` PUT uses `bookings.edit`). Both routes are only
+called from the booking detail page (`dashboard/bookings/[id]/page.tsx`),
+confirming `bookings.edit` (not a separate `payments.*` permission, which
+doesn't exist in `rbac.ts`) is the correct scope.
+
+**Regression lock:** 2 new `route.rbac.test.ts` files (8 tests: owner+
+manager-succeeds controls for both POST handlers, staff-forbidden
+default-role probes for both, one override-revocation probe each on
+admin). Also updated the pre-existing `payments/link/route.isolation.test.ts`
+mock to add `role: 'owner'` (it previously omitted `role` entirely, which
+would now 403 against the new permission gate — owner has `bookings.edit`
+by default so the isolation behavior it tests is undisturbed).
+Mutation-verified via `git stash` of just the 2 fixed `route.ts` files
+(the isolation test's own file untouched by the stash, its 2 tests keep
+passing pre-fix since the isolation test doesn't check for a 403): 4 of 8
+new rbac probes went RED pre-fix (staff-forbidden + admin-override-revoked
+for both files, wrongly 200), restored, all 8 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 410 files, 1795 passed + 37
+skipped, 0 regressions (was 408/1787). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:17 round (W2) — P82, fixed: `GET /api/jobs` (money rollup)
+had zero permission check — live default-role bug; flagging `GET /api/jobs/[id]`
+as a related but NOT fixed mixed-content case
+
+Continuing the broad-hunt (leader order 07:09). `src/app/api/jobs/route.ts`
+GET returns a pure money reconciliation view — per-job and tenant-wide
+contracted/paid/due/overdue totals sourced from `job_payments` — with zero
+`requirePermission` call, only raw `getTenantForRequest()`. Every other
+money-reporting endpoint in the codebase (`finance/summary`, `finance/pnl`,
+`recurring-expenses`, `invoices`, and 20+ more under `/api/finance/*`) is
+already gated behind `finance.view`; this route was the odd one out.
+Confirmed via `dashboard/jobs/page.tsx`: the entire page is this money
+rollup, no other operational content — a clean 1:1 match to the
+`finance.view` convention with no functionality-regression risk.
+
+Not override-only: by default `rbac.ts` grants `finance.view` to
+`owner`/`admin`/`manager` only — `staff` gets none of `finance.*`. So any
+staff-tier member could already read every job's full financial rollup
+(contracted/paid/due/overdue, tenant-wide totals) with zero role check, no
+override needed — same class as P70/P76-P81.
+
+**Fix:** `requirePermission('finance.view')` on GET, matching the
+established `finance.*` convention.
+
+**NOT fixed, flagging instead:** `GET /api/jobs/[id]/route.ts` has the
+identical zero-permission-check shape and its response also embeds
+`job_payments` (the same money data). But unlike the list route, this one
+is mixed-content — job status, `sessions` (crew scheduling), and `events`
+timeline share the same GET alongside `payments`, and `dashboard/jobs/[id]/
+page.tsx` uses it to drive session management that staff can already
+mutate via `bookings.create`-gated `POST /api/jobs/[id]/sessions`. Gating
+the whole GET behind `finance.view` would also block staff from viewing
+their own job/session data, which reads as a functionality regression, not
+a clean security fix — this needs a product call (e.g. split the response,
+or accept the money-data exposure as this route's existing contract) before
+touching it. Leaving it as a Noticed item, not fixing unilaterally, per
+"lower-risk surface" mandate.
+
+**Regression lock:** new `route.rbac.test.ts` (4 tests: owner+manager-
+succeeds controls, staff-forbidden default-role probe, one
+override-revocation probe on admin). Mutation-verified via `git stash` of
+just the fixed `route.ts` (the new test file and the pre-existing
+`route.isolation.test.ts` — which hardcodes role `'owner'` — are untouched
+by the stash): 2 of 4 probes went RED pre-fix (staff-forbidden,
+admin-override-revoked; the owner/manager-succeeds probes are trivially
+true both pre- and post-fix since raw `getTenantForRequest()` never
+blocked anyone), restored, all 4 GREEN post-fix. Pre-existing
+`route.isolation.test.ts` (1 test: cross-tenant list + money-total
+exclusion) passes unchanged.
+
+`npx tsc --noEmit`: clean. Full suite: 411 files, 1799 passed + 37
+skipped, 0 regressions (was 410/1795). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:20 round (W2) — P83, fixed: `POST /api/import-clients`
+(bulk client import) had zero permission check despite its own "Admin-only"
+header comment — live default-role bug, reachable directly even with no
+frontend caller
+
+Continuing the broad-hunt (leader order 07:09). `src/app/api/import-clients/
+route.ts`'s own file header says "Bulk client import. Admin-only." but the
+handler only called raw `getTenantForRequest()` (proves tenant membership at
+ANY role), no `requirePermission` anywhere — the documented restriction was
+never actually enforced in code. Repo-wide grep confirms no frontend page
+calls this route (unlike the P40-class `portal/messages` dead-code finding,
+this route does NOT reject requests — it fully executes for any
+authenticated tenant member, so "no UI caller" does not make it safe: any
+staff-tier session can still hit it directly).
+
+Not override-only: by default `rbac.ts` grants `clients.create` to
+`owner`/`admin`/`manager` only — `staff` gets only `clients.view`. So any
+staff-tier member could already bulk-insert arbitrary client records (each
+auto-assigned a PIN via `crypto.randomInt`), with zero role check, no
+override needed — same class as P70/P76-P83.
+
+**Fix:** `requirePermission('clients.create')` on POST, matching the
+permission already used by the single-client `POST /api/clients` route
+(the closest enforceable match to the file's documented "Admin-only"
+intent — manager also gets `clients.create` by default, same as every
+other `clients.create`-gated route in the codebase).
+
+**Regression lock:** new `route.rbac.test.ts` (4 tests: owner+manager-
+succeeds controls, staff-forbidden default-role probe with a
+zero-rows-inserted assertion, one override-revocation probe on admin with
+the same assertion). Mutation-verified via `git stash` of just the fixed
+`route.ts` (no pre-existing test file to preserve): 2 of 4 probes went RED
+pre-fix (staff-forbidden, admin-override-revoked; owner/manager-succeeds
+are trivially true both pre- and post-fix), restored, all 4 GREEN
+post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 412 files, 1803 passed + 37
+skipped, 0 regressions (was 411/1799). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
