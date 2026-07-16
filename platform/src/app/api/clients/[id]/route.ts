@@ -46,7 +46,13 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'preferred_team_member_id', 'sms_consent'])
+    // special_instructions is the client-facing "notes for your team member"
+    // field (distinct from clients.notes, the internal staff-only field --
+    // see client/notes/route.ts's comment). The dashboard client-detail edit
+    // form (src/app/dashboard/clients/[id]/page.tsx) renders and submits it,
+    // GET already returns it (select('*')), but this allowlist never
+    // included it -- so a staff edit here silently never persisted.
+    const fields = pick(body, ['name', 'email', 'phone', 'address', 'status', 'source', 'notes', 'special_instructions', 'preferred_team_member_id', 'sms_consent'])
 
     const { data, error } = await supabaseAdmin
       .from('clients')
