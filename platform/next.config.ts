@@ -18,20 +18,24 @@ const nextConfig: NextConfig = {
     return {
       beforeFiles: [],
       afterFiles: [
-        { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
+        // nycmaid is BESPOKE_SITE_TENANTS (siteBase '/site/nycmaid'), so
+        // middleware's rewriteToSite() never produces a bare /site/<path> for
+        // it — these sources must carry the /nycmaid segment to ever match.
+        // See NYCMAID-SHORT-URL-404-FIX-OPTIONS.md Option A.
+        { source: '/site/nycmaid/about', destination: '/site/nycmaid/about-the-nyc-maid-service-company' },
         { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },
         { source: '/site/services', destination: '/site/nyc-maid-service-services-offered-by-the-nyc-maid' },
-        { source: '/site/faq', destination: '/site/nyc-cleaning-service-frequently-asked-questions-in-2025' },
-        { source: '/site/tips', destination: '/site/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
-        { source: '/site/blog', destination: '/site/nyc-maid-service-blog' },
-        { source: '/site/blog/:slug', destination: '/site/nyc-maid-service-blog/:slug' },
-        { source: '/site/areas', destination: '/site/service-areas-served-by-the-nyc-maid' },
-        { source: '/site/contact', destination: '/site/contact-the-nyc-maid-service-today' },
-        { source: '/site/pricing', destination: '/site/updated-nyc-maid-service-industry-pricing' },
+        { source: '/site/nycmaid/faq', destination: '/site/nycmaid/nyc-cleaning-service-frequently-asked-questions-in-2025' },
+        { source: '/site/nycmaid/tips', destination: '/site/nycmaid/nyc-maid-and-cleaning-tips-and-advice-by-the-nyc-maid' },
+        { source: '/site/nycmaid/blog', destination: '/site/nycmaid/nyc-maid-service-blog' },
+        { source: '/site/nycmaid/blog/:slug', destination: '/site/nycmaid/nyc-maid-service-blog/:slug' },
+        { source: '/site/nycmaid/areas', destination: '/site/nycmaid/service-areas-served-by-the-nyc-maid' },
+        { source: '/site/nycmaid/contact', destination: '/site/nycmaid/contact-the-nyc-maid-service-today' },
+        { source: '/site/nycmaid/pricing', destination: '/site/nycmaid/updated-nyc-maid-service-industry-pricing' },
         { source: '/site/careers', destination: '/site/available-nyc-maid-jobs' },
         { source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' },
         { source: '/site/referral', destination: '/site/get-paid-for-cleaning-referrals-every-time-they-are-serviced' },
-        { source: '/site/emergency', destination: '/site/service/nyc-emergency-cleaning-service' },
+        { source: '/site/nycmaid/emergency', destination: '/site/nycmaid/service/nyc-emergency-cleaning-service' },
       ],
       fallback: [],
     }
