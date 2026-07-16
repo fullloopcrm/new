@@ -24,7 +24,7 @@ export async function GET() {
     // double-pays the team member for work already compensated.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
-      .select('team_member_id, check_in_time, check_out_time, pay_rate')
+      .select('team_member_id, check_in_time, check_out_time, pay_rate, team_member_pay')
       .eq('tenant_id', tenantId)
       .in('status', ['completed'])
       .or('team_member_paid.is.null,team_member_paid.eq.false')
@@ -34,11 +34,18 @@ export async function GET() {
       let pendingHours = 0
       let pendingPay = 0
       memberBookings.forEach((b) => {
-        if (b.check_in_time && b.check_out_time) {
-          const hours = (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
-          pendingHours += hours
-          pendingPay += hours * (b.pay_rate || member.pay_rate || 0)
-        }
+        const hours = (b.check_in_time && b.check_out_time)
+          ? (new Date(b.check_out_time).getTime() - new Date(b.check_in_time).getTime()) / 3600000
+          : 0
+        pendingHours += hours
+        // Flat per-job pay (bookings.team_member_pay, cents — set for
+        // per-job/flat-fee comp, e.g. dumpster/junk/moving labor) is the
+        // source of truth when present, same model as team-portal/earnings
+        // and payroll-prep. Falls back to hours × rate only when no flat
+        // amount was recorded (hourly-comp workers with no team_member_pay).
+        pendingPay += b.team_member_pay && b.team_member_pay > 0
+          ? b.team_member_pay / 100
+          : hours * (b.pay_rate || member.pay_rate || 0)
       })
       return {
         ...member,
