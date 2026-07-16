@@ -1,7 +1,19 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
+  // Unauthenticated code-lookup endpoint (bypasses RLS via supabaseAdmin) —
+  // cap per-IP so a caller can't brute-force the referral_code space, matching
+  // the same guard already on the sibling referrer-lookup endpoint
+  // (referrers/route.ts GET, 10/10min, failClosed since this is a
+  // code-guessing surface, not a public form).
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`referrals-track:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+  }
+
   const { referral_code } = await request.json().catch(() => ({}))
 
   if (!referral_code) {
