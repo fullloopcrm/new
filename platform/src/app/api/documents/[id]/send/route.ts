@@ -57,12 +57,25 @@ export async function POST(_request: Request, { params }: Params) {
     const bytes = new Uint8Array(await pdfBlob.arrayBuffer())
     const hash = sha256Hex(bytes)
 
-    // Transition doc status
+    // Atomic claim on the draft -> sent transition. The isEditableStatus
+    // check above reads a snapshot before this write — two near-simultaneous
+    // calls (double-click on "Send", a client retry) both see 'draft' and
+    // both fall through. Without a conditional WHERE here, both would notify
+    // every signer (duplicate signature-request email/SMS per signer) and
+    // both log a 'sent' event. `eq('status','draft')` means only the request
+    // that actually flips the row gets to send; the loser gets a clean 409.
     const now = new Date().toISOString()
-    await supabaseAdmin
+    const { data: claimed } = await supabaseAdmin
       .from('documents')
       .update({ status: 'sent', sent_at: now, original_sha256: hash })
       .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json({ error: 'Document was already sent' }, { status: 409 })
+    }
 
     // Look up tenant for sending
     const { data: tenant } = await supabaseAdmin
