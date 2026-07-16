@@ -67,6 +67,7 @@ export async function runTool(
   phone: string | null,
   result: YinezResult,
   tenantId?: string,
+  phoneVerified: boolean = false,
 ): Promise<string> {
   // tenantId is REQUIRED for safe multi-tenant routing. Older callers may not
   // pass it yet (sweep in progress) — fall back to the default tenant rather
@@ -78,7 +79,9 @@ export async function runTool(
   // If the caller isn't the owner, refuse before the side-effect runs.
   // Returning an error string (not throwing) lets the model see "not allowed"
   // and recover with a normal client-facing reply instead of dumping ops data.
-  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !isOwner(phone)) {
+  // phoneVerified must be false for unauthenticated caller-supplied phone
+  // (web widget) -- see isOwner() in agent.ts for why.
+  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !isOwner(phone, phoneVerified)) {
     console.warn('[Yinez:owner_tool_blocked]', { name, phone, conversationId })
     return JSON.stringify({
       error: 'owner_only_tool',

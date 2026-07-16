@@ -72,7 +72,10 @@ export async function POST(req: NextRequest) {
     .insert({ conversation_id: sessionId, direction: 'inbound', message })
     .then(() => {}, () => {})
 
-  const result = await askSelena('web', message, sessionId, ownerPhone)
+  // phoneVerified: true -- this route is authenticated (requirePermission above)
+  // and derives ownerPhone itself server-side, unlike the public /api/chat and
+  // /api/yinez widgets where `phone` is unauthenticated caller-supplied input.
+  const result = await askSelena('web', message, sessionId, ownerPhone, undefined, true)
   const reply = result.text || '(no reply)'
 
   await supabaseAdmin

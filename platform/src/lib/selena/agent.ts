@@ -171,8 +171,16 @@ async function resolveTenantForConversation(conversationId: string): Promise<str
   return getCurrentTenantId()
 }
 
-export function isOwner(phone: string | null | undefined): boolean {
-  if (!phone) return false
+// `verified` must be true only when `phone` was established by a channel that
+// proves possession server-side (Telnyx-signature-verified SMS sender,
+// Telegram chat_id allowlist, or an authenticated admin route deriving the
+// number itself). The public /api/chat and /api/yinez widgets take `phone`
+// straight from the unauthenticated request body -- without this gate,
+// anyone who knows the business's own PUBLIC contact number could claim it
+// there and unlock every owner-only tool (refunds, broadcasts, client PII,
+// revenue, cleaner management). Defaults to false (fail closed).
+export function isOwner(phone: string | null | undefined, verified: boolean = false): boolean {
+  if (!phone || !verified) return false
   const list = (process.env.OWNER_PHONES || '').split(',').map((p) => p.replace(/\D/g, '').slice(-10)).filter(Boolean)
   const norm = phone.replace(/\D/g, '').slice(-10)
   return list.includes(norm)
@@ -254,14 +262,14 @@ wins. Period.
 `
 }
 
-export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
+export async function loadContext(tenantId: string, phone: string | null, _conversationId: string, phoneVerified: boolean): Promise<string> {
   const parts: string[] = []
 
-  if (isOwner(phone)) {
+  if (isOwner(phone, phoneVerified)) {
     parts.push('CONTEXT: You are talking to Jeff, the owner of The NYC Maid. Use admin tools freely. Be terse with real numbers.')
   }
 
-  if (phone && !isOwner(phone)) {
+  if (phone && !isOwner(phone, phoneVerified)) {
     const last10 = phone.replace(/\D/g, '').slice(-10)
     // Phone may match multiple client rows (duplicates created by lead intake vs. booking flow).
     // .maybeSingle() returned null on dupes, so Yinez was treating returning clients as brand-new.
@@ -393,8 +401,8 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
 
 // Public entry point. Runs the agent, then rewrites NYC-template branding out of
 // the response for non-nycmaid tenants before it ever reaches the customer.
-export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
-  const result = await askSelenaCore(channel, message, conversationId, phone, ctx)
+export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, phoneVerified?: boolean): Promise<YinezResult> {
+  const result = await askSelenaCore(channel, message, conversationId, phone, ctx, phoneVerified)
   try {
     const tenantId = await resolveTenantForConversation(conversationId)
     if (tenantId !== NYCMAID_TENANT_ID && result?.text) {
@@ -406,11 +414,16 @@ export async function askSelena(channel: Channel, message: string, conversationI
   return result
 }
 
-async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, phoneVerified?: boolean): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
 
   try {
     const lookupPhone = phone || null
+    // Web is the one channel where `phone` can arrive as raw, unauthenticated
+    // caller input (see /api/chat, /api/yinez) -- default it to unverified
+    // unless the caller explicitly vouches for it (e.g. admin-chat, which
+    // authenticates the request and derives the number server-side).
+    const ownerVerified = phoneVerified ?? (channel !== 'web')
     // Resolve tenant for this conversation. v1: derive from sms_conversations.tenant_id;
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
@@ -442,7 +455,7 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
       const [cfg, persona] = await Promise.all([getAgentConfig(tenantId), getPersona(tenantId)])
       basePrompt = SHARED_PREAMBLE + buildPlaybook(applyPersonaToConfig(cfg, persona)) + renderPersonaExtras(persona)
     }
-    const context = await loadContext(tenantId, lookupPhone, conversationId)
+    const context = await loadContext(tenantId, lookupPhone, conversationId, ownerVerified)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
       ? `\n\nCHANNEL: Telegram — Jeff's private owner bot. The person here is ALWAYS Jeff (the owner). No client warmth, no "Hola I'm Yinez", no emojis. Terse, direct, real numbers from tools only.
@@ -499,7 +512,7 @@ When you flubbed on another channel → flag it here unprompted next check-in.`
           result.toolsCalled.push(tool.name)
           let toolResult: string
           try {
-            toolResult = await runTool(tool.name, tool.input as Record<string, unknown>, conversationId, lookupPhone, result, tenantId)
+            toolResult = await runTool(tool.name, tool.input as Record<string, unknown>, conversationId, lookupPhone, result, tenantId, ownerVerified)
           } catch (err) {
             console.error(`[Yinez:tool:${tool.name}]`, err)
             toolResult = JSON.stringify({ error: (err as Error).message })
