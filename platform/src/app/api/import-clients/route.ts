@@ -26,6 +26,15 @@ export async function POST(request: Request) {
     if (!Array.isArray(clients)) {
       return NextResponse.json({ error: 'clients must be an array' }, { status: 400 })
     }
+    // Unlike its sibling /api/clients/import (5000-row cap, batched inserts),
+    // this route had no upper bound at all: an authenticated clients.create
+    // caller (manager role and up) could submit an arbitrarily large array and
+    // drive an unbounded number of sequential single-row inserts in one
+    // request -- a self-inflicted-or-malicious-insider DoS on the tenant's own
+    // DB/function time. Cap matches the sibling route's established limit.
+    if (clients.length > 5000) {
+      return NextResponse.json({ error: 'Maximum 5,000 clients per import.' }, { status: 400 })
+    }
 
     let success = 0, failed = 0, skipped = 0
 
