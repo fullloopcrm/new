@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { verifyTelegramSecret } from '@/lib/webhook-verify'
+import { verifyCronSecret } from '@/lib/cron-auth'
 
 export const maxDuration = 60
 
@@ -35,7 +36,15 @@ function ownerPhone(): string {
   return list[0] || '+12122029220'
 }
 
-export async function GET() {
+export async function GET(req: Request) {
+  // Diagnostic-only: sends a live Telegram message and echoes owner_chat_id.
+  // /api/webhooks(.*) is public (unauthenticated) in middleware.ts, so this
+  // was reachable by anyone who found the URL — unbounded owner-chat spam
+  // plus a chat-id/token-length info leak. Gate behind the same CRON_SECRET
+  // bearer check used by every other internal diagnostic route.
+  const authError = verifyCronSecret(req)
+  if (authError) return authError
+
   if (!BOT_TOKEN) return NextResponse.json({ error: 'BOT_TOKEN missing' })
   if (!OWNER_CHAT_ID) return NextResponse.json({ error: 'OWNER_CHAT_ID missing' })
   const send = await sendTelegram(OWNER_CHAT_ID, `GET diag fired at ${new Date().toISOString()}`)
