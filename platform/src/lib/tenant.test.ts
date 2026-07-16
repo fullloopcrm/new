@@ -56,15 +56,17 @@ vi.mock('./supabase', () => ({
 const getOwnerUserId = vi.fn<() => Promise<string | null>>()
 vi.mock('@/lib/owner-session', () => ({ getOwnerUserId: () => getOwnerUserId() }))
 const mockCookieStore = new Map<string, string>()
+const mockHeaderStore = new Map<string, string>()
 vi.mock('next/headers', () => ({
   cookies: async () => ({ get: (name: string) => (mockCookieStore.has(name) ? { value: mockCookieStore.get(name) } : undefined) }),
-  headers: async () => ({ get: () => null }),
+  headers: async () => ({ get: (name: string) => mockHeaderStore.get(name) ?? null }),
 }))
 const verifyAdminToken = vi.fn<(token: string) => boolean>()
 vi.mock('@/app/api/admin-auth/route', () => ({ verifyAdminToken: (t: string) => verifyAdminToken(t) }))
 const verifyImpersonationCookie = vi.fn<(raw: string | undefined) => string | null>()
 vi.mock('./impersonation', () => ({ IMPERSONATE_COOKIE: 'imp', verifyImpersonationCookie: (raw: string | undefined) => verifyImpersonationCookie(raw) }))
-vi.mock('./tenant-header-sig', () => ({ verifyTenantHeaderSig: () => false }))
+const verifyTenantHeaderSig = vi.fn<(id: string, sig: string | null) => boolean>()
+vi.mock('./tenant-header-sig', () => ({ verifyTenantHeaderSig: (id: string, sig: string | null) => verifyTenantHeaderSig(id, sig) }))
 
 import { getTenantByDomain, getTenantBySlug, getCurrentTenant } from './tenant'
 
@@ -92,9 +94,11 @@ beforeEach(() => {
   singleCalls = []
   resolve = () => ({ data: null, error: null })
   mockCookieStore.clear()
+  mockHeaderStore.clear()
   getOwnerUserId.mockReset().mockResolvedValue(null)
   verifyAdminToken.mockReset().mockReturnValue(false)
   verifyImpersonationCookie.mockReset().mockReturnValue(null)
+  verifyTenantHeaderSig.mockReset().mockReturnValue(false)
 })
 
 describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
@@ -394,5 +398,96 @@ describe('getCurrentTenant — real-owner status gate (Clerk membership path)', 
 
     const t = await getCurrentTenant()
     expect(t?.id).toBe('t-dark')
+  })
+})
+
+describe('getCurrentTenant — masked-error PROBEs (admin PIN impersonation, header tenant, Clerk membership)', () => {
+  // getAdminImpersonatedTenant/getHeaderTenant/getCurrentTenant's own
+  // membership+tenant lookups all used single() with the error discarded —
+  // same pattern already fixed in getTenantByDomain/getTenantBySlug above.
+  // A genuine DB failure on any of these used to look identical to "not this
+  // auth path" and silently fall through to the NEXT auth branch instead of
+  // failing loud.
+
+  it('ADMIN_IMPERSONATION_LOOKUP_ERROR PROBE: a DB failure on the impersonation lookup refuses rather than silently falling through', async () => {
+    mockCookieStore.set('imp', 'signed-cookie')
+    mockCookieStore.set('admin_token', 'good-token')
+    verifyImpersonationCookie.mockReturnValue('t-dark')
+    verifyAdminToken.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dark'
+        ? { data: null, error: { message: 'upstream connect error' } }
+        : { data: null, error: null }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getCurrentTenant()).rejects.toThrow(/ADMIN_IMPERSONATION_LOOKUP_ERROR id=t-dark/)
+    errSpy.mockRestore()
+  })
+
+  it('WRONG-TENANT PROBE: a DB failure on the impersonation lookup does NOT silently fall through and serve the admin their own (different) tenant', async () => {
+    // The admin is ALSO a real owner of t-own-tenant. Before this fix, a
+    // failure on the impersonation lookup returned null from
+    // getAdminImpersonatedTenant, and getCurrentTenant would keep going down
+    // the auth chain and authorize the admin's own membership tenant instead
+    // -- silently serving the WRONG tenant instead of refusing outright.
+    mockCookieStore.set('imp', 'signed-cookie')
+    mockCookieStore.set('admin_token', 'good-token')
+    verifyImpersonationCookie.mockReturnValue('t-dark')
+    verifyAdminToken.mockReturnValue(true)
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) => {
+      if (table === 'tenants' && eqs.id === 't-dark')
+        return { data: null, error: { message: 'upstream connect error' } }
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+        return { data: { tenant_id: 't-own-tenant', role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-own-tenant')
+        return { data: tenantRow({ id: 't-own-tenant', status: 'active' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getCurrentTenant()).rejects.toThrow(/ADMIN_IMPERSONATION_LOOKUP_ERROR id=t-dark/)
+    errSpy.mockRestore()
+  })
+
+  it('HEADER_TENANT_LOOKUP_ERROR PROBE: a DB failure on the signed-header tenant lookup refuses rather than silently falling through', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-host')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-host'
+        ? { data: null, error: { message: 'upstream connect error' } }
+        : { data: null, error: null }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getCurrentTenant()).rejects.toThrow(/HEADER_TENANT_LOOKUP_ERROR id=t-host/)
+    errSpy.mockRestore()
+  })
+
+  it('TENANT_MEMBERSHIP_LOOKUP_ERROR PROBE: a DB failure on the tenant_members lookup refuses rather than silently reporting "no membership"', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) =>
+      table === 'tenant_members' && eqs.clerk_user_id === 'user-42'
+        ? { data: null, error: { message: 'JSON object requested, multiple (or no) rows returned' } }
+        : { data: null, error: null }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getCurrentTenant()).rejects.toThrow(/TENANT_MEMBERSHIP_LOOKUP_ERROR clerk_user_id=user-42/)
+    errSpy.mockRestore()
+  })
+
+  it('TENANT_BY_MEMBERSHIP_LOOKUP_ERROR PROBE: a DB failure resolving the member\'s tenant refuses rather than silently reporting "no tenant"', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+        return { data: { tenant_id: 't-owner', role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-owner')
+        return { data: null, error: { message: 'upstream connect error' } }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getCurrentTenant()).rejects.toThrow(/TENANT_BY_MEMBERSHIP_LOOKUP_ERROR tenant_id=t-owner/)
+    errSpy.mockRestore()
   })
 })

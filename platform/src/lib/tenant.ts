@@ -69,11 +69,21 @@ async function getAdminImpersonatedTenant(): Promise<Tenant | null> {
   if (!impersonateId || !adminToken) return null
   if (!verifyAdminToken(adminToken)) return null
 
-  const { data: tenant } = await supabaseAdmin
+  // maybeSingle()+explicit error check (not single() with error discarded):
+  // a genuine DB failure here used to look identical to "no impersonation
+  // target" and fall through to the caller's own normal-flow tenant lookup
+  // below — silently serving the admin THEIR OWN tenant instead of the one
+  // they meant to impersonate, instead of failing loud.
+  const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', impersonateId)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(`ADMIN_IMPERSONATION_LOOKUP_ERROR id=${impersonateId} error=${error.message}`)
+    throw new Error(`ADMIN_IMPERSONATION_LOOKUP_ERROR id=${impersonateId} error=${error.message}`)
+  }
 
   return tenant
 }
@@ -86,11 +96,18 @@ async function getClerkImpersonatedTenant(userId: string): Promise<Tenant | null
   const impersonateId = verifyImpersonationCookie(cookieStore.get(IMPERSONATE_COOKIE)?.value)
   if (!impersonateId) return null
 
-  const { data: tenant } = await supabaseAdmin
+  // maybeSingle()+explicit error check — same masked-error/silent-fallthrough
+  // risk as getAdminImpersonatedTenant above.
+  const { data: tenant, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', impersonateId)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(`CLERK_IMPERSONATION_LOOKUP_ERROR id=${impersonateId} error=${error.message}`)
+    throw new Error(`CLERK_IMPERSONATION_LOOKUP_ERROR id=${impersonateId} error=${error.message}`)
+  }
 
   return tenant
 }
@@ -107,11 +124,21 @@ async function getHeaderTenant(): Promise<Tenant | null> {
   const sig = h.get('x-tenant-sig')
   if (!tenantId || !verifyTenantHeaderSig(tenantId, sig)) return null
 
-  const { data } = await supabaseAdmin
+  // maybeSingle()+explicit error check — a genuine DB failure here used to
+  // look identical to "no header tenant" and fall through to the normal
+  // Clerk-membership flow below, which could serve a custom-domain/subdomain
+  // request as the LOGGED-IN OPERATOR'S OWN tenant instead of the one the
+  // signed header scoped it to.
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(`HEADER_TENANT_LOOKUP_ERROR id=${tenantId} error=${error.message}`)
+    throw new Error(`HEADER_TENANT_LOOKUP_ERROR id=${tenantId} error=${error.message}`)
+  }
 
   return data
 }
@@ -132,20 +159,36 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
   const clerkImpersonated = await getClerkImpersonatedTenant(userId)
   if (clerkImpersonated) return clerkImpersonated
 
-  // Normal flow: look up which tenant this Clerk user belongs to
-  const { data: membership } = await supabaseAdmin
+  // Normal flow: look up which tenant this Clerk user belongs to.
+  // maybeSingle()+explicit error check (not single() with error discarded):
+  // clerk_user_id has NO standalone unique constraint (only
+  // UNIQUE(tenant_id,clerk_user_id) — see tenant-query.ts's getTenantForRequest
+  // fix), so a user belonging to 2+ tenants makes this ambiguous, and a
+  // genuine transient DB failure used to look identical to "no membership" —
+  // both silently returned null instead of surfacing loud.
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('tenant_members')
     .select('tenant_id, role')
     .eq('clerk_user_id', userId)
-    .single()
+    .maybeSingle()
+
+  if (membershipError) {
+    console.error(`TENANT_MEMBERSHIP_LOOKUP_ERROR clerk_user_id=${userId} error=${membershipError.message}`)
+    throw new Error(`TENANT_MEMBERSHIP_LOOKUP_ERROR clerk_user_id=${userId} error=${membershipError.message}`)
+  }
 
   if (!membership) return null
 
-  const { data: tenant } = await supabaseAdmin
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', membership.tenant_id)
-    .single()
+    .maybeSingle()
+
+  if (tenantError) {
+    console.error(`TENANT_BY_MEMBERSHIP_LOOKUP_ERROR tenant_id=${membership.tenant_id} error=${tenantError.message}`)
+    throw new Error(`TENANT_BY_MEMBERSHIP_LOOKUP_ERROR tenant_id=${membership.tenant_id} error=${tenantError.message}`)
+  }
 
   // Real (non-impersonated) owner login only — admin PIN and Clerk
   // super-admin impersonation above intentionally skip this gate so support
