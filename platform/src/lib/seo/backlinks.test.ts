@@ -10,7 +10,7 @@ import type { IndustryKey } from '@/lib/industry-presets'
  */
 
 type TenantDomainRow = { domain: string; tenant_id: string }
-type TenantRow = { id: string; name: string; phone: string | null; website_url: string | null; industry: string | null }
+type TenantRow = { id: string; name: string; phone: string | null; website_url: string | null; industry: string | null; domain?: string | null }
 type BacklinkRow = { tenant_id: string; kind: string; source_key: string; status: string; [k: string]: unknown }
 
 const TABLE = 'seo_backlink_opportunities'
@@ -29,12 +29,14 @@ function builder(table: string) {
   const eq: Record<string, unknown> = {}
   let inCol: string | undefined
   let inVals: unknown[] | undefined
+  let notNullCol: string | undefined
 
   const chain = {
     select: () => { op = 'select'; return chain },
     delete: () => { op = 'delete'; return chain },
     eq: (col: string, val: unknown) => { eq[col] = val; return chain },
     in: (col: string, vals: unknown[]) => { inCol = col; inVals = vals; return chain },
+    not: (col: string, _op: string, _val: unknown) => { notNullCol = col; return chain },
     insert: async (rows: Record<string, unknown> | Record<string, unknown>[]) => {
       const arr = Array.isArray(rows) ? rows : [rows]
       insertCalls.push({ table, rows: arr })
@@ -47,6 +49,13 @@ function builder(table: string) {
         return
       }
       if (table === 'tenants') {
+        // loadActiveFleet()'s tenants.domain fallback query: select id,domain
+        // .not('domain','is',null) -- no .in(), distinguished from the
+        // id/name/phone/website/industry metadata lookup by notNullCol.
+        if (notNullCol === 'domain') {
+          resolve({ data: tenantRows.filter((t) => t.domain != null).map((t) => ({ id: t.id, domain: t.domain })), error: null })
+          return
+        }
         const ids = (inCol === 'id' ? inVals : undefined) ?? []
         resolve({ data: tenantRows.filter((t) => ids.includes(t.id)), error: null })
         return
@@ -80,6 +89,7 @@ import {
   evaluateBacklinkSafety,
   buildCitationListing,
   generateBacklinkProposals,
+  loadActiveFleet,
   type TenantFleetRow,
 } from './backlinks'
 
@@ -99,6 +109,57 @@ beforeEach(() => {
   tenantRows = []
   backlinkRows = []
   insertCalls = []
+})
+
+describe('loadActiveFleet()', () => {
+  it('includes a tenant covered only by tenant_domains', async () => {
+    tenantDomainRows = [{ domain: 'www.acme.com', tenant_id: 't1' }]
+    tenantRows = [{ id: 't1', name: 'Acme', phone: null, website_url: null, industry: 'cleaning', domain: null }]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet.map((t) => t.tenant_id)).toEqual(['t1'])
+    expect(fleet[0].domain).toBe('acme.com')
+  })
+
+  it('falls back to tenants.domain for a tenant with no active tenant_domains row (coverage gap regression)', async () => {
+    // tenant_domains registration is best-effort (activate-tenant.ts upsert is
+    // try/catch, "never blocks" activation) -- a pre-existing or failed-upsert
+    // tenant can have zero tenant_domains rows while still having tenants.domain
+    // set. Before the fallback fix, loadActiveFleet() silently dropped this
+    // tenant from the entire fleet with no error.
+    tenantDomainRows = []
+    tenantRows = [{ id: 't2', name: 'Legacy Co', phone: null, website_url: null, industry: 'plumbing', domain: 'www.legacyco.com' }]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet.map((t) => t.tenant_id)).toEqual(['t2'])
+    expect(fleet[0].domain).toBe('legacyco.com')
+  })
+
+  it('prefers the tenant_domains entry over a stale tenants.domain for the same tenant', async () => {
+    tenantDomainRows = [{ domain: 'new-domain.com', tenant_id: 't3' }]
+    tenantRows = [{ id: 't3', name: 'Migrated Co', phone: null, website_url: null, industry: 'hvac', domain: 'old-dead-domain.com' }]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet).toHaveLength(1)
+    expect(fleet[0].domain).toBe('new-domain.com')
+  })
+
+  it('does not cross-attribute one tenant fallback domain to a different tenant_id', async () => {
+    tenantDomainRows = [{ domain: 'covered.com', tenant_id: 't4' }]
+    tenantRows = [
+      { id: 't4', name: 'Covered Co', phone: null, website_url: null, industry: 'hvac', domain: null },
+      { id: 't5', name: 'Fallback Co', phone: null, website_url: null, industry: 'hvac', domain: 'fallback.com' },
+    ]
+
+    const fleet = await loadActiveFleet()
+    const byId = new Map(fleet.map((t) => [t.tenant_id, t.domain]))
+
+    expect(byId.get('t4')).toBe('covered.com')
+    expect(byId.get('t5')).toBe('fallback.com')
+  })
 })
 
 describe('citationSourcesFor()', () => {

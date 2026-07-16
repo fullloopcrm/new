@@ -117,15 +117,34 @@ export interface TenantFleetRow {
   industry: IndustryKey
 }
 
+const normDomain = (raw: string): string =>
+  raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+
 export async function loadActiveFleet(): Promise<TenantFleetRow[]> {
   const { data: domains } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id').eq('active', true)
   const byTenant = new Map<string, string>()
   for (const d of domains ?? []) {
     const tenantId = d.tenant_id as string | null
-    const domain = String(d.domain ?? '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+    const domain = normDomain(String(d.domain ?? ''))
     if (!tenantId || !domain || !domain.includes('.') || domain.endsWith('.fullloopcrm.com') || byTenant.has(tenantId)) continue
     byTenant.set(tenantId, domain)
   }
+
+  // Fallback: tenant_domains registration is best-effort (activate-tenant.ts's
+  // upsert is try/catch, "never blocks" activation), so pre-existing tenants or
+  // ones whose upsert failed have no active tenant_domains row at all and would
+  // otherwise be silently dropped from the entire fleet. Fill gaps from
+  // tenants.domain — matches tenant-lookup.ts's tenant_domains-first /
+  // tenants.domain-fallback precedence (tenant_domains wins where both exist).
+  const { data: legacy } = await supabaseAdmin.from('tenants').select('id,domain').not('domain', 'is', null)
+  for (const t of legacy ?? []) {
+    const tenantId = t.id as string | null
+    if (!tenantId || byTenant.has(tenantId)) continue
+    const domain = normDomain(String(t.domain ?? ''))
+    if (!domain || !domain.includes('.') || domain.endsWith('.fullloopcrm.com')) continue
+    byTenant.set(tenantId, domain)
+  }
+
   if (byTenant.size === 0) return []
 
   const { data: tenants } = await supabaseAdmin
