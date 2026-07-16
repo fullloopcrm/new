@@ -333,6 +333,7 @@ export const SERVICE_PRESETS: Record<IndustryKey, DefaultService[]> = {
     svc('Repair Service Call', 'Diagnosis + repair of AC/heat', 2, 150, 2),
     svc('Install / Replacement', 'New HVAC system install', 8, 135, 3),
     svc('Duct Cleaning', 'Full duct clean + sanitize', 3, 125, 4),
+    svc('Emergency HVAC', 'No heat/no cool after-hours urgent response', 2, 175, 5),
   ],
   plumbing: [
     svc('Service Call', 'Diagnosis + repair of plumbing issue', 1, 135, 1),
@@ -584,7 +585,7 @@ export const CHECKLIST_BY_INDUSTRY: Record<IndustryKey, ChecklistField[]> = {
   pet_grooming: stdChecklist('Ask bath & brush, full groom, nail trim, or de-shed — breed + size.', opts(['Bath', 'Full groom', 'Nails', 'De-shed'])),
   pet_waste: stdChecklist('Ask weekly, twice-weekly, one-time, or commercial — yard size + # of dogs.', opts(['Weekly', 'Twice-weekly', 'One-time', 'Commercial'])),
   handyman: stdChecklist('Ask small repair, half-day, full-day, or assembly — list what needs doing.', opts(['Small', 'Half-day', 'Full-day', 'Assembly'])),
-  hvac: stdChecklist('Ask tune-up, repair, install, or duct cleaning — system type.', opts(['Tune-up', 'Repair', 'Install', 'Duct clean'])),
+  hvac: stdChecklist('Ask tune-up, repair, install, duct cleaning, or emergency — system type.', opts(['Tune-up', 'Repair', 'Install', 'Duct clean', 'Emergency'])),
   plumbing: stdChecklist('Ask service call, drain, install, or emergency — describe the issue + location.', opts(['Service', 'Drain', 'Install', 'Emergency'])),
   electrical: stdChecklist('Ask service call, outlet/switch, panel, or EV charger — any safety concerns.', opts(['Service', 'Outlet', 'Panel', 'EV charger'])),
   mobile_salon: stdChecklist('Ask cut & style, color, blowout, or bridal — hair length/type + look.', opts(['Cut & style', 'Color', 'Blowout', 'Bridal'])),
