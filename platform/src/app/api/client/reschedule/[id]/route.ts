@@ -3,6 +3,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { notifyTeamMember } from '@/lib/notify-team-member'
 import { smsJobRescheduled } from '@/lib/sms-templates'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
@@ -83,7 +84,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newTime = body.start_time ? fmtTime(body.start_time, tz) : ''
 
     // 1. Client confirmation email
-    if (updated.clients?.email && tenant.resend_api_key) {
+    if (updated.clients?.email && tenant.resend_api_key && (await isCommEnabled(tenant.id, 'reschedule', 'email'))) {
       const html = `<div style="font-family:system-ui;-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
         <h2>Your booking has been rescheduled</h2>
         <p><strong>${tenant.name}</strong> moved your appointment.</p>
@@ -104,7 +105,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // 2. Client SMS
-    if (updated.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (updated.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenant.id, 'reschedule', 'sms'))) {
       await sendSMS({
         to: updated.clients.phone,
         body: clientSmsTemplates(tenant).reschedule(updated),

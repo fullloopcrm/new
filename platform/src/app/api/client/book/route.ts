@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 import {
@@ -408,7 +409,9 @@ export async function POST(request: Request) {
           time: (body.time as string) || '',
           notes: (body.notes as string) || '',
         }, td)
-        await emailAdmins(tenant, admin.subject, admin.html)
+        if (await isCommEnabled(tenant.id, 'owner_new_booking', 'email')) {
+          await emailAdmins(tenant, admin.subject, admin.html)
+        }
 
         if (referrerData?.email) {
           const ref = referralSignupNotifyEmail({ name: referrerData.name }, td)
@@ -421,7 +424,7 @@ export async function POST(request: Request) {
           })
         }
 
-        if (data.clients?.email && tenant.resend_api_key) {
+        if (data.clients?.email && tenant.resend_api_key && (await isCommEnabled(tenant.id, 'booking_received', 'email'))) {
           const { subject, html } = bookingReceivedEmail(tenant, data)
           await sendEmail({
             to: data.clients.email,
@@ -437,7 +440,7 @@ export async function POST(request: Request) {
           }).then(() => {}, () => {})
         }
 
-        if (data.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (data.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenant.id, 'booking_received', 'sms'))) {
           await sendSMS({
             to: data.clients.phone,
             body: clientSmsTemplates(tenant).bookingReceived(data),

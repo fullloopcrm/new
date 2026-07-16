@@ -6,6 +6,7 @@ import { generateToken } from '@/lib/tokens'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 
@@ -181,7 +182,7 @@ export async function POST(request: Request) {
         .single()
 
       // Client SMS confirmation
-      if (client?.phone && telnyxApiKey && telnyxPhone) {
+      if (client?.phone && telnyxApiKey && telnyxPhone && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {
         sendSMS({
           to: client.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first),
@@ -191,7 +192,7 @@ export async function POST(request: Request) {
       }
 
       // Cleaner SMS assignment
-      if (cleaner?.phone && telnyxApiKey && telnyxPhone) {
+      if (cleaner?.phone && telnyxApiKey && telnyxPhone && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
         sendSMS({
           to: cleaner.phone,
           body: teamSmsTemplates(tenantRow || {}).jobAssignment(first),
@@ -201,7 +202,7 @@ export async function POST(request: Request) {
       }
 
       // Client email confirmation
-      if (client?.email && resendKey && fromEmail) {
+      if (client?.email && resendKey && fromEmail && (await isCommEnabled(tenantId, 'booking_confirmed', 'email'))) {
         sendEmail({
           to: client.email,
           subject: `Booking confirmed for ${bookingDate}`,

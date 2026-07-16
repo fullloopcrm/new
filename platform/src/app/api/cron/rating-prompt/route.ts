@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 // Runs every 5 min. Sends ONE SMS — Q1 only — 30+ min after the cleaner
 // checked out: "How was your service today?" Reply triggers Q2 in the
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    if (!(await isCommEnabled(tenantId, 'rating_prompt', 'sms'))) continue
     const clientSms = await clientSmsTemplatesFor(tenantId)
 
     const { data: due, error } = await supabaseAdmin

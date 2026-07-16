@@ -79,7 +79,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       canLift: String(fd.get("canLift") || ""),
       availability: String(fd.get("availability") || ""),
       about: String(fd.get("about") || ""),
-      photoUrl,
+      photo_url: photoUrl,
       source: typeof window !== "undefined" ? window.location.pathname : "",
     };
 

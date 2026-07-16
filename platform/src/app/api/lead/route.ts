@@ -35,7 +35,7 @@ interface LeadBody {
 // Standard fields handled explicitly; everything else a form sends
 // (service, address, city, budget, timeframe, etc.) is folded into notes
 // so no field is silently dropped.
-const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photoUrl'])
+const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photo_url', 'photoUrl'])
 
 function buildLeadNotes(body: LeadBody): string | null {
   const lines: string[] = []
@@ -98,10 +98,10 @@ export async function POST(request: NextRequest) {
           .insert({
             name,
             email,
-            photo_url: typeof body.photoUrl === 'string' ? body.photoUrl : null,
             phone: appPhone || null,
             availability: (body.availability as string) || null,
             referral_source: (body.source as string) || null,
+            photo_url: (body.photo_url as string) || (typeof body.photoUrl === 'string' ? body.photoUrl : null) || null,
             notes,
             status: 'pending',
           })
@@ -123,13 +123,17 @@ export async function POST(request: NextRequest) {
         try {
           const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
           const subject = `[${tenant.name}] New job application: ${name}`
+          const photoUrl = (body.photo_url as string) || (typeof body.photoUrl === 'string' ? body.photoUrl : null)
           const html = `<h2>New Job Application</h2>
+            ${photoUrl ? `<img src="${safeUrl(photoUrl)}" alt="Applicant photo" style="width:120px;height:120px;object-fit:cover;border-radius:8px;margin:0 0 12px" />` : ''}
             <p><strong>Name:</strong> ${escapeHtml(name)}</p>
             <p><strong>Email:</strong> ${email ? escapeHtml(email) : '—'}</p>
             <p><strong>Phone:</strong> ${phoneRaw ? escapeHtml(phoneRaw) : '—'}</p>
             ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
             <p><a href="${safeUrl(adminUrl)}">View in admin</a></p>`
-          await emailAdmins(tenant, subject, html)
+          if (await isCommEnabled(tenant.id, 'owner_new_application', 'email')) {
+            await emailAdmins(tenant, subject, html)
+          }
         } catch (emailErr) {
           console.error('[api/lead] job-app email error:', emailErr)
         }

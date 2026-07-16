@@ -9,6 +9,7 @@ import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
@@ -354,7 +355,7 @@ export async function POST(request: Request) {
       }
 
       // Client confirmation SMS
-      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -364,7 +365,7 @@ export async function POST(request: Request) {
       }
 
       // Team member assignment SMS
-      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
         sendSMS({
           to: data.team_members.phone,
           body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
