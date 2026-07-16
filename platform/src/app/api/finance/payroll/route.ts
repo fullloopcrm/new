@@ -133,13 +133,25 @@ export async function POST(request: Request) {
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 
-    // Mark related bookings as paid
-    await supabaseAdmin
+    // Mark the bookings this payment actually covers as paid -- scoped to the
+    // pay period being paid (same start_time window payroll-prep itself used
+    // to compute the gross-pay figure this payment is presumably settling),
+    // not every completed booking this team member has ever had. Before this
+    // fix, paying ANY single period (even a small one) blind-flipped every
+    // one of the member's completed bookings to 'paid' regardless of date --
+    // silently marking unrelated, never-actually-paid bookings from other
+    // periods as settled, and dropping them out of payroll-prep's
+    // status='completed' gross-pay window for good.
+    let bookingsToMark = supabaseAdmin
       .from('bookings')
       .update({ status: 'paid' })
       .eq('tenant_id', tenantId)
       .eq('team_member_id', team_member_id)
       .eq('status', 'completed')
+    if (period_start && period_end) {
+      bookingsToMark = bookingsToMark.gte('start_time', period_start).lte('start_time', `${period_end}T23:59:59Z`)
+    }
+    await bookingsToMark
 
     return NextResponse.json({ payment: data }, { status: 201 })
   } catch (e) {
