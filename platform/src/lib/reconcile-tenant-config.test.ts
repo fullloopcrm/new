@@ -1228,3 +1228,72 @@ describe('computeFindings — Drift K (tenant_domains row with no vercel_project
     expect(warn!.sev).toBe('WARN')
   })
 })
+
+describe('computeFindings — Drift M (ambiguous is_primary among active domains)', () => {
+  it('warns when 2+ active domains have NO row marked is_primary', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: false, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+      { tenant_id: 't1', domain: 'foo-alt.com', active: true, is_primary: false, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('NONE marked is_primary'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('warns when 2+ active domains have MULTIPLE rows marked is_primary', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+      { tenant_id: 't1', domain: 'foo-alt.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    const warn = findings.find((f) => f.msg.includes('multiple active tenant_domains rows marked is_primary'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('does not warn when exactly one of 2+ active domains is marked is_primary', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+      { tenant_id: 't1', domain: 'foo-alt.com', active: true, is_primary: false, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    expect(findings.some((f) => f.msg.includes('is_primary'))).toBe(false)
+  })
+
+  it('does not warn with only a single active domain, even if is_primary is false', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't1', domain: 'foo.com', active: true, is_primary: false, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' },
+    ]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: () => true,
+      resolvableSlugs: null,
+    })
+    expect(findings.some((f) => f.msg.includes('is_primary'))).toBe(false)
+  })
+})

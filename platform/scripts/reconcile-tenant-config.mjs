@@ -295,6 +295,23 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     if (!folderOk && (t.domain || activeTd.length) && t.slug !== 'full-loop-crm' && t.slug !== 'the-va-virtual-assistant') {
       add('INFO', t.slug, `live domain but no bespoke folder (template-served? confirm it's intentional)`)
     }
+    // Drift M: is_primary is a real signal consumed elsewhere (tenant-health cron
+    // picks the domain it health-checks by is_primary; activate-tenant.ts sets it
+    // on creation) but nothing enforces it stays a single, present flag per tenant
+    // once a second domain is added later (POST /api/admin/websites defaults
+    // is_primary=false but doesn't stop a caller passing true again). With 2+
+    // active domains, zero or 2+ marked is_primary is a real ambiguity — different
+    // consumers (first-match-wins reducers, UI pickers) can silently disagree on
+    // which domain is "the" one. A single active domain has nothing to
+    // disambiguate, so this only fires once there's more than one to choose from.
+    if (activeTd.length > 1) {
+      const primaryDomains = activeTd.filter((r) => r.is_primary).map((r) => r.domain)
+      if (primaryDomains.length === 0) {
+        add('WARN', t.slug, `${activeTd.length} active tenant_domains rows but NONE marked is_primary — ambiguous canonical domain (${activeTd.map((r) => r.domain).join(', ')})`)
+      } else if (primaryDomains.length > 1) {
+        add('WARN', t.slug, `multiple active tenant_domains rows marked is_primary — ambiguous canonical domain (${primaryDomains.join(', ')})`)
+      }
+    }
   }
 
   // Claim source: tenant_domains, scanned across ALL rows (not just ones matched
