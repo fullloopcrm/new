@@ -20,6 +20,7 @@ const { notify, ownerAlert } = vi.hoisted(() => ({
 vi.mock('@/lib/notify', () => ({ notify }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert }))
 vi.mock('@/lib/quote', () => ({ logQuoteEvent: vi.fn(async () => {}) }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 9 })) }))
 
 const QUOTE = {
   id: 'q-1',

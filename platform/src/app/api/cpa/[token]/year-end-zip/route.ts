@@ -5,11 +5,26 @@ import { NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toCsv, buildTrialBalance, buildGeneralLedger } from '@/lib/finance-export'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
 export async function GET(request: Request, { params }: Params) {
   try {
+    // Public, unauthenticated (token-auth, no session) — same class as the
+    // sibling quotes/invoices/documents public/[token] routes hardened this
+    // session, but missed by that pass. Token is 192-bit (randomBytes(24) per
+    // /api/finance/cpa-tokens), so not brute-forceable, but every call still
+    // builds a full trial balance + general ledger for the year and zips it —
+    // real, uncapped compute cost a caller holding one valid link could
+    // script-retry with zero limit. Cap per-IP, matching that established
+    // pattern.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`cpa-year-end-zip:${ip}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const { token } = await params
     const url = new URL(request.url)
     const year = url.searchParams.get('year') || String(new Date().getUTCFullYear() - 1)

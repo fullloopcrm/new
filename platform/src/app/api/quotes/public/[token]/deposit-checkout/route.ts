@@ -10,12 +10,26 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { logQuoteEvent } from '@/lib/quote'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
-export async function POST(_request: Request, { params }: Params) {
+function ipFromRequest(req: Request): string | null {
+  return req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || req.headers.get('x-real-ip') || null
+}
+
+export async function POST(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Public, unauthenticated — each call creates a real Stripe Checkout
+    // Session against the tenant's own account. Cap per-IP so a scripted
+    // retry loop can't spam the tenant's Stripe dashboard/API quota.
+    const ip = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`quote-deposit-checkout:${ip}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')

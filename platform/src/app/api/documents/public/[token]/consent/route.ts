@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logDocEvent } from '@/lib/documents'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -15,6 +16,14 @@ function ipFromRequest(req: Request): string | null {
 export async function POST(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Public, unauthenticated action endpoint — same guard as the sibling
+    // quote/invoice public routes.
+    const rlIp = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`document-consent:${rlIp}`, 15, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     const { data: signer } = await supabaseAdmin
       .from('document_signers')

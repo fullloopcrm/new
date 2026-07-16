@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { canSignerAct, DOCUMENTS_BUCKET, logDocEvent } from '@/lib/documents'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -17,6 +18,14 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { token } = await params
     if (!token) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
+
+    // Public, unauthenticated — DB writes per request plus a storage
+    // signed-URL mint. Same guard as the sibling quote/invoice view routes.
+    const ip = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`document-public:${ip}`, 30, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     const { data: signer } = await supabaseAdmin
       .from('document_signers')
