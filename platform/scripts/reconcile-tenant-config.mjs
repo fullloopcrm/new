@@ -292,6 +292,32 @@ export function parseStaticTenantMap(middlewareSource) {
   return map
 }
 
+// --- parse next.config.ts's rewrites().afterFiles for bare "/site/<segment>"
+// source paths (no dynamic ":param", no further nesting). These are legacy
+// short-URL aliases (e.g. "/site/about" -> "/site/about-the-nyc-maid-service-
+// company") — the file's own comment says they run "AFTER middleware prefixes
+// tenant requests with /site", i.e. they are meant to catch a tenant's
+// middleware-rewritten pathname. But the ONLY middleware routing branch that
+// ever produces a BARE "/site/<path>" (no tenant-slug segment in between) is
+// ROOT_SITE_TENANTS membership — a BESPOKE_SITE_TENANTS tenant's pathname is
+// "/site/<slug>/<path>" and a template tenant's is "/site/template/<path>",
+// neither of which this literal source pattern matches. See Drift W below.
+export function parseNextConfigSiteRewriteSources(nextConfigSource) {
+  const block = nextConfigSource.match(/afterFiles:\s*\[([\s\S]*?)\]\s*,?\s*\n\s*fallback:/)
+  if (!block) return []
+  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const out = []
+  let m
+  while ((m = entryRe.exec(block[1]))) {
+    const source = m[1]
+    // Bare, static "/site/<one-segment>" only — no ":param" (dynamic, matches
+    // any tenant-slug-prefixed path too) and no extra "/" beyond the one
+    // segment (e.g. "/site/blog/:slug" is dynamic AND nested; excluded either way).
+    if (/^\/site\/[^/:]+$/.test(source)) out.push({ source, destination: m[2] })
+  }
+  return out
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -352,9 +378,13 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.knownPendingOrphans]  slugs from the KNOWN_PENDING_ORPHANS
  *                                  allowlist (see the const above). Feeds Drift V ONLY.
  *                                  Pass an empty Set (default) to skip.
+ * @param {Array}    [input.nextConfigSiteRewrites]  { source, destination } pairs
+ *                                  from next.config.ts's rewrites().afterFiles
+ *                                  (see parseNextConfigSiteRewriteSources). Feeds
+ *                                  Drift W ONLY. Pass an empty array (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [] }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -744,6 +774,31 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift W: a next.config.ts rewrites().afterFiles entry whose source is a
+  // bare "/site/<segment>" legacy short-URL alias (see
+  // parseNextConfigSiteRewriteSources) while ROOT_SITE_TENANTS is empty. That
+  // bare pathname is ONLY ever produced by middleware's rewriteToSite() for a
+  // ROOT_SITE_TENANTS member (siteBase='/site'); every BESPOKE_SITE_TENANTS
+  // tenant gets '/site/<slug>/<path>' and every other tenant gets
+  // '/site/template/<path>' — neither matches a source this literal. With
+  // ROOT_SITE_TENANTS empty, NO tenant's domain-routed traffic can ever hit
+  // this rewrite, so it is unreachable dead config for real customer requests
+  // (it only still fires for an un-rewritten direct /site/* browse on the main
+  // host, not a tenant's own domain). This is exactly the nycmaid migration
+  // case: nycmaid moved from root-routed ('/site') to BESPOKE_SITE_TENANTS
+  // ('/site/nycmaid') without these short-alias rewrites being updated to the
+  // new '/site/nycmaid/<path>' namespace or removed — so old bookmarked/
+  // linked short URLs like thenycmaid.com/about now 404 instead of redirecting.
+  if (nextConfigSiteRewrites.length && rootSiteTenantsSet.size === 0) {
+    for (const { source, destination } of nextConfigSiteRewrites) {
+      add(
+        'WARN',
+        source,
+        `next.config.ts rewrites().afterFiles source '${source}' -> '${destination}' is a bare /site/<segment> alias, but ROOT_SITE_TENANTS is empty -> no tenant's middleware-routed traffic can ever produce that bare pathname (bespoke tenants get /site/<slug>/..., others get /site/template/...) -- unreachable dead config; likely a stale short-URL alias left behind after its tenant moved into BESPOKE_SITE_TENANTS`,
+      )
+    }
+  }
+
   return findings
 }
 
@@ -806,6 +861,8 @@ async function main() {
   const staticTenantMap = parseStaticTenantMap(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
+  const nextConfigSource = readFileSync(join(REPO, 'next.config.ts'), 'utf8')
+  const nextConfigSiteRewrites = parseNextConfigSiteRewriteSources(nextConfigSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -842,7 +899,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

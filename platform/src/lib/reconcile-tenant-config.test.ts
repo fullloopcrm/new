@@ -11,6 +11,7 @@ import {
   parseMainHostsSet,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
+  parseNextConfigSiteRewriteSources,
   computeFindings,
   summarize,
   loadToken,
@@ -229,6 +230,69 @@ describe('parseStaticTenantMap', () => {
   it('returns an empty map for a declaration with no entries', () => {
     const src = `const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {}`
     expect(parseStaticTenantMap(src).size).toBe(0)
+  })
+})
+
+describe('parseNextConfigSiteRewriteSources', () => {
+  const wrap = (entries: string) => `
+    async rewrites() {
+      return {
+        beforeFiles: [],
+        afterFiles: [
+          ${entries}
+        ],
+        fallback: [],
+      }
+    }
+  `
+
+  it('extracts bare /site/<segment> sources with their destinations', () => {
+    const src = wrap(`
+      { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
+      { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },
+    `)
+    const out = parseNextConfigSiteRewriteSources(src)
+    expect(out).toEqual([
+      { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
+      { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },
+    ])
+  })
+
+  it('excludes dynamic-param sources (e.g. /site/blog/:slug)', () => {
+    const src = wrap(`
+      { source: '/site/blog', destination: '/site/nyc-maid-service-blog' },
+      { source: '/site/blog/:slug', destination: '/site/nyc-maid-service-blog/:slug' },
+    `)
+    const out = parseNextConfigSiteRewriteSources(src)
+    expect(out).toEqual([{ source: '/site/blog', destination: '/site/nyc-maid-service-blog' }])
+  })
+
+  it('excludes multi-segment sources (e.g. /site/foo/bar)', () => {
+    const src = wrap(`{ source: '/site/foo/bar', destination: '/site/baz' },`)
+    expect(parseNextConfigSiteRewriteSources(src)).toEqual([])
+  })
+
+  it('excludes sources outside the afterFiles block (e.g. beforeFiles)', () => {
+    const src = `
+      async rewrites() {
+        return {
+          beforeFiles: [{ source: '/site/before', destination: '/site/x' }],
+          afterFiles: [{ source: '/site/after', destination: '/site/y' }],
+          fallback: [],
+        }
+      }
+    `
+    const out = parseNextConfigSiteRewriteSources(src)
+    expect(out).toEqual([{ source: '/site/after', destination: '/site/y' }])
+  })
+
+  it('returns an empty array when afterFiles is absent', () => {
+    expect(parseNextConfigSiteRewriteSources('export default {}')).toEqual([])
+  })
+
+  it('returns an empty array when afterFiles has no /site/<segment> entries', () => {
+    const src = wrap(`{ source: '/features', destination: '/full-loop-crm-service-features' },`)
+    expect(parseNextConfigSiteRewriteSources(src)).toEqual([])
   })
 })
 
@@ -2090,5 +2154,63 @@ describe('computeFindings — Drift V (stale KNOWN_PENDING_ORPHANS allowlist ent
       knownPendingOrphans: new Set(['toll-trucks-near-me']),
     })
     expect(findings.filter((f) => f.msg.includes('remove the stale entry'))).toHaveLength(0)
+  })
+})
+
+describe('computeFindings — Drift W (next.config.ts bare /site/<segment> rewrite unreachable while ROOT_SITE_TENANTS is empty)', () => {
+  it('warns when a bare /site/<segment> rewrite exists and ROOT_SITE_TENANTS is empty (the live default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      nextConfigSiteRewrites: [{ source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' }],
+    })
+    const warn = findings.find((f) => f.slug === '/site/about' && f.msg.includes('unreachable dead config'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('reports one finding per rewrite entry', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      nextConfigSiteRewrites: [
+        { source: '/site/about', destination: '/site/about-x' },
+        { source: '/site/faq', destination: '/site/faq-x' },
+      ],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(2)
+  })
+
+  it('does not fire when ROOT_SITE_TENANTS has a member (the bare path IS reachable)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(['nycmaid']),
+      nextConfigSiteRewrites: [{ source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' }],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when nextConfigSiteRewrites is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
   })
 })
