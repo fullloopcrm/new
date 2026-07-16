@@ -72,6 +72,34 @@ export async function POST(request: Request) {
     const { tenantId } = tenant
     const { team_member_id, amount, method, period_start, period_end } = await request.json()
 
+    // `amount` here is the team member's pending_pay from GET above — the sum
+    // of completed-but-unpaid bookings. The old code inserted payroll_payments
+    // unconditionally, THEN flipped those bookings to 'paid' with no check on
+    // the outcome. A double-click on "Run Payroll" or a retried request raced
+    // two inserts through before either booking flipped status: the bookings
+    // update naturally no-ops the second time (its own `eq('status',
+    // 'completed')` filter excludes rows the first call already flipped), but
+    // nothing stopped the SECOND payroll_payments row + ledger post from
+    // recording the same pay a second time. Claim the bookings FIRST — only
+    // the request that actually flips completed bookings to paid gets to
+    // record the payment.
+    const { data: claimedBookings, error: claimErr } = await supabaseAdmin
+      .from('bookings')
+      .update({ status: 'paid' })
+      .eq('tenant_id', tenantId)
+      .eq('team_member_id', team_member_id)
+      .eq('status', 'completed')
+      .select('id')
+    if (claimErr) {
+      return NextResponse.json({ error: claimErr.message }, { status: 500 })
+    }
+    if (!claimedBookings || claimedBookings.length === 0) {
+      return NextResponse.json(
+        { error: 'No pending completed bookings to pay for this team member (already paid or none outstanding).' },
+        { status: 409 },
+      )
+    }
+
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
@@ -94,14 +122,6 @@ export async function POST(request: Request) {
       postPayrollToLedger({ tenantId, payrollPaymentId: data.id })
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
-
-    // Mark related bookings as paid
-    await supabaseAdmin
-      .from('bookings')
-      .update({ status: 'paid' })
-      .eq('tenant_id', tenantId)
-      .eq('team_member_id', team_member_id)
-      .eq('status', 'completed')
 
     return NextResponse.json({ payment: data }, { status: 201 })
   } catch (e) {
