@@ -51,10 +51,12 @@ vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/push', () => ({ sendPushToTenantAdmins: vi.fn(() => Promise.resolve()), sendPushToClient: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/sms-templates', () => ({ smsRunningLateClient: () => '', smsRunningLateAdmin: () => '' }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(() => Promise.resolve({ allowed: true, remaining: 4 })) }))
 
 process.env.TEAM_PORTAL_SECRET = 'unit-test-team-portal-secret'
 import { NextRequest } from 'next/server'
 import { createToken } from '@/app/api/team-portal/auth/token'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import { POST } from './route'
 
 beforeEach(() => {
@@ -84,5 +86,20 @@ describe('POST /api/team-portal/running-late — tenantDb scoping', () => {
     expect(bookingA.running_late_eta).toBe(10)
     expect(bookingB.running_late_at).toBeNull()
     expect(bookingB.running_late_eta).toBeNull()
+  })
+
+  it('returns 429 and does not send SMS or mutate the booking once the per-member rate limit is hit', async () => {
+    vi.mocked(rateLimitDb).mockResolvedValueOnce({ allowed: false, remaining: 0 })
+    const token = createToken(MEMBER_ID, TENANT_A, 30, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/running-late', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ bookingId: BOOKING_ID, eta: 10 }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(429)
+
+    const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A)!
+    expect(bookingA.running_late_eta).toBeNull()
   })
 })

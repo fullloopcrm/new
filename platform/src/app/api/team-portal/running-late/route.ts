@@ -6,6 +6,7 @@ import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins, sendPushToClient } from '@/lib/push'
 import { smsRunningLateClient, smsRunningLateAdmin } from '@/lib/sms-templates'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
@@ -14,6 +15,15 @@ export async function POST(request: Request) {
     // booking, scoped to the token's tenant.
     const { auth, error } = await requirePortalPermission(request, 'jobs.view_own')
     if (error) return error
+
+    // A team member is the lowest-trust authenticated tier, and each call fires
+    // a real SMS to both the client's and admin's phone with no other cap --
+    // without this, looping the endpoint is unmetered SMS-cost-abuse/harassment
+    // against a real client phone number.
+    const rl = await rateLimitDb(`running-late:${auth.id}`, 5, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
+    }
 
     const { bookingId, eta } = await request.json()
     if (!bookingId) return NextResponse.json({ error: 'bookingId required' }, { status: 400 })
