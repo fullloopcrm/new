@@ -13,6 +13,17 @@ import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { hasPermission, type Permission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { pick } from '@/lib/validate'
+
+// Tool `updates` objects are LLM-generated. The declared input_schema is a
+// hint to the model, not an enforced contract — nothing stops a tool call
+// (e.g. one steered by a prompt-injection payload sitting in a client's
+// stored notes) from including extra keys like tenant_id/id/client_id that
+// would otherwise pass straight through to .update(). Re-allow-list
+// server-side, mirroring each tool's declared schema, same convention as
+// the admin/announcements PUT fix.
+const BOOKING_UPDATE_FIELDS = ['team_member_id', 'status', 'price', 'notes', 'start_time', 'end_time', 'payment_status', 'payment_method']
+const CLIENT_UPDATE_FIELDS = ['name', 'email', 'phone', 'address', 'notes', 'status', 'do_not_service']
 
 // Tools that mutate data or expose finance figures must be gated behind the
 // SAME permission the equivalent REST endpoint requires (bookings/[id].PUT
@@ -234,7 +245,7 @@ async function executeTool(
 
     case 'update_bookings': {
       const ids = (input.booking_ids as string[]) || []
-      const updates = (input.updates as Record<string, unknown>) || {}
+      const updates = pick(input.updates, BOOKING_UPDATE_FIELDS)
       const confirmed = input.confirmed as boolean
 
       if (!confirmed) {
@@ -324,7 +335,7 @@ async function executeTool(
     case 'update_client': {
       const { error } = await supabaseAdmin
         .from('clients')
-        .update(input.updates as Record<string, unknown>)
+        .update(pick(input.updates, CLIENT_UPDATE_FIELDS))
         .eq('id', input.client_id as string)
         .eq('tenant_id', tenantId)
       return JSON.stringify(error ? { error: error.message } : { success: true })
