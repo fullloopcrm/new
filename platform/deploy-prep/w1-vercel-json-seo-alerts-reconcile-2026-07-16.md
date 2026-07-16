@@ -4,6 +4,8 @@
 **From:** W1, 17:25 order item (3).
 **Status:** gap confirmed still present as of this writing (re-verified live against p1-w1, p1-w2, p1-w3, p1-w4, p1-w5, p1-w6 — no branch touched here).
 
+**18:04 re-check (no new findings, situation unchanged):** re-diffed all 6 branches' `vercel.json` crons arrays and the gdpr-purge implementation files again. Nothing has moved since 17:37 — p1-w2 still has `seo-alerts`' code (route.ts/alerts.ts/alerts.test.ts, commit `2ebf48b2`) but no vercel.json entry for it; p1-w1 (this branch) still has only the entry; `seo-index-cliff` is still the mirror gap (w1 has both, w2/w3/w5/w6 have neither); w4's `seo-health` is still solo; `gdpr-purge` is still two live implementations at two schedules (w2 `src/lib/gdpr-deletion.ts` @ `0 9 * * *`, w5 `src/lib/gdpr.ts` @ `30 5 * * *`), still needing a pick-one decision, not a merge. No consolidation appears to have started yet per LEADER-CHANNEL. Nothing further to add until one of the branches actually moves or a merge attempt surfaces a new conflict.
+
 ## The gap
 
 `platform/vercel.json` on **p1-w1** has a crons entry:
