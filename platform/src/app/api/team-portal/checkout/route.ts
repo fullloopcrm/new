@@ -107,6 +107,15 @@ export async function POST(request: Request) {
     }
   }
 
+  // Check-then-act, not atomic: the `booking.check_out_time` null-check above
+  // (line ~43) reads a stale snapshot -- a double-tap or network retry can
+  // land in the gap. Re-assert check_out_time IS NULL in THIS update's own
+  // WHERE so a second racing request can't silently overwrite the first
+  // check-out and re-trigger the payment/referral/notification side effects
+  // below a second time. (processPayment and the referral-commission insert
+  // are separately idempotent via reference_id / UNIQUE(booking_id), but the
+  // admin SMS alerts and client push below are not — this guard is what
+  // actually stops those from double-firing.)
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({
@@ -119,11 +128,16 @@ export async function POST(request: Request) {
       price: updatedPriceCents,
     })
     .eq('id', booking_id)
+    .eq('tenant_id', auth.tid)
+    .is('check_out_time', null)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked out' }, { status: 409 })
   }
 
   // Referral commission — if this booking came through an affiliate referrer,

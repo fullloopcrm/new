@@ -68,6 +68,11 @@ export async function POST(request: Request) {
     }
   }
 
+  // Check-then-act, not atomic: the `booking.check_in_time` null-check above
+  // reads a stale snapshot -- a double-tap or network retry can land in the
+  // gap. Re-assert check_in_time IS NULL in THIS update's own WHERE so a
+  // second racing request can't silently overwrite the first check-in's
+  // time/GPS with a later one.
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({
@@ -78,11 +83,16 @@ export async function POST(request: Request) {
       ...(checkInFlagNote ? { notes: ((booking as { notes?: string | null }).notes || '') + checkInFlagNote } : {}),
     })
     .eq('id', booking_id)
+    .eq('tenant_id', auth.tid)
+    .is('check_in_time', null)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked in' }, { status: 409 })
   }
 
   return NextResponse.json({ booking: data })
