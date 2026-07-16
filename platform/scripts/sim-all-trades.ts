@@ -725,6 +725,40 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
             `status=${res.status} charged=${chargedPrice} flatRate=${flatRate} — POST /api/portal/bookings applies no same-day/emergency multiplier; emergency_rate never reaches actual billing, only the AI's chat prompt`)
         }
       }
+
+      // P11.8 second real gap, same root cause as P11.7 but a DIFFERENT
+      // surface: the public marketing-site self-book form (POST
+      // /api/client/book, src/app/api/client/book/route.ts) is the OTHER
+      // live "burst-pipe customer books themselves" entry point — for a
+      // brand-new lead, not an existing portal client. Can't invoke it live
+      // in this harness: it resolves tenant context via next/headers()'s
+      // headers() (middleware-signed x-tenant-id/x-tenant-sig), which throws
+      // outside an actual Next request-handling scope, unlike the portal
+      // route's plain Bearer-token auth read off the Request object. So this
+      // check verifies by reading the route source instead of calling it:
+      // the isNycMaid(tenant.id) branch has explicit bkIsEmergency/isSameDay
+      // logic (an $89/hr override), but that's hardcoded to exactly ONE
+      // tenant. Every other tenant on the platform — which is 100% of this
+      // archetype, since plumbing/HVAC/restoration test tenants are never
+      // the NYC Maid tenant — falls into the generic `else` branch, which
+      // prices purely off configuredRate (service_types.default_hourly_rate)
+      // with zero same-day/emergency keyword or multiplier anywhere in it.
+      // So this archetype's second self-book surface has the same gap as
+      // P11.7, except worse: NYC Maid (a cleaning tenant, outside this
+      // archetype entirely) is the ONLY tenant on the whole platform where a
+      // same-day self-book through this route is actually charged more.
+      const bookRouteSrc = readFileSync(resolve(process.cwd(), 'src/app/api/client/book/route.ts'), 'utf8')
+      const nycMaidBranch = bookRouteSrc.split('if (isNycMaid(tenant.id)) {')[1] || ''
+      const branchParts = nycMaidBranch.split(/\n\s*\} else \{\n/)
+      const nycMaidPricingLogic = branchParts[0] || ''
+      const genericBranch = (branchParts[1] || '').split('// Resolve property')[0]
+      const nycMaidHasEmergencyLogic = /bkIsEmergency|isSameDay/.test(nycMaidPricingLogic)
+      const genericHasEmergencyLogic = /emergency|same.?day|sameDay/i.test(genericBranch)
+      add('emergency: public self-book form (/api/client/book) applies emergency/same-day pricing for non-NYC-Maid tenants (this archetype)',
+        !!genericBranch && genericHasEmergencyLogic,
+        genericBranch
+          ? `generic-tenant pricing branch (${genericBranch.trim().length} chars) has no same-day/emergency logic; only the hardcoded NYC Maid branch does (nycMaidBranchHasLogic=${nycMaidHasEmergencyLogic}) — same root gap as P11.7 on a second self-book surface`
+          : 'could not locate the generic (non-NYC-Maid) pricing branch in route source — route.ts shape changed, re-verify this check manually')
     }
 
   } catch (err) {
