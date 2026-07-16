@@ -4,6 +4,7 @@ import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { tenantServesSite } from './tenant-status'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
@@ -145,6 +146,16 @@ export async function getCurrentTenant(): Promise<Tenant | null> {
     .select('*')
     .eq('id', membership.tenant_id)
     .single()
+
+  // Real (non-impersonated) owner login only — admin PIN and Clerk
+  // super-admin impersonation above intentionally skip this gate so support
+  // can still reach a suspended/cancelled/deleted tenant's dashboard. A
+  // suspended/cancelled/deleted tenant's own site already goes dark
+  // (tenantServesSite gates middleware + the ingest routes); without this
+  // check its OWNER could still log in via the main host and run the CRM
+  // (send campaigns, take payments) indefinitely after being cut off
+  // everywhere else that enforces the same status.
+  if (!tenant || !tenantServesSite(tenant.status)) return null
 
   return tenant
 }

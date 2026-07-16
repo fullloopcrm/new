@@ -46,13 +46,23 @@ vi.mock('./supabase', () => ({
 
 // Stub tenant.ts's other top-level imports — unused by getTenantByDomain, mocked
 // only so importing the module doesn't drag in Next server internals.
-vi.mock('@/lib/owner-session', () => ({ getOwnerUserId: async () => null }))
-vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }), headers: async () => ({ get: () => null }) }))
-vi.mock('@/app/api/admin-auth/route', () => ({ verifyAdminToken: () => false }))
-vi.mock('./impersonation', () => ({ IMPERSONATE_COOKIE: 'imp', verifyImpersonationCookie: () => null }))
+// getOwnerUserId/verifyImpersonationCookie/verifyTenantHeaderSig are vi.fn()s
+// (not static stubs) so the getCurrentTenant() suite below can drive each
+// auth path independently, same pattern as tenant-query.test.ts.
+const getOwnerUserId = vi.fn<() => Promise<string | null>>()
+vi.mock('@/lib/owner-session', () => ({ getOwnerUserId: () => getOwnerUserId() }))
+const mockCookieStore = new Map<string, string>()
+vi.mock('next/headers', () => ({
+  cookies: async () => ({ get: (name: string) => (mockCookieStore.has(name) ? { value: mockCookieStore.get(name) } : undefined) }),
+  headers: async () => ({ get: () => null }),
+}))
+const verifyAdminToken = vi.fn<(token: string) => boolean>()
+vi.mock('@/app/api/admin-auth/route', () => ({ verifyAdminToken: (t: string) => verifyAdminToken(t) }))
+const verifyImpersonationCookie = vi.fn<(raw: string | undefined) => string | null>()
+vi.mock('./impersonation', () => ({ IMPERSONATE_COOKIE: 'imp', verifyImpersonationCookie: (raw: string | undefined) => verifyImpersonationCookie(raw) }))
 vi.mock('./tenant-header-sig', () => ({ verifyTenantHeaderSig: () => false }))
 
-import { getTenantByDomain, getTenantBySlug } from './tenant'
+import { getTenantByDomain, getTenantBySlug, getCurrentTenant } from './tenant'
 
 // Full-ish tenant row (only the fields these tests assert on matter).
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
@@ -77,6 +87,10 @@ const domainRow = (over: Partial<Record<string, unknown>> = {}) => ({
 beforeEach(() => {
   singleCalls = []
   resolve = () => ({ data: null, error: null })
+  mockCookieStore.clear()
+  getOwnerUserId.mockReset().mockResolvedValue(null)
+  verifyAdminToken.mockReset().mockReturnValue(false)
+  verifyImpersonationCookie.mockReset().mockReturnValue(null)
 })
 
 describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
@@ -234,5 +248,60 @@ describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
   it('returns null for an unknown slug', async () => {
     resolve = () => ({ data: null, error: null })
     expect(await getTenantBySlug('nobody-slug')).toBeNull()
+  })
+})
+
+describe('getCurrentTenant — real-owner status gate (Clerk membership path)', () => {
+  // getCurrentTenant() is what DashboardLayout calls to authorize + render
+  // the dashboard. Its Normal-flow branch (real Clerk owner via
+  // tenant_members, not admin/impersonation) resolved a tenant by id with NO
+  // status check at all — unlike middleware and the ingest routes, which
+  // both gate on tenantServesSite. A suspended/cancelled/deleted tenant's
+  // owner could still log in on the main host and run the CRM indefinitely.
+
+  function mockMembershipAndTenant(status: string) {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+        return { data: { tenant_id: 't-owner', role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-owner')
+        return { data: tenantRow({ id: 't-owner', status }), error: null }
+      return { data: null, error: null }
+    }
+  }
+
+  it('positive control: an active tenant\'s real owner is authorized', async () => {
+    mockMembershipAndTenant('active')
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-owner')
+  })
+
+  it('a pending tenant\'s real owner is still authorized (only suspended/cancelled/deleted are dark)', async () => {
+    mockMembershipAndTenant('pending')
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-owner')
+  })
+
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-STATUS PROBE: a %s tenant\'s real owner is refused, not silently authorized',
+    async (status) => {
+      mockMembershipAndTenant(status)
+      const t = await getCurrentTenant()
+      expect(t).toBeNull()
+    },
+  )
+
+  it('ESCAPE HATCH: admin PIN impersonation of a suspended tenant is still authorized (support must still reach dark accounts)', async () => {
+    mockCookieStore.set('imp', 'signed-cookie')
+    mockCookieStore.set('admin_token', 'good-token')
+    verifyImpersonationCookie.mockReturnValue('t-dark')
+    verifyAdminToken.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dark'
+        ? { data: tenantRow({ id: 't-dark', status: 'suspended' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-dark')
   })
 })

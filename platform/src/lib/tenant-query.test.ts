@@ -307,6 +307,48 @@ describe('getTenantForRequest — Clerk-replacement session + membership path', 
     expect(ctx.tenant.slug).toBe('tenant-a')
     expect(singleCalls.some((c) => c.table === 'tenants' && c.eqs.id === 't-B')).toBe(false)
   })
+
+  it('a pending tenant\'s real owner is still authorized (only suspended/cancelled/deleted are dark)', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+        return { data: { tenant_id: 't-7', role: 'staff' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-7') return { data: tenantRow({ id: 't-7', status: 'pending' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('t-7')
+  })
+
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-STATUS PROBE: a %s tenant\'s real owner is refused (403), same rule the ingest routes and middleware already enforce',
+    async (status) => {
+      getOwnerUserId.mockResolvedValue('user-42')
+      resolve = (table, eqs) => {
+        if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+          return { data: { tenant_id: 't-dark', role: 'owner' }, error: null }
+        if (table === 'tenants' && eqs.id === 't-dark') return { data: tenantRow({ id: 't-dark', status }), error: null }
+        return { data: null, error: null }
+      }
+
+      await expect(getTenantForRequest()).rejects.toMatchObject({ status: 403, message: 'Tenant account is not active' })
+    },
+  )
+
+  it('ESCAPE HATCH: admin-PIN impersonation of a suspended tenant is still authorized (support must still reach dark accounts)', async () => {
+    mockCookieStore.set('fl_impersonate', 'signed-cookie')
+    mockCookieStore.set('admin_token', 'good-token')
+    verifyImpersonationCookie.mockReturnValue('t-dark')
+    verifyAdminToken.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dark'
+        ? { data: tenantRow({ id: 't-dark', status: 'suspended' }), error: null }
+        : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('t-dark')
+  })
 })
 
 describe('getTenantForRequest — Clerk super-admin impersonation', () => {

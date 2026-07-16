@@ -4,6 +4,7 @@ import { supabaseAdmin } from './supabase'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { tenantServesSite } from './tenant-status'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
@@ -157,6 +158,18 @@ export async function getTenantForRequest(): Promise<TenantContext> {
 
   if (!tenant) {
     throw new AuthError('Tenant not found', 404)
+  }
+
+  // Real (non-impersonated) owner login only — admin PIN and Clerk
+  // super-admin impersonation above intentionally skip this gate so support
+  // can still reach a suspended/cancelled/deleted tenant's account. Mirrors
+  // tenant.ts's getCurrentTenant() gate (which authorizes the DashboardLayout
+  // render for this exact path) — without it, this function (the auth gate
+  // behind ~195 API route importers and requirePermission()) would keep
+  // authorizing every write for a tenant already dark everywhere else that
+  // enforces tenantServesSite (middleware, ingest routes).
+  if (!tenantServesSite(tenant.status)) {
+    throw new AuthError('Tenant account is not active', 403)
   }
 
   return {
