@@ -1,28 +1,40 @@
 import { cookies } from "next/headers";
+import { safeEqual, signWithSecret } from "@/lib/secret-compare";
 
 const COOKIE_NAME = "admin_session";
-const SESSION_VALUE = "authenticated";
+
+// Session value = a fixed marker signed with ADMIN_PASSWORD as secret, not the
+// unsigned literal "authenticated" that used to sit here — that let anyone set
+// admin_session=authenticated on their own request and pass isAdminAuthenticated()
+// with zero credentials, since only a plain === check gated it, not a secret.
+// signWithSecret throws if ADMIN_PASSWORD is unset (fail closed) rather than
+// signing with a publicly-computable key. This module currently has no live
+// login route wired to it (dead code), but is hardened to the same pattern as
+// the other site-clone admin-auth modules so it isn't a footgun if reactivated.
+function sessionValue(): string {
+  return signWithSecret("authenticated", process.env.ADMIN_PASSWORD);
+}
 
 export async function isAdminAuthenticated(): Promise<boolean> {
   const cookieStore = await cookies();
   const session = cookieStore.get(COOKIE_NAME);
-  return session?.value === SESSION_VALUE;
+  if (!session?.value) return false;
+  try {
+    return safeEqual(session.value, sessionValue());
+  } catch {
+    return false;
+  }
 }
 
 export function verifyAdminPassword(password: string): boolean {
   const expected = process.env.ADMIN_PASSWORD;
   if (!expected) return false;
-  if (password.length !== expected.length) return false;
-  let mismatch = 0;
-  for (let i = 0; i < password.length; i++) {
-    mismatch |= password.charCodeAt(i) ^ expected.charCodeAt(i);
-  }
-  return mismatch === 0;
+  return safeEqual(password, expected);
 }
 
 export async function setAdminSession(): Promise<void> {
   const cookieStore = await cookies();
-  cookieStore.set(COOKIE_NAME, SESSION_VALUE, {
+  cookieStore.set(COOKIE_NAME, sessionValue(), {
     httpOnly: true,
     secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
