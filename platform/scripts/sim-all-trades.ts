@@ -647,6 +647,12 @@ interface ProjectScenario {
   quoteTitle: string
   lineItems: ProjectLineItem[]
   taxRateBps: number
+  // The FIRST proposal sent gets declined before anything is signed — real,
+  // live POST /api/quotes/public/[token]/decline route, zero coverage
+  // anywhere in this harness before this. The business re-quotes with a
+  // negotiated discount off the same scope, and THAT revised proposal is
+  // the one actually signed and converted to a job.
+  initialQuoteDecline: { reason: string; revisedDiscountPct: number }
   payments: ProjectPaymentPct[]
   sessions: ProjectSessionPlan[]
   crew: { name: string; employmentType: 'contractor_1099' | 'employee_w2'; compType: 'per_job' | 'hourly' | 'salary'; payLabel: string; payCents: number; payMethod: string }
@@ -732,6 +738,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       { name: 'Dumpster & disposal fee', quantity: 1, unit_price_cents: 65000 },
     ],
     taxRateBps: 0,
+    initialQuoteDecline: {
+      reason: "Marcus said the number came in higher than the adjuster's estimate and wants to see if there's any room before he signs anything — asked us to double check the numbers against what State Farm approved.",
+      revisedDiscountPct: 0.05,
+    },
     payments: [
       { label: 'Deposit — materials order', kind: 'deposit', pct: 0.30, trigger: 'on_signature' },
       { label: 'Progress — tear-off & dry-in complete', kind: 'progress', pct: 0.40, trigger: 'on_stage_complete' },
@@ -804,6 +814,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       { name: 'Appliance hookup & final punch list', quantity: 1, unit_price_cents: 95000 },
     ],
     taxRateBps: 0,
+    initialQuoteDecline: {
+      reason: "Elena and her husband said the total came in higher than they expected once they saw the line-by-line breakdown and want a few days to sit with it before signing.",
+      revisedDiscountPct: 0.04,
+    },
     payments: [
       { label: 'Deposit — signing', kind: 'deposit', pct: 0.30, trigger: 'on_signature' },
       { label: 'Progress — cabinet delivery', kind: 'progress', pct: 0.30, trigger: 'on_stage_complete' },
@@ -879,6 +893,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       { name: 'Furniture goods pass-through (client-selected pieces)', quantity: 1, unit_price_cents: 1850000 },
     ],
     taxRateBps: 0,
+    initialQuoteDecline: {
+      reason: "Priya said the furniture pass-through line made the whole number feel too big even though it's mostly a pass-through cost, and asked if there was any flexibility before they commit.",
+      revisedDiscountPct: 0.03,
+    },
     payments: [
       { label: 'Design retainer — signing', kind: 'deposit', pct: 0.20, trigger: 'on_signature' },
       { label: 'Furniture procurement — orders placed', kind: 'progress', pct: 0.50, trigger: 'manual' },
@@ -1002,39 +1020,90 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     const quoteNumber = await generateQuoteNumber(tenant.id)
     add('quote: number format Q-YYYYMM-NNNN', /^Q-\d{6}-\d{4}$/.test(quoteNumber), quoteNumber)
 
-    const { data: quote, error: qInsErr } = await supabase.from('quotes').insert({
+    const { data: quote0, error: qInsErr0 } = await supabase.from('quotes').insert({
       tenant_id: tenant.id, client_id: null, deal_id: deal.id, quote_number: quoteNumber, status: 'draft',
       title: cfg.quoteTitle, contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail,
       contact_phone: cfg.lead.contactPhone, service_address: cfg.lead.address,
       line_items: lineItems, subtotal_cents: totals.subtotal_cents, tax_rate_bps: cfg.taxRateBps,
       tax_cents: totals.tax_cents, discount_cents: 0, total_cents: totals.total_cents,
       public_token: generatePublicToken(),
-    }).select('id, total_cents, quote_number').single()
-    add('quote: created & linked to deal', !!quote && !qInsErr, qInsErr?.message)
-    if (!quote) throw new Error('quote insert failed: ' + qInsErr?.message)
+    }).select('id, total_cents, quote_number, public_token').single()
+    add('quote: created & linked to deal', !!quote0 && !qInsErr0, qInsErr0?.message)
+    if (!quote0) throw new Error('quote insert failed: ' + qInsErr0?.message)
 
     // ---- comms compose (pure — no send; tenant has no resend/telnyx keys) ----
     const { emailShell, smsFormat } = await import('../src/lib/messaging/shell')
     const quoteEmailHtml = emailShell({
       brand: { name: bizName },
       kicker: 'Your proposal is ready', heading: "Let's make it official.",
-      bodyHtml: `<p>Hi ${cfg.lead.contactName.split(' ')[0]},</p><p>Your proposal ${quote.quote_number} — ${cfg.quoteTitle} is ready. Total ${formatCents(quote.total_cents)}.</p>`,
+      bodyHtml: `<p>Hi ${cfg.lead.contactName.split(' ')[0]},</p><p>Your proposal ${quote0.quote_number} — ${cfg.quoteTitle} is ready. Total ${formatCents(quote0.total_cents)}.</p>`,
       cta: { label: 'Review & Accept', url: `https://${slug}.example.com/quote/${randomUUID()}` },
     })
-    add('comms: quote email composes with real total', quoteEmailHtml.includes(formatCents(quote.total_cents)) && quoteEmailHtml.includes(quote.quote_number))
-    const quoteSms = smsFormat({ name: bizName }, `Hi ${cfg.lead.contactName.split(' ')[0]}, your proposal for ${formatCents(quote.total_cents)} is ready — review, sign & pay here.`)
+    add('comms: quote email composes with real total', quoteEmailHtml.includes(formatCents(quote0.total_cents)) && quoteEmailHtml.includes(quote0.quote_number))
+    const quoteSms = smsFormat({ name: bizName }, `Hi ${cfg.lead.contactName.split(' ')[0]}, your proposal for ${formatCents(quote0.total_cents)} is ready — review, sign & pay here.`)
     add('comms: quote sms signed with business name', quoteSms.includes(bizName))
 
-    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString(), sent_via: 'email' }).eq('id', quote.id)
-    await supabase.from('deals').update({ stage: 'quoted', value_cents: quote.total_cents, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString(), sent_via: 'email' }).eq('id', quote0.id)
+    await supabase.from('deals').update({ stage: 'quoted', value_cents: quote0.total_cents, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
     await supabase.from('deal_activities').insert({
       tenant_id: tenant.id, deal_id: deal.id, type: 'note',
-      description: `Proposal ${quote.quote_number} sent — ${formatCents(quote.total_cents)}`,
-      metadata: { quote_id: quote.id, total_cents: quote.total_cents },
+      description: `Proposal ${quote0.quote_number} sent — ${formatCents(quote0.total_cents)}`,
+      metadata: { quote_id: quote0.id, total_cents: quote0.total_cents },
     })
     add('quote: deal advanced to quoted', true)
 
-    // ================= 3. SALE CONVERSION =================
+    // ================= 2a. QUOTE DECLINED + REVISED (real public decline route) =================
+    // Real, live route (POST /api/quotes/public/[token]/decline) with zero
+    // coverage anywhere in this harness — every prior scenario's first quote
+    // went straight from sent to accepted. Realistic across all three trades:
+    // the customer balks at the number on the first proposal (sticker shock,
+    // over budget) before signing anything, the business re-quotes with a
+    // negotiated adjustment, and THAT revised proposal is what actually gets
+    // signed and converted to a job. Public/token-based route (no
+    // headers()/cookies() auth), same as the P10.3 accept-route call
+    // elsewhere in this file, so it's invoked directly rather than mirrored.
+    const { POST: declineQuote } = await import('../src/app/api/quotes/public/[token]/decline/route')
+    const declineReq = new Request(`http://localhost/api/quotes/public/${quote0.public_token}/decline`, {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.89.${idx}.1` },
+      body: JSON.stringify({ reason: cfg.initialQuoteDecline.reason }),
+    })
+    const declineRes = await declineQuote(declineReq, { params: Promise.resolve({ token: quote0.public_token }) })
+    add('quote-decline: real public decline route succeeds', declineRes.status === 200, `status=${declineRes.status}`)
+
+    const { data: quote0AfterDecline } = await supabase.from('quotes').select('status, declined_at, declined_reason').eq('id', quote0.id).single()
+    add('quote-decline: original quote marked declined, reason logged verbatim',
+      quote0AfterDecline?.status === 'declined' && !!quote0AfterDecline?.declined_at && quote0AfterDecline?.declined_reason === cfg.initialQuoteDecline.reason,
+      JSON.stringify(quote0AfterDecline))
+
+    const { data: quote0Activity } = await supabase.from('quote_activity').select('event_type').eq('quote_id', quote0.id)
+    add('quote-decline: decline event logged on the quote timeline', (quote0Activity || []).some(a => a.event_type === 'declined'), JSON.stringify(quote0Activity))
+
+    const { data: dealAfterDecline } = await supabase.from('deals').select('stage').eq('id', deal.id).single()
+    add('quote-decline: deal stays open at quoted — operator decides re-quote vs lost, not auto-advanced', dealAfterDecline?.stage === 'quoted', dealAfterDecline?.stage)
+
+    // Revised proposal — same scope, negotiated discount — is the one actually signed.
+    const revisedDiscountCents = Math.round(totals.subtotal_cents * cfg.initialQuoteDecline.revisedDiscountPct)
+    const revisedTotals = computeTotals(lineItems, cfg.taxRateBps, revisedDiscountCents)
+    const revisedQuoteNumber = await generateQuoteNumber(tenant.id)
+    const { data: quote, error: qInsErr } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, client_id: null, deal_id: deal.id, quote_number: revisedQuoteNumber, status: 'sent',
+      title: `${cfg.quoteTitle} (revised)`, contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail,
+      contact_phone: cfg.lead.contactPhone, service_address: cfg.lead.address,
+      line_items: lineItems, subtotal_cents: revisedTotals.subtotal_cents, tax_rate_bps: cfg.taxRateBps,
+      tax_cents: revisedTotals.tax_cents, discount_cents: revisedDiscountCents, total_cents: revisedTotals.total_cents,
+      public_token: generatePublicToken(), sent_at: new Date().toISOString(), sent_via: 'email',
+    }).select('id, total_cents, quote_number').single()
+    add('quote-decline: revised proposal created with negotiated discount, less than the declined total', !!quote && !qInsErr && quote.total_cents < quote0.total_cents, qInsErr?.message || `${quote?.total_cents} vs ${quote0.total_cents}`)
+    if (!quote) throw new Error('revised quote insert failed: ' + qInsErr?.message)
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Revised proposal ${quote.quote_number} sent after decline — ${formatCents(quote.total_cents)}`,
+      metadata: { quote_id: quote.id, total_cents: quote.total_cents, discount_cents: revisedDiscountCents },
+    })
+    await supabase.from('deals').update({ value_cents: quote.total_cents, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+
+    // ================= 3. SALE CONVERSION (the revised proposal) =================
     await supabase.from('quotes').update({ status: 'accepted', accepted_at: new Date().toISOString(), signature_name: cfg.lead.contactName }).eq('id', quote.id)
     await supabase.from('deals').update({ stage: 'pending', last_activity_at: new Date().toISOString() }).eq('id', deal.id)
     await notify({ tenantId: tenant.id, type: 'quote_accepted', title: 'Proposal accepted', message: `${cfg.lead.contactName} accepted ${quote.quote_number}` })
