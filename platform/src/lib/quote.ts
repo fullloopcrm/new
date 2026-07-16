@@ -45,8 +45,15 @@ export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineIt
   return (items || [])
     .filter(li => li && (li.name || li.quantity))
     .map((li, i) => {
-      const quantity = Number(li.quantity) || 0
-      const unit_price_cents = Number(li.unit_price_cents) || 0
+      // Clamp to non-negative, matching computeLineItemSubtotal's convention.
+      // Without this, a negative quantity or unit_price_cents produces a
+      // negative subtotal_cents that computeTotals sums straight into
+      // total_cents/deposit_cents — a caller with sales.edit/finance.expenses
+      // could zero out or flip negative a quote/invoice total, which then
+      // flows into deals.value_cents and (for quotes with no deposit due)
+      // auto-creates a real Job/Booking/recurring series with no payment.
+      const quantity = Math.max(0, Number(li.quantity) || 0)
+      const unit_price_cents = Math.max(0, Number(li.unit_price_cents) || 0)
       const subtotal_cents = Math.round(quantity * unit_price_cents)
       return {
         id: li.id || `li_${i}_${Date.now()}`,

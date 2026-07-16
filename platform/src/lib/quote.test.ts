@@ -111,6 +111,31 @@ describe('normalizeLineItems', () => {
     expect(out[0].id).toBe('fixed')
   })
 
+  it('clamps negative quantity and price to zero, matching computeLineItemSubtotal', () => {
+    const out = normalizeLineItems([
+      { name: 'refund-item', quantity: -4, unit_price_cents: 500 },
+      { name: 'negative-price', quantity: 4, unit_price_cents: -500 },
+    ])
+    expect(out[0].quantity).toBe(0)
+    expect(out[0].subtotal_cents).toBe(0)
+    expect(out[1].unit_price_cents).toBe(0)
+    expect(out[1].subtotal_cents).toBe(0)
+  })
+
+  it('does not let a negative line item drag total_cents negative or below zero', () => {
+    // A crafted quote/invoice: one legit item plus a huge-quantity negative-price
+    // "discount" item. Pre-fix this zeroed/flipped total_cents negative, which
+    // flows straight into deals.value_cents and can auto-close a sale with no
+    // deposit collected. Post-fix the malicious item clamps to 0 and can't
+    // touch the legit item's total.
+    const items = normalizeLineItems([
+      { name: 'real service', quantity: 1, unit_price_cents: 10000 },
+      { name: 'malicious', quantity: 1000000, unit_price_cents: -10000 },
+    ])
+    const totals = computeTotals(items, 0, 0)
+    expect(totals.total_cents).toBe(10000)
+  })
+
   it('a non-optional item is always selected; optional keeps its selected flag', () => {
     const out = normalizeLineItems([
       { name: 'base', quantity: 1 },
