@@ -55,6 +55,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, email, phone, location, resume, photo, and selfie video are required.' }, { status: 400 })
     }
 
+    // resume_url/photo_url/video_url are free-text from an unauthenticated
+    // public form and are stored verbatim — same bug class fixed in
+    // /api/sales-applications: require them to live inside this tenant's own
+    // management-applications upload prefix (the one this route's own
+    // signed-url twin scopes uploads to) so a forged request can't stash an
+    // arbitrary URL (e.g. javascript:) for whenever this data gets a
+    // link-rendering admin view.
+    const { data: uploadPrefix } = supabaseAdmin.storage
+      .from('uploads')
+      .getPublicUrl(`${tenant.id}/management-applications/`)
+    for (const [field, value] of [['resume_url', resume_url], ['photo_url', photo_url], ['video_url', video_url]] as const) {
+      if (typeof value !== 'string' || !value.startsWith(uploadPrefix.publicUrl)) {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+    }
+
     const normalizedEmail = String(email).toLowerCase().trim()
     const { data: existing } = await supabaseAdmin
       .from('management_applications')

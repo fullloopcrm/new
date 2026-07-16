@@ -67,6 +67,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, email, and phone are required.' }, { status: 400 })
     }
 
+    // resumeUrl/videoUrl/linkedinUrl are free-text from an unauthenticated
+    // public form and are stored verbatim in `management_applications`
+    // (shared with /api/management-applications) — same bug class fixed in
+    // /api/sales-applications: require file URLs to live inside this
+    // tenant's own upload prefix, and linkedinUrl to be http(s), so a
+    // forged request can't stash a javascript: URI for whenever this data
+    // gets a link-rendering admin view.
+    const { data: uploadPrefix } = supabaseAdmin.storage
+      .from('uploads')
+      .getPublicUrl(`${tenant.id}/applications/`)
+    if (body.videoUrl && (typeof body.videoUrl !== 'string' || !body.videoUrl.startsWith(uploadPrefix.publicUrl))) {
+      return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+    }
+    if (body.resumeUrl && (typeof body.resumeUrl !== 'string' || !body.resumeUrl.startsWith(uploadPrefix.publicUrl))) {
+      return NextResponse.json({ error: 'Invalid resume URL' }, { status: 400 })
+    }
+    if (body.linkedinUrl && !/^https?:\/\//i.test(String(body.linkedinUrl))) {
+      return NextResponse.json({ error: 'LinkedIn URL must start with http:// or https://' }, { status: 400 })
+    }
+
     const cleanPhone = phone.replace(/\D/g, '')
 
     const { data, error } = await supabaseAdmin
