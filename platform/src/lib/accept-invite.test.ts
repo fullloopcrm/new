@@ -30,6 +30,9 @@ const holder = vi.hoisted(() => ({
   inviteMarkedAcceptedId: null as string | null,
   tenantActivated: null as string | null,
   existingMember: null as { id: string } | null,
+  existingMemberError: null as { message: string } | null,
+  inviteLookupData: null as Record<string, unknown> | null,
+  inviteLookupError: null as { message: string } | null,
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -40,7 +43,10 @@ vi.mock('@/lib/supabase', () => ({
           select: () => ({
             eq: () => ({
               eq: () => ({
-                single: async () => ({ data: holder.existingMember, error: null }),
+                maybeSingle: async () => ({
+                  data: holder.existingMember,
+                  error: holder.existingMemberError,
+                }),
               }),
             }),
           }),
@@ -52,6 +58,14 @@ vi.mock('@/lib/supabase', () => ({
       }
       if (table === 'tenant_invites') {
         return {
+          select: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({
+                data: holder.inviteLookupData,
+                error: holder.inviteLookupError,
+              }),
+            }),
+          }),
           update: (_fields: Record<string, unknown>) => ({
             eq: (_col: string, id: string) => {
               holder.inviteMarkedAcceptedId = id
@@ -81,13 +95,16 @@ vi.mock('@/lib/security', () => ({
   logSecurityEvent: vi.fn(async () => {}),
 }))
 
-import { acceptInviteForAdmin } from './accept-invite'
+import { acceptInviteForAdmin, lookupInvite } from './accept-invite'
 
 beforeEach(() => {
   holder.tenantMembersInserted = []
   holder.inviteMarkedAcceptedId = null
   holder.tenantActivated = null
   holder.existingMember = null
+  holder.existingMemberError = null
+  holder.inviteLookupData = null
+  holder.inviteLookupError = null
 })
 
 describe('acceptInviteForAdmin — signed-in identity must match the invite', () => {
@@ -134,5 +151,47 @@ describe('acceptInviteForAdmin — signed-in identity must match the invite', ()
     expect(result.status).toBe('accepted')
     expect(holder.tenantMembersInserted).toHaveLength(0)
     expect(holder.inviteMarkedAcceptedId).toBe('invite_1')
+  })
+
+  // MASKED-ERROR PROBE: a genuine transient failure on the existing-member
+  // check must throw, not be silently treated as "not a member yet" — the
+  // latter would attempt a duplicate insert (masked class fixed elsewhere:
+  // getCurrentTenant/getTenantForRequest/onboarding tenant-creation).
+  it('MASKED-ERROR PROBE: throws on a genuine existing-member lookup failure instead of treating it as not-a-member', async () => {
+    holder.existingMemberError = { message: 'connection reset' }
+    const recipient = { id: 'admin_recipient', email: 'owner@victim-biz.com' }
+
+    await expect(acceptInviteForAdmin(TENANT_INVITE, recipient)).rejects.toThrow(
+      /TENANT_MEMBER_LOOKUP_ERROR/,
+    )
+    expect(holder.tenantMembersInserted).toHaveLength(0)
+    expect(holder.inviteMarkedAcceptedId).toBeNull()
+  })
+})
+
+describe('lookupInvite — masked DB errors must not read as "invalid invite"', () => {
+  it('MASKED-ERROR PROBE: throws on a genuine lookup failure instead of returning status:"invalid"', async () => {
+    holder.inviteLookupError = { message: 'connection reset' }
+
+    await expect(lookupInvite('some-token')).rejects.toThrow(/TENANT_INVITE_LOOKUP_ERROR/)
+  })
+
+  it('returns status:"invalid" for a genuine 0-row (unknown token) result, not an error', async () => {
+    holder.inviteLookupData = null
+    holder.inviteLookupError = null
+
+    const result = await lookupInvite('unknown-token')
+
+    expect(result.status).toBe('invalid')
+  })
+
+  it('returns the invite for a valid, unexpired, unaccepted token', async () => {
+    holder.inviteLookupData = { ...TENANT_INVITE }
+    holder.inviteLookupError = null
+
+    const result = await lookupInvite('good-token')
+
+    expect(result.status).toBe('valid')
+    if (result.status === 'valid') expect(result.invite.id).toBe('invite_1')
   })
 })

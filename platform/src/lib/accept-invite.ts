@@ -19,11 +19,22 @@ export type InviteLookup =
   | { status: 'valid'; invite: TenantInviteRow }
 
 export async function lookupInvite(token: string): Promise<InviteLookup> {
-  const { data: invite } = await supabaseAdmin
+  // maybeSingle() (not single()), error checked explicitly: token is UNIQUE at
+  // the DB level, so an unknown/bogus token legitimately returns 0 rows — the
+  // normal "invalid invite" case. single() can't tell that apart from a
+  // genuine transient DB failure (both surface as data:null once only `data`
+  // is destructured), so a DB blip used to render the exact same "Invalid
+  // Invite — contact your administrator" page as a real bad token, sending a
+  // legitimately-invited admin down a support dead-end instead of a retry.
+  const { data: invite, error } = await supabaseAdmin
     .from('tenant_invites')
     .select('*, tenants(id, name, industry)')
     .eq('token', token)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    throw new Error(`TENANT_INVITE_LOOKUP_ERROR token=${token} error=${error.message}`)
+  }
 
   if (!invite) return { status: 'invalid' }
   if (invite.accepted) return { status: 'already_accepted' }
@@ -49,12 +60,26 @@ export async function acceptInviteForAdmin(
     return { status: 'email_mismatch', inviteEmail: invite.email }
   }
 
-  const { data: existingMember } = await supabaseAdmin
+  // maybeSingle() (not single()), error checked explicitly: (tenant_id,
+  // clerk_user_id) is UNIQUE at the DB level (supabase/schema.sql), so "not a
+  // member yet" legitimately returns 0 rows. single() can't distinguish that
+  // from a genuine transient failure — both surfaced as data:null when only
+  // `data` was destructured — so a DB blip here used to silently take the
+  // "insert a new tenant_members row" branch on an admin who already had one,
+  // attempting an insert the DB's own unique constraint would then reject
+  // (with that second error also discarded), instead of failing loudly.
+  const { data: existingMember, error: existingMemberError } = await supabaseAdmin
     .from('tenant_members')
     .select('id')
     .eq('tenant_id', invite.tenant_id)
     .eq('clerk_user_id', admin.id)
-    .single()
+    .maybeSingle()
+
+  if (existingMemberError) {
+    throw new Error(
+      `TENANT_MEMBER_LOOKUP_ERROR tenant_id=${invite.tenant_id} clerk_user_id=${admin.id} error=${existingMemberError.message}`,
+    )
+  }
 
   if (!existingMember) {
     await supabaseAdmin.from('tenant_members').insert({
