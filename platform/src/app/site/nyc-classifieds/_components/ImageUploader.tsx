@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useRef } from 'react'
+import { uploadViaSignedUrl } from '@/lib/client-upload'
 
 interface Props {
   images: string[]
@@ -15,12 +16,8 @@ export default function ImageUploader({ images, onChange, maxImages = 8 }: Props
   const upload = async (file: File) => {
     setUploading(true)
     try {
-      const formData = new FormData()
-      formData.append('file', file)
-      const res = await fetch('/api/upload', { method: 'POST', body: formData })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error)
-      onChange([...images, data.url])
+      const url = await uploadViaSignedUrl(file, 'photo')
+      onChange([...images, url])
     } catch (e: unknown) {
       alert(e instanceof Error ? e.message : 'Upload failed')
     } finally {

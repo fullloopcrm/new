@@ -10,9 +10,12 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
-import { escapeHtml } from '@/lib/escape-html'
+import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { emailAdmins } from '@/lib/admin-contacts'
+import { sendEmail } from '@/lib/email'
+import { emailShell } from '@/lib/messaging/shell'
 
 interface ApplyBody {
   name?: string
@@ -93,6 +96,55 @@ export async function POST(request: Request) {
       title: 'New Team Application',
       message: `${escapeHtml(name)} • ${escapeHtml(body.specialty || body.position || 'general')} • ${escapeHtml(body.experience || '?')}`,
     }).catch((err) => console.error('[apply] notify failed:', err))
+
+    // Email the tenant's admins too (mirrors /api/lead + /api/contact). notify()
+    // alone only fires when an owner tenant_member has an email; emailAdmins
+    // also falls back to tenant.email, so this reaches the inbox even for
+    // tenants with no member rows (e.g. nyc-mobile-salon had zero). Non-blocking.
+    const email = body.email?.trim().toLowerCase() || null
+    try {
+      const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
+      const subject = `[${tenant.name}] New job application: ${name}`
+      const notes = buildNotes(body)
+      const html = `<h2>New Job Application</h2>
+        <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+        <p><strong>Email:</strong> ${email ? escapeHtml(email) : '—'}</p>
+        <p><strong>Phone:</strong> ${escapeHtml(cleanPhone)}</p>
+        ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
+        <p><a href="${safeUrl(adminUrl)}">View in admin</a></p>`
+      await emailAdmins(tenant, subject, html)
+    } catch (emailErr) {
+      console.error('[apply] admin email error:', emailErr)
+    }
+
+    // Applicant confirmation — same pattern as /api/lead's job-application path.
+    try {
+      if (email) {
+        const t = tenant as Record<string, unknown>
+        const html = emailShell({
+          brand: {
+            name: tenant.name,
+            phone: (t.phone as string) || null,
+            email: (t.email as string) || null,
+            address: (t.address as string) || null,
+            logoUrl: tenant.logo_url || null,
+            primaryColor: tenant.primary_color || null,
+          },
+          heading: `Thanks for applying, ${name.split(' ')[0]}`,
+          bodyHtml: `<p>We received your application and our team will review it and follow up shortly. If you need to reach us, just reply to this email${t.phone ? ` or call ${t.phone}` : ''}.</p>`,
+          preheader: 'We received your application',
+        })
+        await sendEmail({
+          to: email,
+          subject: `We received your application — ${tenant.name}`,
+          html,
+          resendApiKey: (t.resend_api_key as string) || undefined,
+          from: (t.email_from as string) || undefined,
+        })
+      }
+    } catch (ackErr) {
+      console.error('[apply] applicant confirmation error:', ackErr)
+    }
 
     return NextResponse.json({ success: true, id: data.id })
   } catch (err) {

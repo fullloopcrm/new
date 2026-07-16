@@ -7,6 +7,7 @@ import Link from 'next/link'
 import ImageUploader from '@/app/site/nyc-classifieds/_components/ImageUploader'
 import { categories, slugify, boroughs, businessCategories } from '@/app/site/nyc-classifieds/_lib/data'
 import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
+import { uploadViaSignedUrl } from '@/lib/client-upload'
 
 export default function PostListingClient() {
   const router = useRouter()
@@ -74,17 +75,12 @@ export default function PostListingClient() {
         // Upload business photo if selected
         if (bizPhotoFile) {
           try {
-            const formData = new FormData()
-            formData.append('file', bizPhotoFile)
-            const uploadRes = await fetch('/api/upload', { method: 'POST', body: formData })
-            const uploadData = await uploadRes.json()
-            if (uploadRes.ok) {
-              await fetch('/api/account/photo', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ url: uploadData.url, type: 'business' }),
-              })
-            }
+            const url = await uploadViaSignedUrl(bizPhotoFile, 'photo')
+            await fetch('/api/account/photo', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ url, type: 'business' }),
+            })
           } catch { /* best-effort */ }
         }
         setAccountType('business')

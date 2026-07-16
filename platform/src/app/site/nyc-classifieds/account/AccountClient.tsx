@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import VerifiedBadge from '@/app/site/nyc-classifieds/_components/VerifiedBadge'
 import { porchPostTypeBySlug, slugify, businessCategories, boroughs, businessProfileUrl } from '@/app/site/nyc-classifieds/_lib/data'
+import { uploadViaSignedUrl } from '@/lib/client-upload'
 
 function formatPhone(value: string): string {
   const digits = value.replace(/\D/g, '').slice(0, 10)
@@ -224,10 +225,8 @@ export default function AccountClient() {
       if (data.ok) {
         if (bizPhotoFile) {
           try {
-            const fd = new FormData(); fd.append('file', bizPhotoFile)
-            const ur = await fetch('/api/upload', { method: 'POST', body: fd })
-            const ud = await ur.json()
-            if (ur.ok) await fetch('/api/account/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: ud.url, type: 'business' }) })
+            const url = await uploadViaSignedUrl(bizPhotoFile, 'photo')
+            await fetch('/api/account/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, type: 'business' }) })
           } catch {}
         }
         await refreshUser()
@@ -266,13 +265,10 @@ export default function AccountClient() {
   const handleBusinessPhotoUpload = async (file: File) => {
     setBizPhotoUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const ur = await fetch('/api/upload', { method: 'POST', body: fd })
-      const ud = await ur.json()
-      if (!ur.ok) throw new Error(ud.error)
-      const sr = await fetch('/api/account/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url: ud.url, type: 'business' }) })
+      const url = await uploadViaSignedUrl(file, 'photo')
+      const sr = await fetch('/api/account/photo', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ url, type: 'business' }) })
       if (!sr.ok) throw new Error((await sr.json()).error)
-      setUser(prev => prev ? { ...prev, business_photo: ud.url } : prev)
+      setUser(prev => prev ? { ...prev, business_photo: url } : prev)
     } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed') }
     finally { setBizPhotoUploading(false) }
   }
@@ -312,11 +308,8 @@ export default function AccountClient() {
     if ((user?.photo_gallery?.length || 0) >= 8) { alert('Maximum 8 photos'); return }
     setGalleryUploading(true)
     try {
-      const fd = new FormData(); fd.append('file', file)
-      const ur = await fetch('/api/upload', { method: 'POST', body: fd })
-      const ud = await ur.json()
-      if (!ur.ok) throw new Error(ud.error)
-      const newGallery = [...(user?.photo_gallery || []), ud.url]
+      const url = await uploadViaSignedUrl(file, 'photo')
+      const newGallery = [...(user?.photo_gallery || []), url]
       const res = await fetch('/api/account/edit-business', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ photo_gallery: newGallery }) })
       if ((await res.json()).ok) await refreshUser()
     } catch (e) { alert(e instanceof Error ? e.message : 'Upload failed') }
@@ -398,11 +391,8 @@ export default function AccountClient() {
     if (updatePhotos.length >= 3) return
     setUpdatePhotoUploading(true)
     try {
-      const form = new FormData()
-      form.append('file', file)
-      const res = await fetch('/api/upload', { method: 'POST', body: form })
-      const data = await res.json()
-      if (data.url) setUpdatePhotos(prev => [...prev, data.url])
+      const url = await uploadViaSignedUrl(file, 'photo')
+      setUpdatePhotos(prev => [...prev, url])
     } catch {}
     finally { setUpdatePhotoUploading(false) }
   }
