@@ -55,13 +55,26 @@ export async function PUT(
   // Get old booking for notification context
   const { data: oldBooking } = await tenantDb(auth.tid)
     .from('bookings')
-    .select('start_time, end_time, team_member_id, clients(name)')
+    .select('status, start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
     .eq('client_id', auth.id)
     .single()
 
   if (!oldBooking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
+  // Mirror the staff-side state machine (bookings/[id]/status): once a job is
+  // completed or paid it's a terminal state — no self-service cancel. Without
+  // this, a client could flip an already-completed/paid booking straight to
+  // 'cancelled' with no refund/payroll reconciliation, since this endpoint
+  // has no downstream accounting effect of its own.
+  const NON_CANCELLABLE_STATUSES = ['completed', 'paid', 'cancelled', 'no_show']
+  if (status === 'cancelled' && NON_CANCELLABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json(
+      { error: `Cannot cancel a booking that is already ${oldBooking.status}` },
+      { status: 400 }
+    )
   }
 
   const update: Record<string, unknown> = {}

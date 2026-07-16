@@ -42,6 +42,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
 
+  // Mirror the staff-side state machine (bookings/[id]/status): once a job is
+  // completed/paid/cancelled/no_show it's terminal — no self-service move of
+  // start_time/end_time. Payroll (actual_hours), closeout, and cleaner-payout
+  // all key off those timestamps once a job is done; letting a client shift
+  // the schedule after the fact would corrupt already-settled records.
+  const NON_RESCHEDULABLE_STATUSES = ['completed', 'paid', 'cancelled', 'no_show']
+  if ((body.start_time || body.end_time) && NON_RESCHEDULABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json(
+      { error: `Cannot reschedule a booking that is already ${oldBooking.status}` },
+      { status: 400 }
+    )
+  }
+
   // Every reschedule fires a real client SMS, an admin notification, and a
   // team-member SMS with no other cap -- without this, looping the endpoint
   // is unmetered SMS/email-cost-abuse against real phone numbers/inboxes.
