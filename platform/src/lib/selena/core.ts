@@ -462,24 +462,44 @@ export async function loadChecklist(conversationId: string): Promise<BookingChec
   return cl
 }
 
-export async function updateChecklist(conversationId: string, updates: Partial<BookingChecklist>): Promise<BookingChecklist> {
-  const current = await loadChecklist(conversationId)
-  const updated = { ...current, ...updates }
+// Merges a checklist patch atomically (Postgres-side `||`, no JS read step)
+// so two overlapping updateChecklist calls for the SAME conversation --
+// a customer's second text arriving before Yinez's reply to the first has
+// landed, or a webhook redelivery racing the original delivery -- serialize
+// on the row's write lock instead of one silently reverting the other's
+// just-extracted field. Falls back to the pre-fix read-merge-write only if
+// the RPC errors (e.g. migrations/2026_07_16_sms_conversation_checklist_merge_atomic.sql
+// hasn't been applied yet), so the booking flow keeps working either way.
+async function mergeChecklistPatch(conversationId: string, patch: Partial<BookingChecklist>): Promise<BookingChecklist> {
+  const { data, error } = await supabaseAdmin.rpc('merge_sms_conversation_checklist', {
+    p_conversation_id: conversationId,
+    p_patch: patch,
+  })
+  if (!error && data) {
+    return { ...EMPTY_CHECKLIST, ...(data as Record<string, unknown>) } as BookingChecklist
+  }
 
-  if (updated.status === 'collecting') {
-    const step = getNextStep(updated, false)
+  const current = await loadChecklist(conversationId)
+  const merged = { ...current, ...patch }
+  await supabaseAdmin
+    .from('sms_conversations')
+    .update({ booking_checklist: merged, updated_at: new Date().toISOString() })
+    .eq('id', conversationId)
+  return merged
+}
+
+export async function updateChecklist(conversationId: string, updates: Partial<BookingChecklist>): Promise<BookingChecklist> {
+  let merged = await mergeChecklistPatch(conversationId, updates)
+
+  if (merged.status === 'collecting') {
+    const step = getNextStep(merged, false)
     // Only auto-transition to recap when ALL fields are done (field is null), not when notes is next
     if (step.field === null) {
-      updated.status = 'recap'
+      merged = await mergeChecklistPatch(conversationId, { status: 'recap' })
     }
   }
 
-  await supabaseAdmin
-    .from('sms_conversations')
-    .update({ booking_checklist: updated, updated_at: new Date().toISOString() })
-    .eq('id', conversationId)
-
-  return updated
+  return merged
 }
 
 // ════════════════════════════════════════════════════════════════════════════
