@@ -266,4 +266,44 @@ describe('audit-tenant-scope guard — baseline diffing (accepted legacy debt)',
     expect(dirty.stderr).toContain('clients')
     expect(dirty.stderr).not.toContain('bookings') // the baselined one stays quiet
   })
+
+  it('does not let baselining one occurrence silently launder a DIFFERENT occurrence that shares identical .from() text in the same file', () => {
+    // Regression guard: keyOf used to be file::table::snippet (the single
+    // trimmed .from() line only), so two distinct call sites on the same
+    // table in the same file with byte-identical `.from('table')` text but
+    // different surrounding chains collapsed onto the same baseline key —
+    // baselining one silently accepted the other too.
+    const dir = fixture()
+    write(dir, 'src/dup.ts', `
+      export async function forAdmin(sb) {
+        const { data } = await sb${FROM('push_subscriptions')}
+          .select('id')
+          .eq('role', 'admin')
+        return data
+      }
+    `)
+    const baselined = run(dir, ['--update-baseline'])
+    expect(baselined.status).toBe(0)
+
+    // A second, genuinely different call site: same table, same trimmed
+    // .from() snippet text, but a distinct filter (role='cleaner' vs
+    // 'admin') a few lines down in the same chain — must still red-gate.
+    write(dir, 'src/dup.ts', `
+      export async function forAdmin(sb) {
+        const { data } = await sb${FROM('push_subscriptions')}
+          .select('id')
+          .eq('role', 'admin')
+        return data
+      }
+      export async function forCleaner(sb) {
+        const { data } = await sb${FROM('push_subscriptions')}
+          .select('id')
+          .eq('role', 'cleaner')
+        return data
+      }
+    `)
+    const after = run(dir)
+    expect(after.status, after.stderr).toBe(1)
+    expect(after.stderr).toContain('dup.ts')
+  })
 })

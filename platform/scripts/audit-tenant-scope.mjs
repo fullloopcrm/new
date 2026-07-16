@@ -26,7 +26,15 @@ const ROOT = 'src'
 // The gate fails only on findings NOT in this baseline, so new leaks can't
 // merge while the 96 legacy candidates are triaged separately.
 const BASELINE_FILE = 'scripts/.tenant-scope-baseline.json'
-const keyOf = (f) => `${f.file}::${f.table}::${f.snippet}`
+// Keyed on the full call-chain block (not just the single trimmed .from() line):
+// two DISTINCT unscoped queries in the same file can share byte-identical
+// .from('table') text (common boilerplate), which would let a genuinely new
+// leak silently inherit an old, already-baselined line's "known debt" status.
+// Keying on the multi-line chain instead of the bare line number keeps the
+// fingerprint stable across unrelated edits elsewhere in the file (the whole
+// point of using text over line numbers) while making accidental collisions
+// between two truly different call sites far less likely.
+const keyOf = (f) => `${f.file}::${f.table}::${f.context}`
 
 // Tables that carry tenant_id and hold per-tenant data.
 const TENANT_TABLES = new Set([
@@ -120,7 +128,7 @@ for (const file of files) {
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
     const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)
     if (!scoped && !idLookup) {
-      flagged.push({ file, line: i + 1, table: m[1], snippet: lines[i].trim().slice(0, 110) })
+      flagged.push({ file, line: i + 1, table: m[1], snippet: lines[i].trim().slice(0, 110), context: chain })
     }
   }
 }
