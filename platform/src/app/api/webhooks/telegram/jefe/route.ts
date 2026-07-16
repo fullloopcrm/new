@@ -36,7 +36,11 @@ export async function POST(req: Request) {
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
-  if (OWNER_CHAT_ID && String(chatId) !== String(OWNER_CHAT_ID)) {
+  // Fail CLOSED when no owner chat id is configured yet — same class as the
+  // [tenant]/route.ts sibling fix: an unset OWNER_CHAT_ID used to skip this
+  // check entirely, letting anyone who found the bot talk to Jefe (platform
+  // GM agent, fleet-wide tools) as if owner-verified.
+  if (!OWNER_CHAT_ID || String(chatId) !== String(OWNER_CHAT_ID)) {
     await sendTelegram(chatId, 'This bot is private.', BOT_TOKEN)
     return NextResponse.json({ ok: true, private: true })
   }

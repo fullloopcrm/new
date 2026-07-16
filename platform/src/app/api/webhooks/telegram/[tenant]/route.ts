@@ -80,7 +80,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
   // Auth: the update must come from this tenant's registered owner chat.
-  if (tenant.telegram_chat_id && String(chatId) !== String(tenant.telegram_chat_id)) {
+  // Fail CLOSED when no owner chat id is on file yet (bot token saved but
+  // the admin hasn't captured the numeric chat id from BotFather/getUpdates
+  // yet) — the old `tenant.telegram_chat_id &&` guard skipped this check
+  // entirely in that window, letting ANY Telegram user who found the bot
+  // talk to it as if privately owner-verified. There is no legitimate owner
+  // to compare against yet, so nobody should be let through.
+  if (!tenant.telegram_chat_id || String(chatId) !== String(tenant.telegram_chat_id)) {
     await sendTelegram(chatId, 'This bot is private.', botToken)
     return NextResponse.json({ ok: true, private: true })
   }
