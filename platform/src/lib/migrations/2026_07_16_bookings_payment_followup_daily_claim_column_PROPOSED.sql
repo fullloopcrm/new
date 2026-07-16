@@ -1,0 +1,31 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes a duplicate-SMS race in GET /api/cron/payment-followup-daily
+-- (3x/day, 8am/12pm/6pm ET; nycmaid-only today via the telnyx+payment_link
+-- gate, generalizes for free to any tenant that gets a payment_link).
+--
+-- The route's per-slot idempotency check is
+-- `SELECT count(*) FROM sms_logs WHERE booking_id=... AND
+-- sms_type='payment_followup_daily' AND created_at >= <3.5h cutoff>` BEFORE
+-- sending, with the sms_logs row inserted AFTER the send completes. Unlike
+-- the confirmation-reminder gap, route.ts DOES control this insert directly
+-- (it's not buried in the shared low-level sender) — but reordering the
+-- insert to happen before the send would only shrink the window, not close
+-- it: a plain INSERT with no unique constraint never serializes against a
+-- concurrent INSERT the way an UPDATE ... WHERE <old value> does. A
+-- reorder-only mitigation isn't a real fix (same reasoning that stopped the
+-- late-check-in and confirmation-reminder fixes in this pass) — a genuine
+-- fix needs a real claim to UPDATE against, matching the already-fixed
+-- payment-reminder cron's payment_reminder_sent_at pattern.
+--
+-- Adds a dedicated per-slot claim column so the cron can claim atomically
+-- with `UPDATE bookings SET payment_followup_daily_sent_at = now() WHERE id
+-- = X AND (payment_followup_daily_sent_at IS NULL OR
+-- payment_followup_daily_sent_at < <3.5h cutoff>)` before sending, same
+-- shape as 7f0698bb.
+--
+-- NOT wired into route.ts yet — referencing an undefined column in a
+-- SELECT/UPDATE before the migration runs would break the live cron.
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS payment_followup_daily_sent_at timestamptz;
