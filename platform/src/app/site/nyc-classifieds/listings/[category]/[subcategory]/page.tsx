@@ -6,6 +6,7 @@ import { buildMetadata, faqSchema, speakableSchema, SITE_URL } from '@/app/site/
 import { subcategoryFaqs } from '@/app/site/nyc-classifieds/_lib/seo-faqs'
 import { subcategoryExamples } from '@/app/site/nyc-classifieds/_lib/page-content'
 import { getSupabaseAdmin } from '@/app/site/nyc-classifieds/_lib/supabase-server'
+import { safeJsonLd } from '@/lib/json-ld-safe'
 import SubcategoryPageClient from './SubcategoryPageClient'
 import ListingDetailClient from './ListingDetailClient'
 
@@ -202,10 +203,10 @@ export default async function SubcategoryOrDetailPage({ params }: { params: Prom
 
     return (
       <>
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scFaqLd) }} />
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(scSpeakLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(scFaqLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(scSpeakLd) }} />
         <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
           <SubcategoryPageClient categorySlug={category} subcategorySlug={subcategory} />
         </Suspense>
@@ -396,7 +397,7 @@ export default async function SubcategoryOrDetailPage({ params }: { params: Prom
   return (
     <>
       {schemas.map((schema, i) => (
-        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(schema) }} />
+        <script key={i} type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(schema) }} />
       ))}
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <ListingDetailClient id={subcategory} />
