@@ -5226,3 +5226,67 @@ pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
 round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 09:44 round (W2) — P90, fixed: `POST /api/admin/google/generate-reply`
++ `POST /api/admin/google/reply` had zero permission check — any staff-tier
+member could trigger a billed Anthropic call and post arbitrary text as the
+tenant's official public reply to a live Google Business review
+
+Continuing the broad-hunt (leader order 09:44, "lower-risk surface"). Same
+detection signal as P70-P89: grepped every `api/**/route.ts` calling
+`getTenantForRequest`/`tenantDb` with no `requirePermission` gate,
+cross-referenced against `rbac.ts`. Found a clear sibling-precedent match in
+the Google reviews family:
+
+- `admin/reviews/route.ts` (on-site review moderation: approve/reject/
+  feature/delete) correctly gates GET behind `reviews.view` and PUT/DELETE
+  behind `reviews.request`.
+- `admin/google/generate-reply/route.ts` (AI-drafts a reply to a Google
+  review, billed to the tenant's own Anthropic key or the platform key) and
+  `admin/google/reply/route.ts` (PUTs that reply live to the Google My
+  Business API + writes `google_reviews`) are both pre-existing, live
+  endpoints with no frontend caller wired up yet — but neither had any
+  `requirePermission` call, only the bare `getTenantForRequest()` (proves
+  tenant membership at ANY role).
+
+Not override-only: by default `rbac.ts` grants `reviews.request` to
+owner/admin/manager but **not** staff (staff only gets `reviews.view`) — so
+any staff-tier member could already post arbitrary public-facing content as
+the business's official review reply with zero role check. Same "no live
+frontend caller yet, but the route fully executes for any authenticated
+tenant member" shape as P83/P89 — not dead code, still a live gap.
+
+**Fix:** `requirePermission('reviews.request')` on both. `reply` is the
+obvious mutate action (external write + DB write), matching
+`admin/reviews.ts`'s PUT/DELETE tier directly. `generate-reply` only reads/
+generates (no DB write, no external post) so `reviews.view` looked like the
+weaker natural fit at first — but every default role including staff
+already has `reviews.view`, so that gate would be a no-op against the
+actual risk (unrestricted billed AI calls). Gated it at `reviews.request`
+instead, the same tier as the mutate step it feeds into — same reasoning
+P89 used for `campaigns/preview` (pre-step of a workflow gated at the
+workflow's real permission, not a separate weaker view tier that doesn't
+actually restrict anyone).
+
+**Regression lock:** 2 new `route.rbac.test.ts` files (12 tests total — 3
+role-succeeds + staff-forbidden + override-revoke-manager +
+override-grant-to-staff per route). Mutation-verified via
+`git stash push -- <2 route.ts files>` / `git stash pop`: 4 of 12 probes
+went RED pre-fix (both staff-forbidden, both override-revoked-manager),
+restored cleanly, all 12 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 426 files, 1880 passed + 37 skipped,
+0 regressions (was 424/1868). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round
+(unrelated WIP feature, not touched here).
+
+**Noticed, not touched:** `platform/scripts/sim-all-trades.ts` and
+`platform/src/app/api/management-applications/draft/route.ts` both still
+have uncommitted working-tree changes — reconfirmed this round (same as
+every prior round) these belong to the stale duplicate `.worker-driver.sh`
+process (PID 2278, still running alongside this session's PID 18990 per
+`ps`), not this lane. Left completely untouched.
+
+File-only, no push/deploy/DB.
