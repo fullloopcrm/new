@@ -41,8 +41,9 @@ beforeEach(() => {
   h.getTenantForRequest.mockReset()
   h.getTenantForRequest.mockImplementation(async () => ({ tenantId: TENANT_A, role: 'owner' }))
   h.store = {
-    quotes: [{ id: 'q-1', tenant_id: TENANT_A, status: 'draft', client_id: 'client-A1' }],
+    quotes: [{ id: 'q-1', tenant_id: TENANT_A, status: 'draft', client_id: 'client-A1', deal_id: null }],
     clients: [{ id: 'client-A1', tenant_id: TENANT_A, name: 'Pat A' }, { id: 'client-B1', tenant_id: TENANT_B, name: 'Pat B (secret)' }],
+    deals: [{ id: 'deal-A1', tenant_id: TENANT_A, title: 'Deal A' }, { id: 'deal-B1', tenant_id: TENANT_B, title: 'Deal B (secret)' }],
   }
 })
 
@@ -59,5 +60,19 @@ describe('PATCH /api/quotes/[id] — cross-tenant FK injection', () => {
 
     expect(res.status).toBe(200)
     expect(h.store.quotes[0].notes).toBe('updated')
+  })
+
+  it("rejects a deal_id belonging to another tenant instead of writing it", async () => {
+    const res = await PATCH(patchReq({ deal_id: 'deal-B1' }), params('q-1'))
+
+    expect(res.status).toBe(400)
+    expect(h.store.quotes[0].deal_id).toBe(null)
+  })
+
+  it('persists deal_id on PATCH when it genuinely belongs to the caller tenant (regression: allowlist previously dropped this field entirely)', async () => {
+    const res = await PATCH(patchReq({ deal_id: 'deal-A1' }), params('q-1'))
+
+    expect(res.status).toBe(200)
+    expect(h.store.quotes[0].deal_id).toBe('deal-A1')
   })
 })

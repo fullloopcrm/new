@@ -62,10 +62,15 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot edit accepted or converted quotes' }, { status: 400 })
     }
 
-    // client_id is a cross-table FK — confirm it belongs to this tenant before
-    // writing it, or a caller could reassign the quote to another tenant's
-    // client and exfiltrate that client's name/email/phone/address via the
-    // clients() join on this same route's GET.
+    // client_id/deal_id are cross-table FKs — confirm each belongs to this
+    // tenant before writing it, or a caller could reassign the quote to
+    // another tenant's client/deal and exfiltrate that client's name/email/
+    // phone/address via the clients() join on this same route's GET, or its
+    // deal's pipeline data. deal_id specifically: the quote builder
+    // (_QuoteBuilder.tsx) sends deal_id on every autosave, but this
+    // allowlist never included it, so a quote's deal link (set correctly on
+    // the initial POST create) could never be attached or changed by a
+    // later PATCH — silently dropped, not persisted.
     if ('client_id' in body && body.client_id) {
       const { data: client } = await supabaseAdmin
         .from('clients')
@@ -75,12 +80,21 @@ export async function PATCH(request: Request, { params }: Params) {
         .maybeSingle()
       if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
     }
+    if ('deal_id' in body && body.deal_id) {
+      const { data: deal } = await supabaseAdmin
+        .from('deals')
+        .select('id')
+        .eq('id', body.deal_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!deal) return NextResponse.json({ error: 'Invalid deal_id' }, { status: 400 })
+    }
 
     const updates: Record<string, unknown> = {}
     const assignables = [
       'title', 'description',
       'contact_name', 'contact_email', 'contact_phone', 'service_address',
-      'terms', 'notes', 'valid_until', 'client_id', 'tiers',
+      'terms', 'notes', 'valid_until', 'client_id', 'deal_id', 'tiers',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
