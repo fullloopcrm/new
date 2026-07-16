@@ -99,12 +99,18 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found.' }, { status: 404 })
     }
 
+    // Always respond with the same generic shape regardless of whether `contact`
+    // matches a real operator, so this endpoint can't be used to enumerate staff
+    // phones/emails for a tenant (same convention as referrers/auth/request's
+    // OTP-request step -- "Always responds ok:true ... can't be used to
+    // enumerate who's a partner"). A distinct 404 here previously let a caller
+    // who already knew (or was guessing) a phone/email confirm it belongs to an
+    // operator at this business.
+    const GENERIC_SENT_RESPONSE = NextResponse.json({ sent: true })
+
     const member = await findMember(tenantId, contact)
     if (!member) {
-      return NextResponse.json(
-        { error: 'No operator found with that phone or email. Contact your admin.' },
-        { status: 404 },
-      )
+      return GENERIC_SENT_RESPONSE
     }
 
     const code = generateCode()
@@ -169,14 +175,10 @@ export async function POST(request: Request) {
       }
     }
 
-    if (!delivered) {
-      return NextResponse.json(
-        { error: 'No phone/email on file to send a code. Contact your admin.' },
-        { status: 503 },
-      )
-    }
-
-    return NextResponse.json({ sent: true, via: member.phone && tenant.telnyx_api_key ? 'sms' : 'email' })
+    // Same generic response whether or not delivery actually succeeded -- a
+    // distinct status here would let a caller distinguish "operator exists but
+    // has no phone/email on file" from "code sent", still an enumeration signal.
+    return GENERIC_SENT_RESPONSE
   }
 
   // ---- Step 2: verify the code and set the new PIN ----
