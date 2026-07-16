@@ -632,7 +632,7 @@ async function handleCheckAvailability(input: Record<string, unknown>): Promise<
   }
 }
 
-async function handleCreateBooking(input: Record<string, unknown>, conversationId: string, result: SelenaResult): Promise<string> {
+export async function handleCreateBooking(input: Record<string, unknown>, conversationId: string, result: SelenaResult): Promise<string> {
   try {
     const { data: convo } = await supabaseAdmin
       .from('sms_conversations')
@@ -642,9 +642,18 @@ async function handleCreateBooking(input: Record<string, unknown>, conversationI
     const date = input.date as string
     const time = input.time as string
     const serviceType = input.service_type as string
-    const hourlyRate = input.hourly_rate as number
     const estimatedHours = (input.estimated_hours as number) || 2
     const recurringType = (input.recurring_type as string) || 'one_time'
+
+    // Same-day = emergency, matching the "$100/hr emergency" rate
+    // handleCheckAvailability already tells the AI for a same-day slot.
+    // Determined server-side from the booking date, not trusted from the
+    // LLM, so a model that forgets/misreads the rate can't underbill — same
+    // fix as selena-legacy.ts's handleCreateBooking (P11.16/17).
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const isEmergency = date === todayStr
+    const llmRate = input.hourly_rate as number
+    const hourlyRate = isEmergency ? 100 : llmRate
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
@@ -670,6 +679,7 @@ async function handleCreateBooking(input: Record<string, unknown>, conversationI
       hourly_rate: hourlyRate, price: hourlyRate * estimatedHours * 100,
       recurring_type: recurringType,
       notes: `SMS booking | ${bedrooms}BR/${bathrooms}BA`,
+      is_emergency: isEmergency,
     }).select('id').single()
 
     if (error) throw error
