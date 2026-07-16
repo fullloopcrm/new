@@ -259,6 +259,18 @@ export function parseMainHostsSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse the MAIN_HOSTS out of src/app/robots.ts. Unlike every other list
+// this file reconciles, this one is not an independent source of routing
+// truth — it is a second, hand-maintained COPY of middleware's own MAIN_HOSTS,
+// kept only because robots.ts can't import from middleware.ts at build time.
+// robots.ts's own comment says so explicitly: "Same MAIN_HOSTS as
+// middleware.ts — keep in sync if that list changes." Nothing enforces that.
+// See Drift Z below for what happens when the copy falls behind.
+export function parseRobotsMainHostsSet(robotsSource) {
+  const block = robotsSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // --- parse ROOT_SITE_TENANTS out of the middleware source. This is the legacy
 // "no /site/<slug> subtree, serve the shared /site root" set — middleware's
 // siteBase ternary checks it FIRST: `ROOT_SITE_TENANTS.has(slug) ? '/site' :
@@ -420,9 +432,13 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Feeds Drift X ONLY, as the safe-destination
  *                                  allowlist. Pass an empty array (default) to skip
  *                                  (treats every "/site/..." destination as unsafe).
+ * @param {Set}      [input.robotsMainHostsSet]  hostnames from src/app/robots.ts's
+ *                                  own hand-maintained copy of middleware's MAIN_HOSTS
+ *                                  (see parseRobotsMainHostsSet). Feeds Drift Z ONLY.
+ *                                  Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -906,6 +922,46 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift Z: src/app/robots.ts's own hardcoded MAIN_HOSTS copy (see
+  // parseRobotsMainHostsSet) has drifted from middleware's real MAIN_HOSTS.
+  // robots.ts can't import middleware.ts's const at build time, so it keeps a
+  // second, independently maintained copy — its own comment says "Same
+  // MAIN_HOSTS as middleware.ts — keep in sync if that list changes," but
+  // nothing enforces that. robots.ts's isMainHost() drives two real, visible
+  // behaviors: which origin the emitted sitemap URL uses, and whether the
+  // /apply disallow rule applies (robots.ts's own comment: the 2026-05-03
+  // teaser pivot killed /apply on the marketing host only — middleware
+  // returns 410 there — and tenant sites keep a live /apply hiring funnel, so
+  // /apply is deliberately left crawlable everywhere else). A host present in
+  // middleware's real MAIN_HOSTS but missing from robots.ts's stale copy
+  // makes isMainHost() wrongly return false there: the /apply disallow never
+  // gets added, so robots.txt tells crawlers /apply is crawlable on a host
+  // where middleware's KILLED_ROUTES actually 410s it. The reverse (present
+  // in robots.ts's copy but not middleware's real set) wrongly treats a real
+  // tenant host as the main host, hiding that tenant's own sitemap origin.
+  // Invisible to every other check here, which only ever reads mainHostsSet
+  // from middleware — this is the only check that reads both copies.
+  if (robotsMainHostsSet.size) {
+    for (const host of mainHostsSet) {
+      if (!robotsMainHostsSet.has(host)) {
+        add(
+          'WARN',
+          host,
+          `in middleware's MAIN_HOSTS but MISSING from src/app/robots.ts's own hardcoded MAIN_HOSTS copy (that file's own comment: "keep in sync if that list changes") -> robots.ts's isMainHost('${host}') wrongly returns false, so the /apply disallow rule never gets added for this host even though middleware's KILLED_ROUTES still returns 410 for /apply there -- robots.txt tells crawlers a 410'ing route is crawlable`,
+        )
+      }
+    }
+    for (const host of robotsMainHostsSet) {
+      if (!mainHostsSet.has(host)) {
+        add(
+          'WARN',
+          host,
+          `in src/app/robots.ts's own hardcoded MAIN_HOSTS copy but NOT in middleware's real MAIN_HOSTS -> robots.ts's isMainHost('${host}') wrongly returns true for this host, hiding its real per-tenant sitemap origin and applying the /apply disallow rule middleware's actual routing does not require there`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -972,6 +1028,8 @@ async function main() {
   const nextConfigSiteRewrites = parseNextConfigSiteRewriteSources(nextConfigSource)
   const nextConfigRedirects = parseNextConfigRedirects(nextConfigSource)
   const appRootPrefixes = parseAppRootPrefixes(middlewareSource)
+  const robotsSource = readFileSync(join(REPO, 'src', 'app', 'robots.ts'), 'utf8')
+  const robotsMainHostsSet = parseRobotsMainHostsSet(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -1008,7 +1066,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

@@ -9,6 +9,7 @@ import {
   parseRichSitemapSet,
   parseNonServingStatuses,
   parseMainHostsSet,
+  parseRobotsMainHostsSet,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
@@ -2418,5 +2419,88 @@ describe('computeFindings — Drift X (next.config.ts redirect destination doubl
       appRootPrefixes: [],
     })
     expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(2)
+  })
+})
+
+describe('parseRobotsMainHostsSet', () => {
+  it('extracts the hostnames from a robots.ts MAIN_HOSTS declaration', () => {
+    const src = `
+      const MAIN_HOSTS = new Set([
+        'homeservicesbusinesscrm.com',
+        "www.homeservicesbusinesscrm.com",
+        'localhost',
+      ])
+    `
+    const set = parseRobotsMainHostsSet(src)
+    expect(set.has('homeservicesbusinesscrm.com')).toBe(true)
+    expect(set.has('www.homeservicesbusinesscrm.com')).toBe(true)
+    expect(set.has('localhost')).toBe(true)
+    expect(set.size).toBe(3)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseRobotsMainHostsSet('export default {}').size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift Z (robots.ts MAIN_HOSTS copy drifted from middleware MAIN_HOSTS)', () => {
+  it('warns when a host is in middleware MAIN_HOSTS but missing from robots.ts\'s copy', () => {
+    // Mirrors the real, live drift: middleware.ts's MAIN_HOSTS carries
+    // fullloopcrm.com / www.fullloopcrm.com; robots.ts's own hand-maintained
+    // copy does not, despite its own comment promising to stay in sync.
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['homeservicesbusinesscrm.com', 'fullloopcrm.com']),
+      robotsMainHostsSet: new Set(['homeservicesbusinesscrm.com']),
+    })
+    const warn = findings.find((f) => f.slug === 'fullloopcrm.com')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('MISSING from src/app/robots.ts')
+  })
+
+  it('warns when a host is in robots.ts\'s copy but not in the real middleware MAIN_HOSTS', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['homeservicesbusinesscrm.com']),
+      robotsMainHostsSet: new Set(['homeservicesbusinesscrm.com', 'stale-host.com']),
+    })
+    const warn = findings.find((f) => f.slug === 'stale-host.com')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain("NOT in middleware's real MAIN_HOSTS")
+  })
+
+  it('does not warn when both copies agree', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['homeservicesbusinesscrm.com', 'localhost']),
+      robotsMainHostsSet: new Set(['homeservicesbusinesscrm.com', 'localhost']),
+    })
+    expect(findings).toHaveLength(0)
+  })
+
+  it('is skipped entirely when robotsMainHostsSet is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['homeservicesbusinesscrm.com', 'fullloopcrm.com']),
+    })
+    expect(findings).toHaveLength(0)
   })
 })

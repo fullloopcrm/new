@@ -12,6 +12,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const MAIN_HOSTS = new Set([
     'homeservicesbusinesscrm.com',
     'www.homeservicesbusinesscrm.com',
+    'fullloopcrm.com',
+    'www.fullloopcrm.com',
     'localhost',
     '127.0.0.1',
     'platform-ten-psi.vercel.app',
