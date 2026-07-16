@@ -183,12 +183,23 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   // every tenant-creation path), so a mixed-case lookup (e.g. a caller-
   // supplied slug from a partner API) would otherwise silently miss a real
   // tenant. Matches this resolver's own getTenantByDomain normalization.
-  const { data } = await supabaseAdmin
+  // maybeSingle() (not single()): mirrors tenant-lookup.ts's fix. slug is
+  // UNIQUE NOT NULL at the DB level, so an unknown/inactive slug legitimately
+  // returns 0 rows — the normal "not found" case, not an error. single() can't
+  // tell that apart from a genuine query failure (both surface as data:null),
+  // so a transient DB error used to look identical to "unknown slug" and
+  // silently returned null instead of throwing.
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('slug', slug.toLowerCase())
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(`TENANT_SLUG_LOOKUP_ERROR slug=${slug.toLowerCase()} error=${error.message}`)
+    throw new Error(`TENANT_SLUG_LOOKUP_ERROR slug=${slug.toLowerCase()} error=${error.message}`)
+  }
 
   return data
 }
@@ -259,12 +270,29 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
   }
 
   if (domainRow?.tenant_id) {
-    const { data: t } = await supabaseAdmin
+    // maybeSingle() (not single()), error checked explicitly — mirrors
+    // tenant-lookup.ts's fix. domainRow.tenant_id + status='active' is a PK
+    // lookup with an extra filter (0-or-1 rows only), so 0 rows legitimately
+    // means "dangling pointer or the tenant is inactive" — the expected
+    // not-found case, not an error. single() can't tell that apart from a
+    // genuine transient DB failure (both surface as data:null, error
+    // discarded below), so a real failure here silently looked identical to
+    // "dangling/inactive pointer" instead of surfacing loud.
+    const { data: t, error: tenantByIdError } = await supabaseAdmin
       .from('tenants')
       .select('*')
       .eq('id', domainRow.tenant_id)
       .eq('status', 'active')
-      .single()
+      .maybeSingle()
+
+    if (tenantByIdError) {
+      console.error(
+        `TENANT_BY_ID_LOOKUP_ERROR host=${cleanDomain} tenant_id=${domainRow.tenant_id} error=${tenantByIdError.message}`,
+      )
+      throw new Error(
+        `TENANT_BY_ID_LOOKUP_ERROR host=${cleanDomain} tenant_id=${domainRow.tenant_id} error=${tenantByIdError.message}`,
+      )
+    }
 
     if (t) {
       // TRANSITION ASSERT-AND-REFUSE: cross-check the legacy tenants.domain row
@@ -309,12 +337,30 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
   }
 
   // 2. Fallback: tenants.domain (legacy source of truth, retained per P1 spec).
-  const { data } = await supabaseAdmin
+  //
+  // maybeSingle() (not single()), error checked explicitly — mirrors
+  // tenant-lookup.ts's fix. tenants.domain carries no unique constraint, so 2+
+  // rows can genuinely share a host, and a transient query failure is a real
+  // distinct case too. single() would surface either as data:null
+  // indistinguishable from "no legacy row for this host" once destructured,
+  // silently reporting "tenant not found" instead of throwing — this is the
+  // pure-fallback path, so there's no tenant_domains row to cross-check
+  // against and no other guard here to catch it.
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('domain', cleanDomain)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(
+      `TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=${cleanDomain} error=${error.message}`,
+    )
+    throw new Error(
+      `TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=${cleanDomain} error=${error.message}`,
+    )
+  }
 
   return data
 }

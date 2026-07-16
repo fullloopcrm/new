@@ -73,13 +73,26 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
   if (cached !== undefined) return cached
 
   const sb = getSupabase()
+  // maybeSingle() (not single()): slug is UNIQUE NOT NULL at the DB level
+  // (supabase/schema.sql), so an unknown slug legitimately returns 0 rows —
+  // that's the normal "not found" case, not an error. single() can't tell that
+  // apart from a genuine query failure (both come back as data:null, error
+  // set), so a transient DB error used to look identical to "unknown slug"
+  // and was silently cached as a negative result. maybeSingle() returns
+  // {data: null, error: null} for the expected 0-row case, so any error left
+  // over here is a real failure — checked explicitly instead of discarded.
   const { data, error } = await sb
     .from('tenants')
     .select('id, slug, name, domain, status')
     .eq('slug', cleanSlug)
-    .single()
+    .maybeSingle()
 
-  if (error || !data) {
+  if (error) {
+    console.error(`TENANT_SLUG_LOOKUP_ERROR slug=${cleanSlug} error=${error.message}`)
+    throw new Error(`TENANT_SLUG_LOOKUP_ERROR slug=${cleanSlug} error=${error.message}`)
+  }
+
+  if (!data) {
     setCache(slugCache, cleanSlug, null)
     return null
   }
@@ -169,11 +182,33 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
   }
 
   if (domainRow?.tenant_id) {
-    const { data: t } = await sb
+    // maybeSingle() (not single()), error checked explicitly — same reasoning
+    // as the other queries in this function: domainRow.tenant_id is a PK
+    // lookup (0-or-1 rows only), so 0 rows legitimately means "dangling
+    // tenant_domains pointer, tenant deleted" — the expected not-found case,
+    // not an error. single() can't tell that apart from a genuine transient
+    // DB failure (both surface as data:null, error discarded below). Left
+    // unfixed, a transient failure here got treated identically to a
+    // genuinely dangling pointer and NEGATIVELY CACHED for the full 5-minute
+    // TTL — a single DB blip would take a live custom domain offline for up
+    // to 5 minutes, since every request in that window hit the cached null
+    // instead of retrying. maybeSingle() + explicit error check lets a real
+    // failure throw (never cached) while a true dangling pointer still
+    // caches null and refuses to fall through, per the guard's intent.
+    const { data: t, error: tenantByIdError } = await sb
       .from('tenants')
       .select('id, slug, name, domain, status')
       .eq('id', domainRow.tenant_id)
-      .single()
+      .maybeSingle()
+
+    if (tenantByIdError) {
+      console.error(
+        `TENANT_BY_ID_LOOKUP_ERROR host=${cleanDomain} tenant_id=${domainRow.tenant_id} error=${tenantByIdError.message}`,
+      )
+      throw new Error(
+        `TENANT_BY_ID_LOOKUP_ERROR host=${cleanDomain} tenant_id=${domainRow.tenant_id} error=${tenantByIdError.message}`,
+      )
+    }
 
     if (t) {
       // TRANSITION ASSERT-AND-REFUSE: cross-check the legacy tenants.domain row
@@ -235,11 +270,30 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
   }
 
   // 2. Fallback: tenants.domain (legacy source of truth, retained per P1 spec).
-  const { data: tenantData } = await sb
+  //
+  // maybeSingle() (not single()), error checked explicitly — same reasoning as
+  // the two queries above: tenants.domain carries no unique constraint, so 2+
+  // rows can genuinely share a host, and a transient query failure is a real
+  // distinct case too. single() would surface either as data:null indistinguishable
+  // from "no legacy row for this host", silently reporting "tenant not found"
+  // instead of the loud, greppable signal ops needs to catch a corrupt/ambiguous
+  // legacy row or a flaky DB call on the one path with NO cross-check to catch it
+  // (this is the pure-fallback path — there's no tenant_domains row to diverge
+  // against here).
+  const { data: tenantData, error: tenantDataError } = await sb
     .from('tenants')
     .select('id, slug, name, domain, status')
     .eq('domain', cleanDomain)
-    .single()
+    .maybeSingle()
+
+  if (tenantDataError) {
+    console.error(
+      `TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=${cleanDomain} error=${tenantDataError.message}`,
+    )
+    throw new Error(
+      `TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=${cleanDomain} error=${tenantDataError.message}`,
+    )
+  }
 
   if (tenantData) {
     const tenant: TenantInfo = {

@@ -251,6 +251,26 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     expect(singleCalls.some((c) => c.table === 'tenants' && c.eqs.domain === 'dangling.com')).toBe(false)
   })
 
+  it('TENANT-BY-ID-QUERY-ERROR PROBE: tenant_domains resolves the host, but the subsequent tenant-by-id load errors (genuine DB failure, not dangling/inactive) — refuses loudly instead of silently returning null', async () => {
+    // Mirrors tenant-lookup.ts's fix: this sub-query previously discarded its
+    // error, so a genuine transient DB failure fetching the tenant row looked
+    // identical to "dangling pointer or inactive tenant" and returned null
+    // silently instead of throwing.
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'transient-fail.com')
+        return { data: domainRow({ tenant_id: 't-flaky', domain: 'transient-fail.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-flaky')
+        return { data: null, error: { message: 'upstream connect error or disconnect/reset before headers' } }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('transient-fail.com')).rejects.toThrow(
+      /TENANT_BY_ID_LOOKUP_ERROR host=transient-fail\.com tenant_id=t-flaky/,
+    )
+    errSpy.mockRestore()
+  })
+
   it('only considers active rows in the tenant_domains lookup', async () => {
     resolve = () => ({ data: null, error: null })
     await getTenantByDomain('active4.com')
@@ -274,6 +294,24 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     expect(singleCalls[0].eqs.domain).toBe('acme.com')
     expect(t?.slug).toBe('acme')
   })
+
+  it('FALLBACK-QUERY-ERROR PROBE: no tenant_domains row, and the legacy tenants.domain fallback query errors (ambiguous 2+ rows or a genuine DB failure) — refuses rather than silently reporting "tenant not found"', async () => {
+    // Pure-fallback path: no tenant_domains row exists, nothing to cross-check
+    // against. Before this fix the fallback query used single() with its error
+    // discarded — indistinguishable from "unknown host", returned null silently.
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return { data: null, error: null }
+      if (table === 'tenants' && eqs.domain === 'flaky-fallback.com')
+        return { data: null, error: { message: 'JSON object requested, multiple (or no) rows returned' } }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('flaky-fallback.com')).rejects.toThrow(
+      /TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=flaky-fallback\.com/,
+    )
+    errSpy.mockRestore()
+  })
 })
 
 describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
@@ -291,6 +329,16 @@ describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
   it('returns null for an unknown slug', async () => {
     resolve = () => ({ data: null, error: null })
     expect(await getTenantBySlug('nobody-slug')).toBeNull()
+  })
+
+  it('QUERY-ERROR PROBE: a genuine DB failure on the slug lookup refuses rather than silently reporting "unknown slug"', async () => {
+    // slug is UNIQUE NOT NULL, so a real failure can only be a genuine query
+    // error, never row-count ambiguity — before this fix it used single() with
+    // its error discarded, indistinguishable from a legitimately unknown slug.
+    resolve = () => ({ data: null, error: { message: 'upstream connect error or disconnect/reset before headers' } })
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantBySlug('flaky-slug')).rejects.toThrow(/TENANT_SLUG_LOOKUP_ERROR slug=flaky-slug/)
+    errSpy.mockRestore()
   })
 })
 
