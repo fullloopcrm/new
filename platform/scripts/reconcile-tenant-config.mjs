@@ -245,6 +245,19 @@ export function parseNonServingStatuses(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse MAIN_HOSTS out of the middleware source. This is the reserved set
+// of hostnames middleware treats as the main marketing/app host — isMainHost()
+// gates the ENTIRE custom-domain routing block (`if (!isMainHost(hostname))`
+// wraps every tenant-domain lookup). A tenant domain that collides with an
+// entry here is silently swallowed: middleware never even attempts tenant
+// resolution for that hostname, no matter what tenants.domain / tenant_domains
+// / routing_mode declare. Like the other middleware-only lists, it lives
+// outside every DB source this gate otherwise reconciles — see Drift S below.
+export function parseMainHostsSet(middlewareSource) {
+  const block = middlewareSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -293,9 +306,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.nonServingStatuses]  statuses from middleware's
  *                                  NON_SERVING_STATUSES (see parseNonServingStatuses).
  *                                  Feeds Drift R ONLY. Pass an empty Set (default) to skip.
+ * @param {Set}      [input.mainHostsSet]  hostnames from middleware's
+ *                                  MAIN_HOSTS (see parseMainHostsSet).
+ *                                  Feeds Drift S ONLY. Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -563,6 +579,37 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift S: a tenant domain (tenants.domain in scope, an active tenant_domains
+  // row, or tenants.domain of any status) collides with a MAIN_HOSTS entry in
+  // src/middleware.ts. isMainHost() gates the ENTIRE custom-domain routing
+  // block (`if (!isMainHost(hostname)) { ... }` wraps every tenant lookup) —
+  // a domain that normalizes to a MAIN_HOSTS entry is silently treated as the
+  // main marketing/app host and NEVER reaches tenant resolution, no matter
+  // what tenants.domain / tenant_domains / routing_mode declare. This is the
+  // exact "DB says one thing, middleware serves something else" outage class
+  // the whole gate exists to catch, just via a reserved-host collision instead
+  // of a routing_mode mismatch — and it is currently invisible to every other
+  // Drift check in this file.
+  if (mainHostsSet.size) {
+    const normMainHosts = new Map([...mainHostsSet].map((h) => [norm(h), h]))
+    const reported = new Set()
+    const checkDomain = (domain, slug) => {
+      const k = norm(domain)
+      if (!k || !normMainHosts.has(k)) return
+      const dedupeKey = `${slug}|${k}`
+      if (reported.has(dedupeKey)) return
+      reported.add(dedupeKey)
+      add(
+        'CRIT',
+        slug,
+        `domain ${domain} collides with MAIN_HOSTS entry '${normMainHosts.get(k)}' in src/middleware.ts -> isMainHost() treats this hostname as the main app host and NEVER routes it to the tenant, regardless of tenants.domain / tenant_domains / routing_mode`,
+      )
+    }
+    for (const t of tenants) if (t.domain) checkDomain(t.domain, t.slug)
+    for (const r of tds) if (r.active && r.domain) checkDomain(r.domain, r.slug || `tenant:${(r.tenant_id || '').slice(0, 8)}`)
+    for (const t of allTenantDomains) if (t.domain) checkDomain(t.domain, t.slug)
+  }
+
   return findings
 }
 
@@ -620,6 +667,7 @@ async function main() {
   const apexCanonicalSet = parseApexCanonicalSet(middlewareSource)
   const richSitemapSet = parseRichSitemapSet(middlewareSource)
   const nonServingStatuses = parseNonServingStatuses(middlewareSource)
+  const mainHostsSet = parseMainHostsSet(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
@@ -658,7 +706,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

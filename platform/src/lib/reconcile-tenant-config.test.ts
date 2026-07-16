@@ -8,6 +8,7 @@ import {
   parseProtectedSlugs,
   parseRichSitemapSet,
   parseNonServingStatuses,
+  parseMainHostsSet,
   computeFindings,
   summarize,
   loadToken,
@@ -136,6 +137,38 @@ describe('parseNonServingStatuses', () => {
 
   it('returns an empty set when the declaration is absent', () => {
     expect(parseNonServingStatuses('export const x = 1').size).toBe(0)
+  })
+})
+
+describe('parseMainHostsSet', () => {
+  it('extracts the hostnames from a middleware MAIN_HOSTS declaration', () => {
+    const src = `
+      const MAIN_HOSTS = new Set([
+        'fullloopcrm.com',
+        "www.fullloopcrm.com",
+        'localhost',
+      ])
+    `
+    const set = parseMainHostsSet(src)
+    expect(set.has('fullloopcrm.com')).toBe(true)
+    expect(set.has('www.fullloopcrm.com')).toBe(true)
+    expect(set.has('localhost')).toBe(true)
+    expect(set.size).toBe(3)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseMainHostsSet('export const x = 1').size).toBe(0)
+  })
+
+  it('does not confuse BESPOKE_SITE_TENANTS with MAIN_HOSTS in the same source', () => {
+    const src = `
+      const MAIN_HOSTS = new Set(['main-only.com'])
+      const BESPOKE_SITE_TENANTS = new Set<string>(['bespoke-only'])
+    `
+    const mainHosts = parseMainHostsSet(src)
+    expect(mainHosts.has('main-only.com')).toBe(true)
+    expect(mainHosts.has('bespoke-only')).toBe(false)
+    expect(mainHosts.size).toBe(1)
   })
 })
 
@@ -1723,5 +1756,86 @@ describe('computeFindings — Drift R (tenant status gap between reconcile scope
       resolvableSlugs: null,
     })
     expect(findings).toHaveLength(0)
+  })
+})
+
+describe('computeFindings — Drift S (tenant domain collides with a MAIN_HOSTS entry)', () => {
+  it('CRITs when tenants.domain collides with a MAIN_HOSTS entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'fullloopcrm.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['fullloopcrm.com', 'localhost']),
+    })
+    const crit = findings.find((f) => f.slug === 'foo' && f.msg.includes('MAIN_HOSTS'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('CRITs when an active tenant_domains row collides with a MAIN_HOSTS entry', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [{ tenant_id: 't1', domain: 'www.fullloopcrm.com', active: true, is_primary: true, routing_mode: 'template', status: 'active', vercel_project: 'x', slug: 'foo' }],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['fullloopcrm.com', 'www.fullloopcrm.com']),
+    })
+    expect(findings.find((f) => f.slug === 'foo' && f.msg.includes('MAIN_HOSTS'))).toBeDefined()
+  })
+
+  it('CRITs via the norm() collision, not just an exact string match (e.g. scheme/www/case)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'HTTPS://WWW.fullloopcrm.com/', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['fullloopcrm.com']),
+    })
+    expect(findings.find((f) => f.slug === 'foo' && f.msg.includes('MAIN_HOSTS'))).toBeDefined()
+  })
+
+  it('does not fire when the domain does not collide with any MAIN_HOSTS entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'acme.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      mainHostsSet: new Set(['fullloopcrm.com', 'localhost']),
+    })
+    expect(findings.filter((f) => f.msg.includes('MAIN_HOSTS'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when mainHostsSet is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'fullloopcrm.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('MAIN_HOSTS'))).toHaveLength(0)
+  })
+
+  it('does not double-report the same slug+domain collision seen from multiple sources', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'fullloopcrm.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [{ tenant_id: 't1', domain: 'fullloopcrm.com', active: true, is_primary: true, routing_mode: 'template', status: 'active', vercel_project: 'x', slug: 'foo' }],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenantDomains: [{ slug: 'foo', domain: 'fullloopcrm.com' }],
+      mainHostsSet: new Set(['fullloopcrm.com']),
+    })
+    expect(findings.filter((f) => f.msg.includes('MAIN_HOSTS'))).toHaveLength(1)
   })
 })
