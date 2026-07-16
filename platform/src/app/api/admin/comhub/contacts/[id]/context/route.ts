@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
 // recent bookings + counters.
-export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
+export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string }> }) {
   const authError = await requireAdmin()
   if (authError) return authError
   const tenantId = await getCurrentTenantId()
@@ -67,15 +68,23 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
     if (matched && matched.length > 0) teamMemberId = matched[0].id
   }
 
-  if ((clientId && clientId !== contact.client_id) || (teamMemberId && teamMemberId !== contact.team_member_id)) {
-    await supabaseAdmin
-      .from('comhub_contacts')
-      .update({
-        client_id: clientId || contact.client_id,
-        team_member_id: teamMemberId || contact.team_member_id,
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', id)
+  // Skipped on a forged cross-site GET (SameSite=Lax still sends the
+  // admin_token cookie on top-level navigation) -- see csrf-guard.ts. Same
+  // convention already applied to notifications/tenant-chats/dashboard-messages.
+  if (
+    (clientId && clientId !== contact.client_id) ||
+    (teamMemberId && teamMemberId !== contact.team_member_id)
+  ) {
+    if (!isCrossSiteRequest(req.headers)) {
+      await supabaseAdmin
+        .from('comhub_contacts')
+        .update({
+          client_id: clientId || contact.client_id,
+          team_member_id: teamMemberId || contact.team_member_id,
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', id)
+    }
   }
 
   let client: Record<string, unknown> | null = null
