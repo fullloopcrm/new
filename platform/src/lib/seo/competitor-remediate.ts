@@ -117,6 +117,15 @@ export async function generateCompetitorProposals(opts?: { limit?: number }): Pr
 
   const issues = ((data ?? []) as GapIssue[]).filter((i) => !isExcludedProperty(i.property))
   let proposals = 0
-  for (const issue of issues) proposals += await proposeForGap(issue)
+  for (const issue of issues) {
+    try {
+      proposals += await proposeForGap(issue)
+    } catch (e) {
+      // Confirmed live: an unguarded throw here (malformed AI JSON) 500'd the
+      // entire seo-competitors cron after a real, successful SERP scan — one
+      // bad response must not lose every other issue's proposal in the run.
+      console.error(`[seo/competitor-remediate] ${issue.target_url}: ${e instanceof Error ? e.message : e}`)
+    }
+  }
   return { issues: issues.length, proposals }
 }

@@ -127,6 +127,16 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
 
   const issues = ((data ?? []) as Issue[]).filter((i) => !isExcludedProperty(i.property))
   let proposals = 0
-  for (const issue of issues) proposals += await proposeForIssue(issue)
+  for (const issue of issues) {
+    try {
+      proposals += await proposeForIssue(issue)
+    } catch (e) {
+      // One malformed AI response (e.g. Claude adding prose after the JSON,
+      // which happened live) must not sink every other issue's proposal in
+      // this run — confirmed live: an unguarded throw here 500'd the whole
+      // seo-competitors cron, which calls this after its own scan.
+      console.error(`[seo/remediate] ${issue.target_url}: ${e instanceof Error ? e.message : e}`)
+    }
+  }
   return { issues: issues.length, proposals }
 }
