@@ -3,6 +3,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 
+// Same bug class fixed elsewhere in this codebase (team_members photo_url,
+// management-applications, onboarding-profile, admin notes, hr documents):
+// a free-text *_url field stored verbatim from the request body, with no
+// render sink today but nothing stopping a future one from rendering it as
+// <a href>. Reject anything that isn't a plain http(s) URL before it reaches
+// the DB.
+function isHttpUrl(value: string): boolean {
+  return /^https?:\/\//i.test(value)
+}
+
 export async function GET() {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
@@ -29,9 +39,14 @@ export async function POST(request: NextRequest) {
   const body = await request.json()
   const { month, account_name, file_url, notes } = body
 
+  const trimmedFileUrl = typeof file_url === 'string' ? file_url.trim() : ''
+  if (trimmedFileUrl && !isHttpUrl(trimmedFileUrl)) {
+    return NextResponse.json({ error: 'invalid file_url' }, { status: 400 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('bank_statements')
-    .insert({ tenant_id: tenant.tenantId, month, account_name, file_url, notes })
+    .insert({ tenant_id: tenant.tenantId, month, account_name, file_url: trimmedFileUrl || null, notes })
     .select()
     .single()
 
