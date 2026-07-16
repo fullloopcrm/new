@@ -12,7 +12,14 @@ import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request) {
   try {
-    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    // finance.payroll, not finance.view — this response includes each team
+    // member's SSN last-4 and EIN (tax_ssn_last4/tax_ein below). finance.view
+    // is the read-only P&L/revenue tier a 'manager' role holds without
+    // finance.payroll; gating this on finance.view let that role pull every
+    // contractor's tax ID even though it can't run payroll (mark-paid,
+    // POST /api/finance/payroll correctly require finance.payroll for the
+    // same data class).
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.payroll')
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const url = new URL(request.url)

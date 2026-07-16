@@ -12,7 +12,10 @@ import { toCsv, buildTrialBalance, buildGeneralLedger } from '@/lib/finance-expo
 
 export async function GET(request: Request) {
   try {
-    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
+    // finance.payroll, not finance.view — contractor_payouts.csv includes
+    // each team member's SSN last-4/EIN. See payroll-prep/route.ts for why
+    // finance.view is the wrong tier for SSN/EIN exposure.
+    const { tenant: _authTenant, error: _authError } = await requirePermission('finance.payroll')
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const url = new URL(request.url)
