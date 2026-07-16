@@ -139,6 +139,44 @@ describe('requirePortalPermission', () => {
     expect(result.error!.status).toBe(401)
   })
 
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-STATUS PROBE: a %s tenant locks out an otherwise-active, otherwise-permitted member (403)',
+    async (status) => {
+      verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
+      handlers.team_members = () => ({ status: 'active' })
+      handlers.tenants = () => ({ status })
+
+      const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
+      expect(result.auth).toBeNull()
+      const body = await result.error!.json()
+      expect(result.error!.status).toBe(403)
+      expect(body.error).toBe('Tenant account is not active')
+    },
+  )
+
+  it('WRONG-STATUS PROBE: a tenant row that fails to resolve is treated as not-active (fail closed)', async () => {
+    verifyToken.mockReturnValue({ id: 'm-1', tid: 't-ghost', role: 'worker' })
+    handlers.team_members = () => ({ status: 'active' })
+    handlers.tenants = () => null
+
+    const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
+    expect(result.auth).toBeNull()
+    expect(result.error!.status).toBe(403)
+  })
+
+  it.each(['setup', 'pending', 'active'])(
+    'a %s tenant (still serving) does not block an otherwise-permitted member',
+    async (status) => {
+      verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
+      handlers.team_members = () => ({ status: 'active' })
+      handlers.tenants = () => ({ status, selena_config: null })
+
+      const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
+      expect(result.error).toBeNull()
+      expect(result.auth).toEqual({ id: 'm-1', tid: 't-1', role: 'worker' })
+    },
+  )
+
   it('returns 403 Forbidden when the role lacks the permission by default', async () => {
     verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
     handlers.team_members = () => ({ status: 'active' })

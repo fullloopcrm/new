@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from './supabase'
 import { verifyToken } from '@/app/api/team-portal/auth/token'
+import { tenantServesSite } from './tenant-status'
 import {
   hasPortalPermission,
   type PortalPermission,
@@ -53,6 +54,21 @@ export async function requirePortalPermission(
     .single()
   if (!member || member.status !== 'active') {
     return { auth: null, error: NextResponse.json({ error: 'Account inactive' }, { status: 401 }) }
+  }
+
+  // A suspended/cancelled/deleted tenant must lock its field staff out too —
+  // not just its owner (tenant-query.ts, tenant.ts) and public site
+  // (middleware). This bearer token has no expiry-on-suspend (up to 24h
+  // life), so without this check a member's token keeps working — claiming
+  // jobs, checking out jobs, reassigning crew — after the tenant has gone
+  // dark everywhere else that enforces tenantServesSite.
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('status')
+    .eq('id', auth.tid)
+    .single()
+  if (!tenant || !tenantServesSite(tenant.status)) {
+    return { auth: null, error: NextResponse.json({ error: 'Tenant account is not active' }, { status: 403 }) }
   }
 
   const overrides = await loadPortalOverrides(auth.tid)

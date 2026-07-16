@@ -10,6 +10,7 @@ import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 import crypto from 'crypto'
 import { supabaseAdmin } from './supabase'
+import { tenantServesSite } from './tenant-status'
 
 const COOKIE = 'client_session'
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
@@ -67,6 +68,20 @@ export async function protectClientAPI(
   }
   if (requiredClientId && verified.clientId !== requiredClientId) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
+  }
+  // A suspended/cancelled/deleted tenant must lock its customers out too —
+  // not just its owner (tenant-query.ts, tenant.ts) and field staff
+  // (team-portal-auth.ts). This session cookie lives up to 30 days with no
+  // expiry-on-suspend, so without this check a client stays fully
+  // authenticated (can still book/reschedule/message) against a tenant that
+  // has gone dark everywhere else that enforces tenantServesSite.
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('status')
+    .eq('id', expectedTenantId)
+    .single()
+  if (!tenant || !tenantServesSite(tenant.status)) {
+    return NextResponse.json({ error: 'Tenant account is not active' }, { status: 401 })
   }
   // Block do_not_service clients.
   const { data: client } = await supabaseAdmin
