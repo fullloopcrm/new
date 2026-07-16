@@ -1171,18 +1171,25 @@ async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): 
 }
 
 async function handleBlockClient(input: { client_id: string; reason: string }, tid: string): Promise<string> {
+  // No existence check + discarded update error previously meant a wrong or
+  // foreign client_id silently no-opped while still reporting ok:true --
+  // the do_not_service safety net would fail open with the AI telling the
+  // owner a problem client was blocked when nothing happened.
   const { data: client } = await supabaseAdmin
     .from('clients')
     .select('notes')
     .eq('id', input.client_id)
     .eq('tenant_id', tid)
     .maybeSingle()
+  if (!client) return JSON.stringify({ error: 'client not found' })
+
   const note = `[DNS ${new Date().toISOString().slice(0, 10)} — ${input.reason}]`
-  await supabaseAdmin
+  const { error } = await supabaseAdmin
     .from('clients')
-    .update({ do_not_service: true, notes: client?.notes ? `${client.notes}\n${note}` : note, sms_consent: false })
+    .update({ do_not_service: true, notes: client.notes ? `${client.notes}\n${note}` : note, sms_consent: false })
     .eq('id', input.client_id)
     .eq('tenant_id', tid)
+  if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, client_id: input.client_id, status: 'do_not_service' })
 }
 
