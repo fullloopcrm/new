@@ -6,6 +6,7 @@ import { adminNewClientEmail } from '@/lib/email-templates'
 import { attributeCollectForm } from '@/lib/attribution'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -69,11 +70,15 @@ export async function POST(request: Request) {
         }
       }
     } else if (referrer_name) {
+      // Public unauthenticated form -- escape % / _ / \ in the caller-supplied
+      // name so it can't widen the ilike wildcard match (e.g. referrer_name:'%'
+      // would otherwise match EVERY active referrer in the tenant, misattributing
+      // this booking's referral commission to an arbitrary real referrer).
       const { data: byName } = await supabaseAdmin
         .from('referrers')
         .select('id')
         .eq('tenant_id', tenant.id)
-        .ilike('name', `%${referrer_name.trim()}%`)
+        .ilike('name', `%${escapeLikeValue(referrer_name.trim())}%`)
         .eq('active', true)
         .limit(1)
       if (byName && byName.length > 0) {
