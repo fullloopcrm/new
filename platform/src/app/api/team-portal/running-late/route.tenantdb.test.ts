@@ -102,4 +102,31 @@ describe('POST /api/team-portal/running-late — tenantDb scoping', () => {
     const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A)!
     expect(bookingA.running_late_eta).toBeNull()
   })
+
+  it('does not re-send SMS/push to the same client on a re-tap within the cooldown window, but still refreshes the ETA', async () => {
+    const { sendSMS } = await import('@/lib/sms')
+    const { sendPushToClient } = await import('@/lib/push')
+    vi.mocked(sendSMS).mockClear()
+    vi.mocked(sendPushToClient).mockClear()
+    const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A)!
+    bookingA.running_late_at = new Date(Date.now() - 60_000).toISOString() // 1 min ago
+    bookingA.running_late_eta = 10
+
+    const token = createToken(MEMBER_ID, TENANT_A, 30, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/running-late', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ bookingId: BOOKING_ID, eta: 4 }),
+    })
+    const res = await POST(req)
+    const json = await res.json()
+    expect(res.status).toBe(200)
+    expect(json.alreadyReported).toBe(true)
+
+    // ETA refreshed to the latest report...
+    expect(bookingA.running_late_eta).toBe(4)
+    // ...but no fresh SMS/push blast fired to the client a second time.
+    expect(sendSMS).not.toHaveBeenCalled()
+    expect(sendPushToClient).not.toHaveBeenCalled()
+  })
 })

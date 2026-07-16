@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const { data: booking } = await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, running_late_at, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
       .single()
@@ -38,6 +38,28 @@ export async function POST(request: Request) {
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
     const tenantId = booking.tenant_id
+
+    // Cooldown: the per-member rate limit above still allows 5 fresh SMS
+    // blasts to the same real client every 10 min, indefinitely, for the
+    // whole shift — a compromised/malicious member account could harass one
+    // client with dozens of "running late" texts. A single lateness event
+    // only needs one client+admin notification; re-taps within the window
+    // just update the recorded ETA silently. Same dedup shape as the
+    // 15min-alert payment reminder's fifteen_min_alert_time check.
+    const RUNNING_LATE_COOLDOWN_MS = 10 * 60 * 1000
+    const lastAlertedAt = booking.running_late_at ? new Date(booking.running_late_at as string) : null
+    const withinCooldown = !!lastAlertedAt && Date.now() - lastAlertedAt.getTime() < RUNNING_LATE_COOLDOWN_MS
+
+    // Record on booking (ETA refresh happens even inside the cooldown)
+    await tenantDb(tenantId).from('bookings').update({
+      running_late_at: withinCooldown ? booking.running_late_at : new Date().toISOString(),
+      running_late_eta: eta || null,
+    }).eq('id', bookingId)
+
+    if (withinCooldown) {
+      return NextResponse.json({ success: true, alreadyReported: true })
+    }
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name, owner_phone, phone, telnyx_api_key, telnyx_phone')
@@ -50,9 +72,6 @@ export async function POST(request: Request) {
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-
-    // Record on booking
-    await tenantDb(tenantId).from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)
 
     // Notify admin
     await notify({ tenantId, type: 'booking_reminder' as any, title: 'Running Late', message: `${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`, bookingId })
