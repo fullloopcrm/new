@@ -38,6 +38,18 @@ export async function POST(request: Request) {
   // ledger like every other payment. Idempotent: only create a payment row if
   // the booking has none yet (avoids double-recording a Stripe/Zelle payment
   // that already posted). Then post revenue. Best-effort — never fail the flip.
+  //
+  // The "existing" SELECT above is check-then-insert with no DB backstop: two
+  // concurrent mark-paid calls for the same booking (a double-tapped "Mark
+  // Paid" button) both pass it before either INSERT commits, landing two
+  // 'manual'/'completed' payments rows. postPaymentRevenue() is idempotent by
+  // booking id so the ledger itself doesn't double-post, but finance/summary
+  // sums payments.amount_cents directly — the duplicate row inflates the
+  // tenant's reported "collected this month" total. Fixed the same way as
+  // payment-processor.ts's duplicate-reference_id race (migration
+  // 065_unique_payments_reference.sql already backs payments(tenant_id,
+  // booking_id, reference_id) with a partial unique index): give this insert
+  // a deterministic reference_id and catch 23505 as an idempotent no-op.
   if (type === 'client') {
     try {
       const { data: existing } = await supabaseAdmin
@@ -58,7 +70,7 @@ export async function POST(request: Request) {
           .maybeSingle()
         const amountCents = Number(booking?.price) || 0
         if (amountCents > 0) {
-          const { data: paymentRow } = await supabaseAdmin
+          const { data: paymentRow, error: paymentInsertErr } = await supabaseAdmin
             .from('payments')
             .insert({
               tenant_id: tenantId,
@@ -68,10 +80,15 @@ export async function POST(request: Request) {
               tip_cents: 0,
               method: 'manual',
               status: 'completed',
+              reference_id: `manual-mark-paid-${booking_id}`,
             })
             .select('id')
             .single()
-          if (paymentRow?.id) await postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
+          if (paymentInsertErr && paymentInsertErr.code !== '23505') {
+            console.error('[mark-paid] payment insert failed:', paymentInsertErr)
+          } else if (paymentRow?.id) {
+            await postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
+          }
         }
       }
     } catch (e) {
