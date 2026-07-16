@@ -2601,3 +2601,123 @@ pre-existing skips, unchanged), 0 regressions (1479 baseline + 9 new tests:
 6 for P54 + 3 for P55). `audit-tenant-scope.mjs`'s 1 finding (`seo/recipes.ts`)
 is the same pre-existing, unrelated baseline drift noted in every prior
 round. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 21:02 order) — negative-result broad-hunt round, 41 files
+across 22 previously-unenumerated directories, 0 gaps.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Diffed the full `api/**/route.ts` directory list against every directory
+already named in this register (the P40 portal batch, the P54/P55 39-file
+batch, and everything mentioned in earlier rounds) and picked every
+remaining small, low-traffic, previously-unswept directory: `announcements`,
+`apply` (+`signed-url`), `apply-ceo`, `attribution` (+`manual`), `audit`,
+`client-analytics`, `contact`, `docs`, `domain-notes`, `email/monitor`,
+`errors`, `feedback`, `import-clients`, `indexnow`, `inquiry`,
+`internal/deploy-hook`, `lead`, `lead-media/signed-url`, `permissions/me`,
+`pin-reset`, `pipeline`, `prospects`, `public-upload`, `quote-templates`,
+`sales-applications`, `schedule/calendar`, `security/events`,
+`send-booking-emails`, `service-area`, `service-types`, `setup-checklist`,
+`sidebar-counts`, `tenant/public`, `tenant-sitemap`, `territories/options`,
+`test-emails`, `track`, `unsubscribe`, `uploads`, `user/preferences`,
+`waitlist` — 41 `route.ts` files total.
+
+**Result: 41/41 clean.** Every file resolves tenant context correctly —
+either `getTenantForRequest()`/`requirePermission()`/`tenantDb()` for
+authenticated admin/dashboard routes, or `getTenantFromHeaders()` /
+`x-tenant-id`+`x-tenant-sig` (verified via `verifyTenantHeaderSig`) for
+public routes resolving tenant from the request host — and no route trusts
+a caller-supplied `tenantId` in place of the host/header-derived one. Every
+caller-supplied FK checked before use (`attribution/manual`'s `booking_id`
+chains `.eq('tenant_id', tenantId)` into a `.select().single()` so a foreign
+id 404s instead of silently no-op-succeeding; `unsubscribe` requires a
+signed token binding `clientId`+`tenantId`+`channel` before any write).
+Upload routes (`public-upload`, `uploads`, `apply/signed-url`,
+`lead-media/signed-url`) all already carry the extension-sanitization fix
+from the P55 round's sibling sweep — none of these 4 were missed. Two
+routes worth noting but not gaps:
+- `feedback/route.ts` (GET/PATCH) has no `tenant_id` filter at all — but
+  `platform_feedback` is a platform-wide table (anonymous site feedback for
+  the Full Loop CRM product itself, not tenant customer data) and
+  `requireAdmin()` → `verifyAdminToken()` only accepts the global
+  `super_admin` token (confirmed in `admin-auth/route.ts`: tenant-admin
+  tokens are a structurally distinct type and always fail this check) — so
+  this is platform-owner-only by design, not a tenant-admin-reachable
+  cross-tenant leak.
+- `prospects/route.ts` and `inquiry/route.ts` write to platform-level
+  tables (`prospects`, `inquiries`, `partner_requests`) with no tenant
+  scoping — correct, these are pre-tenant intake forms (this platform's own
+  sales/acquisition funnel), not tenant customer data.
+
+No code changed (nothing to fix). `npx tsc --noEmit` not run (no edits).
+File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 21:06 order) — P56, fixed: `protectCronAPI()` CRON_SECRET
+check used a naive `===` string compare — timing side-channel, same class
+already closed everywhere else in this codebase.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Diffed the 26 `api/cron/*` route files against every route already named in
+this register (plus `w2-portal-broad-hunt-sweep.md`, the tenantDb progress
+doc, and the P54/P55/21:02 batches) — none of the 26 had been individually
+swept before. All but one inline their own `Authorization: Bearer
+CRON_SECRET` check using `safeEqual()` (the constant-time helper in
+`lib/timing-safe-equal.ts`) — consistent with the P52-era "constant-time
+compare" hardening pass. `cron/anthropic-health/route.ts` was the outlier:
+it delegates to a shared helper, `protectCronAPI()` in
+`lib/nycmaid/auth.ts`, which compared `authHeader === \`Bearer
+${cronSecret}\`` with plain `===` — a naive string compare that short-
+circuits on the first mismatched byte and so leaks the secret's length and
+prefix via response-timing, the exact same bug class this codebase's own
+`signatureMatches()` (10 lines above it, in the same file) already has a
+comment calling out ("a naive `!==` leaks signature bytes via timing") and
+guards with `timingSafeEqual`.
+
+**Blast radius:** `protectCronAPI()` isn't only used by `anthropic-health` —
+it gates 4 more cron routes I found via grep: `cron/phone-fixup`,
+`cron/confirmation-reminder`, `cron/refresh-job-postings`,
+`cron/rating-prompt`. All 5 were exposed to the same timing side-channel on
+the shared `CRON_SECRET`. Lower severity than the customer-facing IDORs in
+this register (an attacker needs a very large number of timed requests to
+recover a high-entropy secret, and `CRON_SECRET` isn't tied to tenant data
+directly), but real, and a single fix closes it for all 5 routes at once —
+consistent with this register's standing policy of fixing the same-class
+gap wherever it's found rather than leaving siblings unfixed.
+
+**Fix:** `protectCronAPI()` now builds `Buffer.from(\`Bearer
+${cronSecret}\`)` / `Buffer.from(authHeader ?? '')` and compares with
+`timingSafeEqual` (already imported in this file) behind a length-check
+guard (mirrors `signatureMatches()`'s exact shape) — no `authHeader` null
+check needed since `Buffer.from(null ?? '')` is just `Buffer.from('')`.
+
+New tests in `lib/nycmaid/auth.test.ts` (5 cases): correct secret allowed;
+wrong same-length secret rejected; shorter/longer forged secret rejected;
+missing header rejected without throwing; unconfigured `CRON_SECRET` fails
+closed (500) even with a header present. Note on verification method: unlike
+this register's usual IDOR fixes, a timing side-channel can't be proven with
+a RED/GREEN functional mutation test — the pre-fix `===` and post-fix
+`timingSafeEqual` produce identical pass/fail *outcomes* for every input,
+only differing in comparison *duration*, which a unit test doesn't measure.
+Confirmed this directly: re-running the new tests against the pre-fix code
+(via `git stash` on just `auth.ts`) still shows 30/30 green — expected, and
+not a gap in the fix, just a property of what this bug class is. The tests
+here validate correctness (right secret in, right secret out) post-fix; the
+actual defect (timing leak) is closed by code inspection against the
+established `signatureMatches()` pattern in the same file, not by a test
+oracle.
+
+Full suite: 342/342 files, 1493/1493 tests pass (37 pre-existing skips,
+unchanged), 0 regressions (1488 baseline + 5 new). `npx tsc --noEmit` clean.
+
+Rest of the 26 cron files: read each for the CRON_SECRET gate + whether any
+per-tenant write inside the handler uses the row's own `tenant_id` (not a
+shared/loop-stale variable) — all clean. Two worth noting, not gaps:
+`cron/gdpr-purge` delegates entirely to `purgeDueDeletions()` (each purge
+operates on a request row that carries its own `tenant_id`, no cross-tenant
+surface in the cron handler itself); `cron/email-monitor`,
+`cron/jefe-heartbeat` write only a platform-wide `notifications` tick/heartbeat
+row (nullable `tenant_id`, same "tenant-scope-ok: cron job runs platform-wide"
+shape already established in `cron/anthropic-health` and elsewhere in this
+register).
+
+Commit pending (not yet committed as of this entry — see branch changelog).
+File-only otherwise, no push/deploy/DB.

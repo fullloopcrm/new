@@ -13,6 +13,7 @@ import {
   createClientSession,
   verifyClientSession,
   hashPassword,
+  protectCronAPI,
 } from './auth'
 
 const SECRET = 'test-admin-password'
@@ -179,5 +180,58 @@ describe('fails closed when ADMIN_PASSWORD is unconfigured', () => {
     const cookie = createSessionCookie('user-1')
     delete process.env.ADMIN_PASSWORD
     expect(verifySessionCookie(cookie)).toEqual({ valid: false })
+  })
+})
+
+describe('protectCronAPI', () => {
+  const CRON_SECRET = 'test-cron-secret'
+  const priorSecret = process.env.CRON_SECRET
+
+  beforeEach(() => {
+    process.env.CRON_SECRET = CRON_SECRET
+  })
+
+  afterEach(() => {
+    if (priorSecret === undefined) delete process.env.CRON_SECRET
+    else process.env.CRON_SECRET = priorSecret
+  })
+
+  it('allows a request bearing the correct CRON_SECRET', () => {
+    const req = new Request('https://x.test/api/cron/anthropic-health', {
+      headers: { authorization: `Bearer ${CRON_SECRET}` },
+    })
+    expect(protectCronAPI(req)).toBeNull()
+  })
+
+  it('rejects a wrong secret (same length, constant-time path)', () => {
+    const req = new Request('https://x.test/api/cron/anthropic-health', {
+      headers: { authorization: `Bearer ${'x'.repeat(CRON_SECRET.length)}` },
+    })
+    expect(protectCronAPI(req)?.status).toBe(401)
+  })
+
+  it('rejects a shorter/longer forged secret', () => {
+    const short = new Request('https://x.test/api/cron/anthropic-health', {
+      headers: { authorization: 'Bearer short' },
+    })
+    const long = new Request('https://x.test/api/cron/anthropic-health', {
+      headers: { authorization: `Bearer ${CRON_SECRET}-extra` },
+    })
+    expect(protectCronAPI(short)?.status).toBe(401)
+    expect(protectCronAPI(long)?.status).toBe(401)
+  })
+
+  it('rejects a missing Authorization header without throwing', () => {
+    const req = new Request('https://x.test/api/cron/anthropic-health')
+    expect(() => protectCronAPI(req)).not.toThrow()
+    expect(protectCronAPI(req)?.status).toBe(401)
+  })
+
+  it('fails closed (500) when CRON_SECRET is not configured, even with a header present', () => {
+    delete process.env.CRON_SECRET
+    const req = new Request('https://x.test/api/cron/anthropic-health', {
+      headers: { authorization: 'Bearer anything' },
+    })
+    expect(protectCronAPI(req)?.status).toBe(500)
   })
 })

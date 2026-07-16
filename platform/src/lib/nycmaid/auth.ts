@@ -215,8 +215,13 @@ export function protectCronAPI(request: Request): NextResponse | null {
     return NextResponse.json({ error: 'CRON_SECRET not configured' }, { status: 500 })
   }
 
-  // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
-  if (authHeader === `Bearer ${cronSecret}`) {
+  // Vercel cron sends: Authorization: Bearer <CRON_SECRET>. Constant-time
+  // compare — a naive `===` leaks the secret byte-by-byte via timing, same
+  // class of gap already closed on the other CRON_SECRET checks (safeEqual)
+  // and on `signatureMatches` above.
+  const expected = Buffer.from(`Bearer ${cronSecret}`)
+  const actual = Buffer.from(authHeader ?? '')
+  if (expected.length === actual.length && timingSafeEqual(expected, actual)) {
     return null
   }
 
