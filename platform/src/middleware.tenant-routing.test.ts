@@ -105,6 +105,76 @@ describe('middleware — subdomain routing wiring', () => {
     expect(res?.headers.get('x-tenant-id')).toBeFalsy()
   })
 
+  // AUTH-BYPASS PROBE (adversarial round, 2026-07-16): the wildcard DNS that
+  // lets real tenants resolve at <slug>.fullloopcrm.com means EVERY label
+  // reaches this middleware, including ones with no matching tenant (typo, a
+  // deleted tenant's old slug, or an attacker-chosen label). Previously an
+  // unresolved subdomain fell straight to a bare NextResponse.next(), which
+  // skipped the Clerk/admin-token gate the main host applies to protected
+  // routes — so /dashboard, /api/bookings, etc. served with NO auth check at
+  // all instead of the sign-in redirect the same path gets on the main host.
+  it('an unknown subdomain hitting a protected route redirects to sign-in instead of serving it unauthenticated', async () => {
+    bySlug = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://evil.fullloopcrm.com/dashboard', { headers: { host: 'evil.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('an unknown subdomain hitting a protected API route redirects to sign-in, not NextResponse.next()', async () => {
+    bySlug = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://evil.fullloopcrm.com/api/bookings', { headers: { host: 'evil.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('a suspended tenant\'s subdomain hitting a protected route also redirects to sign-in (dark tenant, not an auth bypass)', async () => {
+    bySlug = async (slug) => (slug === 'acme' ? { ...acme, status: 'suspended' } : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://acme.fullloopcrm.com/dashboard', { headers: { host: 'acme.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('an unknown subdomain still serves a genuinely public route (no auth regression for legitimate traffic)', async () => {
+    bySlug = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://typo.fullloopcrm.com/privacy-policy', { headers: { host: 'typo.fullloopcrm.com' } })
+    const res = await middleware(req)
+
+    expect(res?.status).not.toBe(307)
+    expect(res?.headers.get('location')).toBeFalsy()
+  })
+
+  it('a valid admin-token cookie still bypasses the gate on an unresolved subdomain, same as the main host', async () => {
+    const { createHmac } = await import('crypto')
+    const SECRET = 'mw-subdomain-admin-token-secret'
+    process.env.ADMIN_TOKEN_SECRET = SECRET
+    bySlug = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const payload = JSON.stringify({ role: 'super_admin', exp: Date.now() + 60_000 })
+    const token = Buffer.from(payload).toString('base64') + '.' + createHmac('sha256', SECRET).update(payload).digest('hex')
+
+    const req = new NextRequest('https://evil.fullloopcrm.com/api/notifications', {
+      headers: { host: 'evil.fullloopcrm.com', cookie: `admin_token=${token}` },
+    })
+    const res = await middleware(req)
+
+    expect(res).toBeUndefined() // bypass = fall through, not a redirect
+  })
+
   it('routes a BESPOKE_SITE_TENANTS slug to its own /site/<slug> subtree, not the shared template', async () => {
     const nycmaid = { id: 'tenant-nycmaid', slug: 'nycmaid', name: 'NYC Maid', domain: null, status: 'active' }
     bySlug = async (slug) => (slug === 'nycmaid' ? nycmaid : null)
@@ -181,9 +251,53 @@ describe('middleware — custom domain routing wiring', () => {
     errSpy.mockRestore()
   })
 
+  // AUTH-BYPASS PROBE (adversarial round, 2026-07-16): same structural bug as
+  // the unresolved-subdomain case above, but for a custom domain that's
+  // attached in Vercel yet has no resolvable tenant_domains / tenants.domain
+  // row anymore (a tenant offboarded and their domain detachment lagged, or a
+  // dangling tenant_domains pointer per the WRONG-TENANT PROBE test). Falling
+  // straight to NextResponse.next() served protected routes with no auth gate.
+  it('a dangling custom domain hitting a protected route redirects to sign-in instead of serving it unauthenticated', async () => {
+    byDomain = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.danglingcustom.com/dashboard', { headers: { host: 'www.danglingcustom.com' } })
+    const res = await middleware(req)
+
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('a custom domain that throws TENANT_DIVERGENCE hitting a protected route redirects to sign-in, not NextResponse.next()', async () => {
+    byDomain = async () => {
+      throw new Error('TENANT_DIVERGENCE host=www.acmecustom.com td=t-a legacy=t-b')
+    }
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.acmecustom.com/api/finance', { headers: { host: 'www.acmecustom.com' } })
+    const res = await middleware(req)
+
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+    errSpy.mockRestore()
+  })
+
+  it('a dangling custom domain still serves a genuinely public route (no auth regression for legitimate traffic)', async () => {
+    byDomain = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.danglingcustom.com/contact', { headers: { host: 'www.danglingcustom.com' } })
+    const res = await middleware(req)
+
+    expect(res?.status).not.toBe(307)
+    expect(res?.headers.get('location')).toBeFalsy()
+  })
+
   it('uses the STATIC_TENANT_MAP fallback for www.thefloridamaid.com without querying getTenantByDomain', async () => {
     const domainSpy = vi.fn(async () => null)
     byDomain = domainSpy
+    bySlug = async (slug) => (slug === 'the-florida-maid' ? { id: 'x', slug: 'the-florida-maid', name: 'x', domain: null, status: 'active' } : null)
     const { default: middleware } = await import('./middleware')
 
     const req = new NextRequest('https://www.thefloridamaid.com/', { headers: { host: 'www.thefloridamaid.com' } })
@@ -192,6 +306,63 @@ describe('middleware — custom domain routing wiring', () => {
     expect(res!.headers.get('x-tenant-id')).toBe('56490a6b-820c-49e6-8c14-cb4e54ffcb06')
     expect(res!.headers.get('x-tenant-slug')).toBe('the-florida-maid')
     expect(domainSpy).not.toHaveBeenCalled()
+  })
+
+  // PERMISSION-BOUNDARY PROBE (adversarial round, 2026-07-16): the STATIC_TENANT_MAP
+  // fallback (an edge-resilience shim for one hardcoded domain) used to call
+  // rewriteToSite() unconditionally — unlike the DB-resolved path a few lines
+  // below it, which gates on tenantServesSite(). A suspended/cancelled/deleted
+  // tenant on this one domain kept serving its full site AND dashboard forever,
+  // bypassing the dark-on-suspension rule every other tenant is subject to —
+  // effectively "one role above what should be allowed" (an offboarded tenant
+  // acting as if still active).
+  it('a suspended tenant on the STATIC_TENANT_MAP is NOT served — the status gate applies there too now', async () => {
+    bySlug = async (slug) => (slug === 'the-florida-maid' ? { id: 'x', slug: 'the-florida-maid', name: 'x', domain: null, status: 'suspended' } : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/dashboard', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res?.headers.get('x-tenant-id')).toBeFalsy()
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  // PERMISSION-BOUNDARY PROBE (adversarial round, follow-up): the fix above
+  // only handled "tenant found but suspended/cancelled" (t && !servesSite).
+  // If the slug genuinely resolves to NO tenant at all (slug renamed away, or
+  // the row was hard-deleted instead of soft-deleted via status) — as opposed
+  // to the lookup itself erroring — `t` is `null`, not a thrown error, and the
+  // old `t && !tenantServesSite(...)` check short-circuited on the falsy `t`
+  // and fell straight through to unconditional serving, same as the resolved
+  // error case. A defensively-not-found tenant is not the same as "lookup
+  // unreliable" and must fail closed, not open.
+  it('the STATIC_TENANT_MAP does NOT serve when the slug resolves to no tenant at all (not an error, genuinely gone)', async () => {
+    bySlug = async () => null
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/dashboard', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res?.headers.get('x-tenant-id')).toBeFalsy()
+    expect(res!.status).toBe(307)
+    expect(res!.headers.get('location')).toContain('/sign-in')
+  })
+
+  it('the STATIC_TENANT_MAP still serves when the status lookup itself is unreliable (fail-open, the map\'s original purpose)', async () => {
+    bySlug = async () => {
+      throw new Error('edge DB unreachable')
+    }
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(res!.headers.get('x-tenant-id')).toBe('56490a6b-820c-49e6-8c14-cb4e54ffcb06')
+    errSpy.mockRestore()
   })
 
   // Host normalization: getTenantByDomain (tenant-lookup.ts) only strips the

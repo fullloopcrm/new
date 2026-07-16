@@ -162,6 +162,67 @@ const isPublicRoute = createRouteMatcher([
   '/api/unsubscribe',          // Email unsubscribe (signed token verified in route)
 ])
 
+// Gate protected app routes behind Clerk / admin-token auth. Returns
+// `undefined` to mean "continue" (public route, or admin-token bypass
+// matched) or a redirect NextResponse to short-circuit.
+//
+// This MUST be the terminal step for every host branch that can fail to
+// resolve a tenant (unresolved subdomain, dangling/unattached custom domain),
+// not just the main-host branch. Those branches previously fell straight
+// through to a bare NextResponse.next() when lookup found no tenant, which
+// skipped this gate entirely — meaning ANY unrecognized subdomain of
+// *.fullloopcrm.com / *.homeservicesbusinesscrm.com (a typo, a deleted
+// tenant's old slug, or an attacker-chosen label — the wildcard means every
+// label reaches this middleware) served protected routes like /dashboard and
+// /api/bookings with NO auth check at all, instead of the sign-in redirect a
+// request to the main host would get for the same path.
+function applyProtectedRouteGate(req: NextRequest): NextResponse | undefined {
+  if (isPublicRoute(req)) return undefined
+
+  // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
+  // A verified admin_token is enough — an admin hitting /dashboard directly
+  // (no active impersonation) must not fall through to Clerk's handshake.
+  // Verified (not just present) — see admin-token-edge-verify.ts; a
+  // presence-only check let any cookie value reach the route handler (which
+  // does verify), so this was a weak edge-layer check, not a live bypass.
+  const adminCookie = req.cookies.get('admin_token')?.value
+  if (adminCookie && verifyAdminTokenEdge(adminCookie, process.env.ADMIN_TOKEN_SECRET)) {
+    const p = req.nextUrl.pathname
+    if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
+        p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
+        p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
+        p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||
+        p.startsWith('/api/security') || p.startsWith('/api/availability') || p.startsWith('/api/setup-checklist') ||
+        p.startsWith('/api/notifications') || p.startsWith('/api/cleaners') || p.startsWith('/api/domain-notes') ||
+        p.startsWith('/api/docs') || p.startsWith('/api/test-emails') || p.startsWith('/api/test/') ||
+        p.startsWith('/api/migrate-') || p.startsWith('/api/reviews') || p.startsWith('/api/deals') ||
+        p.startsWith('/api/attribution') || p.startsWith('/api/leads') || p.startsWith('/api/service-types') ||
+        p.startsWith('/api/waitlist') || p.startsWith('/api/referrers') || p.startsWith('/api/dashboard') ||
+        p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
+        p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
+        p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
+        p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
+        p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
+        p.startsWith('/api/referral-commissions') ||
+        // H-01: these owner APIs were missing, so super-admin impersonation
+        // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
+        // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
+        p.startsWith('/api/pipeline') || p.startsWith('/api/sidebar-counts') ||
+        p.startsWith('/api/invoices') || p.startsWith('/api/documents') ||
+        p.startsWith('/api/payments') || p.startsWith('/api/recurring-expenses') ||
+        p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
+        p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
+        p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
+        p.startsWith('/api/tenant/public')) {
+      return undefined
+    }
+  }
+  // Owner login is dormant (moved off Clerk). Protected owner routes that
+  // aren't admin-impersonated redirect to sign-in until the session-based
+  // owner login is wired (P5).
+  return NextResponse.redirect(new URL('/sign-in', req.url))
+}
+
 export default async function middleware(req: NextRequest) {
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
@@ -231,7 +292,10 @@ export default async function middleware(req: NextRequest) {
     } catch (e) {
       console.error('Tenant subdomain lookup error:', e)
     }
-    return NextResponse.next()
+    // Unresolved subdomain (typo, deleted tenant, or an attacker-chosen
+    // label — the wildcard means every label reaches here) must not silently
+    // serve protected app routes unauthenticated. Same gate as the main host.
+    return applyProtectedRouteGate(req)
   }
 
   // --- Custom domain routing (runs before Clerk auth) ---
@@ -245,6 +309,28 @@ export default async function middleware(req: NextRequest) {
     const cleanHost = hostname.split(':')[0].toLowerCase()
     const staticTenant = STATIC_TENANT_MAP[cleanHost]
     if (staticTenant) {
+      // The static map itself carries no status — unlike the DB-resolved
+      // path below (gated on tenantServesSite), this branch used to serve
+      // unconditionally, so a suspended/cancelled/deleted tenant on this
+      // hardcoded domain kept serving its full site AND dashboard forever,
+      // bypassing the same dark-on-suspension rule every other tenant is
+      // subject to. Best-effort status check here, same fail-open resilience
+      // intent as the map's original purpose: if the lookup itself is what's
+      // unreliable, still serve (status undetermined); only refuse to serve
+      // when we get a DEFINITIVE non-serving status back.
+      try {
+        const t = await getTenantBySlug(staticTenant.slug)
+        // A DEFINITIVE "not found" (slug renamed away, or the row was hard-
+        // deleted rather than soft-deleted via status) is just as non-serving
+        // as an explicit suspended/cancelled/deleted status — both mean this
+        // hardcoded id no longer has a live tenant behind it. Only a thrown
+        // error (the lookup itself failing) gets the fail-open treatment.
+        if (!t || !tenantServesSite(t.status)) {
+          return applyProtectedRouteGate(req)
+        }
+      } catch (e) {
+        console.error('Static-map tenant status check error:', e)
+      }
       return rewriteToSite(req, staticTenant.id, staticTenant.slug)
     }
     try {
@@ -260,55 +346,13 @@ export default async function middleware(req: NextRequest) {
     } catch (e) {
       console.error('Tenant domain lookup error:', e)
     }
-    // If domain lookup fails, fall through to main site
-    return NextResponse.next()
+    // Unresolved / dangling custom domain must not silently serve protected
+    // app routes unauthenticated. Same gate as the main host.
+    return applyProtectedRouteGate(req)
   }
 
   // --- Main site / dashboard (existing behavior) ---
-  if (!isPublicRoute(req)) {
-    // Allow admin (PIN-auth) to bypass Clerk on dashboard + its API routes.
-    // A verified admin_token is enough — an admin hitting /dashboard directly
-    // (no active impersonation) must not fall through to Clerk's handshake.
-    // Verified (not just present) — see admin-token-edge-verify.ts; a
-    // presence-only check let any cookie value reach the route handler (which
-    // does verify), so this was a weak edge-layer check, not a live bypass.
-    const adminCookie = req.cookies.get('admin_token')?.value
-    if (adminCookie && verifyAdminTokenEdge(adminCookie, process.env.ADMIN_TOKEN_SECRET)) {
-      const p = req.nextUrl.pathname
-      if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
-          p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
-          p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
-          p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||
-          p.startsWith('/api/security') || p.startsWith('/api/availability') || p.startsWith('/api/setup-checklist') ||
-          p.startsWith('/api/notifications') || p.startsWith('/api/cleaners') || p.startsWith('/api/domain-notes') ||
-          p.startsWith('/api/docs') || p.startsWith('/api/test-emails') || p.startsWith('/api/test/') ||
-          p.startsWith('/api/migrate-') || p.startsWith('/api/reviews') || p.startsWith('/api/deals') ||
-          p.startsWith('/api/attribution') || p.startsWith('/api/leads') || p.startsWith('/api/service-types') ||
-          p.startsWith('/api/waitlist') || p.startsWith('/api/referrers') || p.startsWith('/api/dashboard') ||
-          p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
-          p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
-          p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
-          p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
-          p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
-          p.startsWith('/api/referral-commissions') ||
-          // H-01: these owner APIs were missing, so super-admin impersonation
-          // fell through to Clerk → 404 (Sales Pipeline, sidebar badges, invoices,
-          // payments, schedule, routes, etc.). Tenant scope is still enforced in-route.
-          p.startsWith('/api/pipeline') || p.startsWith('/api/sidebar-counts') ||
-          p.startsWith('/api/invoices') || p.startsWith('/api/documents') ||
-          p.startsWith('/api/payments') || p.startsWith('/api/recurring-expenses') ||
-          p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
-          p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
-          p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
-          p.startsWith('/api/tenant/public')) {
-        return
-      }
-    }
-    // Owner login is dormant (moved off Clerk). Protected owner routes that
-    // aren't admin-impersonated redirect to sign-in until the session-based
-    // owner login is wired (P5).
-    return NextResponse.redirect(new URL('/sign-in', req.url))
-  }
+  return applyProtectedRouteGate(req)
 }
 
 /**
