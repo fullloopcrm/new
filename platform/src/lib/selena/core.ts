@@ -13,6 +13,23 @@ import { emailWrapper } from '@/lib/nycmaid/email-templates'
 // resolves tid from convo.tenant_id and falls back to this constant.
 const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
 
+// Resolves the tenant_id used for every downstream tenant-scoped query in
+// this file. A genuinely-missing tenant_id (legacy row pre-dating the column,
+// or a param that was never set) legitimately falls back to NYCMAID above —
+// but a real DB error must NOT hit that same fallback, or a transient
+// Supabase blip silently reassigns an unrelated tenant's SMS conversation
+// (and its Anthropic key, client records, and bookings) to NYCMAID. Fail
+// loud instead — the caller's try/catch turns this into a safe generic
+// error reply rather than cross-tenant data exposure.
+export function safeTenantId(
+  row: { tenant_id?: string } | null | undefined,
+  error: { message: string } | null | undefined,
+  context: string,
+): string {
+  if (error) throw new Error(`[selena] tenant_id lookup failed (${context}): ${error.message}`)
+  return row?.tenant_id || NYCMAID_TENANT_ID
+}
+
 // ─── Error Monitoring ───────────────────────────────────────────────────────
 
 export async function yinezError(context: string, err: unknown, conversationId?: string) {
@@ -767,9 +784,9 @@ export async function extractAndSave(
   if (Object.keys(extracted).length > 0) {
     await updateChecklist(conversationId, extracted)
 
-    const { data: convo } = await supabaseAdmin
-      .from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin
+      .from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'sms_conversations extractAndUpdate')
     if (convo?.client_id) {
       const clientUpdate: Record<string, unknown> = {}
       if (extracted.phone) clientUpdate.phone = extracted.phone
@@ -808,9 +825,9 @@ export async function extractAndSave(
 
 async function createOrLinkClient(name: string, conversationId: string): Promise<void> {
   try {
-    const { data: convo } = await supabaseAdmin
-      .from('sms_conversations').select('phone, client_id, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin
+      .from('sms_conversations').select('phone, client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'sms_conversations createOrLinkClient')
 
     if (convo?.client_id) {
       await supabaseAdmin.from('clients').update({ name }).eq('id', convo.client_id).eq('tenant_id', tid)
@@ -1026,9 +1043,10 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
 
 export async function handleCreateBooking(input: Record<string, unknown>, conversationId: string, result: YinezResult): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, bedrooms, bathrooms, phone, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, bedrooms, bathrooms, phone, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleCreateBooking): ${convoErr.message}`)
     if (!convo) return JSON.stringify({ error: 'Conversation not found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleCreateBooking')
 
     // Auto-link by phone if no client_id on the conversation row.
     if (!convo.client_id && convo.phone) {
@@ -1165,8 +1183,8 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
 
 async function handleAddToWaitlist(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, name, booking_checklist, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, name, booking_checklist, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'handleAddToWaitlist')
     await supabaseAdmin.from('sms_conversations').update({
       outcome: 'waitlisted', updated_at: new Date().toISOString(),
       summary: `Waitlisted for ${input.preferred_date}${input.preferred_time ? ' ' + input.preferred_time : ''}`,
@@ -1204,9 +1222,10 @@ async function handleGetQuote(input: Record<string, unknown>): Promise<string> {
 
 async function handleGetAccount(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleGetAccount): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleGetAccount')
 
     const { data: client } = await supabaseAdmin.from('clients').select('name, email, phone, address, pin, created_at').eq('id', convo.client_id).eq('tenant_id', tid).single()
     const { data: upcoming } = await supabaseAdmin.from('bookings')
@@ -1242,9 +1261,10 @@ async function handleGetAccount(conversationId: string): Promise<string> {
 
 async function handleUpdateAccount(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleUpdateAccount): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleUpdateAccount')
     const field = input.field as string
     const value = input.value as string
     const allowed = ['address', 'email', 'phone', 'name']
@@ -1267,9 +1287,10 @@ async function handleUpdateAccount(input: Record<string, unknown>, conversationI
 
 async function handleSendPin(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, phone, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleSendPin): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleSendPin')
     const { data: client } = await supabaseAdmin.from('clients').select('id, pin, name, phone').eq('id', convo.client_id).eq('tenant_id', tid).single()
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
@@ -1293,9 +1314,10 @@ async function handleSendPin(conversationId: string): Promise<string> {
 
 async function handleResendConfirmation(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleResendConfirmation): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleResendConfirmation')
 
     let bookingId = input.booking_id as string | undefined
     if (!bookingId) {
@@ -1344,9 +1366,10 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
 
 async function handleCheckPayment(conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleCheckPayment): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleCheckPayment')
     const { data: unpaid } = await supabaseAdmin.from('bookings')
       .select('id, start_time, price, hourly_rate, actual_hours, payment_status, service_type')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['completed', 'checked_in', 'in_progress', 'scheduled'])
@@ -1368,9 +1391,10 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
   try {
     const method = (input.method as string) || 'zelle'
     const senderName = (input.sender_name as string)?.trim() || null
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleConfirmPayment): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleConfirmPayment')
 
     const { data: booking } = await supabaseAdmin.from('bookings')
       .select('id, cleaner_id, start_time, clients(name), cleaners(name, phone, sms_consent)')
@@ -1415,9 +1439,10 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
 
 async function handleGetInvoice(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleGetInvoice): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleGetInvoice')
 
     const { data: client } = await supabaseAdmin.from('clients').select('name, email').eq('id', convo.client_id).eq('tenant_id', tid).single()
     if (!client?.email) return JSON.stringify({ error: 'No email on file — ask client for email first' })
@@ -1455,9 +1480,10 @@ async function handleGetInvoice(input: Record<string, unknown>, conversationId: 
 
 async function handleLookupBookings(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleLookupBookings): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleLookupBookings')
     const filter = (input.status_filter as string) || 'upcoming'
     const now = new Date().toISOString()
     let query = supabaseAdmin.from('bookings')
@@ -1484,9 +1510,10 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
 async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const bookingId = input.booking_id as string
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).single()
+    const { data: booking, error: bookingErr } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, client_id, tenant_id').eq('id', bookingId).maybeSingle()
+    if (bookingErr) throw new Error(`[selena] booking lookup failed (handleRescheduleBooking): ${bookingErr.message}`)
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(booking, null, 'handleRescheduleBooking')
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time and one-time bookings cannot be rescheduled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1506,9 +1533,10 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
   try {
     const bookingId = input.booking_id as string
     const reason = (input.reason as string) || 'Client requested'
-    const { data: booking } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id').eq('id', bookingId).single()
+    const { data: booking, error: bookingErr } = await supabaseAdmin.from('bookings').select('id, start_time, recurring_type, clients(name), tenant_id').eq('id', bookingId).maybeSingle()
+    if (bookingErr) throw new Error(`[selena] booking lookup failed (handleCancelBooking): ${bookingErr.message}`)
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
-    const tid = (booking as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(booking, null, 'handleCancelBooking')
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
@@ -1525,9 +1553,10 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
 async function handleManageRecurring(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const action = input.action as string
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleManageRecurring): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleManageRecurring')
 
     // Find their active recurring schedule
     let scheduleId = input.schedule_id as string | undefined
@@ -1563,8 +1592,8 @@ async function handleReportIssue(input: Record<string, unknown>, conversationId:
   try {
     const description = input.description as string
     const severity = (input.severity as string) || 'medium'
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'handleReportIssue')
 
     await supabaseAdmin.from('yinez_memory').insert({
       tenant_id: tid, client_id: convo?.client_id || null, type: 'issue', content: description, source: 'yinez',
@@ -1585,8 +1614,8 @@ async function handleReportIssue(input: Record<string, unknown>, conversationId:
 async function handleRequestCallback(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const reason = (input.reason as string) || 'Client requested callback'
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, name, phone, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'handleRequestCallback')
 
     // Get last few messages for context
     const { data: msgs } = await supabaseAdmin.from('sms_conversation_messages')
@@ -1621,9 +1650,10 @@ async function handleRequestCallback(input: Record<string, unknown>, conversatio
 
 export async function handleBookingDetails(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    if (convoErr) throw new Error(`[selena] conversation lookup failed (handleBookingDetails): ${convoErr.message}`)
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
-    const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
+    const tid = safeTenantId(convo, null, 'handleBookingDetails')
 
     let bookingId = input.booking_id as string | undefined
     if (!bookingId) {
@@ -1773,8 +1803,8 @@ async function handleRemember(input: Record<string, unknown>, conversationId: st
       // accept the data and normalize than to throw and lose the lesson.
       type = 'observation'
     }
-    const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
-    const tid = (convo as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convo, error: convoErr } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convo, convoErr, 'handleRemember')
     await supabaseAdmin.from('yinez_memory').insert({
       tenant_id: tid,
       client_id: convo?.client_id || null,
@@ -2309,8 +2339,8 @@ export async function askSelena(
     let checklist = await loadChecklist(conversationId)
 
     // Resolve tenant for this conversation (needed for all downstream queries).
-    const { data: convoTenantRow } = await supabaseAdmin.from('sms_conversations').select('tenant_id').eq('id', conversationId).single()
-    const tid = (convoTenantRow as { tenant_id?: string } | null)?.tenant_id || NYCMAID_TENANT_ID
+    const { data: convoTenantRow, error: convoTenantErr } = await supabaseAdmin.from('sms_conversations').select('tenant_id').eq('id', conversationId).maybeSingle()
+    const tid = safeTenantId(convoTenantRow, convoTenantErr, 'askSelena')
 
     // Per-tenant Anthropic client (tenant key if set, platform key otherwise).
     const anthropic = await resolveAnthropic(tid)
