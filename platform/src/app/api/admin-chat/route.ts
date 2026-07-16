@@ -88,7 +88,11 @@ export async function POST(req: NextRequest) {
     .insert({ conversation_id: sessionId, direction: 'inbound', message })
     .then(() => {}, () => {})
 
-  const result = await askSelena('web', message, sessionId, ownerPhone)
+  // ownerPhoneVerified=true: this route is requirePermission()-gated above and
+  // ownerPhone is server-derived (getOwnerPhone()), never request-body input —
+  // unlike the public /api/chat + /api/yinez widgets that also use channel
+  // 'web'. See runTool()'s trustedOwnerPhone doc comment.
+  const result = await askSelena('web', message, sessionId, ownerPhone, undefined, true)
   const reply = result.text || '(no reply)'
 
   await supabaseAdmin

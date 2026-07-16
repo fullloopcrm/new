@@ -67,6 +67,7 @@ export async function runTool(
   phone: string | null,
   result: YinezResult,
   tenantId?: string,
+  trustedOwnerPhone = false,
 ): Promise<string> {
   // tenantId is REQUIRED for safe multi-tenant routing. Older callers may not
   // pass it yet (sweep in progress) — fall back to the default tenant rather
@@ -78,7 +79,17 @@ export async function runTool(
   // If the caller isn't the owner, refuse before the side-effect runs.
   // Returning an error string (not throwing) lets the model see "not allowed"
   // and recover with a normal client-facing reply instead of dumping ops data.
-  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(await isOwnerOfTenant(phone, tid))) {
+  //
+  // trustedOwnerPhone (from askSelenaCore) must ALSO be true, not just a
+  // phone/owner_phone match. Without it, /api/chat + /api/yinez (public,
+  // unauthenticated widgets that read `phone` straight from the request
+  // body) let any anonymous visitor claim `phone: "<tenant's own public
+  // business number>"` and pass isOwnerOfTenant() — unlocking every
+  // owner-only tool including process_stripe_refund (a real, uncapped Stripe
+  // refund) with zero authentication. 'sms'/'telegram' calls always arrive
+  // with trustedOwnerPhone=true (server-derived phone, never body input);
+  // the authenticated admin-chat dashboard explicitly asserts it too.
+  if (!CLIENT_TOOLS.has(name) && !SELF_TOOLS.has(name) && !CLIENT_LOCAL_TOOLS.has(name) && !(trustedOwnerPhone && (await isOwnerOfTenant(phone, tid)))) {
     console.warn('[Yinez:owner_tool_blocked]', { name, phone, conversationId })
     return JSON.stringify({
       error: 'owner_only_tool',

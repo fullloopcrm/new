@@ -74,7 +74,7 @@ describe('create_manual_booking (Yinez owner tool) — FK ownership', () => {
     const out = await runTool(
       'create_manual_booking',
       bookingInput({ client_id: 'client-B-victim' }),
-      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A,
+      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).error).toBe('client not found')
     expect((fake._store.get('bookings') || []).length).toBe(0)
@@ -84,7 +84,7 @@ describe('create_manual_booking (Yinez owner tool) — FK ownership', () => {
     const out = await runTool(
       'create_manual_booking',
       bookingInput({ cleaner_id: 'cleaner-B-victim' }),
-      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A,
+      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
     expect((fake._store.get('bookings') || []).length).toBe(0)
@@ -94,7 +94,7 @@ describe('create_manual_booking (Yinez owner tool) — FK ownership', () => {
     const out = await runTool(
       'create_manual_booking',
       bookingInput({ cleaner_id: 'cleaner-A' }),
-      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A,
+      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     const parsed = JSON.parse(out)
     expect(parsed.ok).toBe(true)
@@ -116,7 +116,7 @@ describe('assign_cleaner_to_booking (Yinez owner tool) — FK ownership', () => 
     const out = await runTool(
       'assign_cleaner_to_booking',
       { booking_id: 'booking-1', cleaner_id: 'cleaner-B-victim' },
-      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A,
+      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!
@@ -128,7 +128,7 @@ describe('assign_cleaner_to_booking (Yinez owner tool) — FK ownership', () => 
     const out = await runTool(
       'assign_cleaner_to_booking',
       { booking_id: 'booking-1', cleaner_id: 'cleaner-A' },
-      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A,
+      'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).ok).toBe(true)
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!

@@ -276,10 +276,13 @@ wins. Period.
 `
 }
 
-export async function loadContext(tenantId: string, phone: string | null, _conversationId: string): Promise<string> {
+export async function loadContext(tenantId: string, phone: string | null, _conversationId: string, trustedOwnerPhone = true): Promise<string> {
   const parts: string[] = []
 
-  const callerIsOwner = await isOwnerOfTenant(phone, tenantId)
+  // trustedOwnerPhone defaults true so existing internal/test callers that
+  // don't pass it keep prior behavior; askSelenaCore (the only production
+  // caller) always passes its computed value explicitly.
+  const callerIsOwner = trustedOwnerPhone && (await isOwnerOfTenant(phone, tenantId))
   if (callerIsOwner) {
     parts.push('CONTEXT: You are talking to Jeff, the owner of The NYC Maid. Use admin tools freely. Be terse with real numbers.')
   }
@@ -424,8 +427,20 @@ async function applyBrandRewrite(text: string, tenantId: string): Promise<string
 
 // Public entry point. Runs the agent, then rewrites NYC-template branding out of
 // the response for non-nycmaid tenants before it ever reaches the customer.
-export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
-  const result = await askSelenaCore(channel, message, conversationId, phone, ctx)
+//
+// `ownerPhoneVerified` asserts that `phone` was NOT self-reported by an
+// anonymous caller — required for the 'web'/'email' channels, which are used
+// by BOTH the public, unauthenticated chat widgets (/api/chat, /api/yinez —
+// phone comes straight from the request body) AND the authenticated
+// dashboard copilot (/api/admin-chat, requirePermission-gated). Without this,
+// any anonymous visitor could claim `phone: "<tenant's public business
+// number>"` and have isOwnerOfTenant() grant them owner-only tools (refunds,
+// revenue, broadcasts — see tools.ts's owner gate). 'sms' and 'telegram' are
+// always trusted regardless of this flag: their phone is server-derived
+// (Telnyx-verified sender / pre-registered Telegram chat mapping), never
+// taken from an untrusted request body.
+export async function askSelena(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, ownerPhoneVerified = false): Promise<YinezResult> {
+  const result = await askSelenaCore(channel, message, conversationId, phone, ctx, ownerPhoneVerified)
   try {
     const tenantId = await resolveTenantForConversation(conversationId)
     if (tenantId !== NYCMAID_TENANT_ID && result?.text) {
@@ -437,8 +452,12 @@ export async function askSelena(channel: Channel, message: string, conversationI
   return result
 }
 
-async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext): Promise<YinezResult> {
+async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, ownerPhoneVerified = false): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
+  // See askSelena's doc comment. 'sms'/'telegram' phone is always
+  // server-derived (never request-body input), so it's trusted regardless of
+  // the caller-asserted flag; 'web'/'email' need an explicit assertion.
+  const trustedOwnerPhone = channel === 'sms' || channel === 'telegram' || ownerPhoneVerified
 
   try {
     const lookupPhone = phone || null
@@ -473,7 +492,7 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
       const [cfg, persona] = await Promise.all([getAgentConfig(tenantId), getPersona(tenantId)])
       basePrompt = SHARED_PREAMBLE + buildPlaybook(applyPersonaToConfig(cfg, persona)) + renderPersonaExtras(persona)
     }
-    const context = await loadContext(tenantId, lookupPhone, conversationId)
+    const context = await loadContext(tenantId, lookupPhone, conversationId, trustedOwnerPhone)
     const ctxBlock = ctx ? buildCtxBlock(ctx) : ''
     const channelNote = channel === 'telegram'
       ? `\n\nCHANNEL: Telegram — Jeff's private owner bot. The person here is ALWAYS Jeff (the owner). No client warmth, no "Hola I'm Yinez", no emojis. Terse, direct, real numbers from tools only.
@@ -530,7 +549,7 @@ When you flubbed on another channel → flag it here unprompted next check-in.`
           result.toolsCalled.push(tool.name)
           let toolResult: string
           try {
-            toolResult = await runTool(tool.name, tool.input as Record<string, unknown>, conversationId, lookupPhone, result, tenantId)
+            toolResult = await runTool(tool.name, tool.input as Record<string, unknown>, conversationId, lookupPhone, result, tenantId, trustedOwnerPhone)
           } catch (err) {
             console.error(`[Yinez:tool:${tool.name}]`, err)
             toolResult = JSON.stringify({ error: (err as Error).message })
