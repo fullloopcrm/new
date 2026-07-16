@@ -166,12 +166,32 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot void invoice with payments — refund first' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    // The amount_paid_cents check above is check-then-act, not atomic: if a
+    // payment lands (POST .../record-payment, or the Stripe webhook) between
+    // the SELECT above and this UPDATE, the trigger in 027_invoices.sql has
+    // already bumped amount_paid_cents/status to 'partial' or 'paid' by the
+    // time this UPDATE runs — but this UPDATE had no re-check, so it blindly
+    // overwrote that status back to 'void', leaving a real payment recorded
+    // against a "voided" invoice (money received, invoice reported as not
+    // owed and not paid — invisible to ar-aging either way). Re-assert
+    // amount_paid_cents = 0 IN THE UPDATE'S OWN WHERE clause (the current DB
+    // value, not the stale `existing` snapshot) so a concurrent payment wins
+    // the race instead of being silently erased.
+    const { data: voided, error } = await supabaseAdmin
       .from('invoices')
       .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason || null })
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('amount_paid_cents', 0)
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!voided) {
+      return NextResponse.json(
+        { error: 'A payment was recorded on this invoice concurrently — refresh and refund instead of voiding' },
+        { status: 409 },
+      )
+    }
 
     await logInvoiceEvent({
       invoice_id: id,
