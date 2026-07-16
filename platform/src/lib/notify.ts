@@ -12,6 +12,7 @@ import {
   dailySummaryEmail,
   dailyOpsRecapEmail,
   notificationDigestEmail,
+  seoWeeklyReportEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
 } from './email-templates'
@@ -231,6 +232,20 @@ export async function notify({
         clientName,
         serviceName: serviceName || 'Appointment',
         dateTime: message,
+      })
+      break
+    case 'seo_digest':
+      htmlBody = seoWeeklyReportEmail({
+        ...templateData,
+        label: (metadata?.label as string) || tenant.name || 'your fleet',
+        propertiesMonitored: (metadata?.propertiesMonitored as number) || 0,
+        newIssues: (metadata?.newIssues as { type: string; count: number }[]) || [],
+        proposed: (metadata?.proposed as number) || 0,
+        applied: (metadata?.applied as number) || 0,
+        rejected: (metadata?.rejected as number) || 0,
+        rolledBack: (metadata?.rolledBack as number) || 0,
+        sitesDown: (metadata?.sitesDown as number) || 0,
+        keywords: (metadata?.keywords as { query: string; position: number; clicks: number; impressions: number }[]) || [],
       })
       break
   }
