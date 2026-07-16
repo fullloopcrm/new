@@ -21,12 +21,21 @@ export async function POST(request: NextRequest, { params }: { params: Promise<{
   // Confirm the member belongs to THIS tenant before touching their PIN.
   const { data: member } = await supabaseAdmin
     .from('tenant_members')
-    .select('id')
+    .select('id, role')
     .eq('id', id)
     .eq('tenant_id', tenant.tenantId)
     .maybeSingle()
 
   if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
+  // A non-owner resetting an owner's PIN can read the new plaintext back
+  // (returned once, by design) and log in as the owner via /api/admin-auth,
+  // which mints a session token with memberRole taken straight from the
+  // matched tenant_members row — that's a direct account takeover, not just
+  // a PIN edit. Only an owner may touch another owner's PIN.
+  if (member.role === 'owner' && tenant.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can reset another owner\'s PIN' }, { status: 403 })
+  }
 
   const body = await request.json().catch(() => ({}))
   let pin: string
@@ -69,6 +78,22 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (authError) return authError
 
   const { id } = await params
+
+  const { data: member } = await supabaseAdmin
+    .from('tenant_members')
+    .select('id, role')
+    .eq('id', id)
+    .eq('tenant_id', tenant.tenantId)
+    .maybeSingle()
+
+  if (!member) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
+
+  // Same account-takeover-adjacent concern as POST: a non-owner clearing an
+  // owner's PIN can lock the real owner out of admin login entirely.
+  if (member.role === 'owner' && tenant.role !== 'owner') {
+    return NextResponse.json({ error: 'Only an owner can clear another owner\'s PIN' }, { status: 403 })
+  }
+
   const { error } = await supabaseAdmin
     .from('tenant_members')
     .update({ pin_hash: null, pin_set_at: null })

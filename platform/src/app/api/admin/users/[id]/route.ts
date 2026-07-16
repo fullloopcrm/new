@@ -25,6 +25,23 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (!validRoles.includes(body.role)) {
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }
+      // Only an owner may grant the owner role (self-escalation) or change an
+      // existing owner's role (demotion) — settings.edit alone (held by admin
+      // by default) is not enough for either.
+      if (tenant.role !== 'owner') {
+        if (body.role === 'owner') {
+          return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+        }
+        const { data: target } = await supabaseAdmin
+          .from('tenant_members')
+          .select('role')
+          .eq('id', id)
+          .eq('tenant_id', tenant.tenantId)
+          .maybeSingle()
+        if (target?.role === 'owner') {
+          return NextResponse.json({ error: 'Only an owner can change another owner\'s role' }, { status: 403 })
+        }
+      }
       updates.role = body.role
     }
 
@@ -61,6 +78,9 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   if (target.role === 'owner') {
+    if (tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can remove another owner' }, { status: 403 })
+    }
     const { count } = await supabaseAdmin
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })
