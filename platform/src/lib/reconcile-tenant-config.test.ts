@@ -1161,6 +1161,61 @@ describe('computeFindings — Drift J (active domain with non-active status)', (
   })
 })
 
+describe('computeFindings — Drift N (bespoke slug resolves but tenant is out of the active/live/setup scope)', () => {
+  it('CRITs when a suspended tenant is still in BESPOKE_SITE_TENANTS and its folder is missing', () => {
+    // 'foo' resolves (Drift L would NOT fire) but is absent from `tenants`
+    // (the caller's SQL filtered it out, e.g. status='suspended') so Drift C's
+    // main loop never iterates it either. Neither existing check covers this.
+    const findings: Finding[] = computeFindings({
+      tenants: [], // 'foo' is out of scope — not active/live/setup
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: neverHome,
+      resolvableSlugs: new Set(['foo']), // tenant row exists (any status)
+    })
+    const crit = findings.find((f) => f.slug === 'foo' && f.msg.includes('routes here regardless of tenant status'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('does not fire when the out-of-scope tenant\'s folder still exists', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: new Set(['foo']),
+    })
+    expect(findings.filter((f) => f.msg.includes('routes here regardless of tenant status'))).toHaveLength(0)
+  })
+
+  it('does not fire for a slug already covered by Drift C (tenant in scope)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: neverHome,
+      resolvableSlugs: new Set(['foo']),
+    })
+    // Drift C already CRITs this via the main loop; Drift N must not double-report it.
+    const driftNHits = findings.filter((f) => f.msg.includes('routes here regardless of tenant status'))
+    expect(driftNHits).toHaveLength(0)
+    expect(findings.find((f) => f.msg.includes('has no homepage'))).toBeDefined() // Drift C still fires
+  })
+
+  it('skips Drift N entirely when resolvableSlugs is null', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    expect(findings).toHaveLength(0)
+  })
+})
+
 // The token guard is what makes it safe to wire this gate into every PR,
 // including forks with no secret — a bug here either leaks a broken "skip"
 // into runs that DO have a real token, or crashes the CLI on a token-less

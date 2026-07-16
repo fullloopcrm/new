@@ -382,6 +382,28 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift N: a BESPOKE_SITE_TENANTS entry whose tenant EXISTS (resolvable, ANY
+  // status) but is NOT in the main `tenants` scope (active/live/setup) — e.g.
+  // suspended/cancelled/trial. The main loop above only iterates `tenants`, so
+  // Drift C (folder missing) never runs for this slug; Drift L doesn't fire
+  // either because the tenant DOES resolve. Middleware routes purely on slug
+  // membership in BESPOKE_SITE_TENANTS — it does not check tenant status — so a
+  // request still lands here regardless, and with the folder gone it 404s with
+  // NO drift signal from any other check. Skipped when resolvableSlugs is null,
+  // same as Drift L (caller had nothing to check).
+  if (resolvableSlugs !== null && bespokeSet.size) {
+    const inScopeSlugs = new Set(tenants.map((t) => t.slug))
+    for (const slug of bespokeSet) {
+      if (resolvableSlugs.has(slug) && !inScopeSlugs.has(slug) && !hasHome(slug)) {
+        add(
+          'CRIT',
+          slug,
+          `in BESPOKE_SITE_TENANTS with a resolvable tenant whose status is NOT active/live/setup, and /site/${slug} has no homepage -> middleware routes here regardless of tenant status; invisible to Drift C (tenant out of scope) and Drift L (tenant resolves)`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
