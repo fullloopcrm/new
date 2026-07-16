@@ -82,12 +82,26 @@ export async function PATCH(request: Request, { params }: Params) {
       }
     }
 
+    // Pricing fields require a stale read to fall back on whichever of the
+    // three wasn't sent (e.g. an edit that only touches discount_cents still
+    // needs the CURRENT line_items to recompute totals). Two edits landing
+    // close together on the SAME quote (a line-item change and a discount
+    // change from two tabs, or two autosave debounces overlapping — this
+    // route's own 'silent' flag exists BECAUSE autosave fires on every
+    // keystroke debounce) would otherwise both read the same stale snapshot
+    // -- whichever write lands second silently reverts the other field to
+    // what it read, with no error to either side. Guard the final write with
+    // the row's updated_at (bumped by quotes_set_updated_at on every UPDATE)
+    // so a write based on a stale read fails loudly instead of clobbering
+    // silently.
+    let pricingCasUpdatedAt: string | undefined
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await db
         .from('quotes')
-        .select('line_items, tax_rate_bps, discount_cents')
+        .select('line_items, tax_rate_bps, discount_cents, updated_at')
         .eq('id', id)
         .single()
+      pricingCasUpdatedAt = current?.updated_at as string | undefined
       const lineItems = normalizeLineItems(
         'line_items' in body ? body.line_items : (current?.line_items as unknown[] || []),
       )
@@ -136,14 +150,22 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.fulfillment_type = body.fulfillment_type
     }
 
-    const { data, error } = await db
+    let query = db
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
-      .select('*')
-      .single()
+    if (pricingCasUpdatedAt) query = query.eq('updated_at', pricingCasUpdatedAt)
+    const { data, error } = await query.select('*').maybeSingle()
     if (error) throw error
+    if (!data) {
+      // Either not found, or (when a pricing CAS guard was active) the row
+      // changed under us between the read above and this write.
+      return NextResponse.json(
+        { error: pricingCasUpdatedAt ? 'Quote was changed by someone else — refresh and retry' : 'Not found' },
+        { status: pricingCasUpdatedAt ? 409 : 404 },
+      )
+    }
 
     // Autosave passes silent:true so a draft being typed doesn't spam the
     // activity log with an 'edited' row on every keystroke-debounce.
