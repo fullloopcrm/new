@@ -18,22 +18,38 @@ export async function GET(
   if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
   // Load the authenticated referrer and confirm the URL code is theirs.
-  const { data: referrer } = await supabaseAdmin
+  // maybeSingle()+explicit error check (not single() with error discarded):
+  // a genuine DB failure here used to look identical to "no such referrer"
+  // and fall through to the same 403 Forbidden a real cross-tenant/forged
+  // token gets, masking a server-side outage as an auth rejection.
+  const { data: referrer, error: referrerError } = await supabaseAdmin
     .from('referrers')
     .select('id, tenant_id, name, email, referral_code, commission_rate, total_earned, total_paid')
     .eq('id', auth.rid)
-    .single()
+    .maybeSingle()
+
+  if (referrerError) {
+    console.error(`REFERRER_PORTAL_LOOKUP_ERROR id=${auth.rid} error=${referrerError.message}`)
+    return NextResponse.json({ error: 'Could not load referrer account. Please try again.' }, { status: 500 })
+  }
 
   if (!referrer || referrer.tenant_id !== auth.tid || referrer.referral_code !== code) {
     return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
   }
 
-  // Tenant branding + public site base for the share link.
-  const { data: tenant } = await supabaseAdmin
+  // Tenant branding + public site base for the share link. Same
+  // maybeSingle()+explicit error check — a DB failure here used to look
+  // identical to "tenant deleted" (404) instead of a server error (500).
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('name, slug, domain, primary_color')
     .eq('id', referrer.tenant_id)
-    .single()
+    .maybeSingle()
+
+  if (tenantError) {
+    console.error(`REFERRER_PORTAL_TENANT_LOOKUP_ERROR tenant_id=${referrer.tenant_id} error=${tenantError.message}`)
+    return NextResponse.json({ error: 'Could not load business. Please try again.' }, { status: 500 })
+  }
 
   if (!tenant) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
 
