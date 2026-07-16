@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
@@ -43,7 +44,7 @@ export async function GET(req: NextRequest) {
     const ext = (filename.split('.').pop() || 'mp4').toLowerCase()
     const safeExt = ['mp4', 'mov', 'webm', '3gp', 'm4v'].includes(ext) ? ext : 'mp4'
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 8)
+    const randomId = randomBytes(6).toString('hex')
     const path = `${auth.tid}/job-videos/${bookingId}/${type}-${timestamp}-${randomId}.${safeExt}`
 
     const { data, error } = await supabaseAdmin.storage
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
     const ext = file.name.split('.').pop()?.toLowerCase() || 'mp4'
     const safeExt = ['mp4', 'mov', 'webm', '3gp', 'm4v'].includes(ext) ? ext : 'mp4'
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 8)
+    const randomId = randomBytes(6).toString('hex')
     const path = `${auth.tid}/job-videos/${bookingId}/${type}-${timestamp}-${randomId}.${safeExt}`
 
     const buffer = Buffer.from(await file.arrayBuffer())

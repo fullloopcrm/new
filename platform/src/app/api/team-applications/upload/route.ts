@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
@@ -31,7 +32,7 @@ export async function POST(request: NextRequest) {
 
   const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
   const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
-  const randomId = Math.random().toString(36).slice(2)
+  const randomId = randomBytes(8).toString('hex')
   const path = `applications/${Date.now()}-${randomId}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
