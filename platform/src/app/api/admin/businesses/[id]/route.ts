@@ -374,11 +374,13 @@ export async function DELETE(
   // Capture the domains BEFORE deleting so we can detach them from Vercel after.
   // Otherwise a deleted tenant leaves <slug>.fullloopcrm.com (and any custom
   // domain) attached to the project, serving the fallback marketing site.
-  const { data: doomed } = await supabaseAdmin
-    .from('tenants')
-    .select('slug, domain, domain_name')
-    .eq('id', id)
-    .single()
+  // Also pull tenant_domains rows: /api/admin/websites lets an admin attach
+  // additional domains there independent of tenants.domain/domain_name, and
+  // those would otherwise never be detached on delete.
+  const [{ data: doomed }, { data: extraDomainRows }] = await Promise.all([
+    supabaseAdmin.from('tenants').select('slug, domain, domain_name').eq('id', id).single(),
+    supabaseAdmin.from('tenant_domains').select('domain').eq('tenant_id', id),
+  ])
 
   // Hard delete. Every tenant-scoped table cascades from tenants.id EXCEPT two
   // cross-tenant FKs that are ON DELETE NO ACTION and would block the delete:
@@ -399,13 +401,18 @@ export async function DELETE(
 
   // Detach Vercel domains — best-effort, never blocks the delete result.
   if (doomed?.slug) {
-    const domains = [`${doomed.slug}.fullloopcrm.com`]
+    const domains = new Set<string>([`${doomed.slug}.fullloopcrm.com`])
     const custom = (doomed.domain as string | null) || (doomed.domain_name as string | null)
     if (custom && custom.trim()) {
       const apex = custom.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
-      domains.push(apex, `www.${apex}`)
+      domains.add(apex)
+      domains.add(`www.${apex}`)
     }
-    await Promise.all(domains.map((d) => removeDomain(d)))
+    for (const row of extraDomainRows || []) {
+      const d = (row.domain as string | null)?.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+      if (d) domains.add(d)
+    }
+    await Promise.all(Array.from(domains).map((d) => removeDomain(d)))
   }
 
   return NextResponse.json({ success: true })
