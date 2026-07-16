@@ -25,9 +25,28 @@
 -- commit to treat a NULL return as "already posted" (the same outcome their
 -- existing journalEntryExists() pre-check already produces on the common
 -- path) instead of the previous "no entry id returned" throw.
+--
+-- entry_date is part of the key, not just (tenant_id, source, source_id):
+-- cron/recurring-expenses.ts reuses the SAME source_id (the recurring_expenses
+-- row's own id) forever, once per firing at a NEW entry_date each time --
+-- that source_id never changes across occurrences by design. A
+-- source_id-only key would make every firing after the very first return
+-- NULL ("already posted") against month 1's entry, and recurring-expenses.ts
+-- doesn't check postJournalEntry's return value before advancing
+-- next_due_date/last_fired_at -- so the cron would report "fired" and roll
+-- the due date forward every month while silently posting nothing to the
+-- ledger from month 2 onward. Including entry_date in the key fixes that
+-- while still catching the real double-post races this migration targets:
+-- post-labor.ts/post-adjustments.ts compute entry_date as "today" at call
+-- time, and post-revenue.ts derives it deterministically from the booking's
+-- own payment_date/start_time -- a genuine concurrent double-post for the
+-- same event lands on the same entry_date in every realistic case (the
+-- one-off theoretical exception is two racing calls straddling a UTC
+-- midnight boundary for a same-day-computed source, which is an acceptable
+-- trade against a certain, permanent silent-non-posting bug otherwise).
 
 CREATE UNIQUE INDEX IF NOT EXISTS uq_journal_entries_source
-  ON journal_entries (tenant_id, source, source_id)
+  ON journal_entries (tenant_id, source, source_id, entry_date)
   WHERE source_id IS NOT NULL;
 
 CREATE OR REPLACE FUNCTION post_journal_entry(
@@ -76,11 +95,12 @@ BEGIN
   END IF;
 
   -- Atomic dedup claim against the partial unique index above. A losing
-  -- concurrent caller for the same (tenant_id, source, source_id) gets no
-  -- row back here and must return NULL instead of inserting duplicate lines.
+  -- concurrent caller for the same (tenant_id, source, source_id, entry_date)
+  -- gets no row back here and must return NULL instead of inserting
+  -- duplicate lines.
   INSERT INTO journal_entries (tenant_id, entity_id, entry_date, memo, source, source_id, created_by)
   VALUES (p_tenant_id, _entity_id, p_entry_date, p_memo, COALESCE(p_source, 'manual'), p_source_id, p_created_by)
-  ON CONFLICT (tenant_id, source, source_id) WHERE source_id IS NOT NULL DO NOTHING
+  ON CONFLICT (tenant_id, source, source_id, entry_date) WHERE source_id IS NOT NULL DO NOTHING
   RETURNING id INTO _entry_id;
 
   IF _entry_id IS NULL THEN
