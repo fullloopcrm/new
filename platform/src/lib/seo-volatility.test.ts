@@ -34,10 +34,13 @@ describe('classifyVolatility', () => {
     expect(verdict.detected).toBe(false)
   })
 
-  it('labels mixed direction when the fleet splits between better and worse', () => {
+  it('does NOT fire on mixed direction — that is the noise signature, not a rollout', () => {
+    // Confirmed live 2026-07-16: a real run against a deep-ranking fleet hit
+    // count+fraction on the first try with mixed direction — ordinary noise,
+    // not a rollout. A real algorithm update pushes the fleet the same way.
     const deltas = [delta('a', 3), delta('b', -3), delta('c', 2.5), delta('d', 0.1), delta('e', 0.1)]
     const verdict = classifyVolatility(deltas)
-    expect(verdict.detected).toBe(true)
+    expect(verdict.detected).toBe(false)
     expect(verdict.directionality).toBe('mixed')
   })
 

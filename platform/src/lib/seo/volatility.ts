@@ -57,7 +57,13 @@ export function classifyVolatility(deltas: PropertyDelta[]): VolatilityVerdict {
     else directionality = 'mixed'
   }
 
-  const detected = moved.length >= MIN_ABSOLUTE_MOVED && fraction >= MIN_FLEET_FRACTION
+  // Confirmed live 2026-07-16: a real run against this fleet (most properties
+  // rank deep, 20-90 — inherently noisier day to day than page-1 rankings)
+  // hit the count+fraction bar with 'mixed' directionality on the very first
+  // try — i.e. ordinary noise, not a rollout. A real algorithm update pushes
+  // the fleet the SAME way; 'mixed' is exactly the noise signature this
+  // metric was meant to exclude, so require a real skew, not just volume.
+  const detected = moved.length >= MIN_ABSOLUTE_MOVED && fraction >= MIN_FLEET_FRACTION && directionality !== 'mixed' && directionality !== null
   return { detected, measured, moved: moved.length, fraction, directionality }
 }
 
