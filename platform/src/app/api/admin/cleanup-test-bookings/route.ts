@@ -9,7 +9,12 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 
 const TEST_PHONE_PATTERNS = ['2125550', '917555', '7185550']
-const TEST_EMAIL_PATTERN = /@e\.com$|test\d*@/i
+// Anchored to the start of the local-part: the unanchored `test\d*@` also
+// matched any real email merely containing that substring (latest@,
+// protest@, contest@, attest@, clientest@, ...), which would permanently
+// delete the matching real client (plus their bookings/payments/
+// notifications) on a non-dry-run purge.
+export const TEST_EMAIL_PATTERN = /@e\.com$|^test\d*@/i
 const TEST_NAME_PATTERNS = [
   'Test Person', 'Test User', 'Test X', 'Carmen Diaz', 'Sofia Ruiz',
   'Change Mind', 'Price First', 'Mary Jones',

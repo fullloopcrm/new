@@ -22,7 +22,7 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { POST } from './route'
+import { POST, TEST_EMAIL_PATTERN } from './route'
 
 const A_ID = 'tenant-A'
 const B_ID = 'tenant-B'
@@ -79,5 +79,17 @@ describe('admin/cleanup-test-bookings POST — tenantDb isolation', () => {
       .in('name', ['Test Person'])
     const ids = (data as { id: string }[]).map((r) => r.id).sort()
     expect(ids).toEqual(['client-a', 'client-b'])
+  })
+
+  it('TEST_EMAIL_PATTERN does not match real emails that merely contain "test" as a substring', () => {
+    // Regression: the pattern used to be unanchored (`test\d*@`), which matched
+    // any email containing that substring anywhere before the @ — flagging real
+    // customers for permanent deletion by this purge.
+    for (const real of ['latest@company.com', 'protest@union.org', 'contest@promo.com', 'attest@legal.com', 'clientest@gmail.com']) {
+      expect(TEST_EMAIL_PATTERN.test(real)).toBe(false)
+    }
+    for (const testy of ['test@gmail.com', 'test123@gmail.com', 'Test5@x.com']) {
+      expect(TEST_EMAIL_PATTERN.test(testy)).toBe(true)
+    }
   })
 })
