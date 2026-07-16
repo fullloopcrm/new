@@ -249,11 +249,29 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
     if (t) {
       // TRANSITION ASSERT-AND-REFUSE: cross-check the legacy tenants.domain row
       // for this host. If it maps the SAME host to a DIFFERENT tenant, refuse.
-      const { data: legacy } = await supabaseAdmin
+      //
+      // maybeSingle() (not single()): tenants.domain carries NO unique
+      // constraint at the DB level (unlike tenant_domains.domain — see
+      // supabase/schema.sql vs migrations/043_tenant_domains.sql), so two
+      // legacy rows can genuinely share a host. single() surfaces that as an
+      // error with data:null, indistinguishable once destructured from "no
+      // legacy row" — silently disabling this guard on exactly the input (an
+      // ambiguous legacy table) it exists to catch. maybeSingle() still errors
+      // on 2+ rows, but we check for it explicitly instead of discarding it.
+      const { data: legacy, error: legacyError } = await supabaseAdmin
         .from('tenants')
         .select('id')
         .eq('domain', cleanDomain)
-        .single()
+        .maybeSingle()
+
+      if (legacyError) {
+        console.error(
+          `TENANT_DIVERGENCE_AMBIGUOUS host=${cleanDomain} td=${t.id} legacy_error=${legacyError.message}`,
+        )
+        throw new Error(
+          `TENANT_DIVERGENCE_AMBIGUOUS host=${cleanDomain} td=${t.id} legacy_error=${legacyError.message}`,
+        )
+      }
 
       if (legacy && legacy.id !== t.id) {
         console.error(`TENANT_DIVERGENCE host=${cleanDomain} td=${t.id} legacy=${legacy.id}`)

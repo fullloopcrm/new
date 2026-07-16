@@ -35,6 +35,10 @@ function builder(table: string) {
       singleCalls.push({ table, eqs })
       return resolve(table, eqs)
     },
+    maybeSingle: async () => {
+      singleCalls.push({ table, eqs })
+      return resolve(table, eqs)
+    },
   }
   return chain
 }
@@ -168,6 +172,28 @@ describe('getTenantByDomain', () => {
     // the greppable divergence line was logged
     expect(errSpy).toHaveBeenCalledWith(
       'TENANT_DIVERGENCE host=swap.com td=t-correct legacy=t-wrong',
+    )
+    errSpy.mockRestore()
+  })
+
+  it('AMBIGUOUS-LEGACY PROBE: tenant_domains -> A but the legacy tenants.domain lookup errors (2+ rows share the host — no unique constraint on tenants.domain) refuses rather than silently trusting A', async () => {
+    // tenants.domain has no DB-level unique constraint (unlike tenant_domains.domain),
+    // so two legacy rows CAN share a host. That must refuse loudly, not be treated
+    // as "no legacy row" (which would silently skip the divergence cross-check on
+    // exactly the input — an inconsistent legacy table — it exists to catch).
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'ambiguous.com')
+        return { data: domainRow({ tenant_id: 't-amb', domain: 'ambiguous.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-amb')
+        return { data: tenantRow({ id: 't-amb', slug: 'amb-tenant' }), error: null }
+      if (table === 'tenants' && eqs.domain === 'ambiguous.com')
+        return { data: null, error: { message: 'JSON object requested, multiple (or no) rows returned' } }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('ambiguous.com')).rejects.toThrow(
+      /TENANT_DIVERGENCE_AMBIGUOUS host=ambiguous\.com td=t-amb/,
     )
     errSpy.mockRestore()
   })

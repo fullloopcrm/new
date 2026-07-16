@@ -133,6 +133,7 @@ function builder(table: string) {
       return chain
     },
     single: async () => resolve(table, eqs),
+    maybeSingle: async () => resolve(table, eqs),
   }
   return chain
 }
