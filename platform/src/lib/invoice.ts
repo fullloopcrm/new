@@ -51,6 +51,7 @@ export interface LogInvoiceEventOpts {
     | 'refunded'
     | 'voided'
     | 'reminder_sent'
+    | 'booking_removed'
   detail?: Record<string, unknown>
   ip_address?: string | null
   user_agent?: string | null

@@ -41,6 +41,7 @@ type Invoice = {
   view_count: number
   quote_id: string | null
   booking_id: string | null
+  recurring_schedule_id: string | null
   clients: { id: string; name: string } | null
   created_at: string
 }
@@ -156,6 +157,18 @@ export default function InvoiceDetailPage() {
     setMsg('Invoice voided'); load()
   })
 
+  const removeBooking = (bookingId: string, label: string) => doAction(`remove-${bookingId}`, async () => {
+    if (!confirm(`Remove "${label}" from this draft invoice? It will be billable again next cycle.`)) return
+    const res = await fetch(`/api/invoices/${id}/remove-booking`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ booking_id: bookingId }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed')
+    setMsg('Visit removed from invoice')
+    load()
+  })
+
   const delDraft = () => doAction('delete', async () => {
     if (!confirm('Delete this draft invoice?')) return
     const res = await fetch(`/api/invoices/${id}?hard=1`, { method: 'DELETE' })
@@ -173,6 +186,7 @@ export default function InvoiceDetailPage() {
   const canRecord = !['paid', 'void', 'refunded'].includes(invoice.status)
   const canVoid = !['paid', 'void', 'refunded'].includes(invoice.status) && invoice.status !== 'draft'
   const canDelete = invoice.status === 'draft' && (invoice.amount_paid_cents || 0) === 0
+  const isDraftConsolidated = invoice.status === 'draft' && !!invoice.recurring_schedule_id
 
   return (
     <div className="max-w-5xl mx-auto">
@@ -253,6 +267,12 @@ export default function InvoiceDetailPage() {
             </section>
           )}
           <section className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+            {isDraftConsolidated && (
+              <div className="px-4 py-2 bg-teal-50 border-b border-teal-100 text-xs text-teal-700">
+                Monthly consolidated statement — {invoice.line_items?.length || 0} visit{invoice.line_items?.length === 1 ? '' : 's'}.
+                Remove a visit below to bill it separately instead; it becomes billable again next cycle.
+              </div>
+            )}
             <table className="w-full text-sm">
               <thead className="bg-slate-50 text-left text-xs text-slate-500 uppercase">
                 <tr>
@@ -260,20 +280,37 @@ export default function InvoiceDetailPage() {
                   <th className="px-4 py-2 font-medium text-right">Qty</th>
                   <th className="px-4 py-2 font-medium text-right">Rate</th>
                   <th className="px-4 py-2 font-medium text-right">Total</th>
+                  {isDraftConsolidated && <th className="px-4 py-2"></th>}
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {(invoice.line_items || []).map(li => (
-                  <tr key={li.id}>
-                    <td className="px-4 py-3">
-                      <p className="font-medium text-slate-900">{li.name}</p>
-                      {li.description && <p className="text-xs text-slate-500 mt-0.5">{li.description}</p>}
-                    </td>
-                    <td className="px-4 py-3 text-right">{li.quantity}</td>
-                    <td className="px-4 py-3 text-right">{formatCents(li.unit_price_cents)}</td>
-                    <td className="px-4 py-3 text-right font-medium">{formatCents(li.subtotal_cents)}</td>
-                  </tr>
-                ))}
+                {(invoice.line_items || []).map(li => {
+                  const bookingId = li.id.startsWith('li_') ? li.id.slice(3) : null
+                  return (
+                    <tr key={li.id}>
+                      <td className="px-4 py-3">
+                        <p className="font-medium text-slate-900">{li.name}</p>
+                        {li.description && <p className="text-xs text-slate-500 mt-0.5">{li.description}</p>}
+                      </td>
+                      <td className="px-4 py-3 text-right">{li.quantity}</td>
+                      <td className="px-4 py-3 text-right">{formatCents(li.unit_price_cents)}</td>
+                      <td className="px-4 py-3 text-right font-medium">{formatCents(li.subtotal_cents)}</td>
+                      {isDraftConsolidated && (
+                        <td className="px-4 py-3 text-right">
+                          {bookingId && (
+                            <button
+                              onClick={() => removeBooking(bookingId, `${li.name} (${li.description || ''})`)}
+                              disabled={!!busy}
+                              className="text-xs text-red-500 hover:text-red-700 disabled:opacity-50"
+                            >
+                              {busy === `remove-${bookingId}` ? 'Removing…' : 'Remove'}
+                            </button>
+                          )}
+                        </td>
+                      )}
+                    </tr>
+                  )
+                })}
               </tbody>
               <tfoot className="bg-slate-50 text-sm">
                 <tr>
