@@ -80,20 +80,57 @@ export async function GET(request: Request) {
       continue
     }
 
-    await supabaseAdmin
+    // Atomic claim, not a blind update: bookings.invoice_id has an FK to
+    // invoices.id, so the invoice must exist before we can point bookings at
+    // it -- but that ordering opens a real gap between the SELECT above and
+    // this UPDATE landing. An overlapping cron retry (Vercel can re-fire a
+    // timed-out invocation) or a concurrent standalone POST /api/invoices
+    // call could claim one of these same bookings first. Re-checking
+    // `invoice_id IS NULL` here means we only ever win the bookings nobody
+    // else has already claimed, instead of silently overwriting whichever
+    // invoice_id a concurrent claim just set.
+    const { data: claimed } = await supabaseAdmin
       .from('bookings')
       .update({ invoice_id: invoice.id })
       .in('id', bookings.map((b) => b.id))
+      .is('invoice_id', null)
+      .select('id')
+
+    const claimedIds = new Set((claimed || []).map((b) => b.id as string))
+
+    if (claimedIds.size === 0) {
+      // Every targeted booking was claimed elsewhere first -- roll back this
+      // invoice rather than leave a ghost draft with no real visits behind it.
+      await supabaseAdmin.from('invoices').delete().eq('id', invoice.id)
+      failures.push(`schedule ${schedule.id}: lost the claim race on all ${bookings.length} booking(s), invoice rolled back`)
+      continue
+    }
+
+    if (claimedIds.size < bookings.length) {
+      // Partial race: recompute totals from only the bookings we actually won
+      // so the client is never billed for a visit that landed on a different
+      // (concurrently created) invoice.
+      const wonBookings = bookings.filter((b) => claimedIds.has(b.id))
+      const wonLineItems = normalizeLineItems(buildConsolidatedLineItems(wonBookings))
+      const wonTotals = computeTotals(wonLineItems, 0, 0)
+      await supabaseAdmin.from('invoices').update({
+        line_items: wonLineItems,
+        subtotal_cents: wonTotals.subtotal_cents,
+        tax_cents: wonTotals.tax_cents,
+        discount_cents: wonTotals.discount_cents,
+        total_cents: wonTotals.total_cents,
+      }).eq('id', invoice.id)
+    }
 
     await logInvoiceEvent({
       invoice_id: invoice.id,
       tenant_id: schedule.tenant_id,
       event_type: 'created',
-      detail: { from: 'recurring_consolidation', schedule_id: schedule.id, booking_count: bookings.length },
+      detail: { from: 'recurring_consolidation', schedule_id: schedule.id, booking_count: claimedIds.size },
     })
 
     invoicesCreated += 1
-    bookingsBilled += bookings.length
+    bookingsBilled += claimedIds.size
   }
 
   if (failures.length > 0) {
