@@ -5008,3 +5008,65 @@ pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
 round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 08:00 round (W2) — P87, fixed: `GET /api/security/events`
+had zero permission check — any staff/manager-tier member could read the
+tenant's full security-events feed (logins, password changes, member
+removals, IP addresses)
+
+Continuing the broad-hunt (leader order 07:57, "lower-risk surface").
+Systematically diffed every `getTenantForRequest`-using route.ts (116)
+against every `requirePermission`-using route.ts (190) to list all 58
+routes proving tenant membership at ANY role with zero permission gate,
+then triaged for a sibling permission that already exists in `rbac.ts` and
+gates a closely related resource. Most of the 58 (SMS, connect/chat,
+dashboard messages, user preferences, push subscriptions, indexnow, etc.)
+have no matching permission category in `rbac.ts` at all — that's a design
+gap (or intentional "any authenticated member" surface), not a missed-gate
+bug, so out of scope for this pattern.
+
+`security/events/route.ts` was the one clean match: it reads
+`security_events` (login/password-change/member-added/member-removed/
+suspicious-login rows, with IP address + user agent), which is the exact
+sibling of `audit_logs` — already gated behind `audit.view` on `/api/audit`
+(P76). `rbac.ts` grants `audit.view` to `owner`/`admin` only by default;
+`manager`/`staff` get neither. The route only called `getTenantForRequest()`
+(tenant membership, any role) — no `requirePermission` — so any manager- or
+staff-tier member could already read this feed with zero role check, no
+override needed, same class as P70-P86. (Route is reachable: `/api/security`
+is in `middleware.ts`'s admin-PIN-bypass allowlist and gets a real GET
+handler; no dashboard component currently calls it directly, but it's live,
+authenticated-reachable API surface — same "not yet wired to a nav item but
+still a real gap" shape as the `security_events` isolation-test comment
+already documented for its tenant-scoping fix.)
+
+**Fix:** `requirePermission('audit.view')` on GET, matching `/api/audit`.
+
+**Regression lock:** new `route.rbac.test.ts` (5 tests: owner-succeeds and
+admin-succeeds controls, staff-forbidden and manager-forbidden default-role
+probes, one override-revocation probe on admin). Mutation-verified by
+swapping in the pre-fix `route.ts` via `git show HEAD:<path>` (avoided
+`git stash` given the still-live stale-`.worker-driver.sh`-process hazard
+flagged by W1/W3/W2 in prior rounds — confirmed via `ps` this round that the
+stale PID 2278 for this worktree is *still* running alongside the current
+session's PID): 3 of 5 probes went RED pre-fix (manager-forbidden,
+staff-forbidden, admin-override-revoked), restored from the saved copy, all
+5 GREEN post-fix. Existing `route.isolation.test.ts` (tenant-scoping
+regression lock from a prior round) still passes unmodified — it mocks
+`getTenantForRequest` returning role `'owner'`, which has `audit.view`, so
+the new permission gate doesn't interfere with that test's assertions.
+
+`npx tsc --noEmit`: clean. Full suite: 419 files, 1843 passed + 37 skipped,
+0 regressions (was 418/1838). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round
+(unrelated WIP feature, not touched here).
+
+**Noticed, not touched:** `platform/src/app/api/management-applications/draft/route.ts`
+still has an uncommitted change in the working tree — confirmed (again,
+via `ps`) this is the stale duplicate `.worker-driver.sh` process's
+in-progress work (an IP-collision fix in draft-save keying), not mine,
+already documented in the P86 entry above. Left untouched, unstaged.
+
+File-only, no push/deploy/DB.
