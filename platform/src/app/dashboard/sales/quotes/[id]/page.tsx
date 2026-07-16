@@ -31,6 +31,10 @@ type Quote = {
   tax_cents: number
   discount_cents: number
   total_cents: number
+  deposit_type: 'none' | 'flat' | 'percent'
+  deposit_value: number
+  deposit_cents: number
+  deposit_paid_cents: number
   terms: string | null
   notes: string | null
   valid_until: string | null
@@ -90,7 +94,7 @@ export default function QuoteDetailPage() {
   const [err, setErr] = useState('')
   const [publicUrl, setPublicUrl] = useState('')
   const [showJobPlan, setShowJobPlan] = useState(false)
-  const [plan, setPlan] = useState<Array<{ label: string; kind: string; amount: string; trigger: string }>>([])
+  const [plan, setPlan] = useState<Array<{ label: string; kind: string; amount: string; trigger: string; alreadyPaid?: boolean }>>([])
 
   const load = useCallback(() => {
     setLoading(true)
@@ -134,22 +138,38 @@ export default function QuoteDetailPage() {
     router.push(`/dashboard/bookings?highlight=${data.booking_id}`)
   })
 
-  // Project conversion: build a payment plan (default deposit/final split), then
-  // create a Job that owns the plan. Sessions are scheduled after the job exists.
+  // Project conversion: build a payment plan, then create a Job that owns the
+  // plan. Prefill from the deposit terms already chosen on the quote itself
+  // (deposit_cents, resolved from deposit_type/deposit_value at quote save
+  // time) rather than an arbitrary 50/50 split the operator has to redo —
+  // they already decided this once. A deposit already collected via Stripe
+  // (deposit_paid_cents) is reflected as paid instead of billed again.
   const openJobPlan = () => {
     const total = quote?.total_cents || 0
-    const half = Math.round(total / 2)
-    setPlan([
-      { label: 'Deposit', kind: 'deposit', amount: (half / 100).toFixed(2), trigger: 'on_signature' },
-      { label: 'Final', kind: 'final', amount: ((total - half) / 100).toFixed(2), trigger: 'on_stage_complete' },
-    ])
+    const paid = quote?.deposit_paid_cents || 0
+    const configured = quote?.deposit_cents || 0
+    if (paid > 0) {
+      setPlan([
+        { label: 'Deposit (already paid)', kind: 'deposit', amount: (paid / 100).toFixed(2), trigger: 'on_signature', alreadyPaid: true },
+        { label: 'Final', kind: 'final', amount: (Math.max(0, total - paid) / 100).toFixed(2), trigger: 'on_stage_complete' },
+      ])
+    } else if (configured > 0) {
+      setPlan([
+        { label: 'Deposit', kind: 'deposit', amount: (configured / 100).toFixed(2), trigger: 'on_signature' },
+        { label: 'Final', kind: 'final', amount: (Math.max(0, total - configured) / 100).toFixed(2), trigger: 'on_stage_complete' },
+      ])
+    } else {
+      setPlan([
+        { label: 'Final payment', kind: 'final', amount: (total / 100).toFixed(2), trigger: 'on_signature' },
+      ])
+    }
     setShowJobPlan(true)
   }
   const planTotalCents = () => plan.reduce((s, p) => s + Math.round(parseFloat(p.amount || '0') * 100), 0)
   const convertToJob = () => doAction('convert-job', async () => {
     const payments = plan
       .filter(p => p.label.trim() && parseFloat(p.amount || '0') > 0)
-      .map(p => ({ label: p.label.trim(), kind: p.kind, amount_cents: Math.round(parseFloat(p.amount) * 100), trigger: p.trigger }))
+      .map(p => ({ label: p.label.trim(), kind: p.kind, amount_cents: Math.round(parseFloat(p.amount) * 100), trigger: p.trigger, already_paid: p.alreadyPaid || undefined }))
     const res = await fetch(`/api/quotes/${id}/convert-to-job`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },

@@ -652,6 +652,12 @@ interface ProjectScenario {
   crew: { name: string; employmentType: 'contractor_1099' | 'employee_w2'; compType: 'per_job' | 'hourly' | 'salary'; payLabel: string; payCents: number; payMethod: string }
   referrer: { name: string; email: string; phone: string; refCode: string; commissionRate: number; note: string }
   review: { rating: number; comment: string }
+  // Mid-project scope change — the customer adds/changes scope after the job
+  // is already sold, scheduled and underway (not caught at quote time). Real
+  // pain point for every one of these trades: hidden damage found once
+  // tear-off starts, a client falling for the samples and wanting more,
+  // seeing one room finished and wanting another added.
+  changeOrder: { note: string; offsetDays: number; lineItem: ProjectLineItem }
 }
 
 const PROJECT_LOC = { city: 'Charlotte', state: 'NC', zip: '28202' }
@@ -705,6 +711,11 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       rating: 5,
       comment: "Storm hit Tuesday night and these guys had a tarp on by Thursday morning, then did the full reroof three weeks later exactly like they said. Ridge vent looks great, cleanup was spotless — didn't find a single nail in the yard.",
     },
+    changeOrder: {
+      note: "Crew called mid tear-off — once the old shingles came off they found 6 sheets of decking rotted through around a old vent boot, not visible during the original inspection. Needs replacing before dry-in or the new roof has nothing solid to nail into.",
+      offsetDays: 18,
+      lineItem: { name: 'Rotted decking replacement (6 sheets 4x8 OSB, found during tear-off)', quantity: 6, unit_price_cents: 22000 },
+    },
   },
   {
     key: 'remodeling',
@@ -754,6 +765,11 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       rating: 5,
       comment: 'The custom cabinetry turned out better than our mood board. They showed up every single day when they said they would, which after hearing our friends’ remodel horror stories felt like a miracle.',
     },
+    changeOrder: {
+      note: "Elena saw the cabinet samples go in and now wants the same cabinetry run extended into the little mudroom nook by the back door, plus a wine fridge cutout — wasn't in the original scope, she signed off knowing it pushes the timeline out a bit.",
+      offsetDays: 26,
+      lineItem: { name: 'Additional cabinetry — mudroom nook + wine fridge cutout, installed', quantity: 1, unit_price_cents: 620000 },
+    },
   },
   {
     key: 'interior_design',
@@ -796,6 +812,11 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
     review: {
       rating: 5,
       comment: "Closed on the house with zero furniture and two months later the living room and office are unrecognizable — exactly what we pictured, and we never set foot in a single showroom.",
+    },
+    changeOrder: {
+      note: "Priya saw the primary bedroom mockups and now wants the guest bedroom done too before the holidays, since her in-laws are staying over — wasn't part of the original 3-room scope.",
+      offsetDays: 20,
+      lineItem: { name: 'Design + furniture procurement — guest bedroom (added mid-project)', quantity: 1, unit_price_cents: 165000 },
     },
   },
 ]
@@ -984,6 +1005,45 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('schedule: crew assigned to every session', true)
     }
 
+    // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
+    // Real pain point across every one of these trades: the customer adds or
+    // changes scope AFTER the sale is signed and the job is already scheduled
+    // — hidden damage found once tear-off starts, a client wanting more after
+    // seeing the samples, wanting a second room added mid-install. There's no
+    // dedicated change-order feature yet; the operator's actual workaround
+    // today is: bump the job total, add a new job_payments line for the
+    // extra scope, and invoice it alongside everything else. Exercising that
+    // workaround here to prove the job/payment/invoice/ledger plumbing
+    // tolerates a total that changes after job creation, not just at
+    // creation time.
+    const coLine = normalizeLineItems([cfg.changeOrder.lineItem])
+    const coTotals = computeTotals(coLine, 0, 0)
+    await supabase.from('job_events').insert({
+      tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'change_order_requested',
+      detail: { note: cfg.changeOrder.note, amount_cents: coTotals.total_cents },
+    })
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Change order: ${cfg.changeOrder.note}`,
+      metadata: { job_id: jobRes.job_id, amount_cents: coTotals.total_cents },
+    })
+
+    const newJobTotal = (job?.total_cents || quote.total_cents) + coTotals.total_cents
+    const { error: coJobErr } = await supabase.from('jobs').update({ total_cents: newJobTotal }).eq('id', jobRes.job_id)
+    add('change-order: job total increased by the added scope', !coJobErr, coJobErr?.message)
+
+    const coPayment = { label: `Change order — ${cfg.changeOrder.lineItem.name}`, kind: 'milestone' as const, amount_cents: coTotals.total_cents, trigger: 'manual' as const }
+    const { data: coRow, error: coPayErr } = await supabase.from('job_payments').insert({
+      tenant_id: tenant.id, job_id: jobRes.job_id, label: coPayment.label, kind: coPayment.kind,
+      amount_cents: coPayment.amount_cents, trigger: coPayment.trigger, sort_order: plan.length, status: 'pending',
+    }).select('id').single()
+    add('change-order: added as its own job_payments line (not folded into an existing milestone)', !!coRow && !coPayErr, coPayErr?.message)
+
+    const { data: jobAfterCO } = await supabase.from('jobs').select('total_cents').eq('id', jobRes.job_id).single()
+    add('change-order: job total = original + change order (not silently dropped)', jobAfterCO?.total_cents === newJobTotal, `${jobAfterCO?.total_cents} vs ${newJobTotal}`)
+    const { data: jobPaysAfterCO } = await supabase.from('job_payments').select('id').eq('job_id', jobRes.job_id)
+    add('change-order: job_payments count = milestones + 1', (jobPaysAfterCO?.length || 0) === plan.length + 1, `${jobPaysAfterCO?.length}`)
+
     // ================= 6. PAYROLL =================
     const { ensureChartAccounts, getAccountIdByCode } = await import('../src/lib/ledger')
     const { postPayrollToLedger } = await import('../src/lib/finance/post-labor')
@@ -1020,10 +1080,11 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     const { postPaymentRevenue } = await import('../src/lib/finance/post-revenue')
     const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
 
+    const billablePlan = [...plan, coPayment]
     let invoicesCreated = 0
     let paymentsPosted = 0
     let revenueRecognizedCents = 0
-    for (const p of plan) {
+    for (const p of billablePlan) {
       const invNum = await generateInvoiceNumber(tenant.id)
       const iLines = invLines([{ name: p.label, quantity: 1, unit_price_cents: p.amount_cents }])
       const iTot = invTotals(iLines, 0, 0)
@@ -1045,9 +1106,9 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         if (rev.posted) { paymentsPosted++; revenueRecognizedCents += p.amount_cents }
       }
     }
-    add(`invoicing: ${plan.length} milestone invoices created & marked paid`, invoicesCreated === plan.length, `${invoicesCreated}/${plan.length}`)
-    add(`invoicing: ${plan.length} milestone payments posted to ledger`, paymentsPosted === plan.length, `${paymentsPosted}/${plan.length}`)
-    add('invoicing: milestone total = quote total', revenueRecognizedCents === quote.total_cents, `${revenueRecognizedCents} vs ${quote.total_cents}`)
+    add(`invoicing: ${billablePlan.length} invoices created & marked paid (incl. change order)`, invoicesCreated === billablePlan.length, `${invoicesCreated}/${billablePlan.length}`)
+    add(`invoicing: ${billablePlan.length} payments posted to ledger (incl. change order)`, paymentsPosted === billablePlan.length, `${paymentsPosted}/${billablePlan.length}`)
+    add('invoicing: revenue = quote total + change order (scope creep not lost)', revenueRecognizedCents === newJobTotal, `${revenueRecognizedCents} vs ${newJobTotal}`)
 
     // ================= 8. REFERRALS =================
     const { data: referrer, error: refErr } = await supabase.from('referrers').insert({
