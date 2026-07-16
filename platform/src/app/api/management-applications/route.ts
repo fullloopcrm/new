@@ -59,6 +59,25 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, email, phone, location, resume, photo, and selfie video are required.' }, { status: 400 })
     }
 
+    // resume_url/photo_url/video_url are expected to come from the
+    // signed-upload flow (/api/management-applications/signed-url), but
+    // nothing previously checked that — an unauthenticated applicant could
+    // POST any string here. Same bug class already fixed in
+    // team-portal/video-upload and sales-applications: require each to be a
+    // real object under this tenant's own signed-upload prefix.
+    const uploads = supabaseAdmin.storage.from('uploads')
+    const checks: Array<[string, unknown]> = [
+      ['resumes', resume_url],
+      ['photos', photo_url],
+      ['videos', video_url],
+    ]
+    for (const [folder, url] of checks) {
+      const { data: prefix } = uploads.getPublicUrl(`${tenant.id}/management-applications/${folder}/`)
+      if (typeof url !== 'string' || !url.startsWith(prefix.publicUrl)) {
+        return NextResponse.json({ error: 'Invalid upload URL' }, { status: 400 })
+      }
+    }
+
     const normalizedEmail = String(email).toLowerCase().trim()
     const { data: existing } = await supabaseAdmin
       .from('management_applications')

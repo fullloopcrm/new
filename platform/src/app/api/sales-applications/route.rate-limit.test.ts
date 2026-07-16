@@ -40,6 +40,11 @@ vi.mock('@/lib/supabase', () => ({
         }
       },
     }),
+    storage: {
+      from: () => ({
+        getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example/public/uploads/${path}` } }),
+      }),
+    },
   },
 }))
 
@@ -52,7 +57,7 @@ function applicationReq(): Request {
     email: 'jane@example.com',
     phone: '5551234567',
     location: 'NYC',
-    video_url: 'https://example.com/video.mp4',
+    video_url: 'https://storage.example/public/uploads/tenant-1/applications/videos/clip.mp4',
   }
   return {
     headers: new Headers({ 'x-forwarded-for': '203.0.113.9' }),

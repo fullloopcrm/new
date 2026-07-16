@@ -66,6 +66,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name, email, and phone are required.' }, { status: 400 })
     }
 
+    // resumeUrl/videoUrl are expected to come from the same
+    // management-applications signed-upload flow the operations-coordinator
+    // form uses, but nothing previously checked that — an unauthenticated
+    // applicant could POST any string here. Same bug class already fixed in
+    // team-portal/video-upload, sales-applications, and
+    // management-applications: require each (when present) to be a real
+    // object under this tenant's own signed-upload prefix.
+    const uploads = supabaseAdmin.storage.from('uploads')
+    const optionalUploads: Array<[string, string | null | undefined]> = [
+      ['resumes', body.resumeUrl],
+      ['videos', body.videoUrl],
+    ]
+    for (const [folder, url] of optionalUploads) {
+      if (!url) continue
+      const { data: prefix } = uploads.getPublicUrl(`${tenant.id}/management-applications/${folder}/`)
+      if (!url.startsWith(prefix.publicUrl)) {
+        return NextResponse.json({ error: 'Invalid upload URL' }, { status: 400 })
+      }
+    }
+
     const cleanPhone = phone.replace(/\D/g, '')
 
     const { data, error } = await supabaseAdmin

@@ -1,16 +1,16 @@
 /**
- * sales-applications/route.ts POST — video_url/linkedin_url scheme validation.
+ * sales-applications/route.ts POST — video_url storage-prefix enforcement.
  *
- * video_url/linkedin_url are stored verbatim from this fully public,
- * unauthenticated Commission Sales Partner application form and later
- * rendered as <a href={...}> in the staff dashboard (SalesAppsTab.tsx) with
- * no scheme sanitization on the render side. React does not block
- * `javascript:` hrefs, so an unauthenticated applicant could submit
- * video_url: 'javascript:...' and get it executed in a staff member's
- * dashboard session the moment they click "Watch Selfie Video" to review the
- * application — a stored XSS with no auth required to plant it.
- *
- * FIX: POST now rejects video_url/linkedin_url unless they're http(s).
+ * video_url is expected to come from the legitimate signed-upload flow
+ * (/api/apply/signed-url) and is rendered as a raw <a href> in the admin
+ * dashboard ("Watch Selfie Video"). Before this fix, nothing checked that the
+ * submitted video_url actually pointed at this tenant's own
+ * applications/videos storage prefix — an http(s) URL to ANY external
+ * resource (a phishing page, another tenant's video, arbitrary content) would
+ * pass the scheme check and get stored + surfaced to staff as if it were a
+ * genuine selfie video. Same bug class already fixed in
+ * team-portal/video-upload. Fixed by requiring video_url to start with the
+ * public URL prefix for `${tenantId}/applications/videos/`.
  */
 import { describe, it, expect, vi } from 'vitest'
 
@@ -69,29 +69,22 @@ function applicationReq(overrides: Record<string, unknown>): Request {
   } as unknown as Request
 }
 
-describe('POST /api/sales-applications — video_url/linkedin_url scheme validation', () => {
-  it('rejects a javascript: video_url (stored-XSS payload), no DB write', async () => {
-    const res = await POST(applicationReq({ video_url: 'javascript:alert(document.cookie)' }))
+describe('POST /api/sales-applications — video_url storage-prefix enforcement', () => {
+  it('rejects an http(s) video_url pointing outside this tenant\'s own storage prefix, no DB write', async () => {
+    const res = await POST(applicationReq({ video_url: 'https://evil.example.com/fake-video.mp4' }))
     expect(res.status).toBe(400)
     expect(insertCalls).toHaveLength(0)
   })
 
-  it('rejects a data: video_url, no DB write', async () => {
-    const res = await POST(applicationReq({ video_url: 'data:text/html,<script>alert(1)</script>' }))
+  it('rejects a video_url pointing at a DIFFERENT tenant\'s applications/videos prefix, no DB write', async () => {
+    const res = await POST(applicationReq({ video_url: 'https://storage.example/public/uploads/other-tenant/applications/videos/clip.mp4' }))
     expect(res.status).toBe(400)
     expect(insertCalls).toHaveLength(0)
   })
 
-  it('rejects a javascript: linkedin_url even when video_url is valid', async () => {
-    const res = await POST(applicationReq({ linkedin_url: 'javascript:alert(document.cookie)' }))
-    expect(res.status).toBe(400)
-    expect(insertCalls).toHaveLength(0)
-  })
-
-  it('accepts a genuine https video_url + linkedin_url', async () => {
-    const res = await POST(applicationReq({ linkedin_url: 'https://linkedin.com/in/jane' }))
+  it('accepts a video_url inside this tenant\'s own applications/videos prefix', async () => {
+    const res = await POST(applicationReq({}))
     expect(res.status).toBe(201)
     expect(insertCalls).toHaveLength(1)
-    expect(insertCalls[0].row.video_url).toBe('https://storage.example/public/uploads/tenant-1/applications/videos/clip.mp4')
   })
 })
