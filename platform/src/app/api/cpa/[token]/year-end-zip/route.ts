@@ -5,11 +5,23 @@ import { NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toCsv, buildTrialBalance, buildGeneralLedger } from '@/lib/finance-export'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
 export async function GET(request: Request, { params }: Params) {
   try {
+    // Unauthenticated, token-only (no session) — matches the sibling
+    // quotes/invoices/documents public-token routes' rateLimitDb bucket, which
+    // this route lacked. Without it, a known/leaked token lets a caller
+    // repeatedly regenerate the trial balance + general ledger + ZIP
+    // (DB queries + in-memory zip build per request) with no cap.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`cpa-year-end-zip:${ip}`, 30, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const { token } = await params
     const url = new URL(request.url)
     const year = url.searchParams.get('year') || String(new Date().getUTCFullYear() - 1)
