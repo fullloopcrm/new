@@ -65,15 +65,28 @@ export async function GET(request: Request) {
 
     for (const booking of dueList.slice(0, CAP)) {
       if (!booking.client_id) continue
-      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
-        smsType: 'rating_prompt',
-        bookingId: booking.id,
-      })
-      await supabaseAdmin
+
+      // Claim BEFORE sending: the initial SELECT above is not enough on its
+      // own — this cron runs every 5 min, and a slow run (or a manual
+      // re-trigger overlapping a scheduled one) could still see
+      // rating_prompt_sent_at IS NULL for the same booking on both
+      // invocations, double-texting the client. The conditional UPDATE only
+      // matches for whichever run gets there first; the loser's WHERE
+      // clause matches 0 rows and it skips the send. Same pattern as the
+      // campaign-send draft claim.
+      const { data: claimed } = await supabaseAdmin
         .from('bookings')
         .update({ rating_prompt_sent_at: new Date().toISOString() })
         .eq('id', booking.id)
         .eq('tenant_id', tenantId)
+        .is('rating_prompt_sent_at', null)
+        .select('id')
+      if (!claimed || claimed.length === 0) continue
+
+      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
+        smsType: 'rating_prompt',
+        bookingId: booking.id,
+      })
       totalSent++
     }
   }
