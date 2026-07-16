@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
+import { isKnownTenantStatus } from '@/lib/tenant-status'
 
 export async function GET(
   _request: Request,
@@ -74,6 +75,13 @@ export async function PUT(
   const updates: Record<string, string> = {}
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  // tenantServesSite() is a case-sensitive exact match against a fixed status
+  // set — an unvalidated free-text status here could write successfully while
+  // never actually gating the tenant (see tenant-status.ts).
+  if (updates.status !== undefined && !isKnownTenantStatus(updates.status)) {
+    return NextResponse.json({ error: `Unknown status: ${updates.status}` }, { status: 400 })
   }
 
   const { error } = await supabaseAdmin

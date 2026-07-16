@@ -14,3 +14,16 @@ export const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'
 export function tenantServesSite(status: string | null | undefined): boolean {
   return !NON_SERVING_STATUSES.has(status ?? '')
 }
+
+// Every status value the platform writes anywhere (provisioning, activation,
+// admin actions, cancellation). tenantServesSite() above is a case-sensitive
+// EXACT match against NON_SERVING_STATUSES, so any writer that isn't
+// constrained to this set (e.g. an admin API accepting a free-text status
+// body) can silently fail-open: a value like "Suspended" or "banned" would
+// write successfully but never match NON_SERVING_STATUSES, leaving the tenant
+// fully serving site + dashboard + writes while admins believe it was cut off.
+export const KNOWN_TENANT_STATUSES = new Set(['active', 'setup', 'pending', 'suspended', 'cancelled', 'deleted'])
+
+export function isKnownTenantStatus(status: unknown): status is string {
+  return typeof status === 'string' && KNOWN_TENANT_STATUSES.has(status)
+}
