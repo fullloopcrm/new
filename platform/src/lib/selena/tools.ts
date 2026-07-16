@@ -1124,7 +1124,7 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
-  await supabaseAdmin.from('payments').insert({
+  const { error: paymentInsertErr } = await supabaseAdmin.from('payments').insert({
     tenant_id: tid,
     booking_id: input.booking_id,
     client_id: booking.client_id,
@@ -1132,6 +1132,11 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
     method: input.method,
     status: 'received',
   })
+  // The insert error was previously discarded and the booking got marked
+  // paid unconditionally -- an AI-tool-reported "payment received" with no
+  // actual payments row behind it if the insert failed.
+  if (paymentInsertErr) return JSON.stringify({ error: `payment insert failed: ${paymentInsertErr.message}` })
+
   await supabaseAdmin.from('bookings').update({ payment_status: 'paid', payment_received_at: new Date().toISOString() }).eq('id', input.booking_id).eq('tenant_id', tid)
 
   return JSON.stringify({ ok: true, booking_id: input.booking_id, amount: input.amount_dollars, method: input.method })
