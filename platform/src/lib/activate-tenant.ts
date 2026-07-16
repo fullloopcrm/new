@@ -401,11 +401,34 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     const { error: tdErr } = await supabaseAdmin
       .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
       .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
+
+    // ignoreDuplicates above means ON CONFLICT DO NOTHING: it only inserts
+    // brand-new rows and never touches an EXISTING row's routing_mode. If a
+    // tenant is added to BESPOKE_SITE_TENANTS after its domain row already
+    // exists (the common case — domains are usually registered long before a
+    // tenant goes bespoke), this "safe to hit repeatedly" button would
+    // otherwise never re-sync it: reconcile-tenant-config.mjs only DETECTS
+    // that drift, it doesn't write anything back. Explicitly correct any
+    // mismatch on every run so routing_mode can't get stuck stale.
+    let driftFixed = 0
+    if (!tdErr) {
+      const { data: fixedRows, error: syncErr } = await supabaseAdmin
+        .from('tenant_domains')
+        .update({ routing_mode: routingMode })
+        .eq('tenant_id', tenantId)
+        .in('domain', rows.map((r) => r.domain))
+        .neq('routing_mode', routingMode)
+        .select('id')
+      if (!syncErr) driftFixed = fixedRows?.length ?? 0
+    }
+
     steps.push({
       key: 'domain_routing',
       label: 'Domain routing + SEO link',
       status: tdErr ? 'failed' : 'done',
-      detail: tdErr ? tdErr.message : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest`,
+      detail: tdErr
+        ? tdErr.message
+        : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest${driftFixed > 0 ? ` (corrected stale routing_mode on ${driftFixed} row(s))` : ''}`,
     })
   } catch (e) {
     steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
