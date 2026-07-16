@@ -9,8 +9,9 @@
  * maid "clean" rule; "pet waste" before junk's "waste"; "garage door repair" before
  * handyman's "repair"; "water damage" before plumbing's "water").
  *
- * Presets are hourly-model (price_cents = rate×100, per_unit=hour) to match the
- * existing booking/billing engine; operators edit real numbers in onboarding.
+ * Presets store price_cents = default_hourly_rate×100 for every trade, but the
+ * unit that number is billed by varies — PER_UNIT_BY_INDUSTRY below says whether
+ * it's an hourly rate or a flat job price. Operators edit real numbers in onboarding.
  */
 
 export type IndustryKey =
@@ -36,6 +37,81 @@ export interface DefaultService {
   default_duration_hours: number
   default_hourly_rate: number
   sort_order: number
+}
+
+/** Matches service_types_per_unit_chk in 2026_07_03_catalog_sku_fields.sql. */
+export type PerUnit = 'hour' | 'job' | 'unit' | 'sqft' | 'linear_ft' | 'visit' | 'day' | 'custom'
+
+/**
+ * Real pricing unit per trade, read by provision-tenant.ts to seed
+ * service_types.per_unit and to label Selena's pricing_rows. Service (booking)
+ * verticals bill by the hour (duration × default_hourly_rate). Hauling/disposal
+ * (dumpster, junk removal, towing) and every project (lead) vertical quote a
+ * flat job price no matter how many hours/days the work takes — without this
+ * map they'd seed quoting e.g. "$350/hr" for a dumpster rental.
+ */
+export const PER_UNIT_BY_INDUSTRY: Record<IndustryKey, PerUnit> = {
+  // hauling / disposal — flat per load/rental/tow, never hourly
+  dumpster: 'job',
+  junk_removal: 'job',
+  towing: 'job',
+  // project (lead) verticals — fixed-bid, can run days -> a year
+  landscaping: 'job',
+  remodeling: 'job',
+  roofing: 'job',
+  siding: 'job',
+  painting: 'job',
+  flooring: 'job',
+  concrete: 'job',
+  deck: 'job',
+  fencing: 'job',
+  demolition: 'job',
+  drywall: 'job',
+  epoxy: 'job',
+  foundation: 'job',
+  insulation: 'job',
+  moving: 'job',
+  paving: 'job',
+  windows_doors: 'job',
+  stucco: 'job',
+  solar: 'job',
+  smart_home: 'job',
+  accessibility: 'job',
+  restoration: 'job',
+  interior_design: 'job',
+  // remaining service (booking) verticals — genuine hourly/service-call billing
+  cleaning: 'hour',
+  window_cleaning: 'hour',
+  gutter: 'hour',
+  carpet_cleaning: 'hour',
+  air_duct: 'hour',
+  pressure_washing: 'hour',
+  post_construction: 'hour',
+  bin_cleaning: 'hour',
+  pool: 'hour',
+  chimney: 'hour',
+  lawn_care: 'hour',
+  irrigation: 'hour',
+  snow_removal: 'hour',
+  tree_service: 'hour',
+  holiday_lighting: 'hour',
+  pest: 'hour',
+  appliance_repair: 'hour',
+  garage_door: 'hour',
+  locksmith: 'hour',
+  home_inspection: 'hour',
+  septic: 'hour',
+  auto_detailing: 'hour',
+  pet_grooming: 'hour',
+  pet_waste: 'hour',
+  handyman: 'hour',
+  hvac: 'hour',
+  plumbing: 'hour',
+  electrical: 'hour',
+  mobile_salon: 'hour',
+  laundry: 'hour',
+  fitness: 'hour',
+  general: 'hour',
 }
 
 export interface ChecklistField {

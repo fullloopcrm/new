@@ -28,25 +28,29 @@ import {
   mapIndustry,
   SERVICE_PRESETS,
   CHECKLIST_BY_INDUSTRY,
+  PER_UNIT_BY_INDUSTRY,
 } from './industry-presets'
 
 export { mapIndustry }
 export type { IndustryKey }
 
-const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, services: DefaultService[]) => ({
-  ai_enabled: true,
-  ai_name: 'Selena',
-  tone: 'warm_friendly',
-  emoji_usage: 'one_per_message',
-  language: 'en',
-  pricing_rows: services.map(s => ({ label: s.name, price: `$${s.default_hourly_rate}/hr` })),
-  time_estimates: services.map(s => ({ label: s.name, hours: s.default_duration_hours })),
-  service_areas: [] as string[],
-  business_tagline: `${tenantName} — reliable ${industry} service`,
-  cancellation_policy: 'First-time clients cannot cancel or reschedule. Recurring clients need 7 days notice.',
-  no_cancellation_first_time: true,
-  checklist_fields: CHECKLIST_BY_INDUSTRY[industry] || CHECKLIST_BY_INDUSTRY.general,
-})
+const DEFAULT_SELENA_CONFIG = (industry: IndustryKey, tenantName: string, services: DefaultService[]) => {
+  const priceSuffix = (PER_UNIT_BY_INDUSTRY[industry] || 'hour') === 'hour' ? '/hr' : ' flat'
+  return {
+    ai_enabled: true,
+    ai_name: 'Selena',
+    tone: 'warm_friendly',
+    emoji_usage: 'one_per_message',
+    language: 'en',
+    pricing_rows: services.map(s => ({ label: s.name, price: `$${s.default_hourly_rate}${priceSuffix}` })),
+    time_estimates: services.map(s => ({ label: s.name, hours: s.default_duration_hours })),
+    service_areas: [] as string[],
+    business_tagline: `${tenantName} — reliable ${industry} service`,
+    cancellation_policy: 'First-time clients cannot cancel or reschedule. Recurring clients need 7 days notice.',
+    no_cancellation_first_time: true,
+    checklist_fields: CHECKLIST_BY_INDUSTRY[industry] || CHECKLIST_BY_INDUSTRY.general,
+  }
+}
 
 const DEFAULT_GUIDELINES_EN = `Team Guidelines
 
@@ -111,13 +115,14 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
     const services = opts.overrides?.services || SERVICE_PRESETS[industry] || SERVICE_PRESETS.general
     // Seed BOTH the old booking columns (default_hourly_rate/duration) and the
     // SKU columns the quote builder reads (price_cents/item_type/per_unit) so
-    // seeded services don't render as $0 in proposals. Presets are hourly.
+    // seeded services don't render as $0 in proposals. default_hourly_rate
+    // doubles as the flat price for 'job'-priced trades (PER_UNIT_BY_INDUSTRY).
     const rows = services.map(s => ({
       ...s,
       tenant_id: tenantId,
       active: true,
       item_type: 'service',
-      per_unit: 'hour',
+      per_unit: PER_UNIT_BY_INDUSTRY[industry] || 'hour',
       price_cents: Math.round(s.default_hourly_rate * 100),
     }))
     const { data: inserted } = await supabaseAdmin.from('service_types').insert(rows).select('id')
