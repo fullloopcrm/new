@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 export const maxDuration = 300
 
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
       if (!settings.chatbot_enabled) continue
       if (!settings.review_followup_enabled) continue
       if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+      if (!await isCommEnabled(tenant.id, 'review_request', 'sms')) continue
 
       // Find bookings completed (checked out) within the per-tenant
       // review_followup_delay_hours window. Cron runs every 30 min, so we
