@@ -658,6 +658,24 @@ interface ProjectScenario {
   // tear-off starts, a client falling for the samples and wanting more,
   // seeing one room finished and wanting another added.
   changeOrder: { note: string; offsetDays: number; lineItem: ProjectLineItem }
+  // Customer disputes the FINAL invoice after the work is otherwise complete —
+  // the other real friction point, distinct from mid-project scope growth
+  // above: a punch-list item they say wasn't finished, a substitution they
+  // didn't sign off on, a finish they're unhappy with. Resolved as a
+  // negotiated partial credit against the final invoice, not a redo.
+  dispute: { note: string; offsetDays: number; creditPct: number }
+  // Customer UNDERPAYS a mid-project PROGRESS milestone (not the final
+  // invoice, and not a quality/scope dispute) — a cash-flow/collections
+  // problem: "I'll catch up next week" money still owed for work already
+  // done. Distinct from `dispute` above (which never touches amount_paid_cents
+  // or invoice.status='partial' at all — it just credits a fully-paid final
+  // invoice). Exercises the REAL partial-payment mechanics: a payment row
+  // linked to invoice_id so the DB trigger (invoices_recompute_paid,
+  // migrations/027_invoices.sql) recomputes amount_paid_cents + flips status
+  // to 'partial', a collections follow-up logged while the balance is still
+  // outstanding, then the remainder collected and the trigger flips it to
+  // 'paid'.
+  progressUnderpayment: { note: string; shortPct: number; followupOffsetDays: number }
 }
 
 const PROJECT_LOC = { city: 'Charlotte', state: 'NC', zip: '28202' }
@@ -716,6 +734,16 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       offsetDays: 18,
       lineItem: { name: 'Rotted decking replacement (6 sheets 4x8 OSB, found during tear-off)', quantity: 6, unit_price_cents: 22000 },
     },
+    dispute: {
+      note: "Marcus walked the roof after the final inspection and said one of the pipe boots was still leaking during last night's rain, refused to pay the final invoice until it's resolved. Crew went back out and found it was a satellite dish mount his own installer drilled through the new flashing after job completion — not the reroof work. Rather than fight it with the adjuster, ops negotiated a goodwill credit against the final invoice to close it out.",
+      offsetDays: 21,
+      creditPct: 0.12,
+    },
+    progressUnderpayment: {
+      note: "Marcus's insurance adjuster only released the ACV (actual cash value) portion of the claim so far — the depreciation check doesn't come until State Farm gets the completed invoice. He sent what he has against the tear-off/dry-in progress milestone and asked to catch up once that second check clears.",
+      shortPct: 0.35,
+      followupOffsetDays: 10,
+    },
   },
   {
     key: 'remodeling',
@@ -770,6 +798,16 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       offsetDays: 26,
       lineItem: { name: 'Additional cabinetry — mudroom nook + wine fridge cutout, installed', quantity: 1, unit_price_cents: 620000 },
     },
+    dispute: {
+      note: "Elena says the backsplash grout doesn't match the sample she picked at selections — the exact shade was discontinued mid-project and the closest match got installed without a documented sign-off from her. She's refusing to pay the final invoice until it's redone. Ops isn't tearing out a finished kitchen over a grout shade, so a credit against the final invoice was negotiated instead.",
+      offsetDays: 48,
+      creditPct: 0.10,
+    },
+    progressUnderpayment: {
+      note: "Elena's HELOC draw for the cabinet-delivery milestone got held up by the bank a week — she sent what she had on hand to keep the delivery from slipping and promised to wire the rest once the draw clears.",
+      shortPct: 0.25,
+      followupOffsetDays: 7,
+    },
   },
   {
     key: 'interior_design',
@@ -817,6 +855,16 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "Priya saw the primary bedroom mockups and now wants the guest bedroom done too before the holidays, since her in-laws are staying over — wasn't part of the original 3-room scope.",
       offsetDays: 20,
       lineItem: { name: 'Design + furniture procurement — guest bedroom (added mid-project)', quantity: 1, unit_price_cents: 165000 },
+    },
+    dispute: {
+      note: "Priya noticed two of the living room accent chairs aren't the ones from the mockup — the vendor substituted a close match after the originals went on backorder, and nobody looped her in before install day. She wants a discount rather than a swap that would blow the holiday deadline, and is holding the final invoice until it's resolved.",
+      offsetDays: 52,
+      creditPct: 0.15,
+    },
+    progressUnderpayment: {
+      note: "The furniture-procurement milestone landed right before the holidays — Priya asked to split it, sending enough to cover the vendor deposits required to place the orders and catching up on the rest before install day.",
+      shortPct: 0.40,
+      followupOffsetDays: 12,
     },
   },
 ]
@@ -1076,26 +1124,105 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     }
 
     // ================= 7. BOOKKEEPING / INVOICING (milestone invoices → ledger) =================
-    const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines } = await import('../src/lib/invoice')
+    const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines, logInvoiceEvent } = await import('../src/lib/invoice')
     const { postPaymentRevenue } = await import('../src/lib/finance/post-revenue')
+    const { postRefundToLedger } = await import('../src/lib/finance/post-adjustments')
     const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
 
     const billablePlan = [...plan, coPayment]
+    // The mid-project underpayment lands on the first PROGRESS milestone (not
+    // final — that's the separate quality/scope dispute below, and not the
+    // deposit — a shortfall there would block the job from starting at all).
+    const underpaymentTarget = plan.find(p => p.kind === 'progress')
+    // +1: the underpayment milestone splits into two payment rows (partial +
+    // collected balance) instead of the usual one, so the aggregate payment
+    // count below has to expect that extra row.
+    const expectedPaymentCount = billablePlan.length + (underpaymentTarget ? 1 : 0)
     let invoicesCreated = 0
     let paymentsPosted = 0
     let revenueRecognizedCents = 0
+    let finalInvoiceId: string | null = null
+    let finalInvoiceAmountCents = 0
     for (const p of billablePlan) {
       const invNum = await generateInvoiceNumber(tenant.id)
       const iLines = invLines([{ name: p.label, quantity: 1, unit_price_cents: p.amount_cents }])
       const iTot = invTotals(iLines, 0, 0)
+      const isUnderpaymentTarget = p === underpaymentTarget
+
       const { data: invoice, error: invErr } = await supabase.from('invoices').insert({
-        tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum, status: 'paid',
+        tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum,
+        status: isUnderpaymentTarget ? 'sent' : 'paid',
         title: `${cfg.quoteTitle} — ${p.label}`, contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail,
         line_items: iLines, subtotal_cents: iTot.subtotal_cents, tax_rate_bps: 0, tax_cents: 0,
         discount_cents: 0, total_cents: iTot.total_cents, due_date: new Date().toISOString().slice(0, 10),
-        public_token: generateInvoicePublicToken(), paid_at: new Date().toISOString(),
+        public_token: generateInvoicePublicToken(), ...(isUnderpaymentTarget ? {} : { paid_at: new Date().toISOString() }),
       }).select('id, total_cents').single()
-      if (invoice && !invErr) invoicesCreated++
+      if (invoice && !invErr) {
+        invoicesCreated++
+        if (p.kind === 'final') { finalInvoiceId = invoice.id; finalInvoiceAmountCents = invoice.total_cents }
+      }
+
+      // ============ 7a. MID-PROJECT UNDERPAYMENT / COLLECTIONS ============
+      // Distinct from the final-invoice quality/scope dispute in 7b below: a
+      // cash-flow problem, not a dispute over the work. Exercises the REAL
+      // partial-payment path (payment row linked to invoice_id → DB trigger
+      // invoices_recompute_paid recomputes amount_paid_cents + status), not
+      // just a status-field toggle — proves the trigger tolerates 2 payments
+      // against 1 invoice and lands on 'paid' only once the balance clears.
+      if (isUnderpaymentTarget && invoice) {
+        const shortCents = Math.round(p.amount_cents * cfg.progressUnderpayment.shortPct)
+        const partialCents = p.amount_cents - shortCents
+
+        const { data: partialPayment, error: partialErr } = await supabase.from('payments').insert({
+          tenant_id: tenant.id, invoice_id: invoice.id, booking_id: null,
+          amount_cents: partialCents, tip_cents: 0, method: 'ach', status: 'succeeded',
+        }).select('id').single()
+        add('collections: partial payment recorded against progress invoice', !!partialPayment && !partialErr, partialErr?.message)
+
+        const { data: invAfterPartial } = await supabase.from('invoices').select('status, amount_paid_cents').eq('id', invoice.id).single()
+        add('collections: invoice flips to partial (not silently marked paid)', invAfterPartial?.status === 'partial', invAfterPartial?.status)
+        add('collections: amount_paid_cents = partial payment exactly', invAfterPartial?.amount_paid_cents === partialCents, `${invAfterPartial?.amount_paid_cents} vs ${partialCents}`)
+
+        if (partialPayment) {
+          const partialRev = await postPaymentRevenue({ tenantId: tenant.id, paymentId: partialPayment.id })
+          add('collections: partial payment revenue posted to ledger', partialRev.posted, partialRev.reason)
+          if (partialRev.posted) { paymentsPosted++; revenueRecognizedCents += partialCents }
+        }
+
+        await logInvoiceEvent({
+          invoice_id: invoice.id, tenant_id: tenant.id, event_type: 'partial_payment',
+          detail: { amount_cents: partialCents, note: cfg.progressUnderpayment.note, balance_cents: shortCents },
+        })
+        await supabase.from('job_events').insert({
+          tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'payment_shortfall',
+          detail: { note: cfg.progressUnderpayment.note, invoice_id: invoice.id, short_cents: shortCents },
+        })
+
+        // Collections follow-up while the balance is still outstanding.
+        await logInvoiceEvent({
+          invoice_id: invoice.id, tenant_id: tenant.id, event_type: 'reminder_sent',
+          detail: { balance_cents: shortCents, days_outstanding: cfg.progressUnderpayment.followupOffsetDays },
+        })
+        add('collections: reminder logged while balance is still outstanding', true)
+
+        // Client catches up — collect the remaining balance.
+        const { data: finalPayment, error: finalErr } = await supabase.from('payments').insert({
+          tenant_id: tenant.id, invoice_id: invoice.id, booking_id: null,
+          amount_cents: shortCents, tip_cents: 0, method: 'ach', status: 'succeeded',
+        }).select('id').single()
+        add('collections: remaining balance collected', !!finalPayment && !finalErr, finalErr?.message)
+
+        const { data: invAfterFull } = await supabase.from('invoices').select('status, amount_paid_cents').eq('id', invoice.id).single()
+        add('collections: invoice flips to paid once balance is collected', invAfterFull?.status === 'paid', invAfterFull?.status)
+        add('collections: amount_paid_cents = full milestone amount (nothing lost)', invAfterFull?.amount_paid_cents === p.amount_cents, `${invAfterFull?.amount_paid_cents} vs ${p.amount_cents}`)
+
+        if (finalPayment) {
+          const finalRev = await postPaymentRevenue({ tenantId: tenant.id, paymentId: finalPayment.id })
+          add('collections: balance-collection revenue posted to ledger', finalRev.posted, finalRev.reason)
+          if (finalRev.posted) { paymentsPosted++; revenueRecognizedCents += shortCents }
+        }
+        continue
+      }
 
       const { data: payment, error: payErr } = await supabase.from('payments').insert({
         tenant_id: tenant.id, booking_id: null, amount_cents: p.amount_cents, tip_cents: 0,
@@ -1106,9 +1233,49 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         if (rev.posted) { paymentsPosted++; revenueRecognizedCents += p.amount_cents }
       }
     }
-    add(`invoicing: ${billablePlan.length} invoices created & marked paid (incl. change order)`, invoicesCreated === billablePlan.length, `${invoicesCreated}/${billablePlan.length}`)
-    add(`invoicing: ${billablePlan.length} payments posted to ledger (incl. change order)`, paymentsPosted === billablePlan.length, `${paymentsPosted}/${billablePlan.length}`)
-    add('invoicing: revenue = quote total + change order (scope creep not lost)', revenueRecognizedCents === newJobTotal, `${revenueRecognizedCents} vs ${newJobTotal}`)
+    add(`invoicing: ${billablePlan.length} invoices created (incl. change order)`, invoicesCreated === billablePlan.length, `${invoicesCreated}/${billablePlan.length}`)
+    add(`invoicing: ${expectedPaymentCount} payments posted to ledger (incl. change order + split collections payment)`, paymentsPosted === expectedPaymentCount, `${paymentsPosted}/${expectedPaymentCount}`)
+    add('invoicing: revenue = quote total + change order (scope creep not lost, underpayment fully collected)', revenueRecognizedCents === newJobTotal, `${revenueRecognizedCents} vs ${newJobTotal}`)
+
+    // ================= 7b. CUSTOMER DISPUTE (final invoice, completed work) =================
+    // Real pain point across every one of these trades, distinct from the
+    // mid-project scope-creep change order above: the customer disputes the
+    // FINAL invoice AFTER the work is otherwise done — a punch-list item they
+    // say wasn't finished, a substitution they didn't sign off on, a finish
+    // they're unhappy with. There's no dedicated dispute/credit-memo feature
+    // yet; the operator's actual workaround today is: negotiate a partial
+    // credit and issue it as a partial refund against the final invoice
+    // (reversing that slice of already-recognized revenue) instead of a redo,
+    // log the resolution on the job timeline, and leave the invoice in the
+    // same 'refunded' status a Stripe-issued refund already uses — proving
+    // that workaround doesn't need a dedicated "disputed" state to work.
+    add('dispute: final invoice identified to credit against', !!finalInvoiceId, finalInvoiceId || 'missing')
+    if (finalInvoiceId) {
+      const disputeCreditCents = Math.round(finalInvoiceAmountCents * cfg.dispute.creditPct)
+      await supabase.from('job_events').insert({
+        tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'dispute_raised',
+        detail: { note: cfg.dispute.note, credit_cents: disputeCreditCents },
+      })
+      await supabase.from('deal_activities').insert({
+        tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+        description: `Customer dispute — final invoice: ${cfg.dispute.note}`,
+        metadata: { job_id: jobRes.job_id, invoice_id: finalInvoiceId, credit_cents: disputeCreditCents },
+      })
+
+      const { error: disputeInvErr } = await supabase.from('invoices').update({ status: 'refunded' }).eq('id', finalInvoiceId)
+      add('dispute: final invoice marked refunded (partial credit issued)', !disputeInvErr, disputeInvErr?.message)
+      await logInvoiceEvent({
+        invoice_id: finalInvoiceId, tenant_id: tenant.id, event_type: 'refunded',
+        detail: { reason: 'customer_dispute', note: cfg.dispute.note, credit_cents: disputeCreditCents },
+      })
+
+      const disputeRefund = await postRefundToLedger({
+        tenantId: tenant.id, sourceId: `dispute-${finalInvoiceId}`, amountCents: disputeCreditCents,
+        memo: `Customer dispute credit — ${cfg.dispute.note.slice(0, 60)}`,
+      })
+      add('dispute: credit posted to ledger (revenue reversed, not silently absorbed)', disputeRefund.posted, disputeRefund.reason)
+      if (disputeRefund.posted) revenueRecognizedCents -= disputeCreditCents
+    }
 
     // ================= 8. REFERRALS =================
     const { data: referrer, error: refErr } = await supabase.from('referrers').insert({
