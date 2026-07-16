@@ -1087,6 +1087,24 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+
+  // cleaner_id is model-supplied here just like in handleAssignCleaner /
+  // handleCreateManualBooking above -- same FK-injection class: an
+  // unverified id let a manipulated conversation attach another tenant's
+  // cleaner to this booking, which the dashboard/AI then join and display
+  // (name, phone, rate) straight off that FK with no tenant filter on the
+  // nested select. Verify ownership before writing it, exactly like the
+  // sibling tools already do.
+  if (typeof update.cleaner_id === 'string') {
+    const { data: ownedCleaner } = await supabaseAdmin
+      .from('cleaners')
+      .select('id')
+      .eq('id', update.cleaner_id)
+      .eq('tenant_id', tid)
+      .maybeSingle()
+    if (!ownedCleaner) return JSON.stringify({ error: 'cleaner not found' })
+  }
+
   const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, updated_fields: Object.keys(update) })
