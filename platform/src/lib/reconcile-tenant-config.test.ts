@@ -2024,3 +2024,71 @@ describe('computeFindings — Drift U (STATIC_TENANT_MAP drift — the unconditi
     expect(findings.filter((f) => f.msg.includes('STATIC_TENANT_MAP'))).toHaveLength(0)
   })
 })
+
+describe('computeFindings — Drift V (stale KNOWN_PENDING_ORPHANS allowlist entry)', () => {
+  it('warns when an allowlisted slug is no longer in BESPOKE_SITE_TENANTS', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(), // the slug was removed from the middleware set entirely
+      hasHome: alwaysHome,
+      resolvableSlugs: new Set<string>(),
+      knownPendingOrphans: new Set(['toll-trucks-near-me']),
+    })
+    const warn = findings.find((f) => f.slug === 'toll-trucks-near-me' && f.msg.includes('no longer in BESPOKE_SITE_TENANTS'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('warns when an allowlisted slug now resolves to a tenants row (Jeff already dispositioned it)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['toll-trucks-near-me']), // still bespoke-routed…
+      hasHome: neverHome,
+      resolvableSlugs: new Set(['toll-trucks-near-me']), // …but a tenant now exists
+      knownPendingOrphans: new Set(['toll-trucks-near-me']),
+    })
+    const warn = findings.find((f) => f.slug === 'toll-trucks-near-me' && f.msg.includes('now resolves to a tenants row'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('emits no stale-entry WARN for an allowlisted slug that is still genuinely pending', () => {
+    // Drift L itself still CRITs this (real, still-unresolved orphan) — that's
+    // expected and covered by the Drift L tests above. This test isolates
+    // Drift V: no "remove the stale entry" WARN should accompany it.
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['toll-trucks-near-me']), // still bespoke-routed…
+      hasHome: neverHome,
+      resolvableSlugs: new Set<string>(), // …and still unresolvable
+      knownPendingOrphans: new Set(['toll-trucks-near-me']),
+    })
+    expect(findings.filter((f) => f.msg.includes('remove the stale entry'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when knownPendingOrphans is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: new Set<string>(),
+    })
+    expect(findings.filter((f) => f.msg.includes('remove the stale entry'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when resolvableSlugs is null, even with a non-empty allowlist', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      knownPendingOrphans: new Set(['toll-trucks-near-me']),
+    })
+    expect(findings.filter((f) => f.msg.includes('remove the stale entry'))).toHaveLength(0)
+  })
+})

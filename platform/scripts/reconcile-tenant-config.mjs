@@ -349,9 +349,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Map}      [input.staticTenantMap]  hostname -> {id, slug} from middleware's
  *                                  STATIC_TENANT_MAP (see parseStaticTenantMap).
  *                                  Feeds Drift U ONLY. Pass an empty Map (default) to skip.
+ * @param {Set}      [input.knownPendingOrphans]  slugs from the KNOWN_PENDING_ORPHANS
+ *                                  allowlist (see the const above). Feeds Drift V ONLY.
+ *                                  Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -712,6 +715,35 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift V: a KNOWN_PENDING_ORPHANS allowlist entry (see the comment above the
+  // const, above) that is stale — either the slug was already dispositioned
+  // (removed from BESPOKE_SITE_TENANTS entirely, so Drift L can never see it
+  // again) or it became resolvable (Jeff recreated the tenant, so Drift L's own
+  // "not resolvable" condition no longer matches it). Both cases are
+  // functionally harmless today — Drift L simply never re-fires for that slug
+  // either way — but the allowlist's whole purpose is to keep a CRIT visible
+  // ONLY while a real disposition is still pending; an entry that no longer
+  // matches that description is a forgotten cleanup, and it would silently
+  // downgrade a BRAND NEW orphan to "known-pending, non-gating" if the same
+  // slug were ever reused for a different bespoke tenant later. Takes the
+  // allowlist as an explicit input (rather than reading the module-level
+  // KNOWN_PENDING_ORPHANS constant directly, the way Drift L does) so this
+  // check stays opt-in like Drift O/P/Q/R/S/T/U — Drift L only ever consults
+  // the constant as a per-slug lookup scoped to bespokeSet's own members, but
+  // this check independently enumerates the allowlist itself, which would
+  // otherwise leak fixed real-tenant slugs into every caller's fixtures.
+  // Skipped when resolvableSlugs is null (same guard as Drift L/N) or the
+  // allowlist is empty (default — caller had nothing to check).
+  if (resolvableSlugs !== null && knownPendingOrphans.size) {
+    for (const slug of knownPendingOrphans) {
+      if (!bespokeSet.has(slug)) {
+        add('WARN', slug, `in KNOWN_PENDING_ORPHANS but no longer in BESPOKE_SITE_TENANTS -> this orphan was already dispositioned (or never was one); remove the stale entry from KNOWN_PENDING_ORPHANS in scripts/reconcile-tenant-config.mjs`)
+      } else if (resolvableSlugs.has(slug)) {
+        add('WARN', slug, `in KNOWN_PENDING_ORPHANS but now resolves to a tenants row -> Jeff already dispositioned this orphan (tenant recreated); remove the stale entry from KNOWN_PENDING_ORPHANS in scripts/reconcile-tenant-config.mjs`)
+      }
+    }
+  }
+
   return findings
 }
 
@@ -810,7 +842,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
