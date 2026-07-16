@@ -431,11 +431,24 @@ const TIME_MAP: Record<string, string> = {
   'mañana': '10am', 'tarde': '2pm', 'noche': '6pm', 'mediodía': '12pm',
 }
 
+const WEEKDAY_INDEX_BY_SHORT_NAME: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+
+// Weekday index (0=Sun..6=Sat) for `date`, evaluated in `timezone` — NOT
+// `date.getDay()`, which uses the process's implicit local timezone (UTC on
+// Vercel) and silently drifts from the caller's intended `timezone` day
+// whenever the local calendar date hasn't yet flipped to match it (or has
+// already flipped ahead of it), i.e. for hours every single day, not just a
+// DST edge case.
+export function weekdayInTz(date: Date, timezone: string): number {
+  const short = date.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'short' }).toLowerCase()
+  return short in WEEKDAY_INDEX_BY_SHORT_NAME ? WEEKDAY_INDEX_BY_SHORT_NAME[short] : date.getDay()
+}
+
 export function resolveDate(dayName: string, timezone = 'America/New_York', forceNextWeek = false): string | null {
   const now = new Date()
   const idx = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(dayName.toLowerCase())
   if (idx === -1) return null
-  const currentDay = now.getDay()
+  const currentDay = weekdayInTz(now, timezone)
   let daysAhead = idx - currentDay
   if (daysAhead <= 0) daysAhead += 7
   if (forceNextWeek && daysAhead < 7) daysAhead += 7
@@ -449,13 +462,13 @@ export function resolveRelativeDay(text: string, timezone = 'America/New_York'):
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const offsetDays = (n: number) => {
     const target = new Date(now.getTime() + n * 86400000)
-    return { day: dayNames[target.getDay()], date: target.toLocaleDateString('en-CA', { timeZone: timezone }) }
+    return { day: dayNames[weekdayInTz(target, timezone)], date: target.toLocaleDateString('en-CA', { timeZone: timezone }) }
   }
   if (/\b(today|hoy|esta noche)\b/i.test(lower)) return offsetDays(0)
   if (/\b(tomorrow|tmrw|tmr|mañana(?!\s))\b/i.test(lower)) return offsetDays(1)
   if (/\b(day after tomorrow|in 2 days)\b/i.test(lower)) return offsetDays(2)
   if (/\b(this weekend)\b/i.test(lower)) {
-    const sat = (6 - now.getDay() + 7) % 7 || 7
+    const sat = (6 - weekdayInTz(now, timezone) + 7) % 7 || 7
     return offsetDays(sat)
   }
   return null

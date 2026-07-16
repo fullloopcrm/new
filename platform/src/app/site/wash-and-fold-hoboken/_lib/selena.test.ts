@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, afterEach } from 'vitest'
 
 /**
  * getClientProfile() used `.ilike('phone', '%<last-10-digits>%')` with NO
@@ -48,7 +48,7 @@ vi.mock('@/app/site/wash-and-fold-hoboken/_lib/availability', () => ({
 vi.mock('@/app/site/wash-and-fold-hoboken/_lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@anthropic-ai/sdk', () => ({ default: class {} }))
 
-import { getClientProfile } from './selena'
+import { getClientProfile, resolveDate, weekdayInET } from './selena'
 
 describe('getClientProfile — phone match floor', () => {
   it('does NOT match an unrelated client via a malformed 1-digit phone', async () => {
@@ -60,5 +60,36 @@ describe('getClientProfile — phone match floor', () => {
   it('CONTROL: still finds the client on an exact 10-digit match', async () => {
     const result = JSON.parse(await getClientProfile('2125551234'))
     expect(result.name).toBe(UNRELATED_CLIENT.name)
+  })
+})
+
+describe("resolveDate — timezone-safe weekday computation", () => {
+  const realTZ = process.env.TZ
+
+  afterEach(() => {
+    if (realTZ === undefined) delete process.env.TZ
+    else process.env.TZ = realTZ
+    vi.useRealTimers()
+  })
+
+  // 2026-07-17T03:30:00Z = Fri 03:30 UTC, but Thu 23:30 America/New_York (EDT, UTC-4).
+  const CROSS_MIDNIGHT_INSTANT = "2026-07-17T03:30:00Z"
+
+  it("weekdayInET reports the ET weekday, not the process-local weekday", () => {
+    process.env.TZ = "UTC"
+    const d = new Date(CROSS_MIDNIGHT_INSTANT)
+    expect(d.getDay()).toBe(5) // UTC sees Friday
+    expect(weekdayInET(d)).toBe(4) // ET is still Thursday
+  })
+
+  it("resolveDate(\"friday\") resolves to tomorrow (ET), not a week later, under a UTC process TZ", () => {
+    process.env.TZ = "UTC"
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date(CROSS_MIDNIGHT_INSTANT))
+
+    const result = resolveDate("friday")
+
+    expect(result).toBe("2026-07-17")
+    expect(result).not.toBe("2026-07-23")
   })
 })

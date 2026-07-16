@@ -504,11 +504,23 @@ const TIME_MAP: Record<string, string> = {
   'mañana': '10am', 'tarde': '2pm', 'noche': '6pm', 'mediodía': '12pm',
 }
 
-function resolveDate(dayName: string, forceNextWeek = false): string | null {
+const ET_WEEKDAY_INDEX: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+
+// Weekday index (0=Sun..6=Sat) for `date`, evaluated in America/New_York — NOT
+// `date.getDay()`, which uses the process's implicit local timezone (UTC on
+// Vercel) and silently drifts from the intended Eastern-time day whenever the
+// UTC calendar date hasn't yet flipped to match ET (or has already flipped
+// ahead of it), i.e. for hours every single day, not just a DST edge case.
+export function weekdayInET(date: Date): number {
+  const short = date.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' }).toLowerCase()
+  return short in ET_WEEKDAY_INDEX ? ET_WEEKDAY_INDEX[short] : date.getDay()
+}
+
+export function resolveDate(dayName: string, forceNextWeek = false): string | null {
   const now = new Date()
   const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'].indexOf(dayName.toLowerCase())
   if (dayIndex === -1) return null
-  const currentDay = now.getDay()
+  const currentDay = weekdayInET(now)
   let daysAhead = dayIndex - currentDay
   if (daysAhead <= 0) daysAhead += 7
   if (forceNextWeek && daysAhead < 7) daysAhead += 7
@@ -517,19 +529,19 @@ function resolveDate(dayName: string, forceNextWeek = false): string | null {
 }
 
 // Resolve "tomorrow", "today", "next week" → { day, date }
-function resolveRelativeDay(text: string): { day: string; date: string } | null {
+export function resolveRelativeDay(text: string): { day: string; date: string } | null {
   const lower = text.toLowerCase().trim()
   const now = new Date()
   const dayNames = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
   const offsetDays = (n: number) => {
     const target = new Date(now.getTime() + n * 86400000)
-    return { day: dayNames[target.getDay()], date: target.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
+    return { day: dayNames[weekdayInET(target)], date: target.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) }
   }
   if (/\b(today|hoy|esta noche)\b/i.test(lower)) return offsetDays(0)
   if (/\b(tomorrow|tmrw|tmr|mañana(?!\s))\b/i.test(lower)) return offsetDays(1)
   if (/\b(day after tomorrow|in 2 days)\b/i.test(lower)) return offsetDays(2)
   if (/\b(this weekend)\b/i.test(lower)) {
-    const sat = (6 - now.getDay() + 7) % 7 || 7
+    const sat = (6 - weekdayInET(now) + 7) % 7 || 7
     return offsetDays(sat)
   }
   return null

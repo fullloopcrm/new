@@ -184,17 +184,28 @@ const TIME_MAP: Record<string, string> = {
   'morning': '10am', 'afternoon': '2pm', 'evening': '4pm',
 }
 
-function resolveDate(dayName: string, forceNextWeek = false): string | null {
+const ET_WEEKDAY_INDEX: Record<string, number> = { sun: 0, mon: 1, tue: 2, wed: 3, thu: 4, fri: 5, sat: 6 }
+
+// Weekday index (0=Sun..6=Sat) for `date`, evaluated in America/New_York — NOT
+// `date.getDay()`, which uses the process's implicit local timezone (UTC on
+// Vercel) and silently drifts from the intended Eastern-time day for hours
+// every single day, not just a DST edge case.
+export function weekdayInET(date: Date): number {
+  const short = date.toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' }).toLowerCase()
+  return short in ET_WEEKDAY_INDEX ? ET_WEEKDAY_INDEX[short] : date.getDay()
+}
+
+export function resolveDate(dayName: string, forceNextWeek = false): string | null {
   const now = new Date()
   const dayIndex = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday']
     .indexOf(dayName.toLowerCase())
   if (dayIndex === -1) return null
-  const currentDay = now.getDay()
+  const currentDay = weekdayInET(now)
   let daysAhead = dayIndex - currentDay
   if (daysAhead <= 0) daysAhead += 7
   if (forceNextWeek && daysAhead < 7) daysAhead += 7
   const target = new Date(now.getTime() + daysAhead * 24 * 60 * 60 * 1000)
-  return target.toLocaleDateString('en-CA') // YYYY-MM-DD
+  return target.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }) // YYYY-MM-DD
 }
 
 interface ExtractionResult {
