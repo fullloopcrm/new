@@ -13,11 +13,13 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * to an empty string.
  */
 
-const cookieSets: Array<{ name: string; value: string }> = []
+const cookieSets: Array<{ name: string; value: string; options?: Record<string, unknown> }> = []
 
 vi.mock('next/headers', () => ({
   cookies: async () => ({
-    set: (name: string, value: string) => { cookieSets.push({ name, value }) },
+    set: (name: string, value: string, options?: Record<string, unknown>) => {
+      cookieSets.push({ name, value, options })
+    },
   }),
 }))
 vi.mock('@/lib/nycmaid/auth', () => ({
@@ -76,5 +78,12 @@ describe('POST /api/auth/login — PIN fallback', () => {
     const res = await POST(loginReq({ password: 'correct-pin' }))
     expect(res.status).toBe(200)
     expect(cookieSets.some((c) => c.name === 'admin_session')).toBe(true)
+  })
+
+  it('sets admin_role httpOnly so it cannot be read or forged via document.cookie/XSS', async () => {
+    vi.stubEnv('ADMIN_PASSWORD', 'correct-pin')
+    await POST(loginReq({ password: 'correct-pin' }))
+    const roleCookie = cookieSets.find((c) => c.name === 'admin_role')
+    expect(roleCookie?.options?.httpOnly).toBe(true)
   })
 })
