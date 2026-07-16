@@ -191,6 +191,16 @@ describe('norm — adversarial domain forms that must collapse to the same key',
   it('strips arbitrarily many stray slashes (quad-slash URL)', () => {
     expect(norm('https:////shared-domain.com')).toBe('shared-domain.com')
   })
+
+  it('does NOT collapse to empty when the value ends in a bare "@" with no host after it', () => {
+    // The userinfo-strip regex is "^[^/?#]*@" — greedy, so without a lookahead
+    // requiring a char AFTER the '@' it matches the ENTIRE string whenever the
+    // last character is '@' (there is no "@?" to require a following host),
+    // collapsing a well-formed domain plus a stray trailing '@' to '' — and
+    // claim() silently skips empty keys, hiding the row from Drift F entirely.
+    expect(norm('shared-domain.com@')).not.toBe('')
+    expect(norm('https://shared-domain.com@')).not.toBe('')
+  })
 })
 
 describe('computeFindings — Drift F evades attempted via malformed domain forms', () => {
@@ -323,6 +333,36 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     expect(crit).toBeDefined()
     const { gatingCrit } = summarize(findings)
     expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain has a stray trailing "@" appended to an otherwise-identical domain', () => {
+    // Without the (?=.) lookahead, norm('shared-domain.com@') collapses to ''
+    // (the userinfo strip consumes the WHOLE string since nothing follows the
+    // trailing '@') — claim() no-ops on an empty key, so this row vanishes
+    // from Drift F entirely instead of merely failing to collapse alongside
+    // its clean counterpart.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared-domain.com@', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared-domain.com@', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    // The two domains normalize to distinct-but-non-empty keys, so this isn't
+    // a MULTIPLE-tenants collision — the regression this guards is narrower:
+    // the '@'-suffixed row must still be VISIBLE (produce its own Drift F/E
+    // claim/finding), not silently disappear the way an empty norm() key would.
+    expect(findings.length).toBeGreaterThan(0)
   })
 })
 
