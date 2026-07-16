@@ -151,6 +151,9 @@ export async function createJobFromQuote(
     throw new Error('Quote conversion already in progress')
   }
 
+  // Tracked outside the try so the catch block can tell whether the job row
+  // itself was already created (see the catch below).
+  let jobId: string | undefined
   try {
     // Resolve or create client (mirrors the booking convert path).
     let clientId = quote.client_id as string | null
@@ -203,7 +206,7 @@ export async function createJobFromQuote(
       .select('id')
       .single()
     if (jErr) throw jErr
-    const jobId = job.id as string
+    jobId = job.id as string
 
     // Payment plan: caller-supplied, else a single 'final' payment for the total.
     const plan: PaymentPlanItem[] =
@@ -241,10 +244,11 @@ export async function createJobFromQuote(
       if (bErr) throw bErr
     }
 
-    await supabaseAdmin
+    const { error: linkErr } = await supabaseAdmin
       .from('quotes')
       .update({ status: 'converted', converted_job_id: jobId, converted_at: new Date().toISOString() })
       .eq('id', quoteId)
+    if (linkErr) throw linkErr
 
     await logQuoteEvent({
       quote_id: quoteId,
@@ -272,8 +276,29 @@ export async function createJobFromQuote(
 
     return { job_id: jobId, already_converted: false }
   } catch (err) {
-    // Creation failed after the claim succeeded — release it so a retry
-    // isn't permanently blocked by a stuck "conversion in progress" error.
+    if (jobId) {
+      // The job row already exists (insert succeeded before something later —
+      // payments, sessions, or the link-back update itself — failed). Releasing
+      // the claim here would let a retry pass the `.is('converted_job_id', null)`
+      // gate and create a SECOND job + payment plan for the same quote. Instead,
+      // best-effort finish linking the quote to the job we already made so a
+      // retry resolves to `already_converted: true` against the real job
+      // instead of duplicating it. If even this fails, leave the claim in place
+      // — a quote stuck needing manual reconciliation is safer than a silent
+      // duplicate job/payment set.
+      try {
+        await supabaseAdmin
+          .from('quotes')
+          .update({ status: 'converted', converted_job_id: jobId, converted_at: new Date().toISOString() })
+          .eq('id', quoteId)
+          .eq('tenant_id', tenantId)
+      } catch {
+        // Best-effort — the original `err` below is what the caller sees.
+      }
+      throw err
+    }
+    // Nothing was created yet — release the claim so a retry isn't
+    // permanently blocked by a stuck "conversion in progress" error.
     await supabaseAdmin
       .from('quotes')
       .update({ converted_at: null })

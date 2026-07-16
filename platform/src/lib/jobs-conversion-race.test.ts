@@ -132,6 +132,31 @@ describe('createJobFromQuote — concurrent conversion race', () => {
     expect(fake._all('jobs').length).toBe(1)
   })
 
+  it('a failure AFTER the job row is created does not duplicate the job on retry', async () => {
+    // Force the job_payments insert (which runs after the job row already
+    // exists) to fail, simulating any downstream error — not just the very
+    // first insert — landing after the job was already committed.
+    fake._addUniqueConstraint('job_payments', 'label')
+    fake._seed('job_payments', [{ id: 'other-job-payment', tenant_id: TENANT_ID, job_id: 'unrelated-job', label: 'Final payment' }])
+
+    await expect(createJobFromQuote(TENANT_ID, QUOTE_ID)).rejects.toThrow()
+
+    // The job row itself was created before the failure — it must not be
+    // discarded, and the quote must still point at it (not reset to
+    // reclaimable), or a retry would create a second job for this quote.
+    const jobs = fake._all('jobs')
+    expect(jobs.length).toBe(1)
+    const linkedQuote = fake._all('quotes').find((q) => q.id === QUOTE_ID)
+    expect(linkedQuote?.converted_job_id).toBe(jobs[0].id)
+
+    // A retry now sees the quote already converted and returns the SAME job
+    // — no duplicate job/payment plan is created for the same sale.
+    const retried = await createJobFromQuote(TENANT_ID, QUOTE_ID)
+    expect(retried.already_converted).toBe(true)
+    expect(retried.job_id).toBe(jobs[0].id)
+    expect(fake._all('jobs').length).toBe(1)
+  })
+
   it('convertSaleToJob (the webhook entry point) closes the same race for a quote source', async () => {
     const results = await Promise.allSettled([
       convertSaleToJob(TENANT_ID, { type: 'quote', quoteId: QUOTE_ID }),
