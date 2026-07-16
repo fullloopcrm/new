@@ -1010,7 +1010,7 @@ function BookingsPage() {
           end_time: buildNaiveTime(date, createForm.start_time, createForm.hours),
           service_type: createForm.service_type, price: calculatePrice(),
           hourly_rate: createForm.hourly_rate, recurring_type: recurringType,
-          notes: createForm.notes || null, skip_email: true,
+          notes: createForm.notes || null, skip_email: true, is_emergency: true,
           status: 'available', cleaner_pay_rate: createForm.cleaner_pay_rate,
           max_hours: createForm.max_hours,
           force: true,

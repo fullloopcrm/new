@@ -91,15 +91,32 @@ export async function POST(request: Request) {
     const body = await request.json()
     const settings = await getSettings(tenantId)
 
+    // price/hourly_rate/service_type/is_emergency were missing from this
+    // schema until now: every OTHER booking-creation path (client/book,
+    // portal/bookings, all 3 forked selena.ts assistants, selena-legacy,
+    // selena/core) sets is_emergency + the tenant's configured emergency_rate
+    // on the row, but this route — the one BookingsAdmin.tsx's own
+    // "Emergency / Same-Day" manual-create flow posts to — silently dropped
+    // all four caller-supplied fields (validate() is a strict allowlist), so
+    // an admin-created emergency booking got price=0/hourly_rate=null in the
+    // DB regardless of what the operator entered, was never tagged
+    // is_emergency, and checkout's `editingBooking.hourly_rate || 69`
+    // fallback then silently charged the tenant's default rate instead of
+    // the emergency rate. See F4 doc (deploy-prep/) for the sibling
+    // same-day-availability gap this pairs with.
     const { data: fields, error: vError } = validate(body, {
       client_id: { type: 'uuid', required: true },
       property_id: { type: 'uuid' },
       team_member_id: { type: 'uuid' },
       service_type_id: { type: 'uuid' },
+      service_type: { type: 'string', max: 200 },
       start_time: { type: 'date', required: true },
       end_time: { type: 'date' },
       notes: { type: 'string', max: 2000 },
       special_instructions: { type: 'string', max: 2000 },
+      price: { type: 'number', min: 0 },
+      hourly_rate: { type: 'number', min: 0 },
+      is_emergency: { type: 'boolean' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
