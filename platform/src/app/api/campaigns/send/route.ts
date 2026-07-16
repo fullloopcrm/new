@@ -35,11 +35,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
-    // Mark as sending
-    await supabaseAdmin
+    // Atomically claim the campaign before sending: the read above is not
+    // enough on its own — two concurrent POSTs (double-click, or a client
+    // retry after a slow response) both read status:'draft' and, without a
+    // conditional write here, would both build the recipient list and fire
+    // real emails/SMS to the whole audience twice. WHERE status='draft'
+    // makes only one request's UPDATE match; the loser sees 0 rows back.
+    const { data: claimed } = await supabaseAdmin
       .from('campaigns')
       .update({ status: 'sending' })
       .eq('id', campaign_id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'draft')
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
 
     // Fetch audience
     let query = supabaseAdmin

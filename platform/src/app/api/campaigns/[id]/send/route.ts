@@ -13,9 +13,10 @@ export async function POST(
   const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
+  const { id } = await params
+
   try {
     const { tenantId, tenant } = tenantCtx
-    const { id } = await params
 
     // Get campaign
     const { data: campaign } = await supabaseAdmin
@@ -38,6 +39,10 @@ export async function POST(
         { error: 'This tenant requires campaign approval before sending. Set status to approved first.' },
         { status: 403 }
       )
+    }
+
+    if (campaign.status === 'sent' || campaign.status === 'sending') {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
     // Get recipients (active clients). Per-channel marketing opt-outs are
@@ -64,6 +69,28 @@ export async function POST(
     }
     if (sendSMSMessages && (!tenant.telnyx_api_key || !tenant.telnyx_phone)) {
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx keys in Settings.' }, { status: 400 })
+    }
+
+    // Atomically claim the campaign now that every precondition that can
+    // still fail (recipients present, integrations configured) has passed —
+    // claiming any earlier would strand the campaign in 'sending' forever on
+    // those early returns, since none of them revert the status.
+    // This route had NO idempotency guard at all: a double-click of "Send",
+    // a client retry after a slow response, or simply calling it again later
+    // re-fetched every active client and re-sent the full campaign a second
+    // (or Nth) time — real emails/SMS billed and delivered again, on top of
+    // any concurrent-call race. WHERE status NOT IN ('sent','sending') means
+    // only one caller's UPDATE can win; every other caller sees 0 rows back.
+    const { data: claimed } = await supabaseAdmin
+      .from('campaigns')
+      .update({ status: 'sending' })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .neq('status', 'sent')
+      .neq('status', 'sending')
+      .select('id')
+    if (!claimed || claimed.length === 0) {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
     // Sender display name comes from settings.campaign_sender_name; format as
@@ -133,7 +160,14 @@ export async function POST(
     await audit({ tenantId, action: 'campaign.sent', entityType: 'campaign', entityId: id, details: { name: campaign.name, recipients: sentCount } })
 
     return NextResponse.json({ sent: sentCount })
-  } catch {
+  } catch (e) {
+    // Best-effort release: if we'd already claimed the campaign (status
+    // 'sending') and something after that threw before reaching the final
+    // 'sent' update, don't leave it permanently stuck — a stuck 'sending'
+    // status would make every future send attempt fail forever, same class
+    // of gap as the getStripe()-outside-the-try payout-claim fix.
+    await supabaseAdmin.from('campaigns').update({ status: 'draft' }).eq('id', id).eq('status', 'sending').then(() => {}, () => {})
+    console.error('Campaign send error:', e)
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
   }
 }
