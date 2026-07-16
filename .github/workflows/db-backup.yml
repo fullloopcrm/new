@@ -12,11 +12,22 @@ name: Nightly DB Backup (offsite GitHub artifact)
 # SECRETS REQUIRED (add in repo Settings → Secrets and variables → Actions):
 #   SUPABASE_DB_URL        postgres://postgres:<db-password>@db.<ref>.supabase.co:5432/postgres
 #                          (Supabase dashboard → Project Settings → Database → Connection string → URI)
+#   BACKUP_ENCRYPTION_KEY  a long random passphrase (e.g. `openssl rand -base64 48`).
+#                          REQUIRED, not optional — this repo (fullloopcrm/new) is PUBLIC, and
+#                          GitHub Actions artifacts are downloadable by anyone with read access
+#                          to the repo, which for a public repo means any GitHub account, not
+#                          just collaborators. The dump contains every tenant's full data,
+#                          including PINs/payroll/SSN-last4. The encrypt step below fails the
+#                          job closed (refuses to upload) if this secret is unset, so a dump
+#                          can never reach the public artifact store in plaintext.
 #   (optional) TELEGRAM_BOT_TOKEN + TELEGRAM_NOTIFY_CHAT_ID  — failure ping
 #
 # No secret values live in this file. They stay in GitHub's encrypted store.
 # Retention: artifacts keep 90 days (GitHub limit). Supabase PITR is the primary
 # fast-recovery layer; add R2/S3 later for long-term retention (dump step unchanged).
+#
+# To restore: gpg --batch --yes --passphrase-file <(echo "$BACKUP_ENCRYPTION_KEY") \
+#   --decrypt -o fullloop.dump fullloop-<stamp>.dump.gpg && pg_restore ...
 
 on:
   schedule:
@@ -67,11 +78,30 @@ jobs:
             exit 1
           fi
 
-      - name: Upload dump as GitHub artifact (offsite — different provider than Supabase)
+      - name: Encrypt dump (this repo is PUBLIC — never upload plaintext PII)
+        env:
+          BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
+        run: |
+          set -euo pipefail
+          if [ -z "${BACKUP_ENCRYPTION_KEY}" ]; then
+            echo "::error::BACKUP_ENCRYPTION_KEY secret is not configured. Refusing to upload an" \
+                 "unencrypted full-database dump — this repo (fullloopcrm/new) is PUBLIC and" \
+                 "GitHub Actions artifacts are downloadable by any GitHub account with read" \
+                 "access to the repo. Add BACKUP_ENCRYPTION_KEY in repo Settings > Secrets and" \
+                 "variables > Actions before this backup can run."
+            exit 1
+          fi
+          command -v gpg >/dev/null || sudo apt-get install -y gnupg
+          gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
+              --symmetric --cipher-algo AES256 \
+              -o "fullloop-$STAMP.dump.gpg" "fullloop-$STAMP.dump" <<< "$BACKUP_ENCRYPTION_KEY"
+          rm -f "fullloop-$STAMP.dump"
+
+      - name: Upload encrypted dump as GitHub artifact (offsite — different provider than Supabase)
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: fullloop-db-${{ env.STAMP }}
-          path: fullloop-${{ env.STAMP }}.dump
+          path: fullloop-${{ env.STAMP }}.dump.gpg
           retention-days: 90
           if-no-files-found: error
 
