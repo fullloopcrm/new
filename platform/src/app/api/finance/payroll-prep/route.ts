@@ -56,6 +56,39 @@ export async function GET(request: Request) {
       .gte('created_at', from)
       .lte('created_at', toTs)
 
+    // The 1099 flag is documented (see file header) as a year-to-date signal,
+    // but the caller (finance/reports) defaults `from`/`to` to the CURRENT
+    // MONTH, not the calendar year -- computing hits_1099_threshold off the
+    // requested `bookings` window meant the default view silently answered
+    // "did this contractor earn $600+ THIS MONTH", which both false-negatives
+    // (a contractor over $600 YTD but under it this month never gets flagged)
+    // and drifts from the one-time-per-year IRS threshold this exists to
+    // surface. Always resolve the flag from a real Jan 1 - Dec 31 window for
+    // the year the requested period falls in, reusing the already-fetched
+    // `bookings` rows when the caller already requested exactly that full
+    // year (the `year=` param path) instead of querying twice.
+    const thresholdYear = year || String(new Date(`${to}T00:00:00Z`).getUTCFullYear())
+    const isFullYearRequest = from === `${thresholdYear}-01-01` && to === `${thresholdYear}-12-31`
+    const ytdPayByMember = new Map<string, number>()
+    if (isFullYearRequest) {
+      for (const b of bookings || []) {
+        if (!b.team_member_id) continue
+        ytdPayByMember.set(b.team_member_id, (ytdPayByMember.get(b.team_member_id) || 0) + Math.round(Number(b.team_member_pay || 0)))
+      }
+    } else {
+      const { data: ytdBookings } = await supabaseAdmin
+        .from('bookings')
+        .select('team_member_id, team_member_pay')
+        .eq('tenant_id', tenantId)
+        .eq('status', 'completed')
+        .gte('start_time', `${thresholdYear}-01-01`)
+        .lte('start_time', `${thresholdYear}-12-31T23:59:59Z`)
+      for (const b of ytdBookings || []) {
+        if (!b.team_member_id) continue
+        ytdPayByMember.set(b.team_member_id, (ytdPayByMember.get(b.team_member_id) || 0) + Math.round(Number(b.team_member_pay || 0)))
+      }
+    }
+
     type Row = {
       team_member_id: string
       name: string
@@ -114,7 +147,7 @@ export async function GET(request: Request) {
     const rows = Array.from(rowMap.values()).map(r => ({
       ...r,
       balance_owed_cents: Math.max(0, r.gross_pay_cents - r.paid_out_cents),
-      hits_1099_threshold: r.gross_pay_cents >= 60000, // $600 in cents
+      hits_1099_threshold: (ytdPayByMember.get(r.team_member_id) || 0) >= 60000, // $600 YTD, in cents
     })).sort((a, b) => b.gross_pay_cents - a.gross_pay_cents)
 
     const totals = {
