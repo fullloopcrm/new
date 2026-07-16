@@ -77,6 +77,19 @@ export async function PUT(
     )
   }
 
+  // Same terminal-state gap as cancel above, for the reschedule path this
+  // route also handles: this endpoint's sibling (client/reschedule/[id])
+  // already got this guard in the same fix pass, but this route's own
+  // start_time/end_time branch was missed — a client could still move an
+  // already-completed/paid booking's timestamps here, corrupting records
+  // payroll/closeout/cleaner-payout already keyed off.
+  if ((start_time || end_time) && NON_CANCELLABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json(
+      { error: `Cannot reschedule a booking that is already ${oldBooking.status}` },
+      { status: 400 }
+    )
+  }
+
   const update: Record<string, unknown> = {}
   if (start_time) update.start_time = start_time
   if (end_time) update.end_time = end_time

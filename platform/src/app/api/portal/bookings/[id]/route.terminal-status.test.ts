@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /**
  * W4 adversarial pass: PUT /api/portal/bookings/[id] previously let a client
@@ -54,6 +54,13 @@ import { NextRequest } from 'next/server'
 import { createToken } from '@/app/api/portal/auth/token'
 import { PUT } from './route'
 
+// notifyMock is module-level and shared across every test in this file (no
+// vitest clearMocks config) — without resetting it here, an earlier test's
+// notify() calls leak into a later test's `not.toHaveBeenCalled()` assertion.
+beforeEach(() => {
+  notifyMock.mockClear()
+})
+
 function makeRequest(body: Record<string, unknown>) {
   const token = createToken('client-1', 'tenant-1')
   return new NextRequest('https://x/api/portal/bookings/booking-1', {
@@ -80,6 +87,39 @@ describe('PUT /api/portal/bookings/[id] — terminal-status cancel guard', () =>
     bookingStatus.value = 'scheduled'
     updateCalled.value = false
     const res = await PUT(makeRequest({ status: 'cancelled' }), { params: Promise.resolve({ id: 'booking-1' }) })
+    expect(res.status).toBe(200)
+    expect(updateCalled.value).toBe(true)
+  })
+})
+
+describe('PUT /api/portal/bookings/[id] — terminal-status reschedule guard', () => {
+  it.each(['completed', 'paid', 'cancelled', 'no_show'])(
+    'rejects a start_time change on a %s booking without ever calling update',
+    async (status) => {
+      bookingStatus.value = status
+      updateCalled.value = false
+      const res = await PUT(makeRequest({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'booking-1' }) })
+      expect(res.status).toBe(400)
+      expect(updateCalled.value).toBe(false)
+      expect(notifyMock).not.toHaveBeenCalled()
+    }
+  )
+
+  it.each(['completed', 'paid', 'cancelled', 'no_show'])(
+    'rejects an end_time-only change on a %s booking without ever calling update',
+    async (status) => {
+      bookingStatus.value = status
+      updateCalled.value = false
+      const res = await PUT(makeRequest({ end_time: '2099-02-01T12:00:00Z' }), { params: Promise.resolve({ id: 'booking-1' }) })
+      expect(res.status).toBe(400)
+      expect(updateCalled.value).toBe(false)
+    }
+  )
+
+  it('allows a reschedule on a still-open booking', async () => {
+    bookingStatus.value = 'scheduled'
+    updateCalled.value = false
+    const res = await PUT(makeRequest({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'booking-1' }) })
     expect(res.status).toBe(200)
     expect(updateCalled.value).toBe(true)
   })
