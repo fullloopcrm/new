@@ -41,6 +41,8 @@ export interface PaymentPlanItem {
   due_at?: string | null
   /** How this payment becomes due. Defaults to 'manual'. */
   trigger?: PaymentTrigger
+  /** Money already collected (e.g. a quote deposit) — inserted as 'paid', not 'pending'. */
+  already_paid?: boolean
 }
 
 /** One scheduled work session → becomes a booking under the job. */
@@ -185,6 +187,7 @@ export async function createJobFromQuote(
     }
 
     const totalCents = (quote.total_cents as number) || 0
+    const depositPaidCents = (quote.deposit_paid_cents as number) || 0
 
     const { data: job, error: jErr } = await supabaseAdmin
       .from('jobs')
@@ -205,11 +208,20 @@ export async function createJobFromQuote(
     if (jErr) throw jErr
     const jobId = job.id as string
 
-    // Payment plan: caller-supplied, else a single 'final' payment for the total.
+    // Payment plan: caller-supplied, else a default derived from the total.
+    // A deposit already collected on the quote (Stripe deposit-checkout path)
+    // must be subtracted from what's still owed — otherwise the single
+    // 'Final payment' fallback re-bills the FULL total on top of a deposit
+    // the customer already paid.
     const plan: PaymentPlanItem[] =
       opts.payments && opts.payments.length > 0
         ? opts.payments
-        : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
+        : depositPaidCents > 0
+          ? [
+              { label: 'Deposit', kind: 'deposit', amount_cents: depositPaidCents, already_paid: true },
+              { label: 'Final payment', kind: 'final', amount_cents: Math.max(0, totalCents - depositPaidCents) },
+            ]
+          : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
 
     const paymentRows = plan.map((p, i) => ({
       tenant_id: tenantId,
@@ -220,6 +232,8 @@ export async function createJobFromQuote(
       due_at: p.due_at ?? null,
       trigger: p.trigger ?? 'manual',
       sort_order: i,
+      status: p.already_paid ? 'paid' : 'pending',
+      paid_at: p.already_paid ? new Date().toISOString() : null,
     }))
     const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)
     if (pErr) throw pErr
