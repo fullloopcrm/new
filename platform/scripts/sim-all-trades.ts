@@ -1040,7 +1040,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     await notify({ tenantId: tenant.id, type: 'quote_accepted', title: 'Proposal accepted', message: `${cfg.lead.contactName} accepted ${quote.quote_number}` })
 
     // ================= 4. SCHEDULING (real project timeline) =================
-    const { createJobFromQuote } = await import('../src/lib/jobs')
+    const { createJobFromQuote, logJobEvent, releasePaymentsForEvent } = await import('../src/lib/jobs')
     const plan = cfg.payments.map(p => ({ ...p, amount_cents: Math.round(quote.total_cents * p.pct) }))
     const allocated = plan.reduce((s, p) => s + p.amount_cents, 0)
     plan[plan.length - 1].amount_cents += quote.total_cents - allocated // remainder to final, no rounding drift
@@ -1112,6 +1112,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     if (worker?.id && jobBookings?.length) {
       for (const b of jobBookings) await supabase.from('bookings').update({ team_member_id: worker.id }).eq('id', b.id)
       add('schedule: crew assigned to every session', true)
+    }
+
+    // ================= 5a. WEATHER DELAY + SESSION COMPLETION (real per-session mechanics) =================
+    // PATCH /api/jobs/[id]/sessions/[sessionId] (src/app/api/jobs/[id]/sessions/[sessionId]/route.ts)
+    // is a real, live route every one of these trades uses daily — reschedule a
+    // rained-out day, then mark a work day done once the crew actually shows up —
+    // but nothing in this harness had ever exercised it (every prior scenario
+    // only drove the WHOLE-JOB 'completed' event). Two of its three side effects
+    // were zero-coverage: 'session_rescheduled' (a weather/crew delay pushing one
+    // session's date) and 'session_completed' -> releasePaymentsForEvent(...,
+    // 'session_completed'), which is the ONLY thing that flips a mid-project
+    // on_stage_complete milestone (e.g. "Progress — tear-off & dry-in complete")
+    // to invoiced -- distinct from job completion, which releases the same
+    // trigger for any milestone still pending at job close-out. Calling the
+    // library functions directly (logJobEvent/releasePaymentsForEvent) rather
+    // than the route handler itself, same as the P10.2 proposal-send mirror
+    // above: requirePermission depends on headers()/cookies(), which only exist
+    // inside a real Next.js request.
+    const firstSession = jobBookings?.[0]
+    if (firstSession) {
+      const rainDelayStart = new Date(new Date(firstSession.start_time).getTime() + 2 * 24 * 3600 * 1000).toISOString()
+      const rainDelayEnd = new Date(new Date(firstSession.end_time).getTime() + 2 * 24 * 3600 * 1000).toISOString()
+      await supabase.from('bookings').update({ start_time: rainDelayStart, end_time: rainDelayEnd }).eq('id', firstSession.id)
+      await logJobEvent({ tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'session_rescheduled', detail: { booking_id: firstSession.id, start_time: rainDelayStart, note: 'weather delay' } })
+
+      const { data: rescheduledEvent } = await supabase.from('job_events').select('id').eq('job_id', jobRes.job_id).eq('event_type', 'session_rescheduled').maybeSingle()
+      add('weather-delay: session_rescheduled logged on the job timeline', !!rescheduledEvent)
+      const { data: rescheduledBooking } = await supabase.from('bookings').select('start_time').eq('id', firstSession.id).single()
+      add('weather-delay: session actually moved (not just logged)', rescheduledBooking?.start_time !== firstSession.start_time, `${rescheduledBooking?.start_time} vs original ${firstSession.start_time}`)
+
+      // Crew shows up on the new date and finishes the (delayed) first session.
+      await supabase.from('bookings').update({ status: 'completed' }).eq('id', firstSession.id)
+      await logJobEvent({ tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'session_completed', detail: { booking_id: firstSession.id } })
+      await releasePaymentsForEvent(tenant.id, jobRes.job_id, 'session_completed')
+
+      const { data: paysAfterSessionComplete } = await supabase.from('job_payments').select('kind, trigger, status').eq('job_id', jobRes.job_id).order('sort_order')
+      const stageGatedRows = (paysAfterSessionComplete || []).filter(p => p.trigger === 'on_stage_complete')
+      if (stageGatedRows.length > 0) {
+        // roofing/remodeling: this scenario's payment plan actually has an
+        // on_stage_complete milestone — prove session_completed released it.
+        add('weather-delay: on_stage_complete progress milestone released to invoiced by session_completed (not job completion)', stageGatedRows.every(p => p.status === 'invoiced'), JSON.stringify(stageGatedRows))
+      } else {
+        // interior_design's payment plan has no on_stage_complete trigger at
+        // all (progress here is 'manual') — prove releasePaymentsForEvent is a
+        // safe no-op rather than mis-firing against the wrong trigger.
+        add('weather-delay: no on_stage_complete milestone in this plan — session_completed release is a safe no-op', (paysAfterSessionComplete || []).filter(p => p.kind === 'progress').every(p => p.status === 'pending'), JSON.stringify(paysAfterSessionComplete))
+      }
+      const finalRow = (paysAfterSessionComplete || []).find(p => p.kind === 'final')
+      add('weather-delay: final milestone (trigger=manual) untouched by the session-complete release', finalRow?.status === 'pending', finalRow?.status)
+
+      const { data: otherSessions } = await supabase.from('bookings').select('id, status').eq('job_id', jobRes.job_id).neq('id', firstSession.id)
+      add('weather-delay: only the completed session flips status — the rest of the project timeline is untouched', (otherSessions || []).every(b => b.status !== 'completed'), JSON.stringify(otherSessions?.map(b => b.status)))
+      const { data: jobAfterOneSession } = await supabase.from('jobs').select('status').eq('id', jobRes.job_id).single()
+      add('weather-delay: job stays scheduled — one of several sessions done is not the whole job done', jobAfterOneSession?.status === 'scheduled', jobAfterOneSession?.status)
     }
 
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
@@ -1397,7 +1451,6 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     // entry — no new invoice, no new payment, no revenue leak into the P&L
     // for warranty work — and the job must stay 'completed', not silently
     // revert.
-    const { releasePaymentsForEvent } = await import('../src/lib/jobs')
     const { error: completeErr } = await supabase.from('jobs')
       .update({ status: 'completed', completed_at: new Date().toISOString() })
       .eq('id', jobRes.job_id)
