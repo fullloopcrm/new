@@ -139,12 +139,34 @@ export async function getTenantByDomain(domain: string): Promise<TenantInfo | nu
   // 1. tenant_domains FIRST (host -> tenant_id). select('*') is migration-safe:
   // it returns the new P1 columns once they exist and just omits them before
   // the migration lands, so this query never breaks against the un-migrated DB.
-  const { data: domainRow } = await sb
+  //
+  // maybeSingle() (not single()), and the error is checked explicitly: this
+  // query's `error` used to be discarded (only `data` was destructured), so
+  // ANY failure here — not just the expected "0 rows, host not yet migrated
+  // to tenant_domains" case — looked identical to "no tenant_domains row" and
+  // fell straight through to the tenants.domain fallback below, completely
+  // skipping the TRANSITION divergence guard (it only runs inside
+  // `if (domainRow?.tenant_id)`). That's the brand-swap failure mode the
+  // guard exists to catch, reached through the primary query instead of the
+  // cross-check. tenant_domains.domain IS unique at the DB level (migrations/
+  // 043_tenant_domains.sql), so maybeSingle() erroring here can only mean a
+  // genuine query failure, never row-count ambiguity — safe to always fail
+  // closed on it.
+  const { data: domainRow, error: domainRowError } = await sb
     .from('tenant_domains')
     .select('*')
     .eq('domain', cleanDomain)
     .eq('active', true)
-    .single()
+    .maybeSingle()
+
+  if (domainRowError) {
+    console.error(
+      `TENANT_DOMAINS_LOOKUP_ERROR host=${cleanDomain} error=${domainRowError.message}`,
+    )
+    throw new Error(
+      `TENANT_DOMAINS_LOOKUP_ERROR host=${cleanDomain} error=${domainRowError.message}`,
+    )
+  }
 
   if (domainRow?.tenant_id) {
     const { data: t } = await sb

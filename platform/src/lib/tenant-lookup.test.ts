@@ -198,6 +198,30 @@ describe('getTenantByDomain', () => {
     errSpy.mockRestore()
   })
 
+  it('TENANT-DOMAINS-QUERY-ERROR PROBE: the primary tenant_domains lookup errors (not just "no row") while a stale legacy tenants.domain row exists for the same host — refuses rather than silently falling through to the legacy tenant', async () => {
+    // The primary query's `error` was previously discarded (only `data` was
+    // destructured), so ANY tenant_domains failure — not just the expected
+    // "0 rows, no active row for this host" case — looked identical to "no
+    // tenant_domains row" and fell straight through to the tenants.domain
+    // fallback, completely skipping the divergence guard below (it only runs
+    // inside `if (domainRow?.tenant_id)`). That serves whatever legacy has for
+    // the host with zero cross-check — the exact brand-swap failure mode the
+    // guard exists to catch, just reached via a different door.
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'flaky.com')
+        return { data: null, error: { message: 'upstream connect error or disconnect/reset before headers' } }
+      if (table === 'tenants' && eqs.domain === 'flaky.com')
+        return { data: tenantRow({ id: 't-legacy', slug: 'legacy-tenant' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('flaky.com')).rejects.toThrow(
+      /TENANT_DOMAINS_LOOKUP_ERROR host=flaky\.com/,
+    )
+    errSpy.mockRestore()
+  })
+
   it('AGREEMENT: tenant_domains -> A and legacy tenants.domain -> same A proceeds normally', async () => {
     // Both sources point the host at the same tenant → no divergence → the
     // tenant_domains-first result is served.

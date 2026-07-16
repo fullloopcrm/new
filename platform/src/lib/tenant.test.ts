@@ -196,6 +196,27 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     errSpy.mockRestore()
   })
 
+  it('TENANT-DOMAINS-QUERY-ERROR PROBE: the primary tenant_domains lookup errors (not just "no row") while a stale legacy tenants.domain row exists for the same host — refuses rather than silently falling through to the legacy tenant', async () => {
+    // Mirrors tenant-lookup.ts's fix: the primary query's `error` was
+    // previously discarded (only `data` was destructured), so any
+    // tenant_domains failure looked identical to "no active row" and fell
+    // straight through to the tenants.domain fallback, skipping the
+    // divergence guard entirely (it only runs inside `if (domainRow?.tenant_id)`).
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'flaky.com')
+        return { data: null, error: { message: 'upstream connect error or disconnect/reset before headers' } }
+      if (table === 'tenants' && eqs.domain === 'flaky.com')
+        return { data: tenantRow({ id: 't-legacy', slug: 'legacy-tenant' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    await expect(getTenantByDomain('flaky.com')).rejects.toThrow(
+      /TENANT_DOMAINS_LOOKUP_ERROR host=flaky\.com/,
+    )
+    errSpy.mockRestore()
+  })
+
   it('AGREEMENT: tenant_domains -> A and legacy tenants.domain -> same A proceeds normally', async () => {
     resolve = (table, eqs) => {
       if (table === 'tenant_domains' && eqs.domain === 'agree.com')
