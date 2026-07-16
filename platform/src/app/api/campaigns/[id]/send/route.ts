@@ -31,6 +31,14 @@ export async function POST(
 
     const settings = await getSettings(tenantId)
 
+    // This route had NO protection against sending the same campaign twice:
+    // re-clicking Send after it already went out (confused user, page
+    // refresh, network retry) blasted every client on the list again with no
+    // guard at all. Refuse any status past the two valid pre-send states.
+    if (campaign.status === 'sending' || campaign.status === 'sent') {
+      return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
+    }
+
     // Tenant rule: campaign_approval_required gates send on an explicit
     // 'approved' status — drafts can't ship without sign-off.
     if (settings.campaign_approval_required && campaign.status !== 'approved') {
@@ -38,6 +46,26 @@ export async function POST(
         { error: 'This tenant requires campaign approval before sending. Set status to approved first.' },
         { status: 403 }
       )
+    }
+
+    // Check-then-act, not atomic: the status checks above read a stale
+    // snapshot. A double-click or a second concurrent request landing before
+    // this route's own write lands would both pass those checks and both go
+    // on to send every email/SMS in the campaign a second time. Atomically
+    // claim the campaign by re-asserting the exact status just read in this
+    // write's own WHERE — zero rows matched means a concurrent request (or a
+    // fast double-click) already claimed it, so bail instead of double-send.
+    const { data: claimed, error: claimErr } = await supabaseAdmin
+      .from('campaigns')
+      .update({ status: 'sending' })
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .eq('status', campaign.status)
+      .select('id')
+      .maybeSingle()
+    if (claimErr) return NextResponse.json({ error: 'Internal server error' }, { status: 500 })
+    if (!claimed) {
+      return NextResponse.json({ error: 'This campaign is already sending or has been sent' }, { status: 409 })
     }
 
     // Get recipients (active clients). Per-channel marketing opt-outs are

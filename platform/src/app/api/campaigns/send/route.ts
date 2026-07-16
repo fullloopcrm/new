@@ -35,11 +35,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
-    // Mark as sending
-    await supabaseAdmin
+    // Mark as sending -- check-then-act, not atomic: the `campaign.status`
+    // check above is a stale read. A double-click or a network-retried POST
+    // firing again before the first request's write lands would both read
+    // 'draft', both pass the check, and (without a re-check here) both go on
+    // to build the audience and send every email/SMS in the campaign twice.
+    // Re-assert status='draft' in this write's own WHERE: zero rows matched
+    // means a concurrent send already claimed it, so bail instead of
+    // double-sending.
+    const { data: claimed, error: claimErr } = await supabaseAdmin
       .from('campaigns')
       .update({ status: 'sending' })
       .eq('id', campaign_id)
+      .eq('tenant_id', tenantId)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle()
+    if (claimErr) throw claimErr
+    if (!claimed) {
+      return NextResponse.json({ error: 'Campaign is already sending or has been sent' }, { status: 409 })
+    }
 
     // Fetch audience
     let query = supabaseAdmin
