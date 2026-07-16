@@ -72,9 +72,28 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tenant_id and domain are required' }, { status: 400 })
   }
 
+  // Normalize to the SAME host form the resolver looks up at request time
+  // (getTenantByDomain in tenant-lookup.ts / tenant.ts: lowercase, strip
+  // www.) and the same form activate-tenant.ts already writes for
+  // auto-registered domains (also strips a pasted protocol/path). Without
+  // this, an admin typing "https://WWW.Acme.com/" here stores that exact
+  // string; the resolver's `.eq('domain', cleanDomain)` is an exact
+  // case-sensitive match against "acme.com" and never finds this row, so the
+  // domain silently never routes even though it looks configured in the UI.
+  const cleanDomain = String(domain)
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/^www\./, '')
+
+  if (!cleanDomain) {
+    return NextResponse.json({ error: 'domain is required' }, { status: 400 })
+  }
+
   const { data, error } = await supabaseAdmin
     .from('tenant_domains')
-    .insert({ tenant_id, domain, is_primary: is_primary || false })
+    .insert({ tenant_id, domain: cleanDomain, is_primary: is_primary || false })
     .select()
     .single()
 
