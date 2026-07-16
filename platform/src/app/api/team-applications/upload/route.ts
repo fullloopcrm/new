@@ -39,7 +39,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'File type not allowed. Use JPEG, PNG, or WebP.' }, { status: 400 })
   }
 
-  const ext = file.name.split('.').pop() || 'jpg'
+  // file.name is caller-controlled; an unsanitized extension can inject a
+  // dot-segment (e.g. "../<tenant-id>/team-photos/x") that the storage API's
+  // URL normalization resolves, escaping the `applications/` prefix in this
+  // shared bucket — same class already fixed in public-upload,
+  // management-applications/upload, booking-notes/upload, cleaners/upload.
+  const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
+  const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
   const randomId = Math.random().toString(36).slice(2)
   const path = `applications/${Date.now()}-${randomId}.${ext}`
 
