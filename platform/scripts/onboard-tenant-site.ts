@@ -403,10 +403,22 @@ async function provisionTenant(args: Args) {
   if (tErr || !tenant) throw new Error(`Tenant upsert failed: ${tErr?.message}`)
   console.log(`Tenant row OK: id=${tenant.id} slug=${tenant.slug}`)
 
+  // type: 'primary' mirrors 068's own backfill (is_primary:true -> type:'primary').
+  // routing_mode: 'bespoke' — this script ONLY ever provisions a full bespoke
+  // /site/<slug> subtree (see file header); there is no template-mode path.
+  // Without these, the tenant_domains row silently takes the column DEFAULTs
+  // (type:'generic', routing_mode:'template' — 069/056) for a tenant this
+  // script just proved is bespoke, and nothing downstream corrects it: this
+  // script bypasses activate-tenant.ts entirely (writes tenants.status:'active'
+  // directly above), so the domain_routing sync step that fixes this same class
+  // of mis-route for admin-activated tenants never runs for a script-onboarded
+  // one. The BESPOKE_SITE_TENANTS entry in middleware.ts is still a required
+  // separate manual step (see script usage example / the-florida-maid) — this
+  // only makes the DB row honestly reflect what was actually provisioned.
   const { error: dErr } = await supabase
     .from('tenant_domains')
     .upsert(
-      { tenant_id: tenant.id, domain: args.domain, is_primary: true, active: true },
+      { tenant_id: tenant.id, domain: args.domain, is_primary: true, active: true, type: 'primary', routing_mode: 'bespoke' },
       { onConflict: 'domain' }
     )
   if (dErr) console.warn(`tenant_domains warn: ${dErr.message}`)
