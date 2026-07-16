@@ -4,6 +4,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getSettings } from '@/lib/settings'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { getTenantByDomain } from '@/lib/tenant-lookup'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
     const userAgent = request.headers.get('user-agent') || ''
 
     const {
-      tenant_id, domain, page, action, session_id, visitor_id, lead_id, referrer,
+      domain, page, action, session_id, visitor_id, lead_id, referrer,
       ref_code, first_domain, first_visit_at, last_domain, device, scroll_depth,
       time_on_page, engaged_30s, placement, scroll_at_cta, time_before_cta,
       cta_clicked_at, load_time_ms, load_speed, utm_source, utm_medium,
@@ -117,8 +118,17 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing domain or action' }, { status: 400, headers: corsHeaders })
     }
 
+    // tenant_id must never come straight from the client: this is a public,
+    // unauthenticated endpoint, so a spoofed tenant_id would let anyone plant
+    // fake leads/visits in another tenant's dashboard and trigger that
+    // tenant's "new lead" email notification (see notifyLeadEmailIfNeeded
+    // below) using the shared platform sender. Derive it server-side from the
+    // domain the hit actually claims to be on instead.
+    const resolvedTenant = await getTenantByDomain(domain as string)
+    const resolvedTenantId = resolvedTenant?.id || null
+
     const payload: Record<string, unknown> = {
-      tenant_id: tenant_id || null,
+      tenant_id: resolvedTenantId,
       domain,
       page: page || '/',
       action,
@@ -172,9 +182,9 @@ export async function POST(request: Request) {
     // must not affect the tracking response. De-duped per session+tenant
     // for 1 hour so a single visitor clicking five CTAs doesn't spam the
     // owner — first click within a session triggers, the rest are silent.
-    if (cta_clicked && tenant_id && (action === 'cta' || body.cta_type)) {
+    if (cta_clicked && resolvedTenantId && (action === 'cta' || body.cta_type)) {
       notifyLeadEmailIfNeeded({
-        tenantId: tenant_id as string,
+        tenantId: resolvedTenantId,
         sessionId: (session_id as string) || null,
         ctaType: (body.cta_type as string) || (action as string) || 'click',
         page: (page as string) || null,

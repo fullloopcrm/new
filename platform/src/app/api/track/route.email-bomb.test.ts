@@ -45,6 +45,13 @@ vi.mock('@/lib/settings', () => ({
   getSettings: async () => ({ lead_notification_email: 'owner@victim-tenant.com', business_name: 'Victim Co' }),
 }))
 
+vi.mock('@/lib/tenant-lookup', () => ({
+  getTenantByDomain: async (domain: string) =>
+    domain.replace(/^www\./, '') === 'victim-tenant.com'
+      ? { id: TENANT_ID, slug: 'victim-tenant', name: 'Victim Co', domain: 'victim-tenant.com', status: 'active' }
+      : null,
+}))
+
 vi.mock('@/lib/email', () => ({
   sendEmail: async () => { sendEmailCalls++; return { data: { id: 'sent' } } },
 }))
@@ -88,5 +95,26 @@ describe('POST /api/track — anonymous email-bomb via rotating session_id', () 
     }
     expect(sendEmailCalls).toBeLessThanOrEqual(20)
     expect(sendEmailCalls).toBeGreaterThan(0)
+  })
+
+  it('ignores a spoofed tenant_id that does not match the domain', async () => {
+    const res = await POST(
+      new Request('https://example.com/api/track', {
+        method: 'POST',
+        headers: { 'x-forwarded-for': '198.51.100.10', 'content-type': 'application/json' },
+        body: JSON.stringify({
+          tenant_id: 'some-other-tenant', // attacker-supplied, unrelated to `domain`
+          domain: 'victim-tenant.com',
+          action: 'cta',
+          cta_clicked: true,
+          cta_type: 'call-now',
+          session_id: 'spoof-session',
+        }),
+      })
+    )
+    expect(res.status).toBe(200)
+    await new Promise((r) => setTimeout(r, 0))
+    // Notification should fire for the domain-resolved tenant (TENANT_ID), never for the spoofed id.
+    expect(tenantEmailRlCalls.every((k) => k === `track-lead-email:${TENANT_ID}`)).toBe(true)
   })
 })
