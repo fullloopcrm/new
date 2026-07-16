@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -140,6 +141,15 @@ export async function GET(request: NextRequest) {
 // POST — public tracking pixel endpoint (called by t.js)
 export async function POST(request: Request) {
   try {
+    // Public, unauthenticated endpoint — cap per-IP so a scraper/bot can't
+    // pummel website_visits with unbounded inserts. Same 240/min/IP convention
+    // as the sibling public tracking endpoint (api/track).
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`leads-visits:${ip}`, 240, 60 * 1000)
+    if (!rl.allowed) {
+      return new NextResponse(null, { status: 429 })
+    }
+
     const contentType = request.headers.get('content-type') || ''
     let body: Record<string, unknown>
 
