@@ -3243,3 +3243,73 @@ this comment describes should be long over.
 
 No new P-number (confirmed inert, not exploitable). No code changed. `tsc`
 N/A (no edits). File-only, no push/deploy/DB.
+
+## 2026-07-15 22:30 round (W2) — negative result: cron auth-consistency sweep,
+unsigned `x-tenant-slug` header re-checked, no new gap
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order. Four
+fresh angles this round, all clean:
+
+- **Cron auth consistency across all ~50 `api/cron/*` routes.** P56 (21:06
+  round) fixed a timing-unsafe compare in the shared `protectCronAPI()`
+  helper but only audited that one helper's callers. This round swept every
+  OTHER cron route to check whether any of them roll their own (possibly
+  still-naive) secret compare instead of using the now-fixed helper. Result:
+  every cron route uses one of two patterns, both already constant-time —
+  (a) `protectCronAPI()` (the P56-fixed helper, `lib/nycmaid/auth.ts`), or
+  (b) an inline `safeEqual(auth, `Bearer ${CRON_SECRET}`)` that itself wraps
+  `crypto.timingSafeEqual` with a length check first (`lib/timing-safe-
+  equal.ts`, plus an identical duplicate in `email/monitor/route.ts` — same
+  logic, just not deduped into the shared lib). Zero cron routes found with
+  a naive `===`/`!==` secret compare. The 5 routes that first looked
+  unauthenticated (`anthropic-health`, `confirmation-reminder`,
+  `rating-prompt`, `phone-fixup`, `refresh-job-postings` — none of them
+  contain the literal strings `CRON_SECRET`/`safeEqual` in-file) all call
+  `protectCronAPI(request)` imported from the shared helper; false positive
+  from a naive grep, confirmed correct on read.
+
+- **`webhooks/telnyx` (inbound SMS + delivery-status), read in full —
+  already covered by its own header comment, not a new finding.** This
+  file's top-of-file comment already documents a prior W2 tenantDb-triage
+  pass concluding every write after tenant resolution carries an explicit
+  `tenant_id`/`tenantId` filter or stamp. Re-read confirms this holds: every
+  STOP/START/YES/rating/chatbot branch scopes `clients`/`team_members`/
+  `sms_conversations`/`bookings` lookups by `.eq('tenant_id', tenantId)`
+  alongside the phone match, and the tenant-less delivery-status branch
+  (`message.sent/delivered/failed`) resolves rows by Telnyx's own
+  signature-verified `msgId`, not caller input — same accepted shape as
+  P22's `customerCallId`-by-Telnyx-payload pattern. No new gap.
+
+- **Unsigned `x-tenant-slug` header, re-checked for a bypass the P52/22:23
+  header-signature sweeps didn't specifically target.** `middleware.ts`
+  only strips/re-signs `x-tenant-id`/`x-tenant-sig` inside `rewriteToSite()`
+  (subdomain + custom-domain branches) — on the **main host**
+  (fullloopcrm.com/homeservicesbusinesscrm.com), a public route never has
+  its `x-tenant-slug` header touched, so a caller-supplied value would pass
+  through unmodified to the route handler. Traced every consumer of
+  `x-tenant-slug` (4 non-test files: `tenant-sitemap`, `team-portal/auth`,
+  `sales-applications`, `team-applications`) — in all four, the header is
+  read ONLY as a fallback (`body.tenant_slug || header`), and `body.
+  tenant_slug` is already a fully caller-chosen value with zero additional
+  gate in every one of them (public PIN-login / public application-intake /
+  public sitemap endpoints, all intentionally tenant-selectable by design,
+  each already rate-limited per IP). Spoofing the header grants no
+  capability beyond what an unauthenticated caller already has by simply
+  setting `tenant_slug` in the POST body — same "already directly
+  reachable, header adds nothing" shape as `admin/territories`'s caller-
+  chosen `tenantId` (super-admin-gated feature, not a leak). No new gap.
+
+- **`ingest/lead`/`ingest/application` shared-`INGEST_SECRET` design
+  re-examined for whether the "compromised site" blast radius is broader
+  than the code comment implies** (one secret shared by every standalone
+  marketing site, caller picks the target `tenant_slug`, secret leak from
+  ANY one site → insert access to ANY tenant, not just that site's own).
+  Confirmed this is a knowingly-accepted design tradeoff, not an oversight:
+  both routes' own header comments explicitly document "shared across every
+  standalone tenant site, insert-only, not the service-role key" as the
+  stated security boundary — this was a deliberate call by whoever built
+  the ingest sink, not something this hunt is discovering fresh. Not
+  re-flagged.
+
+No new P-number. No code changed. `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
