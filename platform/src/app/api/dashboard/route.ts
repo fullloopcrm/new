@@ -143,10 +143,25 @@ export async function GET() {
         status: j.status === 'confirmed' ? 'scheduled' : j.status,
       }))
 
+    // todayRes/upcomingRes/allJobsRes embed team_members(*) (full row, via
+    // the booking's assigned-cleaner FK) -- pin is a team-portal login
+    // credential, not booking data, and this endpoint is gated only on
+    // bookings.view (held by 'staff' by default). Strip it before it ever
+    // reaches the response, same class as the GET /api/team[/id] fix.
+    type BookingWithTeamMember = Record<string, unknown> & {
+      team_members?: (Record<string, unknown> & { pin?: unknown }) | null
+    }
+    const stripTeamMemberPin = (rows: unknown) =>
+      ((rows as BookingWithTeamMember[] | null) || []).map(row => {
+        if (!row.team_members || typeof row.team_members !== 'object') return row
+        const { pin: _pin, ...teamMember } = row.team_members
+        return { ...row, team_members: teamMember }
+      })
+
     return NextResponse.json({
-      todayJobs: todayRes.data || [],
-      upcomingBookings: upcomingRes.data || [],
-      allJobs: allJobsRes.data || [],
+      todayJobs: stripTeamMemberPin(todayRes.data),
+      upcomingBookings: stripTeamMemberPin(upcomingRes.data),
+      allJobs: stripTeamMemberPin(allJobsRes.data),
       mapJobs: {
         today: normalizeMapJobs(mapTodayRes.data as BookingRow[] | null),
         week: normalizeMapJobs(mapWeekRes.data as BookingRow[] | null),
