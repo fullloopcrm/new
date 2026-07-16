@@ -8,6 +8,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
+import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -165,7 +166,7 @@ export async function POST(request: Request) {
           await sendEmail(
             (ref as { email: string }).email,
             'You earned a referral commission',
-            `<p>Hi ${(ref as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${clientName || 'a'} booking. Thank you for spreading the word!</p>`,
+            `<p>Hi ${escapeHtml((ref as { name?: string | null }).name || 'there')}, you just earned $${(commissionCents / 100).toFixed(2)} from ${escapeHtml(clientName || 'a')} booking. Thank you for spreading the word!</p>`,
           ).catch(() => {})
         }
       }
