@@ -2965,3 +2965,82 @@ not a leak.
 No new P-number. No code changed (nothing to fix; the one static-analysis
 hit is a false positive in unrelated WIP code, not this round's to edit).
 `tsc` N/A (no edits). File-only, no push/deploy/DB.
+
+---
+
+## W2 round (21:51 order) — bookkeeping correction: P45's site-clone portion
+was applied to dead code, not a live vulnerability
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: rather than another route/query sweep, re-verified reachability
+of the 3 per-tenant site-clone `_lib/selena.ts` files
+(`wash-and-fold-nyc`, `wash-and-fold-hoboken`, `nyc-mobile-salon`) that P45
+(16:52 order, above) fixed for the zero-floor `ilike` phone-match bug in
+`getClientProfile()`. P45's own text asserts these are "the site's own AI
+chat-widget backend (not an operator/admin dashboard clone under
+`platform/CLAUDE.md`'s 'Known debt' carve-out), so this is a bug fix, not a
+feature extension of the deprecated clones" — i.e. it believed the fix
+closed a live gap. Checking that claim, since this register's own precedent
+(P7's stale-heading correction, the `w2-legacy-admin-session-dead-code-audit.md`
+sweep) is that "looks live" is worth one grep before trusting it.
+
+**Traced reachability end-to-end and it does not hold.** Each site's own
+`askSelena()`/`getClientProfile()`/`createOrLinkClient()` in
+`_lib/selena.ts` has **zero importers anywhere else in the repo** — not from
+any page/component in that same site tree, not from any API route, not from
+a dynamic `import()` keyed by tenant slug (grepped `_lib/selena` repo-wide;
+the only hits are the 3 files' own internal self-references and their own
+test files). The actual live chat widget for each site
+(`_components/marketing/HeroChat.tsx`, confirmed in `wash-and-fold-nyc` and
+`wash-and-fold-hoboken`, both `fetch('/api/chat', ...)`) calls the **global**
+`POST /api/chat` route, which imports `askSelena` from
+`@/lib/selena-legacy` and `@/lib/selena/agent` — completely different
+modules, already covered by this register's earlier P45/P48 fixes on those
+files. There is no per-tenant dispatcher anywhere in `middleware.ts` or
+`api/chat`/`api/yinez` that ever routes a request into a
+`site/<slug>/_lib/selena.ts` copy. Same "confirmed dead, not exploitable"
+shape as the `w2-legacy-admin-session-dead-code-audit.md` finding on these
+same clones' `_lib/auth.ts` — a second independent piece of dead code in
+the same known-debt directories, this time on the chat-agent surface
+instead of the admin-auth surface.
+
+**Net effect on P45:** the fix itself (requiring an exact 10-digit phone
+match instead of a floor-less `ilike` substring) is harmless and correct to
+leave in place — no reason to revert working code per scope discipline —
+but the *severity claim* on the site-clone portion was wrong. The two real,
+live instances of this bug class were `selena/agent.ts`'s `loadContext()`
+and `selena/tools.ts`'s `handleRecall()` (both reachable from the live
+`api/chat`/`api/yinez`/webhook paths); the 3 site-clone copies were already
+inert before the fix, same as the `_lib/auth.ts` `admin_session` finding.
+Not correcting P45's heading text itself (unlike the P7 precedent, P45 has
+no single heading to amend — it's a running paragraph mixing 2 live + 3 dead
+instances) — flagging here instead so a future round doesn't re-derive this
+from scratch or, worse, treat the site-clone fix as evidence a live gap was
+closed when auditing this class elsewhere.
+
+**Also checked while in this area, confirmed dead-code-adjacent, not fixed:**
+`createOrLinkClient()` in the same 3 `_lib/selena.ts` files does an
+un-tenant-scoped `supabaseAdmin.from('clients').select('id').ilike('phone',
+...)` lookup (7-digit floor via `cleanPhone.slice(-10)`, no `.eq('tenant_id',
+...)` anywhere in the file) that — if it were ever reachable — would let a
+site visitor's provided name get written onto a same-digit-substring
+client row belonging to **any** tenant on the platform, not just a same-
+tenant misattribution. Worth flagging precisely because it's a **worse**
+version of the P45 bug class (no tenant scoping at all, not just a
+too-generous floor) sitting in the same dead file — if anyone ever revives
+this site-clone chat backend (e.g. wires a page to call it instead of the
+global `/api/chat`), this function needs the same exact-match fix as
+`getClientProfile()` **plus** a `tenant_id` scope it never had. Not fixed
+here: genuinely unreachable code today, and per this register's own
+standing scope discipline, noticing dead code isn't authorization to spend a
+fix-and-test cycle on it — logging the exact gap so it isn't rediscovered
+from scratch if the file is ever revived.
+
+**Recommendation for whoever next touches these clones:** the 3
+`_lib/selena.ts` copies (~900 lines each) are dead in the same way their
+sibling `_lib/auth.ts` copies already are — both belong on the "safe to
+delete in the same pass" list from the `w2-legacy-admin-session-dead-code-audit.md`
+cleanup note, not just `_lib/auth.ts` alone.
+
+No new P-number (correction/negative-result entry, not a new live finding).
+No code changed. `tsc` N/A (no edits). File-only, no push/deploy/DB.
