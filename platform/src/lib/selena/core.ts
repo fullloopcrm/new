@@ -1087,9 +1087,22 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     if (!convo.client_id) return JSON.stringify({ error: 'No client linked yet' })
 
     const date = input.date as string, time = input.time as string
-    const serviceType = input.service_type as string, hourlyRate = input.hourly_rate as number
+    const serviceType = input.service_type as string
     const estimatedHours = (input.estimated_hours as number) || 2
     const recurringType = (input.recurring_type as string) || 'one_time'
+
+    // Same-day = emergency, matching the $89/hr rate every system prompt in
+    // this file already tells the AI ("Same-day cleaning at $89/hr", L885/
+    // L2093/L2144, etc). Determined server-side from the booking date, not
+    // trusted from the LLM's hourly_rate argument — this tool otherwise had
+    // ZERO server-side enforcement of the documented same-day rate and never
+    // set is_emergency, the same gap selena-legacy.ts's handleCreateBooking
+    // had before its P11.16/17 fix, just on the platform's most-used AI
+    // booking assistant instead of the legacy one.
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const isEmergency = date === todayStr
+    const llmRate = input.hourly_rate as number
+    const hourlyRate = isEmergency ? 89 : llmRate
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
@@ -1139,6 +1152,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       hourly_rate: hourlyRate, price: finalPriceCents,
       recurring_type: recurringType, suggested_cleaner_id: suggestedCleanerId,
       notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $20 self-booking discount applies at billing]`,
+      is_emergency: isEmergency,
     }).select('id').single()
 
     if (error) throw error
