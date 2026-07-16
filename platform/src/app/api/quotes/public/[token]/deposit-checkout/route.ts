@@ -10,12 +10,22 @@ import Stripe from 'stripe'
 import { supabaseAdmin } from '@/lib/supabase'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { logQuoteEvent } from '@/lib/quote'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
 export async function POST(_request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Every call mints a brand-new Stripe Checkout Session with no
+    // idempotency key -- unbounded, a looping caller can flood the tenant's
+    // own Stripe account with live sessions (their API rate limit, their
+    // dashboard clutter). Cap per public token.
+    const rl = await rateLimitDb(`quote-deposit-checkout:${token}`, 10, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
+    }
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')

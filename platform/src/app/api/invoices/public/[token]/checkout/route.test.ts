@@ -65,6 +65,7 @@ vi.mock('stripe', () => {
 // Tenant Stripe key is stored encrypted; identity decrypt so it passes through.
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: (v: string) => v }))
 vi.mock('@/lib/invoice', () => ({ logInvoiceEvent: h.logInvoiceEvent }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 9 }) }))
 
 import { POST } from './route'
 

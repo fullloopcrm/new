@@ -68,6 +68,7 @@ vi.mock('stripe', () => {
 
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: (v: string) => v }))
 vi.mock('@/lib/quote', () => ({ logQuoteEvent: h.logQuoteEvent }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 9 }) }))
 
 import { POST } from './route'
 
