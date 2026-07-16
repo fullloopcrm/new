@@ -78,6 +78,30 @@ export async function GET(request: Request) {
             ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
             : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
 
+        // Claim BEFORE sending: the "already sent" check above reads a
+        // snapshot of booking.notes from the initial SELECT. This cron runs
+        // every 30 min; a slow run (many tenants, real Telnyx calls) or a
+        // manual re-trigger overlapping the next tick could still see the
+        // same stale notes on two invocations and both text the client
+        // before either wrote the marker. Compare-and-swap the notes column
+        // (WHERE notes = <the exact value just read>) so only the run whose
+        // UPDATE actually matches — i.e. nobody else changed notes first —
+        // proceeds to send. Same claim-before-send shape as the
+        // rating-prompt/payment-reminder/no-show-check fixes, adapted to a
+        // text column instead of a timestamp/status one since bookings has
+        // no dedicated column for this.
+        const updatedNotes = booking.notes
+          ? `${booking.notes}\n[FOLLOWUP_SENT] ${new Date().toISOString()}`
+          : `[FOLLOWUP_SENT] ${new Date().toISOString()}`
+
+        let claimQuery = supabaseAdmin
+          .from('bookings')
+          .update({ notes: updatedNotes })
+          .eq('id', booking.id)
+        claimQuery = booking.notes == null ? claimQuery.is('notes', null) : claimQuery.eq('notes', booking.notes)
+        const { data: claimed } = await claimQuery.select('id')
+        if (!claimed || claimed.length === 0) { skipped++; continue } // claimed by a concurrent run
+
         try {
           await sendSMS({
             to: client.phone,
@@ -85,16 +109,6 @@ export async function GET(request: Request) {
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           })
-
-          // Mark booking notes with [FOLLOWUP_SENT]
-          const updatedNotes = booking.notes
-            ? `${booking.notes}\n[FOLLOWUP_SENT] ${new Date().toISOString()}`
-            : `[FOLLOWUP_SENT] ${new Date().toISOString()}`
-
-          await supabaseAdmin
-            .from('bookings')
-            .update({ notes: updatedNotes })
-            .eq('id', booking.id)
 
           sent++
         } catch (smsErr) {
