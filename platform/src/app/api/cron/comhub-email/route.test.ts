@@ -114,13 +114,14 @@ vi.mock('@/lib/supabase', () => ({
   },
 }))
 
-import { GET } from './route'
+// CRON_SECRET is captured as a module-level constant on import, so it must
+// be set before the route module loads — set it, then import dynamically.
+process.env.CRON_SECRET = 'test-cron-secret'
+const { GET } = await import('./route')
 
 function req() {
-  // CRON_SECRET is captured as a module-level constant on import, before
-  // beforeEach can set it — use the Vercel-cron header path instead.
   return new NextRequest('http://t/api/cron/comhub-email', {
-    headers: { 'x-vercel-cron': '1' },
+    headers: { authorization: `Bearer ${process.env.CRON_SECRET}` },
   })
 }
 
@@ -167,5 +168,25 @@ describe('comhub-email cron — Yinez/Selena auto-reply gating', () => {
     const res = await GET(req())
     expect(res.status).toBe(200)
     expect(askSelenaCalls).toHaveLength(1)
+  })
+})
+
+describe('comhub-email cron — auth', () => {
+  it('rejects a spoofed x-vercel-cron header with no valid secret (regression: this used to bypass auth entirely)', async () => {
+    tenantsRows = []
+    const spoofed = new NextRequest('http://t/api/cron/comhub-email', {
+      headers: { 'x-vercel-cron': '1' },
+    })
+    const res = await GET(spoofed)
+    expect(res.status).toBe(401)
+  })
+
+  it('rejects a wrong bearer secret even with the spoofed header present', async () => {
+    tenantsRows = []
+    const spoofed = new NextRequest('http://t/api/cron/comhub-email', {
+      headers: { authorization: 'Bearer wrong-secret', 'x-vercel-cron': '1' },
+    })
+    const res = await GET(spoofed)
+    expect(res.status).toBe(401)
   })
 })

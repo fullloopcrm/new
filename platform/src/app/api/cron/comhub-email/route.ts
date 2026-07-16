@@ -287,8 +287,11 @@ export async function GET(req: NextRequest) {
   const authHeader = req.headers.get('authorization') || ''
   const url = new URL(req.url)
   const querySecret = url.searchParams.get('secret') || ''
-  const ok = (CRON_SECRET && ((authHeader && safeEqual(authHeader, `Bearer ${CRON_SECRET}`)) || (querySecret && safeEqual(querySecret, CRON_SECRET))))
-            || req.headers.get('x-vercel-cron') === '1'
+  // NOTE: x-vercel-cron is NOT a security boundary — Vercel does not strip
+  // or verify it on inbound requests, so any external caller can set it
+  // themselves. CRON_SECRET (which Vercel auto-injects as the Authorization
+  // bearer token for configured Cron Jobs) is the only real gate.
+  const ok = CRON_SECRET && ((authHeader && safeEqual(authHeader, `Bearer ${CRON_SECRET}`)) || (querySecret && safeEqual(querySecret, CRON_SECRET)))
   if (!ok) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
 
   const accounts = await collectAccounts()

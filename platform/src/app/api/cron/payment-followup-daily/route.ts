@@ -46,7 +46,14 @@ function etHour(now: Date): number {
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
   const validSecret = !!auth && !!process.env.CRON_SECRET && safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)
-  if (!validSecret && request.headers.get('x-vercel-cron') !== '1') {
+  // x-vercel-cron is NOT a security boundary — Vercel does not strip or verify
+  // it on inbound requests, so any external caller can set it themselves.
+  // CRON_SECRET (auto-injected by Vercel as the Authorization bearer token
+  // for configured Cron Jobs) is the only real gate. A bypass here let an
+  // unauthenticated caller trigger real customer-facing SMS sends (up to 100
+  // per tenant per hit, with ?force=1 bypassing the time-slot check too)
+  // across every tenant with Telnyx configured.
+  if (!validSecret) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

@@ -3495,3 +3495,65 @@ register:
 
 No new P-number. No code changed. `npx tsc --noEmit` not run (no files
 edited this round). File-only, no push/deploy/DB.
+
+## 2026-07-15 23:02 round (W2) — P59, fixed: unauthenticated `x-vercel-cron`
+header let anyone bypass CRON_SECRET on 2 crons, one of which mass-sends
+real customer SMS
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle vs. every prior round: the 22:30 round's "cron auth-consistency"
+sweep specifically checked whether any cron rolled a naive `===` secret
+compare instead of the timing-safe helper (none did) — but that sweep never
+looked for a second, independent auth *bypass* sitting next to an otherwise-
+correct check. Grepped every cron route for anything reading
+`x-vercel-cron` and found 2:
+
+- **`GET /api/cron/comhub-email`** — `ok = (CRON_SECRET && (header-or-query
+  secret match)) || req.headers.get('x-vercel-cron') === '1'`
+- **`GET /api/cron/payment-followup-daily`** — `if (!validSecret &&
+  request.headers.get('x-vercel-cron') !== '1') return 401`
+
+Both treat `x-vercel-cron: 1` as proof the request came from Vercel's own
+scheduler. It isn't: Vercel does not strip or verify this header on inbound
+requests to a public API route — it's an ordinary client-settable header,
+same as any other. Vercel's own documented mechanism for authenticating
+Cron Jobs is CRON_SECRET, which Vercel auto-injects as the `Authorization:
+Bearer` header on its own invocations — meaning the `x-vercel-cron`
+fallback was both redundant (real cron traffic already carries a valid
+secret) and a full auth bypass for anyone else (spoof one static header,
+skip CRON_SECRET entirely).
+
+**Impact — the worse of the two:** `payment-followup-daily` sends real
+Telnyx SMS payment-reminder texts to real customers, up to 100 per tenant
+per invocation, across every tenant with a Telnyx key + payment link
+configured, and honors a caller-supplied `?force=1` that bypasses its own
+time-slot restriction. An unauthenticated caller who knew to add
+`x-vercel-cron: 1` could trigger unlimited mass-SMS runs against every
+eligible tenant's customer base on demand — a cross-tenant abuse/DoS/brand-
+damage vector, not a data-exfil one, but a live one (no secret, no
+signature, no rate limit ahead of the auth check). `comhub-email` polls
+every tenant's IMAP inbox and can trigger Selena auto-reply sends; same
+unauthenticated-trigger shape, lower blast radius.
+
+**Fix:** removed the `x-vercel-cron` branch from both routes' auth checks —
+CRON_SECRET (already timing-safe via `safeEqual`) is now the sole gate,
+consistent with the ~50 other cron routes the 22:30 sweep confirmed. Left
+an inline comment on both explaining why the header isn't a security
+boundary, so it doesn't get re-added by a future "but Vercel sends this"
+assumption.
+
+**Regression lock:** `comhub-email/route.test.ts`'s `req()` helper relied
+on the spoofed header purely as a workaround for CRON_SECRET being
+captured as a module-level constant at import time (couldn't be set via
+`beforeEach` after a static top-level `import`) — switched to setting
+`process.env.CRON_SECRET` before a dynamic `await import('./route')`, and
+`req()` now sends a real `Authorization: Bearer` header. Added 2 new tests:
+spoofed-header-alone → 401, spoofed-header + wrong-secret → 401 (both
+regression probes for the exact bypass this fixes). `payment-followup-
+daily` had zero test coverage before this round; added `route.test.ts` from
+scratch — 4 tests (no-auth → 401, spoofed-header-alone → 401, spoofed-
+header + wrong-secret → 401, correct CRON_SECRET → 200).
+
+`npx tsc --noEmit`: clean. `npx vitest run src/app/api/cron/`: 11 files,
+26 tests, all pass. File-only, no push/deploy/DB — no env vars or infra
+touched, just the two route files + their tests.
