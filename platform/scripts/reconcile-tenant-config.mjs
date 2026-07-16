@@ -320,6 +320,35 @@ export function parseRobotsKilledRoutes(robotsSource) {
   return new Set(block ? [...block[1].matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
 }
 
+// --- given KILLED_ROUTES and a map of route -> [relative page/route.ts file
+// paths found on disk directly under src/app/<route>], return the ones that
+// are permanently unreachable in production. isMainHost() && isKilledRoute()
+// 410s the ENTIRE prefix on the platform's own main host (see MAIN_HOSTS /
+// KILLED_ROUTES above) before Next's router ever resolves the file there; on
+// a tenant's own custom domain, middleware's rewriteToSite() rewrites the
+// SAME pathname into /site/<slug>/... — a different physical directory
+// outside src/app/site/ that the kill-check never even runs against — before
+// this top-level route is ever the one considered. A next.config.ts redirect
+// for one EXACT literal path (see parseNextConfigRedirects) CAN rescue that
+// single path if it fires before middleware, but can never rescue a dynamic
+// segment ([slug], [...rest]) beneath the killed prefix: a literal redirect
+// `source` matches one exact string, never an infinite family of params. See
+// Drift AD below.
+export function findShadowedKilledRoutePages(killedRoutes, appFilesByRoute, redirectSources) {
+  const shadowed = new Map()
+  for (const route of killedRoutes) {
+    const files = appFilesByRoute.get(route) || []
+    const unrescued = files.filter((relPath) => {
+      if (/\[/.test(relPath)) return true // dynamic segment — no literal redirect source can ever match it
+      const literalSuffix = relPath.replace(/\/?(page|route)\.tsx?$/, '')
+      const fullPath = literalSuffix ? `${route}/${literalSuffix}` : route
+      return !redirectSources.has(fullPath)
+    })
+    if (unrescued.length) shadowed.set(route, unrescued)
+  }
+  return shadowed
+}
+
 // --- parse ROOT_SITE_TENANTS out of the middleware source. This is the legacy
 // "no /site/<slug> subtree, serve the shared /site root" set — middleware's
 // siteBase ternary checks it FIRST: `ROOT_SITE_TENANTS.has(slug) ? '/site' :
@@ -500,7 +529,8 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Drift AC ONLY. Pass an empty array (default) to skip.
  * @param {Array}    [input.nextConfigRedirects]  { source, destination } pairs
  *                                  from next.config.ts's redirects() (see
- *                                  parseNextConfigRedirects). Feeds Drift X ONLY.
+ *                                  parseNextConfigRedirects). Feeds Drift X and
+ *                                  (as the exact-literal-path rescue list) Drift AD.
  *                                  Pass an empty array (default) to skip.
  * @param {Array}    [input.appRootPrefixes]  prefixes from src/middleware.ts's
  *                                  APP_ROOT_PREFIXES (see parseAppRootPrefixes).
@@ -513,7 +543,8 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Pass an empty Set (default) to skip.
  * @param {Set}      [input.killedRoutesSet]  routes from src/middleware.ts's
  *                                  KILLED_ROUTES (see parseKilledRoutes). Feeds
- *                                  Drift AA ONLY. Pass an empty Set (default) to skip.
+ *                                  Drift AA and Drift AD. Pass an empty Set
+ *                                  (default) to skip.
  * @param {Set}      [input.robotsKilledRoutesSet]  routes from src/app/robots.ts's
  *                                  own hand-maintained copy of KILLED_ROUTES (see
  *                                  parseRobotsKilledRoutes). Feeds Drift AA ONLY.
@@ -524,9 +555,14 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  "https://www.<domain>" for a domain that IS in
  *                                  APEX_CANONICAL_DOMAINS. Feeds Drift AB ONLY.
  *                                  Pass an empty Map (default) to skip.
+ * @param {Map}      [input.killedRouteAppFiles]  KILLED_ROUTES entry -> array of
+ *                                  relative page.tsx/route.ts paths found on disk
+ *                                  under src/app/<route> (see
+ *                                  findShadowedKilledRoutePages). Feeds Drift AD
+ *                                  ONLY. Pass an empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1120,6 +1156,41 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AD: a KILLED_ROUTES entry (see parseKilledRoutes / isKilledRoute
+  // above) still has a REAL Next.js page/route.ts file on disk at
+  // src/app/<same-prefix>/... (outside src/app/site/ — the physical tree
+  // middleware's rewriteToSite() targets instead, which the main-host kill
+  // check never runs against). Any such file is now permanently unreachable:
+  // on any isMainHost() domain, isMainHost() && isKilledRoute() 410s the whole
+  // prefix before Next's router ever resolves it; on a tenant's own custom
+  // domain, middleware rewrites the identical pathname into /site/<slug>/...
+  // before this top-level route is ever the one considered. A next.config.ts
+  // redirect for one exact literal path can rescue that single path if it
+  // fires before middleware, but can never rescue a dynamic segment beneath
+  // the killed prefix — see findShadowedKilledRoutePages above. Concrete
+  // instance today: src/app/apply/[slug]/page.tsx is a real, tenant-agnostic
+  // hiring-form page (looks up the tenant by slug at runtime) that
+  // KILLED_ROUTES's blanket '/apply' 410 — added for the UNRELATED
+  // 2026-05-03 buyer-funnel pivot, main-host-only by design — now silently
+  // orphans. The one carved-out next.config.ts redirect,
+  // '/apply/operations-coordinator', sends traffic to a DIFFERENT destination
+  // entirely (/site/careers/operations-coordinator), not to this file, so it
+  // does not rescue it either, and it cannot rescue the dynamic [slug]
+  // segment regardless.
+  if (killedRouteAppFiles.size) {
+    const redirectSources = new Set(nextConfigRedirects.map((r) => r.source))
+    const shadowed = findShadowedKilledRoutePages(killedRoutesSet, killedRouteAppFiles, redirectSources)
+    for (const [route, files] of shadowed) {
+      for (const relPath of files) {
+        add(
+          'WARN',
+          `${route}/${relPath}`,
+          `src/app${route}/${relPath} exists on disk but is unreachable in production: isMainHost() && isKilledRoute('${route}') 410s every path under '${route}' on the main host (src/middleware.ts), and a tenant custom domain never reaches this top-level tree at all (rewriteToSite() rewrites the same pathname into /site/<slug>/... first) -- no next.config.ts redirect can rescue a dynamic path segment here`,
+        )
+      }
+    }
+  }
+
   // Drift AB: a BESPOKE_SITE_TENANTS tenant's own canonical-URL sources
   // (sitemap.ts, a relative-imported SITE_DOMAIN/BASE-shaped constant,
   // robots.ts, or layout.tsx's `metadata` export — see
@@ -1232,6 +1303,28 @@ async function main() {
     return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))
   }
 
+  // Feeds Drift AD: for every KILLED_ROUTES entry, collect the relative path of
+  // every page.tsx/route.ts that still exists on disk directly under
+  // src/app/<route> — the top-level tree isMainHost()+isKilledRoute() 410s,
+  // NOT src/app/site/<slug> (a different physical tree entirely, reached via
+  // middleware's rewriteToSite() instead, which this walk never touches).
+  const collectPageFiles = (dir, prefix = '') => {
+    const out = []
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+      if (entry.isDirectory()) out.push(...collectPageFiles(join(dir, entry.name), rel))
+      else if (entry.name === 'page.tsx' || entry.name === 'page.ts' || entry.name === 'route.ts') out.push(rel)
+    }
+    return out
+  }
+  const killedRouteAppFiles = new Map()
+  for (const route of killedRoutesSet) {
+    const dir = join(REPO, 'src', 'app', route.replace(/^\//, ''))
+    if (!existsSync(dir)) continue
+    const files = collectPageFiles(dir)
+    if (files.length) killedRouteAppFiles.set(route, files)
+  }
+
   // Feeds Drift AB: for every bespoke tenant, read its own sitemap.ts (plus
   // whatever it relative-imports one hop deep — e.g. a sibling _lib/siteData.ts
   // re-exporting SITE_DOMAIN), robots.ts, AND layout.tsx, then scan those
@@ -1294,7 +1387,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

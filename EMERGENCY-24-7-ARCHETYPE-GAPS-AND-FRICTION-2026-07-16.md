@@ -72,7 +72,12 @@ is a real chargeback/dispute risk, not just a nicety — the customer accepted
 an *urgent job*, not necessarily an *urgent price*. Not fixed — flagging as
 a concrete product gap: the booking-received confirmation should either
 show the price when `is_emergency` is true, or explicitly say "emergency/
-after-hours rate applies" so the surcharge isn't a surprise.
+after-hours rate applies" so the surcharge isn't a surprise. Formalized today
+as `P11.19` in `scripts/sim-all-trades.ts` (reads `bookingReceivedEmail`'s
+type signature directly, then calls the live function with
+`isEmergency: true` and greps the rendered HTML for $/price/rate/surcharge/
+premium/fee wording — same dual verify-by-source-and-by-call method P11.14
+already used). Still not fixed.
 
 ## (4) New today — unassigned same-day jobs have no push path to any tech
 

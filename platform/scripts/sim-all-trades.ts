@@ -1014,6 +1014,39 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: an unassigned same-day job proactively pages a tech (not pull-only claim-pool + a warning-tier dashboard row)',
         claimRouteNotifiesTeam || monitorNotifiesAnyone || unassignedIsCritical,
         `claim route (/api/team-portal/jobs/claim, ${claimRouteSrc.length} chars) has zero notify/SMS calls — it only processes a claim already initiated by a tech, never announces new availability. schedule-monitor cron (the only sweep that finds unassigned bookings at all) also has zero notify/SMS calls anywhere in the file and files the 'unassigned' finding at severity:'warning' (same tier as stuck_pending/payment_overdue), into schedule_issues for the owner's dashboard — itself pull-based. Net effect: a same-day emergency booking that lands with team_member_id null (P11.12) has no push path to ANY tech; the only route to pickup is a tech voluntarily refreshing the open-jobs screen.`)
+
+      // P11.19 a DIFFERENT gap in the SAME bookingReceivedEmail() confirmation
+      // P11.14 already fixed the URGENCY wording of (email-templates.ts) — this
+      // is about PRICE, not tone. bookingReceivedEmail's own type signature
+      // (extracted below) carries {clientName, serviceName, dateTime,
+      // isEmergency?} — no `price` field at all, unlike its sibling
+      // bookingConfirmationEmail (a few lines up in the same file) whose type
+      // DOES carry an optional `price`. Calling the live function with
+      // isEmergency:true (same real-data call P11.14 makes) confirms the
+      // rendered HTML never mentions a dollar amount or rate regardless of
+      // input — there is no code path by which it could, since the field
+      // isn't even in the type. So the very first message a customer gets
+      // after a same-day emergency booking (P11.14's fix correctly makes it
+      // sound urgent) still never states that same-day/after-hours service
+      // carries a premium rate — they find out later, on the invoice, after
+      // the job is done. For an archetype where the emergency rate runs
+      // 2-2.5x routine (P11.3/P11.7 presets), this is a real chargeback/
+      // dispute risk: the customer agreed to an urgent JOB, not necessarily
+      // an urgent PRICE. Verified by reading the type signature directly AND
+      // calling the live function, same dual method as P11.14.
+      const emailTemplatesSrc = readFileSync(resolve(process.cwd(), 'src/lib/email-templates.ts'), 'utf8')
+      const bookingReceivedEmailSig = (emailTemplatesSrc.split('export function bookingReceivedEmail(')[1] || '').split('): string {')[0]
+      const sigHasPriceField = /\bprice\b/.test(bookingReceivedEmailSig)
+      const emEmailHtmlUrgentPriced = bookingReceivedEmail({
+        tenantName: t.category, clientName: 'Emergency Customer',
+        serviceName: emSvc?.name || 'Emergency service call', dateTime: `${today} ASAP`,
+        isEmergency: true,
+      })
+      const priceWords = /\$\d|price|rate|surcharge|premium|fee/i
+      const renderedMentionsPrice = priceWords.test(emEmailHtmlUrgentPriced)
+      add('emergency: customer-facing booking-received confirmation discloses the emergency/same-day rate (not just that the request was received)',
+        sigHasPriceField || renderedMentionsPrice,
+        `bookingReceivedEmail's type signature (email-templates.ts: ${bookingReceivedEmailSig.replace(/\s+/g, ' ').trim()}) has no 'price' field at all — unlike the sibling bookingConfirmationEmail a few lines up, which does. Calling it live with isEmergency:true (rendered output checked for $/price/rate/surcharge/premium/fee wording) still produces zero mention of cost. P11.14 already fixed the tone (the customer now sees "We've flagged this as urgent"), but never the price: for an archetype where the emergency rate runs ${emPriceCents ? `$${(emPriceCents / 100).toFixed(0)}` : '2-2.5x routine'} vs the base rate, a customer's first confirmation after calling in a burst pipe/no-heat emergency sounds urgent but never discloses the surcharge — they find out on the invoice, after the job is done.`)
     }
 
   } catch (err) {

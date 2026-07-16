@@ -12,6 +12,7 @@ import {
   parseRobotsMainHostsSet,
   parseKilledRoutes,
   parseRobotsKilledRoutes,
+  findShadowedKilledRoutePages,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
@@ -2837,5 +2838,95 @@ describe('computeFindings — Drift AB (bespoke tenant sitemap hardcodes www. fo
       resolvableSlugs: null,
     })
     expect(findings).toHaveLength(0)
+  })
+})
+
+describe('findShadowedKilledRoutePages', () => {
+  it('flags a dynamic-segment file as unrescuable regardless of redirects', () => {
+    const shadowed = findShadowedKilledRoutePages(
+      new Set(['/apply']),
+      new Map([['/apply', ['[slug]/page.tsx']]]),
+      new Set(['/apply/operations-coordinator']),
+    )
+    expect(shadowed.get('/apply')).toEqual(['[slug]/page.tsx'])
+  })
+
+  it('does not flag a literal file that has an exact next.config.ts redirect rescuing it', () => {
+    const shadowed = findShadowedKilledRoutePages(
+      new Set(['/apply']),
+      new Map([['/apply', ['operations-coordinator/page.tsx']]]),
+      new Set(['/apply/operations-coordinator']),
+    )
+    expect(shadowed.has('/apply')).toBe(false)
+  })
+
+  it('flags a literal file with no matching redirect', () => {
+    const shadowed = findShadowedKilledRoutePages(
+      new Set(['/apply']),
+      new Map([['/apply', ['careers/page.tsx']]]),
+      new Set(['/apply/operations-coordinator']),
+    )
+    expect(shadowed.get('/apply')).toEqual(['careers/page.tsx'])
+  })
+
+  it('flags the route\'s own root page.tsx when the route itself is not redirected', () => {
+    const shadowed = findShadowedKilledRoutePages(
+      new Set(['/apply']),
+      new Map([['/apply', ['page.tsx']]]),
+      new Set(),
+    )
+    expect(shadowed.get('/apply')).toEqual(['page.tsx'])
+  })
+
+  it('returns an empty map when no route has any files on disk', () => {
+    const shadowed = findShadowedKilledRoutePages(new Set(['/apply']), new Map(), new Set())
+    expect(shadowed.size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AD (KILLED_ROUTES prefix shadows a real page still on disk)', () => {
+  it('warns on the live /apply/[slug]/page.tsx case — dynamic segment, unrescuable by the operations-coordinator redirect', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply']),
+      nextConfigRedirects: [{ source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' }],
+      killedRouteAppFiles: new Map([['/apply', ['[slug]/page.tsx']]]),
+    })
+    const warn = findings.find((f) => f.slug === '/apply/[slug]/page.tsx')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('unreachable in production')
+    expect(warn!.msg).toContain("isKilledRoute('/apply')")
+  })
+
+  it('does not fire when a literal file is exactly rescued by a next.config.ts redirect', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply']),
+      nextConfigRedirects: [{ source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' }],
+      killedRouteAppFiles: new Map([['/apply', ['operations-coordinator/page.tsx']]]),
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable in production'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when killedRouteAppFiles is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply']),
+      nextConfigRedirects: [{ source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' }],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable in production'))).toHaveLength(0)
   })
 })
