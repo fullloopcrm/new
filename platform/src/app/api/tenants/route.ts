@@ -10,12 +10,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  // Check if user already belongs to a tenant
-  const { data: existing } = await supabaseAdmin
+  // Check if user already belongs to a tenant.
+  //
+  // maybeSingle() (not single()), error checked explicitly — clerk_user_id
+  // carries no standalone unique constraint (tenant_members only enforces
+  // UNIQUE(tenant_id, clerk_user_id)), so 0 rows legitimately means "new
+  // user, no membership yet" — the expected case for anyone reaching
+  // onboarding, not an error. single() can't tell that apart from a genuine
+  // transient DB failure (both surface as data:null once destructured), so a
+  // real outage here used to look identical to "no existing membership" and
+  // silently let the request continue on to insert a SECOND tenant_members
+  // row for this Clerk user — the exact ambiguous-membership scenario
+  // getTenantForRequest()/getCurrentTenant() (tenant-query.ts / tenant.ts)
+  // now have to defensively reject at read time instead of never happening.
+  const { data: existing, error: existingError } = await supabaseAdmin
     .from('tenant_members')
     .select('tenant_id')
     .eq('clerk_user_id', userId)
-    .single()
+    .maybeSingle()
+
+  if (existingError) {
+    console.error(`TENANT_ONBOARDING_MEMBERSHIP_CHECK_ERROR clerk_user_id=${userId} error=${existingError.message}`)
+    return NextResponse.json({ error: 'Could not verify account status. Please try again.' }, { status: 500 })
+  }
 
   if (existing) {
     return NextResponse.json({ error: 'You already belong to a business' }, { status: 400 })
@@ -41,12 +58,25 @@ export async function POST(request: Request) {
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-|-$/g, '')
 
-  // Check slug uniqueness
-  const { data: slugExists } = await supabaseAdmin
+  // Check slug uniqueness. maybeSingle() + explicit error check — same
+  // masked-error pattern as the membership check above: slug is unique at
+  // the DB level, so 0 rows is the expected "name available" case, but a
+  // real DB read failure here used to look identical and silently let the
+  // request fall through to inserting a tenant whose slug collision the
+  // resolver (getTenantBySlug in tenant.ts / tenant-lookup.ts) would only
+  // catch AFTER the fact — surfacing the read failure loud instead of
+  // guessing matches the hardening already applied to every other masked
+  // .single() call in the resolver lane.
+  const { data: slugExists, error: slugCheckError } = await supabaseAdmin
     .from('tenants')
     .select('id')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
+
+  if (slugCheckError) {
+    console.error(`TENANT_ONBOARDING_SLUG_CHECK_ERROR slug=${slug} error=${slugCheckError.message}`)
+    return NextResponse.json({ error: 'Could not verify business name. Please try again.' }, { status: 500 })
+  }
 
   if (slugExists) {
     return NextResponse.json({ error: 'A business with a similar name already exists' }, { status: 400 })
