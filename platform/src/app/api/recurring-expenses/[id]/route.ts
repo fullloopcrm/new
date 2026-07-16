@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 type Params = { params: Promise<{ id: string }> }
 
 export async function PATCH(request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('finance.expenses')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
     const body = await request.json()
     const updates: Record<string, unknown> = {}
@@ -30,7 +33,9 @@ export async function PATCH(request: Request, { params }: Params) {
 
 export async function DELETE(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('finance.expenses')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { id } = await params
     const { error } = await supabaseAdmin
       .from('recurring_expenses')
