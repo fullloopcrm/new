@@ -980,6 +980,40 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add("emergency: the AI/SMS create_booking tool sets is_emergency on the booking row it inserts (not just the price)",
         setsIsEmergencyFlag,
         `handleCreateBooking's bookings insert (selena-legacy.ts, insert body: ${createBookingInsertBlock.trim().replace(/\s+/g, ' ')}) has no is_emergency field at all — nothing after the insert sets it either. /api/client/book (P11.8/P11.11/P11.14's route) derives and threads bkIsEmergency into the row, into smsBookingReceived()'s urgency wording (the P11.14 fix), and into client-email.ts's isEmergency flag; this channel's insert carries none of that. Even once P11.16's price gap is fixed, a booking created here is BY CONSTRUCTION indistinguishable from a routine one to every consumer that reads is_emergency — the P11.14 fix can never fire for it, and no future is_emergency-driven UI badge would either. The tool schema never asks the LLM for this field at all, so unlike P11.16 this can't be closed by the LLM getting something right; it needs a code change.`)
+
+      // P11.18 a distinct gap from P11.10/P11.11 (which are about the OWNER
+      // never getting an urgency-aware alert) — this is about the TECHS.
+      // P11.12 already found a same-day-accepted quote's booking lands with
+      // team_member_id null (nobody dispatched); P11.13 found the fallback
+      // is the self-claim pool (GET /team-portal/jobs?available=true) — a
+      // PULL model where techs have to open the app and check for new
+      // unclaimed jobs themselves. Checking whether ANYTHING proactively
+      // pages a tech when an unassigned job (emergency or not) appears:
+      // /api/team-portal/jobs/claim/route.ts (the claim endpoint itself)
+      // has no notify call at all — it only processes an already-initiated
+      // claim, it doesn't announce new availability. The one system-wide
+      // sweep that even looks for unassigned bookings is the schedule-
+      // monitor cron (14-day lookahead) — it finds them (type:'unassigned')
+      // but only ever at severity:'warning' (same tier as 'stuck_pending'/
+      // 'payment_overdue'), and writes the row to schedule_issues for the
+      // OWNER's dashboard to display later — itself a pull surface, and
+      // still nothing tech-facing. So a same-day emergency booking with no
+      // assigned tech (the exact state P11.12 proved this archetype's
+      // automated create path produces) has no push/SMS to ANY tech telling
+      // them a job is open to claim; the only way a tech finds out is
+      // periodically refreshing the claim-pool screen on their own
+      // initiative. For a genuinely urgent same-day dispatch (burst pipe,
+      // no AC with a newborn in the house) this is a real response-time
+      // risk on top of the P11.10-13 chain, not a duplicate of it. Verified
+      // by reading both source files directly.
+      const claimRouteSrc = readFileSync(resolve(process.cwd(), 'src/app/api/team-portal/jobs/claim/route.ts'), 'utf8')
+      const scheduleMonitorSrc = readFileSync(resolve(process.cwd(), 'src/app/api/cron/schedule-monitor/route.ts'), 'utf8')
+      const claimRouteNotifiesTeam = /notifyTeamMember|notifyTeam\(|\bsms\(|sendSms/.test(claimRouteSrc)
+      const monitorNotifiesAnyone = /notifyTeamMember|notifyTeam\(|\bsms\(|sendSms|await notify\(/.test(scheduleMonitorSrc)
+      const unassignedIsCritical = /type:\s*'unassigned',\s*severity:\s*'critical'/.test(scheduleMonitorSrc)
+      add('emergency: an unassigned same-day job proactively pages a tech (not pull-only claim-pool + a warning-tier dashboard row)',
+        claimRouteNotifiesTeam || monitorNotifiesAnyone || unassignedIsCritical,
+        `claim route (/api/team-portal/jobs/claim, ${claimRouteSrc.length} chars) has zero notify/SMS calls — it only processes a claim already initiated by a tech, never announces new availability. schedule-monitor cron (the only sweep that finds unassigned bookings at all) also has zero notify/SMS calls anywhere in the file and files the 'unassigned' finding at severity:'warning' (same tier as stuck_pending/payment_overdue), into schedule_issues for the owner's dashboard — itself pull-based. Net effect: a same-day emergency booking that lands with team_member_id null (P11.12) has no push path to ANY tech; the only route to pickup is a tech voluntarily refreshing the open-jobs screen.`)
     }
 
   } catch (err) {
