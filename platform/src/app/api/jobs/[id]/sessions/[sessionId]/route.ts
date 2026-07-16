@@ -145,12 +145,28 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
-    const { error: uErr } = await supabaseAdmin
+    // Check-then-act, not atomic: `current` above is a stale snapshot, and
+    // `didComplete` was derived from its `status`. A concurrent status change
+    // -- a cancel via the admin /api/bookings/[id] route, a customer cancel
+    // via the portal, or another completion of this same session -- landing
+    // between that read and this write must not be silently clobbered (e.g.
+    // force-completing, and releasing payment for, a session someone just
+    // cancelled). Re-assert the pre-read status in the write's own WHERE.
+    const { data: updated, error: uErr } = await supabaseAdmin
       .from('bookings')
       .update(patch)
       .eq('id', sessionId)
       .eq('tenant_id', tenantId)
+      .eq('status', current.status)
+      .select('id')
+      .maybeSingle()
     if (uErr) throw uErr
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'This session changed status concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
     // Replace the assignee set after the booking row is updated.
     if (didReassign) {
