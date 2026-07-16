@@ -59,20 +59,67 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = tenant
     const { team_member_id, amount, method, period_start, period_end } = await request.json()
+    const amountCents = Math.round(amount * 100)
+
+    // Duplicate-submission guard -- this route had NONE before: a
+    // double-tapped "Record Payment" button or a client retry after a
+    // dropped response each inserted their own payroll_payments row. Worse
+    // than the team_member_payouts case this mirrors (2026_07_16
+    // cleaner-payout fix): postPayrollToLedger() below is idempotent PER
+    // ROW (by this row's own id as the journal source_id), so a duplicate
+    // row doesn't just inflate a report -- it posts a SECOND balanced
+    // journal entry, double-booking real labor expense on the P&L. Same
+    // two-layer shape as cleaner-payout/record-payment:
+    //   1. App-level check-then-insert (this SELECT) -- closes the common
+    //      case, itself racy under true concurrency.
+    //   2. DB-backed backstop: a deterministic, time-bucketed
+    //      idempotency_key against the partial unique index in
+    //      2026_07_16_payroll_payments_dedup.sql. Catch 23505 below as an
+    //      idempotent no-op. Migration + this fix must land together -- the
+    //      catch is inert until the index actually exists.
+    const DEDUP_WINDOW_MS = 20_000
+    const dedupWindowStart = new Date(Date.now() - DEDUP_WINDOW_MS).toISOString()
+    const { data: recentDuplicate } = await supabaseAdmin
+      .from('payroll_payments')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('team_member_id', team_member_id)
+      .eq('amount', amountCents)
+      .eq('method', method)
+      .gte('created_at', dedupWindowStart)
+      .limit(1)
+      .maybeSingle()
+    if (recentDuplicate) {
+      return NextResponse.json({ payment: recentDuplicate, deduped: true }, { status: 201 })
+    }
+
+    const idempotencyKey = `manual-payroll-${tenantId}-${team_member_id}-${amountCents}-${method}-${period_start}-${period_end}-${Math.floor(Date.now() / DEDUP_WINDOW_MS)}`
 
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
         tenant_id: tenantId,
         team_member_id,
-        amount: Math.round(amount * 100),
+        amount: amountCents,
         method,
         period_start,
         period_end,
+        idempotency_key: idempotencyKey,
       })
       .select()
       .single()
 
+    // Layer-2 backstop: a truly concurrent resubmission slipped past the
+    // layer-1 SELECT above and hit the DB-level unique index instead.
+    if (error?.code === '23505') {
+      const { data: existing } = await supabaseAdmin
+        .from('payroll_payments')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .eq('idempotency_key', idempotencyKey)
+        .maybeSingle()
+      return NextResponse.json({ payment: existing, deduped: true }, { status: 201 })
+    }
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
