@@ -90,11 +90,22 @@ export async function GET(request: Request) {
   }
 
   // Source 2 (fallback): tenants.domain, only for tenants not covered above.
-  const { data: tenantRows } = await supabaseAdmin
+  // Error checked explicitly, same as source 1 above — this used to discard
+  // it, so a real query failure here looked identical to "no fallback-only
+  // tenants exist" and silently dropped every tenant that hasn't migrated to
+  // tenant_domains yet from this run's coverage. The cron would then report
+  // "0 failures" for a run that actually checked fewer tenants than it
+  // should have, with no alert — exactly the silent-darkening failure mode
+  // this fortress cron exists to catch.
+  const { data: tenantRows, error: tenantRowsErr } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, domain, status')
     .not('domain', 'is', null)
     .in('status', ['active', 'live', 'setup'])
+  if (tenantRowsErr) {
+    await alertOwner('Fortress cron DB error', tenantRowsErr.message).catch(() => {})
+    return NextResponse.json({ error: tenantRowsErr.message }, { status: 500 })
+  }
   for (const t of tenantRows ?? []) {
     slugById.set(t.id, t.slug)
     if (byTenant.has(t.id)) continue // tenant_domains already won
