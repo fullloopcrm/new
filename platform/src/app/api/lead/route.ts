@@ -35,7 +35,7 @@ interface LeadBody {
 // Standard fields handled explicitly; everything else a form sends
 // (service, address, city, budget, timeframe, etc.) is folded into notes
 // so no field is silently dropped.
-const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source'])
+const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photoUrl'])
 
 function buildLeadNotes(body: LeadBody): string | null {
   const lines: string[] = []
@@ -98,6 +98,7 @@ export async function POST(request: NextRequest) {
           .insert({
             name,
             email,
+            photo_url: typeof body.photoUrl === 'string' ? body.photoUrl : null,
             phone: appPhone || null,
             availability: (body.availability as string) || null,
             referral_source: (body.source as string) || null,

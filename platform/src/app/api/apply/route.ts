@@ -1,7 +1,11 @@
 /**
  * Public team/stylist job application (tenant resolved from host).
- * Writes to cleaner_applications and notifies admins. Accepts the payload
- * the tenant ApplicationForm already sends — no form changes required.
+ * Writes to team_applications — the canonical table the admin reads
+ * (GET /api/team-applications) and the approve→provision→PIN flow uses.
+ * (Previously wrote the dead cleaner_applications table, so apps never
+ * showed in admin — same bug already fixed once in /api/contact.)
+ * Accepts the payload the tenant ApplicationForm already sends — no form
+ * changes required.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -67,7 +71,7 @@ export async function POST(request: Request) {
     const cleanPhone = phone.replace(/\D/g, '')
 
     const { data, error } = await supabaseAdmin
-      .from('cleaner_applications')
+      .from('team_applications')
       .insert({
         tenant_id: tenant.id,
         name,

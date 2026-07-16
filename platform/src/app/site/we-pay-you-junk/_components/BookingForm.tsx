@@ -150,13 +150,42 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
     setShowSuggestions(false);
   }
 
-  function uploadOne(pf: PendingFile): Promise<void> {
+  // Uploads go direct-to-storage via a signed URL rather than through
+  // /api/upload — Vercel's serverless functions cap request bodies at
+  // 4.5MB, well under the 100MB these junk photos/videos allow.
+  async function uploadOne(pf: PendingFile): Promise<void> {
+    let signed: { signedUrl: string; publicUrl: string };
+    try {
+      const signedRes = await fetch("/api/upload/signed-url", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ type: "media", filename: pf.file.name, contentType: pf.file.type }),
+      });
+      if (!signedRes.ok) {
+        const errData = await signedRes.json().catch(() => ({}));
+        throw new Error(errData.error || "Failed to prepare upload");
+      }
+      signed = await signedRes.json();
+    } catch (err) {
+      setFiles((prev) =>
+        prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: err instanceof Error ? err.message : "Failed to prepare upload" } : p))
+      );
+      return;
+    }
+
     return new Promise((resolve) => {
+      // Wire format matches @supabase/supabase-js's storage.uploadToSignedUrl()
+      // (PUT to the signed URL, multipart body with a cacheControl field and
+      // the file under an empty-string field name) so raw XHR can drive it
+      // while keeping upload progress events, which supabase-js's fetch-based
+      // client doesn't expose.
       const fd = new FormData();
-      fd.append("file", pf.file);
+      fd.append("cacheControl", "3600");
+      fd.append("", pf.file);
 
       const xhr = new XMLHttpRequest();
-      xhr.open("POST", "/api/upload");
+      xhr.open("PUT", signed.signedUrl);
+      xhr.setRequestHeader("x-upsert", "false");
 
       xhr.upload.onprogress = (e) => {
         if (!e.lengthComputable) return;
@@ -165,18 +194,12 @@ export function BookingForm({ variant = "default" }: { variant?: "default" | "he
       };
 
       xhr.onload = () => {
-        try {
-          const data = JSON.parse(xhr.responseText) as { success: boolean; url?: string; error?: string };
-          if (xhr.status >= 200 && xhr.status < 300 && data.success && data.url) {
-            setFiles((prev) =>
-              prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: data.url } : p))
-            );
-          } else {
-            const msg = data.error || `Upload failed (${xhr.status})`;
-            setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: msg } : p)));
-          }
-        } catch {
-          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: "Bad response" } : p)));
+        if (xhr.status >= 200 && xhr.status < 300) {
+          setFiles((prev) =>
+            prev.map((p) => (p.id === pf.id ? { ...p, status: "done", progress: 100, url: signed.publicUrl } : p))
+          );
+        } else {
+          setFiles((prev) => prev.map((p) => (p.id === pf.id ? { ...p, status: "error", error: `Upload failed (${xhr.status})` } : p)));
         }
         resolve();
       };
