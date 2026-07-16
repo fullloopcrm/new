@@ -219,6 +219,18 @@ export function parseProtectedSlugs(verifyProtectedSource) {
   return new Set(block ? [...block[1].matchAll(/slug:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse TENANTS_WITH_RICH_SITEMAP out of the middleware source.
+// This is the set of tenants whose /sitemap.xml is rewritten to their own
+// src/app/site/<slug>/sitemap.ts (or sitemap.xml/route.ts) instead of falling
+// back to the generic /api/tenant-sitemap. Like APEX_CANONICAL_DOMAINS, it
+// lives ONLY in middleware source, outside every DB source the rest of this
+// gate reconciles, so a slug added here without its sitemap file is invisible
+// to every other Drift check — see Drift Q below.
+export function parseRichSitemapSet(middlewareSource) {
+  const block = middlewareSource.match(/TENANTS_WITH_RICH_SITEMAP\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -254,9 +266,16 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.protectedSlugs]  slugs from verify-protected-tenants.mjs's
  *                                  PROTECTED array (see parseProtectedSlugs).
  *                                  Feeds Drift P ONLY. Pass an empty Set (default) to skip.
+ * @param {Set}      [input.richSitemapSet]  slugs from middleware's
+ *                                  TENANTS_WITH_RICH_SITEMAP (see parseRichSitemapSet).
+ *                                  Feeds Drift Q ONLY. Pass an empty Set (default) to skip.
+ * @param {Function} [input.hasSitemap]  (slug) => boolean — does
+ *                                  src/app/site/<slug>/sitemap.ts or
+ *                                  sitemap.xml/route.ts exist. Feeds Drift Q ONLY.
+ *                                  Defaults to always-true (no-op) when omitted.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -478,6 +497,23 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift Q: a TENANTS_WITH_RICH_SITEMAP entry (src/middleware.ts — tenants
+  // that own a bespoke sitemap instead of falling back to the generic
+  // /api/tenant-sitemap) with no sitemap file at
+  // src/app/site/<slug>/sitemap.ts or src/app/site/<slug>/sitemap.xml/route.ts.
+  // Like APEX_CANONICAL_DOMAINS, this list lives ONLY in middleware source,
+  // outside every DB source this gate otherwise reconciles, so a slug added
+  // here without its sitemap file is invisible to every other Drift check —
+  // rewriteToSite() unconditionally rewrites /sitemap.xml to that path for
+  // this slug, so the request 404s with no drift signal from any other check.
+  if (richSitemapSet.size) {
+    for (const slug of richSitemapSet) {
+      if (!hasSitemap(slug)) {
+        add('CRIT', slug, `in TENANTS_WITH_RICH_SITEMAP (src/middleware.ts) but has neither src/app/site/${slug}/sitemap.ts nor src/app/site/${slug}/sitemap.xml/route.ts -> the /sitemap.xml rewrite target 404s`)
+      }
+    }
+  }
+
   return findings
 }
 
@@ -533,6 +569,7 @@ async function main() {
   const middlewareSource = readFileSync(join(REPO, 'src', 'middleware.ts'), 'utf8')
   const bespokeSet = parseBespokeSet(middlewareSource)
   const apexCanonicalSet = parseApexCanonicalSet(middlewareSource)
+  const richSitemapSet = parseRichSitemapSet(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
@@ -541,6 +578,10 @@ async function main() {
     if (!existsSync(d)) return false
     if (existsSync(join(d, 'page.tsx'))) return true
     return readdirSync(d).some((e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(d, e, 'page.tsx')))
+  }
+  const hasSitemap = (slug) => {
+    const d = join(siteDir, slug)
+    return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))
   }
 
   const [tenants, tds, allTenantDomains] = await Promise.all([
@@ -563,7 +604,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

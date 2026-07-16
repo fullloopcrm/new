@@ -6,6 +6,7 @@ import {
   parseBespokeSet,
   parseApexCanonicalSet,
   parseProtectedSlugs,
+  parseRichSitemapSet,
   computeFindings,
   summarize,
   loadToken,
@@ -89,6 +90,34 @@ describe('parseProtectedSlugs', () => {
 
   it('returns an empty set when the declaration is absent', () => {
     expect(parseProtectedSlugs('export const x = 1').size).toBe(0)
+  })
+})
+
+describe('parseRichSitemapSet', () => {
+  it('extracts the slugs from a middleware TENANTS_WITH_RICH_SITEMAP declaration', () => {
+    const src = `
+      const TENANTS_WITH_RICH_SITEMAP = new Set(['nycmaid', 'the-florida-maid', "nyc-tow"])
+    `
+    const set = parseRichSitemapSet(src)
+    expect(set.has('nycmaid')).toBe(true)
+    expect(set.has('the-florida-maid')).toBe(true)
+    expect(set.has('nyc-tow')).toBe(true)
+    expect(set.size).toBe(3)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseRichSitemapSet('export const x = 1').size).toBe(0)
+  })
+
+  it('does not confuse BESPOKE_SITE_TENANTS with TENANTS_WITH_RICH_SITEMAP in the same source', () => {
+    const src = `
+      const TENANTS_WITH_RICH_SITEMAP = new Set(['rich-only'])
+      const BESPOKE_SITE_TENANTS = new Set<string>(['bespoke-only'])
+    `
+    const rich = parseRichSitemapSet(src)
+    expect(rich.has('rich-only')).toBe(true)
+    expect(rich.has('bespoke-only')).toBe(false)
+    expect(rich.size).toBe(1)
   })
 })
 
@@ -1532,5 +1561,68 @@ describe('computeFindings — Drift P (BESPOKE_SITE_TENANTS entry with no matchi
       resolvableSlugs: null,
     })
     expect(findings.filter((f) => f.msg.includes('PROTECTED')).length).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift Q (TENANTS_WITH_RICH_SITEMAP entry with no sitemap file)', () => {
+  const alwaysSitemap = (_slug: string) => true
+  const neverSitemap = (_slug: string) => false
+
+  it('flags CRIT when a rich-sitemap slug has neither sitemap.ts nor sitemap.xml/route.ts', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(['foo']),
+      hasSitemap: neverSitemap,
+    })
+    const crit = findings.find((f) => f.slug === 'foo' && f.msg.includes('TENANTS_WITH_RICH_SITEMAP'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+    expect(crit!.msg).toContain('sitemap.ts')
+    expect(crit!.msg).toContain('sitemap.xml/route.ts')
+  })
+
+  it('does not flag when the sitemap file exists', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(['foo']),
+      hasSitemap: alwaysSitemap,
+    })
+    expect(findings.some((f) => f.msg.includes('TENANTS_WITH_RICH_SITEMAP'))).toBe(false)
+  })
+
+  it('is skipped entirely when richSitemapSet is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      hasSitemap: neverSitemap,
+    })
+    expect(findings.filter((f) => f.msg.includes('TENANTS_WITH_RICH_SITEMAP')).length).toBe(0)
+  })
+
+  it('defaults hasSitemap to always-true (no false positive) when richSitemapSet is set but hasSitemap is omitted', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(['foo']),
+    })
+    expect(findings.some((f) => f.msg.includes('TENANTS_WITH_RICH_SITEMAP'))).toBe(false)
   })
 })
