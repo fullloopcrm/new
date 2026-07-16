@@ -15,7 +15,8 @@
  * POST → { data }            — submit: distribute to every model, clear the draft
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { normalizeEntityType } from '@/lib/tenant-profile'
 
@@ -67,7 +68,11 @@ const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? 
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    // Business/legal identity (EIN, license, insurance) — gated to match the
+    // 'Business Profile' nav item's settings.edit requirement.
+    const { tenant: tenantCtx, error: authError } = await requirePermission('settings.edit')
+    if (authError) return authError
+    const tenantId = tenantCtx.tenantId
 
     const [{ data: tenant }, { data: entity }] = await Promise.all([
       supabaseAdmin
@@ -134,7 +139,9 @@ export async function GET() {
 /** Save-for-later: persist the raw in-progress form state so the tenant can resume. */
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.edit')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
     const body = (await request.json().catch(() => ({}))) as { draft?: Json }
     const { error } = await supabaseAdmin
       .from('tenants')
@@ -152,7 +159,9 @@ export async function PUT(request: Request) {
 /** Submit: distribute the profile across entities / tenants / selena_config, clear draft. */
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('settings.edit')
+    if (authError) return authError
+    const tenantId = tenant.tenantId
     const body = (await request.json().catch(() => ({}))) as { data?: OnboardingProfile }
     const d = body.data || {}
 
