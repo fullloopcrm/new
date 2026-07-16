@@ -230,7 +230,16 @@ export async function GET(request: Request) {
       const skipped: string[] = []
       for (const row of bookings) {
         const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row) // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
-        if (rowErr) skipped.push(String(row.start_time)); else inserted++
+        if (!rowErr) {
+          inserted++
+        } else if (rowErr.code === '23505') {
+          // uq_bookings_schedule_occurrence (once applied): this exact
+          // schedule+occurrence was already inserted by an overlapping cron
+          // invocation. Idempotent no-op, not a real conflict — don't count
+          // it as generated (it already was) and don't alert admin.
+        } else {
+          skipped.push(String(row.start_time))
+        }
       }
       totalGenerated += inserted
       if (skipped.length > 0) {
