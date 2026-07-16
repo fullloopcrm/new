@@ -8,11 +8,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(request.headers.get('authorization'), `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

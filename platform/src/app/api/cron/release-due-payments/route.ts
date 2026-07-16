@@ -8,11 +8,12 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 60
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(request.headers.get('authorization'), `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

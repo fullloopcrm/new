@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { safeEqual } from '@/lib/secret-compare'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -44,7 +45,7 @@ function etHour(now: Date): number {
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization')
-  if ((!process.env.CRON_SECRET || auth !== `Bearer ${process.env.CRON_SECRET}`) && request.headers.get('x-vercel-cron') !== '1') {
+  if ((!process.env.CRON_SECRET || !safeEqual(auth, `Bearer ${process.env.CRON_SECRET}`)) && request.headers.get('x-vercel-cron') !== '1') {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

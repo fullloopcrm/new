@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { revalidatePath } from 'next/cache'
 import { requireAdmin } from '@/lib/require-admin'
 import { applyOverride, revertOverride } from '@/lib/seo/overrides'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -14,7 +15,7 @@ async function authorize(req: Request): Promise<boolean> {
   const bearer = req.headers.get('authorization')
   // Guard against CRON_SECRET being unset: without this, `Bearer ${undefined}`
   // stringifies to "Bearer undefined", a known literal any caller could send.
-  if (bearer && process.env.CRON_SECRET && bearer === `Bearer ${process.env.CRON_SECRET}`) return true
+  if (bearer && process.env.CRON_SECRET && safeEqual(bearer, `Bearer ${process.env.CRON_SECRET}`)) return true
   const adminError = await requireAdmin()
   return adminError === null
 }

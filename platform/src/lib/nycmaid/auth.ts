@@ -194,7 +194,7 @@ export function protectCronAPI(request: Request): NextResponse | null {
   }
 
   // Vercel cron sends: Authorization: Bearer <CRON_SECRET>
-  if (authHeader === `Bearer ${cronSecret}`) {
+  if (safeEqual(authHeader, `Bearer ${cronSecret}`)) {
     return null
   }
 

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { generateDeterministicProposals } from '@/lib/seo/recipes'
 import { runAutopilot } from '@/lib/seo/autopilot'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,7 +16,7 @@ export const maxDuration = 300
 // undoes any change that hurt after 4 weeks.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   try {

@@ -13,6 +13,7 @@ import type {
   BookingWithThankYou,
   BookingPending,
 } from '@/lib/types'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -21,7 +22,7 @@ export const maxDuration = 300 // Vercel pro plan
 // thank-you emails, unpaid team alerts, pending booking alerts
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

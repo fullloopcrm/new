@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { generateProposals } from '@/lib/seo/remediate'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -11,7 +12,7 @@ export const maxDuration = 300
 // (/api/admin/seo/apply) triggered by approval. Human-in-the-loop by default.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
   const url = new URL(request.url)

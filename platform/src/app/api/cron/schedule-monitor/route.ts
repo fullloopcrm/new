@@ -5,6 +5,7 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 300
 
@@ -22,7 +23,7 @@ interface Issue {
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
-  if (!process.env.CRON_SECRET || authHeader !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

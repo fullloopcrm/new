@@ -6,11 +6,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { processPayment } from '@/lib/payment-processor'
 import { supabaseAdmin } from '@/lib/supabase'
+import { safeEqual } from '@/lib/secret-compare'
 
 export async function POST(req: NextRequest) {
   const internalKey = req.headers.get('x-internal-key')
   const expected = process.env.INTERNAL_API_KEY || process.env.ELCHAPO_MONITOR_KEY
-  if (!expected || internalKey !== expected) {
+  if (!expected || !safeEqual(internalKey, expected)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 

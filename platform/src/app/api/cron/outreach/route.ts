@@ -9,6 +9,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
+import { safeEqual } from '@/lib/secret-compare'
 
 export const maxDuration = 300
 
@@ -33,7 +34,7 @@ interface TenantRow {
 }
 
 export async function GET(request: Request) {
-  if (!process.env.CRON_SECRET || request.headers.get('authorization') !== `Bearer ${process.env.CRON_SECRET}`) {
+  if (!process.env.CRON_SECRET || !safeEqual(request.headers.get('authorization'), `Bearer ${process.env.CRON_SECRET}`)) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
