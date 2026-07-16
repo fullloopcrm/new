@@ -395,6 +395,15 @@ const EVENT_RELEASES: Record<string, PaymentTrigger> = {
  * 'invoiced' (due to collect) — it never marks them paid (real money still
  * flips 'paid'). Returns how many were released. No-op for events that don't
  * gate a payment.
+ *
+ * 'session_completed' releases only the NEXT pending stage-gated payment (by
+ * sort_order), not every one on the job — a multi-milestone plan (framing /
+ * drywall / final, each meant to gate on a different work session) must not
+ * get fully invoiced the moment the FIRST session finishes just because they
+ * share the same 'on_stage_complete' trigger category; nothing in the schema
+ * links a specific job_payments row to a specific session. 'completed' (the
+ * whole job finishing) is the one case where releasing everything left is
+ * correct — no further sessions are coming to gate them individually.
  */
 export async function releasePaymentsForEvent(
   tenantId: string,
@@ -404,13 +413,28 @@ export async function releasePaymentsForEvent(
   const trigger = EVENT_RELEASES[eventType]
   if (!trigger) return 0
 
-  const { data: released, error } = await supabaseAdmin
+  let candidateQuery = supabaseAdmin
     .from('job_payments')
-    .update({ status: 'invoiced' })
+    .select('id')
     .eq('tenant_id', tenantId)
     .eq('job_id', jobId)
     .eq('trigger', trigger)
     .eq('status', 'pending')
+    .order('sort_order', { ascending: true })
+  if (eventType === 'session_completed') candidateQuery = candidateQuery.limit(1)
+
+  const { data: candidates, error: selErr } = await candidateQuery
+  if (selErr) {
+    console.error('[releasePaymentsForEvent] failed:', selErr)
+    return 0
+  }
+  const ids = (candidates ?? []).map((c) => c.id as string)
+  if (!ids.length) return 0
+
+  const { data: released, error } = await supabaseAdmin
+    .from('job_payments')
+    .update({ status: 'invoiced' })
+    .in('id', ids)
     .select('id, label, amount_cents')
   if (error) {
     console.error('[releasePaymentsForEvent] failed:', error)

@@ -208,3 +208,50 @@ describe('createJobFromQuote — deposit-aware default payment plan', () => {
     expect(payments[0].amount_cents).toBe(50_000)
   })
 })
+
+// Multi-touch archetype (dumpster/junk/moving: delivery+pickup, or a multi-day
+// remodel) — opts.sessions is the only mechanism that pre-schedules a job's
+// work as real bookings instead of leaving it 'unscheduled'. No test covered
+// this path before; it's the load-bearing mechanism for that whole archetype.
+describe('createJobFromQuote — pre-scheduled sessions', () => {
+  it('creates one booking per session, linked to the job, with no address column set', async () => {
+    seedQuote({ total_cents: 20_000 })
+
+    const result = await createJobFromQuote(TENANT_ID, QUOTE_ID, {
+      sessions: [
+        { start_time: '2026-08-01T13:00:00.000Z', notes: 'Delivery' },
+        { start_time: '2026-08-05T09:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', notes: 'Pickup' },
+      ],
+    })
+
+    const bookings = fake._all('bookings').filter((b) => b.job_id === result.job_id)
+    expect(bookings.length).toBe(2)
+    expect(bookings.every((b) => b.status === 'confirmed')).toBe(true)
+    expect(bookings.every((b) => b.client_id === 'client-1')).toBe(true)
+    expect(bookings.find((b) => b.notes === 'Delivery')?.start_time).toBe('2026-08-01T13:00:00.000Z')
+    expect(bookings.find((b) => b.notes === 'Pickup')?.end_time).toBe('2026-08-05T11:00:00.000Z')
+    // bookings has no address column — location lives on the parent job/client.
+    expect(bookings.every((b) => !('address' in b))).toBe(true)
+  })
+
+  it('marks the job scheduled when sessions are supplied, unscheduled when they are not', async () => {
+    seedQuote({ total_cents: 20_000 })
+    const withSessions = await createJobFromQuote(TENANT_ID, QUOTE_ID, {
+      sessions: [{ start_time: '2026-08-01T13:00:00.000Z' }],
+    })
+    const scheduledJob = fake._all('jobs').find((j) => j.id === withSessions.job_id)
+    expect(scheduledJob?.status).toBe('scheduled')
+
+    seedQuote({ id: 'quote-2', total_cents: 20_000 })
+    const withoutSessions = await createJobFromQuote(TENANT_ID, 'quote-2')
+    const unscheduledJob = fake._all('jobs').find((j) => j.id === withoutSessions.job_id)
+    expect(unscheduledJob?.status).toBe('unscheduled')
+  })
+
+  it('does not create any bookings when sessions is an empty array', async () => {
+    seedQuote({ total_cents: 20_000 })
+    const result = await createJobFromQuote(TENANT_ID, QUOTE_ID, { sessions: [] })
+    const bookings = fake._all('bookings').filter((b) => b.job_id === result.job_id)
+    expect(bookings.length).toBe(0)
+  })
+})
