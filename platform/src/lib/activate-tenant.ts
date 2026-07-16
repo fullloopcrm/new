@@ -30,6 +30,36 @@ import crypto from 'crypto'
 // tenant can be driven all the way to active from one click.
 const DEFAULT_OWNER_EMAIL = 'fullloopcrm@gmail.com'
 
+// Mirrors src/middleware.ts BESPOKE_SITE_TENANTS VERBATIM — the single source
+// of truth for which tenants middleware routes to their own /site/<slug>
+// subtree vs the shared /site/template. Copied (not imported) to avoid pulling
+// this activation module into the edge middleware bundle; kept honest by
+// activate-tenant-bespoke-drift.test.ts, which fails if the two lists diverge.
+const BESPOKE_SITE_TENANTS = new Set<string>([
+  'nycmaid',
+  'we-pay-you-junk',
+  'nyc-mobile-salon',
+  'the-florida-maid',
+  'the-nyc-exterminator',
+  'nyc-tow',
+  'nycroadsideemergencyassistance',
+  'theroadsidehelper',
+  'toll-trucks-near-me',
+  'sunnyside-clean-nyc',
+  'wash-and-fold-nyc',
+  'wash-and-fold-hoboken',
+  'landscaping-in-nyc',
+  'debt-service-ratio-loan',
+  'fla-dumpster-rentals',
+  'stretch-ny',
+  'stretch-service',
+  'the-home-services-company',
+  'the-nyc-interior-designer',
+  'the-nyc-marketing-company',
+  'the-nyc-seo',
+  'consortium-nyc',
+])
+
 export type StepStatus = 'done' | 'skipped' | 'action_needed' | 'failed'
 
 export interface ActivationStep {
@@ -355,11 +385,18 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     const carryHost = `${tenant.slug}.fullloopcrm.com`
     const customHost = ((tenant.domain as string | null) || (tenant.domain_name as string | null) || '')
       .trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
-    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string }> = [
-      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation' },
+    // routing_mode must mirror middleware's BESPOKE_SITE_TENANTS, or this row
+    // silently falls to the column DEFAULT ('template') for a tenant middleware
+    // actually routes to /site/<slug> — DB says template-routed while the real
+    // site is bespoke (the 2026-07-10 mis-route class). Kept in sync with
+    // middleware.ts by activate-tenant-bespoke-drift.test.ts, same pattern as
+    // the 055 backfill's middleware-vs-SQL guard.
+    const routingMode = BESPOKE_SITE_TENANTS.has(tenant.slug) ? 'bespoke' : 'template'
+    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string; routing_mode: string }> = [
+      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation', routing_mode: routingMode },
     ]
     if (customHost) {
-      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation' })
+      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation', routing_mode: routingMode })
     }
     const { error: tdErr } = await supabaseAdmin
       .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
