@@ -84,12 +84,26 @@ export async function PATCH(request: Request, { params }: Params) {
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // Columns read here and NOT overwritten from `body` get folded back into
+    // `updates` unchanged (below) so totals/deposit stay internally
+    // consistent -- but that read is a stale snapshot. Same read-merge-write
+    // class as the admin/businesses config-merge race: a concurrent edit to
+    // one of these columns (a second autosave, an edit from another tab)
+    // landing between this read and the write below would otherwise be
+    // silently reverted by our recompute. `guardFields` collects exactly the
+    // columns we relied on `current` for, so the write's own WHERE can
+    // re-assert them and 409 instead of clobbering.
+    const guardFields: Record<string, unknown> = {}
+
     if ('line_items' in body || 'tax_rate_bps' in body || 'discount_cents' in body) {
       const { data: current } = await supabaseAdmin
         .from('quotes')
         .select('line_items, tax_rate_bps, discount_cents')
         .eq('id', id)
         .single()
+      if (!('line_items' in body)) guardFields.line_items = current?.line_items ?? []
+      if (!('tax_rate_bps' in body)) guardFields.tax_rate_bps = Number(current?.tax_rate_bps) || 0
+      if (!('discount_cents' in body)) guardFields.discount_cents = Number(current?.discount_cents) || 0
       const lineItems = normalizeLineItems(
         'line_items' in body ? body.line_items : (current?.line_items as unknown[] || []),
       )
@@ -112,6 +126,7 @@ export async function PATCH(request: Request, { params }: Params) {
       if (total == null) {
         const { data: c2 } = await supabaseAdmin.from('quotes').select('total_cents').eq('id', id).single()
         total = Number(c2?.total_cents) || 0
+        guardFields.total_cents = total
       }
       updates.deposit_type = dtype
       updates.deposit_value = dval
@@ -147,18 +162,20 @@ export async function PATCH(request: Request, { params }: Params) {
     // the line_items/totals/deposit a customer just signed off on, out from
     // under the deal/booking that accept just spun up from the ORIGINAL
     // values.
-    const { data, error } = await supabaseAdmin
+    let writeQuery = supabaseAdmin
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .in('status', EDITABLE_STATUSES)
-      .select('*')
-      .maybeSingle()
+    for (const [col, val] of Object.entries(guardFields)) {
+      writeQuery = writeQuery.eq(col, val as never)
+    }
+    const { data, error } = await writeQuery.select('*').maybeSingle()
     if (error) throw error
     if (!data) {
       return NextResponse.json(
-        { error: 'This quote was accepted or converted concurrently — refresh instead of editing' },
+        { error: 'This quote changed concurrently — refresh instead of editing' },
         { status: 409 },
       )
     }
