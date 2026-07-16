@@ -17,6 +17,7 @@ vi.mock('@/lib/tenant', () => ({
 }))
 
 let updatePayload: Record<string, unknown> | null = null
+let updateEqCalls: Array<[string, unknown]> = []
 
 vi.mock('@/lib/supabase', () => {
   const from = (table: string) => {
@@ -35,7 +36,17 @@ vi.mock('@/lib/supabase', () => {
       return {
         update: (payload: Record<string, unknown>) => {
           updatePayload = payload
-          return { eq: async () => ({ error: null }) }
+          return {
+            eq: (col: string, val: unknown) => {
+              updateEqCalls.push([col, val])
+              return {
+                eq: async (col2: string, val2: unknown) => {
+                  updateEqCalls.push([col2, val2])
+                  return { error: null }
+                },
+              }
+            },
+          }
         },
       }
     }
@@ -56,6 +67,17 @@ function makeRequest(body: unknown): NextRequest {
 describe('PATCH contacts/[id]/notes', () => {
   beforeEach(() => {
     updatePayload = null
+    updateEqCalls = []
+  })
+
+  it('scopes the update to both the client id and the caller tenant', async () => {
+    await PATCH(makeRequest({ notes: 'hello' }), {
+      params: Promise.resolve({ id: 'contact-1' }),
+    })
+    expect(updateEqCalls).toEqual([
+      ['id', 'client-1'],
+      ['tenant_id', 'tenant-1'],
+    ])
   })
 
   it('clears notes when notes is explicitly null', async () => {

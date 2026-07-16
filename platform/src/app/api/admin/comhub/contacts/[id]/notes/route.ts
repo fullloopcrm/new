@@ -47,6 +47,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     .from('clients')
     .update({ notes: notesValue })
     .eq('id', contact.client_id)
+    .eq('tenant_id', tenantId)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
   return NextResponse.json({ ok: true })
