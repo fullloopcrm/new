@@ -57,20 +57,63 @@ export async function PUT(request: Request) {
     const sensitiveFields = ['resend_api_key', 'telnyx_api_key', 'telnyx_phone', 'stripe_api_key', 'stripe_account_id', 'imap_pass', 'anthropic_api_key', 'indexnow_key']
     const changedSensitive = sensitiveFields.filter((f) => body[f] !== undefined)
 
+    // selena_config: merge atomically (Postgres `||`) instead of folding it
+    // into the blind tenants UPDATE below. The dashboard's Selena tab
+    // (saveSelenaConfig() in dashboard/settings/page.tsx) round-trips the
+    // WHOLE config object it loaded at page-open time — a blind replace here
+    // silently reverts any key written by a concurrent save since then: the
+    // admin backend's service_areas edit (PUT /api/admin/businesses/[id],
+    // itself fixed for the same reason — see
+    // migrations/2026_07_16_tenant_jsonb_merge_atomic.sql), or a second
+    // dashboard tab saving a different Selena section. Every field this page
+    // writes is a concrete set-to-value (grepped dashboard/settings/page.tsx —
+    // no `delete`/undefined writes), so an additive `||` merge is behaviorally
+    // identical to the intended replace for every value the UI can produce,
+    // while no longer able to drop a key it doesn't know about.
+    const selenaConfigTouched = body.selena_config !== undefined
+    const selenaConfigPatch = body.selena_config
+    delete body.selena_config
+
     // Encrypt vendor secrets at rest (anthropic/telnyx/resend/stripe/etc.).
     // Non-destructive: empty/null values pass through so a tenant can clear a
     // key (e.g. blank Anthropic key => fall back to the platform key).
     const updatePayload = encryptTenantSecrets(body)
 
-    const { data, error } = await supabaseAdmin
-      .from('tenants')
-      .update(updatePayload)
-      .eq('id', tenantId)
-      .select()
-      .single()
+    // The dashboard's dedicated Selena-tab save sends ONLY selena_config, so
+    // updatePayload can legitimately be empty here — an empty PATCH body is
+    // rejected elsewhere in this codebase (see jobs/[id]/route.ts's own
+    // "Nothing to update" guard), so skip the main UPDATE entirely rather
+    // than call it with {}.
+    let data: Record<string, unknown> | null = null
+    if (Object.keys(updatePayload).length > 0) {
+      const { data: updated, error } = await supabaseAdmin
+        .from('tenants')
+        .update(updatePayload)
+        .eq('id', tenantId)
+        .select()
+        .single()
+      if (error) {
+        return NextResponse.json({ error: error.message }, { status: 500 })
+      }
+      data = updated
+    }
 
-    if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+    let mergedSelenaConfig: unknown
+    if (selenaConfigTouched && selenaConfigPatch && typeof selenaConfigPatch === 'object') {
+      const { data: merged, error: scErr } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+        p_tenant_id: tenantId, p_patch: selenaConfigPatch,
+      })
+      if (scErr) return NextResponse.json({ error: scErr.message }, { status: 500 })
+      mergedSelenaConfig = merged
+    }
+
+    if (!data) {
+      const { data: fresh, error: fetchErr } = await supabaseAdmin.from('tenants').select('*').eq('id', tenantId).single()
+      if (fetchErr || !fresh) return NextResponse.json({ error: fetchErr?.message || 'Not found' }, { status: 500 })
+      data = fresh
+    }
+    if (mergedSelenaConfig !== undefined) {
+      data = { ...data, selena_config: mergedSelenaConfig }
     }
 
     // Bust per-tenant settings cache so getSettings() reflects the change immediately.
@@ -78,7 +121,7 @@ export async function PUT(request: Request) {
 
     // Bust Selena config cache if selena_config was touched so persona/
     // config changes take effect immediately (default cache TTL is 5 min).
-    if (body.selena_config !== undefined) {
+    if (selenaConfigTouched) {
       const { clearSelenaConfigCache } = await import('@/lib/selena-legacy')
       clearSelenaConfigCache(tenantId)
     }
@@ -97,7 +140,8 @@ export async function PUT(request: Request) {
       }
     }
 
-    await audit({ tenantId, action: 'settings.updated', entityType: 'settings', entityId: tenantId, details: { fields: Object.keys(body), sensitiveChanged: changedSensitive } })
+    const auditedFields = selenaConfigTouched ? [...Object.keys(body), 'selena_config'] : Object.keys(body)
+    await audit({ tenantId, action: 'settings.updated', entityType: 'settings', entityId: tenantId, details: { fields: auditedFields, sensitiveChanged: changedSensitive } })
 
     return NextResponse.json({ tenant: data })
   } catch (e) {
