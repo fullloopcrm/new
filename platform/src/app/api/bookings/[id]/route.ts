@@ -81,6 +81,30 @@ export async function PUT(
       }
     }
 
+    // Mirror the client-portal guard (portal/bookings/[id]/route.ts): once a
+    // job is completed/paid, no route should be able to silently flip it
+    // back to 'cancelled' — that has no downstream reconciliation (payroll
+    // team_pay, referral commission clawback) anywhere in this codebase.
+    // The dedicated state machine on PATCH /bookings/[id]/status already
+    // blocks this (completed can only advance to paid, never cancelled),
+    // and the client portal blocks it too, but this general-purpose PUT
+    // accepted `status` as a plain pick()'d field with no such check, so an
+    // admin-authenticated PUT could still do it.
+    if (fields.status === 'cancelled') {
+      const { data: currentBooking } = await supabaseAdmin
+        .from('bookings')
+        .select('status')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (currentBooking && ['completed', 'paid'].includes(currentBooking.status)) {
+        return NextResponse.json(
+          { error: `Cannot cancel a booking that is already ${currentBooking.status}` },
+          { status: 400 }
+        )
+      }
+    }
+
     // Check if team member has the day off or doesn't work that day
     if (fields.team_member_id && !body.force) {
       // Get the booking's start_time (from update or existing record)
