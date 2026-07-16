@@ -44,6 +44,15 @@ export async function POST(request: Request) {
       subject: { type: 'string', max: 500 },
       body: { type: 'string', max: 10000 },
       recipient_filter: { type: 'string', max: 500 },
+      // The create form's "Schedule (optional)" datetime-local input has
+      // always sent this in the POST body (see campaigns/page.tsx), but it
+      // was missing from this allowlist, so validate() silently dropped it
+      // on every create — the row's scheduled_at stayed null regardless of
+      // what the admin picked, and the list view's "Scheduled {date}" label
+      // (which reads campaign.scheduled_at) could never render for a
+      // freshly-created campaign. PATCH /api/campaigns/[id] already accepts
+      // this same field via pick() — only POST was missing it.
+      scheduled_at: { type: 'date' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
