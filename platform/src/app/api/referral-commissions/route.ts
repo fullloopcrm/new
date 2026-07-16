@@ -15,6 +15,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
+import { bumpReferrerTotal } from '@/lib/referrer-ledger'
 
 export async function GET(request: Request) {
   try {
@@ -151,11 +152,12 @@ export async function POST(request: Request) {
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
       .catch(err => console.error('[ref-comm] accrual post failed:', err))
 
-    await supabaseAdmin
-      .from('referrers')
-      .update({ total_earned: (ref.total_earned || 0) + commission })
-      .eq('id', ref.id)
-      .eq('tenant_id', tenantId)
+    // CAS retry, not a plain read-then-write -- two different bookings for
+    // this same referrer completing concurrently would otherwise both read
+    // the same starting total_earned and the second write clobbers the
+    // first (the UNIQUE(booking_id) dedup above only guards the SAME
+    // booking being double-submitted, not two different ones racing here).
+    await bumpReferrerTotal(tenantId, ref.id, 'total_earned', commission)
 
     if (ref.email) {
       notify({
@@ -227,19 +229,13 @@ export async function PUT(request: Request) {
     }
 
     if (markingPaid) {
-      const { data: ref } = await supabaseAdmin
-        .from('referrers')
-        .select('total_paid')
-        .eq('id', data.referrer_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (ref) {
-        await supabaseAdmin
-          .from('referrers')
-          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
-          .eq('id', data.referrer_id)
-          .eq('tenant_id', tenantId)
-      }
+      // CAS retry, not a plain read-then-write -- two different commissions
+      // for this same referrer both being marked paid concurrently would
+      // otherwise read the same starting total_paid and the second write
+      // clobbers the first (the `.neq('status','paid')` guard above only
+      // protects the same commission row from being double-paid, not the
+      // referrer's aggregate total_paid across different rows).
+      await bumpReferrerTotal(tenantId, data.referrer_id as string, 'total_paid', data.commission_cents as number)
       // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))

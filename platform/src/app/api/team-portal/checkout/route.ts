@@ -8,6 +8,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
+import { bumpReferrerTotal } from '@/lib/referrer-ledger'
 
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -152,11 +153,13 @@ export async function POST(request: Request) {
       // commErr is expected (and ignored) when a commission already exists for
       // this booking — the UNIQUE(booking_id) constraint makes re-checkout safe.
       if (!commErr) {
-        await supabaseAdmin
-          .from('referrers')
-          .update({ total_earned: (ref.total_earned || 0) + commissionCents })
-          .eq('id', ref.id)
-          .then(() => {}, () => {})
+        // CAS retry, not a plain read-then-write -- two different bookings
+        // for this same referrer checking out concurrently would otherwise
+        // both read the same starting total_earned and the second write
+        // clobbers the first. Also tenant-scoped now (matches every other
+        // referrers write in this codebase; id is already unique so this
+        // wasn't cross-tenant exploitable, just missing defense-in-depth).
+        bumpReferrerTotal(auth.tid, ref.id, 'total_earned', commissionCents).catch(() => {})
         await supabaseAdmin.from('notifications').insert({
           tenant_id: auth.tid,
           type: 'referral_converted',
