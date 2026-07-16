@@ -1,0 +1,30 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes a duplicate-SMS race in GET /api/cron/confirmation-reminder
+-- (every 5 min).
+--
+-- The route dedups via `SELECT count(*) FROM sms_logs WHERE tenant_id=...
+-- AND booking_id=... AND sms_type='confirmation_reminder'` BEFORE calling
+-- sendClientSMS. That count check is not atomic and there's no unique
+-- constraint on sms_logs backing it. Worse than the crons already fixed
+-- this session: the sms_logs row that the dedup check relies on is only
+-- ever written by the shared low-level sender
+-- (src/lib/nycmaid/sms.ts:sendSMS), and only AFTER the SMS is actually
+-- delivered to Telnyx — not something route.ts controls or can move earlier
+-- without changing shared logging behavior used by every other SMS call
+-- site in the app (rating-prompt, payment nudges, etc). A slow run or
+-- manual re-trigger overlapping the next 5-min tick can see the same
+-- "not yet reminded" state on two invocations and both text the client
+-- before either send's log row lands.
+--
+-- Fix requires a claim the cron route itself can write BEFORE sending,
+-- independent of the shared sender's post-send logging. Adds a dedicated
+-- bookings column, same convention as rating_prompt_sent_at /
+-- payment_reminder_sent_at, so the cron can claim with a conditional
+-- UPDATE ... WHERE confirmation_reminder_sent_at IS NULL before sending.
+--
+-- NOT wired into route.ts yet — referencing an undefined column in a
+-- SELECT/UPDATE before the migration runs would break the live cron.
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS confirmation_reminder_sent_at timestamptz;
