@@ -120,4 +120,29 @@ describe('checkout.session.completed idempotency replay (invoice path, stripe_se
     expect(h.store.payments).toHaveLength(2)
     expect(postPaymentRevenue).toHaveBeenCalledTimes(2)
   })
+
+  it('a TRUE concurrent redelivery (both requests bypass the stripe_session_id SELECT fast-path) still lands exactly one payments row', async () => {
+    // The "existing" check above is only a fast-path -- it has the same
+    // read-then-write TOCTOU gap as every other route fixed this session.
+    // Promise.all here drives both requests through the SELECT (both see no
+    // existing row) before either INSERT commits, so only migration 011's
+    // real stripe_session_id UNIQUE constraint (emulated by the shared fake)
+    // can prevent a double payments row + double revenue post. Previously
+    // the insert's error was discarded entirely, so this scenario would have
+    // landed two rows.
+    stripeCtl.current = invoiceSessionEvent('cs_concurrent_1')
+
+    const [first, second] = await Promise.all([post(), post()])
+
+    expect(first.status).toBe(200)
+    expect(second.status).toBe(200)
+    expect(h.store.payments).toHaveLength(1)
+    expect(postPaymentRevenue).toHaveBeenCalledTimes(1)
+
+    const bodies = await Promise.all([first.json(), second.json()])
+    const idempotent = bodies.filter((b) => b.idempotent)
+    const paid = bodies.filter((b) => b.invoice_paid)
+    expect(idempotent).toHaveLength(1)
+    expect(paid).toHaveLength(1)
+  })
 })

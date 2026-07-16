@@ -221,7 +221,7 @@ export async function POST(request: Request) {
         if (existing && existing.length > 0) {
           return NextResponse.json({ received: true, idempotent: true })
         }
-        const { data: invPayment } = await supabaseAdmin.from('payments').insert({
+        const { data: invPayment, error: invPaymentErr } = await supabaseAdmin.from('payments').insert({
           tenant_id: tenantId,
           invoice_id: invoiceId,
           amount_cents: session.amount_total || 0,
@@ -231,11 +231,23 @@ export async function POST(request: Request) {
           stripe_payment_intent_id:
             typeof session.payment_intent === 'string' ? session.payment_intent : null,
         }).select('id').single()
-        // DB trigger recomputes invoice.amount_paid_cents and status.
-        if (invPayment?.id) {
-          postPaymentRevenue({ tenantId, paymentId: invPayment.id })
-            .catch(err => console.error('[stripe] invoice revenue post failed:', err))
+        // The "existing" check above is only a fast-path (same TOCTOU gap as
+        // the booking-path insert below); stripe_session_id is UNIQUE (011),
+        // so a concurrent/retried delivery for the SAME session hits 23505
+        // here instead — treat that as the idempotent no-op it is. Any OTHER
+        // insert error must NOT be silently swallowed as "invoice_paid: true"
+        // (the prior code did exactly that, discarding the error entirely) —
+        // that would tell Stripe delivery succeeded while the customer's real
+        // payment never got a payments row or invoice-paid trigger, with zero
+        // retry and zero visibility. Throw instead so this returns 500 and
+        // Stripe's normal retry schedule gets another shot at it.
+        if (invPaymentErr?.code === '23505') {
+          return NextResponse.json({ received: true, idempotent: true })
         }
+        if (invPaymentErr || !invPayment) throw invPaymentErr || new Error('invoice payment insert returned no row')
+        // DB trigger recomputes invoice.amount_paid_cents and status.
+        postPaymentRevenue({ tenantId, paymentId: invPayment.id })
+          .catch(err => console.error('[stripe] invoice revenue post failed:', err))
         return NextResponse.json({ received: true, invoice_paid: true })
       }
 
