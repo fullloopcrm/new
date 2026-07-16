@@ -882,6 +882,41 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: customer-facing booking-received confirmation (email+SMS) acknowledges the urgency the customer just reported',
         emailAcknowledgesUrgency || smsAcknowledgesUrgency,
         `bookingReceivedEmail() and smsBookingReceived() take no urgency/emergency parameter at all (email data shape: {clientName, serviceName, dateTime}; SMS: {start_time} only) — both confirmations are urgency-blind by construction, not just by this test's inputs. Actual rendered SMS: "${emSmsBody}"; email body includes the fixed line "We're reviewing your request and will confirm shortly" — identical wording a routine booking 3 weeks out would receive. A customer who just reported a burst pipe / no heat / storm damage gets zero reassurance that the emergency itself was noticed, only that "a request" was received.`)
+
+      // P11.15 completes the "does the owner's configured emergency_rate ever
+      // reach real billing" trilogy alongside P11.7 (existing-client portal
+      // self-book) and P11.8 (public self-book, hardcoded to NYC Maid only):
+      // the operator's OWN manual booking-creation panel
+      // (src/app/dashboard/bookings/BookingsAdmin.tsx) — this archetype's
+      // real "owner takes the emergency call and books it themselves" path,
+      // and the exact surface P11.13 already found has a working Emergency-
+      // toggle for DISPATCH (broadcast) — has the same gap for PRICE. A
+      // client component; can't invoke it live in this harness (no DOM), so
+      // verified by reading the source directly, same as P11.8-P11.13.
+      // Selecting "Emergency / Same-Day" from the Service dropdown only ever
+      // sets is_emergency/cleaner_id in state (see the onChange handler
+      // below) — it never reads tenant.selena_config.emergency_rate (the
+      // exact number P11.6 proved reaches the AI's chat prompt) into
+      // createForm.hourly_rate. hourly_rate's only sources are its hardcoded
+      // initial-state default (69 — the SAME default for every service,
+      // emergency or not; see the useState calls above) and whatever the
+      // operator manually retypes into the plain, unlabeled "Rate" $/hr box.
+      // So all THREE live paths that could apply the owner's configured
+      // emergency_rate — portal self-book (P11.7), public self-book (P11.8),
+      // and the operator's own manual creation panel (this check) — ignore
+      // it; only the AI chat prompt (P11.6) ever surfaces the number, and
+      // even there only if the AI happens to mention it in conversation.
+      const bookingsAdminSrc = readFileSync(resolve(process.cwd(), 'src/app/dashboard/bookings/BookingsAdmin.tsx'), 'utf8')
+      const serviceDropdownOnChangeMatch = bookingsAdminSrc.match(/const isEmergency = e\.target\.value === 'Emergency \/ Same-Day'\n\s*setCreateForm\(\{[^}]*\}\)/)
+      const serviceDropdownOnChange = serviceDropdownOnChangeMatch?.[0] || ''
+      const emergencyTogglePrefillsRate = /emergency_rate|selena_config/.test(serviceDropdownOnChange)
+      const hourlyRateDefaultMatches = [...bookingsAdminSrc.matchAll(/hourly_rate:\s*(\d+)/g)].map((m) => m[1])
+      const allDefaultsIdentical = new Set(hourlyRateDefaultMatches.filter((_, i) => i < 5)).size === 1
+      add("emergency: operator's manual booking-creation panel prefills the emergency_rate the owner configured (Settings > Selena) when Emergency/Same-Day is selected",
+        emergencyTogglePrefillsRate,
+        emergencyTogglePrefillsRate
+          ? 'prefill logic found'
+          : `BookingsAdmin.tsx's Emergency/Same-Day onChange handler (found: ${!!serviceDropdownOnChangeMatch}, ${serviceDropdownOnChange.length} chars) never references emergency_rate/selena_config — it only sets is_emergency/cleaner_id. hourly_rate's initial-state default is hardcoded to 69 everywhere it's declared (same value regardless of service type, emergency or not — ${allDefaultsIdentical ? 'confirmed identical across the form\'s useState calls' : 'defaults vary across forms, re-verify manually'}). Completes the trilogy with P11.7/P11.8: portal self-book, public self-book, AND the operator's own manual creation panel all ignore the configured emergency_rate; only the AI chat prompt (P11.6) ever surfaces it.`)
     }
 
   } catch (err) {
