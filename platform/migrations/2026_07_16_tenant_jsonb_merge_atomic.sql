@@ -49,3 +49,24 @@ BEGIN
   RETURN v_result;
 END;
 $$;
+
+-- POST /api/setup-checklist's "uncomplete_key" toggle-off has the same
+-- read-merge-write shape but needs to REMOVE a key, not merge one in --
+-- `||` can't do that, so it needs its own atomic Postgres-side op (jsonb `-`
+-- key-removal), same race rationale as merge_tenant_setup_progress above.
+CREATE OR REPLACE FUNCTION public.remove_tenant_setup_progress_key(
+  p_tenant_id uuid,
+  p_key text
+) RETURNS jsonb
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_result jsonb;
+BEGIN
+  UPDATE public.tenants
+  SET setup_progress = COALESCE(setup_progress, '{}'::jsonb) - p_key
+  WHERE id = p_tenant_id
+  RETURNING setup_progress INTO v_result;
+
+  RETURN v_result;
+END;
+$$;

@@ -98,17 +98,18 @@ export async function PUT(request: Request) {
       }
     }
 
-    const currentConfig =
-      (tenant.tenant?.selena_config as Record<string, unknown> | null) || {}
-    const nextConfig = { ...currentConfig, portal_role_permissions: cleaned }
-
-    const { error } = await supabaseAdmin
-      .from('tenants')
-      .update({ selena_config: nextConfig })
-      .eq('id', tenantId)
+    // Merge atomically in Postgres, same TOCTOU class + fix as
+    // settings/permissions/route.ts's role_permissions merge (see that
+    // route for the full race rationale) -- a portal-permissions save
+    // racing a role-permissions or persona/service-area save on the same
+    // selena_config blob would otherwise silently drop whichever committed
+    // first.
+    const { error } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+      p_tenant_id: tenantId, p_patch: { portal_role_permissions: cleaned },
+    })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: (error as { message: string }).message }, { status: 500 })
     }
 
     clearSettingsCache(tenantId)

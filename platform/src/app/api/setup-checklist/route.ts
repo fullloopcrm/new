@@ -223,24 +223,30 @@ export async function POST(request: Request) {
         .eq('id', tenant.id)
     }
 
-    // Mark a specific checklist item as done in setup_progress
+    // Mark a specific checklist item as done in setup_progress. Merged
+    // atomically in Postgres (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql)
+    // rather than reading tenant.setup_progress (a snapshot from this
+    // request's getTenantForRequest call) and blind-writing the merged
+    // object back -- two checklist items completed via near-simultaneous
+    // requests (e.g. two open tabs) would otherwise both merge onto the same
+    // stale snapshot, and whichever write lands second silently reverts the
+    // first tab's checked box. Same TOCTOU class already fixed for
+    // PUT /api/admin/businesses/[id]'s setup_progress merge.
     if (body.complete_key) {
-      const current = tenant.setup_progress || {}
-      await supabaseAdmin
-        .from('tenants')
-        .update({ setup_progress: { ...current, [body.complete_key]: true } })
-        .eq('id', tenant.id)
+      const { error: spErr } = await supabaseAdmin.rpc('merge_tenant_setup_progress', {
+        p_tenant_id: tenant.id, p_patch: { [body.complete_key]: true },
+      })
+      if (spErr) return NextResponse.json({ error: spErr.message }, { status: 500 })
     }
 
-    // Unmark a specific checklist item (toggle off)
+    // Unmark a specific checklist item (toggle off) -- same atomic-merge
+    // rationale, but removing a key needs Postgres's jsonb `-` operator
+    // (`||` can't delete), so it uses its own RPC.
     if (body.uncomplete_key) {
-      const current = (tenant.setup_progress || {}) as Record<string, boolean>
-      const updated = { ...current }
-      delete updated[body.uncomplete_key]
-      await supabaseAdmin
-        .from('tenants')
-        .update({ setup_progress: updated })
-        .eq('id', tenant.id)
+      const { error: spErr } = await supabaseAdmin.rpc('remove_tenant_setup_progress_key', {
+        p_tenant_id: tenant.id, p_key: body.uncomplete_key,
+      })
+      if (spErr) return NextResponse.json({ error: spErr.message }, { status: 500 })
     }
 
     return NextResponse.json({ ok: true })

@@ -120,18 +120,21 @@ export async function PUT(request: Request) {
       }
     }
 
-    // Merge into selena_config without clobbering other keys.
-    const currentConfig =
-      (tenant.tenant?.selena_config as Record<string, unknown> | null) || {}
-    const nextConfig = { ...currentConfig, role_permissions: cleaned }
-
-    const { error } = await supabaseAdmin
-      .from('tenants')
-      .update({ selena_config: nextConfig })
-      .eq('id', tenantId)
+    // Merge role_permissions into selena_config atomically in Postgres
+    // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) rather than
+    // reading tenant.tenant.selena_config (a snapshot from this request's
+    // requirePermission call), spreading the patch over it in JS, and
+    // blind-writing the merged blob back. This route's own save racing a
+    // portal-permissions save, or a persona/service-area save via
+    // admin/businesses, would otherwise both read the same stale blob --
+    // whichever write lands second silently reverts the other's change.
+    // Same TOCTOU class already fixed for PUT /api/admin/businesses/[id].
+    const { error } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+      p_tenant_id: tenantId, p_patch: { role_permissions: cleaned },
+    })
 
     if (error) {
-      return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ error: (error as { message: string }).message }, { status: 500 })
     }
 
     clearSettingsCache(tenantId)
