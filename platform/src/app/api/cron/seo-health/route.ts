@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { runFleetHealth } from '@/lib/seo/health'
 import { safeEqual } from '@/lib/secret-compare'
+import { alertOwner } from '@/lib/telegram'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -12,6 +13,12 @@ export async function GET(request: Request) {
   }
   try {
     const summary = await runFleetHealth()
+    if (summary.down.length > 0) {
+      const body = summary.down
+        .map((d) => `• ${d.domain}: HTTP ${d.status}${d.vercelError ? ` (${d.vercelError})` : ''}`)
+        .join('\n')
+      await alertOwner(`🚨 seomgr: ${summary.down.length} tenant site(s) DOWN`, body).catch(() => {})
+    }
     return NextResponse.json({ ok: true, ...summary })
   } catch (e) {
     return NextResponse.json({ ok: false, error: e instanceof Error ? e.message : String(e) }, { status: 500 })

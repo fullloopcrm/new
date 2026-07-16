@@ -65,6 +65,26 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/seo-propose",
+      "schedule": "0 7 * * 1"
+    },
+    {
+      "path": "/api/cron/seo-competitors",
+      "schedule": "0 7 * * 3"
+    },
+    {
+      "path": "/api/cron/seo-enrich",
+      "schedule": "0 7 * * 4"
+    },
+    {
+      "path": "/api/cron/seo-autopilot",
+      "schedule": "30 8 * * *"
+    },
+    {
+      "path": "/api/cron/seo-verify-revert",
+      "schedule": "30 9 * * 5"
+    },
+    {
       "path": "/api/cron/auto-reply-reviews",
       "schedule": "30 */6 * * *"
     },

@@ -16,7 +16,14 @@ const nextConfig: NextConfig = {
     // Use afterFiles so these rewrites run AFTER middleware prefixes tenant
     // requests with /site. Tenant content already reads getTenantFromHeaders.
     return {
-      beforeFiles: [],
+      // seomgr auto-verify (src/lib/seo/auto-verify.ts): Google's FILE
+      // verification method requests `/google<token>.html` at the site root.
+      // Route it to the handler that serves only tokens seomgr itself minted
+      // (src/app/api/seo/verify-file/[file]/route.ts) — must run beforeFiles
+      // so it wins over any static/page match at that path.
+      beforeFiles: [
+        { source: '/:file(google[A-Za-z0-9_-]+\\.html)', destination: '/api/seo/verify-file/:file' },
+      ],
       afterFiles: [
         { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
         { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },

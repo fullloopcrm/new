@@ -10,6 +10,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { fetchTitleMeta } from './remediate'
+import { isExcludedProperty } from './excluded'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -114,7 +115,7 @@ export async function generateCompetitorProposals(opts?: { limit?: number }): Pr
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = (data ?? []) as GapIssue[]
+  const issues = ((data ?? []) as GapIssue[]).filter((i) => !isExcludedProperty(i.property))
   let proposals = 0
   for (const issue of issues) proposals += await proposeForGap(issue)
   return { issues: issues.length, proposals }

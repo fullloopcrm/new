@@ -10,6 +10,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { safeFetch } from '../ssrf'
+import { isExcludedProperty } from './excluded'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -124,7 +125,7 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = (data ?? []) as Issue[]
+  const issues = ((data ?? []) as Issue[]).filter((i) => !isExcludedProperty(i.property))
   let proposals = 0
   for (const issue of issues) proposals += await proposeForIssue(issue)
   return { issues: issues.length, proposals }
