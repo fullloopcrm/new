@@ -4,6 +4,7 @@
  * team_members.photo_url / avatar_url. Admin path OR cleaner_id self-upload.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -61,7 +62,7 @@ export async function POST(request: NextRequest) {
     const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const ext = SAFE_EXTS.includes(rawExt) ? rawExt : 'jpg'
     const timestamp = Date.now()
-    const randomId = Math.random().toString(36).substring(2, 8)
+    const randomId = randomBytes(6).toString('hex')
     const filename = `${tenantId}/team-photos/${timestamp}-${randomId}.${ext}`
 
     const buffer = Buffer.from(await file.arrayBuffer())

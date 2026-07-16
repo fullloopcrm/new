@@ -4,6 +4,7 @@
  * Returns the public URL to attach to a note.
  */
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 
@@ -21,7 +22,7 @@ export async function POST(request: NextRequest) {
   if (!OK_TYPES.includes(file.type)) return NextResponse.json({ error: 'Unsupported file type' }, { status: 400 })
 
   const ext = file.name.split('.').pop()?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'bin'
-  const rand = Math.random().toString(36).slice(2, 10)
+  const rand = randomBytes(8).toString('hex')
   const path = `notes/${rand}.${ext}`
   const buffer = Buffer.from(await file.arrayBuffer())
 

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
@@ -44,7 +45,7 @@ export async function POST(request: NextRequest) {
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
 
     const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-    const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `booking-notes/${bookingId}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabaseAdmin.storage
