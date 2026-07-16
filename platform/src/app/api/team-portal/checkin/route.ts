@@ -77,6 +77,17 @@ export async function POST(request: Request) {
     }
   }
 
+  // Atomic claim on the scheduled/confirmed -> in_progress transition. The
+  // status + check_in_time checks above read a plain SELECT snapshot; a
+  // cleaner double-tapping "Check In" on a spotty connection (or a
+  // client-side retry after a timeout) fires two near-simultaneous requests
+  // that both read the same pre-check-in status and both fall through.
+  // Without a conditional WHERE here, whichever write landed last would
+  // silently win the row (lost update on check_in_time/lat/lng, and — since
+  // both calls appended to the same stale `notes` snapshot rather than each
+  // other's write — the GPS-flag note from one of the two calls could be
+  // dropped entirely). `in('status', [...])` means only the request that
+  // actually flips the row proceeds; the loser gets a clean 409.
   const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .update({
@@ -87,11 +98,15 @@ export async function POST(request: Request) {
       ...(checkInFlagNote ? { notes: ((booking as { notes?: string | null }).notes || '') + checkInFlagNote } : {}),
     })
     .eq('id', booking_id)
+    .in('status', ['scheduled', 'confirmed'])
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked in' }, { status: 409 })
   }
 
   return NextResponse.json({ booking: data })
