@@ -33,17 +33,41 @@ import { dirname, join } from 'node:path'
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REF = 'cetnrttgtoajzjacfbhe'
 
-export const norm = (d) =>
-  (d || '')
-    .trim()
-    .toLowerCase()
-    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '') // strip a URL scheme (e.g. https://) if a full URL got pasted into a domain field
-    .replace(/^\/+/, '') // strip a protocol-relative prefix ("//example.com") AND any stray extra slashes left by a malformed triple/quad-slash URL ("https:///example.com") — a single-slash strip left one leading slash behind, which the path-strip below then treated as the path separator, collapsing the WHOLE host to '' and making it silently invisible to Drift F (claim() skips empty keys)
-    .replace(/^[^/?#]*@(?=.)/, '') // strip userinfo (user:pass@) if a full URL with credentials got pasted — the host after the LAST '@' is what actually routes. The (?=.) lookahead requires at least one char AFTER the '@': without it, any value ending in a bare '@' (nothing left to be a host) matches the whole string and collapses to '' — and claim() silently skips empty keys, making that row vanish from Drift F collision detection instead of just failing to normalize.
+export const norm = (d) => {
+  let s = (d || '').trim().toLowerCase()
+  // Strip a URL scheme, a protocol-relative/stray-slash prefix, AND userinfo
+  // (user:pass@), LOOPED to a fixed point rather than one pass each. A single
+  // pass only partially strips a DOUBLED scheme ("https://https://host" ->
+  // one pass leaves "https://host") or a scheme preceded by stray garbage
+  // ("/https://host" strips the leading slash but never re-checks the
+  // now-exposed scheme behind it) — the leftover "https:" prefix then gets
+  // truncated by the path-strip below at ITS OWN "//" instead of the real
+  // host's, corrupting the key to "https:". That's a non-empty value that
+  // silently fails to collapse with its correctly-pasted twin, hiding the
+  // Drift F collision instead of merely failing to normalize it. `:\/+`
+  // (one-or-more slashes, not exactly two) also folds in triple/quad-slash
+  // AND a single-slash scheme typo ("http:/host") in the same pass. Userinfo
+  // MUST be stripped inside this same loop, not after it: stripping a scheme
+  // can expose a leading "@" (e.g. "https:/@/host" -> scheme-strip eats the
+  // lone slash -> "@/host"), and stripping THAT userinfo in turn re-exposes a
+  // bare leading "/" ("/host") that path-strip below would otherwise treat as
+  // an empty host followed by a path, collapsing the whole value to '' —
+  // reintroducing the exact silently-invisible-to-Drift-F failure mode this
+  // loop exists to close, just via a different combination of strips.
+  for (let i = 0; i < 10; i++) {
+    const before = s
+    s = s
+      .replace(/^[a-z][a-z0-9+.-]*:\/+/, '')
+      .replace(/^\/+/, '')
+      .replace(/^[^/?#]*@(?=.)/, '') // the (?=.) lookahead requires at least one char AFTER the '@': without it, any value ending in a bare '@' (nothing left to be a host) matches the whole string and collapses to '' — and claim() silently skips empty keys, making that row vanish from Drift F collision detection instead of just failing to normalize.
+    if (s === before) break
+  }
+  return s
     .replace(/[/?#].*$/, '') // strip any path/query/fragment after the scheme strip — only the host decides routing
     .replace(/^www\./, '')
-    .replace(/:\d+$/, '') // strip a port suffix (e.g. example.com:8443) — same real domain
+    .replace(/:\d*$/, '') // strip a port suffix (e.g. example.com:8443), OR a bare trailing colon left by a truncated/typo'd port ("example.com:") — same real domain either way
     .replace(/\.+$/, '') // strip trailing dot(s) — absolute-FQDN form (example.com.) is the same domain
+}
 
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---
 export function parseBespokeSet(middlewareSource) {

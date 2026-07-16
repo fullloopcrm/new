@@ -364,6 +364,134 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     // claim/finding), not silently disappear the way an empty norm() key would.
     expect(findings.length).toBeGreaterThan(0)
   })
+
+  it('still red-gates when one tenant\'s domain was pasted with a DOUBLED scheme instead of a bare hostname', () => {
+    // A single scheme-strip pass only removes the FIRST "https://", leaving
+    // "https://shared-domain.com" behind; the path-strip rule then truncates
+    // at that leftover scheme's OWN "//", corrupting the key to "https:"
+    // instead of the real host — a non-empty key that silently fails to
+    // collapse with the clean twin, hiding the collision.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https://https://shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https://https://shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain has a leading stray slash before an otherwise-valid scheme', () => {
+    // The scheme-strip regex is anchored at the START of the string, so a
+    // single stray "/" before "https://" (e.g. a copy-paste off-by-one) blocks
+    // it from matching at all on that pass; the leading-slash strip removes
+    // the stray "/" but — without a loop back to re-check for the now-exposed
+    // scheme — the leftover "https://shared-domain.com" falls straight to the
+    // path-strip rule, which truncates at the scheme's own "//" instead of the
+    // real host.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: '/https://shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: '/https://shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain is missing the second slash of the scheme ("http:/host" typo)', () => {
+    // The original scheme-strip regex required exactly "://" (two slashes).
+    // A one-character typo dropping the second slash means it never matches,
+    // so the path-strip rule fires at that single leftover "/" instead,
+    // truncating the key to "http:" and hiding the real host entirely.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'http:/shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'http:/shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain has a bare trailing colon left by a truncated port', () => {
+    // The port-strip regex required at least one digit after the colon
+    // (":\\d+$"), so a colon with the port digits missing/cut off ("host:")
+    // was left untouched — a distinct, non-empty key from the clean "host",
+    // silently hiding the collision from Drift F.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared-domain.com:', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared-domain.com:', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does NOT collapse to empty when a scheme-strip exposes a bare userinfo "@" that in turn exposes a leading slash', () => {
+    // Regression guard for the fix itself: looping the scheme/slash strip
+    // WITHOUT also looping the userinfo strip inside the same loop can eat a
+    // single slash after "https:" (leaving "@/shared-domain.com"), then the
+    // userinfo strip (running once, after the loop) removes the leading "@"
+    // and re-exposes a bare leading "/" that the path-strip rule then treats
+    // as an empty host followed by a path — collapsing the whole value to ''
+    // and vanishing it from Drift F entirely. This is worse than the original
+    // "https:" garbage-key bug it was meant to fix.
+    expect(norm('https:/@/shared-domain.com')).toBe('shared-domain.com')
+  })
 })
 
 describe('computeFindings — orphan gate (Drift L known-pending exemption)', () => {
