@@ -77,6 +77,24 @@ export async function POST(request: Request, { params }: Params) {
       .eq('id', id)
       .single()
 
+    // The remaining-balance check above reads a snapshot BEFORE this insert —
+    // two near-simultaneous record-payment calls (double-click on "Record
+    // Payment" before the button disables, a client retry) can both pass that
+    // check against the same stale amount_paid_cents and both insert. The
+    // trigger recomputes amount_paid_cents as a SUM of every succeeded
+    // payment, so the race doesn't corrupt the total, but it CAN push the
+    // invoice over its own total_cents — recording a manual Zelle/cash/check
+    // payment twice for money the tenant only actually received once. Detect
+    // that here and roll back the payment THIS request just added; the
+    // request that doesn't push it over keeps its payment.
+    if (updated && (updated.amount_paid_cents || 0) > (updated.total_cents || 0)) {
+      await supabaseAdmin.from('payments').delete().eq('id', payment.id)
+      return NextResponse.json(
+        { error: 'This invoice’s balance changed before this payment could be recorded (possible duplicate submission). Refresh and try again.' },
+        { status: 409 },
+      )
+    }
+
     const isFullyPaid = updated?.status === 'paid'
     await logInvoiceEvent({
       invoice_id: id,
