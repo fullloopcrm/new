@@ -32,7 +32,7 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { POST, PUT } from './route'
+import { POST, PUT, DELETE } from './route'
 
 const TENANT_ID = 'tenant-A'
 const fake = supabaseAdmin as unknown as FakeSupabase
@@ -45,11 +45,16 @@ function putReq(body: unknown): NextRequest {
   return new NextRequest('http://x/api/admin/users', { method: 'PUT', body: JSON.stringify(body) })
 }
 
+function deleteReq(body: unknown): NextRequest {
+  return new NextRequest('http://x/api/admin/users', { method: 'DELETE', body: JSON.stringify(body) })
+}
+
 beforeEach(() => {
   fake._store.clear()
   fake._seed('tenant_members', [
     { id: 'member-staff', tenant_id: TENANT_ID, name: 'Staffer', role: 'staff' },
     { id: 'member-owner', tenant_id: TENANT_ID, name: 'Owner', role: 'owner' },
+    { id: 'member-owner2', tenant_id: TENANT_ID, name: 'Owner Two', role: 'owner' },
   ])
 })
 
@@ -94,5 +99,33 @@ describe('admin/users PUT — owner-only role escalation gate', () => {
     expect(res.status).toBe(200)
     const row = fake._store.get('tenant_members')?.find(r => r.id === 'member-staff')
     expect(row?.role).toBe('owner')
+  })
+})
+
+describe('admin/users DELETE — owner-only removal gate', () => {
+  it('an admin cannot delete an owner-role member, even when another owner exists', async () => {
+    currentRole = 'admin'
+    const res = await DELETE(deleteReq({ id: 'member-owner' }))
+    expect(res.status).toBe(403)
+    const row = fake._store.get('tenant_members')?.find(r => r.id === 'member-owner')
+    expect(row).toBeDefined()
+  })
+
+  it('an owner can delete another owner-role member when not the last owner (positive control)', async () => {
+    currentRole = 'owner'
+    const res = await DELETE(deleteReq({ id: 'member-owner2' }))
+    expect(res.status).toBe(200)
+    const row = fake._store.get('tenant_members')?.find(r => r.id === 'member-owner2')
+    expect(row).toBeUndefined()
+  })
+
+  it('an owner still cannot delete the last remaining owner', async () => {
+    currentRole = 'owner'
+    // Remove the second owner first so member-owner is the sole owner left.
+    fake._store.set('tenant_members', fake._store.get('tenant_members')!.filter(r => r.id !== 'member-owner2'))
+    const res = await DELETE(deleteReq({ id: 'member-owner' }))
+    expect(res.status).toBe(400)
+    const row = fake._store.get('tenant_members')?.find(r => r.id === 'member-owner')
+    expect(row).toBeDefined()
   })
 })

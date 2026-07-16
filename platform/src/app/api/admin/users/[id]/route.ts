@@ -78,6 +78,12 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   if (target.role === 'owner') {
+    // Removing an owner-role member is owner-only — settings.edit alone
+    // (held by admin too) must not let an admin delete their way around the
+    // same role-escalation gate PUT already enforces for demotion above.
+    if (tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can remove an owner-role member' }, { status: 403 })
+    }
     const { count } = await supabaseAdmin
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })
