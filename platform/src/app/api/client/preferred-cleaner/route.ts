@@ -10,7 +10,7 @@ import { verifyPortalToken } from '../../portal/auth/token'
 export async function GET(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyPortalToken(token)
+  const auth = await verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   const clientId = auth.id
 
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 export async function PUT(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyPortalToken(token)
+  const auth = await verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   const clientId = auth.id
 

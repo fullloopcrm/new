@@ -31,6 +31,7 @@ const MEMBER_A1 = 'member-a1'
 
 function seed() {
   return {
+    tenants: [{ id: TENANT_A, status: 'active' }],
     team_members: [{ id: MEMBER_A1, name: 'Alice' }],
     connect_channels: [
       { id: 'chan-a-general', tenant_id: TENANT_A, type: 'general', name: 'General' },

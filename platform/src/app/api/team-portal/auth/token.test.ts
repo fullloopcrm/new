@@ -1,5 +1,32 @@
-import { describe, it, expect, beforeEach } from 'vitest'
+import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { createHmac } from 'crypto'
+
+// verifyToken now re-checks the token's tenant status in the DB on every
+// call (async). Mock supabaseAdmin's `tenants` lookup so signature/expiry
+// tests aren't coupled to a real DB; tenant-status behavior gets its own
+// describe block below.
+const tenantStatuses = vi.hoisted(() => ({ current: {} as Record<string, string | null | undefined> }))
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: (table: string) => {
+      if (table !== 'tenants') throw new Error(`unexpected table in mock: ${table}`)
+      let queriedId: string | undefined
+      const chain = {
+        select: () => chain,
+        eq: (_col: string, val: string) => {
+          queriedId = val
+          return chain
+        },
+        single: async () => {
+          const status = queriedId !== undefined ? tenantStatuses.current[queriedId] : undefined
+          return { data: status === undefined ? null : { status } }
+        },
+      }
+      return chain
+    },
+  },
+}))
+
 import { createToken, verifyToken } from './token'
 
 const SECRET = 'test-team-portal-secret'
@@ -9,17 +36,18 @@ process.env.TEAM_PORTAL_SECRET = SECRET
 
 beforeEach(() => {
   process.env.TEAM_PORTAL_SECRET = SECRET
+  tenantStatuses.current = { 'tenant-1': 'active' }
 })
 
 describe('team-portal token — round trip', () => {
-  it('round-trips a valid token', () => {
+  it('round-trips a valid token', async () => {
     const token = createToken('member-1', 'tenant-1', 12, 'lead')
-    expect(verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'lead' })
+    expect(await verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'lead' })
   })
 
-  it('defaults role to worker when omitted (legacy tokens)', () => {
+  it('defaults role to worker when omitted (legacy tokens)', async () => {
     const token = createToken('member-1', 'tenant-1')
-    expect(verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
+    expect(await verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
   })
 })
 
@@ -32,29 +60,29 @@ describe('team-portal token — forgery and tampering rejected', () => {
   // These prove the fix rejects the same forgeries the old code rejected —
   // constant-time compare must not change the accept/reject outcome, only
   // remove the timing side-channel.
-  it('rejects a tampered payload id (signature no longer matches)', () => {
+  it('rejects a tampered payload id (signature no longer matches)', async () => {
     const token = createToken('victim-member', 'tenant-1')
     const [payloadB64, sig] = token.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     const tamperedB64 = Buffer.from(JSON.stringify({ ...payload, id: 'attacker-member' })).toString('base64')
-    expect(verifyToken(`${tamperedB64}.${sig}`)).toBeNull()
+    expect(await verifyToken(`${tamperedB64}.${sig}`)).toBeNull()
   })
 
-  it('rejects a token signed with a different secret', () => {
+  it('rejects a token signed with a different secret', async () => {
     const payload = JSON.stringify({ id: 'member-1', tid: 'tenant-1', pr: 0, r: 'worker', exp: Date.now() + 3600_000 })
     const wrongSig = createHmac('sha256', 'not-the-secret').update(payload).digest('hex')
     const forged = Buffer.from(payload).toString('base64') + '.' + wrongSig
-    expect(verifyToken(forged)).toBeNull()
+    expect(await verifyToken(forged)).toBeNull()
   })
 
-  it('rejects an expired token even with a valid signature', () => {
+  it('rejects an expired token even with a valid signature', async () => {
     const token = createToken('member-1', 'tenant-1')
     const [payloadB64] = token.split('.')
     const payload = JSON.parse(Buffer.from(payloadB64, 'base64').toString())
     const expiredPayload = JSON.stringify({ ...payload, exp: Date.now() - 1000 })
     const sig = createHmac('sha256', SECRET).update(expiredPayload).digest('hex')
     const expiredToken = Buffer.from(expiredPayload).toString('base64') + '.' + sig
-    expect(verifyToken(expiredToken)).toBeNull()
+    expect(await verifyToken(expiredToken)).toBeNull()
   })
 
   it.each([
@@ -66,9 +94,9 @@ describe('team-portal token — forgery and tampering rejected', () => {
       const [payloadB64, sig] = token.split('.')
       return `${payloadB64}.${sig.slice(0, 10)}`
     })()],
-  ])('rejects %s without throwing', (_label, input) => {
-    expect(() => verifyToken(input)).not.toThrow()
-    expect(verifyToken(input)).toBeNull()
+  ])('rejects %s without throwing', async (_label, input) => {
+    await expect(verifyToken(input)).resolves.not.toThrow()
+    expect(await verifyToken(input)).toBeNull()
   })
 })
 
@@ -81,8 +109,54 @@ describe('team-portal token — fails closed when TEAM_PORTAL_SECRET is unconfig
     expect(() => createToken('member-1', 'tenant-1')).toThrow(/TEAM_PORTAL_SECRET/)
   })
 
-  it('verifyToken fails closed (does not throw) with no secret configured', () => {
-    expect(() => verifyToken('anything.anything')).not.toThrow()
-    expect(verifyToken('anything.anything')).toBeNull()
+  it('verifyToken fails closed (does not throw) with no secret configured', async () => {
+    await expect(verifyToken('anything.anything')).resolves.not.toThrow()
+    expect(await verifyToken('anything.anything')).toBeNull()
+  })
+})
+
+describe('team-portal token — tenant status gate', () => {
+  // A valid, unexpired, correctly-signed token must still be rejected once
+  // its tenant goes dark — closes the gap where direct verifyToken() callers
+  // (checkout, jobs, etc.) kept trusting a suspended/cancelled/deleted
+  // tenant's tokens for up to 24h. Same NON_SERVING_STATUSES set as
+  // tenant-status.ts / requirePortalPermission.
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'rejects an otherwise-valid token when its tenant is %s',
+    async (status) => {
+      tenantStatuses.current = { 'tenant-1': status }
+      const token = createToken('member-1', 'tenant-1')
+      expect(await verifyToken(token)).toBeNull()
+    },
+  )
+
+  it.each(['setup', 'pending', 'active'])(
+    'accepts a valid token when its tenant is %s (still serving)',
+    async (status) => {
+      tenantStatuses.current = { 'tenant-1': status }
+      const token = createToken('member-1', 'tenant-1')
+      expect(await verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
+    },
+  )
+
+  it('fails closed when the tenant row does not resolve', async () => {
+    tenantStatuses.current = {}
+    const token = createToken('member-1', 'tenant-ghost')
+    expect(await verifyToken(token)).toBeNull()
+  })
+
+  it('WRONG-TENANT PROBE: rejects based on the token\'s own tenant status, not an unrelated active tenant', async () => {
+    // tenant-1 is active; tenant-2 (this token's tenant) is suspended. If the
+    // status lookup weren't scoped correctly by the token's own tid, a bug
+    // here could fall through to some other tenant's status.
+    tenantStatuses.current = { 'tenant-1': 'active', 'tenant-2': 'suspended' }
+    const token = createToken('member-1', 'tenant-2')
+    expect(await verifyToken(token)).toBeNull()
+  })
+
+  it('WRONG-TENANT PROBE: accepts a token for its own active tenant even while a different tenant is suspended', async () => {
+    tenantStatuses.current = { 'tenant-1': 'active', 'tenant-2': 'suspended' }
+    const token = createToken('member-1', 'tenant-1')
+    expect(await verifyToken(token)).toEqual({ id: 'member-1', tid: 'tenant-1', role: 'worker' })
   })
 })

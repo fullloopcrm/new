@@ -42,7 +42,7 @@ async function resolveThread(teamMemberId: string, tenantId: string): Promise<{ 
 export async function GET(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { threadId } = await resolveThread(auth.id, auth.tid)
@@ -63,7 +63,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const auth = verifyToken(token)
+  const auth = await verifyToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await req.json().catch(() => null) as { body?: string } | null

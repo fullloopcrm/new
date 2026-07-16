@@ -1,4 +1,6 @@
 import crypto from 'crypto'
+import { supabaseAdmin } from '@/lib/supabase'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Token helpers for the field-staff (team) portal. Extracted from route.ts
 // because Next 16 rejects non-standard exports from a route file.
@@ -19,7 +21,17 @@ export function createToken(memberId: string, tenantId: string, payRate?: number
 
 // role is the field-staff portal tier (worker/lead/manager). Legacy tokens
 // minted before tiers existed carry no `r` → treated as least-privilege 'worker'.
-export function verifyToken(token: string): { id: string; tid: string; role: string } | null {
+//
+// Async: beyond the HMAC/expiry check, this now re-checks the token's tenant
+// against the DB on every call. Every one of this codebase's ~20 direct
+// verifyToken() call sites (checkout, jobs, messages, etc.) previously kept
+// trusting the token — and therefore kept serving a suspended/cancelled/
+// deleted tenant — for up to 24h (the token's lifetime), even though
+// requirePortalPermission (team-portal-auth.ts) already re-checked tenant
+// status for the routes that go through it. Baking the check in here closes
+// the gap for every caller at once instead of requiring each route to
+// remember to layer requirePortalPermission on top.
+export async function verifyToken(token: string): Promise<{ id: string; tid: string; role: string } | null> {
   try {
     const [payloadB64, sig] = token.split('.')
     const payload = Buffer.from(payloadB64, 'base64').toString()
@@ -30,7 +42,16 @@ export function verifyToken(token: string): { id: string; tid: string; role: str
     if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
-    return { id: data.id, tid: data.tid, role: data.r || 'worker' }
+    const result = { id: data.id, tid: data.tid, role: data.r || 'worker' }
+
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('status')
+      .eq('id', result.tid)
+      .single()
+    if (!tenant || !tenantServesSite(tenant.status)) return null
+
+    return result
   } catch {
     return null
   }

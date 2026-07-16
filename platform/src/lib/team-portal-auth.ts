@@ -11,7 +11,7 @@ import {
 export type PortalAuth = { id: string; tid: string; role: string }
 
 // Verify the portal bearer token → { memberId, tenantId, role }.
-export function getPortalAuth(request: Request): PortalAuth | null {
+export async function getPortalAuth(request: Request): Promise<PortalAuth | null> {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return null
   return verifyToken(token)
@@ -39,7 +39,7 @@ export async function requirePortalPermission(
 ): Promise<
   { auth: PortalAuth; error: null } | { auth: null; error: NextResponse }
 > {
-  const auth = getPortalAuth(request)
+  const auth = await getPortalAuth(request)
   if (!auth) {
     return { auth: null, error: NextResponse.json({ error: 'Unauthorized' }, { status: 401 }) }
   }

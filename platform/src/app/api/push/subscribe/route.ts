@@ -20,14 +20,14 @@ async function resolveSubscriber(request: Request, role: string): Promise<
   if (role === 'team_member') {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return { ok: false, status: 401, error: 'Missing token' }
-    const auth = verifyTeamPortalToken(token)
+    const auth = await verifyTeamPortalToken(token)
     if (!auth) return { ok: false, status: 401, error: 'Invalid token' }
     return { ok: true, tenantId: auth.tid, teamMemberId: auth.id, clientId: null }
   }
   if (role === 'client') {
     const token = request.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return { ok: false, status: 401, error: 'Missing token' }
-    const auth = verifyPortalToken(token)
+    const auth = await verifyPortalToken(token)
     if (!auth) return { ok: false, status: 401, error: 'Invalid token' }
     return { ok: true, tenantId: auth.tid, teamMemberId: null, clientId: auth.id }
   }

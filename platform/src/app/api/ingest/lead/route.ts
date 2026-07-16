@@ -24,6 +24,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { randomInt } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
+import { tenantServesSite } from '@/lib/tenant-status'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { notify } from '@/lib/notify'
@@ -102,6 +103,14 @@ export async function POST(request: Request) {
 
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
+    return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
+  }
+  // See ingest/application's identical gate: tenant-lookup's getTenantBySlug
+  // is status-agnostic by design, so this caller must refuse a
+  // suspended/cancelled/deleted tenant itself — otherwise its standalone
+  // sites keep creating clients/leads/deals here forever via the shared
+  // INGEST_SECRET, and admins of a cancelled tenant keep getting emailed.
+  if (!tenantServesSite(tenant.status)) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
   }
 

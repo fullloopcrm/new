@@ -16,6 +16,7 @@ import { NextResponse } from 'next/server'
 import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
+import { tenantServesSite } from '@/lib/tenant-status'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeHtml } from '@/lib/escape-html'
@@ -78,6 +79,13 @@ export async function POST(request: Request) {
 
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
+    return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
+  }
+  // tenant-lookup's getTenantBySlug is status-agnostic by design (middleware
+  // gates on tenantServesSite itself) — this caller must gate too, or a
+  // suspended/cancelled/deleted tenant's standalone site keeps writing new
+  // applications into FullLoop forever via the shared INGEST_SECRET.
+  if (!tenantServesSite(tenant.status)) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
   }
 

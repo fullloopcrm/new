@@ -10,6 +10,7 @@ function createRouteMatcher(patterns: string[]) {
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -21,16 +22,6 @@ const MAIN_HOSTS = new Set([
   '127.0.0.1',
   'platform-ten-psi.vercel.app',
 ])
-
-// A tenant's public site (carrying domain or custom domain) serves in every
-// state EXCEPT the ones where it should be dark. New tenants are 'setup'/
-// 'pending' and must still show their live site immediately (booking + collect
-// work before full activation) — gating on status==='active' hid every new
-// tenant behind the Full Loop marketing page until the onboarding gate passed.
-const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'])
-function tenantServesSite(status: string | null | undefined): boolean {
-  return !NON_SERVING_STATUSES.has(status ?? '')
-}
 
 function isMainHost(hostname: string): boolean {
   // Strip port AND lowercase for comparison — MAIN_HOSTS entries are all

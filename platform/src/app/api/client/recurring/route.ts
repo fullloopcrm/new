@@ -21,7 +21,7 @@ import { verifyPortalToken } from '../../portal/auth/token'
 export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  const portalAuth = verifyPortalToken(token)
+  const portalAuth = await verifyPortalToken(token)
   if (!portalAuth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
   const client_id = portalAuth.id
 

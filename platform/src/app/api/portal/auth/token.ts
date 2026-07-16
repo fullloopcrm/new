@@ -1,4 +1,6 @@
 import crypto from 'crypto'
+import { supabaseAdmin } from '@/lib/supabase'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Token helpers for the client portal. Extracted from route.ts because Next 16
 // rejects non-standard exports from a route file.
@@ -23,7 +25,13 @@ export function createToken(clientId: string, tenantId: string): string {
   return Buffer.from(payload).toString('base64') + '.' + hmac
 }
 
-export function verifyPortalToken(token: string): { id: string; tid: string } | null {
+// Async: beyond the HMAC/expiry check, this now re-checks the token's tenant
+// against the DB on every call. All ~18 direct verifyPortalToken() call sites
+// (bookings, availability, checkout-adjacent client routes, etc.) previously
+// kept trusting the token — and therefore kept serving a suspended/cancelled/
+// deleted tenant — for up to 24h (the token's lifetime). Same class of gap as
+// verifyToken (team-portal/auth/token.ts); see that file for the longer note.
+export async function verifyPortalToken(token: string): Promise<{ id: string; tid: string } | null> {
   try {
     const [payloadB64, sig] = token.split('.')
     const payload = Buffer.from(payloadB64, 'base64').toString()
@@ -34,7 +42,16 @@ export function verifyPortalToken(token: string): { id: string; tid: string } | 
     if (sigBuf.length !== expectedBuf.length || !crypto.timingSafeEqual(sigBuf, expectedBuf)) return null
     const data = JSON.parse(payload)
     if (data.exp < Date.now()) return null
-    return data
+    const result = { id: data.id, tid: data.tid }
+
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('status')
+      .eq('id', result.tid)
+      .single()
+    if (!tenant || !tenantServesSite(tenant.status)) return null
+
+    return result
   } catch {
     return null
   }

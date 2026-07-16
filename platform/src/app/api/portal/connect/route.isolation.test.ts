@@ -31,6 +31,7 @@ const CLIENT_A2 = 'client-a2'
 
 function seed() {
   return {
+    tenants: [{ id: TENANT_A, status: 'active' }],
     clients: [
       { id: CLIENT_A1, name: 'Alice' },
       { id: CLIENT_A2, name: 'Victor' },

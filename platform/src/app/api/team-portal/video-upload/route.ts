@@ -11,7 +11,7 @@ export async function GET(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const auth = verifyToken(token)
+    const auth = await verifyToken(token)
     if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
     const bookingId = req.nextUrl.searchParams.get('booking_id')
@@ -74,7 +74,7 @@ export async function POST(req: NextRequest) {
   try {
     const token = req.headers.get('authorization')?.replace('Bearer ', '')
     if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    const auth = verifyToken(token)
+    const auth = await verifyToken(token)
     if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
     const contentType = req.headers.get('content-type') || ''

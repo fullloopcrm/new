@@ -8,7 +8,7 @@ export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const auth = verifyPortalToken(token)
+  const auth = await verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const { data, error } = await supabaseAdmin
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
 
-  const auth = verifyPortalToken(token)
+  const auth = await verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
   const body = await request.json().catch(() => ({}))
