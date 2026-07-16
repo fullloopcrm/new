@@ -1,0 +1,21 @@
+-- ===========================================================================
+-- 2026_07_16_payroll_payments_missing_columns.sql
+-- Fixes real prod drift on payroll_payments (discovered by the P12 project-
+-- archetype sim's own drift probe in scripts/sim-all-trades.ts: "finance:
+-- payroll_payments.status column matches migration 008 on prod").
+--
+-- migrations/new-tables.sql created payroll_payments WITHOUT status/notes
+-- columns. src/lib/migrations/008_missing_tables_and_columns.sql later tried
+-- to add them via `CREATE TABLE IF NOT EXISTS payroll_payments (... status
+-- TEXT DEFAULT 'pending', notes TEXT ...)`, but since the table already
+-- existed on prod, IF NOT EXISTS made that whole statement a no-op — the
+-- extra columns never actually landed. postPayrollToLedger
+-- (src/lib/finance/post-labor.ts) never selects .status, so payroll posting
+-- itself is unaffected, but any other code path expecting these columns
+-- (the payroll_payments schema everyone assumes matches 008) is silently
+-- broken today.
+--
+-- FILE-ONLY — not applied. Leader/Jeff runs this against prod after review.
+-- ===========================================================================
+alter table payroll_payments add column if not exists status text default 'pending';
+alter table payroll_payments add column if not exists notes text;

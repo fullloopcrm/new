@@ -1210,6 +1210,41 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     const { data: prof } = await supabase.from('hr_employee_profiles').select('employment_type, comp_type').eq('tenant_id', tenant.id).eq('team_member_id', worker?.id || '').maybeSingle()
     add(`hr: crew employment type = ${cfg.crew.employmentType}`, prof?.employment_type === cfg.crew.employmentType, prof?.employment_type)
 
+    // ================= 5.0b HR DOCUMENT COMPLIANCE (real hr_documents + requirements template) =================
+    // Every HR assertion above only ever checked the hr_employee_profiles row
+    // (employment_type/comp_type) — the OTHER half of onboarding, the
+    // per-employee document checklist (W-9 for 1099s, W-4+I-9 for W-2s, plus
+    // direct deposit/ID/signed agreement for everyone) driven by
+    // hr_document_requirements + hr_documents (POST/PATCH
+    // /api/dashboard/hr/[id]/documents — real, live routes the People/HR
+    // dashboard tab uses today), had zero coverage anywhere in this harness.
+    // Exercise the requirement template seedHrDefaults() already seeded above,
+    // submit the crew member's applicable docs, then have ops approve them —
+    // proving the requirements-vs-documents join actually resolves to "fully
+    // compliant" instead of silently staying incomplete.
+    const { data: hrReqs } = await supabase.from('hr_document_requirements').select('doc_type, applies_to, required').eq('tenant_id', tenant.id).order('sort_order')
+    const applicableReqs = (hrReqs || []).filter(r => r.required && (r.applies_to === 'all' || r.applies_to === cfg.crew.employmentType))
+    add('hr-docs: requirement template seeded and resolves the right doc set for this employment type', applicableReqs.length >= 4, JSON.stringify(applicableReqs.map(r => r.doc_type)))
+
+    if (worker?.id) {
+      for (const req of applicableReqs) {
+        await supabase.from('hr_documents').insert({
+          tenant_id: tenant.id, team_member_id: worker.id, doc_type: req.doc_type, status: 'submitted',
+          file_url: `https://sim-uploads.example.com/${runId}/${req.doc_type}.pdf`,
+        })
+      }
+      const { data: submittedDocs } = await supabase.from('hr_documents').select('doc_type, status').eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+      add('hr-docs: crew submitted every applicable required document', applicableReqs.every(r => (submittedDocs || []).some(d => d.doc_type === r.doc_type && d.status === 'submitted')), JSON.stringify(submittedDocs))
+
+      // Ops reviews and approves each submitted doc — the real PATCH transition.
+      for (const d of submittedDocs || []) {
+        await supabase.from('hr_documents').update({ status: 'approved' }).eq('tenant_id', tenant.id).eq('team_member_id', worker.id).eq('doc_type', d.doc_type)
+      }
+      const { data: approvedDocs } = await supabase.from('hr_documents').select('doc_type, status').eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+      const compliant = applicableReqs.every(r => (approvedDocs || []).some(d => d.doc_type === r.doc_type && d.status === 'approved'))
+      add('hr-docs: crew member reaches full document compliance (every required doc approved)', compliant, JSON.stringify(approvedDocs))
+    }
+
     // assign the crew member to the job's sessions
     if (worker?.id && jobBookings?.length) {
       for (const b of jobBookings) await supabase.from('bookings').update({ team_member_id: worker.id }).eq('id', b.id)
@@ -1700,7 +1735,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         for (const tbl of [
           'referral_commissions', 'referrers', 'reviews', 'notifications', 'payroll_payments',
           'territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts',
-          'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices',
+          'hr_documents', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices',
           'quote_activity', 'quotes', 'deal_activities', 'deals', 'job_events', 'job_payments',
           'bookings', 'recurring_schedules', 'jobs', 'team_members', 'payments', 'clients',
           'service_types', 'entities', 'tenant_invites',
