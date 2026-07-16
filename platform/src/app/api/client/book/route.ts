@@ -268,7 +268,12 @@ export async function POST(request: Request) {
       propertyId = property?.id || null
     }
 
-    // Create booking
+    // Create booking. self_book_dedup_key backstops the same-date check above
+    // against a concurrent double-submit (see migration
+    // 067_unique_self_book_dedup.sql) -- the SELECT count above is
+    // check-then-insert and can race; the partial unique index on this
+    // column is the atomic guarantee, caught as 23505 below.
+    const selfBookDedupKey = `${clientId}:${bookingDate}`
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({
@@ -291,9 +296,13 @@ export async function POST(request: Request) {
         token_expires_at: tokenExpiresAt.toISOString(),
         referrer_id: referrerId,
         ref_code: (body.ref_code as string) || null,
+        self_book_dedup_key: selfBookDedupKey,
       })
       .select('*, clients(*), client_properties(*)')
       .single()
+    if (error?.code === '23505') {
+      return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
+    }
     if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
 
     // Render admin/client emails + SMS with this booking's property address
