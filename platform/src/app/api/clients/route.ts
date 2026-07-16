@@ -57,6 +57,12 @@ export async function POST(request: Request) {
     const body = await request.json()
     const settings = await getSettings(tenantId)
 
+    // notes/referrer_id were missing from this schema until now: the
+    // dashboard's "new client" modal (BookingsAdmin.tsx) collects both (a
+    // free-text special-instructions textarea and a "Referred By" dropdown
+    // of this tenant's own referrers) and sends them, but validate() is a
+    // strict allowlist -- so they were silently dropped before the insert,
+    // discarding the admin's notes and the manual referral attribution.
     const validated = validate(body, {
       name: { type: 'string', required: true, max: 200 },
       email: { type: 'email' },
@@ -64,9 +70,27 @@ export async function POST(request: Request) {
       address: { type: 'string', max: 500 },
       source: { type: 'string', max: 100 },
       status: { type: 'string', max: 50 },
+      notes: { type: 'string', max: 2000 },
+      referrer_id: { type: 'uuid' },
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
+
+    // Confirm a caller-supplied referrer_id belongs to this tenant before it
+    // can be joined into any response -- client-analytics' `clients.select('*,
+    // referrers(name, ref_code))` embed has no tenant filter on the referrers
+    // side (same unscoped-embed shape flagged elsewhere this session), so an
+    // unverified foreign referrer_id would leak that other tenant's referrer
+    // name + ref_code into this tenant's analytics.
+    if (fields?.referrer_id) {
+      const { data: refRow } = await supabaseAdmin
+        .from('referrers')
+        .select('id')
+        .eq('id', fields.referrer_id as string)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (!refRow) return NextResponse.json({ error: 'Referrer not found' }, { status: 404 })
+    }
 
     // Tenant rules: enforce required fields, default the lifecycle status.
     if (settings.require_client_phone && !fields?.phone) {
