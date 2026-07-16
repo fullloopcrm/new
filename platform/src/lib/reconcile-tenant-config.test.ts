@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import {
   parseBespokeSet,
   parseApexCanonicalSet,
+  parseProtectedSlugs,
   computeFindings,
   summarize,
   loadToken,
@@ -69,6 +70,25 @@ describe('parseApexCanonicalSet', () => {
     expect(apex.has('apex-only.com')).toBe(true)
     expect(apex.has('bespoke-only')).toBe(false)
     expect(apex.size).toBe(1)
+  })
+})
+
+describe('parseProtectedSlugs', () => {
+  it('extracts the slugs from a verify-protected-tenants.mjs PROTECTED declaration', () => {
+    const src = `
+      const PROTECTED = [
+        { slug: 'nycmaid', domain: 'thenycmaid.com — live primary' },
+        { slug: "we-pay-you-junk", domain: 'wepayyoujunkremoval.com' },
+      ]
+    `
+    const set = parseProtectedSlugs(src)
+    expect(set.has('nycmaid')).toBe(true)
+    expect(set.has('we-pay-you-junk')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseProtectedSlugs('export const x = 1').size).toBe(0)
   })
 })
 
@@ -1467,5 +1487,50 @@ describe('computeFindings — Drift O (APEX_CANONICAL_DOMAINS entry with no matc
       resolvableSlugs: null,
     })
     expect(findings.filter((f) => f.msg.includes('APEX_CANONICAL_DOMAINS')).length).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift P (BESPOKE_SITE_TENANTS entry with no matching PROTECTED entry)', () => {
+  it('warns when a bespoke slug has no matching PROTECTED entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      protectedSlugs: new Set(['some-other-slug']),
+    })
+    const warn = findings.find((f) => f.slug === 'foo' && f.msg.includes('PROTECTED'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('BESPOKE_SITE_TENANTS')
+  })
+
+  it('does not warn when the bespoke slug has a matching PROTECTED entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      protectedSlugs: new Set(['foo']),
+    })
+    expect(findings.some((f) => f.msg.includes('PROTECTED'))).toBe(false)
+  })
+
+  it('is skipped entirely when protectedSlugs is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('PROTECTED')).length).toBe(0)
   })
 })

@@ -7,6 +7,8 @@
  *      authoritative routing_mode / status / vercel_project per domain
  *   3. BESPOKE_SITE_TENANTS in src/middleware.ts (routes slug -> /site/<slug>)
  *   4. src/app/site/<slug>/              (the actual folder that renders)
+ *   5. PROTECTED in scripts/verify-protected-tenants.mjs (the build-time
+ *      guard's own copy of "which slugs must stay bespoke")
  *
  * There is no single source of truth today, so these drift and silently
  * mis-route (see the 2026-07-10 outage). This surfaces every disagreement so
@@ -202,6 +204,21 @@ export function parseApexCanonicalSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- Source 5: parse the PROTECTED slugs out of verify-protected-tenants.mjs.
+// That script is the OTHER guard over BESPOKE_SITE_TENANTS: at build time it
+// asserts every PROTECTED entry is still in the middleware set AND still has a
+// folder. But "add it to BESPOKE_SITE_TENANTS" and "add it to PROTECTED" are
+// two independent manual edits in two different files — nothing enforces they
+// stay in sync going forward. A slug added to BESPOKE_SITE_TENANTS without the
+// matching PROTECTED entry gets ZERO build-time protection: its folder can be
+// deleted, or its middleware entry silently dropped, with no guard catching
+// it — the exact 2026-07-08 outage class, just with the new-tenant case this
+// gate exists to prevent going forward. See Drift P below.
+export function parseProtectedSlugs(verifyProtectedSource) {
+  const block = verifyProtectedSource.match(/const PROTECTED\s*=\s*\[([\s\S]*?)\]/)
+  return new Set(block ? [...block[1].matchAll(/slug:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -234,9 +251,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.apexCanonicalSet]  domains from middleware's
  *                                  APEX_CANONICAL_DOMAINS (see parseApexCanonicalSet).
  *                                  Feeds Drift O ONLY. Pass an empty Set (default) to skip.
+ * @param {Set}      [input.protectedSlugs]  slugs from verify-protected-tenants.mjs's
+ *                                  PROTECTED array (see parseProtectedSlugs).
+ *                                  Feeds Drift P ONLY. Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -440,6 +460,24 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift P: a BESPOKE_SITE_TENANTS entry with no matching PROTECTED entry in
+  // verify-protected-tenants.mjs. That script only guards the slugs it's told
+  // about — adding a slug to BESPOKE_SITE_TENANTS without adding the matching
+  // PROTECTED entry means the build-time guard never checks it, so its folder
+  // can vanish or its middleware entry can get dropped in a future merge with
+  // no CI signal at all, same failure mode as the 2026-07-08 outage this guard
+  // exists to prevent — just for a tenant the guard was never told to watch.
+  // The reverse (PROTECTED entry not in BESPOKE_SITE_TENANTS) is already
+  // asserted by verify-protected-tenants.mjs itself at build time, so it is
+  // deliberately not duplicated here.
+  if (protectedSlugs.size) {
+    for (const slug of bespokeSet) {
+      if (!protectedSlugs.has(slug)) {
+        add('WARN', slug, `in BESPOKE_SITE_TENANTS but has NO matching PROTECTED entry in scripts/verify-protected-tenants.mjs -> the build-time guard does not watch this tenant; its folder or middleware entry could silently disappear with no CI signal`)
+      }
+    }
+  }
+
   return findings
 }
 
@@ -495,6 +533,8 @@ async function main() {
   const middlewareSource = readFileSync(join(REPO, 'src', 'middleware.ts'), 'utf8')
   const bespokeSet = parseBespokeSet(middlewareSource)
   const apexCanonicalSet = parseApexCanonicalSet(middlewareSource)
+  const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
+  const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -523,7 +563,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
