@@ -25,6 +25,7 @@ export default function LeadForm() {
       email: String(fd.get('email') || '').trim(),
       phone: String(fd.get('phone') || '').trim(),
       message: String(fd.get('message') || '').trim(),
+      visitAt: fd.get('visitAt') ? new Date(String(fd.get('visitAt'))).toISOString() : undefined,
     }
     try {
       const res = await fetch('/api/lead', {
@@ -68,7 +69,11 @@ export default function LeadForm() {
       </div>
       <div>
         <label htmlFor="message" className="block text-sm font-semibold text-slate-700">Message</label>
-        <textarea id="message" name="message" rows={4} required className={inputCls} placeholder="Tell us about your needs — preferred date, time, location, and any specific concerns..." />
+        <textarea id="message" name="message" rows={4} required className={inputCls} placeholder="Tell us about your needs — location, any specific concerns..." />
+      </div>
+      <div>
+        <label htmlFor="visitAt" className="block text-sm font-semibold text-slate-700">Preferred session (date &amp; time)</label>
+        <input type="datetime-local" id="visitAt" name="visitAt" min={new Date().toISOString().slice(0, 16)} className={inputCls} />
       </div>
       {status === 'error' && <p className="text-sm font-medium text-red-600">{error}</p>}
       <button

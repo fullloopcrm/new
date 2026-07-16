@@ -48,6 +48,7 @@ export default function FreeConsultationClient() {
     budget: "",
     timeframe: "",
     description: "",
+    visitAt: "",
   });
 
   const update = (field: string, value: string) => setForm((prev) => ({ ...prev, [field]: value }));
@@ -75,6 +76,7 @@ export default function FreeConsultationClient() {
           budget: form.budget,
           timeline: form.timeframe,
           description: form.description,
+          visitAt: form.visitAt ? new Date(form.visitAt).toISOString() : undefined,
           source: "free-consultation",
         }),
       });
@@ -205,6 +207,11 @@ export default function FreeConsultationClient() {
                         <option key={t} value={t}>{t}</option>
                       ))}
                     </select>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Preferred Visit (date &amp; time)</label>
+                    <input type="datetime-local" value={form.visitAt} onChange={(e) => update("visitAt", e.target.value)} min={new Date().toISOString().slice(0, 16)} className="w-full rounded-lg border border-slate-300 px-4 py-3 text-slate-900 focus:border-blue-500 focus:ring-2 focus:ring-blue-500/20" />
+                    <p className="mt-1 text-xs text-slate-500">Pick a window for the designer to visit — we confirm within 1 business day.</p>
                   </div>
                 </div>
 

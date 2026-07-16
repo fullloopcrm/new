@@ -33,7 +33,14 @@ export default function ContactForm({
       location: (form.elements.namedItem("location") as HTMLInputElement).value,
       dumpsterSize: (form.elements.namedItem("dumpsterSize") as HTMLSelectElement).value,
       projectTimeline: (form.elements.namedItem("projectTimeline") as HTMLSelectElement).value,
-      message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
+      message: (() => {
+        const base = (form.elements.namedItem("message") as HTMLTextAreaElement).value
+        const deliveryEl = form.elements.namedItem("deliveryAt") as HTMLInputElement | null
+        const deliveryLine = deliveryEl?.value
+          ? `Preferred delivery: ${new Date(deliveryEl.value).toLocaleString("en-US", { weekday: "short", month: "short", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+          : ""
+        return [deliveryLine, base].filter(Boolean).join("\n")
+      })(),
     };
 
     try {
@@ -196,6 +203,10 @@ export default function ContactForm({
             <option value="next-week">Next week</option>
             <option value="planning">Just planning ahead</option>
           </select>
+        </div>
+        <div>
+          <label htmlFor="deliveryAt" className={labelClass}>Preferred delivery (date &amp; time)</label>
+          <input type="datetime-local" id="deliveryAt" name="deliveryAt" min={new Date().toISOString().slice(0, 16)} className={selectClass} />
         </div>
       </div>
 
