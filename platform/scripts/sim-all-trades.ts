@@ -139,6 +139,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
 
   let tenantId: string | null = null
   let prospectId: string | null = null
+  let dealId: string | null = null
   try {
     // ---- P1.1 LEAD: prospect (as if partnership form / qualify submitted) ----
     const { data: prospect, error: pErr } = await supabase.from('prospects').insert({
@@ -218,6 +219,45 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const { count: svcAfter } = await supabase.from('service_types').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id)
     add('idempotency: 2nd provision skips services', prov2.skipped.some(s => s.startsWith('services')) && (svcAfter || 0) === svcCount, `skipped=${prov2.skipped.join('|')} count=${svcAfter}`)
 
+    // ================= P1b — SALES PIPELINE (deal → proposal → close) =================
+    // Real gap flagged by W4/leader: this sim previously went prospect→tenant→quote→
+    // booking directly, never touching `deals` — the actual pipeline layer W1 mapped
+    // (src/lib/pipeline.ts + /api/deals/*, migrations/2026_07_03_sales_pipeline_unify.sql
+    // + quote_deal_link.sql). Covers the exact two bug classes already found+fixed
+    // there: an invalid deals.stage enum value (handleCreateDeal's 'active' bug) and
+    // pipeline grouping fns silently dropping/crashing on a live deal (the /api/pipeline
+    // dead-key bug). Stage-transition update shapes mirror POST /api/deals/[id]/stage
+    // and the accept route's no-deposit close branch — those live in route handlers,
+    // not libs, so this exercises the deals-table/pipeline.ts data contract they rely
+    // on, not a live HTTP round-trip through the routes themselves.
+    const { computeStageTotals, computeForecast, stageMeta: pipelineStageMeta } = await import('../src/lib/pipeline')
+    const { data: deal, error: dealErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, title: `${ind} opportunity ${runId}`, stage: 'new', value_cents: 0, source: 'sim',
+    }).select('id, stage, status, mode, probability').single()
+    add('pipeline: deal created at stage=new', !!deal && !dealErr, dealErr?.message)
+    if (!deal) throw new Error('deal insert failed: ' + dealErr?.message)
+    dealId = deal.id
+    add('pipeline: deal defaults (status=active, mode=sales)', deal.status === 'active' && deal.mode === 'sales', `status=${deal.status} mode=${deal.mode}`)
+
+    // Pure grouping fns must not drop or crash on a live deal row (dead-key class).
+    const dealForForecast = { stage: deal.stage, status: deal.status, value_cents: 0, probability: deal.probability, expected_close_date: null }
+    let groupingThrew = false
+    let stageTotals: ReturnType<typeof computeStageTotals> | undefined
+    try { stageTotals = computeStageTotals([dealForForecast]) } catch { groupingThrew = true }
+    add('pipeline: computeStageTotals groups new deal without throwing', !groupingThrew && !!stageTotals?.get('new'), groupingThrew ? 'THREW' : JSON.stringify(stageTotals && [...stageTotals.entries()]))
+    let forecastThrew = false
+    try { computeForecast([dealForForecast]) } catch { forecastThrew = true }
+    add('pipeline: computeForecast tolerates a deal with no close date', !forecastThrew)
+
+    // Stage transitions — mirrors POST /api/deals/[id]/stage's update shape.
+    for (const to of ['qualifying', 'quoted'] as const) {
+      const meta = pipelineStageMeta(to)
+      const { error: stErr } = await supabase.from('deals').update({ stage: to, probability: meta.defaultProbability }).eq('id', deal.id)
+      add(`pipeline: deal stage transition → ${to}`, !stErr, stErr?.message)
+    }
+    const { data: quotedDeal } = await supabase.from('deals').select('stage, probability').eq('id', deal.id).single()
+    add('pipeline: deal lands on stage=quoted, probability=50', quotedDeal?.stage === 'quoted' && quotedDeal?.probability === 50, JSON.stringify(quotedDeal))
+
     // ================= P2 — SALES ENGINE (quote → totals → accept → convert → booking) =================
     const { computeTotals, normalizeLineItems, generateQuoteNumber, generatePublicToken } = await import('../src/lib/quote')
     const { createBookingFromQuote } = await import('../src/lib/sale-to-booking')
@@ -245,7 +285,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
 
     const custEmail = `customer+${runId}@example.com`
     const { data: quote, error: qInsErr } = await supabase.from('quotes').insert({
-      tenant_id: tenant.id, client_id: null, quote_number: quoteNumber, status: 'draft',
+      tenant_id: tenant.id, client_id: null, deal_id: dealId, quote_number: quoteNumber, status: 'draft',
       title: `${ind} job for customer`, contact_name: 'Test Customer', contact_email: custEmail,
       contact_phone: '+15551230000', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
       line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0,
@@ -264,8 +304,20 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     add('sell: booking price = quote total', !!booking && Math.round((booking.price || 0) * 100) === quote.total_cents, `booking $${booking?.price} vs quote ${quote.total_cents}c`)
     add('sell: client auto-created from quote', !!booking?.client_id)
 
-    const { data: convQuote } = await supabase.from('quotes').select('status, converted_booking_id').eq('id', quote.id).single()
+    const { data: convQuote } = await supabase.from('quotes').select('status, converted_booking_id, deal_id').eq('id', quote.id).single()
     add('sell: quote marked converted', convQuote?.status === 'converted' && convQuote?.converted_booking_id === conv.booking_id)
+    add('pipeline: converted quote kept its deal_id link', convQuote?.deal_id === dealId, convQuote?.deal_id)
+
+    // Close the loop — mirrors the no-deposit branch of quotes/public/[token]/accept
+    // (this quote has deposit_cents=0, so an accepted quote's deal goes straight to sold).
+    const { error: soldErr } = await supabase.from('deals')
+      .update({ stage: 'sold', probability: 100, closed_at: new Date().toISOString() }).eq('id', dealId)
+    add('pipeline: deal closes to sold on quote acceptance', !soldErr, soldErr?.message)
+    const { error: actErr } = await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: dealId, type: 'stage_change',
+      description: 'Moved from quoted to sold', metadata: { from: 'quoted', to: 'sold', quote_id: quote.id },
+    })
+    add('pipeline: deal_activities logs the close', !actErr, actErr?.message)
 
     // P2.3 idempotent convert — re-running returns same booking, no dupe
     const conv2 = await createBookingFromQuote(tenant.id, quote.id)
@@ -511,7 +563,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       // best-effort fast path; the tenant delete is the real guarantee. Only a
       // surviving TENANT row is a true leftover — retry it through timeouts.
       if (tenantId) {
-        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
+        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'deal_activities', 'deals', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
         }
         let delOk = false
