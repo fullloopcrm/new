@@ -84,14 +84,26 @@ export async function PATCH(request: Request, { params }: Params) {
     const assignables = ['title', 'message', 'sign_order', 'expires_at', 'consent_text'] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // Check-then-act, not atomic: `existing.status` above is a stale snapshot.
+    // POST /api/documents/[id]/send can flip 'draft' -> 'sent' (locking the
+    // doc's hash and notifying signers) between that read and this write --
+    // re-assert the pre-read status in the write's own WHERE so a concurrent
+    // send doesn't get silently clobbered by an edit to the already-sent doc.
     const { data, error } = await supabaseAdmin
       .from('documents')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', existing.status)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This document changed status concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
     return NextResponse.json({ document: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -118,18 +130,34 @@ export async function DELETE(_request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Only drafts can be deleted. Void sent docs instead.' }, { status: 400 })
     }
 
-    // Remove storage objects
-    const paths = [existing.original_path, existing.signed_path].filter(Boolean) as string[]
-    if (paths.length > 0) {
-      await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).remove(paths)
-    }
-
-    const { error } = await supabaseAdmin
+    // Check-then-act, not atomic: `existing.status` above is a stale snapshot.
+    // A concurrent send() (POST /api/documents/[id]/send) can flip 'draft' ->
+    // 'sent' between that read and this delete -- re-assert the pre-read
+    // status in the delete's own WHERE, and only remove storage objects AFTER
+    // a confirmed DB delete (using the paths the delete itself returned, not
+    // the stale read), so a concurrent send can't have its original PDF
+    // yanked out from under an in-flight hash/download by a delete that
+    // should have been rejected.
+    const { data: deleted, error } = await supabaseAdmin
       .from('documents')
       .delete()
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', existing.status)
+      .select('original_path, signed_path')
+      .maybeSingle()
     if (error) throw error
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'This document changed status concurrently — refresh instead of deleting' },
+        { status: 409 },
+      )
+    }
+
+    const paths = [deleted.original_path, deleted.signed_path].filter(Boolean) as string[]
+    if (paths.length > 0) {
+      await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).remove(paths)
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
