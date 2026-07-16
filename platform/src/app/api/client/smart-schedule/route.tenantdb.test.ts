@@ -35,11 +35,17 @@ function chain(table: string) {
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [], suggestBookingSlots: async () => [] }))
 
+let hostTenantId: string | null = TENANT_A
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: async () => (hostTenantId ? { id: hostTenantId } : null),
+}))
+
 import { GET } from './route'
 
 beforeEach(() => {
   DB.clients = []
   DB.team_members = []
+  hostTenantId = TENANT_A
 })
 
 describe('GET /api/client/smart-schedule — tenantDb scoping (picker fallback)', () => {
@@ -59,5 +65,29 @@ describe('GET /api/client/smart-schedule — tenantDb scoping (picker fallback)'
     const res = await GET(new Request('https://x?client_id=missing'))
     const body = await res.json() as { cleaners: Row[] }
     expect(body.cleaners).toEqual([])
+  })
+
+  // IDOR: this endpoint has no admin auth — a client_id is the only thing
+  // that resolves a tenant. Without cross-checking it against the
+  // Host-resolved tenant, any caller on tenant A's site could pass a
+  // client_id belonging to tenant B and pull tenant B's active roster.
+  it('ignores a client_id belonging to a different tenant than the requesting site', async () => {
+    DB.clients.push({ id: 'c-foreign', tenant_id: TENANT_B, address: '2 Other St', preferred_team_member_id: null })
+    DB.team_members.push({ id: 'tm-b', tenant_id: TENANT_B, name: 'Bob', active: true })
+    hostTenantId = TENANT_A // request arrives on tenant A's site
+
+    const res = await GET(new Request('https://x?client_id=c-foreign'))
+    const body = await res.json() as { cleaners: Row[] }
+    expect(body.cleaners).toEqual([])
+  })
+
+  it('still serves the picker when the client_id matches the requesting site tenant', async () => {
+    DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, address: '1 Main St', preferred_team_member_id: null })
+    DB.team_members.push({ id: 'tm-mine', tenant_id: TENANT_A, name: 'Alice', active: true })
+    hostTenantId = TENANT_A
+
+    const res = await GET(new Request('https://x?client_id=c-1'))
+    const body = await res.json() as { cleaners: Row[] }
+    expect(body.cleaners.map((c) => c.id)).toContain('tm-mine')
   })
 })

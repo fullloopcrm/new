@@ -3,6 +3,7 @@ import { scoreTeamForBooking, suggestBookingSlots } from '@/lib/smart-schedule'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 // Public-safe wrapper around scoreCleanersForBooking. Strips fields that
 // could leak other clients' info before returning. NO admin auth — public
@@ -13,6 +14,8 @@ export async function GET(request: Request) {
   if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
+
+  const hostTenant = await getTenantFromHeaders()
 
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
@@ -30,7 +33,16 @@ export async function GET(request: Request) {
       .select('address, tenant_id, preferred_team_member_id')
       .eq('id', clientId)
       .maybeSingle()
-    if (client) {
+    // A client_id from a different tenant than the requesting site must be
+    // ignored — otherwise this public, no-admin-auth endpoint lets any caller
+    // pass an arbitrary client_id to pull another tenant's active team-member
+    // roster/availability by resolving tenantId off attacker-supplied input
+    // with no ownership check (this route never validated against the
+    // Host-resolved tenant at all, unlike every sibling client-facing route).
+    // Every legitimate caller arrives via a tenant subdomain/custom domain,
+    // where middleware always injects the signed tenant headers, so a missing
+    // hostTenant means this isn't a real tenant-site request either.
+    if (client && hostTenant && client.tenant_id === hostTenant.id) {
       tenantId = client.tenant_id
       preferredCleanerId = client.preferred_team_member_id || null
       if (!clientAddress) clientAddress = client.address || null
