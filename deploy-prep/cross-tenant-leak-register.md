@@ -4502,3 +4502,51 @@ audit:tenant`: same 1 pre-existing finding in untracked
 touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 06:51 round (W2) — P78, fixed: `POST`+`DELETE
+/api/schedules/[id]/pause` had zero permission check — live default-role bug
+
+Continuing the broad-hunt (leader order 06:51, lower-risk surface,
+file-only). Re-ran the same detection scan used for P76/P77 (every
+`api/*/route.ts` calling `getTenantForRequest`/`tenantDb` but never
+`requirePermission`, cross-referenced against `rbac.ts`'s permission list)
+and re-checked `schedules/[id]/pause/route.ts` directly, since P76's
+register entry had asserted it "already gating behind" `schedules.edit` as
+justification for treating the sibling `schedules/[id]/route.ts` as a
+same-shape candidate. **That assertion was wrong** — the pause route's POST
+and DELETE handlers only ever called raw `getTenantForRequest()` (proves
+tenant membership at ANY role), with no `requirePermission` call, same gap
+class as P77's fix one route over. Correcting the record here since it
+seeded a false "already fixed" belief for two rounds.
+
+Not override-only: by default `rbac.ts` grants `schedules.edit` to
+`owner`/`admin`/`manager` only — `staff` gets only `schedules.view`. So any
+staff-tier member could already pause a recurring schedule (which cancels
+its upcoming bookings within the pause window and sends the client an SMS
+if Telnyx is configured) or resume one, with zero role check, no override
+needed — same class as P72/P76/P77.
+
+**Fix:** `requirePermission('schedules.edit')` on both POST and DELETE,
+matching `schedules/[id]/route.ts`'s sibling gates for the same resource
+(`recurring_schedules`) and permission.
+
+**Regression lock:** new `route.rbac.test.ts` (5 tests: owner-succeeds
+controls for pause+resume, staff-forbidden default-role probes for both,
+one override-revocation probe on manager). Mutation-verified via `git
+stash` of just the fixed `route.ts` (the new test file and the pre-existing
+`route.isolation.test.ts` are untouched by the stash): 3 of 5 probes went
+RED pre-fix (staff-pause, override-revoked-manager-pause, staff-resume all
+wrongly 200), restored, all 5 GREEN post-fix. Pre-existing
+`route.isolation.test.ts` (4 tests: own-tenant pause/resume + 2
+wrong-tenant-id 404 probes) passes unchanged — it hardcodes role `'owner'`
+in its `getTenantForRequest` mock, which has `schedules.edit` by default,
+so the isolation behavior it wraps is undisturbed.
+
+`npx tsc --noEmit`: clean. Full suite: 404 files, 1758 passed + 37 skipped,
+0 regressions (was 403/1753). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round
+(unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
