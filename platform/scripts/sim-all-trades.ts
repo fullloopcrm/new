@@ -499,6 +499,95 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     }).select('id, total_cents').single()
     add('invoice: created with taxed total', !!invoice && !invErr2 && invoice.total_cents === iTot.total_cents, invErr2?.message || `total=${invoice?.total_cents}`)
 
+    // ================= P10 — SALES PIPELINE (lead → deal → proposal → close) =================
+    // Gap flagged by W4: P1-P9 above go prospect(platform)→tenant→quote→booking
+    // directly and never touch the CUSTOMER-facing sales pipeline (deals table) —
+    // a different domain from the platform-onboarding "prospect" in P1. Real entry
+    // point is /api/contact's auto-deal-create on a web lead; mirrored here via
+    // direct insert (same shape) since driving the actual form endpoint would need
+    // a running server.
+    const { stageMeta: pipeStageMeta, OPEN_STAGES: pipeOpenStages } = await import('../src/lib/pipeline')
+    const { data: dealClient, error: dcErr } = await supabase.from('clients').insert({
+      tenant_id: tenant.id, name: 'Pipeline Customer', email: `pipeline+${runId}@example.com`,
+      phone: '+15551236666', address: `${loc.city}, ${loc.state} ${loc.zip}`, status: 'lead',
+    }).select('id').single()
+    add('pipeline: client created for deal', !!dealClient && !dcErr, dcErr?.message)
+
+    const { data: deal, error: dealErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, client_id: dealClient?.id || null, title: `${ind} inquiry`,
+      stage: 'new', mode: 'sales', value_cents: 0, probability: 10, source: 'web', status: 'active',
+      last_activity_at: new Date().toISOString(),
+    }).select('id, stage, probability').single()
+    add('pipeline: deal created at new/lead stage', !!deal && !dealErr && deal.stage === 'new', dealErr?.message)
+    add('pipeline: stage constants (new=Lead, prob 10, open)',
+      pipeStageMeta('new').label === 'Lead' && pipeStageMeta('new').defaultProbability === 10 && pipeOpenStages.includes('new'))
+
+    if (deal) {
+      // P10.1 proposal — a quote linked to the deal (quotes.deal_id is the real
+      // proposal↔pipeline contract quotes/route.ts and the send/accept routes rely on)
+      const propNum = await generateQuoteNumber(tenant.id)
+      const depositCents = Math.round((liveTotals.subtotal_cents || 20000) * 0.3)
+      const { data: proposal, error: propErr } = await supabase.from('quotes').insert({
+        tenant_id: tenant.id, client_id: dealClient?.id || null, deal_id: deal.id,
+        quote_number: propNum, status: 'draft', title: `${ind} proposal`,
+        contact_name: 'Pipeline Customer', contact_email: `pipeline+${runId}@example.com`,
+        contact_phone: '+15551236666', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+        line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0,
+        tax_cents: 0, discount_cents: 0, total_cents: liveTotals.subtotal_cents,
+        deposit_type: 'flat', deposit_value: depositCents, deposit_cents: depositCents,
+        public_token: generatePublicToken(),
+      }).select('id, public_token, total_cents, deposit_cents').single()
+      add('pipeline: proposal (quote) linked to deal', !!proposal && !propErr && proposal.deposit_cents === depositCents, propErr?.message)
+
+      if (proposal) {
+        // P10.2 send — mirrors quotes/[id]/send.ts's first-send side effects
+        // directly (status → sent, deal note + value sync). Not calling that route:
+        // it's authenticated (requirePermission → headers()/cookies()), which has
+        // no context outside a real Next.js request.
+        await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', proposal.id)
+        await supabase.from('deal_activities').insert({
+          tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+          description: `Proposal ${propNum} sent — $${(proposal.total_cents / 100).toFixed(2)}`,
+          metadata: { quote_id: proposal.id },
+        })
+        await supabase.from('deals').update({ value_cents: proposal.total_cents, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+
+        // P10.3 accept — invokes the REAL public accept route handler directly. It's
+        // unauthenticated/token-based (no headers()/cookies() dependency), so this
+        // exercises actual production code for the exact untested branch: a signed
+        // proposal WITH a deposit must move its deal to 'pending' (not 'sold') and
+        // NOT auto-create a job yet — that's the row-level guarantee W4's gap left
+        // unverified. Unique per-trade IP so rateLimitDb's per-IP cap never trips.
+        const { POST: acceptQuote } = await import('../src/app/api/quotes/public/[token]/accept/route')
+        const sigPng = 'data:image/png;base64,' + 'A'.repeat(120)
+        const acceptReq = new Request(`http://localhost/api/quotes/public/${proposal.public_token}/accept`, {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.77.${idx}.1` },
+          body: JSON.stringify({ signature_png: sigPng, signature_name: 'Pipeline Customer' }),
+        })
+        const acceptRes = await acceptQuote(acceptReq, { params: Promise.resolve({ token: proposal.public_token }) })
+        add('pipeline: proposal accept succeeds (real route)', acceptRes.status === 200, `status=${acceptRes.status}`)
+
+        const { data: dealAfterAccept } = await supabase.from('deals').select('stage, probability').eq('id', deal.id).single()
+        add('pipeline: deposit required → deal moves to pending (not sold)', dealAfterAccept?.stage === 'pending' && dealAfterAccept?.probability === 80, JSON.stringify(dealAfterAccept))
+
+        const { data: jobsAfterAccept } = await supabase.from('jobs').select('id').eq('tenant_id', tenant.id).eq('quote_id', proposal.id)
+        add('pipeline: deposit-pending accept does NOT auto-create a job yet', (jobsAfterAccept?.length || 0) === 0, `${jobsAfterAccept?.length} jobs`)
+
+        const { data: pipelineActivities } = await supabase.from('deal_activities').select('type').eq('deal_id', deal.id)
+        add('pipeline: stage_change + note activities logged', (pipelineActivities?.length || 0) >= 3, `${pipelineActivities?.length} activities`)
+
+        // P10.4 manual close-to-sold via /api/deals/[id]/stage's own logic path:
+        // dealt with directly (that route is also requirePermission-gated) —
+        // apply its exact documented transition (probability→100, closed_at set)
+        // and confirm the deal is a real terminal CLOSED_STAGE per pipeline.ts.
+        const { CLOSED_STAGES } = await import('../src/lib/pipeline')
+        await supabase.from('deals').update({ stage: 'sold', probability: 100, closed_at: new Date().toISOString() }).eq('id', deal.id)
+        const { data: dealClosed } = await supabase.from('deals').select('stage, probability, closed_at').eq('id', deal.id).single()
+        add('pipeline: manual close to sold is terminal + fully-probable', dealClosed?.stage === 'sold' && dealClosed?.probability === 100 && !!dealClosed?.closed_at && (CLOSED_STAGES as readonly string[]).includes('sold'))
+      }
+    }
+
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (err && typeof err === 'object') ? JSON.stringify(err)
@@ -511,7 +600,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       // best-effort fast path; the tenant delete is the real guarantee. Only a
       // surviving TENANT row is a true leftover — retry it through timeouts.
       if (tenantId) {
-        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
+        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'deal_activities', 'deals', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
         }
         let delOk = false
