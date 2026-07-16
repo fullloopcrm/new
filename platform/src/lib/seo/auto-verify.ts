@@ -102,7 +102,11 @@ export async function runAutoVerify(opts?: { dryRun?: boolean; max?: number }): 
       res.failed++
       const m = err instanceof Error ? err.message : String(err)
       res.errors.push(`${e.domain}: ${m}`)
-      await audit(e.property, { autoverify_error: m }).catch(() => {})
+      // Confirmed live 2026-07-16: a failed attempt left gsc_status stuck at
+      // 'verifying' forever — eligibleForAutoVerify() only matches
+      // 'awaiting_grant', so a domain that failed once could never be
+      // retried again on any future run. Reset it so the next run retries.
+      await audit(e.property, { gsc_status: 'awaiting_grant', autoverify_error: m }).catch(() => {})
     }
   }
   return res
