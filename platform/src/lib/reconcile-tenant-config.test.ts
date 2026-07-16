@@ -157,6 +157,14 @@ describe('norm — adversarial domain forms that must collapse to the same key',
   it('strips both a leading www. and a trailing dot together', () => {
     expect(norm('www.shared-domain.com.')).toBe('shared-domain.com')
   })
+
+  it('strips a URL scheme + trailing slash when a full URL got pasted into a domain field', () => {
+    expect(norm('https://shared-domain.com/')).toBe('shared-domain.com')
+  })
+
+  it('strips a scheme + www + path + query together', () => {
+    expect(norm('http://www.Shared-Domain.com/some/path?x=1')).toBe('shared-domain.com')
+  })
 })
 
 describe('computeFindings — Drift F evades attempted via malformed domain forms', () => {
@@ -193,6 +201,34 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     const tds = [
       { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
       { tenant_id: 't-deleted-beta', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: null },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted as a full URL (scheme + path) instead of a bare hostname', () => {
+    // /api/admin/websites POST inserts tenant_domains.domain straight from the
+    // request body with zero normalization (no lowercase, no scheme-strip, no
+    // trim) — so "https://shared-domain.com/" and "shared-domain.com" are both
+    // real, reachable DB values for what is actually the same domain.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https://shared-domain.com/', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https://shared-domain.com/', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
     ]
 
     const findings: Finding[] = computeFindings({

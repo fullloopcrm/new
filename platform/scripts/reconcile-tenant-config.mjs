@@ -37,6 +37,8 @@ export const norm = (d) =>
   (d || '')
     .trim()
     .toLowerCase()
+    .replace(/^[a-z][a-z0-9+.-]*:\/\//, '') // strip a URL scheme (e.g. https://) if a full URL got pasted into a domain field
+    .replace(/[/?#].*$/, '') // strip any path/query/fragment after the scheme strip — only the host decides routing
     .replace(/^www\./, '')
     .replace(/:\d+$/, '') // strip a port suffix (e.g. example.com:8443) — same real domain
     .replace(/\.+$/, '') // strip trailing dot(s) — absolute-FQDN form (example.com.) is the same domain
