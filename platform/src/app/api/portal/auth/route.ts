@@ -138,12 +138,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
     }
 
-    // Mark as used — tenant is known now, scope it.
-    await tenantDb(stored.tenant_id)
+    // Mark as used — tenant is known now, scope it. Re-check used=false in the
+    // WHERE: without this, two concurrent verify_code requests for the same
+    // phone+code (double-submit, retry) would both pass the earlier
+    // used=false SELECT and both mint a valid session — a single-use OTP
+    // being usable twice.
+    const { data: burned } = await tenantDb(stored.tenant_id)
       .from('portal_auth_codes')
       .update({ used: true })
       .eq('phone', phone)
       .eq('code', code)
+      .eq('used', false)
+      .select('client_id')
+      .maybeSingle()
+    if (!burned) {
+      return NextResponse.json({ error: 'Code already used' }, { status: 401 })
+    }
 
     const token = createToken(stored.client_id, stored.tenant_id)
 

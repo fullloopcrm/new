@@ -5,6 +5,13 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+import { pick } from '@/lib/validate'
+
+const BATCH_UPDATE_FIELDS = [
+  'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
+  'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
+  'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
+]
 
 /**
  * Batch update multiple bookings in parallel.
@@ -27,8 +34,42 @@ export async function PUT(request: Request) {
     }
 
     const db = tenantDb(tenantId)
+
+    // Same allowlist + FK-injection guard already applied on PUT
+    // /api/bookings/[id] and POST /api/bookings/batch: without it, a
+    // caller-supplied client_id/team_member_id from another tenant would
+    // leak that stranger's clients(*)/team_members(*) row via this route's
+    // own post-update join, and (for team_member_id) fire a real
+    // reschedule SMS to them below over this tenant's own Telnyx number.
+    const sanitizedUpdates = (updates as { id: string; data: Record<string, unknown> }[]).map((u) => ({
+      id: u.id,
+      data: pick<Record<string, unknown>>(u.data, BATCH_UPDATE_FIELDS),
+    }))
+
+    const clientIds = [...new Set(sanitizedUpdates.map((u) => u.data.client_id).filter(Boolean))] as string[]
+    const teamMemberIds = [...new Set(sanitizedUpdates.map((u) => u.data.team_member_id).filter(Boolean))] as string[]
+
+    if (clientIds.length > 0) {
+      const { data: ownedClients } = (await db.from('clients').select('id').in('id', clientIds)) as {
+        data: { id: string }[] | null
+      }
+      const owned = new Set((ownedClients || []).map((c) => c.id))
+      if (clientIds.some((id) => !owned.has(id))) {
+        return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+      }
+    }
+    if (teamMemberIds.length > 0) {
+      const { data: ownedMembers } = (await db.from('team_members').select('id').in('id', teamMemberIds)) as {
+        data: { id: string }[] | null
+      }
+      const owned = new Set((ownedMembers || []).map((m) => m.id))
+      if (teamMemberIds.some((id) => !owned.has(id))) {
+        return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+    }
+
     const results = await Promise.all(
-      updates.map(async (u: { id: string; data: Record<string, unknown> }) => {
+      sanitizedUpdates.map(async (u) => {
         const { data, error } = await db
           .from('bookings')
           .update(u.data)

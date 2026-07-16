@@ -44,12 +44,31 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         metadata: { team_member_id: id, tenant_id: tenantId },
       })
       accountId = account.id
-      await supabaseAdmin
+      // Re-check stripe_account_id IS NULL in the WHERE — without this, two
+      // concurrent onboard clicks could each see null, each create a separate
+      // Stripe Express account, and the second write silently orphans the
+      // first account (never linked to accountLinks, never used, but live
+      // in Stripe). If we lose the race, use the winner's id instead.
+      const { data: claimed } = await supabaseAdmin
         .from('team_members')
         .update({ stripe_account_id: accountId })
         .eq('id', id)
         .eq('tenant_id', tenantId)
+        .is('stripe_account_id', null)
+        .select('stripe_account_id')
+        .maybeSingle()
+      if (!claimed) {
+        const { data: winner } = await supabaseAdmin
+          .from('team_members')
+          .select('stripe_account_id')
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+          .single()
+        accountId = winner?.stripe_account_id || accountId
+      }
     }
+
+    if (!accountId) return NextResponse.json({ error: 'Failed to resolve Stripe account' }, { status: 500 })
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
     const link = await stripe.accountLinks.create({

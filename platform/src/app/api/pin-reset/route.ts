@@ -232,6 +232,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Code expired or incorrect.' }, { status: 400 })
     }
 
+    // Atomic claim: re-check used=false in the WHERE clause. Without this, two
+    // concurrent verify_and_set requests carrying the same code (double-submit,
+    // retry) would both pass the used=false SELECT above and both reset the
+    // PIN — a single-use OTP being usable twice. Same fix as portal/auth's
+    // verify_code race.
+    const { data: claimed } = await supabaseAdmin
+      .from('member_pin_reset_codes')
+      .update({ used: true })
+      .eq('id', stored.id)
+      .eq('used', false)
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json({ error: 'Code already used.' }, { status: 400 })
+    }
+
     // Enforce per-tenant PIN uniqueness (a DB index also enforces it).
     const pinHash = hashAdminPin(newPin)
     const { data: clash } = await supabaseAdmin
@@ -253,8 +269,6 @@ export async function POST(request: Request) {
     if (updErr) {
       return NextResponse.json({ error: 'Could not set PIN. Try again.' }, { status: 500 })
     }
-
-    await supabaseAdmin.from('member_pin_reset_codes').update({ used: true }).eq('id', stored.id)
 
     return NextResponse.json({ success: true })
   }

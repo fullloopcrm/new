@@ -214,6 +214,9 @@ export async function POST(request: Request) {
           .single()
 
         if (convo && normalizedPhone && normalizePhoneDigits(convo.phone || '') === normalizedPhone) {
+          // Re-check completed_at IS NULL — without this, a conversation
+          // completed by another process between the SELECT above and this
+          // UPDATE would be silently reopened and reassigned.
           await supabaseAdmin
             .from('sms_conversations')
             .update({
@@ -223,6 +226,7 @@ export async function POST(request: Request) {
             })
             .eq('id', convo_id)
             .eq('tenant_id', tenant.id)
+            .is('completed_at', null)
         }
       } catch (e) {
         console.error('Conversation link error:', e)

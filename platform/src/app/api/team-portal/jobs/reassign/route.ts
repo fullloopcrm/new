@@ -77,15 +77,19 @@ export async function POST(request: Request) {
     .single()) as { data: { pay_rate: number | null } | null }
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
 
-  const { data, error } = await db
+  // Re-check team_member_id in the UPDATE's own WHERE — without this, a
+  // concurrent claim/release/reassign landing between the SELECT above and
+  // this UPDATE would be silently clobbered (the booking could be reassigned
+  // out from under whoever holds it now, not who held it when we read it).
+  let reassignQuery = db
     .from('bookings')
     .update({ team_member_id: to_member_id, pay_rate: target.pay_rate || null, status: 'confirmed' })
     .eq('id', booking_id)
-    .select()
-    .maybeSingle()
+  reassignQuery = previous ? reassignQuery.eq('team_member_id', previous) : reassignQuery.is('team_member_id', null)
+  const { data, error } = await reassignQuery.select().maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'Reassign failed' }, { status: 500 })
+  if (!data) return NextResponse.json({ error: 'Job was claimed or reassigned by someone else — refresh and try again' }, { status: 409 })
 
   await audit({
     tenantId: auth.tid,

@@ -70,11 +70,25 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
     // Only fire admin notifications when this is a new-activation event
     const wasAlreadyReady = !!teamMember.stripe_ready_at
     if (ready && !wasAlreadyReady) {
-      await supabaseAdmin
+      // Re-check stripe_ready_at IS NULL — a concurrent status refresh could
+      // otherwise both pass wasAlreadyReady=false and both fire the admin
+      // notification below.
+      const { data: claimed } = await supabaseAdmin
         .from('team_members')
         .update({ stripe_ready_at: new Date().toISOString() })
         .eq('id', id)
         .eq('tenant_id', tenant.id)
+        .is('stripe_ready_at', null)
+        .select('id')
+        .maybeSingle()
+      if (!claimed) {
+        return NextResponse.json({
+          ready,
+          charges_enabled: account.charges_enabled,
+          payouts_enabled: account.payouts_enabled,
+          details_submitted: account.details_submitted,
+        })
+      }
 
       notify({
         tenantId: tenant.id,

@@ -74,10 +74,16 @@ export async function PUT(request: NextRequest) {
   if (notification_preferences) notesObj.notification_preferences = notification_preferences
   if (sms_consent !== undefined) notesObj.sms_consent = sms_consent
 
-  await tenantDb(auth.tid)
-    .from('team_members')
-    .update({ notes: JSON.stringify(notesObj) })
-    .eq('id', auth.id)
+  // Re-check notes still matches what we read — `notes` is a shared JSON blob
+  // (also written by /api/team-portal/availability), so a concurrent write to
+  // either endpoint between the read above and this write would otherwise be
+  // silently clobbered by this stale-based merge.
+  let prefUpdate = tenantDb(auth.tid).from('team_members').update({ notes: JSON.stringify(notesObj) }).eq('id', auth.id)
+  prefUpdate = member?.notes != null ? prefUpdate.eq('notes', member.notes) : prefUpdate.is('notes', null)
+  const { data: prefUpdated } = await prefUpdate.select('id')
+  if (!prefUpdated || prefUpdated.length === 0) {
+    return NextResponse.json({ error: 'Preferences changed elsewhere — please retry' }, { status: 409 })
+  }
 
   return NextResponse.json({ success: true })
 }

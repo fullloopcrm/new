@@ -91,10 +91,16 @@ export async function PUT(request: NextRequest) {
 
   currentObj.availability = availability
 
-  await db
-    .from('team_members')
-    .update({ notes: JSON.stringify(currentObj) })
-    .eq('id', auth.id)
+  // Re-check notes still matches what we read — `notes` is a shared JSON blob
+  // (also written by /api/team-portal/preferences), so a concurrent write to
+  // either endpoint between the read above and this write would otherwise be
+  // silently clobbered by this stale-based merge.
+  let availUpdate = db.from('team_members').update({ notes: JSON.stringify(currentObj) }).eq('id', auth.id)
+  availUpdate = member?.notes != null ? availUpdate.eq('notes', member.notes) : availUpdate.is('notes', null)
+  const { data: availUpdated } = await availUpdate.select('id')
+  if (!availUpdated || availUpdated.length === 0) {
+    return NextResponse.json({ error: 'Preferences changed elsewhere — please retry' }, { status: 409 })
+  }
 
   // Notify admin about new time-off requests
   if (newDatesRequested.length > 0) {

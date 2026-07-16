@@ -51,10 +51,27 @@ export async function POST(request: NextRequest) {
 
   if (openDeal) {
     const merged = [openDeal.notes, `[${nowIso.slice(0, 10)} portal request]`, notes].filter(Boolean).join('\n')
-    await tenantDb(auth.tid)
-      .from('deals')
-      .update({ notes: merged, last_activity_at: nowIso })
-      .eq('id', openDeal.id)
+    // Re-check notes still matches what we read — otherwise a concurrent
+    // request (double-submit) racing on the same stale `notes` merge would
+    // silently drop one of the two appended lines. On a lost race, just fall
+    // back to inserting a fresh deal rather than dropping the request.
+    let dealUpdate = tenantDb(auth.tid).from('deals').update({ notes: merged, last_activity_at: nowIso }).eq('id', openDeal.id)
+    dealUpdate = openDeal.notes != null ? dealUpdate.eq('notes', openDeal.notes) : dealUpdate.is('notes', null)
+    const { data: dealUpdated } = await dealUpdate.select('id')
+    if (!dealUpdated || dealUpdated.length === 0) {
+      await tenantDb(auth.tid).from('deals').insert({
+        client_id: client.id,
+        title: serviceName || 'Portal request',
+        stage: 'new',
+        mode: 'sales',
+        value_cents: 0,
+        probability: 10,
+        source: 'portal',
+        notes: notes || null,
+        status: 'active',
+        last_activity_at: nowIso,
+      })
+    }
   } else {
     await tenantDb(auth.tid).from('deals').insert({
       client_id: client.id,

@@ -43,10 +43,20 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     return NextResponse.json({ ok: true, alreadyAccepted: true, start_time: booking.start_time })
   }
 
-  await supabaseAdmin
+  // Re-check client_terms_accepted_at IS NULL — without this, two concurrent
+  // taps of the confirm link both pass the earlier "already accepted" read,
+  // both append a duplicate "[Client accepted terms ...]" note line below
+  // (racing on a stale `notes` read), and both fire duplicate client/admin SMS.
+  const { data: claimed } = await supabaseAdmin
     .from('bookings')
     .update({ client_terms_accepted_at: new Date().toISOString() })
     .eq('id', booking.id)
+    .is('client_terms_accepted_at', null)
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return NextResponse.json({ ok: true, alreadyAccepted: true, start_time: booking.start_time })
+  }
 
   const { data: cur } = await supabaseAdmin.from('bookings').select('notes').eq('id', booking.id).single()
   const newNotes = (cur?.notes || '') + '\n[Client accepted terms ' + new Date().toISOString() + ']'

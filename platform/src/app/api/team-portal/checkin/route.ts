@@ -80,6 +80,10 @@ export async function POST(request: Request) {
     }
   }
 
+  // Re-check check_in_time IS NULL in the UPDATE's own WHERE — without this a
+  // concurrent duplicate check-in (double-tap, retry) could both pass the
+  // "already checked in" guard above and both write, the second blindly
+  // clobbering notes computed from the first's now-stale read.
   const { data, error } = await db
     .from('bookings')
     .update({
@@ -90,11 +94,15 @@ export async function POST(request: Request) {
       ...(checkInFlagNote ? { notes: ((booking as { notes?: string | null }).notes || '') + checkInFlagNote } : {}),
     })
     .eq('id', booking_id)
+    .is('check_in_time', null)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked in' }, { status: 400 })
   }
 
   return NextResponse.json({ booking: data })

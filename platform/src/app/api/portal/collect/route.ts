@@ -261,6 +261,9 @@ export async function POST(request: NextRequest) {
           .single()) as { data: { preferred_date: string | null; preferred_time: string | null; hourly_rate: number | null; phone: string | null } | null }
 
         if (convo && normalizedPhone && normalizePhoneDigits(convo.phone || '') === normalizedPhone) {
+          // Re-check completed_at IS NULL — without this, a conversation
+          // completed by another process between the SELECT above and this
+          // UPDATE would be silently reopened and reassigned.
           await db
             .from('sms_conversations')
             .update({
@@ -269,6 +272,7 @@ export async function POST(request: NextRequest) {
               updated_at: new Date().toISOString(),
             })
             .eq('id', convo_id)
+            .is('completed_at', null)
 
           const firstName = (name || '').split(' ')[0]
           const prefDate = convo.preferred_date

@@ -101,6 +101,10 @@ export async function POST(request: Request) {
     }
   }
 
+  // Re-check check_out_time IS NULL in the UPDATE's own WHERE — without this
+  // a concurrent duplicate checkout (double-tap, retry) could both pass the
+  // "already checked out" guard above and both proceed to processPayment
+  // below, charging the client twice for the same job.
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({
@@ -113,11 +117,15 @@ export async function POST(request: Request) {
       price: updatedPriceCents,
     })
     .eq('id', booking_id)
+    .is('check_out_time', null)
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked out' }, { status: 400 })
   }
 
   // Referral commission — if this booking came through an affiliate referrer,

@@ -33,19 +33,28 @@ export async function POST() {
     }
 
     // Flip them all to approved first (single UPDATE), then provision+email each.
+    // Re-check status='pending' in the UPDATE's own WHERE — without this, an
+    // application individually rejected/deleted by another admin between the
+    // SELECT above and this UPDATE would be silently flipped back to
+    // approved (and then provisioned as a team member) here.
     const ids = pending.map((p) => p.id)
-    const { error: updErr } = await supabaseAdmin
+    const { data: actuallyApproved, error: updErr } = await supabaseAdmin
       .from('team_applications')
       .update({ status: 'approved' })
       .in('id', ids)
       .eq('tenant_id', tenant.tenantId)
+      .eq('status', 'pending')
+      .select('id')
 
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+
+    const approvedIds = new Set((actuallyApproved || []).map((a) => a.id))
+    const toProvision = pending.filter((p) => approvedIds.has(p.id))
 
     // Provision + email each applicant. Best-effort, isolated per applicant.
     const failures: Array<{ id: string; name: string | null; error: string }> = []
     let provisioned = 0
-    for (const app of pending) {
+    for (const app of toProvision) {
       try {
         await provisionApprovedApplicant(tenant.tenantId, app as ApprovedApplication)
         provisioned++
@@ -55,7 +64,7 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      approved: pending.length,
+      approved: approvedIds.size,
       provisioned,
       failures,
     })

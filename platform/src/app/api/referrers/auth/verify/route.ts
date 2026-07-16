@@ -57,11 +57,21 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 401 })
   }
 
-  // Single-use: clear the code as soon as it's spent.
-  await db
+  // Atomic claim: re-check otp_hash still matches what was just verified in
+  // the WHERE clause. Without this, two concurrent requests carrying the same
+  // valid code (double-submit, retry) would both pass the `valid` check above
+  // — read-then-clear leaves a window where both mint a session token from a
+  // single-use OTP. Same fix as portal/auth's verify_code race.
+  const { data: claimed } = await db
     .from('referrers')
     .update({ otp_hash: null, otp_expires_at: null })
     .eq('id', referrer.id)
+    .eq('otp_hash', referrer.otp_hash)
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return NextResponse.json({ error: 'Invalid or expired code' }, { status: 401 })
+  }
 
   const token = createReferrerToken(referrer.id, tenant.id)
   return NextResponse.json({ token, referral_code: referrer.referral_code })
