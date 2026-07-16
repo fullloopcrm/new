@@ -25,6 +25,21 @@ export async function GET(request: Request) {
   let totalSent = 0
 
   for (const booking of bookings || []) {
+    // Dedup: this cron has no other guard at all — a manual re-trigger on
+    // the same day (or a scheduler retry) would otherwise re-notify() every
+    // booking in today's window a second time, resending the "thank you /
+    // use THANKYOU for 10% off" email. Skip if we've already sent a
+    // follow_up for this booking, same dedup shape as the confirmations
+    // cron's team/client confirm-request checks.
+    const { data: existing } = await supabaseAdmin
+      .from('notifications')
+      .select('id')
+      .eq('tenant_id', booking.tenant_id)
+      .eq('booking_id', booking.id)
+      .eq('type', 'follow_up')
+      .limit(1)
+    if (existing && existing.length > 0) continue
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name')
