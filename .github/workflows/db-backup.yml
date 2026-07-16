@@ -106,11 +106,20 @@ jobs:
           if-no-files-found: error
 
       - name: Alert on failure (Telegram)
-        if: failure() && env.TG_TOKEN != ''
+        # NOTE: the guard MUST live inside the run script, not in this step's
+        # `if:` — a step's own env: block is not visible to its own if:
+        # conditional (GitHub Actions evaluates if: before applying the
+        # step's env), so `if: env.TG_TOKEN != ''` here would always be
+        # false and this step would silently never fire, secrets or not.
+        if: failure()
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TG_CHAT: ${{ secrets.TELEGRAM_NOTIFY_CHAT_ID }}
         run: |
+          if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
+            echo "TELEGRAM_BOT_TOKEN / TELEGRAM_NOTIFY_CHAT_ID not set — skipping alert."
+            exit 0
+          fi
           curl -sS "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             -d chat_id="${TG_CHAT}" \
             -d text="🔴 FullLoop nightly DB backup FAILED — run: ${{ github.run_id }}. Check the Action log." || true
