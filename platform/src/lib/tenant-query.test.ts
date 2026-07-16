@@ -33,6 +33,10 @@ function builder(table: string) {
       singleCalls.push({ table, eqs })
       return resolve(table, eqs)
     },
+    maybeSingle: async () => {
+      singleCalls.push({ table, eqs })
+      return resolve(table, eqs)
+    },
     insert: async (row: unknown) => {
       insertCalls.push({ table, row })
       if (insertShouldThrow) throw new Error('insert failed')
@@ -392,6 +396,100 @@ describe('getTenantForRequest — Clerk super-admin impersonation', () => {
     } finally {
       vi.unstubAllEnvs()
     }
+  })
+})
+
+describe('getTenantForRequest — masked-error hardening (maybeSingle + explicit error check)', () => {
+  // Every tenant-by-id / membership lookup in this file used to discard its
+  // `error` and only destructure `data`, so a genuine DB failure looked
+  // identical to "not found" and silently downgraded to a 401/403/404 instead
+  // of surfacing loud. These probes force the mock builder to return a real
+  // error (not just data:null) and assert the function throws instead of
+  // quietly treating it as "no tenant".
+
+  it('throws (does not silently 401) when the header-path tenant lookup hits a genuine DB error', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'global-token')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(true)
+    getOwnerUserId.mockResolvedValue(null)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-1'
+        ? { data: null, error: { message: 'connection reset' } }
+        : { data: null, error: null }
+
+    await expect(getTenantForRequest()).rejects.toThrow(/TENANT_HEADER_GLOBAL_ADMIN_LOOKUP_ERROR/)
+  })
+
+  it('throws when the PIN-impersonation tenant lookup hits a genuine DB error', async () => {
+    mockCookieStore.set('fl_impersonate', 'signed-cookie')
+    mockCookieStore.set('admin_token', 'good-token')
+    verifyImpersonationCookie.mockReturnValue('t-1')
+    verifyAdminToken.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-1'
+        ? { data: null, error: { message: 'timeout' } }
+        : { data: null, error: null }
+
+    await expect(getTenantForRequest()).rejects.toThrow(/TENANT_PIN_IMPERSONATION_LOOKUP_ERROR/)
+  })
+
+  it('throws when the Clerk super-admin impersonation tenant lookup hits a genuine DB error', async () => {
+    vi.resetModules()
+    vi.stubEnv('SUPER_ADMIN_CLERK_ID', 'super-1')
+    try {
+      const mod = await import('./tenant-query')
+      mockCookieStore.set('fl_impersonate', 'signed-cookie')
+      verifyImpersonationCookie.mockReturnValue('t-imp')
+      verifyAdminToken.mockReturnValue(false)
+      getOwnerUserId.mockResolvedValue('super-1')
+      resolve = (table, eqs) =>
+        table === 'tenants' && eqs.id === 't-imp'
+          ? { data: null, error: { message: 'connection reset' } }
+          : { data: null, error: null }
+
+      await expect(mod.getTenantForRequest()).rejects.toThrow(/TENANT_CLERK_IMPERSONATION_LOOKUP_ERROR/)
+    } finally {
+      vi.unstubAllEnvs()
+    }
+  })
+
+  it('throws (does not silently 404) when the membership lookup hits a genuine DB error', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) =>
+      table === 'tenant_members' && eqs.clerk_user_id === 'user-42'
+        ? { data: null, error: { message: 'connection reset' } }
+        : { data: null, error: null }
+
+    await expect(getTenantForRequest()).rejects.toThrow(/TENANT_MEMBERSHIP_LOOKUP_ERROR/)
+  })
+
+  it('AMBIGUOUS-MEMBERSHIP PROBE: throws loud (not a silent 404 lockout) when a clerk_user_id resolves to 2+ tenant_members rows', async () => {
+    // clerk_user_id has no standalone unique constraint (only
+    // UNIQUE(tenant_id, clerk_user_id)) — a user who legitimately belongs to
+    // 2 tenants surfaces here as a PostgREST "multiple rows" error, same
+    // shape as a transient failure. Before this fix that error was discarded
+    // and the user was told "No tenant found" (404) instead of the real cause.
+    getOwnerUserId.mockResolvedValue('user-multi')
+    resolve = (table, eqs) =>
+      table === 'tenant_members' && eqs.clerk_user_id === 'user-multi'
+        ? { data: null, error: { message: 'JSON object requested, multiple (or no) rows returned' } }
+        : { data: null, error: null }
+
+    await expect(getTenantForRequest()).rejects.toThrow(/TENANT_MEMBERSHIP_LOOKUP_ERROR/)
+  })
+
+  it('throws when the final tenant-by-id lookup (after a resolved membership) hits a genuine DB error', async () => {
+    getOwnerUserId.mockResolvedValue('user-42')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.clerk_user_id === 'user-42')
+        return { data: { tenant_id: 't-7', role: 'staff' }, error: null }
+      if (table === 'tenants' && eqs.id === 't-7') return { data: null, error: { message: 'connection reset' } }
+      return { data: null, error: null }
+    }
+
+    await expect(getTenantForRequest()).rejects.toThrow(/TENANT_MEMBERSHIP_TENANT_LOOKUP_ERROR/)
   })
 })
 

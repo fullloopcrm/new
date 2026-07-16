@@ -16,6 +16,36 @@ export type TenantContext = {
   role: string
 }
 
+// Shared PK-by-id tenant fetch used by every branch below.
+//
+// maybeSingle() (not single()), error checked explicitly — same masked-error
+// pattern already fixed in tenant.ts / tenant-lookup.ts for the host-resolution
+// contract. id is the tenants PRIMARY KEY, so 0 rows legitimately means "no
+// such tenant" (deleted/bad id) — the expected not-found case, not an error.
+// single() can't tell that apart from a genuine transient DB failure (both
+// surface as data:null once destructured), so a real outage here used to look
+// identical to "tenant not found" and silently fell through to 401/404 —
+// requirePermission() catches ANY thrown error the same way (generic 401), so
+// callers see no difference there, but the ~76 direct importers of
+// getTenantForRequest() that only catch AuthError (see waitlist/route.ts) now
+// correctly see this surface as an uncaught 500 instead of a misleading
+// "unauthorized"/"not found", and the throw is logged loud instead of silently
+// discarded — the only way ops can tell a DB blip apart from a real bad id.
+async function fetchTenantById(tenantId: string, errorTag: string): Promise<Tenant | null> {
+  const { data: tenant, error } = await supabaseAdmin
+    .from('tenants')
+    .select('*')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  if (error) {
+    console.error(`${errorTag} tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`${errorTag} tenant_id=${tenantId} error=${error.message}`)
+  }
+
+  return tenant
+}
+
 async function logImpersonationEvent(
   actorKind: 'pin_admin' | 'clerk_super_admin',
   actorId: string,
@@ -65,11 +95,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
       if (adminToken) {
         // Global super-admin token → owner of whatever tenant this domain is.
         if (verifyAdminToken(adminToken)) {
-          const { data: tenant } = await supabaseAdmin
-            .from('tenants')
-            .select('*')
-            .eq('id', headerTenantId)
-            .single()
+          const tenant = await fetchTenantById(headerTenantId, 'TENANT_HEADER_GLOBAL_ADMIN_LOOKUP_ERROR')
           if (tenant) {
             return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
           }
@@ -77,11 +103,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
         // Per-tenant member token → only valid if minted for THIS tenant.
         const ta = verifyTenantAdminToken(adminToken, headerTenantId)
         if (ta) {
-          const { data: tenant } = await supabaseAdmin
-            .from('tenants')
-            .select('*')
-            .eq('id', headerTenantId)
-            .single()
+          const tenant = await fetchTenantById(headerTenantId, 'TENANT_HEADER_MEMBER_ADMIN_LOOKUP_ERROR')
           if (tenant) {
             return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
           }
@@ -96,11 +118,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
   if (impersonateId) {
     const adminToken = cookieStore.get('admin_token')?.value
     if (adminToken && verifyAdminToken(adminToken)) {
-      const { data: tenant } = await supabaseAdmin
-        .from('tenants')
-        .select('*')
-        .eq('id', impersonateId)
-        .single()
+      const tenant = await fetchTenantById(impersonateId, 'TENANT_PIN_IMPERSONATION_LOOKUP_ERROR')
 
       if (tenant) {
         await logImpersonationEvent('pin_admin', 'admin', tenant.id)
@@ -122,11 +140,7 @@ export async function getTenantForRequest(): Promise<TenantContext> {
 
   // Clerk super admin impersonation
   if (SUPER_ADMIN_IDS.includes(userId) && impersonateId) {
-    const { data: tenant } = await supabaseAdmin
-      .from('tenants')
-      .select('*')
-      .eq('id', impersonateId)
-      .single()
+    const tenant = await fetchTenantById(impersonateId, 'TENANT_CLERK_IMPERSONATION_LOOKUP_ERROR')
 
     if (tenant) {
       await logImpersonationEvent('clerk_super_admin', userId, tenant.id)
@@ -139,22 +153,33 @@ export async function getTenantForRequest(): Promise<TenantContext> {
     }
   }
 
-  // Normal flow: look up membership
-  const { data: membership } = await supabaseAdmin
+  // Normal flow: look up membership.
+  //
+  // maybeSingle() (not single()), error checked explicitly. clerk_user_id
+  // alone carries NO unique constraint at the DB level — schema.sql only
+  // declares UNIQUE(tenant_id, clerk_user_id) — so a genuine transient DB
+  // failure AND a real ambiguous case (the same Clerk user ending up with
+  // tenant_members rows under 2+ tenants, e.g. a race in the "create
+  // business" signup flow's own best-effort duplicate check) both surfaced
+  // identically as data:null with the error silently discarded, so either
+  // case looked exactly like "no membership" and quietly 404'd the user out
+  // instead of surfacing the real cause loud.
+  const { data: membership, error: membershipError } = await supabaseAdmin
     .from('tenant_members')
     .select('tenant_id, role')
     .eq('clerk_user_id', userId)
-    .single()
+    .maybeSingle()
+
+  if (membershipError) {
+    console.error(`TENANT_MEMBERSHIP_LOOKUP_ERROR clerk_user_id=${userId} error=${membershipError.message}`)
+    throw new Error(`TENANT_MEMBERSHIP_LOOKUP_ERROR clerk_user_id=${userId} error=${membershipError.message}`)
+  }
 
   if (!membership) {
     throw new AuthError('No tenant found', 404)
   }
 
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('*')
-    .eq('id', membership.tenant_id)
-    .single()
+  const tenant = await fetchTenantById(membership.tenant_id, 'TENANT_MEMBERSHIP_TENANT_LOOKUP_ERROR')
 
   if (!tenant) {
     throw new AuthError('Tenant not found', 404)
