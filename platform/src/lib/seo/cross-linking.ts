@@ -30,7 +30,9 @@ import { supabaseAdmin } from '@/lib/supabase'
 /** Off unless explicitly enabled — this only drafts proposals, never applies, but
  * Jeff should consciously opt in given the link-scheme sensitivity discussed. */
 export function crossLinkEnabled(): boolean {
-  return process.env.SEOMGR_CROSS_LINK_ENABLED === 'true'
+  // Trimmed defensively — see auto-verify.ts: a sibling flag was found stored
+  // in prod as literally 'true\n', which a strict === silently failed on.
+  return (process.env.SEOMGR_CROSS_LINK_ENABLED ?? '').trim() === 'true'
 }
 
 // The consumer/residential cluster eligible for cross-tenant linking at all.
