@@ -51,6 +51,22 @@ export async function POST(request: Request, { params }: Params) {
         .single()
       if (!inv) return NextResponse.json({ error: 'Invoice not found' }, { status: 404 })
 
+      // Duplicate-match guard: the txn.status check above is read-then-write
+      // with no re-check on the way out -- a double-tapped Match button, or
+      // two staff matching the same bank row before either commits, both pass
+      // it and land two payments rows for one bank inflow. Same money-race
+      // class as record-payment/confirm-match. A bank_txn represents ONE
+      // inflow event (unlike invoices, which legitimately take multiple
+      // distinct payments over time), so a STATIC reference_id keyed on the
+      // bank_txn id is safe here -- this txn should never match twice.
+      const referenceId = `bank-txn-match-${txn.id}`
+      const { data: existingPayment } = await tenantDb(tenantId)
+        .from('payments')
+        .select('id')
+        .eq('reference_id', referenceId)
+        .maybeSingle()
+      if (existingPayment) return NextResponse.json({ ok: true, deduped: true })
+
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
       const { error: pErr } = await tenantDb(tenantId).from('payments').insert({
         invoice_id: inv.id,
@@ -60,7 +76,15 @@ export async function POST(request: Request, { params }: Params) {
         method: 'bank_match',
         status: 'succeeded',
         received_at: txn.txn_date,
+        reference_id: referenceId,
       })
+      // Layer-2 backstop: a truly concurrent re-match slipped past the
+      // layer-1 SELECT above and hit migration 065_unique_payments_reference's
+      // partial unique index on payments(tenant_id, booking_id, reference_id)
+      // instead. CAVEAT: invoices with a NULL booking_id (no linked booking)
+      // get layer-1 protection only -- same gap already flagged/accepted in
+      // record-payment's fix; a plain UNIQUE index never matches two NULLs.
+      if (pErr?.code === '23505') return NextResponse.json({ ok: true, deduped: true })
       if (pErr) throw pErr
 
       updates.matched_invoice_id = inv.id
@@ -75,15 +99,30 @@ export async function POST(request: Request, { params }: Params) {
         .single()
       if (!b) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
+      // Same duplicate-match guard as the invoice branch above. booking_id is
+      // always non-null here, so migration 065's unique index gives this
+      // branch full DB-backstop coverage (no NULL-booking_id caveat).
+      const referenceId = `bank-txn-match-${txn.id}`
+      const { data: existingPayment } = await tenantDb(tenantId)
+        .from('payments')
+        .select('id')
+        .eq('reference_id', referenceId)
+        .maybeSingle()
+      if (existingPayment) return NextResponse.json({ ok: true, deduped: true })
+
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
-      await tenantDb(tenantId).from('payments').insert({
+      const { error: pErr } = await tenantDb(tenantId).from('payments').insert({
         booking_id: b.id,
         client_id: b.client_id,
         amount_cents: txn.amount_cents,
         method: 'bank_match',
         status: 'succeeded',
         received_at: txn.txn_date,
+        reference_id: referenceId,
       })
+      if (pErr?.code === '23505') return NextResponse.json({ ok: true, deduped: true })
+      if (pErr) throw pErr
+
       await tenantDb(tenantId)
         .from('bookings')
         .update({ payment_status: 'paid', payment_method: 'bank_match', payment_date: txn.txn_date })
