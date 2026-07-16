@@ -52,14 +52,30 @@ export async function POST(request: Request, { params }: Params) {
       if (wasDefaultProb) updates.probability = newMeta.defaultProbability
     }
 
+    // Check-then-act, not atomic: `existing.stage` above was read once, but a
+    // concurrent stage change on the same deal (a second admin dragging the
+    // kanban card, Selena's update_deal tool, or the public quote-accept flow
+    // auto-advancing on signature) can land in the gap between that read and
+    // this write. Without re-asserting the pre-read stage in THIS update's own
+    // WHERE, this write would silently clobber the concurrent change (e.g. an
+    // admin marks the deal 'lost' while a slow-signing customer's quote-accept
+    // request is mid-flight — the accept's own deal sync would otherwise still
+    // flip it to 'sold', overwriting the lost decision).
     const { data: updated, error } = await supabaseAdmin
       .from('deals')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('stage', existing.stage)
       .select('*, clients(id, name, email, phone)')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'This deal changed stage concurrently — refresh and retry' },
+        { status: 409 },
+      )
+    }
 
     await supabaseAdmin.from('deal_activities').insert({
       tenant_id: tenantId,

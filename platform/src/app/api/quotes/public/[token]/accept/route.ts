@@ -111,7 +111,13 @@ export async function POST(request: Request, { params }: Params) {
           .maybeSingle()
         if (dealRow && ['new', 'qualifying', 'quoted'].includes(dealRow.stage)) {
           const toStage = hasDeposit ? 'pending' : 'sold'
-          await supabaseAdmin
+          // Check-then-act, not atomic: `dealRow.stage` was read just above,
+          // but a concurrent stage change (an admin dragging the kanban card
+          // via POST /api/deals/[id]/stage, or Selena's update_deal tool) can
+          // land in the gap. Re-assert the pre-read stage in this update's own
+          // WHERE so a deal an admin just moved to e.g. 'lost' doesn't get
+          // silently flipped back to 'sold'/'pending' by a slow signature.
+          const { data: dealUpdated } = await supabaseAdmin
             .from('deals')
             .update({
               stage: toStage,
@@ -122,24 +128,31 @@ export async function POST(request: Request, { params }: Params) {
             })
             .eq('id', quote.deal_id)
             .eq('tenant_id', quote.tenant_id)
-          await supabaseAdmin.from('deal_activities').insert([
-            {
-              tenant_id: quote.tenant_id,
-              deal_id: quote.deal_id,
-              type: 'stage_change',
-              description: `Moved from ${dealRow.stage} to ${toStage}`,
-              metadata: { from: dealRow.stage, to: toStage, quote_id: quote.id },
-            },
-            {
-              tenant_id: quote.tenant_id,
-              deal_id: quote.deal_id,
-              type: 'note',
-              description: hasDeposit
-                ? `Proposal ${quote.quote_number} signed by ${signature_name} — awaiting deposit`
-                : `Proposal ${quote.quote_number} accepted & signed by ${signature_name}`,
-              metadata: { quote_id: quote.id, signature_name },
-            },
-          ])
+            .eq('stage', dealRow.stage)
+            .select('id')
+            .maybeSingle()
+          if (!dealUpdated) {
+            console.warn('deal sync on accept skipped — deal stage changed concurrently', { deal_id: quote.deal_id })
+          } else {
+            await supabaseAdmin.from('deal_activities').insert([
+              {
+                tenant_id: quote.tenant_id,
+                deal_id: quote.deal_id,
+                type: 'stage_change',
+                description: `Moved from ${dealRow.stage} to ${toStage}`,
+                metadata: { from: dealRow.stage, to: toStage, quote_id: quote.id },
+              },
+              {
+                tenant_id: quote.tenant_id,
+                deal_id: quote.deal_id,
+                type: 'note',
+                description: hasDeposit
+                  ? `Proposal ${quote.quote_number} signed by ${signature_name} — awaiting deposit`
+                  : `Proposal ${quote.quote_number} accepted & signed by ${signature_name}`,
+                metadata: { quote_id: quote.id, signature_name },
+              },
+            ])
+          }
         }
       } catch (dealErr) {
         console.warn('deal sync on accept failed', dealErr)
