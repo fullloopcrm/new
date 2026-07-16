@@ -528,6 +528,35 @@ export async function POST(req: NextRequest) {
     if (!tId) return NextResponse.json({ ok: true, note: 'thread create failed' })
     const threadId = tId as string
 
+    // Claim BEFORE any other side effect: Telnyx retries a webhook delivery
+    // that doesn't ack 2xx in time, and this branch is slow (multiple
+    // sequential DB/RPC round trips + a live Telnyx API call to answer, then
+    // dialing admin targets) — exactly the kind of path likely to cause that
+    // timeout. A redelivered call.initiated previously re-ran the whole
+    // branch: duplicate "Incoming call" transcript message, and worse, a
+    // SECOND real PSTN/SIP ring to the admin's phone for the same inbound
+    // call. comhub_active_calls.customer_call_id already has a UNIQUE
+    // constraint (migrations/2026_05_19_comhub.sql) — this insert's error was
+    // simply never checked, so the constraint existed but did nothing. Check
+    // it now and short-circuit on a duplicate before touching the transcript
+    // or ringing anyone.
+    const { error: claimErr } = await supabaseAdmin.from('comhub_active_calls').insert({
+      tenant_id: tenantId,
+      customer_call_id: callControlId,
+      thread_id: threadId,
+      contact_id: contactId,
+      customer_phone: p.from,
+      direction: 'inbound',
+      status: 'ringing',
+    })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ ok: true, duplicate: true })
+      }
+      console.error('[telnyx-voice] comhub_active_calls claim failed', claimErr)
+      return NextResponse.json({ ok: true, note: 'active-call claim failed' })
+    }
+
     await logVoiceMessage({
       tenantId,
       threadId,
@@ -541,16 +570,6 @@ export async function POST(req: NextRequest) {
     })
 
     await supabaseAdmin.from('comhub_threads').update({ unread_count: 1 }).eq('id', threadId)
-
-    await supabaseAdmin.from('comhub_active_calls').insert({
-      tenant_id: tenantId,
-      customer_call_id: callControlId,
-      thread_id: threadId,
-      contact_id: contactId,
-      customer_phone: p.from,
-      direction: 'inbound',
-      status: 'ringing',
-    })
 
     // Answer the customer leg first so they hear something other than
     // silence while we dial admins. Required for PSTN target dialing;
