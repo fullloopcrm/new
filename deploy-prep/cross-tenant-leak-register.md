@@ -3985,3 +3985,47 @@ GREEN post-fix. `npx tsc --noEmit` clean. Full suite 378 files/1620 tests pass,
 0 regressions (was 1601). `audit:tenant` same 1 pre-existing unrelated finding
 in untracked `src/lib/seo/recipes.ts`. Commit `8a586149`. File-only, no push/
 deploy/DB.
+
+## 2026-07-16 00:44 round (W2) — P68, fixed: `GET /api/pipeline` (sales
+Kanban snapshot) had zero permission check, unlike its sibling `/api/deals`
+
+Continuing the broad-hunt into lower-risk (single-endpoint) surface not yet
+swept: checked `client-analytics`, `pipeline`, `prospects`, `sidebar-counts`,
+and `setup-checklist` (none previously mentioned in this register).
+`client-analytics` (`requirePermission('clients.view')`), `sidebar-counts`
+and `setup-checklist` (own-tenant-only counts/config, no PII exposure beyond
+what the tenant already owns) were clean. `prospects/route.ts` is
+intentionally unauthenticated/unscoped (public pre-tenant intake form,
+already commented `tenant-scope-ok`) — correct as-is.
+
+`pipeline/route.ts` (feeds the `/dashboard/sales/pipeline` Kanban view) was
+the one bug: it called only `getTenantForRequest()` (proves tenant
+membership at ANY role, no permission check) before returning every active
+deal joined with client PII (`clients(id, name, email, phone)`) plus
+$-value forecasts and stage totals — the exact same data shape as `GET
+/api/deals`, which this session's prior P65 round already gated behind
+`requirePermission('sales.view')`. Because every default role (including
+staff) is granted `sales.view` in `rbac.ts`, this was invisible against the
+hard-coded defaults, but `tenants.selena_config.role_permissions` lets a
+tenant revoke `sales.view` from a role — `/api/deals` already honored that
+per-tenant override, `/api/pipeline` silently ignored it. Any authenticated
+member of a tenant that had customized staff/manager down to no
+`sales.view` could still hit `/api/pipeline` directly and see the full
+sales pipeline the tenant had explicitly locked them out of via the
+Permissions UI.
+
+**Fix:** `requirePermission('sales.view')` on the one `GET` handler,
+matching `/api/deals` exactly.
+
+**Regression lock:** new `route.rbac.test.ts` (3 tests) alongside the
+existing `route.isolation.test.ts` + `route.regression.test.ts`. Mutation-
+verified via `git stash` against the real pre-fix `route.ts`: the
+override-revocation probe RED (200 instead of 403) pre-fix, restored, all 3
+GREEN post-fix (plus the 2 pre-existing pipeline tests, unaffected — both
+use role `owner`, who is always permitted).
+
+`npx tsc --noEmit`: clean. Full suite: 379 files, 1623 passed + 37 skipped,
+0 regressions (was 1620). `npm run audit:tenant`: same 1 pre-existing finding
+in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
+feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).

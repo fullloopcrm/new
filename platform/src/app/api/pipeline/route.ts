@@ -3,14 +3,16 @@
  * + forecast + stage totals. One request feeds the Kanban view.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, computeForecast, computeStageTotals } from '@/lib/pipeline'
 import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
-    const db = tenantDb(tenantId)
+    const { tenant, error: authError } = await requirePermission('sales.view')
+    if (authError) return authError
+    const db = tenantDb(tenant.tenantId)
     const url = new URL(request.url)
     const includeClosed = url.searchParams.get('include_closed') !== '0'
     const monthsAhead = Math.min(12, Number(url.searchParams.get('months')) || 6)
