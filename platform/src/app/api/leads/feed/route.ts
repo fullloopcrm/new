@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 type FeedRow = {
@@ -54,7 +55,9 @@ function relTime(ts: string): { label: string; sub: string | null; isLive: boole
 
 export async function GET(_request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('leads.view')
+    if (authError) return authError
+    const { tenantId } = tenant
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
     const todayStart = new Date()

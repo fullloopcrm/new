@@ -3710,3 +3710,67 @@ against the original code, restored, all 3 GREEN.
 
 `npx tsc --noEmit`: clean. Full suite: 348 files, 1520 passed + 37 skipped,
 0 regressions. File-only, no push/deploy/DB.
+
+## 2026-07-15 23:50 round (W2) — P63, fixed: `GET /api/leads/{feed,attribution,
+domains,visits}` had zero permission gate, leaking visitor/click analytics +
+client PII to any tenant role
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: census of every route file calling `getTenantForRequest()` with
+no `requirePermission`/`requireAdmin`/`requireRole` call anywhere in the file
+(107 hits, cross-referenced against files already ruled clean in prior W2
+rounds — portal/*, the booking-notes/pipeline/quote-templates/setup-checklist/
+audit/security-events/uploads/user-preferences batch, etc.). Narrowed to the
+`api/leads/*` directory: 3 sibling routes on the identical `lead_clicks`/
+`website_visits` surface (`override`, `verify`, `block`) already require
+`requirePermission('leads.view')` — with `override`'s own fix comment
+explicitly naming this exact class of bug. 4 more siblings in the same
+directory never got the same treatment.
+
+- **`leads/feed`** — powers `/dashboard/leads` (`LeadsFeed.tsx`). Returns
+  client PII (`name`, `email`, `phone`, `address`, `notes`), booking revenue,
+  and named/anonymous visitor-scoring feed data, gated by nothing but
+  `getTenantForRequest()` (any authenticated tenant role).
+- **`leads/attribution`** — referrer/source breakdown over `website_visits`,
+  same gap.
+- **`leads/domains`** — full `domains` rows + per-domain visit/CTA counts,
+  same gap.
+- **`leads/visits`** GET handler — raw `website_visits` rows (session id,
+  visitor id, referrer, device, page-level engagement) + computed analytics,
+  same gap. (Its POST handler on the same file is the public, unauthenticated
+  tracking-pixel endpoint — correctly left untouched; only GET was in scope.)
+
+`rbac.ts` grants `leads.view` to owner/admin/manager only — `staff`
+explicitly does not hold it (nor any other `leads.*` permission). The
+dashboard nav already hides the `/dashboard/leads` page from roles lacking
+`leads.view` (`dashboard-shell.tsx`'s `sales` fold is gated by
+`perm: 'leads.view'`), so this is UI-hidden but API-open — same shape as
+every prior round: a `staff`-tier session can call any of these four routes
+directly (no UI needed) and read data the RBAC catalog says they shouldn't.
+`attribution`/`domains`/`visits` have zero first-party frontend callers today
+beyond `feed`'s single caller in `LeadsFeed.tsx` (grepped `src/app` — only
+`admin/docs/page.tsx`'s API reference table and existing tests reference the
+other three) — reduces regression risk, doesn't reduce live exposure.
+
+**Fix:** gated all four `GET` handlers behind `requirePermission('leads.view')`,
+matching the three already-gated siblings exactly (`{ tenant, error } =
+await requirePermission('leads.view'); if (error) return error`).
+`leads/visits`' dynamic `import('@/lib/tenant-query')` pattern was preserved,
+just adding a matching dynamic import of `require-permission`; its public
+POST/OPTIONS handlers were not touched.
+
+**Regression lock:** new `route.rbac.test.ts` for `feed`/`domains`/`visits`
+(3 tests each) + a new permission-probe `describe` block added to the
+existing `attribution/route.isolation.test.ts` (2 tests, reusing its
+`tenantDb`-harness seed/mocks) — 12 new/added tests total. Each: owner and
+manager (both hold `leads.view`) get 200; `staff` (doesn't) gets 403 with the
+route's top-level data field(s) absent from the body. Mutation-verified via
+`git stash` against all four real pre-fix `route.ts` files at once: all 4
+staff-403 probes RED (200 instead of 403) against the original code, 8
+positive-control tests still green, stash popped to restore the fix, all 12
+green again.
+
+`npx tsc --noEmit`: clean. Full suite: 351 files, 1531 passed + 37 skipped,
+0 regressions. `npm run audit:tenant`: same 1 pre-existing finding in
+untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
+feature, not touched here). File-only, no push/deploy/DB.

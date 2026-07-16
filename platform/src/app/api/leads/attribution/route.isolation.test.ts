@@ -10,6 +10,12 @@ import { createTenantDbHarness, type Harness } from '@/test/tenant-isolation-har
  * `.not('referrer','is',null)` filter is a no-op in the harness so seeds use
  * non-null referrers). No by-id caller input (no IDOR surface). Probe proves a
  * foreign tenant's visits never contribute to the source-attribution breakdown.
+ *
+ * Also covers the permission gate added alongside this test: GET previously
+ * called only getTenantForRequest() (any authenticated role). rbac.ts grants
+ * 'leads.view' to owner/admin/manager, not 'staff' — same sibling-route gap
+ * as leads/override, leads/verify, leads/block. FIX: requirePermission
+ * ('leads.view'), matching those siblings.
  */
 
 const A = 'tid-a'
@@ -24,6 +30,7 @@ vi.mock('@/lib/settings', () => ({
   getSettings: vi.fn(async () => ({ attribution_window_hours: 8_760_000 })),
 }))
 
+const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {
     status: number
@@ -34,7 +41,7 @@ vi.mock('@/lib/tenant-query', () => {
   }
   return {
     AuthError,
-    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: 'owner' })),
+    getTenantForRequest: vi.fn(async () => ({ userId: 'u1', tenantId: A, tenant: { id: A }, role: roleHolder.role })),
   }
 })
 
@@ -54,6 +61,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  roleHolder.role = 'owner'
 })
 
 describe('leads/attribution — tenant isolation', () => {
@@ -68,5 +76,22 @@ describe('leads/attribution — tenant isolation', () => {
     )
     expect(bySource.Google).toBe(1)
     expect(bySource.Yelp).toBe(1)
+  })
+})
+
+describe('leads/attribution — permission probe', () => {
+  it("manager (has leads.view) can load attribution", async () => {
+    roleHolder.role = 'manager'
+    const res = await GET()
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: 'staff' (no leads.view) is forbidden", async () => {
+    roleHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.attribution).toBeUndefined()
+    expect(body.total).toBeUndefined()
   })
 })
