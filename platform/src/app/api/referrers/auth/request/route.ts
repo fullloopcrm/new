@@ -7,6 +7,16 @@ import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
+// LIKE escape char is backslash). Without this, a caller could submit a
+// '%'/'_'-bearing `email` that ILIKE-matches a DIFFERENT referrer's row and
+// trigger an OTP send to that victim, bypassing the per-identifier rate limit
+// above (keyed off the caller's own literal string, not the resolved row) --
+// a spam/harassment amplification vector. Same pattern as client/check/route.ts.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 const OTP_TTL_MS = 10 * 60 * 1000
 
 // Step 1 of referrer login: email in → email a 6-digit code out.
@@ -39,7 +49,7 @@ export async function POST(request: NextRequest) {
   const { data: referrer } = (await db
     .from('referrers')
     .select('id, name, email')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .eq('status', 'active')
     .maybeSingle()) as { data: { id: string; name: string; email: string } | null }
 

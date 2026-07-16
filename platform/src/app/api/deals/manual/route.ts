@@ -22,6 +22,15 @@ function normalizePhoneDigits(raw: string): string | null {
   return national.length === 10 ? national : null
 }
 
+// Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
+// LIKE escape char is backslash). Without this, a '%'/'_' in the submitted
+// email could ILIKE-match a DIFFERENT existing client and silently attach this
+// new lead/deal to their record instead of creating (or matching) the intended
+// one. Same pattern as client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
@@ -61,7 +70,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('id')
         .eq('tenant_id', tenantId)
-        .ilike('email', email)
+        .ilike('email', escapeLike(email))
         .maybeSingle()
       if (data) clientId = data.id
     }

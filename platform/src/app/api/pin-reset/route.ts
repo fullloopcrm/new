@@ -16,6 +16,16 @@ import { hashAdminPin, isValidAdminPin } from '@/lib/admin-pin'
 
 const CODE_TTL_MS = 10 * 60 * 1000
 
+// Escape LIKE/ILIKE wildcards so `value` is matched literally (Postgres default
+// LIKE escape char is backslash). Without this, a caller could submit a
+// '%'/'_'-bearing `contact` that ILIKE-matches a DIFFERENT member's row and
+// trigger a reset-code send to that victim, bypassing the per-identifier rate
+// limit above (keyed off the caller's own literal string, not the resolved
+// row). Same pattern as client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 function generateCode(): string {
   return String(100000 + crypto.randomInt(0, 900000))
 }
@@ -51,7 +61,7 @@ async function findMember(tenantId: string, contact: string): Promise<Member | n
     .from('tenant_members')
     .select('id, name, phone, email')
     .eq('tenant_id', tenantId)
-    .ilike('email', value)
+    .ilike('email', escapeLike(value))
     .maybeSingle()
   return (byEmail.data as Member) || null
 }

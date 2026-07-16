@@ -24,6 +24,15 @@ function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
+// Escape LIKE/ILIKE wildcards so `payerEmail` is matched literally (Postgres
+// default LIKE escape char is backslash). payerEmail is whatever the payer
+// typed into Stripe Checkout -- without this, a '%'/'_' there could ILIKE-match
+// a DIFFERENT NYC Maid client and misattribute this payment/booking-paid status
+// to them instead of the actual payer. Same pattern as client/check/route.ts.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
@@ -320,7 +329,7 @@ export async function POST(request: Request) {
             .from('clients')
             .select('id, name')
             .eq('tenant_id', NYCMAID_TENANT_ID)
-            .ilike('email', payerEmail)
+            .ilike('email', escapeLike(payerEmail))
             .limit(1)
             .maybeSingle()
           if (mc) {

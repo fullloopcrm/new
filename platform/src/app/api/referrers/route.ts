@@ -3,6 +3,16 @@ import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
+// LIKE escape char is backslash). GET is unauthenticated and public -- without
+// this, a caller with no prior knowledge of any referrer could use '%'/'_' to
+// turn a single-address lookup into a probe/enumeration primitive that leaks
+// another referrer's name/earnings/payout prefs. Same pattern as
+// client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
   const suffix = String(Math.floor(100 + Math.random() * 900))
@@ -50,7 +60,7 @@ export async function GET(request: NextRequest) {
     const { data } = await lookupDb
       .from('referrers')
       .select('id, name, email, referral_code, total_earned, total_paid, preferred_payout, created_at')
-      .ilike('email', email)
+      .ilike('email', escapeLike(email))
       .single()
 
     if (!data) return NextResponse.json({ error: 'Email not found' }, { status: 404 })
@@ -100,7 +110,7 @@ export async function POST(request: NextRequest) {
   const { data: existing } = await db
     .from('referrers')
     .select('id')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .single()
 
   if (existing) {

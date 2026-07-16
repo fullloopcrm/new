@@ -5,6 +5,16 @@ import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { safeEqual } from '@/lib/secret-compare'
 
+// Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
+// LIKE escape char is backslash). Without this, a caller could submit a
+// '%'/'_'-bearing `email` that ILIKE-matches a DIFFERENT referrer's row,
+// letting them burn that victim's OTP-verify rate-limit bucket (keyed off the
+// caller's own literal email string, not the resolved row) instead of their
+// own. Same pattern as client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 // Step 2 of referrer login: email + 6-digit code in → session token out.
 export async function POST(request: NextRequest) {
   const body = await request.json().catch(() => ({}))
@@ -27,7 +37,7 @@ export async function POST(request: NextRequest) {
   const { data: referrer } = (await db
     .from('referrers')
     .select('id, referral_code, otp_hash, otp_expires_at')
-    .ilike('email', email)
+    .ilike('email', escapeLike(email))
     .eq('status', 'active')
     .maybeSingle()) as { data: { id: string; referral_code: string; otp_hash: string | null; otp_expires_at: string | null } | null }
 

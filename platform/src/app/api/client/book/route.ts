@@ -18,6 +18,15 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
+
+// Escape LIKE/ILIKE wildcards so `emailLower` is matched literally (Postgres
+// default LIKE escape char is backslash). Without this, a '%'/'_' in the
+// submitted email could ILIKE-match a DIFFERENT existing client and silently
+// attach a new booking to their record (and its client/PII) instead of the
+// caller's own. Same pattern as client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 
@@ -86,7 +95,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('id')
         .eq('tenant_id', tenant.id)
-        .ilike('email', emailLower)
+        .ilike('email', escapeLike(emailLower))
         .maybeSingle()
       if (byEmail) clientId = byEmail.id
 

@@ -7,6 +7,17 @@ import { createClientSession, clientSessionCookieOptions } from '@/lib/client-au
 import { isUniqueViolation } from '@/lib/ledger'
 import { randomInt } from 'crypto'
 
+// Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
+// LIKE escape char is backslash). Without this, an OTP-verified caller who owns
+// any real inbox containing '%'/'_' (both legal RFC 5322 local-part chars) can
+// submit that address as `email`, receive their own valid code, then have this
+// route's client lookup below wildcard-match a DIFFERENT existing client and
+// hand back THAT client's session -- full account takeover with no knowledge of
+// the victim's real email. Same pattern as client/check/route.ts's escapeLike.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -83,7 +94,7 @@ export async function POST(request: Request) {
         .from('clients')
         .select('*')
         .eq('tenant_id', tenant.id)
-        .ilike('email', email.trim())
+        .ilike('email', escapeLike(email.trim()))
         .order('created_at', { ascending: true })
         .limit(1)
       client = (emailMatches?.[0] as typeof client) || null
@@ -123,7 +134,7 @@ export async function POST(request: Request) {
           .from('clients')
           .select('*')
           .eq('tenant_id', tenant.id)
-          .ilike('email', email.trim())
+          .ilike('email', escapeLike(email.trim()))
           .order('created_at', { ascending: true })
           .limit(1)
         client = (winnerMatches?.[0] as typeof client) || null
