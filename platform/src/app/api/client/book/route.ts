@@ -252,6 +252,27 @@ export async function POST(request: Request) {
         const ua = typeof body.user_agent === 'string' ? (body.user_agent as string).slice(0, 200) : 'unknown'
         bkNotes += `\n\n[Client confirmed terms ${confirmedAt} from IP ${ip} via /book/new (UA: ${ua})]`
       }
+    } else {
+      // Generic (non-NYC Maid) tenants: if this tenant has configured a real
+      // per-service hourly rate, that configured value is authoritative — the
+      // client-supplied hourly_rate above (clamped 20-200 purely as a last-
+      // resort fallback for tenants that haven't configured pricing yet) must
+      // never override it. Without this, any caller could POST directly to
+      // this public endpoint with hourly_rate=20 and self-book at a fraction
+      // of the tenant's real published rate, for every tenant except NYC
+      // Maid, which already closes this exact underpay exploit above.
+      const { data: svc } = await supabaseAdmin
+        .from('service_types')
+        .select('default_hourly_rate')
+        .eq('tenant_id', tenant.id)
+        .eq('active', true)
+        .ilike('name', (body.service_type as string) || 'Standard Cleaning')
+        .maybeSingle()
+      const configuredRate = svc?.default_hourly_rate ? Number(svc.default_hourly_rate) : null
+      if (configuredRate && configuredRate > 0) {
+        bkHourlyRate = configuredRate
+        bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+      }
     }
 
     // Resolve property (multi-address per client). Matches this booking's

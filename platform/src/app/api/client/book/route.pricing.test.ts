@@ -28,6 +28,7 @@ const CLIENT = 'client-a'
 const holder = vi.hoisted(() => ({
   rpcCalls: [] as Array<Record<string, unknown>>,
   bookings: new Map<string, Record<string, unknown>>(),
+  serviceTypeRate: null as number | null,
 }))
 
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => TENANT }))
@@ -94,6 +95,12 @@ vi.mock('@/lib/supabase', () => ({
         return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: { do_not_service: false }, error: null }) }) }) }) }
       }
       if (table === 'bookings') return bookingsSelectBuilder()
+      if (table === 'service_types') {
+        return stubChain({
+          data: holder.serviceTypeRate != null ? { default_hourly_rate: holder.serviceTypeRate } : null,
+          error: null,
+        })
+      }
       return stubChain()
     },
     rpc: async (fn: string, args: Record<string, unknown>) => {
@@ -129,6 +136,7 @@ function bookReq(body: Record<string, unknown>) {
 beforeEach(() => {
   holder.rpcCalls.length = 0
   holder.bookings.clear()
+  holder.serviceTypeRate = null
   nycMaidFlag.current = false
 })
 
@@ -164,6 +172,30 @@ describe('generic tenant — client-supplied price/rate cannot be pushed below t
     expect(res.status).toBe(200)
     expect(holder.rpcCalls[0].p_hourly_rate).toBe(75)
     expect(holder.rpcCalls[0].p_price).toBe(75 * 2 * 100)
+  })
+})
+
+describe('generic tenant — a tenant-configured service_types rate is authoritative, not the [20,200] clamp', () => {
+  it('a $20/hr submission is overridden by the tenant\'s real configured $89/hr rate', async () => {
+    holder.serviceTypeRate = 89
+    const res = await bookReq({ hourly_rate: 20, estimated_hours: 2, service_type: 'Deep Clean' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(89)
+    expect(holder.rpcCalls[0].p_price).toBe(89 * 2 * 100)
+  })
+
+  it('a submission with no hourly_rate at all still gets the configured rate, not the $75 generic default', async () => {
+    holder.serviceTypeRate = 55
+    const res = await bookReq({ estimated_hours: 2, service_type: 'Standard Cleaning' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(55)
+  })
+
+  it('falls back to the [20,200] clamp when the tenant has no configured rate for this service (unconfigured/new tenant)', async () => {
+    holder.serviceTypeRate = null
+    const res = await bookReq({ hourly_rate: 20, estimated_hours: 2, service_type: 'Some New Service' })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(20)
   })
 })
 
