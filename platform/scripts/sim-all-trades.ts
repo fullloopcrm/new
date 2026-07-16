@@ -676,6 +676,16 @@ interface ProjectScenario {
   // outstanding, then the remainder collected and the trigger flips it to
   // 'paid'.
   progressUnderpayment: { note: string; shortPct: number; followupOffsetDays: number }
+  // Customer CANCELS the mid-project change-order scope after it's already
+  // been invoiced and paid up front (materials special-ordered — the real
+  // workflow across these trades when added scope requires ordering
+  // non-stock material). Distinct from `dispute` (credits a fully-completed
+  // final invoice) and `progressUnderpayment` (collections, never refunds):
+  // this is a genuine kill-fee cancellation — the business keeps a portion
+  // covering costs already committed, and refunds the remainder against the
+  // change-order invoice specifically, never touching the base contract's
+  // deposit/progress/final milestones.
+  cancellation: { note: string; killFeePct: number }
 }
 
 const PROJECT_LOC = { city: 'Charlotte', state: 'NC', zip: '28202' }
@@ -744,6 +754,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       shortPct: 0.35,
       followupOffsetDays: 10,
     },
+    cancellation: {
+      note: "State Farm's depreciation check came in lower than Marcus expected once it finally cleared, so he asked to cancel the decking change order rather than pay it in full — the crew had already bought and cut the OSB sheets before he called, so a kill fee covering the material cost was applied and the labor portion refunded.",
+      killFeePct: 0.55,
+    },
   },
   {
     key: 'remodeling',
@@ -808,6 +822,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       shortPct: 0.25,
       followupOffsetDays: 7,
     },
+    cancellation: {
+      note: "Elena and her husband got cold feet on the mudroom nook extension once they saw the running total — the wine fridge cutout hadn't been cut into the cabinet run yet but the cabinet shop had already built the extra boxes to spec, so a kill fee covering the shop's build cost was applied and the rest of the add-on refunded.",
+      killFeePct: 0.40,
+    },
   },
   {
     key: 'interior_design',
@@ -865,6 +883,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "The furniture-procurement milestone landed right before the holidays — Priya asked to split it, sending enough to cover the vendor deposits required to place the orders and catching up on the rest before install day.",
       shortPct: 0.40,
       followupOffsetDays: 12,
+    },
+    cancellation: {
+      note: "Priya's in-laws ended up booking a hotel instead, so she asked to cancel the guest bedroom add-on — the designer had already placed the vendor deposit to hold the case-good pieces on backorder before she called, so a kill fee covering that vendor deposit was applied and the rest of the add-on refunded.",
+      killFeePct: 0.30,
     },
   },
 ]
@@ -1143,6 +1165,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     let revenueRecognizedCents = 0
     let finalInvoiceId: string | null = null
     let finalInvoiceAmountCents = 0
+    let coInvoiceId: string | null = null
     for (const p of billablePlan) {
       const invNum = await generateInvoiceNumber(tenant.id)
       const iLines = invLines([{ name: p.label, quantity: 1, unit_price_cents: p.amount_cents }])
@@ -1160,6 +1183,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       if (invoice && !invErr) {
         invoicesCreated++
         if (p.kind === 'final') { finalInvoiceId = invoice.id; finalInvoiceAmountCents = invoice.total_cents }
+        if (p === coPayment) coInvoiceId = invoice.id
       }
 
       // ============ 7a. MID-PROJECT UNDERPAYMENT / COLLECTIONS ============
@@ -1275,6 +1299,49 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       })
       add('dispute: credit posted to ledger (revenue reversed, not silently absorbed)', disputeRefund.posted, disputeRefund.reason)
       if (disputeRefund.posted) revenueRecognizedCents -= disputeCreditCents
+    }
+
+    // ================= 7c. CANCELLATION (kill fee + partial refund of the change order) =================
+    // Client cancels the mid-project change-order scope AFTER it was already
+    // invoiced and paid (materials special-ordered up front — the real
+    // workflow when added scope needs non-stock material). Distinct from the
+    // dispute above (credits the fully-completed base-contract final invoice)
+    // and the collections underpayment (never refunds anything): this is a
+    // genuine kill-fee cancellation against the change-order invoice only —
+    // the base contract's deposit/progress/final milestones are untouched.
+    add('cancellation: change-order invoice identified to apply kill fee against', !!coInvoiceId, coInvoiceId || 'missing')
+    if (coInvoiceId) {
+      const killFeeCents = Math.round(coTotals.total_cents * cfg.cancellation.killFeePct)
+      const cancelRefundCents = coTotals.total_cents - killFeeCents
+      await supabase.from('job_events').insert({
+        tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'change_order_cancelled',
+        detail: { note: cfg.cancellation.note, kill_fee_cents: killFeeCents, refund_cents: cancelRefundCents },
+      })
+      await supabase.from('deal_activities').insert({
+        tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+        description: `Change order cancelled — kill fee applied: ${cfg.cancellation.note}`,
+        metadata: { job_id: jobRes.job_id, invoice_id: coInvoiceId, kill_fee_cents: killFeeCents, refund_cents: cancelRefundCents },
+      })
+
+      const { error: cancelInvErr } = await supabase.from('invoices').update({ status: 'refunded' }).eq('id', coInvoiceId)
+      add('cancellation: change-order invoice marked refunded (kill fee retained, remainder returned)', !cancelInvErr, cancelInvErr?.message)
+      await logInvoiceEvent({
+        invoice_id: coInvoiceId, tenant_id: tenant.id, event_type: 'refunded',
+        detail: { reason: 'client_cancelled_scope', note: cfg.cancellation.note, kill_fee_cents: killFeeCents, refund_cents: cancelRefundCents },
+      })
+
+      const cancelRefund = await postRefundToLedger({
+        tenantId: tenant.id, sourceId: `cancel-${coInvoiceId}`, amountCents: cancelRefundCents,
+        memo: `Cancellation refund (kill fee retained) — ${cfg.cancellation.note.slice(0, 60)}`,
+      })
+      add('cancellation: refund posted to ledger for the un-kept portion only (kill fee excluded)', cancelRefund.posted, cancelRefund.reason)
+      if (cancelRefund.posted) revenueRecognizedCents -= cancelRefundCents
+
+      const cancelledJobTotal = newJobTotal - cancelRefundCents
+      const { error: cancelJobErr } = await supabase.from('jobs').update({ total_cents: cancelledJobTotal }).eq('id', jobRes.job_id)
+      add('cancellation: job total reduced by the refunded (un-kept) portion, kill fee still counted', !cancelJobErr, cancelJobErr?.message)
+      const { data: jobAfterCancel } = await supabase.from('jobs').select('total_cents').eq('id', jobRes.job_id).single()
+      add('cancellation: job total = base contract + kill fee only (cancelled remainder not silently kept)', jobAfterCancel?.total_cents === cancelledJobTotal, `${jobAfterCancel?.total_cents} vs ${cancelledJobTotal}`)
     }
 
     // ================= 8. REFERRALS =================
