@@ -272,40 +272,58 @@ export async function POST(request: Request) {
           .limit(1)
           .single()
 
+        let claimedBooking = false
         if (nextBooking) {
-          await supabaseAdmin
+          // Atomic claim: the SELECT above filters status IN ('scheduled'),
+          // but a Telnyx retry of this webhook (or the client texting YES
+          // twice) can both pass that check before either UPDATE commits.
+          // Re-check status='scheduled' on the UPDATE itself so only the
+          // delivery that actually flips the row proceeds to append the note
+          // a second time.
+          const { data: claimed } = await supabaseAdmin
             .from('bookings')
             .update({ status: 'confirmed' })
             .eq('id', nextBooking.id)
+            .eq('status', 'scheduled')
+            .select('id')
+          claimedBooking = !!claimed && claimed.length > 0
 
-          // Add confirmation to client notes
-          const noteText = `[Auto] Confirmed via SMS on ${new Date().toLocaleDateString()}`
-          const { data: existingClient } = await supabaseAdmin
-            .from('clients')
-            .select('notes')
-            .eq('id', client.id)
-            .single()
+          if (claimedBooking) {
+            // Add confirmation to client notes
+            const noteText = `[Auto] Confirmed via SMS on ${new Date().toLocaleDateString()}`
+            const { data: existingClient } = await supabaseAdmin
+              .from('clients')
+              .select('notes')
+              .eq('id', client.id)
+              .single()
 
-          const updatedNotes = existingClient?.notes
-            ? `${existingClient.notes}\n${noteText}`
-            : noteText
+            const updatedNotes = existingClient?.notes
+              ? `${existingClient.notes}\n${noteText}`
+              : noteText
 
-          await supabaseAdmin
-            .from('clients')
-            .update({ notes: updatedNotes })
-            .eq('id', client.id)
+            await supabaseAdmin
+              .from('clients')
+              .update({ notes: updatedNotes })
+              .eq('id', client.id)
+          }
         }
 
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'booking_confirmed',
-          title: `Booking Confirmed: ${client.name}`,
-          message: `${client.name} confirmed their booking via SMS reply.`,
-          channel: 'in_app',
-          booking_id: nextBooking?.id || null,
-          metadata: { client_id: client.id, phone: from, confirmed_via: 'sms' },
-          status: 'sent',
-        })
+        // Only fire the booking_confirmed notification when this delivery
+        // actually claimed the transition (or there was no booking to claim
+        // at all, matching prior behavior) — a losing concurrent delivery
+        // must not re-notify for a booking someone else already confirmed.
+        if (!nextBooking || claimedBooking) {
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenantId,
+            type: 'booking_confirmed',
+            title: `Booking Confirmed: ${client.name}`,
+            message: `${client.name} confirmed their booking via SMS reply.`,
+            channel: 'in_app',
+            booking_id: nextBooking?.id || null,
+            metadata: { client_id: client.id, phone: from, confirmed_via: 'sms' },
+            status: 'sent',
+          })
+        }
 
         return NextResponse.json({ received: true, action: 'confirmed' })
       }

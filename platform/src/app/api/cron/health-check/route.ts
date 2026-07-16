@@ -45,11 +45,20 @@ export async function GET(request: Request) {
     for (const notif of failedNotifs || []) {
       if (!notif.tenant_id) continue
 
-      // Increment retry count first to prevent infinite loops
-      await supabaseAdmin
+      // Increment retry count first to prevent infinite loops. Atomic claim:
+      // re-check status='failed' in the UPDATE itself so an overlapping
+      // health-check run (this cron fires every 15 min and can overlap if a
+      // prior invocation is still running) can't also claim this row and
+      // fire a duplicate retry notify() for the same notification.
+      const { data: claimed } = await supabaseAdmin
         .from('notifications')
         .update({ retry_count: (notif.retry_count || 0) + 1, status: 'retrying' })
         .eq('id', notif.id)
+        .eq('status', 'failed')
+        .select('id')
+        .maybeSingle()
+
+      if (!claimed) continue // someone else already claimed this retry
 
       retried++
 
