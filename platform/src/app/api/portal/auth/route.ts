@@ -15,11 +15,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone and tenant required' }, { status: 400 })
     }
 
-    const rl = await rateLimitDb(`portal_auth:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
-    if (!rl.allowed) {
-      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
-    }
-
     // Look up tenant
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
@@ -30,6 +25,16 @@ export async function POST(request: Request) {
 
     if (!tenant) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
+    }
+
+    // Bucketed per tenant+phone, not phone alone — a phone number can belong to
+    // clients of multiple tenants. Keying on phone alone let a caller exhaust
+    // this budget for EVERY tenant that phone has an account with (a garbage
+    // tenant_slug still consumed the shared bucket before this fix), a
+    // cross-tenant denial-of-service on portal login.
+    const rl = await rateLimitDb(`portal_auth:${tenant.id}:${phone}`, 5, 15 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
     }
 
     // Look up client by phone

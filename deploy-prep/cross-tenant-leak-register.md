@@ -135,7 +135,7 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Regression lock** | `src/app/api/finance/periods/route.witness.test.ts` — flipped from LEAK to LOCK (1 rejection test + 2 CONTROL: null entity when omitted, explicit own-tenant id passes) |
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 158 files / 563 passed / 37 skipped / 0 failed |
 
-### P7 — `finance/expenses/[id]` PUT → full-body **mass-assignment** (entity_id FK + tenant_id row donation)  💰
+### P7 — `finance/expenses/[id]` PUT → full-body **mass-assignment** (entity_id FK + tenant_id row donation)  💰 — ✅ **FIXED**
 
 | | |
 |---|---|
@@ -143,10 +143,11 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Table** | `expenses` — `update(body)` with **no column allow-list** |
 | **Attack vector** | `.update(body).eq('id', id).eq('tenant_id', tenantId)`. The `tenant_id` filter scopes **which** row is hit (so foreign-row selection is **blocked** — see CONTROL), but the whole `body` is written, so the caller controls **every** column on their own row: `entity_id` (foreign FK) and `tenant_id` (overwrite → **donate** A's expense into B's books). |
 | **Effect** | A's own expense repointed at B's entity, and/or A's `tenant_id` overwritten to B (row leaves A's books). Distinct shape from the INSERT leaks: mass-assignment on an already-owned row. |
-| **Verdict** | **proven-LIVE** (own-row column injection); foreign-row **theft** is **already-blocked** by the `tenant_id` filter (CONTROL locks it) |
-| **Witness** | `src/app/api/finance/expenses/[id]/route.witness.test.ts` (LEAK: entity_id + tenant_id set on own row; CONTROL: foreign row untouched) |
-| **Required guard** | Allow-list assignable columns; never accept `tenant_id`/`entity_id` from the body without an ownership check. |
-| **Rank rationale** | Lowest of the set: the `tenant_id` row-selection guard already stops cross-tenant *theft*; the residual leak is self-inflicted column injection on the caller's own row. Still real (foreign `entity_id` reference + row donation). |
+| **Verdict** | **FIXED** (was proven-LIVE — own-row column injection; foreign-row **theft** was already-blocked by the `tenant_id` filter even pre-fix, CONTROL locks it) |
+| **Fix** | Commit `7176ba7c` ("fix(finance-expenses): allow-list PUT body, verify entity_id ownership") — predates this register entry ever being marked resolved, found stale during a 2026-07-15 W2 broad-hunt re-read of the open priority list. The route now builds `updates` from a fixed allow-list (`category`, `amount`, `description`, `receipt_url`, `date`, `entity_id`) — `tenant_id` is never read from the body — and a supplied `entity_id` is verified tenant-owned (`entities` lookup `.eq('id',...).eq('tenant_id', tenantId)`) before the update runs; a miss 404s. |
+| **Regression lock** | `src/app/api/finance/expenses/[id]/route.witness.test.ts` (LOCK: foreign entity_id 404s, no update reaches the row; LOCK: `tenant_id` in the body is dropped by the allow-list, never donates the row; CONTROL: own-tenant entity_id passes; CONTROL: the tenant_id row-selection filter still blocks touching a foreign expense) |
+| **Verified (2026-07-15, W2 re-check)** | `npx vitest run "src/app/api/finance/expenses/[id]/route.witness.test.ts"` — 1 file / 4 passed / 0 failed. No code changed this round — the fix was already shipped; this entry was just never updated to reflect it, leaving it looking like an open Q3 item. Flagging the lesson: this register's own bookkeeping can drift from the code it's tracking, so a "still open" heading is worth a quick re-verify against the live file before treating it as real work, same discipline this register asks of every fix it records. |
+| **Rank rationale** | Lowest of the set: the `tenant_id` row-selection guard already stops cross-tenant *theft*; the residual leak was self-inflicted column injection on the caller's own row — now closed. |
 
 ### P9 — `invoices`/`quotes` PATCH `[id]` → cross-tenant `client_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
@@ -431,7 +432,7 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 302 files / 1308 passed / 37 skipped / 1 failed (same pre-existing flaky timeout in `finance-export.test.ts` noted under P20 — passes in isolation, unrelated to this change). Mutation-verified: reverted the fix, the new foreign-convoId test failed RED (B's real message returned instead of `[]`); restored, GREEN. |
 | **Rank rationale** | Same exfil class and severity as P28 (raw transcript/data return, zero ownership check) but on the message-read path itself rather than an AI self-review — arguably worse blast radius since it returns the complete raw conversation, not a derived summary. Found by directly comparing the guarded admin twin (`/api/admin/selena`) against this unguarded twin — same "admin-side already fixed, sibling missed" asymmetry class as P9/P10/P21/P23. |
 
-### P30 — `admin/ai-chat` `create_booking` tool → cross-tenant `client_id`/`team_member_id` FK injection  ⚠️ **DATA EXFIL**
+### P30 — `admin/ai-chat` `create_booking` tool → cross-tenant `client_id`/`team_member_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
 |---|---|
@@ -445,7 +446,7 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 | **Verified** | `npx tsc --noEmit` clean; full `vitest run` 303 files / 1312 passed / 37 skipped / 0 failed. |
 | **Rank rationale** | Same exfil class and construction as P25 (unverified FK argument on an AI tool-call, not an HTTP body) but on the separate `admin/ai-chat` copilot rather than the Yinez/Selena owner-messaging tools — confirms the "AI tool-call surface" is a repeating gap class across every agent in this codebase, not a one-off in `selena/tools.ts`. `ai/assistant/route.ts` (the file flagged as sharing a *permission* gap) was checked in the same pass and does NOT share this specific FK-injection hole — it has no `create_booking` tool. |
 
-### P31 — `admin/comhub/voice/dial` + `admin/comhub/send` → cross-tenant `contact_id` FK injection (conditional-validation gap)  ⚠️ **DATA EXFIL**
+### P31 — `admin/comhub/voice/dial` + `admin/comhub/send` → cross-tenant `contact_id` FK injection (conditional-validation gap)  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
 |---|---|
@@ -461,7 +462,7 @@ Ranked by blast radius (destructive + data-exfil first, reference-pollution afte
 
 ---
 
-### P32 — `ai/assistant` (client-facing widget) `update_bookings` tool → cross-tenant `team_member_id` FK injection  ⚠️ **DATA EXFIL**
+### P32 — `ai/assistant` (client-facing widget) `update_bookings` tool → cross-tenant `team_member_id` FK injection  ⚠️ **DATA EXFIL** — ✅ **FIXED**
 
 | | |
 |---|---|
@@ -2757,3 +2758,85 @@ a gap.
 
 No new P-number. No code changed. `tsc` N/A (no edits). File-only, no
 push/deploy/DB.
+
+---
+
+**2026-07-15 (W2, 21:23 order) — register bookkeeping fix + P57, fixed:
+`portal/auth` `send_code` rate-limit bucket was keyed by phone alone —
+cross-tenant DoS on portal login.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: rather than another route-by-route FK-injection/header-trust
+pass (this register's dominant classes are close to fully exhausted per
+every prior round's own accounting), audited every in-memory/DB-backed
+rate-limit bucket key in the codebase for the same "shared budget with no
+tenant boundary" shape already established as fix-worthy by P38/P39
+(cross-tenant DoS class). Grepped every `rateLimitDb(`/`rateLimit(` call
+site (`src/lib/rate-limit.ts`'s in-memory limiter has zero callers anywhere
+— dead code, not a gap since nothing depends on it) and diffed each bucket
+key's composition against its siblings.
+
+**Register bookkeeping found stale first:** re-read the open "priority fix
+list" looking for anything still unresolved before starting fresh ground,
+and found P7 (`finance/expenses/[id]` PUT mass-assignment) still headed
+without a ✅ FIXED marker and its Verdict row still reading "proven-LIVE."
+The live file already carries the fix (allow-listed `updates`, verified
+`entity_id` ownership) — `git log` traces it to commit `7176ba7c`
+("fix(finance-expenses): allow-list PUT body, verify entity_id ownership"),
+and `src/app/api/finance/expenses/[id]/route.witness.test.ts`'s 4 tests
+(re-run: 4/4 pass) already lock it. The entry was simply never updated after
+the fix landed. Corrected P7's heading/Verdict/Fix/Verified rows to reflect
+reality, and fixed the same cosmetic gap on P30/P31/P32 (their body text
+already said FIXED; only the heading suffix was missing the ✅ marker) so a
+future round doesn't burn time re-verifying already-closed items the way
+this one almost did. No code changed for any of these four — flagging as a
+process note: this register's own bookkeeping can drift from the code it
+tracks, so "looks unfixed" is worth one grep/git-log check before treating
+it as live work.
+
+**Then found P57, a real fresh gap:** every rate-limited auth-adjacent route
+in this codebase composes its bucket key as `<prefix>:<tenant.id>:<identifier>`
+— `portal_auth_verify`, `client-send-code`, `pin_reset`/`pin_reset_verify`,
+`team_portal_auth` all do. `api/portal/auth/route.ts`'s OWN `verify_code`
+branch does too (`portal_auth_verify:${tenant.id}:${phone}`). But its sibling
+`send_code` branch keyed `portal_auth:${phone}` — phone alone, no tenant —
+and worse, the rate-limit check ran BEFORE the tenant lookup, so even a
+garbage/nonexistent `tenant_slug` still consumed the bucket.
+
+**Impact:** a phone number is not scoped to one tenant — the same customer
+can be a client of multiple businesses on the platform, and even when they
+aren't, an attacker only needs to know a victim's phone number, not which
+tenant(s) it belongs to. Sending 5 `send_code` requests for a victim's phone
+against ANY `tenant_slug` (real or fabricated) exhausted the SAME shared
+15-minute budget for that phone number across EVERY tenant on the platform —
+a cross-tenant denial-of-service on customer self-service portal login, the
+identical "shared budget, no tenant boundary" class already established as
+real and fix-worthy by P38 (`bookings/batch` → `cron/generate-recurring`
+DoS) and P39 (`cron/daily-summary` unscoped lookup), just on a rate-limiter
+instead of a query.
+
+**Fix:** moved the tenant lookup ahead of the rate-limit check (matching
+`verify_code`'s own ordering and every sibling route's convention) and keyed
+the bucket `portal_auth:${tenant.id}:${phone}`. A nonexistent `tenant_slug`
+now 404s before ever touching `rateLimitDb`, so it can no longer be used to
+grief a real tenant's phone-number budget either.
+
+**Regression lock** — new
+`src/app/api/portal/auth/route.send-code-rate-limit-scope.witness.test.ts`
+(4 tests): WRONG-TENANT PROBE — the bucket key includes the resolved tenant
+id; the same phone's buckets for two different tenants are provably
+independent (two distinct keys, one 429 can never touch the other); a
+nonexistent `tenant_slug` 404s without ever calling `rateLimitDb`; CONTROL —
+a real 429 on the caller's own tenant bucket still behaves normally. Mutation-
+verified against the pre-fix `route.ts` (`git show HEAD:...`): all 4 new
+tests failed RED (old key had no tenant id; the nonexistent-slug case called
+`rateLimitDb` once before this fix, proving it consumed a slot pre-tenant-
+resolution); restored, all 4 GREEN. Existing `route.send-code-isolation.test.ts`
+and `route.verify-code-rate-limit.test.ts` (which mock `rateLimitDb`
+unconditionally) were unaffected by the reordering — re-ran green,
+unchanged.
+
+`npx tsc --noEmit` clean. Full suite: 343/343 files, 1497/1497 tests pass
+(37 pre-existing skips, unchanged), 0 regressions (1493 baseline + 4 new).
+
+File-only, no push/deploy/DB. Commit pending locally — not pushed.
