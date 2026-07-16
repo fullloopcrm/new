@@ -10,6 +10,16 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 // the middleware-injected x-tenant-slug header (or tenant_slug in body);
 // admin GET/PUT/DELETE go through requirePermission and stay tenant-scoped.
 
+// video_url/linkedin_url are rendered as <a href={...}> in the staff dashboard
+// (SalesAppsTab.tsx) with no scheme sanitization on the render side — React
+// does not block `javascript:` hrefs, so an unauthenticated applicant could
+// store a `javascript:`/`data:` URL here and get it executed in a staff
+// member's dashboard session the moment they click "Watch Selfie Video".
+// Enforce http(s)-only at the write boundary instead.
+function isHttpUrl(value: unknown): boolean {
+  return typeof value === 'string' && /^https?:\/\//i.test(value.trim())
+}
+
 // GET - List sales applications (admin only, tenant-scoped)
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -53,6 +63,12 @@ export async function POST(request: Request) {
 
     if (!tenant_slug || !name || !email || !phone || !location || !video_url) {
       return NextResponse.json({ error: 'Business, name, email, phone, location, and selfie video are required.' }, { status: 400 })
+    }
+    if (!isHttpUrl(video_url)) {
+      return NextResponse.json({ error: 'Selfie video must be a valid http(s) URL.' }, { status: 400 })
+    }
+    if (linkedin_url && !isHttpUrl(linkedin_url)) {
+      return NextResponse.json({ error: 'LinkedIn URL must be a valid http(s) URL.' }, { status: 400 })
     }
 
     // Look up tenant
