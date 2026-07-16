@@ -39,6 +39,7 @@ vi.mock('@/lib/supabase', () => {
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       ilike: () => c,
       limit: () => c,
+      gte: () => c,
       single: async () => {
         if (kind === 'insert') { const [row] = doInsert(); return { data: row, error: null } }
         const found = (store[table] || []).find(match)

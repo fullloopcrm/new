@@ -5,6 +5,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -37,6 +38,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tenant mismatch' }, { status: 400 })
     }
     const tenantId = headerTenantId
+
+    // Unauthenticated + no rate limit == a scripted caller could loop this to
+    // run up real Anthropic API spend and flood sms_conversation_messages.
+    // Cap per tenant+IP; generous enough for a real back-and-forth chat.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`chat:${tenantId}:${ip}`, 20, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     let conversationId = sessionId
 
