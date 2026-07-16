@@ -3959,3 +3959,29 @@ Jeff/leader: those 4 files' content is gone from this worktree; if any
 sibling worktree or a Time Machine/backup snapshot outside what I could
 check has copies, recovery may still be possible, but I have exhausted what
 I can check from inside this session.
+
+**P67 (2026-07-16, W2, 00:30 order):** `GET`/`PATCH /api/dashboard/onboarding`,
+`GET`/`PUT`/`POST /api/dashboard/onboarding/profile`, and `POST /api/dashboard
+/onboarding/activate` had zero permission check — only `getTenantForRequest()`
+(any authenticated tenant role). Found continuing the broad-hunt into a fresh
+family (`/api/dashboard/*`, not swept before this round; `dashboard-shell.tsx`'s
+`navMain`/`navPlatform` arrays confirmed as the nav-gate source of truth: items
+with no `perm` field are shown to every role, e.g. `The Loop` (`/dashboard`)
+and `Messages` — verified those two are correctly unrestricted-by-design, not
+bugs, before moving on). `navPlatform`'s `Business Profile` entry (→
+`/dashboard/onboarding`) is the one item gating this whole feature area behind
+`settings.edit`, which `rbac.ts` grants only to owner/admin — manager and staff
+have neither. The profile wizard writes legal identity (EIN, legal_name),
+licensing/insurance, and brand data to `entities`/`tenants`; `activate` flips a
+tenant `pending`→`active`, turning on client-facing crons (reminders, review
+follow-ups) — its own doc comment calls this "an explicit, gated action", but
+nothing actually gated who could call it. A manager or staff account could hit
+any of these 6 handlers directly and bypass the hidden nav entirely. Fixed: all
+6 now call `requirePermission('settings.edit')`, matching the single permission
+the nav applies to the whole area. 19 new tests across 3 `route.rbac.test.ts`
+files, mutation-verified via `git stash` against the real pre-fix code: 11
+permission-probe assertions RED (200 instead of 403) pre-fix, restored, all
+GREEN post-fix. `npx tsc --noEmit` clean. Full suite 378 files/1620 tests pass,
+0 regressions (was 1601). `audit:tenant` same 1 pre-existing unrelated finding
+in untracked `src/lib/seo/recipes.ts`. Commit `8a586149`. File-only, no push/
+deploy/DB.
