@@ -54,11 +54,16 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ ok: true, already_declined: true })
     }
 
-    // Any decline = doc declined (per product decision)
+    // Any decline = doc declined (per product decision). Guard against the
+    // same class of race as the signer claim above: an admin void/expire (or
+    // the last signer completing) landing between the parent-status read at
+    // the top of this request and this write would otherwise get silently
+    // reverted back to 'declined'.
     await supabaseAdmin
       .from('documents')
       .update({ status: 'declined' })
       .eq('id', signer.document_id)
+      .not('status', 'in', '(completed,declined,voided,expired)')
 
     await logDocEvent({
       document_id: signer.document_id,

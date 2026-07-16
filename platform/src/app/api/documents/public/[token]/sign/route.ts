@@ -197,11 +197,15 @@ export async function POST(request: Request, { params }: Params) {
         console.error('completion copies failed:', err)
       )
     } else {
-      // Partial progress
+      // Partial progress. Guard against an admin void/expire landing between
+      // the isTerminalStatus check at the top of this request and this write
+      // (real async work — field saves, storage — sits in between) so a
+      // voided document can't be silently revived as 'in_progress'.
       await supabaseAdmin
         .from('documents')
         .update({ status: 'in_progress' })
         .eq('id', doc.id)
+        .not('status', 'in', '(completed,declined,voided,expired)')
 
       // Sequential: notify next signer
       if (doc.sign_order === 'sequential' && nextPending) {
@@ -398,6 +402,12 @@ async function finalizeDocument(doc: {
     .from(DOCUMENTS_BUCKET)
     .upload(signedPath, finalBytes, { contentType: 'application/pdf', upsert: true })
 
+  // Guard against an admin void/expire landing during PDF generation/upload
+  // above (real, non-trivial async work) so a voided document can't be
+  // silently revived as 'completed'. The signed PDF is still generated and
+  // uploaded either way — only the status/completed_at/signed_path stamp on
+  // the documents row is conditional; a lost race just means those fields
+  // stay whatever the concurrent void/expire set them to.
   await supabaseAdmin
     .from('documents')
     .update({
@@ -407,6 +417,7 @@ async function finalizeDocument(doc: {
       signed_sha256: finalSha,
     })
     .eq('id', doc.id)
+    .not('status', 'in', '(completed,declined,voided,expired)')
 }
 
 function wrapText(text: string, font: import('pdf-lib').PDFFont, size: number, maxWidth: number): string[] {
