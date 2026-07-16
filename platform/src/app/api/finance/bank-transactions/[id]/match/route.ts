@@ -12,7 +12,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { postJournalEntry } from '@/lib/ledger'
+import { postJournalEntry, journalEntryExists } from '@/lib/ledger'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 type Params = { params: Promise<{ id: string }> }
@@ -143,10 +143,20 @@ export async function POST(request: Request, { params }: Params) {
         .update({ matched_bank_transaction_id: txn.id })
         .eq('id', ex.id)
 
-      // Optionally post a journal entry against bank + an operating-expense CoA,
-      // based on the expense's category. Find a matching CoA by subtype or name.
+      // If this expense was already posted to the ledger at creation time
+      // (postExpenseToLedger, fired on POST /api/finance/expenses), posting
+      // a SECOND entry here keyed by bank_txn.id would double-count the
+      // cost -- the two entries have different source keys (expense vs
+      // bank_txn), so the ledger's own journalEntryExists dedup can't catch
+      // it on its own. Just link the match; no repost.
+      const alreadyPostedAsExpense = await journalEntryExists(tenantId, 'expense', ex.id)
       const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
-      if (bankCoa) {
+      if (alreadyPostedAsExpense) {
+        updates.status = 'matched'
+      } else if (bankCoa) {
+        // Optionally post a journal entry against bank + an operating-expense
+        // CoA, based on the expense's category. Find a matching CoA by subtype
+        // or name.
         const { data: coaMatch } = await supabaseAdmin
           .from('chart_of_accounts')
           .select('id')

@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { entityIdFromUrl, getDefaultEntityId } from '@/lib/entity'
 import { audit } from '@/lib/audit'
+import { postExpenseToLedger } from '@/lib/finance/post-expense'
 
 export async function GET(request: Request) {
   try {
@@ -87,6 +88,12 @@ export async function POST(request: Request) {
     }
 
     await audit({ tenantId, action: 'expense.created', entityType: 'expense', entityId: data.id, details: { category: data.category, amount: data.amount } })
+
+    // Post to the ledger immediately (cash-basis) so this expense reaches
+    // ledgerProfitAndLoss right away instead of only if/when someone later
+    // runs bank reconciliation and matches it to a bank line. Best-effort --
+    // never fail expense creation over a ledger-posting hiccup.
+    postExpenseToLedger({ tenantId, expenseId: data.id }).catch(err => console.error('[expenses] ledger post failed:', err))
 
     return NextResponse.json({ expense: data }, { status: 201 })
   } catch (e) {
