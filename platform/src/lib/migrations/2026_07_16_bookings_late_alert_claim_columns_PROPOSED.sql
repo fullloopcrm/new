@@ -1,0 +1,34 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes a duplicate-alert race in GET /api/cron/late-check-in (hourly cron).
+--
+-- The late-check-in and late-check-out blocks both dedup via a plain
+-- `SELECT id FROM notifications WHERE tenant_id=... AND booking_id=... AND
+-- type='late_check_in' LIMIT 1` check performed BEFORE sending real SMS to
+-- the team member's phone + the tenant owner's phone (+ a push), and only
+-- INSERT the dedup row into `notifications` AFTER all of those sends
+-- complete. That is not atomic and there is no unique constraint backing it:
+-- a slow run (many tenants/bookings to iterate through Telnyx calls) still
+-- mid-flight when the next hourly tick fires, or a manual re-trigger, can
+-- have both invocations read "no existing dedup row" before either inserts
+-- one — double-texting a real team member and the owner about the same late
+-- check-in/check-out.
+--
+-- Unlike the rating-prompt/payment-reminder crons fixed earlier this
+-- session, there's no existing bookings column to claim on, and
+-- `notifications` can't get a blanket unique constraint on
+-- (tenant_id, booking_id, type) — other notification types (e.g.
+-- team_confirm_request in cron/confirmations) intentionally insert multiple
+-- rows per booking over time. This adds two new booking-scoped columns,
+-- mirroring the existing rating_prompt_sent_at / payment_reminder_sent_at
+-- claim convention, so the cron can claim with a conditional UPDATE ...
+-- WHERE <col> IS NULL before sending, same pattern as those fixes.
+--
+-- NOT wired into route.ts yet: referencing these columns in a SELECT/UPDATE
+-- before the migration runs would break the live cron (undefined column),
+-- unlike a reactive 23505-catch which is safe to ship ahead of its
+-- constraint. Apply this migration first; a follow-up pass wires the claim.
+
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS late_check_in_alerted_at timestamptz;
+ALTER TABLE bookings ADD COLUMN IF NOT EXISTS late_check_out_alerted_at timestamptz;
