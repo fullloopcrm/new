@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
+import { rateLimitDb } from "@/lib/rate-limit-db";
 
 let _resend: Resend | null = null;
 function getResend() {
@@ -16,6 +17,12 @@ const TO = "thenycmarketingco@gmail.com";
  */
 export async function POST(req: NextRequest) {
   try {
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    const limit = await rateLimitDb(`nyc-marketing-contact:${ip}`, 5, 10 * 60 * 1000);
+    if (!limit.allowed) {
+      return NextResponse.json({ error: "Too many requests. Please try again later." }, { status: 429 });
+    }
+
     const contentType = req.headers.get("content-type") || "";
 
     let type = "unknown";
