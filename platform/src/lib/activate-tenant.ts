@@ -60,6 +60,29 @@ const BESPOKE_SITE_TENANTS = new Set<string>([
   'consortium-nyc',
 ])
 
+// Mirrors src/lib/migrations/059_backfill_vercel_project.sql's fl_project /
+// "determinable" split VERBATIM — the single source of truth for which
+// tenants are provably served by the shared FL Vercel project vs a bespoke
+// tenant whose custom domain may still live on its own standalone project
+// (roadside pair, tow, salon, etc. — see that migration's header for the
+// full audit). 059 only backfilled EXISTING rows once; without this, every
+// tenant activated AFTER that one-time run gets vercel_project = NULL
+// forever unless someone remembers to re-run 059 by hand. Copied (not
+// imported — it's SQL) and kept honest by
+// activate-tenant-vercel-project-drift.test.ts, same pattern as
+// BESPOKE_SITE_TENANTS above.
+const FL_PROJECT_ID = 'prj_PtBsLFfrCvSYXzo60GlNAjPoPjbj'
+const FL_SIGNAL_BESPOKE_SLUGS = new Set<string>([
+  'the-florida-maid',
+  'consortium-nyc',
+  'the-nyc-interior-designer',
+  'the-nyc-marketing-company',
+])
+// Values a prior automated backfill (055/059) or this file may have written.
+// Only these are safe to overwrite when re-syncing an existing row; anything
+// else is a manual correction and must be left alone.
+const AUTO_VERCEL_PROJECT_VALUES = ['fullloopcrm', 'platform']
+
 export type StepStatus = 'done' | 'skipped' | 'action_needed' | 'failed'
 
 export interface ActivationStep {
@@ -392,11 +415,20 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     // middleware.ts by activate-tenant-bespoke-drift.test.ts, same pattern as
     // the 055 backfill's middleware-vs-SQL guard.
     const routingMode = BESPOKE_SITE_TENANTS.has(tenant.slug) ? 'bespoke' : 'template'
-    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string; routing_mode: string }> = [
-      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation', routing_mode: routingMode },
+    // Determinable per 059's audit: any non-bespoke (template) tenant, plus the
+    // 4 bespoke tenants with a confirmed FL routing signal, are provably served
+    // by the shared FL project. The other 18 bespoke tenants may still be on a
+    // standalone Vercel project 059 could not verify from repo alone — leave
+    // those NULL rather than assert a cutover that may not have happened.
+    const vercelProject =
+      !BESPOKE_SITE_TENANTS.has(tenant.slug) || FL_SIGNAL_BESPOKE_SLUGS.has(tenant.slug)
+        ? FL_PROJECT_ID
+        : null
+    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string; routing_mode: string; vercel_project: string | null }> = [
+      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject },
     ]
     if (customHost) {
-      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation', routing_mode: routingMode })
+      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject })
     }
     const { error: tdErr } = await supabaseAdmin
       .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
@@ -422,13 +454,47 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       if (!syncErr) driftFixed = fixedRows?.length ?? 0
     }
 
+    // Same re-sync, for vercel_project. Only attempted when this tenant is
+    // DETERMINABLE (vercelProject !== null) — the 18 unknown-standalone bespoke
+    // tenants must never have a value asserted onto them here; their column
+    // stays whatever a human (or a future live-Vercel-API backfill) set it to.
+    // Two separate queries instead of a single `.or('vercel_project.is.null,…')`
+    // — see AUTO_VERCEL_PROJECT_VALUES comment; keeps this readable across both
+    // the real PostgREST client and the in-memory test fake.
+    let vercelProjectFixed = 0
+    if (!tdErr && vercelProject) {
+      const domains = rows.map((r) => r.domain)
+      const { data: fromNull, error: nullErr } = await supabaseAdmin
+        .from('tenant_domains')
+        .update({ vercel_project: vercelProject })
+        .eq('tenant_id', tenantId)
+        .in('domain', domains)
+        .is('vercel_project', null)
+        .select('id')
+      if (!nullErr) vercelProjectFixed += fromNull?.length ?? 0
+
+      const { data: fromAuto, error: autoErr } = await supabaseAdmin
+        .from('tenant_domains')
+        .update({ vercel_project: vercelProject })
+        .eq('tenant_id', tenantId)
+        .in('domain', domains)
+        .in('vercel_project', AUTO_VERCEL_PROJECT_VALUES)
+        .select('id')
+      if (!autoErr) vercelProjectFixed += fromAuto?.length ?? 0
+    }
+
+    const corrections = [
+      driftFixed > 0 ? `routing_mode on ${driftFixed} row(s)` : null,
+      vercelProjectFixed > 0 ? `vercel_project on ${vercelProjectFixed} row(s)` : null,
+    ].filter(Boolean)
+
     steps.push({
       key: 'domain_routing',
       label: 'Domain routing + SEO link',
       status: tdErr ? 'failed' : 'done',
       detail: tdErr
         ? tdErr.message
-        : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest${driftFixed > 0 ? ` (corrected stale routing_mode on ${driftFixed} row(s))` : ''}`,
+        : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest${corrections.length > 0 ? ` (corrected stale ${corrections.join(', ')})` : ''}`,
     })
   } catch (e) {
     steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
