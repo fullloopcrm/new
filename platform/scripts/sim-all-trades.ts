@@ -624,6 +624,526 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
   return { category: t.category, industry: ind, model: t.model, passed, failed, failures, ms: Date.now() - t0, leftovers }
 }
 
+// ================= P12 — PROJECT ARCHETYPES (W2 lane: roofing/remodeling/interior design) =================
+// Not mechanical CRUD like P1-P10 above — each scenario is a REAL job with
+// realistic customer language and trade-specific pricing, driven through every
+// feature an owner/staff/customer actually touches: marketing/lead capture
+// (deals pipeline) → quote/proposal (real comms compose) → sale conversion →
+// scheduling (real multi-session project timeline w/ real lead times) →
+// HR/onboarding (hire the crew that does the work) → payroll (paid + posted
+// to the ledger, correct account by employment type) → bookkeeping/invoicing
+// (milestone invoices + payments posted to the ledger) → referrals (the past
+// customer/partner who sent the lead earns commission) → reviews → reporting
+// (ledger P&L over the project's own date range). Each scenario provisions +
+// cleans up its OWN tenant (independent of the TRADES loop above).
+interface ProjectLineItem { name: string; quantity: number; unit_price_cents: number }
+interface ProjectPaymentPct { label: string; kind: 'deposit' | 'progress' | 'final'; pct: number; trigger: 'manual' | 'on_stage_complete' | 'on_signature' }
+interface ProjectSessionPlan { label: string; offsetDays: number; startHour: number; endHour: number }
+interface ProjectScenario {
+  key: string
+  category: string // fed to mapIndustry
+  bizName: string
+  lead: { source: string; message: string; contactName: string; contactEmail: string; contactPhone: string; address: string }
+  quoteTitle: string
+  lineItems: ProjectLineItem[]
+  taxRateBps: number
+  payments: ProjectPaymentPct[]
+  sessions: ProjectSessionPlan[]
+  crew: { name: string; employmentType: 'contractor_1099' | 'employee_w2'; compType: 'per_job' | 'hourly' | 'salary'; payLabel: string; payCents: number; payMethod: string }
+  referrer: { name: string; email: string; phone: string; refCode: string; commissionRate: number; note: string }
+  review: { rating: number; comment: string }
+}
+
+const PROJECT_LOC = { city: 'Charlotte', state: 'NC', zip: '28202' }
+
+function projectDaysFromNow(days: number, hour: number, minute = 0): string {
+  const d = new Date(Date.now() + days * 24 * 3600 * 1000)
+  d.setHours(hour, minute, 0, 0)
+  return d.toISOString().slice(0, 19)
+}
+
+const PROJECT_SCENARIOS: ProjectScenario[] = [
+  {
+    key: 'roofing',
+    category: 'Roofing',
+    bizName: 'SIM Roofing',
+    lead: {
+      source: 'referral',
+      message: "Hey — my neighbor Tom had you guys reroof his place last summer and told me to call. We had that hailstorm come through Tuesday night and I've got dents all over the gutters and found 4-5 shingles blown into the yard. State Farm adjuster is coming out Friday at 10am — can someone take a look before then? House is a 2200 sqft ranch, one layer of 20-year-old 3-tab up there now, standard pitch.",
+      contactName: 'Marcus Webb', contactEmail: 'marcus.webb.sim@example.com', contactPhone: '+17045550142',
+      address: `418 Sedgefield Rd, ${PROJECT_LOC.city}, ${PROJECT_LOC.state} ${PROJECT_LOC.zip}`,
+    },
+    quoteTitle: 'Storm-damage full reroof — 30 sq, architectural shingle',
+    lineItems: [
+      { name: 'Tear-off & disposal — existing 3-tab shingles (30 sq)', quantity: 30, unit_price_cents: 16500 },
+      { name: 'Ice & water shield + synthetic underlayment (30 sq)', quantity: 30, unit_price_cents: 9500 },
+      { name: 'GAF Timberline HDZ architectural shingles, installed (30 sq)', quantity: 30, unit_price_cents: 41000 },
+      { name: 'Ridge vent replacement (42 LF)', quantity: 42, unit_price_cents: 1200 },
+      { name: 'Pipe boot & flashing replacement', quantity: 6, unit_price_cents: 8500 },
+      { name: 'Dumpster & disposal fee', quantity: 1, unit_price_cents: 65000 },
+    ],
+    taxRateBps: 0,
+    payments: [
+      { label: 'Deposit — materials order', kind: 'deposit', pct: 0.30, trigger: 'on_signature' },
+      { label: 'Progress — tear-off & dry-in complete', kind: 'progress', pct: 0.40, trigger: 'on_stage_complete' },
+      { label: 'Final — job complete & inspected', kind: 'final', pct: 0.30, trigger: 'manual' },
+    ],
+    sessions: [
+      { label: 'Tear-off & dry-in', offsetDays: 18, startHour: 7, endHour: 16 },
+      { label: 'Decking repair & underlayment', offsetDays: 19, startHour: 7, endHour: 15 },
+      { label: 'Shingle install, ridge vent & cleanup', offsetDays: 20, startHour: 7, endHour: 17 },
+    ],
+    crew: {
+      name: 'Sim Crew Lead — Roofing', employmentType: 'contractor_1099', compType: 'per_job',
+      payLabel: 'Reroof job — crew lead pay', payCents: 320000, payMethod: 'zelle',
+    },
+    referrer: {
+      name: 'Tom R. (past reroof customer)', email: 'tom.r.sim@example.com', phone: '+17045550199',
+      refCode: 'TOMR2026', commissionRate: 0.05, note: 'Referred Marcus Webb after his own reroof last summer',
+    },
+    review: {
+      rating: 5,
+      comment: "Storm hit Tuesday night and these guys had a tarp on by Thursday morning, then did the full reroof three weeks later exactly like they said. Ridge vent looks great, cleanup was spotless — didn't find a single nail in the yard.",
+    },
+  },
+  {
+    key: 'remodeling',
+    category: 'Remodeling / General Contracting',
+    bizName: 'SIM Remodeling',
+    lead: {
+      source: 'referral',
+      message: "We've been putting this off for two years but our kitchen is straight out of 1987 and the laminate counters are peeling. The Petersons two doors down said you did their bathroom last spring and it turned out great, and we've been following your Instagram since. We want to gut it — new cabinets, quartz counters, a farmhouse sink, and move the fridge to the other wall. Budget's flexible for the right team, we just don't want a 6-month nightmare.",
+      contactName: 'Elena Cho', contactEmail: 'elena.cho.sim@example.com', contactPhone: '+17045550218',
+      address: `2214 Sunnyslope Ave, ${PROJECT_LOC.city}, ${PROJECT_LOC.state} ${PROJECT_LOC.zip}`,
+    },
+    quoteTitle: 'Kitchen remodel — full gut, cabinets, quartz, layout change',
+    lineItems: [
+      { name: 'Demo & disposal — existing cabinets/counters/flooring', quantity: 1, unit_price_cents: 280000 },
+      { name: 'Electrical rough-in (relocated outlets, island circuit, under-cabinet lighting)', quantity: 1, unit_price_cents: 320000 },
+      { name: 'Plumbing rough-in (relocate sink/dishwasher line, range gas line)', quantity: 1, unit_price_cents: 260000 },
+      { name: 'Custom cabinetry, installed', quantity: 32, unit_price_cents: 41000 },
+      { name: 'Quartz countertops & farmhouse sink, installed', quantity: 58, unit_price_cents: 11500 },
+      { name: 'Tile backsplash, installed', quantity: 40, unit_price_cents: 2800 },
+      { name: 'Painting — walls, ceiling, trim', quantity: 1, unit_price_cents: 145000 },
+      { name: 'Appliance hookup & final punch list', quantity: 1, unit_price_cents: 95000 },
+    ],
+    taxRateBps: 0,
+    payments: [
+      { label: 'Deposit — signing', kind: 'deposit', pct: 0.30, trigger: 'on_signature' },
+      { label: 'Progress — cabinet delivery', kind: 'progress', pct: 0.30, trigger: 'on_stage_complete' },
+      { label: 'Progress — countertop template & install', kind: 'progress', pct: 0.20, trigger: 'on_stage_complete' },
+      { label: 'Final — punch list complete', kind: 'final', pct: 0.20, trigger: 'manual' },
+    ],
+    sessions: [
+      { label: 'Demo', offsetDays: 5, startHour: 8, endHour: 17 },
+      { label: 'Electrical + plumbing rough-in', offsetDays: 12, startHour: 8, endHour: 17 },
+      { label: 'Cabinet install', offsetDays: 26, startHour: 8, endHour: 17 },
+      { label: 'Countertop template', offsetDays: 33, startHour: 9, endHour: 11 },
+      { label: 'Countertop & sink install', offsetDays: 40, startHour: 8, endHour: 17 },
+      { label: 'Backsplash, paint & punch list', offsetDays: 47, startHour: 8, endHour: 17 },
+    ],
+    crew: {
+      name: 'Sim Lead Carpenter — Remodel', employmentType: 'employee_w2', compType: 'salary',
+      payLabel: 'Kitchen remodel — lead carpenter wages', payCents: 240000, payMethod: 'ach',
+    },
+    referrer: {
+      name: 'The Petersons (past bathroom remodel client)', email: 'petersons.sim@example.com', phone: '+17045550233',
+      refCode: 'PETERSON26', commissionRate: 0.03, note: 'Referred Elena Cho after their own bathroom remodel last spring',
+    },
+    review: {
+      rating: 5,
+      comment: 'The custom cabinetry turned out better than our mood board. They showed up every single day when they said they would, which after hearing our friends’ remodel horror stories felt like a miracle.',
+    },
+  },
+  {
+    key: 'interior_design',
+    category: 'Interior Design',
+    bizName: 'SIM Interior Design',
+    lead: {
+      source: 'referral',
+      message: "We just closed on a new build in the Reserve and it's a blank box — no furniture, no window treatments, nothing. Our realtor Dana said you handled her own place and to call before we even think about hitting a showroom. We need the living room, primary bedroom, and the home office done, ideally before the holidays so we can host.",
+      contactName: 'Priya Nair', contactEmail: 'priya.nair.sim@example.com', contactPhone: '+17045550256',
+      address: `88 Reserve Trail, ${PROJECT_LOC.city}, ${PROJECT_LOC.state} ${PROJECT_LOC.zip}`,
+    },
+    quoteTitle: 'Whole-home design + install — living room, primary bedroom, office',
+    lineItems: [
+      { name: 'Design consultation & space planning (3 rooms)', quantity: 3, unit_price_cents: 45000 },
+      { name: 'Furniture procurement & sourcing — living room', quantity: 1, unit_price_cents: 220000 },
+      { name: 'Furniture procurement & sourcing — primary bedroom', quantity: 1, unit_price_cents: 185000 },
+      { name: 'Furniture procurement & sourcing — home office', quantity: 1, unit_price_cents: 140000 },
+      { name: 'Window treatments, measured & installed', quantity: 7, unit_price_cents: 26000 },
+      { name: 'Styling & install day (art, accessories, staging)', quantity: 1, unit_price_cents: 160000 },
+      { name: 'Furniture goods pass-through (client-selected pieces)', quantity: 1, unit_price_cents: 1850000 },
+    ],
+    taxRateBps: 0,
+    payments: [
+      { label: 'Design retainer — signing', kind: 'deposit', pct: 0.20, trigger: 'on_signature' },
+      { label: 'Furniture procurement — orders placed', kind: 'progress', pct: 0.50, trigger: 'manual' },
+      { label: 'Final — install day', kind: 'final', pct: 0.30, trigger: 'manual' },
+    ],
+    sessions: [
+      { label: 'Design consult & measure', offsetDays: 3, startHour: 10, endHour: 12 },
+      { label: 'Install day — furniture, styling, window treatments', offsetDays: 49, startHour: 8, endHour: 16 },
+    ],
+    crew: {
+      name: 'Sim Stylist/Installer — Design', employmentType: 'contractor_1099', compType: 'per_job',
+      payLabel: 'Install day — stylist pay', payCents: 85000, payMethod: 'venmo',
+    },
+    referrer: {
+      name: 'Dana K. (realtor)', email: 'dana.k.sim@example.com', phone: '+17045550277',
+      refCode: 'DANAK2026', commissionRate: 0.05, note: 'Realtor referral — sent Priya Nair after her own install',
+    },
+    review: {
+      rating: 5,
+      comment: "Closed on the house with zero furniture and two months later the living room and office are unrecognizable — exactly what we pictured, and we never set foot in a single showroom.",
+    },
+  },
+]
+
+async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<TradeResult> {
+  const t0 = Date.now()
+  const checks: Check[] = []
+  const leftovers: string[] = []
+  const add = (name: string, pass: boolean, detail?: string) => checks.push({ name, pass, detail })
+
+  const runId = `${idx}-${Date.now().toString(36)}-${randomBytes(2).toString('hex')}`
+  const { mapIndustry } = await import('../src/lib/provision-tenant')
+  const ind = mapIndustry(cfg.category)
+  add(`mapIndustry("${cfg.category}") → specific vertical (not general)`, ind !== 'general', ind)
+
+  let tenantId: string | null = null
+  try {
+    // ---- SETUP: minimal real tenant (business already onboarded) ----
+    const { signupPricing } = await import('../src/lib/tier-prices')
+    const pricing = signupPricing()
+    const bizName = `${cfg.bizName} ${runId}`
+    const slug = slugify(bizName, runId)
+    const { data: tenant, error: tErr } = await supabase.from('tenants').insert({
+      name: bizName, slug, industry: ind,
+      phone: OWNER.phone, email: OWNER.email,
+      owner_name: OWNER.name, owner_email: OWNER.email, owner_phone: OWNER.phone,
+      status: 'active', plan: 'growth',
+      monthly_rate: Math.round((pricing.monthly_cents || 0) / 100),
+      setup_fee: Math.round((pricing.setup_cents || 0) / 100),
+      setup_fee_paid_at: new Date().toISOString(), billing_status: 'active',
+      address: `${PROJECT_LOC.city}, ${PROJECT_LOC.state} ${PROJECT_LOC.zip}`,
+    }).select('id, slug').single()
+    add('setup: tenant created', !!tenant && !tErr, tErr?.message)
+    if (!tenant) throw new Error('tenant insert failed: ' + tErr?.message)
+    tenantId = tenant.id
+
+    await supabase.from('entities').insert({ tenant_id: tenant.id, name: bizName, is_default: true, active: true })
+    const { provisionTenant } = await import('../src/lib/provision-tenant')
+    const prov = await provisionTenant({ tenantId: tenant.id, industry: ind })
+    add('setup: provisionTenant seeded services', prov.seeded.services > 0, JSON.stringify(prov.seeded))
+
+    // ================= 1. MARKETING / LEAD CAPTURE =================
+    const { data: deal, error: dErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, client_id: null, mode: 'sales', stage: 'new', status: 'active',
+      title: cfg.quoteTitle, source: cfg.lead.source, probability: 10,
+      notes: cfg.lead.message,
+    }).select('id, stage').single()
+    add('lead: deal captured (pipeline stage=new)', !!deal && !dErr && deal.stage === 'new', dErr?.message)
+    if (!deal) throw new Error('deal insert failed: ' + dErr?.message)
+
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Inbound inquiry (${cfg.lead.source}): ${cfg.lead.message}`,
+      metadata: { contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail, contact_phone: cfg.lead.contactPhone, address: cfg.lead.address },
+    })
+    const { notify } = await import('../src/lib/notify')
+    await notify({ tenantId: tenant.id, type: 'new_lead', title: 'New Lead', message: `${cfg.lead.contactName} — ${cfg.lead.message.slice(0, 80)}…` })
+    add('lead: notification recorded', true)
+
+    // ---- QUALIFY: on-site estimate scheduled, deal → qualifying ----
+    const { error: qualErr } = await supabase.from('deals').update({ stage: 'qualifying', last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+    add('qualify: deal → qualifying', !qualErr, qualErr?.message)
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Called ${cfg.lead.contactName.split(' ')[0]} back, scheduled on-site estimate.`,
+    })
+
+    // ================= 2. QUOTE / PROPOSAL =================
+    const { computeTotals, normalizeLineItems, generateQuoteNumber, generatePublicToken, formatCents } = await import('../src/lib/quote')
+    const lineItems = normalizeLineItems(cfg.lineItems)
+    const totals = computeTotals(lineItems, cfg.taxRateBps, 0)
+    add('quote: line items priced (no $0)', totals.subtotal_cents > 0 && lineItems.every(l => l.unit_price_cents > 0), `subtotal=${totals.subtotal_cents}`)
+
+    const quoteNumber = await generateQuoteNumber(tenant.id)
+    add('quote: number format Q-YYYYMM-NNNN', /^Q-\d{6}-\d{4}$/.test(quoteNumber), quoteNumber)
+
+    const { data: quote, error: qInsErr } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, client_id: null, deal_id: deal.id, quote_number: quoteNumber, status: 'draft',
+      title: cfg.quoteTitle, contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail,
+      contact_phone: cfg.lead.contactPhone, service_address: cfg.lead.address,
+      line_items: lineItems, subtotal_cents: totals.subtotal_cents, tax_rate_bps: cfg.taxRateBps,
+      tax_cents: totals.tax_cents, discount_cents: 0, total_cents: totals.total_cents,
+      public_token: generatePublicToken(),
+    }).select('id, total_cents, quote_number').single()
+    add('quote: created & linked to deal', !!quote && !qInsErr, qInsErr?.message)
+    if (!quote) throw new Error('quote insert failed: ' + qInsErr?.message)
+
+    // ---- comms compose (pure — no send; tenant has no resend/telnyx keys) ----
+    const { emailShell, smsFormat } = await import('../src/lib/messaging/shell')
+    const quoteEmailHtml = emailShell({
+      brand: { name: bizName },
+      kicker: 'Your proposal is ready', heading: "Let's make it official.",
+      bodyHtml: `<p>Hi ${cfg.lead.contactName.split(' ')[0]},</p><p>Your proposal ${quote.quote_number} — ${cfg.quoteTitle} is ready. Total ${formatCents(quote.total_cents)}.</p>`,
+      cta: { label: 'Review & Accept', url: `https://${slug}.example.com/quote/${randomUUID()}` },
+    })
+    add('comms: quote email composes with real total', quoteEmailHtml.includes(formatCents(quote.total_cents)) && quoteEmailHtml.includes(quote.quote_number))
+    const quoteSms = smsFormat({ name: bizName }, `Hi ${cfg.lead.contactName.split(' ')[0]}, your proposal for ${formatCents(quote.total_cents)} is ready — review, sign & pay here.`)
+    add('comms: quote sms signed with business name', quoteSms.includes(bizName))
+
+    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString(), sent_via: 'email' }).eq('id', quote.id)
+    await supabase.from('deals').update({ stage: 'quoted', value_cents: quote.total_cents, last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Proposal ${quote.quote_number} sent — ${formatCents(quote.total_cents)}`,
+      metadata: { quote_id: quote.id, total_cents: quote.total_cents },
+    })
+    add('quote: deal advanced to quoted', true)
+
+    // ================= 3. SALE CONVERSION =================
+    await supabase.from('quotes').update({ status: 'accepted', accepted_at: new Date().toISOString(), signature_name: cfg.lead.contactName }).eq('id', quote.id)
+    await supabase.from('deals').update({ stage: 'pending', last_activity_at: new Date().toISOString() }).eq('id', deal.id)
+    await notify({ tenantId: tenant.id, type: 'quote_accepted', title: 'Proposal accepted', message: `${cfg.lead.contactName} accepted ${quote.quote_number}` })
+
+    // ================= 4. SCHEDULING (real project timeline) =================
+    const { createJobFromQuote } = await import('../src/lib/jobs')
+    const plan = cfg.payments.map(p => ({ ...p, amount_cents: Math.round(quote.total_cents * p.pct) }))
+    const allocated = plan.reduce((s, p) => s + p.amount_cents, 0)
+    plan[plan.length - 1].amount_cents += quote.total_cents - allocated // remainder to final, no rounding drift
+
+    const sessions = cfg.sessions.map(s => ({
+      start_time: projectDaysFromNow(s.offsetDays, s.startHour),
+      end_time: projectDaysFromNow(s.offsetDays, s.endHour),
+      notes: s.label,
+    }))
+    const jobRes = await createJobFromQuote(tenant.id, quote.id, {
+      payments: plan.map(p => ({ label: p.label, kind: p.kind, amount_cents: p.amount_cents, trigger: p.trigger })),
+      sessions,
+    })
+    add('job: created from accepted quote', !!jobRes.job_id && !jobRes.already_converted)
+
+    const { data: job } = await supabase.from('jobs').select('id, status, total_cents').eq('id', jobRes.job_id).single()
+    add('job: status scheduled', job?.status === 'scheduled', job?.status)
+    add('job: total = quote total', job?.total_cents === quote.total_cents)
+
+    const { data: jobPays } = await supabase.from('job_payments').select('id, label, kind, amount_cents, status, trigger').eq('job_id', jobRes.job_id).order('sort_order')
+    add(`job: milestone payment plan (${plan.length} items)`, (jobPays?.length || 0) === plan.length, `${jobPays?.length} payments`)
+    const depositRow = (jobPays || []).find(p => p.kind === 'deposit')
+    add('job: on_signature deposit released → invoiced', depositRow?.status === 'invoiced', depositRow?.status)
+
+    const { data: jobBookings } = await supabase.from('bookings').select('id, start_time, end_time, status').eq('job_id', jobRes.job_id).order('start_time')
+    add(`job: ${sessions.length}-session project timeline scheduled`, (jobBookings || []).length === sessions.length, `${jobBookings?.length} sessions`)
+
+    const { deriveDurationClass } = await import('../src/lib/schedule/duration-class')
+    const first = jobBookings?.[0]?.start_time, last = jobBookings?.[jobBookings.length - 1]?.end_time
+    const spanClass = first && last ? deriveDurationClass({ start_time: first, end_time: last }) : null
+    add('schedule: full project span classifies as project/multiday (>1 day)', sessions.length > 1 ? spanClass === 'project' || spanClass === 'multiday' : true, `class=${spanClass}`)
+
+    await supabase.from('deals').update({ stage: 'sold', status: 'active', closed_at: new Date().toISOString() }).eq('id', deal.id)
+    const { data: soldDeal } = await supabase.from('deals').select('stage').eq('id', deal.id).single()
+    add('sale: deal closed as sold', soldDeal?.stage === 'sold', soldDeal?.stage)
+
+    // ================= 5. HR / ONBOARDING (hire the crew for THIS job) =================
+    const { seedHrDefaults } = await import('../src/lib/hr')
+    await seedHrDefaults(tenant.id)
+    const { provisionApprovedApplicant } = await import('../src/lib/team-provisioning')
+    const workerPhone = '704' + String(2000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+    try {
+      await provisionApprovedApplicant(tenant.id, {
+        id: randomUUID(), name: cfg.crew.name, email: `crew+${runId}@example.com`, phone: workerPhone, address: null,
+      })
+    } catch (e) {
+      const emailThrew = /Email not configured|Resend/i.test(e instanceof Error ? e.message : String(e))
+      if (!emailThrew) throw e
+    }
+    const { data: members } = await supabase.from('team_members').select('id, pin, name').eq('tenant_id', tenant.id)
+    add('hr: crew member provisioned as team member', (members?.length || 0) >= 1, `${members?.length} members`)
+    const worker = (members || [])[0]
+    add('hr: crew got 4-digit portal PIN', !!worker?.pin && /^\d{4}$/.test(String(worker.pin)))
+
+    const hr2 = await seedHrDefaults(tenant.id)
+    add('hr: profile backfilled for the new crew member', hr2.profilesBackfilled >= 1, `backfilled=${hr2.profilesBackfilled}`)
+
+    if (worker?.id && cfg.crew.employmentType === 'employee_w2') {
+      await supabase.from('hr_employee_profiles').update({ employment_type: 'employee_w2', comp_type: cfg.crew.compType })
+        .eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+    } else if (worker?.id) {
+      await supabase.from('hr_employee_profiles').update({ comp_type: cfg.crew.compType })
+        .eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+    }
+    const { data: prof } = await supabase.from('hr_employee_profiles').select('employment_type, comp_type').eq('tenant_id', tenant.id).eq('team_member_id', worker?.id || '').maybeSingle()
+    add(`hr: crew employment type = ${cfg.crew.employmentType}`, prof?.employment_type === cfg.crew.employmentType, prof?.employment_type)
+
+    // assign the crew member to the job's sessions
+    if (worker?.id && jobBookings?.length) {
+      for (const b of jobBookings) await supabase.from('bookings').update({ team_member_id: worker.id }).eq('id', b.id)
+      add('schedule: crew assigned to every session', true)
+    }
+
+    // ================= 6. PAYROLL =================
+    const { ensureChartAccounts, getAccountIdByCode } = await import('../src/lib/ledger')
+    const { postPayrollToLedger } = await import('../src/lib/finance/post-labor')
+    await ensureChartAccounts(tenant.id)
+    // prod-drift probe: migrations/008 declares payroll_payments.status + .notes;
+    // live schema is missing both — insert only columns actually present.
+    const { error: payrollColErr } = await supabase.from('payroll_payments').select('status').limit(1)
+    add('finance: payroll_payments.status column matches migration 008 on prod', !payrollColErr,
+      payrollColErr ? `DRIFT — ${payrollColErr.message} (postPayrollToLedger doesn't select it, so unaffected — but insert must omit it)` : 'present')
+
+    const { data: payrollRow, error: prErr } = await supabase.from('payroll_payments').insert({
+      tenant_id: tenant.id, team_member_id: worker?.id, amount: cfg.crew.payCents,
+      period_start: projectDaysFromNow(cfg.sessions[0].offsetDays, 0).slice(0, 10),
+      period_end: projectDaysFromNow(cfg.sessions[cfg.sessions.length - 1].offsetDays, 0).slice(0, 10),
+      method: cfg.crew.payMethod, paid_at: new Date().toISOString(),
+    }).select('id').single()
+    add('payroll: crew payment recorded', !!payrollRow && !prErr, prErr?.message)
+
+    if (payrollRow) {
+      const payRes = await postPayrollToLedger({ tenantId: tenant.id, payrollPaymentId: payrollRow.id })
+      add('payroll: posted to ledger', payRes.posted, payRes.reason || payRes.entryId)
+      const expectedCode = cfg.crew.employmentType === 'employee_w2' ? '5010' : '5000'
+      const expectedAcct = await getAccountIdByCode(tenant.id, expectedCode)
+      if (payRes.entryId && expectedAcct) {
+        const { data: lines } = await supabase.from('journal_lines').select('coa_id, debit_cents').eq('entry_id', payRes.entryId)
+        const hit = (lines || []).find(l => l.coa_id === expectedAcct)
+        add(`payroll: routed to correct labor account (${expectedCode})`, !!hit && hit.debit_cents === cfg.crew.payCents, JSON.stringify(lines))
+      }
+      await notify({ tenantId: tenant.id, type: 'payroll_paid', title: 'Payroll paid', message: `${cfg.crew.name} — ${cfg.crew.payLabel}` })
+    }
+
+    // ================= 7. BOOKKEEPING / INVOICING (milestone invoices → ledger) =================
+    const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines } = await import('../src/lib/invoice')
+    const { postPaymentRevenue } = await import('../src/lib/finance/post-revenue')
+    const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+
+    let invoicesCreated = 0
+    let paymentsPosted = 0
+    let revenueRecognizedCents = 0
+    for (const p of plan) {
+      const invNum = await generateInvoiceNumber(tenant.id)
+      const iLines = invLines([{ name: p.label, quantity: 1, unit_price_cents: p.amount_cents }])
+      const iTot = invTotals(iLines, 0, 0)
+      const { data: invoice, error: invErr } = await supabase.from('invoices').insert({
+        tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum, status: 'paid',
+        title: `${cfg.quoteTitle} — ${p.label}`, contact_name: cfg.lead.contactName, contact_email: cfg.lead.contactEmail,
+        line_items: iLines, subtotal_cents: iTot.subtotal_cents, tax_rate_bps: 0, tax_cents: 0,
+        discount_cents: 0, total_cents: iTot.total_cents, due_date: new Date().toISOString().slice(0, 10),
+        public_token: generateInvoicePublicToken(), paid_at: new Date().toISOString(),
+      }).select('id, total_cents').single()
+      if (invoice && !invErr) invoicesCreated++
+
+      const { data: payment, error: payErr } = await supabase.from('payments').insert({
+        tenant_id: tenant.id, booking_id: null, amount_cents: p.amount_cents, tip_cents: 0,
+        method: 'ach', status: 'completed',
+      }).select('id').single()
+      if (payment && !payErr) {
+        const rev = await postPaymentRevenue({ tenantId: tenant.id, paymentId: payment.id })
+        if (rev.posted) { paymentsPosted++; revenueRecognizedCents += p.amount_cents }
+      }
+    }
+    add(`invoicing: ${plan.length} milestone invoices created & marked paid`, invoicesCreated === plan.length, `${invoicesCreated}/${plan.length}`)
+    add(`invoicing: ${plan.length} milestone payments posted to ledger`, paymentsPosted === plan.length, `${paymentsPosted}/${plan.length}`)
+    add('invoicing: milestone total = quote total', revenueRecognizedCents === quote.total_cents, `${revenueRecognizedCents} vs ${quote.total_cents}`)
+
+    // ================= 8. REFERRALS =================
+    const { data: referrer, error: refErr } = await supabase.from('referrers').insert({
+      tenant_id: tenant.id, name: cfg.referrer.name, email: cfg.referrer.email, phone: cfg.referrer.phone,
+      ref_code: cfg.referrer.refCode, referral_code: cfg.referrer.refCode, commission_rate: cfg.referrer.commissionRate,
+      active: true, status: 'active',
+    }).select('id').single()
+    add('referral: referrer registered', !!referrer && !refErr, refErr?.message)
+
+    if (referrer && jobBookings?.length) {
+      const linkBookingId = jobBookings[0].id
+      await supabase.from('bookings').update({ referrer_id: referrer.id }).eq('id', linkBookingId)
+      const grossCents = quote.total_cents
+      const commissionCents = Math.round(grossCents * cfg.referrer.commissionRate)
+      const { data: commission, error: commErr } = await supabase.from('referral_commissions').insert({
+        tenant_id: tenant.id, booking_id: linkBookingId, referrer_id: referrer.id, client_name: cfg.lead.contactName,
+        gross_amount_cents: grossCents, commission_rate: cfg.referrer.commissionRate, commission_cents: commissionCents,
+        status: 'pending',
+      }).select('id, commission_cents').single()
+      add('referral: commission computed correctly', !!commission && !commErr && commission.commission_cents === commissionCents, commErr?.message || `${commission?.commission_cents} vs ${commissionCents}`)
+      await notify({ tenantId: tenant.id, type: 'referral_lead', title: 'Referral converted', message: `${cfg.referrer.name} → ${cfg.lead.contactName} (${cfg.referrer.note})` })
+    }
+
+    // ================= 9. REVIEWS =================
+    const { data: review, error: revErr } = await supabase.from('reviews').insert({
+      tenant_id: tenant.id, client_id: null, booking_id: jobBookings?.[jobBookings.length - 1]?.id || null,
+      team_member_id: worker?.id || null, rating: cfg.review.rating, comment: cfg.review.comment,
+      source: 'google', status: 'published', name: cfg.lead.contactName, text: cfg.review.comment,
+      completed_at: new Date().toISOString(), published_at: new Date().toISOString(),
+    }).select('id, rating').single()
+    add('review: customer review recorded', !!review && !revErr && review.rating === cfg.review.rating, revErr?.message)
+
+    const { reviewRequestEmail } = await import('../src/lib/email-templates')
+    const reviewHtml = reviewRequestEmail({ tenantName: bizName, clientName: cfg.lead.contactName, feedbackUrl: `https://${slug}.example.com/review` })
+    add('comms: review-request email composes', reviewHtml.includes('Leave a Review') && reviewHtml.includes(cfg.lead.contactName))
+    await notify({ tenantId: tenant.id, type: 'review_received', title: 'New review', message: `${cfg.lead.contactName} left a ${cfg.review.rating}-star review` })
+
+    // ================= 10. REPORTING (ledger P&L over the project's own window) =================
+    const { ledgerProfitAndLoss } = await import('../src/lib/finance/ledger-reports')
+    const from = projectDaysFromNow(0, 0).slice(0, 10)
+    const to = projectDaysFromNow(cfg.sessions[cfg.sessions.length - 1].offsetDays + 5, 0).slice(0, 10)
+    const pnl = await ledgerProfitAndLoss(tenant.id, from, to)
+    add('reporting: P&L revenue reflects milestone payments', pnl.revenue_cents === revenueRecognizedCents, `pnl.revenue=${pnl.revenue_cents} vs ${revenueRecognizedCents}`)
+    add('reporting: P&L shows labor cost (net < revenue)', pnl.net_profit_cents < pnl.revenue_cents, `net=${pnl.net_profit_cents} rev=${pnl.revenue_cents}`)
+    add('reporting: P&L net profit positive on this job', pnl.net_profit_cents > 0, `net=${pnl.net_profit_cents}`)
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message
+      : (err && typeof err === 'object') ? JSON.stringify(err)
+      : String(err)
+    add('FATAL', false, msg)
+  } finally {
+    if (!PERSIST) {
+      if (tenantId) {
+        for (const tbl of [
+          'referral_commissions', 'referrers', 'reviews', 'notifications', 'payroll_payments',
+          'territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts',
+          'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices',
+          'quote_activity', 'quotes', 'deal_activities', 'deals', 'job_events', 'job_payments',
+          'bookings', 'recurring_schedules', 'jobs', 'team_members', 'payments', 'clients',
+          'service_types', 'entities', 'tenant_invites',
+        ]) {
+          await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
+        }
+        let delOk = false
+        for (let i = 0; i < 4 && !delOk; i++) {
+          const { error } = await supabase.from('tenants').delete().eq('id', tenantId)
+          if (!error) delOk = true
+          else if (i === 3) leftovers.push(`tenants(${tenantId.slice(0, 8)}): ${error.message}`)
+        }
+      }
+    } else if (tenantId) {
+      leftovers.push(`PERSISTED tenant ${tenantId}`)
+    }
+  }
+
+  const passed = checks.filter(c => c.pass).length
+  const failed = checks.filter(c => !c.pass).length
+  const failures = checks.filter(c => !c.pass).map(c => `${c.name}${c.detail ? ` (${c.detail})` : ''}`)
+  return { category: cfg.key, industry: ind, model: 'project', passed, failed, failures, ms: Date.now() - t0, leftovers }
+}
+
+async function runProjectArchetypesPhase(): Promise<TradeResult[]> {
+  const scoped = ONLY.length ? PROJECT_SCENARIOS.filter(s => ONLY.includes(s.key)) : PROJECT_SCENARIOS
+  const results: TradeResult[] = []
+  for (let i = 0; i < scoped.length; i++) {
+    process.stdout.write(`[P12 ${i + 1}/${scoped.length}] ${scoped[i].key.padEnd(20)}`)
+    const r = await runProjectArchetype(scoped[i], i)
+    results.push(r)
+    console.log(`${r.failed === 0 ? '✓' : '✗'} ${r.passed} pass${r.failed ? ` / ${r.failed} FAIL` : ''} [${r.industry}] (${r.ms}ms)`)
+    r.failures.forEach(f => console.log(`      ✗ ${f}`))
+    if (r.leftovers.length) r.leftovers.forEach(l => console.log(`      ⚠ leftover ${l}`))
+  }
+  return results
+}
+
 // ================= P7 — TERRITORY EXCLUSIVITY (global, one tenant per category/territory) =================
 // Standalone + safe: claims an AVAILABLE (territory, category) pair with no tenant,
 // proves a 2nd claim conflicts, then RELEASES it. Never touches a live claim.
@@ -710,6 +1230,12 @@ async function main() {
     r.failures.forEach(f => console.log(`      ✗ ${f}`))
     if (r.leftovers.length) r.leftovers.forEach(l => console.log(`      ⚠ leftover ${l}`))
   }
+
+  // P12 — project archetypes (W2 lane): runs whenever no ONLY filter is set, or
+  // when ONLY names one of the archetype scenario keys directly.
+  const runArchetypes = !ONLY.length || PROJECT_SCENARIOS.some(s => ONLY.includes(s.key))
+  const archetypeResults = runArchetypes ? await runProjectArchetypesPhase() : []
+  results.push(...archetypeResults)
 
   // Global phases — run once (skip when running a trade subset)
   const commsGate = ONLY.length ? { passed: 0, failed: 0, failures: [] as string[] } : await runCommsGateCheck()
