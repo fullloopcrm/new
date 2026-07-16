@@ -54,11 +54,30 @@ jobs:
           echo "$out" | grep -q 'skipping (exit 0)' \
             || { echo '::error::reconcile did not clean-skip without a secret'; exit 1; }
 
+      # Piped through `tee` + $GITHUB_STEP_SUMMARY (not a PR comment) so the
+      # CRIT/WARN/INFO report is visible on the run's Job Summary page without
+      # a log dive -- and, crucially, without any permission escalation: this
+      # env var is a plain runner-local file, unlike posting a PR comment
+      # (which would need a write-scoped pull-requests permission and break the
+      # "read-only, never gains write scopes" invariant reconcile-gate-wiring.test.ts
+      # locks in below). PIPESTATUS[0] preserves the real node exit code through the
+      # tee pipe so the gate still fails on gating CRIT drift.
       - name: Reconcile tenant config (read-only drift gate)
         working-directory: platform
+        shell: bash
         env:
           SUPABASE_ACCESS_TOKEN_FULLLOOP: ${{ secrets.SUPABASE_ACCESS_TOKEN_FULLLOOP }}
-        run: node scripts/reconcile-tenant-config.mjs
+        run: |
+          set +e
+          node scripts/reconcile-tenant-config.mjs | tee reconcile-output.txt
+          exit_code=${PIPESTATUS[0]}
+          {
+            echo '### Tenant-config reconcile'
+            echo '```'
+            cat reconcile-output.txt
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          exit "$exit_code"
 
   notify-failure:
     needs: reconcile

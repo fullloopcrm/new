@@ -40,8 +40,13 @@ describe('CI invariant — reconcile gate wiring is intact', () => {
 
   it('still runs the reconcile drift script (the gate is not deleted)', () => {
     const yaml = reconcileYaml()
+    // Substring rather than a `run: node ...` anchor: the step's run block is
+    // a multi-line `|` script (piped through tee for the step-summary write),
+    // not a single-line `run:`, so a rigid same-line anchor would false-fail
+    // on that legitimate shape. The distinctive command string is still
+    // enough to catch the gate actually being deleted.
     expect(
-      /run:\s*node\s+scripts\/reconcile-tenant-config\.mjs/.test(yaml),
+      yaml.includes('node scripts/reconcile-tenant-config.mjs'),
       'tenant-config-reconcile.yml no longer runs `node scripts/reconcile-tenant-config.mjs` — the drift gate is gone.',
     ).toBe(true)
   })
@@ -105,5 +110,23 @@ describe('CI invariant — reconcile gate wiring is intact', () => {
         '`needs: reconcile` + `if: failure()` — a red gate could go unnoticed with ' +
         'no Telegram alert.',
     ).toBe(true)
+  })
+
+  it('writes the drift report to the Job Summary (visible without a log dive)', () => {
+    const yaml = reconcileYaml()
+    expect(
+      /GITHUB_STEP_SUMMARY/.test(yaml),
+      'tenant-config-reconcile.yml no longer writes the reconcile output to ' +
+        '$GITHUB_STEP_SUMMARY — a red gate would be visible only by opening the raw ' +
+        'Actions log, not the run summary page.',
+    ).toBe(true)
+    // The fix must use the zero-privilege $GITHUB_STEP_SUMMARY file, never a PR
+    // comment (which needs `pull-requests: write` and would break the
+    // least-privilege invariant asserted above).
+    expect(
+      /pull-requests:\s*write/.test(yaml),
+      'tenant-config-reconcile.yml gained a `pull-requests: write` permission — the ' +
+        'Job Summary approach exists specifically to avoid this escalation.',
+    ).toBe(false)
   })
 })
