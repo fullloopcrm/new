@@ -258,6 +258,20 @@ export function parseMainHostsSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse ROOT_SITE_TENANTS out of the middleware source. This is the legacy
+// "no /site/<slug> subtree, serve the shared /site root" set — middleware's
+// siteBase ternary checks it FIRST: `ROOT_SITE_TENANTS.has(slug) ? '/site' :
+// BESPOKE_SITE_TENANTS.has(slug) ? '/site/<slug>' : '/site/template'`. A slug in
+// BOTH sets is therefore silently routed to the shared /site root — the
+// bespoke /site/<slug> subtree BESPOKE_SITE_TENANTS + verify-protected-tenants.mjs
+// exist to protect is never reached, with no error from either. It is currently
+// empty (`new Set<string>([])`), so this is prospective, not yet an active
+// collision — see Drift T below.
+export function parseRootSiteTenantsSet(middlewareSource) {
+  const block = middlewareSource.match(/ROOT_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -309,9 +323,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.mainHostsSet]  hostnames from middleware's
  *                                  MAIN_HOSTS (see parseMainHostsSet).
  *                                  Feeds Drift S ONLY. Pass an empty Set (default) to skip.
+ * @param {Set}      [input.rootSiteTenantsSet]  slugs from middleware's
+ *                                  ROOT_SITE_TENANTS (see parseRootSiteTenantsSet).
+ *                                  Feeds Drift T ONLY. Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -610,6 +627,26 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     for (const t of allTenantDomains) if (t.domain) checkDomain(t.domain, t.slug)
   }
 
+  // Drift T: a slug present in BOTH ROOT_SITE_TENANTS and BESPOKE_SITE_TENANTS
+  // in src/middleware.ts. The siteBase ternary checks ROOT_SITE_TENANTS FIRST
+  // (`ROOT_SITE_TENANTS.has(slug) ? '/site' : BESPOKE_SITE_TENANTS.has(slug) ?
+  // '/site/<slug>' : '/site/template'`), so ROOT_SITE_TENANTS silently wins: the
+  // bespoke /site/<slug> subtree — the one BESPOKE_SITE_TENANTS membership and
+  // verify-protected-tenants.mjs's PROTECTED entry both assume is reached — is
+  // never rewritten to. Neither the build guard (only checks BESPOKE_SITE_TENANTS
+  // membership + folder existence) nor Drift C/P above (same two facts) can see
+  // this: both would report green while the live site silently serves the shared
+  // /site root instead of the protected tenant's own site.
+  for (const slug of rootSiteTenantsSet) {
+    if (bespokeSet.has(slug)) {
+      add(
+        'CRIT',
+        slug,
+        `in BOTH ROOT_SITE_TENANTS and BESPOKE_SITE_TENANTS in src/middleware.ts -> ROOT_SITE_TENANTS wins the siteBase ternary, silently serving the shared /site root instead of /site/${slug} regardless of BESPOKE_SITE_TENANTS membership or the build guard`,
+      )
+    }
+  }
+
   return findings
 }
 
@@ -668,6 +705,7 @@ async function main() {
   const richSitemapSet = parseRichSitemapSet(middlewareSource)
   const nonServingStatuses = parseNonServingStatuses(middlewareSource)
   const mainHostsSet = parseMainHostsSet(middlewareSource)
+  const rootSiteTenantsSet = parseRootSiteTenantsSet(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
@@ -706,7 +744,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

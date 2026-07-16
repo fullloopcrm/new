@@ -9,6 +9,7 @@ import {
   parseRichSitemapSet,
   parseNonServingStatuses,
   parseMainHostsSet,
+  parseRootSiteTenantsSet,
   computeFindings,
   summarize,
   loadToken,
@@ -169,6 +170,40 @@ describe('parseMainHostsSet', () => {
     expect(mainHosts.has('main-only.com')).toBe(true)
     expect(mainHosts.has('bespoke-only')).toBe(false)
     expect(mainHosts.size).toBe(1)
+  })
+})
+
+describe('parseRootSiteTenantsSet', () => {
+  it('extracts the slugs from a middleware ROOT_SITE_TENANTS declaration', () => {
+    const src = `
+      const ROOT_SITE_TENANTS = new Set<string>([
+        'nycmaid',
+        "legacy-root-tenant",
+      ])
+    `
+    const set = parseRootSiteTenantsSet(src)
+    expect(set.has('nycmaid')).toBe(true)
+    expect(set.has('legacy-root-tenant')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+
+  it('returns an empty set when the declaration is absent (its current live state)', () => {
+    expect(parseRootSiteTenantsSet('export const x = 1').size).toBe(0)
+  })
+
+  it('returns an empty set for the current live empty declaration', () => {
+    expect(parseRootSiteTenantsSet('const ROOT_SITE_TENANTS = new Set<string>([])').size).toBe(0)
+  })
+
+  it('does not confuse BESPOKE_SITE_TENANTS with ROOT_SITE_TENANTS in the same source', () => {
+    const src = `
+      const ROOT_SITE_TENANTS = new Set<string>(['root-only'])
+      const BESPOKE_SITE_TENANTS = new Set<string>(['bespoke-only'])
+    `
+    const rootSet = parseRootSiteTenantsSet(src)
+    expect(rootSet.has('root-only')).toBe(true)
+    expect(rootSet.has('bespoke-only')).toBe(false)
+    expect(rootSet.size).toBe(1)
   })
 })
 
@@ -1837,5 +1872,56 @@ describe('computeFindings — Drift S (tenant domain collides with a MAIN_HOSTS 
       mainHostsSet: new Set(['fullloopcrm.com']),
     })
     expect(findings.filter((f) => f.msg.includes('MAIN_HOSTS'))).toHaveLength(1)
+  })
+})
+
+describe('computeFindings — Drift T (slug in BOTH ROOT_SITE_TENANTS and BESPOKE_SITE_TENANTS)', () => {
+  it('CRITs when a slug is in both ROOT_SITE_TENANTS and BESPOKE_SITE_TENANTS', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['acme']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(['acme']),
+    })
+    const crit = findings.find((f) => f.slug === 'acme' && f.msg.includes('ROOT_SITE_TENANTS'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('does not fire when the slug is only in ROOT_SITE_TENANTS, not BESPOKE_SITE_TENANTS', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(['acme']),
+    })
+    expect(findings.filter((f) => f.msg.includes('ROOT_SITE_TENANTS'))).toHaveLength(0)
+  })
+
+  it('does not fire when the slug is only in BESPOKE_SITE_TENANTS, not ROOT_SITE_TENANTS', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['acme']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+    })
+    expect(findings.filter((f) => f.msg.includes('ROOT_SITE_TENANTS'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when rootSiteTenantsSet is empty (its current live state — default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['acme']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('ROOT_SITE_TENANTS'))).toHaveLength(0)
   })
 })
