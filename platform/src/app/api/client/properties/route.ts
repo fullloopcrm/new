@@ -109,10 +109,25 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ success: true })
   }
 
+  // lot_size_sqft: only pass through when the caller sent a well-formed
+  // positive number (or explicit null to clear it) — anything else (missing
+  // key, malformed string) must stay `undefined` so updateProperty's
+  // "key present" check doesn't wipe out an existing value.
+  let lotSizeSqft: number | null | undefined
+  if (body.lot_size_sqft === null) {
+    lotSizeSqft = null
+  } else if (body.lot_size_sqft !== undefined) {
+    const n = Number(body.lot_size_sqft)
+    if (!Number.isFinite(n) || n <= 0) {
+      return NextResponse.json({ error: 'lot_size_sqft must be a positive number' }, { status: 400 })
+    }
+    lotSizeSqft = Math.round(n)
+  }
+
   const updated = await updateProperty(
     clientId,
     propertyId,
-    { address: body.address, unit: body.unit, label: body.label },
+    { address: body.address, unit: body.unit, label: body.label, lot_size_sqft: lotSizeSqft },
     actor
   )
   if (!updated) return NextResponse.json({ error: 'Failed to update address' }, { status: 500 })

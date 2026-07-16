@@ -15,6 +15,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
+import { resolveSqftTierPriceCents, type SqftTier } from '@/lib/sqft-pricing'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -215,10 +216,29 @@ export async function POST(request: Request) {
     if (validated.service_type_id) {
       const { data: svc } = await db
         .from('service_types')
-        .select('name')
+        .select('name, pricing_model, sqft_tiers')
         .eq('id', validated.service_type_id as string)
         .single()
-      if (svc) (validated as Record<string, unknown>).service_type = svc.name
+      if (svc) {
+        (validated as Record<string, unknown>).service_type = svc.name
+        // Sqft-tiered lawn-care/landscaping pricing: derive the price from the
+        // property's lot size rather than leaving it flat/unset. No-ops (falls
+        // through to whatever price this route already produced — none, today)
+        // when the service isn't sqft-tiered or the property has no lot size
+        // on file yet, so every other pricing_model is unaffected.
+        if (svc.pricing_model === 'sqft_tiered' && validated.property_id) {
+          const { data: property } = await db
+            .from('client_properties')
+            .select('lot_size_sqft')
+            .eq('id', validated.property_id as string)
+            .single()
+          const resolvedCents = resolveSqftTierPriceCents(
+            svc.sqft_tiers as SqftTier[] | null,
+            property?.lot_size_sqft as number | null | undefined
+          )
+          if (resolvedCents != null) (validated as Record<string, unknown>).price = resolvedCents
+        }
+      }
     }
 
     // Status: auto_confirm_bookings overrides everything else; otherwise honor

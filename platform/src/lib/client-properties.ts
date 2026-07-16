@@ -12,6 +12,7 @@ export interface PropertyRef {
   address: string
   latitude: number | null
   longitude: number | null
+  lot_size_sqft?: number | null
 }
 
 // ---- read / resolve helpers (used by dispatch + sends) --------------------
@@ -207,7 +208,7 @@ export async function resolveProperty(
 export async function listProperties(clientId: string) {
   const { data } = await supabaseAdmin
     .from('client_properties')
-    .select('id, label, address, unit, is_primary, active, created_at')
+    .select('id, label, address, unit, lot_size_sqft, is_primary, active, created_at')
     .eq('client_id', clientId)
     .eq('active', true)
     .order('is_primary', { ascending: false })
@@ -231,16 +232,16 @@ export async function addProperty(
   return existing
 }
 
-// Edit an existing property's address/unit/label, logging before/after.
+// Edit an existing property's address/unit/label/lot size, logging before/after.
 export async function updateProperty(
   clientId: string,
   propertyId: string,
-  patch: { address?: string; unit?: string | null; label?: string | null },
+  patch: { address?: string; unit?: string | null; label?: string | null; lot_size_sqft?: number | null },
   actor?: ChangeActor
 ): Promise<PropertyRef | null> {
   const { data: before } = await supabaseAdmin
     .from('client_properties')
-    .select('id, address, unit, label, latitude, longitude')
+    .select('id, address, unit, label, latitude, longitude, lot_size_sqft')
     .eq('id', propertyId)
     .eq('client_id', clientId)
     .single()
@@ -254,6 +255,7 @@ export async function updateProperty(
   if (patch.address != null) next.address = combine(patch.address, nextUnit)
   if (patch.unit !== undefined) next.unit = patch.unit
   if (patch.label !== undefined) next.label = patch.label
+  if (patch.lot_size_sqft !== undefined) next.lot_size_sqft = patch.lot_size_sqft
   if (Object.keys(next).length === 0) return before as PropertyRef
 
   // Address changed → clear stale coords (re-geocoded on demand by the scheduler).
@@ -265,14 +267,17 @@ export async function updateProperty(
     .update(next)
     .eq('id', propertyId)
     .eq('client_id', clientId)
-    .select('id, address, latitude, longitude')
+    .select('id, address, latitude, longitude, lot_size_sqft')
     .single()
   if (error || !after) { console.error('updateProperty failed:', error?.message); return null }
 
   await logPropertyChange({
     clientId, propertyId, action: 'edit',
-    oldValue: { address: before.address, unit: before.unit, label: before.label },
-    newValue: { address: after.address, unit: nextUnit, label: patch.label !== undefined ? patch.label : before.label },
+    oldValue: { address: before.address, unit: before.unit, label: before.label, lot_size_sqft: before.lot_size_sqft },
+    newValue: {
+      address: after.address, unit: nextUnit, label: patch.label !== undefined ? patch.label : before.label,
+      lot_size_sqft: after.lot_size_sqft,
+    },
     actor,
   })
   return after

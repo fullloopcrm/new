@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { validateSqftTiers } from '@/lib/sqft-pricing'
 
 export async function GET() {
   try {
@@ -46,6 +47,15 @@ export async function POST(request: Request) {
       min_charge_cents: { type: 'number', min: 0 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+
+    // sqft_tiers isn't in the whitelist above (validate() has no jsonb/object
+    // type) — shape-check it separately so a malformed tier list can't reach
+    // the insert and silently mis-price every booking that reads it.
+    if (body.sqft_tiers !== undefined) {
+      const { tiers, error: tierError } = validateSqftTiers(body.sqft_tiers)
+      if (tierError) return NextResponse.json({ error: tierError }, { status: 400 })
+      ;(fields as Record<string, unknown>).sqft_tiers = tiers
+    }
 
     // Get max sort_order
     const { data: existing } = await supabaseAdmin

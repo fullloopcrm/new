@@ -95,15 +95,30 @@ type Activity = {
   sentiment?: 'pos' | 'neu' | 'neg'
 }
 
+type PrimaryProperty = { id: string; lot_size_sqft: number | null }
+
 export default function ClientDrawer({ client, open, onClose }: Props) {
   const worker = useWorkerLabel()
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
   const [activity, setActivity] = useState<Activity[]>([])
+  const [primaryProperty, setPrimaryProperty] = useState<PrimaryProperty | null>(null)
+  const [editingLotSize, setEditingLotSize] = useState(false)
+  const [lotSizeInput, setLotSizeInput] = useState('')
+  const [savingLotSize, setSavingLotSize] = useState(false)
 
   useEffect(() => {
     if (!client) return
     setNotesTab('cleaner')
+    setEditingLotSize(false)
+    fetch(`/api/clients/${client.id}/properties`)
+      .then((r) => r.json())
+      .then((data) => {
+        const props = (data.properties || []) as PrimaryProperty[]
+        setPrimaryProperty(props[0] || null)
+      })
+      .catch(() => setPrimaryProperty(null))
+
     fetch(`/api/clients/${client.id}/activity?limit=8`)
       .then((r) => r.json())
       .then((data) => {
@@ -133,6 +148,27 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
       })
       .catch(() => {})
   }, [client])
+
+  async function saveLotSize() {
+    if (!client || !primaryProperty) return
+    const n = Number(lotSizeInput)
+    if (!Number.isFinite(n) || n <= 0) return
+    setSavingLotSize(true)
+    try {
+      const res = await fetch(`/api/clients/${client.id}/properties`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ property_id: primaryProperty.id, lot_size_sqft: Math.round(n) }),
+      })
+      if (res.ok) {
+        const { property } = await res.json()
+        setPrimaryProperty({ id: property.id, lot_size_sqft: property.lot_size_sqft })
+        setEditingLotSize(false)
+      }
+    } finally {
+      setSavingLotSize(false)
+    }
+  }
 
   if (!client) return null
 
@@ -290,6 +326,33 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
                 <div className="clients-property-label">Source</div>
                 <div className={`clients-property-value ${client.source ? '' : 'empty'}`}>{client.source || '—'}</div>
               </div>
+              {primaryProperty && (
+                <div className="clients-property-cell">
+                  <div className="clients-property-label">Lot Size (sqft)</div>
+                  {editingLotSize ? (
+                    <div style={{ display: 'flex', gap: '6px', alignItems: 'center' }}>
+                      <input
+                        type="number" min="1" autoFocus
+                        value={lotSizeInput}
+                        onChange={(e) => setLotSizeInput(e.target.value)}
+                        style={{ width: '90px' }}
+                        className="clients-property-value"
+                      />
+                      <button disabled={savingLotSize} onClick={saveLotSize} className="clients-section-action" type="button">Save</button>
+                      <button disabled={savingLotSize} onClick={() => setEditingLotSize(false)} className="clients-section-action" type="button">Cancel</button>
+                    </div>
+                  ) : (
+                    <div
+                      className={`clients-property-value ${primaryProperty.lot_size_sqft ? '' : 'empty'}`}
+                      style={{ cursor: 'pointer' }}
+                      onClick={() => { setLotSizeInput(primaryProperty.lot_size_sqft ? String(primaryProperty.lot_size_sqft) : ''); setEditingLotSize(true) }}
+                      title="Click to edit — drives sqft-tiered lawn-care/landscaping pricing"
+                    >
+                      {primaryProperty.lot_size_sqft ? primaryProperty.lot_size_sqft.toLocaleString() : 'Not set'}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

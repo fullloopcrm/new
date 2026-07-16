@@ -71,7 +71,11 @@ type Tenant = {
   agent_name: string | null
 }
 
-type PricingModel = 'hourly' | 'flat' | 'quote'
+type PricingModel = 'hourly' | 'flat' | 'quote' | 'sqft_tiered'
+
+// Mirrors src/lib/sqft-pricing.ts SqftTier — ascending by max_sqft, a
+// trailing {max_sqft: null} tier is the uncapped catch-all.
+type SqftTier = { max_sqft: number | null; price_cents: number }
 
 type ServiceType = {
   id: string
@@ -83,9 +87,14 @@ type ServiceType = {
   price_cents: number | null
   per_unit: string | null
   min_charge_cents: number | null
+  sqft_tiers: SqftTier[] | null
   sort_order: number
   active: boolean
 }
+
+// Client-side row shape for editing sqft tiers — raw <input> string values.
+// Leave max_sqft blank on the last row to make it the uncapped catch-all tier.
+type SqftTierRow = { max_sqft: string; price: string }
 
 // Client-side form shape — all values are strings (raw <input> values).
 type ServiceFormState = {
@@ -95,18 +104,40 @@ type ServiceFormState = {
   default_hourly_rate: string
   price: string
   min_charge: string
+  sqft_tiers: SqftTierRow[]
 }
+
+const EMPTY_SQFT_TIER_ROW: SqftTierRow = { max_sqft: '', price: '' }
 
 const EMPTY_SERVICE_FORM: ServiceFormState = {
   name: '', pricing_model: 'hourly', default_duration_hours: '3',
   default_hourly_rate: '49', price: '', min_charge: '',
+  sqft_tiers: [{ max_sqft: '5000', price: '' }, EMPTY_SQFT_TIER_ROW],
 }
 
 const PRICING_MODELS: { value: PricingModel; label: string }[] = [
   { value: 'hourly', label: 'Hourly (duration × rate)' },
   { value: 'flat', label: 'Flat price' },
+  { value: 'sqft_tiered', label: 'By lot size (sqft tiers)' },
   { value: 'quote', label: 'By quote (priced per job)' },
 ]
+
+// SqftTierRow[] (form) → SqftTier[] (API). Blank rows are dropped; a row with
+// no max_sqft becomes the uncapped catch-all — only valid as the last row,
+// enforced server-side by validateSqftTiers.
+function tierRowsToApi(rows: SqftTierRow[]): SqftTier[] {
+  return rows
+    .filter((r) => r.price.trim() !== '')
+    .map((r) => ({
+      max_sqft: r.max_sqft.trim() === '' ? null : Math.round(Number(r.max_sqft)),
+      price_cents: Math.round(Number(r.price) * 100),
+    }))
+}
+
+function tiersToFormRows(tiers: SqftTier[] | null | undefined): SqftTierRow[] {
+  if (!tiers || tiers.length === 0) return [{ max_sqft: '5000', price: '' }, EMPTY_SQFT_TIER_ROW]
+  return tiers.map((t) => ({ max_sqft: t.max_sqft == null ? '' : String(t.max_sqft), price: String(t.price_cents / 100) }))
+}
 
 // Build the API payload from a form. Non-hourly models still send safe
 // duration/rate defaults so a NOT NULL column can never blow up the insert;
@@ -118,11 +149,13 @@ function buildServicePayload(f: ServiceFormState) {
     pricing_model: model,
     default_duration_hours: model === 'hourly' ? Number(f.default_duration_hours) || 1 : 1,
     default_hourly_rate: model === 'hourly' ? Number(f.default_hourly_rate) || 0 : 0,
-    // Only 'flat' carries a fixed price; 'quote' is priced per deal. per_unit
-    // must be one of the DB enum values (hour/job/…) and is NOT NULL.
+    // Only 'flat' carries a fixed price; 'quote' is priced per deal;
+    // 'sqft_tiered' carries its price in sqft_tiers instead. per_unit must be
+    // one of the DB enum values (hour/job/…) and is NOT NULL.
     price_cents: model === 'flat' ? Math.round(Number(f.price || 0) * 100) : null,
-    per_unit: model === 'hourly' ? 'hour' : 'job',
+    per_unit: model === 'hourly' ? 'hour' : model === 'sqft_tiered' ? 'sqft' : 'job',
     min_charge_cents: f.min_charge ? Math.round(Number(f.min_charge) * 100) : null,
+    sqft_tiers: model === 'sqft_tiered' ? tierRowsToApi(f.sqft_tiers) : null,
   }
 }
 
@@ -132,10 +165,57 @@ function formatServicePrice(s: ServiceType): string {
   const min = s.min_charge_cents ? ` (min $${(s.min_charge_cents / 100).toFixed(0)})` : ''
   if (model === 'flat') return `$${((s.price_cents || 0) / 100).toFixed(0)} flat${min}`
   if (model === 'quote') return `By quote${min}`
+  if (model === 'sqft_tiered') {
+    const tiers = s.sqft_tiers || []
+    if (tiers.length === 0) return `By lot size (no tiers set)${min}`
+    const prices = tiers.map((t) => t.price_cents / 100)
+    const lo = Math.min(...prices), hi = Math.max(...prices)
+    return `$${lo.toFixed(0)}–$${hi.toFixed(0)} by lot size (${tiers.length} tier${tiers.length === 1 ? '' : 's'})${min}`
+  }
   return `${s.default_duration_hours}hr · $${s.default_hourly_rate}/hr${min}`
 }
 
 const INPUT_CLS = 'w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm'
+
+// Ordered list of {up to N sqft: $price} rows. Rows are entered smallest lot
+// size first; leave the LAST row's "up to" blank to make it the uncapped
+// catch-all tier for anything bigger (server enforces this ordering too).
+function SqftTierEditor({ rows, set }: { rows: SqftTierRow[]; set: (rows: SqftTierRow[]) => void }) {
+  function updateRow(i: number, patch: Partial<SqftTierRow>) {
+    set(rows.map((r, idx) => (idx === i ? { ...r, ...patch } : r)))
+  }
+  function removeRow(i: number) {
+    set(rows.filter((_, idx) => idx !== i))
+  }
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-slate-400">Price by lot size. Leave the last row&apos;s &quot;up to&quot; blank for anything larger.</p>
+      {rows.map((row, i) => (
+        <div key={i} className="grid grid-cols-[1fr_1fr_auto] gap-2 items-center">
+          <input
+            placeholder={i === rows.length - 1 ? 'Up to (sqft) — blank = no limit' : 'Up to (sqft)'}
+            type="number" min="1" value={row.max_sqft}
+            onChange={(e) => updateRow(i, { max_sqft: e.target.value })}
+            className={INPUT_CLS}
+          />
+          <input
+            placeholder="Price ($)" type="number" min="0" value={row.price}
+            onChange={(e) => updateRow(i, { price: e.target.value })}
+            className={INPUT_CLS}
+          />
+          <button type="button" onClick={() => removeRow(i)} className="text-slate-400 hover:text-red-500 px-2" aria-label="Remove tier">✕</button>
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => set([...rows, { ...EMPTY_SQFT_TIER_ROW }])}
+        className="text-xs text-blue-600 hover:underline"
+      >
+        + Add tier
+      </button>
+    </div>
+  )
+}
 
 // Shared pricing-model editor used by both the add and edit forms.
 function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<ServiceFormState>) => void }) {
@@ -155,6 +235,9 @@ function PricingFields({ f, set }: { f: ServiceFormState; set: (patch: Partial<S
       )}
       {f.pricing_model === 'quote' && (
         <p className="text-xs text-slate-400">Priced per job — set the amount on each quote or deal.</p>
+      )}
+      {f.pricing_model === 'sqft_tiered' && (
+        <SqftTierEditor rows={f.sqft_tiers} set={(rows) => set({ sqft_tiers: rows })} />
       )}
       {f.pricing_model !== 'hourly' && (
         <input placeholder="Minimum charge ($) — optional" type="number" value={f.min_charge} onChange={(e) => set({ min_charge: e.target.value })} className={INPUT_CLS} />
@@ -318,6 +401,7 @@ export default function SettingsPage() {
       default_hourly_rate: String(s.default_hourly_rate ?? ''),
       price: s.price_cents != null ? String(s.price_cents / 100) : '',
       min_charge: s.min_charge_cents != null ? String(s.min_charge_cents / 100) : '',
+      sqft_tiers: tiersToFormRows(s.sqft_tiers),
     })
   }
 
