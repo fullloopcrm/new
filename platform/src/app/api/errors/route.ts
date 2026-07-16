@@ -60,10 +60,20 @@ export async function POST(request: Request) {
     const error = new Error(message)
     if (stack) error.stack = stack
 
+    // trackError's own Telegram-alert cooldown is keyed by source+message, both
+    // caller-supplied on this public unauthenticated endpoint — an attacker can
+    // vary either per request to mint a fresh cooldown key every time and spam
+    // the owner's Telegram with fabricated "HIGH Error" alerts (up to the 30/min
+    // accept-rate above), burying real incident alerts. Gate alert-eligibility
+    // on a second, coarser per-IP budget that ignores message content entirely;
+    // once it's spent, reports still get logged to error_logs/notifications
+    // (nothing is lost) but stop paging the owner.
+    const alertRl = await rateLimitDb(`errors-alert:${ip}`, 3, 10 * 60 * 1000)
+
     await trackError(error, {
       source: source || 'client',
       tenantId: verifiedTenantId,
-      severity: 'high',
+      severity: alertRl.allowed ? 'high' : 'medium',
       url
     })
 
