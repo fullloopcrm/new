@@ -22,16 +22,22 @@ export async function attributeByAddress(
   confidence: number
   action: string
   minutesAgo: number
-  neighborhood: string
+  neighborhood: string | null
   clickId: string
 } | null> {
+  // Neighborhood/zip matching only narrows WHICH of several domains applies
+  // (multi-domain tenants); it must never gate attribution entirely. Most
+  // tenants have a single generic domain and no zip/neighborhood data at
+  // all — until 068_tenant_domains_type_geo populated `type` (added by that
+  // same migration), getTenantDomains()/getDomainsForNeighborhood() errored
+  // on missing columns and this function returned null unconditionally,
+  // silently disabling attribution for every tenant. A missing zip or
+  // unmatched neighborhood now just skips the neighborhood-priority step
+  // instead of aborting.
   const zip = extractZip(address)
-  if (!zip) return null
+  const neighborhood = zip ? await getNeighborhoodFromZip(tenantId, zip) : null
 
-  const neighborhood = await getNeighborhoodFromZip(tenantId, zip)
-  if (!neighborhood) return null
-
-  const neighborhoodDomains = await getDomainsForNeighborhood(tenantId, neighborhood)
+  const neighborhoodDomains = neighborhood ? await getDomainsForNeighborhood(tenantId, neighborhood) : []
   const allDomains = await getTenantDomains(tenantId)
   const genericDomains = allDomains.filter(d => d.type === 'generic').map(d => d.domain)
 
@@ -132,6 +138,12 @@ export async function attributeByAddress(
   return null
 }
 
+// `(Neighborhood)` suffix for notification text — omitted entirely when a
+// lead/booking attributed via a generic domain has no neighborhood match.
+function neighborhoodSuffix(neighborhood: string | null): string {
+  return neighborhood ? ` (${neighborhood})` : ''
+}
+
 // Attribute a lead from the public collect form (Selena's abandon-to-lead funnel)
 export async function attributeCollectForm(
   tenantId: string,
@@ -162,7 +174,7 @@ export async function attributeCollectForm(
     tenant_id: tenantId,
     type: 'hot_lead',
     title: 'Website → Lead',
-    message: `${clientName} (${result.neighborhood}) — ${actionLabel} ${result.domain} ${timeLabel} → submitted collect form (${result.confidence}%)`,
+    message: `${clientName}${neighborhoodSuffix(result.neighborhood)} — ${actionLabel} ${result.domain} ${timeLabel} → submitted collect form (${result.confidence}%)`,
     channel: 'system',
     recipient_type: 'admin',
     client_id: clientId,
@@ -222,7 +234,7 @@ export async function autoAttributeBooking(
     tenant_id: tenantId,
     type: 'hot_lead',
     title: 'Website → Sale',
-    message: `${client.name} (${result.neighborhood}) — ${actionLabel} ${result.domain} ${timeLabel} → booked (${result.confidence}%)`,
+    message: `${client.name}${neighborhoodSuffix(result.neighborhood)} — ${actionLabel} ${result.domain} ${timeLabel} → booked (${result.confidence}%)`,
     channel: 'system',
     recipient_type: 'admin',
     booking_id: bookingId,

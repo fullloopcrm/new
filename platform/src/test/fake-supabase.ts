@@ -13,7 +13,7 @@
  * It supports only the surface the suite exercises:
  *   from(table)
  *     .select(cols, { count })  .insert(rows)  .update(vals)  .delete()  .upsert(rows,{onConflict})
- *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .gt .is(col,val) .ilike(col,pattern) .order() .range() .limit(n)
+ *     .eq(col,val) .neq .in(col,vals) .gte .lte .lt .gt .is(col,val) .ilike(col,pattern) .contains(col,vals) .order() .range() .limit(n)
  *     .single() .maybeSingle()  and thenable (await) resolution
  *
  * Not a general-purpose mock — do not grow it beyond what a test needs.
@@ -39,6 +39,7 @@ type Filter =
   | { kind: 'gt'; col: string; val: unknown }
   | { kind: 'is'; col: string; val: null | boolean }
   | { kind: 'ilike'; col: string; pattern: RegExp }
+  | { kind: 'contains'; col: string; vals: unknown[] }
   | { kind: 'not'; inner: Filter }
 
 function matchesOne(row: Row, f: Filter): boolean {
@@ -63,6 +64,8 @@ function matchesOne(row: Row, f: Filter): boolean {
       return f.val === null ? cell === null || cell === undefined : cell === f.val
     case 'ilike':
       return typeof cell === 'string' && f.pattern.test(cell)
+    case 'contains':
+      return Array.isArray(cell) && f.vals.every((v) => (cell as unknown[]).includes(v))
   }
 }
 
@@ -138,6 +141,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
   ilike(col: string, pattern: string): this {
     const escaped = pattern.replace(/[.*+?^${}()|[\]\\]/g, '\\$&').replace(/%/g, '.*')
     this.filters.push({ kind: 'ilike', col, pattern: new RegExp(`^${escaped}$`, 'i') })
+    return this
+  }
+  /** PostgREST `.contains(col, vals)` for an array column — true when every val in `vals` is present in the row's array. */
+  contains(col: string, vals: unknown[]): this {
+    this.filters.push({ kind: 'contains', col, vals })
     return this
   }
   /** PostgREST `.not(col, 'eq'|'is'|'neq', val)` — negates the named simple filter. */

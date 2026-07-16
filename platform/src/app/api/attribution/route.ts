@@ -49,7 +49,7 @@ export async function POST(request: Request) {
 
     let attributedCount = 0
     const usedClickIds: string[] = []
-    const results: Array<{ booking_id: string; domain: string | null; confidence: number; neighborhood?: string }> = []
+    const results: Array<{ booking_id: string; domain: string | null; confidence: number; neighborhood?: string | null }> = []
 
     for (const booking of bookings) {
       const client = booking.clients as unknown as { address?: string; name?: string } | null
