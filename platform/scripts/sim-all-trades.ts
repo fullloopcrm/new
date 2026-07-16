@@ -651,6 +651,11 @@ interface ProjectScenario {
   sessions: ProjectSessionPlan[]
   crew: { name: string; employmentType: 'contractor_1099' | 'employee_w2'; compType: 'per_job' | 'hourly' | 'salary'; payLabel: string; payCents: number; payMethod: string }
   referrer: { name: string; email: string; phone: string; refCode: string; commissionRate: number; note: string }
+  // The commission earned above sits at status='pending' forever unless
+  // someone actually pays the referrer out — a distinct real event (the
+  // office cutting a Zelle/check to Tom/the Petersons/Dana some weeks after
+  // the job closes), not the moment the commission was earned.
+  referralPayout: { note: string; paidVia: string }
   review: { rating: number; comment: string }
   // Mid-project scope change — the customer adds/changes scope after the job
   // is already sold, scheduled and underway (not caught at quote time). Real
@@ -772,6 +777,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "Six weeks after final inspection Marcus called about a drip stain forming on the garage ceiling during a heavy rain — crew went back out under the 5-year workmanship warranty and found one of the new pipe boots hadn't fully seated. Resealed on site, no charge — it's a workmanship callback, not a new sale.",
       offsetDaysAfterCompletion: 42,
     },
+    referralPayout: {
+      note: "Job closed out and invoiced, so ops cut Tom his referral check for sending Marcus over.",
+      paidVia: 'zelle',
+    },
   },
   {
     key: 'remodeling',
@@ -844,6 +853,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "Two months after punch list, Elena reported one of the new cabinet doors near the range wasn't closing flush anymore — crew went back under the 1-year workmanship warranty and re-shimmed the hinge (humidity settling, not a install defect). No charge — it's a callback, not a new job.",
       offsetDaysAfterCompletion: 60,
     },
+    referralPayout: {
+      note: "Final punch list closed and paid, so ops paid out the Petersons' referral commission for sending Elena over.",
+      paidVia: 'ach',
+    },
   },
   {
     key: 'interior_design',
@@ -909,6 +922,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
     warrantyCallback: {
       note: "A month after install day, Priya noticed the living room drapery track had pulled loose from the drywall on one end — installer went back under the workmanship warranty and re-anchored it into a stud (original anchor was in drywall only). No charge — installation callback, not a furniture defect.",
       offsetDaysAfterCompletion: 30,
+    },
+    referralPayout: {
+      note: "Install day wrapped and the final invoice was paid, so ops paid Dana her referral commission for sending Priya over.",
+      paidVia: 'venmo',
     },
   },
 ]
@@ -1434,6 +1451,59 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }).select('id, commission_cents').single()
       add('referral: commission computed correctly', !!commission && !commErr && commission.commission_cents === commissionCents, commErr?.message || `${commission?.commission_cents} vs ${commissionCents}`)
       await notify({ tenantId: tenant.id, type: 'referral_lead', title: 'Referral converted', message: `${cfg.referrer.name} → ${cfg.lead.contactName} (${cfg.referrer.note})` })
+
+      if (commission) {
+        // Real POST /api/referral-commissions accrues to the ledger (expense
+        // 6045 -> payable 2400) and atomically bumps referrers.total_earned
+        // the moment a commission is created — do the same here so the
+        // payout step below has a real accrued balance to pay down, not a
+        // row this harness never actually recognized as earned.
+        const { postCommissionAccrual } = await import('../src/lib/finance/post-adjustments')
+        const accrualRes = await postCommissionAccrual({ tenantId: tenant.id, commissionId: commission.id })
+        add('referral: commission accrued to ledger (expense 6045 / payable 2400)', accrualRes.posted, accrualRes.reason)
+        await supabase.rpc('increment_referrer_earned', {
+          p_tenant_id: tenant.id, p_referrer_id: referrer.id, p_amount_cents: commission.commission_cents,
+        })
+        const { data: refAfterEarn } = await supabase.from('referrers').select('total_earned').eq('id', referrer.id).single()
+        add('referral: referrer.total_earned = commission accrued', refAfterEarn?.total_earned === commission.commission_cents, `${refAfterEarn?.total_earned} vs ${commission.commission_cents}`)
+
+        // ============ 8b. REFERRAL COMMISSION PAYOUT ============
+        // Distinct from accrual above: the referrer actually getting PAID
+        // (a Zelle/ACH/Venmo the office sends weeks after the job closes),
+        // not just the commission being recognized as owed. Exercises the
+        // real PUT /api/referral-commissions { status: 'paid' } path: a
+        // second, separate ledger entry (liability 2400 -> cash 1010,
+        // distinct source key 'commission_paid' so it never collides with
+        // the accrual entry already posted above) plus the atomic
+        // increment_referrer_paid RPC (migrations/2026_07_13_referrer_ledger_atomic.sql
+        // — a plain read-then-write here would lose an increment if two
+        // payouts landed for the same referrer around the same time).
+        const { postCommissionPayment } = await import('../src/lib/finance/post-adjustments')
+        const { error: payoutErr } = await supabase.from('referral_commissions')
+          .update({ status: 'paid', paid_at: new Date().toISOString(), paid_via: cfg.referralPayout.paidVia })
+          .eq('id', commission.id)
+        add('referral: commission marked paid', !payoutErr, payoutErr?.message)
+        await supabase.rpc('increment_referrer_paid', {
+          p_tenant_id: tenant.id, p_referrer_id: referrer.id, p_amount_cents: commission.commission_cents,
+        })
+        const { data: refAfterPay } = await supabase.from('referrers').select('total_paid, total_earned').eq('id', referrer.id).single()
+        add('referral: referrer.total_paid = commission paid out', refAfterPay?.total_paid === commission.commission_cents, `${refAfterPay?.total_paid} vs ${commission.commission_cents}`)
+        add('referral: referrer.total_earned untouched by payout (already accrued, not double-counted)', refAfterPay?.total_earned === commission.commission_cents, `${refAfterPay?.total_earned}`)
+
+        const payoutRes = await postCommissionPayment({ tenantId: tenant.id, commissionId: commission.id })
+        add('referral: commission payment posted to ledger (payable 2400 -> cash 1010)', payoutRes.posted, payoutRes.reason)
+        if (payoutRes.entryId) {
+          const { data: payoutLines } = await supabase.from('journal_lines').select('coa_id, debit_cents, credit_cents').eq('entry_id', payoutRes.entryId)
+          add('referral: payout entry has exactly 2 balanced lines', (payoutLines?.length || 0) === 2, JSON.stringify(payoutLines))
+        }
+        add('referral: re-posting an already-paid commission is a no-op (idempotent, no duplicate cash-out)',
+          (await postCommissionPayment({ tenantId: tenant.id, commissionId: commission.id })).posted === false)
+
+        await notify({
+          tenantId: tenant.id, type: 'follow_up', title: 'Commission paid',
+          message: `${cfg.referrer.name}: $${(commission.commission_cents / 100).toFixed(2)} paid via ${cfg.referralPayout.paidVia} — ${cfg.referralPayout.note}`,
+        })
+      }
     }
 
     // ================= 9. REVIEWS =================
