@@ -95,6 +95,22 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
       }
 
+      // This branch trusts a client-supplied `url` as the new job-video
+      // reference with no upload happening here -- unlike the FormData branch
+      // below, which derives videoUrl itself from the file it just wrote.
+      // Without this check, any team member could point their OWN booking's
+      // walkthrough/final video (rendered as <video src> in the owner
+      // dashboard) at an arbitrary external URL: fabricated job-completion
+      // evidence, or injected external content, with zero upload required.
+      // Require it to be a real object under the signed-upload prefix this
+      // exact tenant+booking was granted in GET above.
+      const { data: prefixUrlData } = supabaseAdmin.storage
+        .from('uploads')
+        .getPublicUrl(`${auth.tid}/job-videos/${booking_id}/`)
+      if (typeof url !== 'string' || !url.startsWith(prefixUrlData.publicUrl)) {
+        return NextResponse.json({ error: 'Invalid video url' }, { status: 400 })
+      }
+
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
       await supabaseAdmin.from('bookings').update({
         [field]: url,

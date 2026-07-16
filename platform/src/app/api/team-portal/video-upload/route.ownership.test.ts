@@ -12,6 +12,15 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * assigned to a DIFFERENT team member in the same tenant, just by knowing its
  * booking_id — no upload or assignment required. Fixed by applying the same
  * team_member_id ownership check to the JSON branch.
+ *
+ * WITNESS #2 — unvalidated external `url` on the same branch. Ownership of
+ * the booking was the only check; the `url` string itself was saved verbatim
+ * with no verification it pointed at this tenant+booking's own signed-upload
+ * storage path. The assigned team member could save ANY external URL as the
+ * job's walkthrough/final video (rendered as <video src> in the owner
+ * dashboard) — fabricated completion evidence, or injected external content —
+ * without ever uploading anything. Fixed by requiring `url` to start with the
+ * public URL prefix for `${tenantId}/job-videos/${bookingId}/`.
  */
 
 process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
@@ -19,7 +28,12 @@ process.env.TEAM_PORTAL_SECRET = 'test-team-portal-secret'
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake, __fake: fake }
+  const storage = {
+    from: () => ({
+      getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example/public/uploads/${path}` } }),
+    }),
+  }
+  return { supabaseAdmin: Object.assign(fake, { storage }), __fake: fake }
 })
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 
@@ -79,12 +93,36 @@ describe('POST /api/team-portal/video-upload (JSON/signed-URL branch) — bookin
 
   it('positive control: the assigned team member CAN attach a video to their own booking', async () => {
     const token = createToken(MEMBER_A2, TENANT_A)
+    const validUrl = `https://storage.example/public/uploads/${TENANT_A}/job-videos/${BOOKING_ASSIGNED_TO_A2}/final-123-abc.mp4`
     const res = await POST(
-      postReq({ booking_id: BOOKING_ASSIGNED_TO_A2, type: 'final', url: 'https://storage.example/real-video.mp4' }, token)
+      postReq({ booking_id: BOOKING_ASSIGNED_TO_A2, type: 'final', url: validUrl }, token)
     )
     expect(res.status).toBe(200)
     const bookings = fake._store.get('bookings') || []
     const row = bookings.find((b) => b.id === BOOKING_ASSIGNED_TO_A2)
-    expect(row?.final_video_url).toBe('https://storage.example/real-video.mp4')
+    expect(row?.final_video_url).toBe(validUrl)
+  })
+
+  it('FORGED-URL PROBE: an arbitrary external url is rejected even for the owning team member', async () => {
+    const token = createToken(MEMBER_A2, TENANT_A)
+    const res = await POST(
+      postReq({ booking_id: BOOKING_ASSIGNED_TO_A2, type: 'final', url: 'https://evil.example/fake-completion.mp4' }, token)
+    )
+    expect(res.status).toBe(400)
+    const bookings = fake._store.get('bookings') || []
+    const row = bookings.find((b) => b.id === BOOKING_ASSIGNED_TO_A2)
+    expect(row?.final_video_url).toBeNull()
+  })
+
+  it("FORGED-URL PROBE: a url pointing at ANOTHER booking's storage prefix (same tenant) is rejected", async () => {
+    const token = createToken(MEMBER_A2, TENANT_A)
+    const otherBookingUrl = `https://storage.example/public/uploads/${TENANT_A}/job-videos/some-other-booking/final-999-zzz.mp4`
+    const res = await POST(
+      postReq({ booking_id: BOOKING_ASSIGNED_TO_A2, type: 'final', url: otherBookingUrl }, token)
+    )
+    expect(res.status).toBe(400)
+    const bookings = fake._store.get('bookings') || []
+    const row = bookings.find((b) => b.id === BOOKING_ASSIGNED_TO_A2)
+    expect(row?.final_video_url).toBeNull()
   })
 })
