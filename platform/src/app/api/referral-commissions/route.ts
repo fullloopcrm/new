@@ -183,27 +183,46 @@ export async function PUT(request: Request) {
       updates.paid_at = new Date().toISOString()
       updates.paid_via = paid_via || 'zelle'
 
-      const { data: commission } = await supabaseAdmin
+      // Marking paid credits referrers.total_paid (surfaced in tax-export
+      // and finance/reports) — a real financial figure, not just a status
+      // label. The old code read the commission/referrer, unconditionally
+      // added commission_cents to total_paid, then updated the commission
+      // row's status with no check that it wasn't already 'paid'. A
+      // double-click or a retried PUT for the same id credited total_paid
+      // a second time for money that was only paid once. Claim the
+      // transition atomically — only credit total_paid if this call is the
+      // one that actually moves the row out of 'paid'.
+      const { data: claimed } = await supabaseAdmin
         .from('referral_commissions')
-        .select('referrer_id, commission_cents')
+        .update(updates)
         .eq('id', id)
         .eq('tenant_id', tenantId)
-        .single()
-      if (commission) {
-        const { data: ref } = await supabaseAdmin
-          .from('referrers')
-          .select('total_paid')
-          .eq('id', commission.referrer_id)
-          .eq('tenant_id', tenantId)
-          .single()
-        if (ref) {
-          await supabaseAdmin
-            .from('referrers')
-            .update({ total_paid: (ref.total_paid || 0) + (commission.commission_cents as number) })
-            .eq('id', commission.referrer_id)
-            .eq('tenant_id', tenantId)
-        }
+        .neq('status', 'paid')
+        .select()
+        .maybeSingle()
+      if (!claimed) {
+        return NextResponse.json({ error: 'Commission already marked paid' }, { status: 409 })
       }
+
+      const { data: ref } = await supabaseAdmin
+        .from('referrers')
+        .select('total_paid')
+        .eq('id', claimed.referrer_id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (ref) {
+        await supabaseAdmin
+          .from('referrers')
+          .update({ total_paid: (ref.total_paid || 0) + (claimed.commission_cents as number) })
+          .eq('id', claimed.referrer_id)
+          .eq('tenant_id', tenantId)
+      }
+
+      // Marking paid clears the payable against cash in the ledger.
+      postCommissionPayment({ tenantId, commissionId: claimed.id })
+        .catch(err => console.error('[ref-comm] payment post failed:', err))
+
+      return NextResponse.json(claimed)
     }
 
     const { data, error } = await supabaseAdmin
@@ -214,12 +233,6 @@ export async function PUT(request: Request) {
       .select()
       .single()
     if (error) throw error
-
-    // Marking paid clears the payable against cash in the ledger.
-    if (status === 'paid' && data?.id) {
-      postCommissionPayment({ tenantId, commissionId: data.id })
-        .catch(err => console.error('[ref-comm] payment post failed:', err))
-    }
 
     return NextResponse.json(data)
   } catch (err) {
