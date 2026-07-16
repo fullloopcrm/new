@@ -3,17 +3,21 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 /**
- * Auth gate probe — team/route.ts GET.
- * The route used getTenantForRequest() with no requirePermission check, while
- * its own POST/PUT/DELETE siblings (and the dashboard/hr GET sibling) already
- * gate on team.view/team.create/team.edit/team.delete. select('*') on
- * team_members returns each member's PIN (the credential used to log into
- * /team-portal), pay_rate, hourly_rate, phone, and address — so any
- * authenticated tenant member of ANY role, even one whose tenant explicitly
- * revoked team.view via the RBAC override, could enumerate every coworker's
- * portal PIN and hijack their team-portal session, plus read payroll data.
- * Fixed by requiring requirePermission('team.view'), matching the sibling
- * gates and honoring the tenant's own RBAC customization.
+ * Auth gate + field-exposure probe — team/route.ts GET.
+ *
+ * Auth gate: the route previously used getTenantForRequest() with no
+ * requirePermission check, while its own POST/PUT/DELETE siblings (and the
+ * dashboard/hr GET sibling) already gate on
+ * team.view/team.create/team.edit/team.delete. Fixed by requiring
+ * requirePermission('team.view'), matching the sibling gates.
+ *
+ * Field exposure (this round): select('*') on team_members returned every
+ * member's PIN (the credential used to log into /team-portal), pay_rate,
+ * notes, and tax_ssn_last4/tax_address to ANY team.view holder — including
+ * 'staff', the lowest role, which cannot even edit team members. This list
+ * endpoint now selects an explicit column allowlist that never includes
+ * those fields, for any role (the single-record GET at team/[id]/route.ts
+ * conditionally restores them for team.edit holders).
  */
 
 vi.mock('@/lib/supabase', async () => {
@@ -48,12 +52,17 @@ beforeEach(() => {
 })
 
 describe('team GET — permission gate', () => {
+  // Note: FakeSupabase's select() intentionally ignores its column-list argument
+  // (see src/test/fake-supabase.ts) — it always returns the full seeded row, so
+  // it cannot verify column projection. The field-exposure fix (pin/pay_rate/
+  // notes/tax_* dropped from this route's select list) is instead covered by
+  // the static source-level assertions in route.field-exposure.test.ts.
   it('a caller with team.view sees the roster (positive control)', async () => {
     const res = await GET()
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(Array.isArray(body.team)).toBe(true)
-    expect(body.team[0].pin).toBe('1234')
+    expect(body.team[0].name).toBe('Alice')
   })
 
   it('an unauthenticated / team.view-lacking caller is rejected and gets no roster/PIN data', async () => {

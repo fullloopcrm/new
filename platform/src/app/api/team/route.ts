@@ -13,9 +13,12 @@ export async function GET() {
   try {
     const { tenantId } = tenant
 
+    // Excludes pin (portal-login credential), pay_rate/notes, and tax_* (SSN
+    // last-4 + tax address) — this list endpoint is reachable by 'staff', the
+    // lowest role, via team.view; those fields require team.edit (see [id]/route.ts).
     const { data, error } = await supabaseAdmin
       .from('team_members')
-      .select('*')
+      .select('id, tenant_id, name, email, phone, role, status, hourly_rate, priority, photo_url, address, calendar_color, schedule, unavailable_dates, working_days, working_start, working_end, max_jobs_per_day, notification_preferences, lat, lng, has_car, stripe_account_id, sms_consent, labor_only, stripe_ready_at, home_latitude, home_longitude, home_by_time, service_zones, avg_rating, rating_count, preferred_language, created_at, updated_at')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
 
