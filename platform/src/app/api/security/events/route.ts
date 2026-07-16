@@ -1,20 +1,15 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 
 export async function GET(request: Request) {
-  let tenant
-  try {
-    ({ tenant } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant, error } = await requirePermission('audit.view')
+  if (error) return error
 
   const url = new URL(request.url)
   const limit = Math.min(parseInt(url.searchParams.get('limit') || '50'), 200)
 
-  const { data: events } = await tenantDb(tenant.id)
+  const { data: events } = await tenantDb(tenant.tenantId)
     .from('security_events')
     .select('*')
     .order('created_at', { ascending: false })
