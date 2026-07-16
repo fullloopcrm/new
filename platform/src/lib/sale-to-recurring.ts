@@ -145,7 +145,7 @@ async function createSeriesAfterClaim(
   const startDate = (quote.recurring_start_date as string | null) || new Date().toISOString().split('T')[0]
   const preferredTime = (quote.recurring_preferred_time as string | null) || '09:00'
   const hours = Number(quote.recurring_duration_hours) || 3
-  const pricePerVisit = ((quote.total_cents as number) || 0) / 100
+  const pricePerVisit = (quote.total_cents as number) || 0
 
   // Initial dates: from start_date across a 6-week horizon.
   const step = intervalDays(recurringType)

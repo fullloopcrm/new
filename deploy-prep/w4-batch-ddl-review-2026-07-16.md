@@ -99,3 +99,46 @@ concurrent booking-creates for the same team_member can both pass the
 overlap check before either commits. Did not re-verify its correctness in
 this pass — flagging for the leader/whoever authored it to confirm before
 batching it in with the rest.
+
+## Self-review addendum (2026-07-16, later pass) — gaps found re-reading this doc against the actual files
+
+Re-read all 8 migration files end-to-end against this index rather than
+just trusting my own summaries. All 8 files exist, contents match what's
+described above, and the "independent, any order" claim holds (verified no
+two items touch the same column/function/table). Two gaps found, neither
+blocking, both worth fixing before this batch is actually applied:
+
+1. **Broken internal cross-reference in migration #7.** The header comment
+   in `2026_07_16_bookings_photo_proof_columns_PROPOSED.sql` cites
+   `deploy-prep/w4-broad-hunt-2026-07-16-1637-referrer-total-earned-race-plus-checkin-photo-gap.md`
+   as the source finding — that file does not exist anywhere in this repo
+   (checked `deploy-prep/` directly). The *correct* design doc is
+   `w4-photo-proof-of-work-design-2026-07-16-1531.md`, which item 7 above
+   already links correctly. The migration file's own comment appears to
+   reference an earlier/renamed draft filename that was never actually
+   committed. Low-stakes (doesn't affect the SQL itself, just a dead
+   pointer a future reader would hit), but worth a one-line fix to the
+   migration file's header so it doesn't send someone hunting for a file
+   that isn't there.
+
+2. **Item 8 doesn't follow this batch's file conventions**, which matters
+   specifically because it's the one item being folded in from someone
+   else's work rather than authored as part of this batch: (a) it opens
+   with the filename as a comment instead of the "PROPOSED — not yet
+   applied to prod..." boilerplate every other file in this batch leads
+   with, and (b) it wraps its own DDL in `BEGIN; ... COMMIT;` while items
+   1-7 are bare statements, and (c) it embeds a literal ready-to-run
+   `PGPASSWORD='<pw>' psql ... -f <file>` apply command in its header —
+   the other 7 files deliberately don't include a runnable apply command,
+   consistent with the standing rule that only the leader runs prod DDL
+   after Jeff approves. None of this makes the SQL wrong, but if the
+   leader concatenates all 8 files into one script to run "in one batch"
+   as this doc recommends, item 8's embedded `BEGIN/COMMIT` splits the
+   batch's transaction boundary in a way items 1-7 don't expect (each of
+   those would then run in its own implicit autocommit statement rather
+   than one wrapping transaction, and item 8 would commit independently
+   mid-file). Not a correctness bug — each file's DDL is idempotent/
+   additive on its own — but worth the leader running item 8 as its own
+   step rather than literally concatenating it into the other 7, and
+   confirming its authorship/review status separately as already flagged
+   above.
