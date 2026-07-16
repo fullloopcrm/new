@@ -100,6 +100,44 @@ describe('attributeByAddress — single-domain tenant with no neighborhood data'
   })
 })
 
+describe('attributeByAddress — single-domain tenant whose domain is type=primary (068 backfill output)', () => {
+  // 068_tenant_domains_type_geo.backfill.sql maps is_primary=true -> type='primary',
+  // not 'generic' — the realistic shape for any tenant with a live custom domain
+  // (activate-tenant.ts sets is_primary:true on the custom domain). A fallback
+  // filter that only accepted type==='generic' silently excluded this domain from
+  // matching entirely, reproducing the same "attribution never fires" bug this
+  // file's other tests already guard against for the 'generic' case.
+  it('still matches via the fallback pool when the domain is type=primary, not generic', async () => {
+    fake._seed('tenant_domains', [
+      {
+        id: 'td-primary',
+        tenant_id: TENANT_ID,
+        domain: 'realcustomerdomain.com',
+        active: true,
+        is_primary: true,
+        type: 'primary',
+        neighborhood: null,
+        zip_codes: null,
+      },
+    ])
+    fake._seed('lead_clicks', [
+      {
+        id: 'click-1',
+        tenant_id: TENANT_ID,
+        domain: 'realcustomerdomain.com',
+        action: 'call',
+        created_at: '2026-07-16T11:00:00.000Z',
+      },
+    ])
+
+    const result = await attributeByAddress(TENANT_ID, '123 Main St, Brooklyn, NY 11201', SUBMITTED_AT)
+
+    expect(result).not.toBeNull()
+    expect(result?.domain).toBe('realcustomerdomain.com')
+    expect(result?.action).toBe('call')
+  })
+})
+
 describe('attributeByAddress — multi-domain tenant WITH neighborhood data resolves it correctly', () => {
   const NEIGHBORHOOD_TENANT = 't-multi-domain'
 

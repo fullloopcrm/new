@@ -27,25 +27,36 @@ export async function attributeByAddress(
 } | null> {
   // Neighborhood/zip matching only narrows WHICH of several domains applies
   // (multi-domain tenants); it must never gate attribution entirely. Most
-  // tenants have a single generic domain and no zip/neighborhood data at
-  // all — until 068_tenant_domains_type_geo populated `type` (added by that
-  // same migration), getTenantDomains()/getDomainsForNeighborhood() errored
-  // on missing columns and this function returned null unconditionally,
-  // silently disabling attribution for every tenant. A missing zip or
-  // unmatched neighborhood now just skips the neighborhood-priority step
-  // instead of aborting.
+  // tenants have a single domain and no zip/neighborhood data at all — until
+  // 068_tenant_domains_type_geo populated `type` (added by that same
+  // migration), getTenantDomains()/getDomainsForNeighborhood() errored on
+  // missing columns and this function returned null unconditionally, silently
+  // disabling attribution for every tenant. A missing zip or unmatched
+  // neighborhood now just skips the neighborhood-priority step instead of
+  // aborting.
   const zip = extractZip(address)
   const neighborhood = zip ? await getNeighborhoodFromZip(tenantId, zip) : null
 
   const neighborhoodDomains = neighborhood ? await getDomainsForNeighborhood(tenantId, neighborhood) : []
   const allDomains = await getTenantDomains(tenantId)
-  const genericDomains = allDomains.filter(d => d.type === 'generic').map(d => d.domain)
+  // Fallback pool = every domain NOT dedicated to a specific neighborhood
+  // (type 'generic' AND 'primary'), not just 'generic'. 068's own backfill
+  // maps is_primary=true -> type='primary' (see
+  // 068_tenant_domains_type_geo.backfill.sql) — that is exactly a tenant's
+  // real, customer-facing custom domain in the common case (activate-tenant.ts
+  // sets is_primary:true on the custom domain, false on the internal
+  // *.fullloopcrm.com carrying domain). Filtering on `=== 'generic'` alone
+  // excluded that domain from matching entirely, silently reproducing the
+  // same "attribution never fires" bug this file's previous fix (ce7fbef3)
+  // was meant to close — only 'neighborhood'-typed domains should be held
+  // back here, since those already get their own priority slot above.
+  const fallbackDomains = allDomains.filter(d => d.type !== 'neighborhood').map(d => d.domain)
 
   const now = new Date(submittedAt || new Date().toISOString())
   const lookback10d = new Date(now.getTime() - 10 * 24 * 60 * 60 * 1000)
 
   // Include both www and non-www variants
-  const allDomainNames = [...neighborhoodDomains, ...genericDomains.filter(d => !neighborhoodDomains.includes(d))]
+  const allDomainNames = [...neighborhoodDomains, ...fallbackDomains.filter(d => !neighborhoodDomains.includes(d))]
   const allDomainVariants = allDomainNames.flatMap(d => [d, `www.${d}`])
 
   if (allDomainVariants.length === 0) return null
