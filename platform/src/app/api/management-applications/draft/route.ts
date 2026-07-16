@@ -1,6 +1,19 @@
 /**
  * Draft save/load for the management application form. Public routes — tenant
- * resolved from the host header. Keyed by (tenant, ip, position).
+ * resolved from the host header.
+ *
+ * SECURITY: previously keyed by (tenant, ip_address, position) alone. Any two
+ * applicants sharing a public IP (mobile-carrier CGNAT, campus/corporate NAT,
+ * coffee-shop wifi, VPN exit node — all common) collided on the same row:
+ * GET returned the OTHER applicant's name/email/phone/location/references
+ * plus their uploaded photo/video, and POST/DELETE could overwrite or wipe
+ * their in-progress draft. Fixed by keying on an opaque client_id the browser
+ * generates once and persists (localStorage) instead of the IP wherever the
+ * caller supplies one — falls back to IP only if no client_id is given (e.g.
+ * JS disabled), matching the prior (weaker) behavior rather than breaking the
+ * feature outright. No schema change: the random client_id is stored in the
+ * existing `ip_address` column, which was already just an opaque dedup key,
+ * never validated as an actual IP shape.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -11,12 +24,22 @@ function getIp(request: NextRequest): string {
   return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
 }
 
+const CLIENT_ID_RE = /^[A-Za-z0-9-]{8,64}$/
+
+// Value actually stored/matched in the `ip_address` column: the caller's
+// client_id when it looks like one we issued, else the raw IP (legacy path).
+function resolveVisitorKey(clientId: unknown, ip: string): string | null {
+  if (typeof clientId === 'string' && CLIENT_ID_RE.test(clientId)) return clientId
+  return ip === 'unknown' ? null : ip
+}
+
 export async function GET(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ draft: null })
 
   const ip = getIp(request)
-  if (ip === 'unknown') return NextResponse.json({ draft: null })
+  const visitorKey = resolveVisitorKey(request.nextUrl.searchParams.get('client_id'), ip)
+  if (!visitorKey) return NextResponse.json({ draft: null })
 
   const position = request.nextUrl.searchParams.get('position') || 'operations-coordinator'
 
@@ -24,7 +47,7 @@ export async function GET(request: NextRequest) {
     .from('management_application_drafts')
     .select('form_data, photo_url, video_url, resume_url, updated_at')
     .eq('tenant_id', tenant.id)
-    .eq('ip_address', ip)
+    .eq('ip_address', visitorKey)
     .eq('position', position)
     .order('updated_at', { ascending: false })
     .limit(1)
@@ -46,14 +69,16 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const { form_data, photo_url, video_url, resume_url, position } = await request.json()
+    const { form_data, photo_url, video_url, resume_url, position, client_id } = await request.json()
+    const visitorKey = resolveVisitorKey(client_id, ip)
+    if (!visitorKey) return NextResponse.json({ error: 'Cannot identify client' }, { status: 400 })
 
     const { error } = await supabaseAdmin
       .from('management_application_drafts')
       .upsert(
         {
           tenant_id: tenant.id,
-          ip_address: ip,
+          ip_address: visitorKey,
           position: position || 'operations-coordinator',
           form_data,
           photo_url: photo_url || null,
@@ -81,14 +106,15 @@ export async function DELETE(request: NextRequest) {
   if (!tenant) return NextResponse.json({ ok: true })
 
   const ip = getIp(request)
-  if (ip === 'unknown') return NextResponse.json({ ok: true })
+  const visitorKey = resolveVisitorKey(request.nextUrl.searchParams.get('client_id'), ip)
+  if (!visitorKey) return NextResponse.json({ ok: true })
 
   const position = request.nextUrl.searchParams.get('position') || 'operations-coordinator'
   await supabaseAdmin
     .from('management_application_drafts')
     .delete()
     .eq('tenant_id', tenant.id)
-    .eq('ip_address', ip)
+    .eq('ip_address', visitorKey)
     .eq('position', position)
 
   return NextResponse.json({ ok: true })
