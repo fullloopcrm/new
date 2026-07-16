@@ -112,6 +112,38 @@ const TRADES: Array<{ category: string; model: 'service' | 'project' }> = [
   { category: 'Other', model: 'service' }, // freeform → verifies unknown-trade fallback to 'general'
 ]
 
+// Redirect from Jeff (2026-07-16 12:37): sim as REAL tenants using EVERY feature,
+// trade-specific, not mechanical CRUD checks. W3's archetype = emergency/24-7
+// businesses (a burst pipe, a dead AC in a heat wave, a fire last night — these
+// customers don't accept "next Tuesday"). "Towing" was named in the split but has
+// no matching territory service_category in TRADES above (not in migrations/
+// territory data either) — flagged to leader, not invented here. Restoration
+// covers the fire/water/mold trio, all mapping to the single 'restoration'
+// IndustryKey. Real customer language + the REAL seeded service name for each
+// trade (industry-presets.ts), not synthetic pricing.
+const EMERGENCY_SCENARIOS: Record<string, { complaint: string; emergencyServiceNames: string[] }> = {
+  'Plumbing': {
+    complaint: 'Burst pipe under the kitchen sink, water pooling across the floor, need someone out TODAY before it hits the hallway',
+    emergencyServiceNames: ['Emergency Plumbing'],
+  },
+  'HVAC': {
+    complaint: "AC compressor died overnight, it's 97 out and there's a newborn in the house, need same-day service",
+    emergencyServiceNames: ['Emergency', '24/7'], // no match expected — see P11.2 finding below
+  },
+  'Fire Damage Restoration': {
+    complaint: 'Kitchen fire last night, smoke damage through the first floor, insurance adjuster comes in 48 hours, need board-up + assessment ASAP',
+    emergencyServiceNames: ['Fire & Smoke Restoration'],
+  },
+  'Water Damage Restoration': {
+    complaint: 'Water heater burst overnight, standing water in the basement, mold risk if it is not dried within 24 hours',
+    emergencyServiceNames: ['Water Damage Extraction'],
+  },
+  'Mold Remediation': {
+    complaint: 'Found black mold behind the drywall after a slow leak — closing on the house in 5 days and the inspector flagged it',
+    emergencyServiceNames: ['Mold Remediation'],
+  },
+}
+
 type Check = { name: string; pass: boolean; detail?: string }
 type TradeResult = { category: string; industry: string; model: string; passed: number; failed: number; failures: string[]; ms: number; leftovers: string[] }
 
@@ -551,6 +583,113 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     }).select('id, total_cents').single()
     add('invoice: created with taxed total', !!invoice && !invErr2 && invoice.total_cents === iTot.total_cents, invErr2?.message || `total=${invoice?.total_cents}`)
 
+    // ================= P11 — EMERGENCY/24-7 DISPATCH (plumbing/HVAC/restoration) =================
+    // Only runs for W3's archetype trades. Same-day/after-hours self-booking is the
+    // whole business model here — F4's exact bug class (same-day + business-hours
+    // gates), already patched in availability.ts; this is the trade group that
+    // breaks first if it regresses. Also exercises the emergency_rate/emergency_available
+    // selena_config keys the live AI prompt builder reads (selena-legacy.ts) but that
+    // have no dashboard settings field to set them from yet — a real, separate gap,
+    // flagged not fixed.
+    const emScenario = EMERGENCY_SCENARIOS[t.category]
+    if (emScenario) {
+      const { clearSettingsCache } = await import('../src/lib/settings')
+
+      // P11.0 owner turns on 24/7 same-day booking + reuses the on-call tech hired
+      // in P5 — a real emergency shop configures this on day one; it's opt-in per
+      // settings.ts and defaults OFF, so a tenant that never does this stays a
+      // 9-5/no-same-day shop no matter how "emergency" its trade name is.
+      const { error: hoursErr } = await supabase.from('tenants')
+        .update({ allow_same_day: true, business_hours_start: '0', business_hours_end: '23' }).eq('id', tenant.id)
+      add('emergency: owner enables same-day + 24hr business hours', !hoursErr, hoursErr?.message)
+      const { data: t365 } = await supabase.from('tenants').select('selena_config').eq('id', tenant.id).single()
+      const cfg365 = { ...((t365?.selena_config as Record<string, unknown>) || {}), open_365: true, emergency_available: true, emergency_rate: 195 }
+      const { error: cfgErr } = await supabase.from('tenants').update({ selena_config: cfg365 }).eq('id', tenant.id)
+      add('emergency: owner sets open_365 + emergency rate in config', !cfgErr, cfgErr?.message)
+      if (worker?.id) await supabase.from('team_members').update({ working_days: ['0', '1', '2', '3', '4', '5', '6'] }).eq('id', worker.id)
+      clearSettingsCache(tenant.id)
+
+      // P11.1 checkAvailability — the REAL lib fn, TODAY's date. Needs the on-call
+      // tech scheduled today or an empty slot list is a false signal (no staff, not
+      // a same-day-gate failure).
+      const { checkAvailability } = await import('../src/lib/availability')
+      const today = new Date().toLocaleDateString('en-CA')
+      const availToday = await checkAvailability(tenant.id, today, 2)
+      add('emergency: same-day slots open once allow_same_day=true', !availToday.sameDay && (availToday.slots?.length || 0) > 0,
+        JSON.stringify({ sameDay: availToday.sameDay, message: availToday.message, slots: availToday.slots?.length }))
+
+      // P11.2 control: same check with same-day OFF must still block — proves the
+      // gate is real, not a no-op (regression guard the other direction).
+      await supabase.from('tenants').update({ allow_same_day: false }).eq('id', tenant.id)
+      clearSettingsCache(tenant.id)
+      const availOff = await checkAvailability(tenant.id, today, 2)
+      add('emergency: same-day blocked again when owner turns it off', availOff.sameDay === true && (availOff.slots?.length || 0) === 0, JSON.stringify(availOff))
+      await supabase.from('tenants').update({ allow_same_day: true }).eq('id', tenant.id)
+      clearSettingsCache(tenant.id)
+
+      // P11.3 the trade's actual seeded "emergency-tier" service, priced by the
+      // real preset (industry-presets.ts), not a synthetic number. HVAC has no
+      // dedicated emergency SKU (Tune-Up/Repair/Install/Duct only) unlike plumbing
+      // and all 3 restoration presets — real content gap, so it falls back to a
+      // realistic after-hours rush surcharge on the base repair rate, same as a
+      // real HVAC dispatcher without a formal emergency line item would quote.
+      const emSvc = (services || []).find(s => emScenario.emergencyServiceNames.some(n => s.name.includes(n)))
+      add(`emergency: ${ind} has a dedicated emergency/24-7 service preset seeded`, !!emSvc,
+        emSvc ? emSvc.name : `no match among: ${(services || []).map(s => s.name).join(', ')}`)
+      const baseRepair = (services || []).find(s => /repair|service call/i.test(s.name))
+      const emPriceCents = emSvc?.price_cents || Math.round((baseRepair?.price_cents || 15000) * 1.5)
+
+      // P11.4 realistic same-day quote — the actual customer complaint as the line
+      // item, priced at the emergency rate, then accepted + converted same-visit
+      // (a burst pipe doesn't get a multi-day quote-to-close cycle like a project trade).
+      const emQuoteNum = await generateQuoteNumber(tenant.id)
+      const emLine = normalizeLineItems([{ name: `${emSvc?.name || 'Emergency service call'} — ${emScenario.complaint}`, quantity: 1, unit_price_cents: emPriceCents }])
+      const emTotals = computeTotals(emLine, 0, 0)
+      const { data: emQuote, error: emQErr } = await supabase.from('quotes').insert({
+        tenant_id: tenant.id, quote_number: emQuoteNum, status: 'draft',
+        title: `${t.category} — same-day emergency`, contact_name: 'Emergency Customer', contact_email: `sos+${runId}@example.com`,
+        contact_phone: '+15551236666', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+        line_items: emLine, subtotal_cents: emTotals.subtotal_cents, tax_rate_bps: 0, tax_cents: 0,
+        discount_cents: 0, total_cents: emTotals.total_cents, public_token: generatePublicToken(),
+      }).select('id, total_cents').single()
+      add('emergency: same-day quote created at emergency pricing', !!emQuote && !emQErr && emQuote.total_cents === emPriceCents, emQErr?.message || `total=${emQuote?.total_cents} vs expected=${emPriceCents}`)
+
+      if (emQuote) {
+        await supabase.from('quotes').update({ status: 'accepted' }).eq('id', emQuote.id)
+        const emConv = await createBookingFromQuote(tenant.id, emQuote.id)
+        add('emergency: accepted same-day quote converts to a booking', !!emConv.booking_id, `booking=${emConv.booking_id?.slice(0, 8)}`)
+        if (emConv.booking_id) {
+          const { data: emBooking } = await supabase.from('bookings').select('start_time, status').eq('id', emConv.booking_id).single()
+          const bookedDate = emBooking?.start_time ? new Date(emBooking.start_time as string).toLocaleDateString('en-CA') : null
+          // Real finding, not fixed here (shared logic, all trades, needs a product
+          // call): createBookingFromQuote (src/lib/sale-to-booking.ts ~line 100)
+          // unconditionally places every converted booking 3 days out at 9am
+          // regardless of urgency — a burst-pipe customer who just accepted a
+          // same-day emergency quote still gets a generic "confirm the date"
+          // placeholder instead of a booking on today's now-open same-day slots.
+          add('emergency: same-day-accepted quote actually books TODAY (not a generic 3-day placeholder)', bookedDate === today,
+            `booked=${bookedDate} today=${today} status=${emBooking?.status} — sale-to-booking.ts always offsets +3 days regardless of urgency`)
+        }
+      }
+
+      // P11.5 intake checklist conveys urgency for THIS trade — checks question text
+      // + sms_options, not just a hardcoded field key (only plumbing literally has an
+      // "Emergency" sms option; restoration's question says "often ASAP" instead).
+      // HVAC is expected to legitimately fail this — its checklist has no
+      // emergency/ASAP signal at all despite being a classic 24/7 emergency trade.
+      const urgencyField = checklist.find(f => (f as { question?: string }).question && /emergency|asap/i.test((f as { question?: string; sms_options?: string }).question + '|' + ((f as { sms_options?: string }).sms_options || '')))
+      add(`emergency: ${ind} intake checklist conveys urgency (emergency/ASAP wording)`, !!urgencyField,
+        urgencyField ? (urgencyField as { question?: string }).question : `no urgency signal in: ${checklist.map(f => (f as { key: string }).key).join(', ')}`)
+
+      // P11.6 emergency_rate/emergency_available actually reach the live AI system
+      // prompt once an owner sets them — proves the read-path works even though
+      // there's no dashboard field to set it from yet (config must be written
+      // directly, same as this sim just did).
+      const { buildSystemPromptForPreview } = await import('../src/lib/selena-legacy')
+      const prompt = await buildSystemPromptForPreview(tenant.id)
+      add('emergency: emergency_rate reaches the live AI system prompt', prompt.includes('195') && /emergency/i.test(prompt), prompt.length > 400 ? `${prompt.length} chars` : prompt)
+    }
+
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (err && typeof err === 'object') ? JSON.stringify(err)
@@ -663,7 +802,7 @@ async function runCommsGateCheck(): Promise<{ passed: number; failed: number; fa
 
 async function main() {
   const list = ONLY.length ? TRADES.filter(t => ONLY.some(o => t.category.toLowerCase().includes(o.toLowerCase()) || t.model === o)) : TRADES
-  console.log(`\n=== ALL-TRADES SIM — ${list.length} trades (P1-P9) ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
+  console.log(`\n=== ALL-TRADES SIM — ${list.length} trades (P1-P9, P11 emergency archetype) ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
   const results: TradeResult[] = []
   for (let i = 0; i < list.length; i++) {
     process.stdout.write(`[${String(i + 1).padStart(2)}/${list.length}] ${list[i].category.slice(0, 34).padEnd(35)}`)
