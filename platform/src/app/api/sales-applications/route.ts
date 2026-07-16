@@ -7,7 +7,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
-// the middleware-injected x-tenant-slug header (or tenant_slug in body);
+// the middleware-injected x-tenant-slug header only (never client body);
 // admin GET/PUT/DELETE go through requirePermission and stay tenant-scoped.
 
 // GET - List sales applications (admin only, tenant-scoped)
@@ -45,11 +45,14 @@ export async function POST(request: Request) {
       target_segments, warm_intros, bilingual, why,
       referral_source, linkedin_url, notes, video_url,
     } = body
-    let { tenant_slug } = body as { tenant_slug?: string }
 
-    if (!tenant_slug) {
-      tenant_slug = request.headers.get('x-tenant-slug') || undefined
-    }
+    // Tenant comes ONLY from the middleware-injected header, never from the
+    // body. Middleware resolves+overwrites x-tenant-slug from the verified
+    // Host on every /api/* request, so a caller can't pick an arbitrary
+    // tenant_slug here to plant a fake application + forge that tenant's
+    // "New Sales Partner Application" admin-notification email — same bug
+    // class already fixed on /api/track (tenant_id spoofing, commit 5bd00d72).
+    const tenant_slug = request.headers.get('x-tenant-slug') || undefined
 
     if (!tenant_slug || !name || !email || !phone || !location || !video_url) {
       return NextResponse.json({ error: 'Business, name, email, phone, location, and selfie video are required.' }, { status: 400 })
