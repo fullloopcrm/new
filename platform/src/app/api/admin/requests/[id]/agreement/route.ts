@@ -26,11 +26,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const { data: lead } = await supabaseAdmin
     .from('partner_requests')
-    .select('id, business_name, contact_name, email, phone, proposal_admins, proposal_team_members, proposal_monthly, territory_id')
+    .select('id, business_name, contact_name, email, phone, proposal_admins, proposal_team_members, proposal_monthly, territory_id, agreement_document_id')
     .eq('id', id)
     .single()
   if (!lead) return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   if (!lead.email) return NextResponse.json({ error: 'Lead has no email to send to' }, { status: 400 })
+  // Fast fail on the common case (stale UI, re-click after success) before
+  // doing any PDF/storage/email work. The real race guard is the atomic
+  // claim right before the email fires, below.
+  if (lead.agreement_document_id) {
+    return NextResponse.json({ error: 'An agreement has already been sent for this lead' }, { status: 409 })
+  }
 
   const admins = lead.proposal_admins || 1
   const teamMembers = lead.proposal_team_members || 0
@@ -118,6 +124,23 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     field(loopSigner.id, 'date', pdf.loopDate, false, 'Date'),
   ])
   if (fErr) return NextResponse.json({ error: fErr.message }, { status: 500 })
+
+  // Claim before emailing -- this is the point the action becomes truly
+  // irreversible (a real signing email lands in the client's inbox). The
+  // document/signers/fields rows created above are cheap if a concurrent
+  // request lost this race; a second live sign-email to the client is not.
+  // Atomic UPDATE ... WHERE agreement_document_id IS NULL: only the winner
+  // proceeds to send.
+  const { data: claimed } = await supabaseAdmin
+    .from('partner_requests')
+    .update({ agreement_document_id: doc.id })
+    .eq('id', id)
+    .is('agreement_document_id', null)
+    .select('id')
+    .maybeSingle()
+  if (!claimed) {
+    return NextResponse.json({ error: 'An agreement has already been sent for this lead' }, { status: 409 })
+  }
 
   // 5. Email the client their signing link.
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
