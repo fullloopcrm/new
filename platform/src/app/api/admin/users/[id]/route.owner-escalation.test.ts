@@ -64,4 +64,18 @@ describe('PUT /api/admin/users/[id] — owner-role grant restricted to owner cal
     expect(res.status).toBe(200)
     expect(h.store.tenant_members.find((m) => m.id === 'm-admin')?.role).toBe('staff')
   })
+
+  it('an admin-role caller cannot demote the real owner (403, role unchanged)', async () => {
+    h.callerRole = 'admin'
+    const res = await PUT(putReq({ role: 'staff' }), { params: params('m-owner') })
+    expect(res.status).toBe(403)
+    expect(h.store.tenant_members.find((m) => m.id === 'm-owner')?.role).toBe('owner')
+  })
+
+  it('an owner-role caller can demote another owner', async () => {
+    h.callerRole = 'owner'
+    const res = await PUT(putReq({ role: 'admin' }), { params: params('m-owner') })
+    expect(res.status).toBe(200)
+    expect(h.store.tenant_members.find((m) => m.id === 'm-owner')?.role).toBe('admin')
+  })
 })

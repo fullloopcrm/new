@@ -26,11 +26,24 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
         return NextResponse.json({ error: `Invalid role. Must be: ${validRoles.join(', ')}` }, { status: 400 })
       }
       // settings.edit is granted to the 'admin' role by default (and can be
-      // customized onto lower roles too) — without this check, any non-owner
+      // customized onto lower roles too) — without these checks, any non-owner
       // holding settings.edit could grant themselves (or anyone) the 'owner'
-      // role via this endpoint, which is full, always-on access per rbac.ts.
-      if (body.role === 'owner' && tenant.role !== 'owner') {
-        return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+      // role via this endpoint (self-promotion), or demote the tenant's actual
+      // owner to a lesser role (no check previously existed for that
+      // direction), bypassing the "owner is never customizable" invariant
+      // rbac.ts relies on to prevent tenant lockout.
+      if (tenant.role !== 'owner') {
+        if (body.role === 'owner') {
+          return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
+        }
+        const { data: target } = await tenantDb(tenant.tenantId)
+          .from('tenant_members')
+          .select('role')
+          .eq('id', id)
+          .single()
+        if (target?.role === 'owner') {
+          return NextResponse.json({ error: 'Only an owner can change the owner role' }, { status: 403 })
+        }
       }
       updates.role = body.role
     }
