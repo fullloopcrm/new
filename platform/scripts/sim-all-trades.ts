@@ -778,6 +778,52 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('UX-friction: owner can configure genuine 24/7 hours through the Scheduling tab UI (no direct-DB shortcut)',
         canExpressTrue24_7,
         `dropdowns only run ${earliestStart}–${latestEnd} (BUSINESS_HOURS_START_OPTIONS/END_OPTIONS, settings/page.tsx) — a real emergency dispatcher (this archetype's entire business model) has no UI path to the always-open hours they'd actually advertise; this sim only reached that state by updating tenants.business_hours_start/end directly. Compounding friction: even within that capped range, the hours control lives on the Scheduling tab while the emergency_rate/emergency_available premium meant to pair with it lives on the unrelated Selena tab's Services & Pricing section (page.tsx ~L1420), with no link, hint, or shared "Emergency Service" concept connecting them — an owner has to already know both settings exist and both need touching. Would flow better if: the Scheduling tab's hour dropdowns extended to a true 00:00–23:30/24:00 range (or grew a one-click "24/7" shortcut), and a single "Emergency / 24-7 Service" toggle set hours + surfaced the rate field inline, instead of two disconnected settings across two tabs.`)
+
+      // P11.10 real gap, worse than P11.7/P11.8: the EXISTING-CLIENT portal
+      // self-book route (POST /api/portal/bookings — the same route P11.7
+      // calls live) sends the owner NO notification of any kind — not even
+      // the generic one /api/client/book sends. Verified by reading the
+      // full route source (only 106 lines, no notify()/email/SMS call
+      // anywhere in the POST handler). A same-day emergency booking through
+      // this surface is completely silent; the owner finds out only by
+      // manually checking the dashboard/schedule.
+      const portalBookingsSrc = readFileSync(resolve(process.cwd(), 'src/app/api/portal/bookings/route.ts'), 'utf8')
+      const portalPostBody = portalBookingsSrc.split('export async function POST')[1] || ''
+      const portalNotifiesOwner = /notify\s*\(/.test(portalPostBody)
+      add('emergency: portal self-book route (POST /api/portal/bookings) notifies the owner when a client books',
+        portalNotifiesOwner,
+        portalNotifiesOwner ? 'notify() call found' : `POST handler (${portalPostBody.trim().length} chars) has zero notify()/SMS/email call anywhere — an existing client can self-book a same-day emergency slot through this exact route (same one P11.7 exercises live) and the owner gets NO signal at all: no push, no SMS, no email, nothing in the notification center. The only way to find out is to manually check the dashboard/schedule.`)
+
+      // P11.11 real gap, same hardcoded-single-tenant pattern as P11.8 but
+      // for owner ALERTING instead of pricing: the public self-book form's
+      // urgent SMS path (nmSmsAdmins, "🚨 EMERGENCY... Assign a cleaner
+      // ASAP") only fires inside `if (isNycMaid(tenant.id) && bkIsEmergency)`.
+      // Verified by counting nmSmsAdmins( call sites in route.ts (exactly 1,
+      // gated by that exact condition). Every other tenant on the platform —
+      // 100% of this archetype — gets the same generic 'New Booking Request'
+      // notify() for a genuine same-day emergency as for a routine booking
+      // 3 weeks out, so an owner triaging notifications can't tell them apart
+      // without opening each one.
+      const nmSmsAdminsCalls = (bookRouteSrc.match(/nmSmsAdmins\(/g) || []).length
+      const emergencyAlertIsNycMaidOnly = bookRouteSrc.includes('isNycMaid(tenant.id) && bkIsEmergency') && nmSmsAdminsCalls === 1
+      add("emergency: owner gets an urgent/priority alert (not just the generic notify) for a same-day booking on this archetype's tenants",
+        !emergencyAlertIsNycMaidOnly,
+        `nmSmsAdmins() urgent-SMS alert appears ${nmSmsAdminsCalls}x in client/book/route.ts, only inside 'if (isNycMaid(tenant.id) && bkIsEmergency)' — same hardcoded-single-tenant pattern as P11.8's pricing gap, different feature. Every other tenant (100% of this archetype) gets the identical generic 'New Booking Request' notify() for a genuine same-day emergency as for a routine booking weeks out; the owner has no way to triage urgency from the alert itself.`)
+
+      // P11.12 gap layered on top of the already-flagged +3-day placeholder
+      // bug (P11.4 comment above): even once that date bug is fixed,
+      // createBookingFromQuote (sale-to-booking.ts) never sets
+      // team_member_id on the bookings insert at all — verified by reading
+      // the exact insert({...}) object literal. The on-call tech
+      // checkAvailability found in P11.1 is never carried through to the
+      // created booking; dispatch stays 100% manual for the one scenario
+      // (burst pipe, same-day) where speed matters most.
+      const saleToBookingSrc = readFileSync(resolve(process.cwd(), 'src/lib/sale-to-booking.ts'), 'utf8')
+      const bookingsInsertBlock = (saleToBookingSrc.split(".from('bookings')")[1] || '').split('.insert({')[1]?.split('})')[0] || ''
+      const assignsWorkerOnConvert = /team_member_id/.test(bookingsInsertBlock)
+      add('emergency: same-day-accepted quote auto-assigns the on-call worker found in P11.1 (not left unassigned)',
+        assignsWorkerOnConvert,
+        `createBookingFromQuote's bookings insert (sale-to-booking.ts) never references team_member_id (insert body: ${bookingsInsertBlock.trim().replace(/\s+/g, ' ')}) — even once the known +3-day placeholder-date bug is fixed, the resulting booking lands with nobody dispatched; the on-call tech this archetype specifically schedules for same-day coverage (P11.0/P11.1) is never attached to the booking it was found for.`)
     }
 
   } catch (err) {
