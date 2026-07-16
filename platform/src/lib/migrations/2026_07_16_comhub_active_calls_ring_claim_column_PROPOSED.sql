@@ -1,0 +1,44 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes the second half of the admin-leg redelivery-dedup gap in
+-- POST /api/webhooks/telnyx-voice (the first half — call.answered — was
+-- fixed code-only in this same pass via an atomic ringing->bridged status
+-- claim; see comhub_active_calls.status usage in route.ts).
+--
+-- The dial.failed / dial.no_answer / hangup branch (admin leg didn't pick
+-- up -> ring the next target, or go to voicemail if the list is exhausted)
+-- has no claim at all. Telnyx may redeliver this same failure event, and
+-- the branch is slow (buildRingTargets + a live Telnyx dial or voicemail
+-- API call) — the same shape that already caused redelivered call.initiated
+-- and call.answered events to double-fire. Without a claim, two deliveries
+-- of the same failure both read the same ringIndex and both advance:
+-- double-dialing the next admin, or double-starting voicemail.
+--
+-- comhub_active_calls.admin_call_id is NOT a safe claim key here: SIP-URI
+-- targets (an online softphone) are rung via `transfer`, which moves the
+-- EXISTING customer leg rather than creating a separate one — dialRingTarget
+-- returns null for that case specifically, so admin_call_id is never
+-- populated for a SIP attempt (see route.ts's dialRingTarget, kind==='sip'
+-- branch). Claiming on `admin_call_id = <this leg's call_control_id>` would
+-- find zero matching rows for every SIP failure and silently stop the ring
+-- from ever advancing — a worse regression than the race it would fix. This
+-- is why that branch was NOT patched code-only in this pass.
+--
+-- ringIndex (the X-Comhub-Ring-Index custom header) IS set on every dial
+-- attempt regardless of target kind (sip or phone), so it's the one
+-- consistent identifier available. Adds a small tracking column recording
+-- the highest ring index this call has already advanced past, so a
+-- follow-up can claim with:
+--   UPDATE comhub_active_calls
+--   SET ring_claimed_index = <nextIndex>
+--   WHERE customer_call_id = ... AND status = 'ringing'
+--     AND ring_claimed_index = <ringIndex from the event>
+--   -- 0 rows updated => a redelivery of this same failure already won the
+--   -- claim (or the call already bridged/ended) => treat as duplicate, skip.
+--
+-- NOT wired into route.ts yet: referencing this column in a filter before
+-- the migration runs would break the live inbound-call path. Apply first;
+-- a follow-up pass wires the claim into the dial.failed/no_answer branch.
+
+ALTER TABLE comhub_active_calls ADD COLUMN IF NOT EXISTS ring_claimed_index integer NOT NULL DEFAULT 0;

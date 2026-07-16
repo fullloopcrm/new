@@ -626,36 +626,55 @@ export async function POST(req: NextRequest) {
   // ─── Admin leg events ────────────────────────────────────────────────────
   if (leg === 'admin' && customerCallId) {
     if (event === 'call.answered') {
+      // Claim BEFORE bridging: Telnyx may redeliver this same call.answered
+      // event (this branch does a live Telnyx bridge call + starts
+      // recording/transcription — slow, the same shape that already caused
+      // a redelivered call.initiated to double-ring). Without a claim, a
+      // redelivery re-bridges, re-starts a SECOND recording, and re-logs a
+      // duplicate "Admin picked up" transcript entry. Atomically flip
+      // ringing->bridged; a redelivery finds the row no longer 'ringing'
+      // and no-ops. Uses the update's own .select() as the read, so there's
+      // no separate check-then-act gap. Works for both PSTN and SIP-transfer
+      // admin targets (unlike admin_call_id, which sip transfers never set).
+      const { data: claimed } = await supabaseAdmin
+        .from('comhub_active_calls')
+        .update({ status: 'bridged', answered_at: new Date().toISOString() })
+        .eq('customer_call_id', customerCallId)
+        .eq('status', 'ringing')
+        .select('tenant_id, thread_id, contact_id, admin_phone')
+        .single()
+
+      if (!claimed) {
+        return NextResponse.json({ ok: true, duplicate: true })
+      }
+
       // Bridge the admin leg into the customer leg.
       await telnyxAction(callControlId, 'bridge', {
         call_control_id: customerCallId,
       })
       await startRecordingAndTranscription(customerCallId)
-      await supabaseAdmin
-        .from('comhub_active_calls')
-        .update({ status: 'bridged', answered_at: new Date().toISOString() })
-        .eq('customer_call_id', customerCallId)
 
-      const { data: active } = await supabaseAdmin
-        .from('comhub_active_calls')
-        .select('tenant_id, thread_id, contact_id, admin_phone')
-        .eq('customer_call_id', customerCallId)
-        .single()
-      if (active) {
-        await logVoiceMessage({
-          tenantId: active.tenant_id,
-          threadId: active.thread_id,
-          contactId: active.contact_id,
-          direction: 'system',
-          author: 'system',
-          body: `✅ Admin ${active.admin_phone || ''} picked up`,
-        })
-      }
+      await logVoiceMessage({
+        tenantId: claimed.tenant_id,
+        threadId: claimed.thread_id,
+        contactId: claimed.contact_id,
+        direction: 'system',
+        author: 'system',
+        body: `✅ Admin ${claimed.admin_phone || ''} picked up`,
+      })
       return NextResponse.json({ ok: true })
     }
 
     if (event === 'call.hangup' || event === 'call.dial.failed' || event === 'call.dial.no_answer') {
       // This admin didn't answer. Try the next one, or go to VM.
+      // KNOWN GAP (not fixed this pass): unlike call.initiated and
+      // call.answered above, this branch has no redelivery-dedup claim — a
+      // redelivered failure event can double-dial the next admin or
+      // double-start voicemail. admin_call_id can't be used as the claim key
+      // (SIP-transfer targets never populate it, see dialRingTarget). Needs
+      // ring_claimed_index (proposed:
+      // 2026_07_16_comhub_active_calls_ring_claim_column_PROPOSED.sql) before
+      // a safe atomic claim can be wired in here.
       const nextIndex = ringIndex + 1
       const { data: active } = await supabaseAdmin
         .from('comhub_active_calls')
