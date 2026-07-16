@@ -225,7 +225,8 @@ export function parseProtectedSlugs(verifyProtectedSource) {
 // back to the generic /api/tenant-sitemap. Like APEX_CANONICAL_DOMAINS, it
 // lives ONLY in middleware source, outside every DB source the rest of this
 // gate reconciles, so a slug added here without its sitemap file is invisible
-// to every other Drift check — see Drift Q below.
+// to every other Drift check — see Drift Q below (and its mirror, Drift Y, for
+// the reverse case: a sitemap file that exists but was never added here).
 export function parseRichSitemapSet(middlewareSource) {
   const block = middlewareSource.match(/TENANTS_WITH_RICH_SITEMAP\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
@@ -380,11 +381,14 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Feeds Drift P ONLY. Pass an empty Set (default) to skip.
  * @param {Set}      [input.richSitemapSet]  slugs from middleware's
  *                                  TENANTS_WITH_RICH_SITEMAP (see parseRichSitemapSet).
- *                                  Feeds Drift Q ONLY. Pass an empty Set (default) to skip.
+ *                                  Feeds Drift Q and Drift Y. Pass an empty Set (default) to skip both.
  * @param {Function} [input.hasSitemap]  (slug) => boolean — does
  *                                  src/app/site/<slug>/sitemap.ts or
- *                                  sitemap.xml/route.ts exist. Feeds Drift Q ONLY.
- *                                  Defaults to always-true (no-op) when omitted.
+ *                                  sitemap.xml/route.ts exist. Feeds Drift Q AND Drift Y, with
+ *                                  OPPOSITE fail-safe defaults when omitted: Q assumes the file
+ *                                  exists (always-true no-op, no false "missing" CRIT), Y is
+ *                                  skipped entirely (no false "orphaned" WARN) — see the comment
+ *                                  at the top of this function.
  * @param {Array}    [input.allTenants]  tenants rows of ANY status: { id, slug,
  *                                  status, domain }. Feeds Drift R ONLY. Pass an
  *                                  empty array (default) to skip.
@@ -418,7 +422,16 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  (treats every "/site/..." destination as unsafe).
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [] }) {
+  // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
+  // safe defaults when the caller omits it entirely: Q must assume the file
+  // EXISTS (so a caller who doesn't wire up the fs check never gets a false
+  // "missing sitemap" CRIT), while Y must assume the file does NOT exist (so
+  // the same omission never produces a false "orphaned sitemap" WARN). One
+  // function can't satisfy both defaults at once, so the raw param defaults to
+  // null (distinguishable from "explicitly provided") and each check applies
+  // its own fallback below.
+  const sitemapFileExists = hasSitemap || (() => true)
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -651,7 +664,7 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   // this slug, so the request 404s with no drift signal from any other check.
   if (richSitemapSet.size) {
     for (const slug of richSitemapSet) {
-      if (!hasSitemap(slug)) {
+      if (!sitemapFileExists(slug)) {
         add('CRIT', slug, `in TENANTS_WITH_RICH_SITEMAP (src/middleware.ts) but has neither src/app/site/${slug}/sitemap.ts nor src/app/site/${slug}/sitemap.xml/route.ts -> the /sitemap.xml rewrite target 404s`)
       }
     }
@@ -866,6 +879,30 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
         source,
         `next.config.ts redirects() source '${source}' -> '${destination}' sends visitors into the tenant-sites tree, but rewriteToSite() (src/middleware.ts) unconditionally re-prefixes ANY pathname on a tenant's own custom domain with that tenant's siteBase (unless it is exactly /sitemap.xml, /robots.txt, /admin(/*), or an APP_ROOT_PREFIXES entry -- none of which start with /site/) -- on a BESPOKE_SITE_TENANTS tenant's own domain this destination gets double-prefixed (e.g. '/site/<slug>${destination}') and resolves nowhere, even though it may appear to work when browsed directly on the main host`,
       )
+    }
+  }
+
+  // Drift Y: a BESPOKE_SITE_TENANTS tenant whose folder HAS a real sitemap
+  // file (src/app/site/<slug>/sitemap.ts or sitemap.xml/route.ts) but is NOT
+  // listed in middleware's TENANTS_WITH_RICH_SITEMAP — the mirror image of
+  // Drift Q. rewriteToSite() only rewrites /sitemap.xml to that file for a
+  // slug IN TENANTS_WITH_RICH_SITEMAP; every other tenant's /sitemap.xml is
+  // unconditionally rewritten to the generic 7-URL /api/tenant-sitemap
+  // instead (see the TENANTS_WITH_RICH_SITEMAP block in rewriteToSite()).
+  // A tenant whose sitemap.ts was built and deployed but never added to that
+  // set gets the generic sitemap served to every visitor and Googlebot
+  // forever — unlike Drift Q's missing-file case, nothing here 404s, so
+  // there is zero drift signal short of noticing the wrong sitemap.xml
+  // content in Search Console. Gated on hasSitemap being explicitly provided
+  // (not the Drift Q fallback) — see the comment on computeFindings' params:
+  // a caller that never wires up the real fs check must never get a false
+  // "orphaned sitemap" WARN just because Drift Q's own always-true default
+  // happens to answer "yes" for every slug.
+  if (bespokeSet.size && hasSitemap) {
+    for (const slug of bespokeSet) {
+      if (!richSitemapSet.has(slug) && hasSitemap(slug)) {
+        add('WARN', slug, `has a real sitemap file (src/app/site/${slug}/sitemap.ts or sitemap.xml/route.ts) but is NOT in TENANTS_WITH_RICH_SITEMAP (src/middleware.ts) -> rewriteToSite() serves the generic 7-URL /api/tenant-sitemap instead; the real file is built and deployed but permanently unreachable`)
+      }
     }
   }
 

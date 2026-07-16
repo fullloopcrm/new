@@ -1804,6 +1804,83 @@ describe('computeFindings — Drift Q (TENANTS_WITH_RICH_SITEMAP entry with no s
   })
 })
 
+describe('computeFindings — Drift Y (bespoke tenant has a real sitemap file but is not in TENANTS_WITH_RICH_SITEMAP)', () => {
+  const alwaysSitemap = (_slug: string) => true
+  const neverSitemap = (_slug: string) => false
+
+  it('flags WARN when a bespoke slug has a sitemap file but is absent from richSitemapSet', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(),
+      hasSitemap: alwaysSitemap,
+    })
+    const warn = findings.find((f) => f.slug === 'foo' && f.msg.includes('permanently unreachable'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('TENANTS_WITH_RICH_SITEMAP')
+  })
+
+  it('does not flag when the slug IS in richSitemapSet (that pairing is Drift Q\'s territory)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(['foo']),
+      hasSitemap: alwaysSitemap,
+    })
+    expect(findings.some((f) => f.msg.includes('permanently unreachable'))).toBe(false)
+  })
+
+  it('does not flag when hasSitemap says the file does not exist', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(),
+      hasSitemap: neverSitemap,
+    })
+    expect(findings.some((f) => f.msg.includes('permanently unreachable'))).toBe(false)
+  })
+
+  it('is skipped entirely when hasSitemap is omitted, even though Drift Q\'s own default is always-true', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(),
+    })
+    expect(findings.some((f) => f.msg.includes('permanently unreachable'))).toBe(false)
+  })
+
+  it('is skipped entirely when bespokeSet is empty', () => {
+    const tenants: never[] = []
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      richSitemapSet: new Set(),
+      hasSitemap: alwaysSitemap,
+    })
+    expect(findings.some((f) => f.msg.includes('permanently unreachable'))).toBe(false)
+  })
+})
+
 describe('computeFindings — Drift R (tenant status gap between reconcile scope and middleware NON_SERVING_STATUSES)', () => {
   it("CRITs a status='pending' tenant with a live domain (out of scope here, but middleware still serves it)", () => {
     const findings: Finding[] = computeFindings({
