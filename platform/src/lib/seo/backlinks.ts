@@ -115,6 +115,8 @@ export interface TenantFleetRow {
   phone: string | null
   websiteUrl: string | null
   industry: IndustryKey
+  /** True when tenants.google_business already has a location on file (dashboard/google OAuth connect). */
+  googleBusinessConnected: boolean
 }
 
 const normDomain = (raw: string): string =>
@@ -149,7 +151,7 @@ export async function loadActiveFleet(): Promise<TenantFleetRow[]> {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id,name,phone,website_url,industry')
+    .select('id,name,phone,website_url,industry,google_business')
     .in('id', [...byTenant.keys()])
 
   return (tenants ?? []).map((t): TenantFleetRow => ({
@@ -159,6 +161,7 @@ export async function loadActiveFleet(): Promise<TenantFleetRow[]> {
     phone: (t.phone as string) || null,
     websiteUrl: (t.website_url as string) || null,
     industry: mapIndustry(t.industry as string | null | undefined),
+    googleBusinessConnected: Boolean((t.google_business as { location_name?: string } | null)?.location_name),
   })).filter((t) => t.name && t.domain)
 }
 
@@ -253,6 +256,13 @@ export interface CitationListing {
   website: string
   /** These fleets operate as service-area businesses — no public storefront address is claimed. */
   listingType: 'sab'
+  /**
+   * Ordered, source-specific instructions for the human who actually submits
+   * this listing. Populated by manualStepsFor() — see that function's header
+   * comment for why every directory in CITATION_SOURCES ends up here rather
+   * than behind an auto-submit call.
+   */
+  manualSteps: string[]
 }
 
 export function buildCitationListing(tenant: TenantFleetRow): CitationListing {
@@ -268,7 +278,62 @@ export function buildCitationListing(tenant: TenantFleetRow): CitationListing {
     phone: tenant.phone,
     website: tenant.websiteUrl || `https://www.${tenant.domain}`,
     listingType: 'sab',
+    // Source-specific — filled in per-row by manualStepsFor() once the target
+    // directory is known. This canonical listing has no single directory yet.
+    manualSteps: [],
   }
+}
+
+// ---------------------------------------------------------------------------
+// Execution-mechanism research (why manual steps, not an auto-submit call):
+// every source in CITATION_SOURCES was checked for a documented public API
+// that a third party (us) could call to create a NEW business listing on a
+// tenant's behalf without that tenant's own authenticated account on the
+// platform. None exists — Google, Bing, Apple, Meta, Yelp, BBB, and every
+// trade directory here (Angi/HomeAdvisor/Thumbtack/Porch/Houzz/BuildZoom/
+// StyleSeat) gate listing creation behind owner-verification (email, phone/
+// SMS, mailed postcard, or manual vetting) specifically to prevent this exact
+// kind of third-party automated listing creation — it's an anti-spam control,
+// not a gap in their API surface. See deploy-prep/ research doc for the
+// per-source pass.
+//
+// The one real exception: Google Business Profile. This app already runs a
+// legitimate per-tenant OAuth flow (business.manage scope, /api/google/auth)
+// used today for review sync + posts (src/lib/google.ts, google-posts.ts). If
+// a tenant has already connected it, tenants.google_business.location_name is
+// set — proposeCitationsForTenant() below uses that to skip re-proposing a
+// listing that already exists rather than nagging the reviewer forever. That
+// OAuth connection still can't *create and verify* a brand-new, not-yet-
+// existing listing end-to-end (Google requires its own verification step for
+// new locations), so it doesn't turn this into a submit button — it turns off
+// a false-positive proposal using data we already legitimately hold.
+export function manualStepsFor(source: CitationSource, tenant: TenantFleetRow, listing: CitationListing): string[] {
+  if (source.key === 'bing_places' && tenant.googleBusinessConnected) {
+    return [
+      `Open ${source.url} and sign in (or create a free Microsoft account).`,
+      `Choose "Import from Google" — ${tenant.name} already has a connected Google Business Profile, so Bing can pull the NAP data directly instead of retyping it.`,
+      'Review the imported fields against the listing below, then submit for verification.',
+      `Category: ${listing.primaryCategory} · Phone: ${listing.phone ?? 'none on file'} · Website: ${listing.website}`,
+    ]
+  }
+
+  const steps: string[] = [
+    `Open ${source.url} and search for "${listing.businessName}" — claim the existing listing if the platform already has one instead of creating a duplicate.`,
+    `If none exists, start ${source.submissionMethod === 'manual_review' ? 'the pro application' : 'a free business profile'}.`,
+    `Enter exactly: category "${listing.primaryCategory}", phone ${listing.phone ?? '(none on file — leave blank)'}, website ${listing.website}.`,
+    `Paste this description as-is — it already passed the safety gate, don't add claims while retyping it: "${listing.description}"`,
+  ]
+  if (source.appliesTo !== 'all') {
+    steps.push('Have a business license number or proof of insurance ready — trade directories commonly ask for one during signup.')
+  }
+  if (source.submissionMethod === 'self_serve_paid_upsell') {
+    steps.push('Stop after the free profile step — do not purchase leads, ads, or an enhanced-placement upsell.')
+  }
+  if (source.key === 'bbb') {
+    steps.push('This creates a free basic profile only. Do not describe the business as "BBB accredited" unless it later completes BBB\'s separate paid accreditation review.')
+  }
+  steps.push('Complete whichever ownership-verification step the platform requires (email link, phone/SMS code, or mailed postcard). Every directory in this catalog gates activation behind owner verification — that step cannot be automated by a third party.')
+  return steps
 }
 
 // ---------------------------------------------------------------------------
@@ -340,7 +405,11 @@ async function proposeCitationsForTenant(tenant: TenantFleetRow): Promise<number
   })
   if (!safety.pass) return 0
 
-  const sources = citationSourcesFor(tenant.industry).filter((s) => !actioned.has(s.key))
+  const sources = citationSourcesFor(tenant.industry)
+    .filter((s) => !actioned.has(s.key))
+    // Already connected via OAuth (src/lib/google.ts) — a listing already
+    // exists, so re-proposing it would just nag the reviewer forever.
+    .filter((s) => !(s.key === 'google_business_profile' && tenant.googleBusinessConnected))
   if (!sources.length) return 0
 
   await supabaseAdmin.from(TABLE).delete().eq('tenant_id', tenant.tenant_id).eq('kind', 'citation').eq('status', 'proposed')
@@ -353,7 +422,7 @@ async function proposeCitationsForTenant(tenant: TenantFleetRow): Promise<number
     source_url: s.url,
     category: tenant.industry,
     status: 'proposed',
-    listing,
+    listing: { ...listing, manualSteps: manualStepsFor(s, tenant, listing) },
     rationale: `${s.listingType === 'sab' ? 'Service-area' : 'General'} directory listing on ${s.name}. ${s.notes}`,
     safety,
   }))

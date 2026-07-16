@@ -10,7 +10,15 @@ import type { IndustryKey } from '@/lib/industry-presets'
  */
 
 type TenantDomainRow = { domain: string; tenant_id: string }
-type TenantRow = { id: string; name: string; phone: string | null; website_url: string | null; industry: string | null; domain?: string | null }
+type TenantRow = {
+  id: string
+  name: string
+  phone: string | null
+  website_url: string | null
+  industry: string | null
+  domain?: string | null
+  google_business?: { location_name?: string } | null
+}
 type BacklinkRow = { tenant_id: string; kind: string; source_key: string; status: string; [k: string]: unknown }
 
 const TABLE = 'seo_backlink_opportunities'
@@ -90,6 +98,7 @@ import {
   buildCitationListing,
   generateBacklinkProposals,
   loadActiveFleet,
+  manualStepsFor,
   type TenantFleetRow,
 } from './backlinks'
 
@@ -159,6 +168,26 @@ describe('loadActiveFleet()', () => {
 
     expect(byId.get('t4')).toBe('covered.com')
     expect(byId.get('t5')).toBe('fallback.com')
+  })
+
+  it('flags googleBusinessConnected true only when tenants.google_business has a location_name', async () => {
+    tenantDomainRows = [
+      { domain: 'connected.com', tenant_id: 't6' },
+      { domain: 'unconnected.com', tenant_id: 't7' },
+      { domain: 'empty-object.com', tenant_id: 't8' },
+    ]
+    tenantRows = [
+      { id: 't6', name: 'Connected Co', phone: null, website_url: null, industry: 'hvac', google_business: { location_name: 'locations/123' } },
+      { id: 't7', name: 'Unconnected Co', phone: null, website_url: null, industry: 'hvac', google_business: null },
+      { id: 't8', name: 'Empty Object Co', phone: null, website_url: null, industry: 'hvac', google_business: {} },
+    ]
+
+    const fleet = await loadActiveFleet()
+    const byId = new Map(fleet.map((t) => [t.tenant_id, t.googleBusinessConnected]))
+
+    expect(byId.get('t6')).toBe(true)
+    expect(byId.get('t7')).toBe(false)
+    expect(byId.get('t8')).toBe(false)
   })
 })
 
@@ -248,6 +277,7 @@ describe('buildCitationListing()', () => {
     name: 'Example Towing',
     phone: '555-1212',
     websiteUrl: null,
+    googleBusinessConnected: false,
     industry: 'towing',
   }
 
@@ -273,6 +303,59 @@ describe('buildCitationListing()', () => {
       const result = evaluateBacklinkSafety({ field: 'citation_description', text: listing.description, tenantName: tenant.name })
       expect(result.pass).toBe(true)
     }
+  })
+})
+
+describe('manualStepsFor()', () => {
+  const tenant: TenantFleetRow = {
+    tenant_id: 't1',
+    domain: 'example-towing.com',
+    name: 'Example Towing',
+    phone: '555-1212',
+    websiteUrl: null,
+    industry: 'towing',
+    googleBusinessConnected: false,
+  }
+  const listing = buildCitationListing(tenant)
+
+  it('every source in the catalog produces a non-empty manual-steps checklist ending in the owner-verification note', () => {
+    for (const source of CITATION_SOURCES) {
+      const steps = manualStepsFor(source, tenant, listing)
+      expect(steps.length).toBeGreaterThan(0)
+      expect(steps.at(-1)).toContain('cannot be automated by a third party')
+    }
+  })
+
+  it('warns to stop at the free tier for paid-upsell sources', () => {
+    const angi = CITATION_SOURCES.find((s) => s.key === 'angi')!
+    const steps = manualStepsFor(angi, tenant, listing)
+    expect(steps.some((s) => s.includes('do not purchase leads'))).toBe(true)
+  })
+
+  it('does not warn about paid upsells for a free-only source', () => {
+    const gbp = CITATION_SOURCES.find((s) => s.key === 'google_business_profile')!
+    const steps = manualStepsFor(gbp, tenant, listing)
+    expect(steps.some((s) => s.includes('do not purchase leads'))).toBe(false)
+  })
+
+  it('adds a BBB-accreditation warning only for the bbb source', () => {
+    const bbb = CITATION_SOURCES.find((s) => s.key === 'bbb')!
+    const steps = manualStepsFor(bbb, tenant, listing)
+    expect(steps.some((s) => s.includes('BBB accredited'))).toBe(true)
+
+    const gbp = CITATION_SOURCES.find((s) => s.key === 'google_business_profile')!
+    expect(manualStepsFor(gbp, tenant, listing).some((s) => s.includes('BBB accredited'))).toBe(false)
+  })
+
+  it('gives Bing Places a shortcut "Import from Google" step when the tenant already connected GBP', () => {
+    const bing = CITATION_SOURCES.find((s) => s.key === 'bing_places')!
+    const connectedTenant: TenantFleetRow = { ...tenant, googleBusinessConnected: true }
+
+    const stepsConnected = manualStepsFor(bing, connectedTenant, listing)
+    expect(stepsConnected.some((s) => s.includes('Import from Google'))).toBe(true)
+
+    const stepsUnconnected = manualStepsFor(bing, tenant, listing)
+    expect(stepsUnconnected.some((s) => s.includes('Import from Google'))).toBe(false)
   })
 })
 
@@ -344,6 +427,53 @@ describe('generateBacklinkProposals()', () => {
 
     const submittedRow = backlinkRows.find((r) => r.tenant_id === 't1' && r.source_key === 'yelp_business' && r.status === 'submitted')
     expect(submittedRow?.marker).toBe('do-not-touch')
+  })
+
+  it('every proposed citation row carries a non-empty manualSteps checklist', async () => {
+    tenantDomainRows = [{ domain: 'example-towing.com', tenant_id: 't1' }]
+    tenantRows = [{ id: 't1', name: 'Example Towing', phone: '555-1212', website_url: null, industry: 'towing' }]
+
+    await generateBacklinkProposals({ limit: 10 })
+
+    const citationRows = backlinkRows.filter((r) => r.tenant_id === 't1' && r.kind === 'citation')
+    expect(citationRows.length).toBeGreaterThan(0)
+    for (const row of citationRows) {
+      const listing = row.listing as { manualSteps?: string[] }
+      expect(listing.manualSteps?.length).toBeGreaterThan(0)
+    }
+  })
+
+  it('skips proposing google_business_profile when the tenant already has a connected GBP location (closes the previously-unenforced check)', async () => {
+    tenantDomainRows = [{ domain: 'example-towing.com', tenant_id: 't1' }]
+    tenantRows = [{
+      id: 't1', name: 'Example Towing', phone: null, website_url: null, industry: 'towing',
+      google_business: { location_name: 'locations/already-connected' },
+    }]
+
+    const summary = await generateBacklinkProposals({ limit: 10 })
+
+    const citationKeys = backlinkRows.filter((r) => r.tenant_id === 't1' && r.kind === 'citation').map((r) => r.source_key)
+    expect(citationKeys).not.toContain('google_business_profile')
+    const universalCount = CITATION_SOURCES.filter((s) => s.appliesTo === 'all').length
+    expect(summary.citationProposals).toBe(universalCount - 1)
+  })
+
+  it('wrong-tenant probe: one tenant already connecting GBP never suppresses the proposal for a different, unconnected tenant', async () => {
+    tenantDomainRows = [
+      { domain: 'a-towing.com', tenant_id: 't1' },
+      { domain: 'b-towing.com', tenant_id: 't2' },
+    ]
+    tenantRows = [
+      { id: 't1', name: 'A Towing', phone: null, website_url: null, industry: 'towing', google_business: { location_name: 'locations/connected' } },
+      { id: 't2', name: 'B Towing', phone: null, website_url: null, industry: 'towing', google_business: null },
+    ]
+
+    await generateBacklinkProposals({ limit: 10 })
+
+    const t1Keys = backlinkRows.filter((r) => r.tenant_id === 't1' && r.kind === 'citation').map((r) => r.source_key)
+    const t2Keys = backlinkRows.filter((r) => r.tenant_id === 't2' && r.kind === 'citation').map((r) => r.source_key)
+    expect(t1Keys).not.toContain('google_business_profile')
+    expect(t2Keys).toContain('google_business_profile')
   })
 
   it('respects the limit and skips tenants without a name', async () => {

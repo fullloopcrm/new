@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-type CitationListing = { description: string; primaryCategory: string; website: string }
+type CitationListing = { description: string; primaryCategory: string; website: string; manualSteps?: string[] }
 type EditorialListing = { title: string; hook: string; anchorTextOptions: string[] }
 
 type Opportunity = {
@@ -110,7 +110,21 @@ export function BacklinksPanel() {
                 )}
               </div>
               {isCitation(o.kind, o.listing) ? (
-                <p className="mt-1 text-slate-700">{o.listing.description}</p>
+                <>
+                  <p className="mt-1 text-slate-700">{o.listing.description}</p>
+                  {o.listing.manualSteps && o.listing.manualSteps.length > 0 && (
+                    <details className="mt-2">
+                      <summary className="cursor-pointer select-none font-mono text-[10px] uppercase tracking-wide text-slate-400 hover:text-cyan-600">
+                        Manual submission steps ({o.listing.manualSteps.length}) — no directory here offers a safe auto-submit API
+                      </summary>
+                      <ol className="mt-1 list-decimal space-y-1 pl-4 text-xs text-slate-600">
+                        {o.listing.manualSteps.map((step, i) => (
+                          <li key={i}>{step}</li>
+                        ))}
+                      </ol>
+                    </details>
+                  )}
+                </>
               ) : (
                 <>
                   <div className="mt-1 font-medium text-slate-900">{(o.listing as EditorialListing).title}</div>
