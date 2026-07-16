@@ -2774,6 +2774,24 @@ describe('findHardcodedWwwApexDomains', () => {
     const found = findHardcodedWwwApexDomains(['const BASE = "https://www.thenycmarketingcompany.com";'], new Set())
     expect(found.size).toBe(0)
   })
+
+  it('finds a hardcoded www. form inside a layout.tsx-shaped metadata export (metadataBase/openGraph/canonical)', () => {
+    // Mirrors the real, live shape of e.g. src/app/site/consortium-nyc/layout.tsx:
+    // metadataBase, openGraph.url, and alternates.canonical all hardcode the
+    // www. host even though the domain is apex-canonical — the actual <link
+    // rel="canonical"> tag and og:url shown to Google on every page, a higher-
+    // value source than sitemap.ts alone.
+    const layoutSrc = `
+      export const metadata: Metadata = {
+        metadataBase: new URL("https://www.consortiumnyc.com"),
+        openGraph: { url: "https://www.consortiumnyc.com" },
+        alternates: { canonical: "https://www.consortiumnyc.com" },
+      }
+    `
+    const found = findHardcodedWwwApexDomains([layoutSrc], apexSet)
+    expect(found.has('consortiumnyc.com')).toBe(true)
+    expect(found.size).toBe(1)
+  })
 })
 
 describe('computeFindings — Drift AB (bespoke tenant sitemap hardcodes www. for an APEX_CANONICAL_DOMAINS entry)', () => {

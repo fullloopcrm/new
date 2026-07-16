@@ -1121,8 +1121,9 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   }
 
   // Drift AB: a BESPOKE_SITE_TENANTS tenant's own canonical-URL sources
-  // (sitemap.ts, a relative-imported SITE_DOMAIN/BASE-shaped constant, or
-  // robots.ts — see findHardcodedWwwApexDomains) hardcode an absolute
+  // (sitemap.ts, a relative-imported SITE_DOMAIN/BASE-shaped constant,
+  // robots.ts, or layout.tsx's `metadata` export — see
+  // findHardcodedWwwApexDomains) hardcode an absolute
   // "https://www.<domain>" URL for a domain that IS in middleware's
   // APEX_CANONICAL_DOMAINS. That list exists specifically because www does
   // not serve cleanly on Vercel for these domains (Vercel's own alias 307s
@@ -1233,8 +1234,15 @@ async function main() {
 
   // Feeds Drift AB: for every bespoke tenant, read its own sitemap.ts (plus
   // whatever it relative-imports one hop deep — e.g. a sibling _lib/siteData.ts
-  // re-exporting SITE_DOMAIN) and robots.ts, then scan those sources for a
-  // hardcoded www. form of an APEX_CANONICAL_DOMAINS entry.
+  // re-exporting SITE_DOMAIN), robots.ts, AND layout.tsx, then scan those
+  // sources for a hardcoded www. form of an APEX_CANONICAL_DOMAINS entry.
+  // layout.tsx is the highest-value source of the three: its `metadata`
+  // export is what actually emits the <link rel="canonical"> tag and
+  // openGraph/twitter url on every single page render — the literal signal
+  // Google uses to pick a canonical host — whereas sitemap.ts only affects
+  // sitemap.xml entries. A tenant could fix its sitemap.ts (clearing this
+  // check) while its layout.tsx still hardcodes the non-canonical www host
+  // on every page; scanning layout.tsx directly closes that blind spot.
   const wwwApexDomainsBySlug = new Map()
   if (apexCanonicalSet.size) {
     for (const slug of bespokeSet) {
@@ -1248,6 +1256,8 @@ async function main() {
       }
       const robotsPath = join(dir, 'robots.ts')
       if (existsSync(robotsPath)) sources.push(readFileSync(robotsPath, 'utf8'))
+      const layoutPath = join(dir, 'layout.tsx')
+      if (existsSync(layoutPath)) sources.push(readFileSync(layoutPath, 'utf8'))
       if (sitemapSrc) {
         for (const rel of parseRelativeImportPaths(sitemapSrc)) {
           const base = join(dir, rel)
