@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { generateSignerToken, isEditableStatus } from '@/lib/documents'
+import { generateSignerToken, isEditableStatus, verifyStillDraft } from '@/lib/documents'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -70,6 +70,16 @@ export async function POST(request: Request, { params }: Params) {
       .select('*')
       .single()
     if (error) throw error
+
+    // send() flipping draft->sent concurrently between the isEditableStatus
+    // check above and this insert would otherwise add a signer who never
+    // gets notified -- finalizeDocument's every(s.status==='signed') check
+    // can then never pass, stranding the document in 'in_progress' forever.
+    if (!(await verifyStillDraft(tenantId, id))) {
+      await supabaseAdmin.from('document_signers').delete().eq('id', data.id)
+      return NextResponse.json({ error: 'Document was sent concurrently' }, { status: 409 })
+    }
+
     return NextResponse.json({ signer: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

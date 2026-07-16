@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { isEditableStatus, FIELD_TYPES, type FieldType } from '@/lib/documents'
+import { isEditableStatus, verifyStillDraft, FIELD_TYPES, type FieldType } from '@/lib/documents'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -96,6 +96,12 @@ export async function POST(request: Request, { params }: Params) {
       .insert({ ...normalized, tenant_id: tenantId, document_id: id })
       .select('*').single()
     if (error) throw error
+
+    if (!(await verifyStillDraft(tenantId, id))) {
+      await supabaseAdmin.from('document_fields').delete().eq('id', data.id)
+      return NextResponse.json({ error: 'Document was sent concurrently' }, { status: 409 })
+    }
+
     return NextResponse.json({ field: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -145,6 +151,14 @@ export async function PUT(request: Request, { params }: Params) {
       }
     }
 
+    // Snapshot for rollback -- if send() races us below, we restore exactly
+    // what was here rather than leaving an already-sent doc's fields deleted.
+    const { data: priorFields } = await supabaseAdmin
+      .from('document_fields')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('document_id', id)
+
     await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
     if (normalized.length > 0) {
       const { error } = await supabaseAdmin
@@ -152,6 +166,15 @@ export async function PUT(request: Request, { params }: Params) {
         .insert(normalized.map(n => ({ ...n, tenant_id: tenantId, document_id: id })))
       if (error) throw error
     }
+
+    if (!(await verifyStillDraft(tenantId, id))) {
+      await supabaseAdmin.from('document_fields').delete().eq('tenant_id', tenantId).eq('document_id', id)
+      if (priorFields && priorFields.length > 0) {
+        await supabaseAdmin.from('document_fields').insert(priorFields)
+      }
+      return NextResponse.json({ error: 'Document was sent concurrently' }, { status: 409 })
+    }
+
     return NextResponse.json({ ok: true, count: normalized.length })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

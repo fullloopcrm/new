@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { isEditableStatus } from '@/lib/documents'
+import { isEditableStatus, verifyStillDraft } from '@/lib/documents'
 
 type Params = { params: Promise<{ id: string; signerId: string }> }
 
@@ -36,6 +36,17 @@ export async function PATCH(request: Request, { params }: Params) {
       if (k in body) updates[k] = body[k]
     }
 
+    // Snapshot for rollback -- if send() races us below, we restore exactly
+    // what was here rather than leaving an already-sent doc's signer edited.
+    const { data: before } = await supabaseAdmin
+      .from('document_signers')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('id', signerId)
+      .eq('document_id', id)
+      .maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Signer not found' }, { status: 404 })
+
     const { data, error } = await supabaseAdmin
       .from('document_signers')
       .update(updates)
@@ -45,6 +56,14 @@ export async function PATCH(request: Request, { params }: Params) {
       .select('*')
       .single()
     if (error) throw error
+
+    if (!(await verifyStillDraft(tenantId, id))) {
+      const restore: Record<string, unknown> = {}
+      for (const k of Object.keys(updates)) restore[k] = before[k]
+      await supabaseAdmin.from('document_signers').update(restore).eq('id', signerId)
+      return NextResponse.json({ error: 'Document was sent concurrently' }, { status: 409 })
+    }
+
     return NextResponse.json({ signer: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -61,6 +80,19 @@ export async function DELETE(_request: Request, { params }: Params) {
     const check = await requireDraft(tenantId, id)
     if (check) return NextResponse.json({ error: check.error }, { status: check.status })
 
+    // Snapshot for rollback -- if send() races us below, re-insert this
+    // signer instead of letting a just-invited signer's row silently
+    // disappear (their public link would 404, and the document could
+    // complete without the consent it was sent out to collect).
+    const { data: before } = await supabaseAdmin
+      .from('document_signers')
+      .select('*')
+      .eq('tenant_id', tenantId)
+      .eq('id', signerId)
+      .eq('document_id', id)
+      .maybeSingle()
+    if (!before) return NextResponse.json({ error: 'Signer not found' }, { status: 404 })
+
     const { error } = await supabaseAdmin
       .from('document_signers')
       .delete()
@@ -68,6 +100,12 @@ export async function DELETE(_request: Request, { params }: Params) {
       .eq('id', signerId)
       .eq('document_id', id)
     if (error) throw error
+
+    if (!(await verifyStillDraft(tenantId, id))) {
+      await supabaseAdmin.from('document_signers').insert(before)
+      return NextResponse.json({ error: 'Document was sent concurrently' }, { status: 409 })
+    }
+
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

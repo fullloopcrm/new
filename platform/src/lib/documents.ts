@@ -67,6 +67,32 @@ export function isEditableStatus(status: string): boolean {
   return status === 'draft'
 }
 
+/**
+ * Re-check that a document is still 'draft' AFTER a document_fields/
+ * document_signers write. Those child tables carry no status column of
+ * their own, so the usual "re-assert the pre-read status in the write's own
+ * WHERE" CAS pattern (used for writes directly on `documents`) can't close
+ * the race atomically here. POST /api/documents/[id]/send landing in the gap
+ * between the isEditableStatus(doc.status) check and a fields/signers write
+ * would otherwise let a field/signer get added to (or removed from) an
+ * already-sent, hash-locked, invitations-already-out document — worse,
+ * a signer added post-send never receives an invite, so finalizeDocument's
+ * `every(s => s.status === 'signed')` check can never pass and the document
+ * gets stuck in 'in_progress' forever. This is a best-effort post-write
+ * check (not a true atomic mutex), called immediately after the write so
+ * the window is as small as it can be without a DB-side transaction.
+ */
+export async function verifyStillDraft(tenantId: string, documentId: string): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('documents')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('id', documentId)
+    .eq('status', 'draft')
+    .maybeSingle()
+  return !!data
+}
+
 export function isTerminalStatus(status: string): boolean {
   return ['completed', 'declined', 'voided', 'expired'].includes(status)
 }
