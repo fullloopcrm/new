@@ -124,6 +124,19 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
           }
         }
       }
+      // Mirrors migration 2026_07_16_unique_payments_raw_email_id's partial
+      // unique index on payments(tenant_id, raw_email_id) WHERE raw_email_id
+      // IS NOT NULL -- lets email/monitor's concurrent-invocation 23505
+      // handling be exercised for real.
+      if (state.op === 'insert' && state.table === 'payments' && p.raw_email_id != null) {
+        const dup = rows.find((r) => r.tenant_id === p.tenant_id && r.raw_email_id === p.raw_email_id)
+        if (dup) {
+          return {
+            data: null,
+            error: { message: 'duplicate key value violates unique constraint on payments(tenant_id,raw_email_id)', code: '23505' },
+          }
+        }
+      }
       // Mirrors migration 066's unique index on referral_commissions(booking_id)
       // WHERE booking_id IS NOT NULL -- lets the POST /api/referral-commissions
       // 23505 handling be exercised for real.
@@ -186,7 +199,7 @@ export function makeLedgerSupabaseFake(h: FakeStoreHandle) {
         gt: (c: string, v: unknown) => { state.gts.push({ col: c, val: v }); return chain },
         gte: (c: string, v: unknown) => { state.gtes.push({ col: c, val: v }); return chain },
         lt: (c: string, v: unknown) => { state.lts.push({ col: c, val: v }); return chain },
-        not: () => chain, order: () => chain, range: () => chain, limit: () => chain,
+        not: () => chain, order: () => chain, range: () => chain, limit: () => chain, ilike: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),
         maybeSingle: () => Promise.resolve(runQuery(h, state, 'maybeSingle')),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>

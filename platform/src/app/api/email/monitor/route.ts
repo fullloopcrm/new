@@ -88,7 +88,7 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
     // Match to booking
     const matchResult = await matchPaymentToBooking(tenant, payment)
     if (matchResult.bookingId && matchResult.clientId) {
-      await supabaseAdmin.from('payments').insert({
+      const { error: paymentInsertErr } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenant.id,
         booking_id: matchResult.bookingId,
         client_id: matchResult.clientId,
@@ -99,6 +99,23 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
         raw_email_id: payment.referenceId,
         received_at: payment.date.toISOString(),
       })
+
+      // Duplicate raw_email_id -- a concurrent invocation of this endpoint
+      // (overlapping cron fires, or a manual re-trigger racing the scheduled
+      // one) already recorded this exact email as a payment. The select-based
+      // dup check above only catches the sequential case; this DB-level guard
+      // (see migration 2026_07_16_unique_payments_raw_email_id.sql) catches
+      // the concurrent one. Treat as an idempotent no-op -- skip the booking
+      // update/SMS/notification, which the winning call already did.
+      if (paymentInsertErr?.code === '23505') {
+        await markEmailRead(cfg, email.uid).catch(() => {})
+        continue
+      }
+      if (paymentInsertErr) {
+        errors.push(`payment insert: ${paymentInsertErr.message}`)
+        continue
+      }
+
       await supabaseAdmin
         .from('bookings')
         .update({
