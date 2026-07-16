@@ -94,7 +94,14 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
     }
 
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-    if ('status' in body) patch.status = body.status
+    if ('status' in body) {
+      patch.status = body.status
+      // Compliance audit trail: stamp the review moment when a document is
+      // actually adjudicated. Not reviewed_by too -- the caller's userId can be
+      // 'admin' or a Clerk id, neither of which fits the UUID-typed column
+      // (same constraint hr_notes.ts documents for author_id).
+      if (body.status === 'approved' || body.status === 'rejected') patch.reviewed_at = new Date().toISOString()
+    }
     if ('file_url' in body) patch.file_url = body.file_url?.trim() || null
     if ('label' in body) patch.label = body.label?.trim() || null
     if ('issued_on' in body) patch.issued_on = body.issued_on || null
