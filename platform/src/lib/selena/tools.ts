@@ -1257,7 +1257,7 @@ async function handleCreateDeal(input: { client_id: string; value_dollars?: numb
       tenant_id: tid,
       client_id: input.client_id,
       value: input.value_dollars ? Math.round(input.value_dollars * 100) : null,
-      stage: 'active',
+      stage: 'new',
       follow_up_at: input.follow_up_at || null,
       follow_up_note: input.note || null,
     })

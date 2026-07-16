@@ -27,14 +27,15 @@ export async function GET(request: Request) {
     if (error) throw error
 
     const stageKeys = PIPELINE_STAGES.map(s => s.value)
+    const defaultStage = PIPELINE_STAGES[0].value
     const byStage: Record<string, typeof deals> = {}
     for (const s of stageKeys) byStage[s] = []
     for (const d of deals || []) {
-      const stage = (d.stage as string) || 'lead'
+      const stage = (d.stage as string) || defaultStage
       if (stageKeys.includes(stage as (typeof PIPELINE_STAGES)[number]['value'])) {
         byStage[stage].push(d)
       } else {
-        byStage['lead'].push(d) // normalize unknown stages
+        byStage[defaultStage].push(d) // normalize unknown stages
       }
     }
 
