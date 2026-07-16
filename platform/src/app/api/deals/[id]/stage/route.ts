@@ -52,14 +52,31 @@ export async function POST(request: Request, { params }: Params) {
       if (wasDefaultProb) updates.probability = newMeta.defaultProbability
     }
 
+    // Atomic claim: only the request whose UPDATE actually flips `stage`
+    // away from `to` may log the stage_change activity or kick off
+    // 'sold'-triggered job creation. The `existing.stage === to` check above
+    // reads the prior stage via a SEPARATE SELECT, so it only catches a
+    // SEQUENTIAL re-POST — two truly concurrent POSTs moving the same deal
+    // to the same stage (double-click "Mark Sold" on the pipeline card, a
+    // kanban drag firing twice) both read the prior stage before either
+    // write landed and both concluded "this is a real move," each inserting
+    // a duplicate stage_change activity and attempting convertSaleToJob
+    // (itself already race-safe on its own quote claim, but redundant and
+    // noisy otherwise). `neq('stage', to)` in the WHERE clause means only
+    // the request that actually flips the row can match it; the race
+    // loser's UPDATE matches 0 rows and is treated the same as the
+    // already-unchanged case. Mirrors the atomic-claim fix already applied
+    // to jobs/bookings status transitions this session.
     const { data: updated, error } = await supabaseAdmin
       .from('deals')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .neq('stage', to)
       .select('*, clients(id, name, email, phone)')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!updated) return NextResponse.json({ ok: true, unchanged: true })
 
     await supabaseAdmin.from('deal_activities').insert({
       tenant_id: tenantId,
