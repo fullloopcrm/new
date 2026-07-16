@@ -271,6 +271,27 @@ export function parseRobotsMainHostsSet(robotsSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse KILLED_ROUTES out of the middleware source. Routes killed during
+// the 2026-05-03 teaser pivot — isKilledRoute() 410s them on the main host
+// (see MAIN_HOSTS above). Currently a single entry ('/apply'), but it is an
+// array, not a constant — see Drift AA below for the second hand-maintained
+// copy of it.
+export function parseKilledRoutes(middlewareSource) {
+  const block = middlewareSource.match(/KILLED_ROUTES\s*=\s*\[([\s\S]*?)\]/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
+// --- parse src/app/robots.ts's own hardcoded copy of KILLED_ROUTES out of its
+// `if (isMainHost) { ... }` block. Exactly like parseRobotsMainHostsSet above,
+// robots.ts can't import middleware.ts's KILLED_ROUTES const at build time, so
+// it re-hardcodes each killed route as its own disallow.push(...) call inside
+// that block, with a comment explaining the teaser-pivot origin but nothing
+// enforcing it stays in sync. See Drift AA below.
+export function parseRobotsKilledRoutes(robotsSource) {
+  const block = robotsSource.match(/if\s*\(isMainHost\)\s*\{([\s\S]*?)\n\s*\}/)
+  return new Set(block ? [...block[1].matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
+}
+
 // --- parse ROOT_SITE_TENANTS out of the middleware source. This is the legacy
 // "no /site/<slug> subtree, serve the shared /site root" set — middleware's
 // siteBase ternary checks it FIRST: `ROOT_SITE_TENANTS.has(slug) ? '/site' :
@@ -436,9 +457,16 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  own hand-maintained copy of middleware's MAIN_HOSTS
  *                                  (see parseRobotsMainHostsSet). Feeds Drift Z ONLY.
  *                                  Pass an empty Set (default) to skip.
+ * @param {Set}      [input.killedRoutesSet]  routes from src/middleware.ts's
+ *                                  KILLED_ROUTES (see parseKilledRoutes). Feeds
+ *                                  Drift AA ONLY. Pass an empty Set (default) to skip.
+ * @param {Set}      [input.robotsKilledRoutesSet]  routes from src/app/robots.ts's
+ *                                  own hand-maintained copy of KILLED_ROUTES (see
+ *                                  parseRobotsKilledRoutes). Feeds Drift AA ONLY.
+ *                                  Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -962,6 +990,43 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AA: src/app/robots.ts's own hardcoded copy of middleware's
+  // KILLED_ROUTES (see parseRobotsKilledRoutes) has drifted from the real
+  // list. Same shape of bug as Drift Z (MAIN_HOSTS), one const over: robots.ts
+  // can't import middleware.ts's KILLED_ROUTES array at build time, so inside
+  // its own `if (isMainHost)` block it re-hardcodes each route as a literal
+  // disallow.push(...) call, with a comment tying it to the same 2026-05-03
+  // teaser pivot but nothing enforcing the two stay in sync. Currently both
+  // sides carry exactly one entry ('/apply'), so there is no LIVE drift today
+  // — this guards the moment a second route is added to KILLED_ROUTES (or
+  // removed) without the matching robots.ts edit. A route present in
+  // middleware's real KILLED_ROUTES but missing from robots.ts's copy means
+  // middleware still returns 410 for it on the main host while robots.txt
+  // keeps telling crawlers it's crawlable. The reverse (present in robots.ts's
+  // copy but not middleware's real list) disallows a route in robots.txt that
+  // middleware no longer kills, hiding a live, crawlable page from indexing
+  // for no routing reason.
+  if (killedRoutesSet.size || robotsKilledRoutesSet.size) {
+    for (const route of killedRoutesSet) {
+      if (!robotsKilledRoutesSet.has(route)) {
+        add(
+          'WARN',
+          route,
+          `in middleware's KILLED_ROUTES but MISSING from src/app/robots.ts's own hardcoded copy of it (isMainHost block) -> middleware's isKilledRoute() still returns 410 for '${route}' on the main host, but robots.txt never disallows it there -- crawlers are told a 410'ing route is crawlable`,
+        )
+      }
+    }
+    for (const route of robotsKilledRoutesSet) {
+      if (!killedRoutesSet.has(route)) {
+        add(
+          'WARN',
+          route,
+          `in src/app/robots.ts's own hardcoded KILLED_ROUTES copy but NOT in middleware's real KILLED_ROUTES -> robots.txt disallows '${route}' on the main host even though middleware no longer 410s it there, hiding a live page from indexing for no routing reason`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1028,8 +1093,10 @@ async function main() {
   const nextConfigSiteRewrites = parseNextConfigSiteRewriteSources(nextConfigSource)
   const nextConfigRedirects = parseNextConfigRedirects(nextConfigSource)
   const appRootPrefixes = parseAppRootPrefixes(middlewareSource)
+  const killedRoutesSet = parseKilledRoutes(middlewareSource)
   const robotsSource = readFileSync(join(REPO, 'src', 'app', 'robots.ts'), 'utf8')
   const robotsMainHostsSet = parseRobotsMainHostsSet(robotsSource)
+  const robotsKilledRoutesSet = parseRobotsKilledRoutes(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -1066,7 +1133,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

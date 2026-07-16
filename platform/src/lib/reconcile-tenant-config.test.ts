@@ -10,6 +10,8 @@ import {
   parseNonServingStatuses,
   parseMainHostsSet,
   parseRobotsMainHostsSet,
+  parseKilledRoutes,
+  parseRobotsKilledRoutes,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
@@ -2500,6 +2502,104 @@ describe('computeFindings — Drift Z (robots.ts MAIN_HOSTS copy drifted from mi
       hasHome: alwaysHome,
       resolvableSlugs: null,
       mainHostsSet: new Set(['homeservicesbusinesscrm.com', 'fullloopcrm.com']),
+    })
+    expect(findings).toHaveLength(0)
+  })
+})
+
+describe('parseKilledRoutes', () => {
+  it('extracts the routes from a middleware.ts KILLED_ROUTES declaration', () => {
+    const src = `
+      const KILLED_ROUTES = [
+        '/apply',
+        "/some-other-route",
+      ]
+    `
+    const set = parseKilledRoutes(src)
+    expect(set.has('/apply')).toBe(true)
+    expect(set.has('/some-other-route')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseKilledRoutes('export default {}').size).toBe(0)
+  })
+})
+
+describe('parseRobotsKilledRoutes', () => {
+  it('extracts disallow.push(...) routes from the isMainHost block', () => {
+    const src = `
+      if (!JOIN_CRAWLABLE_HOSTS.has(host)) {
+        disallow.push('/join/')
+      }
+      if (isMainHost) {
+        disallow.push('/apply')
+      }
+    `
+    const set = parseRobotsKilledRoutes(src)
+    expect(set.has('/apply')).toBe(true)
+    expect(set.has('/join/')).toBe(false)
+    expect(set.size).toBe(1)
+  })
+
+  it('returns an empty set when there is no isMainHost block', () => {
+    expect(parseRobotsKilledRoutes('export default {}').size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AA (robots.ts KILLED_ROUTES copy drifted from middleware KILLED_ROUTES)', () => {
+  it('warns when a route is in middleware KILLED_ROUTES but missing from robots.ts\'s copy', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply', '/new-killed-route']),
+      robotsKilledRoutesSet: new Set(['/apply']),
+    })
+    const warn = findings.find((f) => f.slug === '/new-killed-route')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain("MISSING from src/app/robots.ts")
+  })
+
+  it('warns when a route is in robots.ts\'s copy but not in the real middleware KILLED_ROUTES', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply']),
+      robotsKilledRoutesSet: new Set(['/apply', '/stale-route']),
+    })
+    const warn = findings.find((f) => f.slug === '/stale-route')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain("NOT in middleware's real KILLED_ROUTES")
+  })
+
+  it('does not warn when both copies agree', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      killedRoutesSet: new Set(['/apply']),
+      robotsKilledRoutesSet: new Set(['/apply']),
+    })
+    expect(findings).toHaveLength(0)
+  })
+
+  it('is skipped entirely when both sets are empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
     })
     expect(findings).toHaveLength(0)
   })
