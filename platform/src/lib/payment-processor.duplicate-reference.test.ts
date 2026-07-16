@@ -43,11 +43,17 @@ vi.mock('./supabase', () => {
     let didUpdate = false
     let updatePayload: Row = {}
     let insertPayload: Row | null = null
+    let isConditionalClaim = false
     const c: Record<string, unknown> = {
       select: () => c,
       update: (p: Row) => { didUpdate = true; updatePayload = p; return c },
       insert: (p: Row) => { insertPayload = p; return c },
       eq: () => c,
+      // The atomic-claim UPDATE in payment-processor.ts chains .or(...) before
+      // being awaited directly (see `then` below) — mark this chain instance
+      // as the claim so `then` can decide win/lose against bookingRow's
+      // current team_member_paid, mirroring Postgres row-lock semantics.
+      or: () => { isConditionalClaim = true; return c },
       single: async () => {
         if (table === 'payments' && insertPayload) {
           const key = `${insertPayload.tenant_id}:${insertPayload.booking_id}:${insertPayload.reference_id}`
@@ -74,6 +80,13 @@ vi.mock('./supabase', () => {
         // read-committed semantics for the race we're proving.
         if (table === 'payments') {
           return res({ data: paymentInserts.map((p) => ({ amount_cents: p.amount_cents })), error: null })
+        }
+        // Atomic-claim UPDATE on bookings (.or(...).select(), awaited
+        // directly, no .single()): this mock never persists team_member_paid
+        // back onto bookingRow, so the claim always wins here — a distinct
+        // scenario is covered by payment-processor.double-payout.test.ts.
+        if (isConditionalClaim && didUpdate && table === 'bookings') {
+          return res({ data: [{ id: bookingRow.id }], error: null })
         }
         return res({ data: [], error: null })
       },

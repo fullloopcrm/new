@@ -464,6 +464,27 @@ export async function POST(request: Request) {
       // genuinely distinct session from re-triggering a real Stripe transfer
       // to the cleaner for a job already paid out.
       if (tm?.stripe_account_id && booking.team_member_id && !(booking as { team_member_paid?: boolean | null }).team_member_paid) {
+        // Atomic claim: `booking` above is a snapshot fetched before the
+        // payments insert-guard, so `!booking.team_member_paid` is stale by
+        // the time we get here. Two concurrent checkout.session.completed
+        // deliveries for the same booking under DIFFERENT session ids (a
+        // reused static Payment Link paid twice, or a fresh session created
+        // for an already-paid booking) both pass that stale read. This
+        // conditional UPDATE is the real gate — Postgres row locking means
+        // only one concurrent caller's UPDATE can match
+        // `team_member_paid = false`; the loser gets 0 rows and must not
+        // transfer. Claim BEFORE calling Stripe, not after.
+        const { data: claimRows } = await supabaseAdmin
+          .from('bookings')
+          .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
+          .eq('id', bookingId)
+          .eq('tenant_id', tenantId)
+          .or('team_member_paid.is.null,team_member_paid.eq.false')
+          .select('id')
+
+        if (!claimRows || claimRows.length === 0) {
+          console.warn(`[stripe] concurrent payout claim lost for booking ${bookingId} — skipping duplicate transfer`)
+        } else {
         try {
           // Cleaner is paid THEIR rate × hours (NYC Maid parity) — NOT the
           // client's total. Prefer the breakdown stored at closeout/recap
@@ -478,12 +499,21 @@ export async function POST(request: Request) {
           const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
+          // Idempotency key scoped to (bookingId, session.id): an ambiguous
+          // network failure (Stripe processes the transfer but the response
+          // never reaches us) would otherwise release the claim above and let
+          // a later retry for this SAME session fire a genuine second
+          // transfer. A distinct session.id (reused Payment Link, fresh
+          // checkout for the same booking) still gets its own key — that's
+          // the atomic claim's job to gate, not this key's.
           const transfer = await stripe.transfers.create({
             amount: cleanerCents,
             currency: 'usd',
             destination: tm.stripe_account_id,
             transfer_group: bookingId,
             metadata: { booking_id: bookingId, tenant_id: tenantId },
+          }, {
+            idempotencyKey: `cleaner-payout:${bookingId}:${session.id}`,
           })
           // NYC Maid parity: push an INSTANT payout to the cleaner's bank so
           // funds land immediately, not on the standard Connect schedule. The
@@ -491,7 +521,7 @@ export async function POST(request: Request) {
           if (isNycMaid(tenantId)) {
             await stripe.payouts.create(
               { amount: cleanerCents, currency: 'usd', method: 'instant' },
-              { stripeAccount: tm.stripe_account_id },
+              { stripeAccount: tm.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${session.id}` },
             ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
           }
           const { data: payoutRow } = await supabaseAdmin.from('team_member_payouts').insert({
@@ -508,14 +538,24 @@ export async function POST(request: Request) {
             postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
               .catch(err => console.error('[stripe] payout ledger post failed:', err))
           }
+          // Claim already set team_member_paid=true; just record the amount.
           await supabaseAdmin
             .from('bookings')
-            .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: cleanerCents })
+            .update({ team_member_pay: cleanerCents })
             .eq('id', bookingId)
             .eq('tenant_id', tenantId)
           payoutSent = true
         } catch (payoutErr) {
           console.error('[stripe] cleaner payout failed:', payoutErr)
+          // The transfer itself never landed — release the claim so a
+          // legitimate retry (or manual payout) can still pay the team
+          // member instead of permanently looking paid-out with no transfer.
+          await supabaseAdmin
+            .from('bookings')
+            .update({ team_member_paid: false, team_member_paid_at: null })
+            .eq('id', bookingId)
+            .eq('tenant_id', tenantId)
+            .then(() => {}, () => {})
           await supabaseAdmin.from('admin_tasks').insert({
             tenant_id: tenantId,
             type: 'payout_failed',
@@ -525,6 +565,7 @@ export async function POST(request: Request) {
             related_type: 'booking',
             related_id: bookingId,
           })
+        }
         }
       }
 

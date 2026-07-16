@@ -17,12 +17,17 @@ export async function GET() {
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
-    // Get completed unpaid bookings for each
+    // Get completed unpaid bookings for each. Exclude bookings already
+    // settled out-of-band (team_member_paid, e.g. a manual Zelle/cash payout
+    // recorded via /api/admin/bookings/[id]/cleaner-payout) — otherwise their
+    // hours/pay still show as pending here and a normal payroll run below
+    // double-pays the team member for work already compensated.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('team_member_id, check_in_time, check_out_time, pay_rate')
       .eq('tenant_id', tenantId)
       .in('status', ['completed'])
+      .or('team_member_paid.is.null,team_member_paid.eq.false')
 
     const payroll = (team || []).map((member) => {
       const memberBookings = (bookings || []).filter((b) => b.team_member_id === member.id)

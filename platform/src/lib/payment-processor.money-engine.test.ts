@@ -52,6 +52,10 @@ vi.mock('./supabase', () => {
         return c
       },
       eq: () => c,
+      // Pass-through: this mock doesn't model concurrent claim contention,
+      // only that the atomic-claim UPDATE (which chains .or() before being
+      // awaited directly, no .single()) succeeds — see the `then` branch below.
+      or: () => c,
       single: async () => {
         if (didUpdate && table === 'bookings') { bookingUpdates.push({ ...updatePayload }); return { data: null, error: null } }
         if (table === 'bookings') return { data: bookingRow, error: null }
@@ -62,6 +66,10 @@ vi.mock('./supabase', () => {
       },
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (table === 'payments') return res({ data: priorPayments, error: null })
+        // The atomic-claim UPDATE on bookings (.update().eq().eq().or().select())
+        // is awaited directly, not via .single() — return a non-empty row so
+        // the claim "wins" (no concurrent contention modeled in this file).
+        if (didUpdate && table === 'bookings') { bookingUpdates.push({ ...updatePayload }); return res({ data: [{ id: bookingRow.id }], error: null }) }
         return res({ data: [], error: null })
       },
     }

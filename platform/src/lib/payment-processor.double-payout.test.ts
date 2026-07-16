@@ -39,11 +39,19 @@ vi.mock('./supabase', () => {
     let didUpdate = false
     let updatePayload: Row = {}
     let insertPayload: Row | null = null
+    let isConditionalClaim = false
     const c: Record<string, unknown> = {
       select: () => c,
       update: (p: Row) => { didUpdate = true; updatePayload = p; return c },
       insert: (p: Row) => { insertPayload = p; return c },
       eq: () => c,
+      // The atomic-claim UPDATE in payment-processor.ts chains .or(...) before
+      // being awaited directly (see `then` below). Marking it lets `then`
+      // decide win/lose against the currently-persisted bookingRow.team_member_paid,
+      // mirroring Postgres row-lock semantics — this is the exact mechanism
+      // under test: the SECOND call's claim must lose once the first
+      // call's claim has already committed team_member_paid: true.
+      or: () => { isConditionalClaim = true; return c },
       single: async () => {
         if (table === 'payments' && insertPayload) {
           const key = `${insertPayload.tenant_id}:${insertPayload.booking_id}:${insertPayload.reference_id}`
@@ -76,6 +84,15 @@ vi.mock('./supabase', () => {
         // bookings.update(...).eq(...).eq(...) is awaited directly (no
         // .single()) in payment-processor.ts — persist it here too.
         if (didUpdate && table === 'bookings') {
+          if (isConditionalClaim) {
+            // Row-lock semantics: the claim only succeeds while
+            // team_member_paid is still false/null at the moment it runs.
+            if (bookingRow.team_member_paid) {
+              return res({ data: [], error: null })
+            }
+            bookingRow = { ...bookingRow, ...updatePayload }
+            return res({ data: [{ id: bookingRow.id }], error: null })
+          }
           bookingRow = { ...bookingRow, ...updatePayload }
         }
         return res({ data: [], error: null })

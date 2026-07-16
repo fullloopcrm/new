@@ -271,62 +271,99 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       if (tipCents > 0 && payAmountCents) payAmountCents += tipCents
 
       if (payAmountCents && payAmountCents > 0) {
-        const stripe = getStripe(tenant.stripe_api_key)
-        // Idempotency key mirrors the webhooks/stripe/route.ts payout path: a
-        // retry of this whole function (double-tap checkout, crash-then-replay)
-        // can't double-transfer to the cleaner for the same booking+reference.
-        const transfer = await stripe.transfers.create({
-          amount: payAmountCents,
-          currency: 'usd',
-          destination: teamMember.stripe_account_id,
-          description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
-          metadata: { booking_id: bookingId, tenant_id: tenantId },
-        }, {
-          idempotencyKey: `cleaner-payout:${bookingId}:${referenceId}`,
-        })
-
-        let payoutId: string | null = null
-        let isInstant = false
-        try {
-          const payout = await stripe.payouts.create(
-            { amount: payAmountCents, currency: 'usd', method: 'instant' },
-            { stripeAccount: teamMember.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${referenceId}` },
-          )
-          payoutId = payout.id
-          isInstant = true
-        } catch {
-          // standard schedule fallback — Stripe will pay on default cadence
-        }
-
-        cleanerPaidCents = payAmountCents
-
-        const { data: payoutRow, error: payoutErr } = await supabaseAdmin
-          .from('team_member_payouts')
-          .insert({
-            tenant_id: tenantId,
-            booking_id: bookingId,
-            team_member_id: booking.team_member_id,
-            amount_cents: payAmountCents - tipCents,
-            tip_cents: tipCents,
-            stripe_transfer_id: transfer.id,
-            stripe_payout_id: payoutId,
-            instant: isInstant,
-            status: 'transferred',
-            paid_at: new Date().toISOString(),
-          })
-          .select('id')
-          .single()
-        if (payoutErr) console.error('[payment-processor] payout record failed:', payoutErr)
-        if (payoutRow?.id) {
-          postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
-            .catch(err => console.error('[payment-processor] payout ledger post failed:', err))
-        }
-
-        await supabaseAdmin
+        // Atomic claim: the `!booking.team_member_paid` guard above reads a
+        // snapshot fetched at the very top of this function, long before this
+        // point. Two concurrent processPayment calls for the same booking
+        // (distinct referenceId each, e.g. a duplicate Zelle reconciliation)
+        // both pass that stale check. This conditional UPDATE is the real
+        // gate: Postgres row-level locking means only one concurrent caller's
+        // UPDATE can match the `team_member_paid = false` predicate — the
+        // loser gets 0 rows back and must not transfer. Claim BEFORE calling
+        // Stripe (not after, like the old single write at the end of this
+        // block) so the transfer itself is guarded, not just the bookkeeping.
+        const { data: claimRows } = await supabaseAdmin
           .from('bookings')
-          .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString(), team_member_pay: payAmountCents })
+          .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
           .eq('id', bookingId)
           .eq('tenant_id', tenantId)
+          .or('team_member_paid.is.null,team_member_paid.eq.false')
+          .select('id')
+
+        if (!claimRows || claimRows.length === 0) {
+          console.warn(`[payment-processor] concurrent payout claim lost for booking ${bookingId} — skipping duplicate transfer`)
+        } else {
+          const stripe = getStripe(tenant.stripe_api_key)
+          try {
+            // Idempotency key mirrors the webhooks/stripe/route.ts payout path: a
+            // retry of this whole function (double-tap checkout, crash-then-replay)
+            // can't double-transfer to the cleaner for the same booking+reference.
+            const transfer = await stripe.transfers.create({
+              amount: payAmountCents,
+              currency: 'usd',
+              destination: teamMember.stripe_account_id,
+              description: `${label} payment for ${clientName} service${tipCents > 0 ? ` (includes $${tipAmount} tip)` : ''}`,
+              metadata: { booking_id: bookingId, tenant_id: tenantId },
+            }, {
+              idempotencyKey: `cleaner-payout:${bookingId}:${referenceId}`,
+            })
+
+            let payoutId: string | null = null
+            let isInstant = false
+            try {
+              const payout = await stripe.payouts.create(
+                { amount: payAmountCents, currency: 'usd', method: 'instant' },
+                { stripeAccount: teamMember.stripe_account_id, idempotencyKey: `cleaner-instant-payout:${bookingId}:${referenceId}` },
+              )
+              payoutId = payout.id
+              isInstant = true
+            } catch {
+              // standard schedule fallback — Stripe will pay on default cadence
+            }
+
+            cleanerPaidCents = payAmountCents
+
+            const { data: payoutRow, error: payoutErr } = await supabaseAdmin
+              .from('team_member_payouts')
+              .insert({
+                tenant_id: tenantId,
+                booking_id: bookingId,
+                team_member_id: booking.team_member_id,
+                amount_cents: payAmountCents - tipCents,
+                tip_cents: tipCents,
+                stripe_transfer_id: transfer.id,
+                stripe_payout_id: payoutId,
+                instant: isInstant,
+                status: 'transferred',
+                paid_at: new Date().toISOString(),
+              })
+              .select('id')
+              .single()
+            if (payoutErr) console.error('[payment-processor] payout record failed:', payoutErr)
+            if (payoutRow?.id) {
+              postPayoutToLedger({ tenantId, payoutId: payoutRow.id })
+                .catch(err => console.error('[payment-processor] payout ledger post failed:', err))
+            }
+
+            // Claim already set team_member_paid=true; just record the amount.
+            await supabaseAdmin
+              .from('bookings')
+              .update({ team_member_pay: payAmountCents })
+              .eq('id', bookingId)
+              .eq('tenant_id', tenantId)
+          } catch (transferErr) {
+            // The transfer itself never landed — release the claim so a
+            // legitimate retry (or manual payout) can still pay the team
+            // member. Without this, a transient Stripe failure would
+            // permanently mark the booking paid-out with no money sent.
+            await supabaseAdmin
+              .from('bookings')
+              .update({ team_member_paid: false, team_member_paid_at: null })
+              .eq('id', bookingId)
+              .eq('tenant_id', tenantId)
+              .then(() => {}, () => {})
+            throw transferErr
+          }
+        }
       }
     } catch (err) {
       console.error(`[payment-processor] team member auto-pay from ${label} failed:`, err)
