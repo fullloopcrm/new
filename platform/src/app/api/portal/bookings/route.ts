@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
@@ -62,6 +63,8 @@ export async function POST(request: Request) {
   // post a booking with tenant B's service_type_id.
   let serviceType = null
   let price = null
+  let hourlyRate = null
+  let durationHours = null
   if (body.service_type_id) {
     const { data: svc } = await db
       .from('service_types')
@@ -72,7 +75,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid service' }, { status: 400 })
     }
     serviceType = svc.name
+    hourlyRate = svc.default_hourly_rate
+    durationHours = svc.default_duration_hours
     price = svc.default_hourly_rate * svc.default_duration_hours * 100
+  }
+
+  // Same-day = emergency (same server-side determination as the AI/SMS
+  // create_booking tool and the generic-tenant branch of POST /api/client/book
+  // — see P11.8/P11.16/17). Until now this route had ZERO same-day pricing
+  // logic: a same-day booking through the client portal was always billed the
+  // flat service_types rate, and the row was never flagged is_emergency,
+  // regardless of the tenant's configured selena_config.emergency_rate.
+  const isEmergency = daysAhead === 0
+  if (isEmergency && durationHours != null) {
+    const { data: t } = await supabaseAdmin
+      .from('tenants')
+      .select('selena_config')
+      .eq('id', auth.tid)
+      .maybeSingle<{ selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }>()
+    const selenaConfig = t?.selena_config
+    if (selenaConfig?.emergency_available && selenaConfig.emergency_rate) {
+      hourlyRate = selenaConfig.emergency_rate
+      price = selenaConfig.emergency_rate * durationHours * 100
+    }
   }
 
   // Recurring-service discount ("save 20%"): weekly 20% off, biweekly/monthly 10% off.
@@ -92,6 +117,8 @@ export async function POST(request: Request) {
       notes: body.notes || null,
       special_instructions: body.special_instructions || null,
       price,
+      hourly_rate: hourlyRate,
+      is_emergency: isEmergency,
       recurring_type: recurringType,
       status: 'pending',
     })
