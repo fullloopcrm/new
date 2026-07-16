@@ -7,6 +7,7 @@ import {
   parseApexCanonicalSet,
   parseProtectedSlugs,
   parseRichSitemapSet,
+  parseNonServingStatuses,
   computeFindings,
   summarize,
   loadToken,
@@ -118,6 +119,23 @@ describe('parseRichSitemapSet', () => {
     expect(rich.has('rich-only')).toBe(true)
     expect(rich.has('bespoke-only')).toBe(false)
     expect(rich.size).toBe(1)
+  })
+})
+
+describe('parseNonServingStatuses', () => {
+  it('extracts the statuses from a middleware NON_SERVING_STATUSES declaration', () => {
+    const src = `
+      const NON_SERVING_STATUSES = new Set(['suspended', 'cancelled', 'deleted'])
+    `
+    const set = parseNonServingStatuses(src)
+    expect(set.has('suspended')).toBe(true)
+    expect(set.has('cancelled')).toBe(true)
+    expect(set.has('deleted')).toBe(true)
+    expect(set.size).toBe(3)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseNonServingStatuses('export const x = 1').size).toBe(0)
   })
 })
 
@@ -1624,5 +1642,86 @@ describe('computeFindings — Drift Q (TENANTS_WITH_RICH_SITEMAP entry with no s
       richSitemapSet: new Set(['foo']),
     })
     expect(findings.some((f) => f.msg.includes('TENANTS_WITH_RICH_SITEMAP'))).toBe(false)
+  })
+})
+
+describe('computeFindings — Drift R (tenant status gap between reconcile scope and middleware NON_SERVING_STATUSES)', () => {
+  it("CRITs a status='pending' tenant with a live domain (out of scope here, but middleware still serves it)", () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [], // 'foo' is out of scope — not active/live/setup
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 't1', slug: 'foo', status: 'pending', domain: 'foo.com' }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+    })
+    const crit = findings.find((f) => f.slug === 'foo' && f.msg.includes("status='pending'"))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('CRITs when the domain lives on an active tenant_domains row instead of tenants.domain', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'template', status: 'active', vercel_project: 'x', slug: 'foo' }],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 't1', slug: 'foo', status: 'pending', domain: null }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+    })
+    expect(findings.find((f) => f.slug === 'foo' && f.msg.includes("status='pending'"))).toBeDefined()
+  })
+
+  it('does not fire when the tenant has no domain anywhere (nothing for middleware to serve)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 't1', slug: 'foo', status: 'pending', domain: null }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+    })
+    expect(findings.filter((f) => f.msg.includes("status='pending'"))).toHaveLength(0)
+  })
+
+  it('does not fire when the status is in nonServingStatuses (middleware already dark)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 't1', slug: 'foo', status: 'suspended', domain: 'foo.com' }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+    })
+    expect(findings.filter((f) => f.msg.includes('status='))).toHaveLength(0)
+  })
+
+  it('does not fire when the tenant is already in scope (covered by Drift A-M)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 't1', slug: 'foo', status: 'active', domain: 'foo.com' }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+    })
+    expect(findings.filter((f) => f.msg.includes("status='active' is outside"))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when allTenants is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    expect(findings).toHaveLength(0)
   })
 })

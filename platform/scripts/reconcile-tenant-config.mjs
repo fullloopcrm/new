@@ -231,6 +231,20 @@ export function parseRichSitemapSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse NON_SERVING_STATUSES out of the middleware source. This is
+// middleware's OWN gate on which tenant statuses still serve a site
+// (tenantServesSite() — everything except this set). It is the mirror image
+// of this script's `status in ('active','live','setup')` SQL filter: the two
+// "which tenants matter" lists are independent, manually maintained, and
+// nothing keeps them in sync. A status in neither list (e.g. 'pending', the
+// default set by create-tenant-from-lead.ts) is invisible to every per-tenant
+// drift check here (main loop only iterates active/live/setup) while
+// middleware still serves it live — see Drift R below.
+export function parseNonServingStatuses(middlewareSource) {
+  const block = middlewareSource.match(/NON_SERVING_STATUSES\s*=\s*new Set\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -273,9 +287,15 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  src/app/site/<slug>/sitemap.ts or
  *                                  sitemap.xml/route.ts exist. Feeds Drift Q ONLY.
  *                                  Defaults to always-true (no-op) when omitted.
+ * @param {Array}    [input.allTenants]  tenants rows of ANY status: { id, slug,
+ *                                  status, domain }. Feeds Drift R ONLY. Pass an
+ *                                  empty array (default) to skip.
+ * @param {Set}      [input.nonServingStatuses]  statuses from middleware's
+ *                                  NON_SERVING_STATUSES (see parseNonServingStatuses).
+ *                                  Feeds Drift R ONLY. Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -514,6 +534,35 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift R: a tenant whose status is OUTSIDE this script's own reconcile scope
+  // (active/live/setup — the `tenants` SQL filter) but ALSO outside middleware's
+  // NON_SERVING_STATUSES, so tenantServesSite() in src/middleware.ts still serves
+  // its site to real visitors. These are two independent, manually maintained
+  // "which tenants matter" lists; a status in neither — e.g. 'pending', the
+  // default create-tenant-from-lead.ts sets on every new tenant before
+  // activation — falls straight through the gap: the main loop above never
+  // iterates it (so Drift C/D/E/G/H/I/J/M/N all skip it), yet middleware routes
+  // real traffic to it if it has a domain. Zero drift signal from any other
+  // check in this file. Skipped entirely when allTenants is empty (caller had
+  // nothing to check) — nonServingStatuses empty is NOT treated as "everything
+  // serves"; an empty allTenants list is the actual no-op signal.
+  if (allTenants.length) {
+    const inScopeSlugs = new Set(tenants.map((t) => t.slug))
+    const activeTenantIds = new Set(tds.filter((r) => r.active).map((r) => r.tenant_id))
+    for (const t of allTenants) {
+      if (inScopeSlugs.has(t.slug)) continue
+      if (nonServingStatuses.has((t.status || '').toLowerCase())) continue
+      const hasDomain = Boolean(t.domain) || activeTenantIds.has(t.id)
+      if (hasDomain) {
+        add(
+          'CRIT',
+          t.slug,
+          `tenants.status='${t.status}' is outside this gate's reconcile scope (active/live/setup) but NOT in middleware's NON_SERVING_STATUSES -> tenantServesSite() still serves this domain while every per-tenant drift check (C/D/E/G/H/I/J/M/N) is skipped for it`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -570,6 +619,7 @@ async function main() {
   const bespokeSet = parseBespokeSet(middlewareSource)
   const apexCanonicalSet = parseApexCanonicalSet(middlewareSource)
   const richSitemapSet = parseRichSitemapSet(middlewareSource)
+  const nonServingStatuses = parseNonServingStatuses(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
@@ -584,7 +634,7 @@ async function main() {
     return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))
   }
 
-  const [tenants, tds, allTenantDomains] = await Promise.all([
+  const [tenants, tds, allTenantDomains, allTenants] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
       'select td.tenant_id, td.domain, td.active, td.is_primary, td.routing_mode, td.status, td.vercel_project, t.slug' +
@@ -594,6 +644,10 @@ async function main() {
     // sweep so a stale domain on a suspended/cancelled/deleted tenant still
     // collides (the live resolver's tenants.domain lookup has no status filter).
     sql('select slug, domain from tenants where domain is not null'),
+    // ANY status, unfiltered — feeds Drift R's scan for a tenant status that
+    // falls in the gap between this script's own scope and middleware's
+    // NON_SERVING_STATUSES gate.
+    sql('select id, slug, status, domain from tenants'),
   ])
 
   // Drift L needs a second query: which bespoke slugs resolve to a tenants row.
@@ -604,7 +658,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
