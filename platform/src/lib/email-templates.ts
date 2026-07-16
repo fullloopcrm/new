@@ -335,6 +335,9 @@ export function seoWeeklyReportEmail(data: TemplateData & {
   rolledBack: number
   sitesDown: number
   keywords: { query: string; position: number; clicks: number; impressions: number }[]
+  needsWork: number
+  winners: { query: string; current: number; previous: number; delta: number }[]
+  losers: { query: string; current: number; previous: number; delta: number }[]
 }): string {
   const issueRows = data.newIssues.length > 0
     ? data.newIssues.map(i => `
@@ -355,6 +358,34 @@ export function seoWeeklyReportEmail(data: TemplateData & {
         <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${k.impressions}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" style="padding:16px;color:#9ca3af;text-align:center;font-size:13px;">No keyword data yet</td></tr>'
+
+  // delta < 0 = improved (lower position number is better) -> green up arrow.
+  // delta > 0 = declined -> red down arrow.
+  const moverRows = (movers: { query: string; current: number; previous: number; delta: number }[], emptyLabel: string) =>
+    movers.length > 0
+      ? movers.map(m => {
+          const improved = m.delta < 0
+          const arrow = improved ? '▲' : '▼'
+          const color = improved ? '#16a34a' : '#dc2626'
+          return `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px 8px;font-size:13px;color:#111827;">${escapeHtml(m.query)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${m.previous.toFixed(1)} → ${m.current.toFixed(1)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:${color};text-align:right;font-weight:600;">${arrow} ${Math.abs(m.delta).toFixed(1)}</td>
+      </tr>`
+        }).join('')
+      : `<tr><td colspan="3" style="padding:16px;color:#9ca3af;text-align:center;font-size:13px;">${emptyLabel}</td></tr>`
+
+  const moverTable = (title: string, rows: string) => `
+    <h3 style="color:#111827;font-size:16px;margin:0 0 12px;">${title}</h3>
+    <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
+      <thead><tr style="border-bottom:2px solid #111827;">
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:left;text-transform:uppercase;">Query</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Position</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Change</th>
+      </tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`
 
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 8px;">Your Weekly SEO Report</h2>
@@ -379,6 +410,11 @@ export function seoWeeklyReportEmail(data: TemplateData & {
 
     <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
 
+    ${moverTable('Biggest Winners ▲', moverRows(data.winners, 'No significant movement up this week'))}
+    ${moverTable('Biggest Losers ▼', moverRows(data.losers, 'No significant movement down this week'))}
+
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
     <h3 style="color:#111827;font-size:16px;margin:0 0 12px;">All Tracked Keywords — ${data.keywords.length}, best position first</h3>
     <table width="100%" style="border-collapse:collapse;">
       <thead><tr style="border-bottom:2px solid #111827;">
@@ -389,6 +425,7 @@ export function seoWeeklyReportEmail(data: TemplateData & {
       </tr></thead>
       <tbody>${keywordRows}</tbody>
     </table>
+    ${data.needsWork > 0 ? `<p style="font-size:12px;color:#9ca3af;margin:12px 0 0;">+ ${data.needsWork} more keyword${data.needsWork !== 1 ? 's' : ''} under 25 impressions this week — too little data to rank reliably. These pages likely need real work (thin content, wrong targeting).</p>` : ''}
   `, data)
 }
 
