@@ -17,6 +17,7 @@ import { timingSafeEqual } from 'node:crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { notify } from '@/lib/notify'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -65,6 +66,16 @@ export async function POST(request: Request) {
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
+  }
+
+  // Secret-gated but shared across every standalone site that funnels
+  // applications through this sink — a leaked/compromised-site secret still
+  // shouldn't be able to flood team_applications rows unbounded. Same
+  // cost/DoS guard as the sibling /api/ingest/lead route.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`ingest-application:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many submissions. Please wait a few minutes.' }, { status: 429 })
   }
 
   const name = body.name?.trim()

@@ -29,6 +29,7 @@ import { adminNewClientEmail } from '@/lib/email-templates'
 import { notify } from '@/lib/notify'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { trackError } from '@/lib/error-tracking'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -92,6 +93,16 @@ export async function POST(request: Request) {
   const tenant = await getTenantBySlug(slug)
   if (!tenant) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
+  }
+
+  // Secret-gated but shared across every standalone site that funnels leads
+  // through this sink — a leaked/compromised-site secret still shouldn't be
+  // able to flood client/portal_leads/deals rows and admin notifications
+  // unbounded. Same cost/DoS guard as the sibling /api/lead route.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`ingest-lead:${tenant.id}:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many submissions. Please wait a few minutes.' }, { status: 429 })
   }
 
   const name = body.name?.trim()
