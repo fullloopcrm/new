@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requireAdmin } from '@/lib/require-admin'
 
 // Escape LIKE/ILIKE wildcards so `email` is matched literally (Postgres default
 // LIKE escape char is backslash). GET is unauthenticated and public -- without
@@ -31,10 +32,20 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
 
+  // Admin-only: this used to be an unauthenticated code/email -> name+email+
+  // earnings+payout-method lookup (rate-limited, but still a public oracle —
+  // referral codes are shareable/guessable and emails are often public). The
+  // referrer-facing dashboard was migrated off this to the Bearer-token-gated
+  // GET /api/referrers/[code] (see src/lib/referrer-portal-auth.ts); nothing
+  // in-repo calls this code/email lookup unauthenticated anymore, so require
+  // an admin session rather than leaving the disclosure live for anyone else.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   // DB-backed (not in-memory) so the cap survives serverless cold starts and
   // holds across concurrent instances — see rate-limit-db.ts.
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const { allowed: lookupAllowed } = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000)
+  const { allowed: lookupAllowed } = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
   if (!lookupAllowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

@@ -28,6 +28,9 @@ vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: TENANT_ID }),
 }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true }) }))
+// GET's code/email lookup is admin-gated (route.auth.test.ts covers the gate
+// itself); mock it authorized here so these tests can focus on the wildcard fix.
+vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { GET } from './route'

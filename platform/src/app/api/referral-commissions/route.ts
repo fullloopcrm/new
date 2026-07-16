@@ -1,8 +1,9 @@
 /**
  * Referral commissions ledger. Tenant-scoped. Ported from nycmaid.
  *
- * GET ?referrer_id=... — list a referrer's commissions (public: the referrer
- *                        portal calls this with their own ID).
+ * GET ?referrer_id=... — list a referrer's commissions (admin session
+ *                        required; referrer portal now reads its own ledger
+ *                        via the token-gated GET /api/referrers/[code]).
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
  * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid
@@ -13,6 +14,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { requireAdmin } from '@/lib/require-admin'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 
 export async function GET(request: Request) {
@@ -21,9 +23,17 @@ export async function GET(request: Request) {
     const referrerId = url.searchParams.get('referrer_id')
     const status = url.searchParams.get('status')
 
-    // Referrer-portal path: accept with referrer_id alone (no admin session).
-    // Scope the query by the tenant that owns the referrer.
+    // referrer_id path used to be reachable with no session at all (any
+    // caller who had/guessed a referrer UUID could pull their full
+    // commission ledger — client names + amounts). The referrer portal that
+    // comment described now goes through the Bearer-token-gated
+    // GET /api/referrers/[code] instead (which already scopes commissions to
+    // the verified referrer), so nothing in-repo relies on this being
+    // public. Require an admin session, same bar as the no-param path below.
     if (referrerId) {
+      const authError = await requireAdmin()
+      if (authError) return authError
+
       const { data: refRow } = await supabaseAdmin
         .from('referrers')
         .select('tenant_id')
