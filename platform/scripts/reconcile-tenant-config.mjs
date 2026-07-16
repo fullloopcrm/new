@@ -272,6 +272,26 @@ export function parseRootSiteTenantsSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse STATIC_TENANT_MAP out of the middleware source. This is a
+// hardcoded hostname -> {id, slug} fallback ("used when DB lookup at the
+// edge is unreliable") on the custom-domain routing path. It is the ONLY
+// tenant-resolution source in this file that is NOT reconciled by any other
+// Drift check, and it is uniquely dangerous: the branch that consults it
+// calls rewriteToSite() unconditionally, with no tenantServesSite() status
+// check at all (every other routing path — subdomain, DB domain lookup —
+// checks status first). A stale id, a typo'd slug, or a tenant that gets
+// suspended/cancelled/deleted after being added here is invisible to every
+// other check in this file and keeps serving live traffic — see Drift U below.
+export function parseStaticTenantMap(middlewareSource) {
+  const block = middlewareSource.match(/STATIC_TENANT_MAP:\s*Record<string,\s*\{[^}]*\}>\s*=\s*\{([\s\S]*?)\n\s*\}/)
+  const map = new Map()
+  if (!block) return map
+  const entryRe = /['"]([^'"]+)['"]\s*:\s*\{\s*id:\s*['"]([^'"]+)['"]\s*,\s*slug:\s*['"]([^'"]+)['"]\s*\}/g
+  let m
+  while ((m = entryRe.exec(block[1]))) map.set(m[1], { id: m[2], slug: m[3] })
+  return map
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -326,9 +346,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set}      [input.rootSiteTenantsSet]  slugs from middleware's
  *                                  ROOT_SITE_TENANTS (see parseRootSiteTenantsSet).
  *                                  Feeds Drift T ONLY. Pass an empty Set (default) to skip.
+ * @param {Map}      [input.staticTenantMap]  hostname -> {id, slug} from middleware's
+ *                                  STATIC_TENANT_MAP (see parseStaticTenantMap).
+ *                                  Feeds Drift U ONLY. Pass an empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -647,6 +670,48 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift U: a STATIC_TENANT_MAP entry (src/middleware.ts — the hardcoded
+  // hostname -> {id, slug} fallback used "when DB lookup at the edge is
+  // unreliable" on the custom-domain routing path) whose slug has no
+  // resolvable tenant, whose id disagrees with the actual tenants row, or
+  // whose tenant status is in NON_SERVING_STATUSES. This source is uniquely
+  // dangerous: unlike every other routing path in middleware.ts (subdomain
+  // lookup, DB domain lookup — both call tenantServesSite() before
+  // rewriting), the STATIC_TENANT_MAP branch calls rewriteToSite()
+  // UNCONDITIONALLY, with no status check at all. A tenant suspended,
+  // cancelled, or deleted after being hardcoded here keeps serving its live
+  // site to every visitor of that hostname, with zero drift signal from any
+  // other check in this file (Drift R only watches tenants outside this
+  // script's own DB-query scope, not this separate hardcoded bypass).
+  if (staticTenantMap.size) {
+    const bySlug = new Map(allTenants.map((t) => [t.slug, t]))
+    for (const [host, entry] of staticTenantMap) {
+      const t = bySlug.get(entry.slug)
+      if (!t) {
+        add(
+          'CRIT',
+          entry.slug,
+          `STATIC_TENANT_MAP['${host}'] in src/middleware.ts points at slug with NO resolvable tenant (no tenants row of any status) -> rewriteToSite() runs unconditionally on this path (no tenantServesSite() check), so this hostname serves a broken/phantom rewrite`,
+        )
+        continue
+      }
+      if (t.id !== entry.id) {
+        add(
+          'CRIT',
+          entry.slug,
+          `STATIC_TENANT_MAP['${host}'] id=${entry.id} does not match tenants.id=${t.id} for slug '${entry.slug}' -> stale hardcoded id in src/middleware.ts (tenant recreated?); rewriteToSite() runs unconditionally on this path`,
+        )
+      }
+      if (nonServingStatuses.has((t.status || '').toLowerCase())) {
+        add(
+          'CRIT',
+          entry.slug,
+          `STATIC_TENANT_MAP['${host}'] in src/middleware.ts serves this hostname UNCONDITIONALLY (no tenantServesSite() check on this bypass path) but tenants.status='${t.status}' is in NON_SERVING_STATUSES -> the tenant's site keeps serving live traffic despite being suspended/cancelled/deleted`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -706,6 +771,7 @@ async function main() {
   const nonServingStatuses = parseNonServingStatuses(middlewareSource)
   const mainHostsSet = parseMainHostsSet(middlewareSource)
   const rootSiteTenantsSet = parseRootSiteTenantsSet(middlewareSource)
+  const staticTenantMap = parseStaticTenantMap(middlewareSource)
   const verifyProtectedSource = readFileSync(join(REPO, 'scripts', 'verify-protected-tenants.mjs'), 'utf8')
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
@@ -744,7 +810,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

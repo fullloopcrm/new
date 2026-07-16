@@ -10,6 +10,7 @@ import {
   parseNonServingStatuses,
   parseMainHostsSet,
   parseRootSiteTenantsSet,
+  parseStaticTenantMap,
   computeFindings,
   summarize,
   loadToken,
@@ -204,6 +205,30 @@ describe('parseRootSiteTenantsSet', () => {
     expect(rootSet.has('root-only')).toBe(true)
     expect(rootSet.has('bespoke-only')).toBe(false)
     expect(rootSet.size).toBe(1)
+  })
+})
+
+describe('parseStaticTenantMap', () => {
+  it('extracts hostname -> {id, slug} entries from a middleware STATIC_TENANT_MAP declaration', () => {
+    const src = `
+      const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+        'thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
+        'www.thefloridamaid.com': { id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' },
+      }
+    `
+    const map = parseStaticTenantMap(src)
+    expect(map.size).toBe(2)
+    expect(map.get('thefloridamaid.com')).toEqual({ id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' })
+    expect(map.get('www.thefloridamaid.com')).toEqual({ id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' })
+  })
+
+  it('returns an empty map when the declaration is absent', () => {
+    expect(parseStaticTenantMap('export const x = 1').size).toBe(0)
+  })
+
+  it('returns an empty map for a declaration with no entries', () => {
+    const src = `const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {}`
+    expect(parseStaticTenantMap(src).size).toBe(0)
   })
 })
 
@@ -1923,5 +1948,79 @@ describe('computeFindings — Drift T (slug in BOTH ROOT_SITE_TENANTS and BESPOK
       resolvableSlugs: null,
     })
     expect(findings.filter((f) => f.msg.includes('ROOT_SITE_TENANTS'))).toHaveLength(0)
+  })
+})
+
+describe('computeFindings — Drift U (STATIC_TENANT_MAP drift — the unconditional-rewrite bypass)', () => {
+  it('CRITs when a STATIC_TENANT_MAP slug has no resolvable tenant', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [],
+      staticTenantMap: new Map([['ghost.com', { id: 'id-1', slug: 'ghost-tenant' }]]),
+    })
+    const crit = findings.find((f) => f.slug === 'ghost-tenant' && f.msg.includes('NO resolvable tenant'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('CRITs when the hardcoded id does not match the real tenants.id for that slug', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 'real-id', slug: 'the-florida-maid', status: 'active', domain: null }],
+      staticTenantMap: new Map([['thefloridamaid.com', { id: 'stale-id', slug: 'the-florida-maid' }]]),
+    })
+    const crit = findings.find((f) => f.slug === 'the-florida-maid' && f.msg.includes('does not match tenants.id'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('CRITs when the tenant status is in NON_SERVING_STATUSES — the unconditional-rewrite bypass', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 'real-id', slug: 'the-florida-maid', status: 'suspended', domain: null }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+      staticTenantMap: new Map([['thefloridamaid.com', { id: 'real-id', slug: 'the-florida-maid' }]]),
+    })
+    const crit = findings.find((f) => f.slug === 'the-florida-maid' && f.msg.includes('UNCONDITIONALLY'))
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+  })
+
+  it('emits nothing when the entry resolves, the id matches, and the tenant is not in NON_SERVING_STATUSES', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [{ id: 'real-id', slug: 'the-florida-maid', status: 'active', domain: null }],
+      nonServingStatuses: new Set(['suspended', 'cancelled', 'deleted']),
+      staticTenantMap: new Map([['thefloridamaid.com', { id: 'real-id', slug: 'the-florida-maid' }]]),
+    })
+    expect(findings.filter((f) => f.msg.includes('STATIC_TENANT_MAP'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when staticTenantMap is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenants: [],
+    })
+    expect(findings.filter((f) => f.msg.includes('STATIC_TENANT_MAP'))).toHaveLength(0)
   })
 })
