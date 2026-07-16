@@ -767,6 +767,105 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     expect(gatingCrit).toBeGreaterThanOrEqual(1)
   })
 
+  it('percent-decodes a "." or "-" hidden behind %2e/%2d instead of leaving a distinct, uncollapsed key', () => {
+    // Verified against Node's URL parser: new URL('https://shared%2edomain.com')
+    // .hostname === 'shared.domain.com' and new URL('https://shared%2ddomain.com')
+    // .hostname === 'shared-domain.com' — the WHATWG URL host parser
+    // percent-decodes any %XX whose byte is not a "forbidden host code
+    // point." A domain pasted with a percent-encoded '.'/'-'/letter resolves
+    // to the EXACT SAME real host in a browser but survived here as a
+    // distinct, uncollapsed key.
+    expect(norm('shared%2edomain.com')).toBe('shared.domain.com')
+    expect(norm('shared%2Ddomain%2Ecom')).toBe('shared-domain.com')
+    expect(norm('https://shared%2edomain.com/')).toBe('shared.domain.com')
+    expect(norm('shared%41%42%43domain.com')).toBe('sharedabcdomain.com') // %41=A %42=B %43=C, then lowercased
+  })
+
+  it('does NOT percent-decode a %XX byte that the URL host parser forbids (e.g. %2f, %3a, %40)', () => {
+    // Verified against Node's URL parser: new URL('https://shared%2fdomain.com')
+    // throws Invalid URL — that raw value can never be a real routable host
+    // either way, so decoding it would only risk corrupting the key via the
+    // scheme/path-strip rules on a string that could never collide with
+    // anything real.
+    expect(norm('shared%2fdomain.com')).toBe('shared%2fdomain.com')
+    expect(norm('shared%3adomain.com')).toBe('shared%3adomain.com')
+    expect(norm('shared%40domain.com')).toBe('shared%40domain.com')
+  })
+
+  it('leaves an invalid (non-hex) percent sequence untouched', () => {
+    expect(norm('shared%zzdomain.com')).toBe('shared%zzdomain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with a percent-encoded dot instead of a bare hostname', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared%2ddomain%2ecom', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared%2ddomain%2ecom', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('maps fullwidth Latin letters/digits/hyphen (U+FF01-U+FF5E) down to plain ASCII', () => {
+    // Verified against Node's URL parser: new URL with a fullwidth-spelled
+    // hostname (each ASCII letter replaced by its U+FF01-U+FF5E fullwidth
+    // twin, offset +0xFEE0) resolves the exact same ASCII hostname — as
+    // typed by an IME or a mobile keyboard's fullwidth input mode, or pasted
+    // from CJK text. Survived here as a distinct, uncollapsed key without
+    // this mapping.
+    expect(norm('ｓｈａｒｅｄ-ｄｏｍａｉｎ.com')).toBe('shared-domain.com')
+    expect(norm('https://ｓｈａｒｅｄ-ｄｏｍａｉｎ.com/')).toBe('shared-domain.com')
+    // Fullwidth uppercase (U+FF21 etc.) folds to fullwidth lowercase via
+    // .toLowerCase() before this mapping runs, then reduces to plain ascii.
+    expect(norm('ＳＨＡＲＥＤ-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('does NOT map a fullwidth delimiter that the URL host parser forbids (e.g. fullwidth solidus U+FF0F)', () => {
+    // Verified against Node's URL parser: new URL('https://a／b.com')
+    // throws Invalid URL, same as its ASCII twin "a/b.com" would inside a
+    // host — that raw value can never be a real routable host, so mapping it
+    // would only risk corrupting the key via the path-strip rule.
+    expect(norm('shared／domain.com')).toBe('shared／domain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with fullwidth Latin characters instead of ASCII', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'ｓｈａｒｅｄ-ｄｏｍａｉｎ.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'ｓｈａｒｅｄ-ｄｏｍａｉｎ.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
   it('still red-gates when one tenant\'s domain was pasted with a zero-width space hiding inside it', () => {
     const tenants = [
       { id: 't-alpha', slug: 'alpha', domain: 'shareddomain.com', status: 'active' },

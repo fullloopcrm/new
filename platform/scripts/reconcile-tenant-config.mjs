@@ -76,6 +76,66 @@ export const norm = (d) => {
   // BEFORE the scheme-strip loop so a dot-lookalike inside a scheme name
   // (however unlikely) is already normalized when that loop matches.
   s = s.replace(/[\u3002\uff0e\uff61]/g, '.').replace(/[\u200b\u2060\ufeff\u00ad]/g, '')
+  // The WHATWG URL spec's "forbidden host code point" list (C0 controls,
+  // space, and the delimiter/reserved characters below) can never appear in a
+  // real routable
+  // hostname EVEN after percent-decoding or fullwidth-to-ASCII mapping (a
+  // domain value containing one, decoded, cannot be visited by a real
+  // browser, so it can never actually collide with anything real). Shared by
+  // both the percent-decode and fullwidth-mapping steps below: each maps a
+  // source byte through this same guard before accepting the decoded result,
+  // so a value that would be spec-invalid once decoded is left un-decoded
+  // (and therefore visibly distinct, not silently corrupted into a bogus
+  // collision or a bogus non-collision).
+  const FORBIDDEN_HOST_BYTES = new Set([
+    0x23, 0x25, 0x2f, 0x3a, 0x3c, 0x3e, 0x3f, 0x40, 0x5b, 0x5c, 0x5d, 0x5e, 0x7c, 0x7f,
+    ...Array.from({ length: 0x21 }, (_, i) => i), // 0x00-0x20: all C0 controls + space
+  ])
+  // Percent-decode any %XX triple whose decoded byte the WHATWG URL host
+  // parser actually accepts. Verified against Node's URL parser: new
+  // URL('https://shared%2edomain.com').hostname === 'shared.domain.com' and
+  // new URL('https://shared%2ddomain.com').hostname === 'shared-domain.com'
+  // - percent-encoding '.' or '-' (or any other non-forbidden ASCII byte,
+  // including A-Z which the parser then lowercases) into a domain field
+  // resolves to the EXACT SAME real host in a browser but survives here as a
+  // distinct, uncollapsed key. %XX sequences whose byte IS forbidden (e.g.
+  // %2f, %3a, %40 - verified: new URL('https://shared%2fdomain.com') throws
+  // Invalid URL) are deliberately left un-decoded: that value can never be a
+  // real routable host either way, so decoding it would only risk corrupting
+  // the key via the path/scheme-strip rules below on a string that could
+  // never collide with anything real in the first place.
+  s = s.replace(/%([0-9a-fA-F]{2})/g, (m, hex) => {
+    const byte = parseInt(hex, 16)
+    // .toLowerCase() the decoded byte too: a percent-encoded uppercase letter
+    // (e.g. %41 = 'A') is decoded THEN lowercased by the real URL host parser
+    // (verified: new URL('https://shared%41domain.com').hostname ===
+    // 'shareda...') — this decode step runs after the initial .toLowerCase()
+    // call above, so a decoded uppercase byte would otherwise survive
+    // uppercase and fail to collapse with its already-lowercase twin.
+    return FORBIDDEN_HOST_BYTES.has(byte) ? m : String.fromCharCode(byte).toLowerCase()
+  })
+  // Map the "Halfwidth and Fullwidth Forms" ASCII block (U+FF01-U+FF5E) down
+  // to plain ASCII, per the same IDNA/UTS46 domain-to-ASCII mapping used
+  // above for the dot-equivalents. Verified against Node's URL parser: new
+  // URL('https://' + fullwidthSpelling('shared-domain') + '.com').hostname
+  // === 'shared-domain.com' where fullwidthSpelling maps each ASCII letter to
+  // its U+FF01-U+FF5E fullwidth twin (e.g. 'shared' -> U+FF53 U+FF48 U+FF41
+  // U+FF52 U+FF45 U+FF44) - fullwidth Latin letters/digits/hyphen (as typed by
+  // an IME or a mobile keyboard's fullwidth mode, or pasted from CJK text)
+  // resolve to the EXACT SAME real host in a browser but survive here as a
+  // distinct, uncollapsed key. Each fullwidth code point in this block is
+  // exactly its ASCII counterpart offset by +0xFEE0; the same forbidden-byte
+  // guard applies (verified: new URL('https://a' + '\uff0f' + 'b.com') -
+  // fullwidth solidus - throws Invalid URL, same as its ASCII twin, so it is
+  // deliberately left un-mapped here too). Must run before the scheme-strip
+  // loop so a scheme spelled out in fullwidth characters (however unlikely)
+  // is already normalized when that loop matches; toLowerCase() above already
+  // folds fullwidth uppercase letters (e.g. U+FF21) to their fullwidth
+  // lowercase form (U+FF41), which this mapping then reduces to ASCII.
+  s = s.replace(/[\uff01-\uff5e]/g, (ch) => {
+    const byte = ch.codePointAt(0) - 0xfee0
+    return FORBIDDEN_HOST_BYTES.has(byte) ? ch : String.fromCharCode(byte)
+  })
   // Strip a URL scheme, a protocol-relative/stray-slash prefix, AND userinfo
   // (user:pass@), LOOPED to a fixed point rather than one pass each. A single
   // pass only partially strips a DOUBLED scheme ("https://https://host" ->
