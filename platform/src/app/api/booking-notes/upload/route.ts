@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 
@@ -58,7 +59,7 @@ export async function POST(request: NextRequest) {
 
     const rawExt = (file.name.split('.').pop() || '').toLowerCase()
     const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
-    const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `booking-notes/${bookingId}/${Date.now()}-${randomBytes(8).toString('hex')}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabaseAdmin.storage
