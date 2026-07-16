@@ -6,6 +6,7 @@ import Link from 'next/link'
 import ListingGrid from '@/app/site/nyc-classifieds/_components/ListingGrid'
 import PreLaunchGate from '@/app/site/nyc-classifieds/_components/PreLaunchGate'
 import { getCategorySeo, SITE_URL } from '@/app/site/nyc-classifieds/_lib/seo'
+import { safeJsonLd } from '@/lib/json-ld-safe'
 
 // ─── Types ───
 
@@ -422,8 +423,8 @@ export default function BusinessProfileClient({ slug, category }: { slug: string
 
   return (
     <PreLaunchGate>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
       <style>{`
         .bp-grid { display: grid; grid-template-columns: 1fr 340px; gap: 32px; }
         .bp-cta-row { display: flex; gap: 10px; flex-wrap: wrap; }

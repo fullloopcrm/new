@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Suspense } from 'react'
 import { buildMetadata } from '@/app/site/nyc-classifieds/_lib/seo'
+import { safeJsonLd } from '@/lib/json-ld-safe'
 import PorchPostClient from './PorchPostClient'
 
 interface PostData {
@@ -127,8 +128,8 @@ export default async function PorchPostPage({ params }: { params: Promise<{ id: 
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(forumLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(forumLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: safeJsonLd(breadcrumbLd) }} />
       <Suspense fallback={<div style={{ padding: '48px', textAlign: 'center', color: '#9ca3af' }}>Loading...</div>}>
         <PorchPostClient postId={id} />
       </Suspense>
