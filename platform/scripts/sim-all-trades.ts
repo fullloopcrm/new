@@ -1344,6 +1344,39 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     const { data: jobPaysAfterCO } = await supabase.from('job_payments').select('id').eq('job_id', jobRes.job_id)
     add('change-order: job_payments count = milestones + 1', (jobPaysAfterCO?.length || 0) === plan.length + 1, `${jobPaysAfterCO?.length}`)
 
+    // ============ 5c. MATERIAL COST (the real cost side of the change order) ============
+    // Everything above only ever books the REVENUE side of the change order
+    // (the customer-facing invoice line). The office's actual real-world
+    // workaround for the corresponding COST (the Home Depot run for 6 sheets
+    // of OSB) is the generic Expenses feature (POST /api/finance/expenses) --
+    // exercising that insert + the just-fixed postExpenseToLedger here, since
+    // no prior scenario in this harness ever booked a cost against a job.
+    // ~45% of the billed line is a representative materials-markup estimate,
+    // not a real cost figure -- there is still no job_id column on `expenses`
+    // (per the archetype's own missing-feature-gap #1/#3: no per-job costing,
+    // no job-level materials capture), so this posts tenant-wide, the same as
+    // every other manual expense in production today.
+    const { postExpenseToLedger } = await import('../src/lib/finance/post-expense')
+    const { getAccountIdByCode: getAcctForMaterialCost } = await import('../src/lib/ledger')
+    const { data: entityForMaterialCost } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+    const materialCostCents = Math.round(coTotals.total_cents * 0.45)
+    const { data: materialExpense, error: matExpErr } = await supabase.from('expenses').insert({
+      tenant_id: tenant.id, entity_id: entityForMaterialCost?.id ?? null, category: 'Materials & Supplies',
+      amount: materialCostCents, description: `${cfg.changeOrder.lineItem.name} — material cost`,
+      date: projectDaysFromNow(cfg.changeOrder.offsetDays, 0).slice(0, 10),
+    }).select('id').single()
+    add('change-order material cost: expense recorded for the actual Home Depot run', !!materialExpense && !matExpErr, matExpErr?.message)
+
+    if (materialExpense) {
+      const matPostRes = await postExpenseToLedger({ tenantId: tenant.id, expenseId: materialExpense.id })
+      add('change-order material cost: posted to the ledger (reaches the default P&L, not just bank-matched expenses)', matPostRes.posted, matPostRes.reason || matPostRes.entryId)
+      const { data: matLines } = await supabase.from('journal_lines').select('coa_id, debit_cents, credit_cents').eq('entry_id', matPostRes.entryId || '')
+      const materialsAcct = await getAcctForMaterialCost(tenant.id, '5100')
+      const clearingAcct = await getAcctForMaterialCost(tenant.id, '2450')
+      add('change-order material cost: DR routed to 5100 Materials & Supplies', (matLines || []).some(l => l.coa_id === materialsAcct && l.debit_cents === materialCostCents), JSON.stringify(matLines))
+      add('change-order material cost: CR routed to 2450 Payouts in Transit (clearing)', (matLines || []).some(l => l.coa_id === clearingAcct && l.credit_cents === materialCostCents), JSON.stringify(matLines))
+    }
+
     // ================= 6. PAYROLL =================
     const { ensureChartAccounts, getAccountIdByCode } = await import('../src/lib/ledger')
     const { postPayrollToLedger } = await import('../src/lib/finance/post-labor')
@@ -1734,7 +1767,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       if (tenantId) {
         for (const tbl of [
           'referral_commissions', 'referrers', 'reviews', 'notifications', 'payroll_payments',
-          'territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts',
+          'territory_claims', 'expenses', 'journal_lines', 'journal_entries', 'chart_of_accounts',
           'hr_documents', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices',
           'quote_activity', 'quotes', 'deal_activities', 'deals', 'job_events', 'job_payments',
           'bookings', 'recurring_schedules', 'jobs', 'team_members', 'payments', 'clients',
