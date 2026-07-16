@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { createReferrerToken, hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { safeEqual } from '@/lib/secret-compare'
 
 // Escape LIKE/ILIKE wildcards so the lookup only ever matches the literal
 // address. Unescaped, a caller-controlled '%'/'_' lets an attacker rotate
@@ -54,7 +55,7 @@ export async function POST(request: NextRequest) {
     referrer.otp_hash &&
     referrer.otp_expires_at &&
     new Date(referrer.otp_expires_at).getTime() > Date.now() &&
-    referrer.otp_hash === hashOtp(code)
+    safeEqual(referrer.otp_hash, hashOtp(code))
 
   if (!valid) {
     return NextResponse.json({ error: 'Invalid or expired code' }, { status: 401 })
