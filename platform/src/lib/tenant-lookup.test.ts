@@ -43,7 +43,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: (table: string) => builder(table) }),
 }))
 
-import { getTenantByDomain } from './tenant-lookup'
+import { getTenantByDomain, getTenantBySlug } from './tenant-lookup'
 
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 't-1',
@@ -255,5 +255,23 @@ describe('getTenantByDomain', () => {
     expect(second?.slug).toBe('cached6')
     expect(second).toEqual(first)
     expect(singleCalls.length).toBe(callsAfterFirst) // no new DB calls on the cache hit
+  })
+})
+
+describe('getTenantBySlug', () => {
+  it('MALFORMED-INPUT PROBE: a mixed-case caller-supplied slug (e.g. partner ingest APIs pass tenant_slug unnormalized) resolves the same lowercase-stored tenant', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'the-florida-maid'
+        ? { data: tenantRow({ id: 't-slug1', slug: 'the-florida-maid', domain: 'thefloridamaid.com' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantBySlug('The-Florida-Maid')
+    expect(singleCalls[0].eqs.slug).toBe('the-florida-maid')
+    expect(t?.id).toBe('t-slug1')
+  })
+
+  it('returns null for an unknown slug', async () => {
+    resolve = () => ({ data: null, error: null })
+    expect(await getTenantBySlug('nobody-slug')).toBeNull()
   })
 })

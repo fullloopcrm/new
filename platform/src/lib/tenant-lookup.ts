@@ -62,18 +62,25 @@ function setCache(cache: Map<string, CacheEntry>, key: string, tenant: TenantInf
  * Look up a tenant by subdomain slug (cached, 5-min TTL)
  */
 export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> {
-  const cached = getCached(slugCache, slug)
+  // Slugs are always generated lowercase (slugify()/toSlug() in every tenant-
+  // creation path) — the DB never holds a mixed-case slug. Lowercasing here
+  // means a caller-supplied slug (partner ingest APIs pass tenant_slug
+  // straight from request bodies with no normalization) still resolves on
+  // case mismatch instead of silently 400ing "Unknown tenant" for a real one.
+  const cleanSlug = slug.toLowerCase()
+
+  const cached = getCached(slugCache, cleanSlug)
   if (cached !== undefined) return cached
 
   const sb = getSupabase()
   const { data, error } = await sb
     .from('tenants')
     .select('id, slug, name, domain, status')
-    .eq('slug', slug)
+    .eq('slug', cleanSlug)
     .single()
 
   if (error || !data) {
-    setCache(slugCache, slug, null)
+    setCache(slugCache, cleanSlug, null)
     return null
   }
 
@@ -85,7 +92,7 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
     status: data.status,
   }
 
-  setCache(slugCache, slug, tenant)
+  setCache(slugCache, cleanSlug, tenant)
   return tenant
 }
 

@@ -52,7 +52,7 @@ vi.mock('@/app/api/admin-auth/route', () => ({ verifyAdminToken: () => false }))
 vi.mock('./impersonation', () => ({ IMPERSONATE_COOKIE: 'imp', verifyImpersonationCookie: () => null }))
 vi.mock('./tenant-header-sig', () => ({ verifyTenantHeaderSig: () => false }))
 
-import { getTenantByDomain } from './tenant'
+import { getTenantByDomain, getTenantBySlug } from './tenant'
 
 // Full-ish tenant row (only the fields these tests assert on matter).
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
@@ -216,5 +216,23 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     const t = await getTenantByDomain('WWW.Acme.com')
     expect(singleCalls[0].eqs.domain).toBe('acme.com')
     expect(t?.slug).toBe('acme')
+  })
+})
+
+describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
+  it('MALFORMED-INPUT PROBE: a mixed-case caller-supplied slug resolves the same lowercase-stored, active tenant', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'acme' && eqs.status === 'active'
+        ? { data: tenantRow(), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantBySlug('ACME')
+    expect(singleCalls[0].eqs.slug).toBe('acme')
+    expect(t?.id).toBe('t-1')
+  })
+
+  it('returns null for an unknown slug', async () => {
+    resolve = () => ({ data: null, error: null })
+    expect(await getTenantBySlug('nobody-slug')).toBeNull()
   })
 })

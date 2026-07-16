@@ -168,10 +168,14 @@ export async function isImpersonating(): Promise<boolean> {
 
 // Get tenant by slug (for subdomain routing)
 export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
+  // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+  // every tenant-creation path), so a mixed-case lookup (e.g. a caller-
+  // supplied slug from a partner API) would otherwise silently miss a real
+  // tenant. Matches this resolver's own getTenantByDomain normalization.
   const { data } = await supabaseAdmin
     .from('tenants')
     .select('*')
-    .eq('slug', slug)
+    .eq('slug', slug.toLowerCase())
     .eq('status', 'active')
     .single()
 
