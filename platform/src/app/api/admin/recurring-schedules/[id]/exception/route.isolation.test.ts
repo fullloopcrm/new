@@ -95,4 +95,19 @@ describe('POST /api/admin/recurring-schedules/:id/exception — tenant isolation
     expect(bookA?.team_member_id).toBeUndefined()
     expect(h.store.recurring_exceptions.length).toBe(0)
   })
+
+  it('a move exception that crosses midnight rolls end_time onto the NEXT calendar date, not before start_time on the same date', async () => {
+    // Regression: the old `(startMin + durationMin) % 1440` truncation wrapped
+    // 23:00 + 3h duration to "02:00" on the SAME occurrence_date instead of
+    // advancing the date — an end_time before start_time on the same row.
+    const res = await POST(
+      postReq({ occurrence_date: '2026-08-01', type: 'move', new_start_time: '23:00' }),
+      params('sched-A1'),
+    )
+    expect(res.status).toBe(200)
+    const bookA = h.store.bookings.find((b) => b.id === 'book-A1')
+    expect(bookA?.start_time).toBe('2026-08-01T23:00:00')
+    expect(bookA?.end_time).toBe('2026-08-02T02:00:00')
+    expect(new Date(String(bookA?.end_time) + 'Z').getTime()).toBeGreaterThan(new Date(String(bookA?.start_time) + 'Z').getTime())
+  })
 })

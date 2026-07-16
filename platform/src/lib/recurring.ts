@@ -91,6 +91,46 @@ export function generateRecurringDates({
   return dates
 }
 
+/**
+ * Combine a 'YYYY-MM-DD' date + start hour/minute + duration into naive local
+ * start/end ISO strings ('YYYY-MM-DDTHH:MM:SS', no timezone offset) for
+ * booking storage. Rolls the end time onto the next calendar date when the
+ * duration crosses midnight.
+ *
+ * Every recurring-booking writer (sale-to-recurring.ts, the admin
+ * recurring-schedules POST/regenerate routes, the per-occurrence exception
+ * route) used to compute end-of-visit as `(startMin + durationMin) % 1440`
+ * without ever advancing the date — a start_time late enough in the day for
+ * the visit to cross midnight (e.g. 23:00 start + 3h duration) silently
+ * produced an end_time BEFORE start_time on the SAME calendar date (02:00,
+ * not 02:00 the next day) instead of rolling over. Centralized here so the
+ * fix applies identically everywhere instead of drifting per call site.
+ */
+export function computeNaiveVisitWindow(
+  date: string,
+  startHour: number,
+  startMinute: number,
+  durationHours: number,
+): { startISO: string; endISO: string } {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const startISO = `${date}T${pad(startHour)}:${pad(startMinute)}:00`
+  const totalStartMin = startHour * 60 + startMinute
+  const totalEndMin = totalStartMin + Math.round(durationHours * 60)
+  const daysToAdd = Math.floor(totalEndMin / 1440)
+  const endMinOfDay = ((totalEndMin % 1440) + 1440) % 1440
+  const endH = Math.floor(endMinOfDay / 60)
+  const endM = endMinOfDay % 60
+  let endDate = date
+  if (daysToAdd !== 0) {
+    // Noon-UTC anchor so adding whole days can't slip a date at a DST edge.
+    const d = new Date(`${date}T12:00:00Z`)
+    d.setUTCDate(d.getUTCDate() + daysToAdd)
+    endDate = d.toISOString().slice(0, 10)
+  }
+  const endISO = `${endDate}T${pad(endH)}:${pad(endM)}:00`
+  return { startISO, endISO }
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string

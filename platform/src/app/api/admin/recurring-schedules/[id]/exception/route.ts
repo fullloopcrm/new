@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { computeNaiveVisitWindow } from '@/lib/recurring'
 
 // Per-occurrence exception for a recurring series: skip / move / reassign ONE
 // date without disturbing the rest of the series. Records the exception (so the
@@ -77,9 +78,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       applied++
     } else if (type === 'move' && new_start_time) {
       const [mh, mm] = new_start_time.split(':').map(Number)
-      const startISO = `${occurrence_date}T${String(mh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`
-      const endTotal = (mh || 0) * 60 + (mm || 0) + (Number(schedule.duration_hours) || 3) * 60
-      const endISO = `${occurrence_date}T${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}:00`
+      const { startISO, endISO } = computeNaiveVisitWindow(occurrence_date, mh || 0, mm || 0, Number(schedule.duration_hours) || 3)
       await db.from('bookings').update({ start_time: startISO, end_time: endISO }).eq('id', b.id)
       applied++
     } else if (type === 'reassign') {

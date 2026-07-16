@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generateRecurringDates,
   getRecurringDisplayName,
+  computeNaiveVisitWindow,
   type RecurringType,
 } from './recurring'
 
@@ -245,5 +246,41 @@ describe('getRecurringDisplayName', () => {
   it('returns null for an unknown repeat type', () => {
     expect(getRecurringDisplayName('yearly', anyDate)).toBeNull()
     expect(getRecurringDisplayName('', anyDate)).toBeNull()
+  })
+})
+
+describe('computeNaiveVisitWindow', () => {
+  it('same-day visit: end stays on the same date', () => {
+    const w = computeNaiveVisitWindow('2026-08-01', 9, 0, 2)
+    expect(w.startISO).toBe('2026-08-01T09:00:00')
+    expect(w.endISO).toBe('2026-08-01T11:00:00')
+  })
+
+  it('midnight-crossing visit rolls the end onto the NEXT calendar date', () => {
+    // Regression: the old `% 24` truncation wrapped 26:00 -> "02:00" on the
+    // SAME date, producing an end_time before start_time instead of
+    // advancing the date. 23:00 start + 3h duration must land 02:00 the
+    // following day.
+    const w = computeNaiveVisitWindow('2026-08-01', 23, 0, 3)
+    expect(w.startISO).toBe('2026-08-01T23:00:00')
+    expect(w.endISO).toBe('2026-08-02T02:00:00')
+    expect(new Date(w.endISO + 'Z').getTime()).toBeGreaterThan(new Date(w.startISO + 'Z').getTime())
+  })
+
+  it('exactly-midnight end (24:00 total) rolls to 00:00 the next date', () => {
+    const w = computeNaiveVisitWindow('2026-08-01', 22, 0, 2)
+    expect(w.endISO).toBe('2026-08-02T00:00:00')
+  })
+
+  it('multi-day-spanning duration advances multiple calendar dates', () => {
+    const w = computeNaiveVisitWindow('2026-08-01', 10, 0, 50) // 50h > 2 days
+    expect(w.endISO).toBe('2026-08-03T12:00:00')
+  })
+
+  it('does not slip a date across a DST spring-forward boundary', () => {
+    // 2026-03-08 is US spring-forward; a naive local Date +1 day could trip
+    // on the missing hour. The noon-UTC anchor should be unaffected.
+    const w = computeNaiveVisitWindow('2026-03-08', 23, 0, 2)
+    expect(w.endISO).toBe('2026-03-09T01:00:00')
   })
 })

@@ -12,6 +12,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
+import { computeNaiveVisitWindow } from '@/lib/recurring'
 
 function intervalDays(recurringType: string): number {
   switch (recurringType) {
@@ -179,9 +180,7 @@ async function createSeriesAfterClaim(
   // Initial bookings (mirrors /api/admin/recurring-schedules generation).
   const { h, m } = parseTime(preferredTime)
   const rows = dates.map((date) => {
-    const startISO = `${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    const endTotal = h * 60 + m + hours * 60
-    const endISO = `${date}T${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}:00`
+    const { startISO, endISO } = computeNaiveVisitWindow(date, h, m, hours)
     const token = generateToken()
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)

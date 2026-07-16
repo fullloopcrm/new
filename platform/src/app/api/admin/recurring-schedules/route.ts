@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { computeNaiveVisitWindow } from '@/lib/recurring'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -172,9 +173,7 @@ export async function POST(request: Request) {
 
   const { h, m } = parseTime(preferred_time)
   const rows = dates.map((date: string) => {
-    const startISO = `${date}T${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:00`
-    const endTotalMin = h * 60 + m + hours * 60
-    const endISO = `${date}T${String(Math.floor(endTotalMin / 60) % 24).padStart(2, '0')}:${String(endTotalMin % 60).padStart(2, '0')}:00`
+    const { startISO, endISO } = computeNaiveVisitWindow(date, h, m, hours)
     const token = generateToken()
     const tokenExpires = new Date(startISO)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
