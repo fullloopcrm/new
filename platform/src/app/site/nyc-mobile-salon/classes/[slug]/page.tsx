@@ -583,7 +583,7 @@ export default async function ClassPage({ params }: Props) {
           </p>
           <Link href="/book" className={`rounded-full px-9 py-3.5 text-sm font-semibold uppercase tracking-wider text-white shadow-lg transition hover:-translate-y-0.5 font-display inline-block ${isMens ? "bg-sky-500 shadow-sky-500/30 hover:bg-sky-600" : "bg-purple-600 shadow-purple-500/20 hover:bg-purple-700"}`}>Book Your {cls.name} Now</Link>
           <p className={`mt-4 text-sm ${isMens ? "text-gray-500" : "text-gray-400"}`}>
-            Questions? <Link href="/contact" className={`underline ${isMens ? "text-sky-400" : "text-purple-600"}`}>Contact us</Link> or call/text anytime. See all classes on our <Link href="/classes" className={`underline ${isMens ? "text-sky-400" : "text-purple-600"}`}>classes page</Link>.
+            Questions? <Link href="/contact" className={`underline ${isMens ? "text-sky-400" : "text-purple-600"}`}>Contact us</Link> or text anytime. See all classes on our <Link href="/classes" className={`underline ${isMens ? "text-sky-400" : "text-purple-600"}`}>classes page</Link>.
           </p>
         </div>
       </section>

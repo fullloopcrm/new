@@ -37,7 +37,7 @@ export default function Footer() {
           <div>
             <h4 className="mb-4 text-xs font-semibold uppercase tracking-widest text-white/50">Contact</h4>
             <ul className="space-y-2.5 text-sm">
-              <li><a href="sms:+12122029075" className="text-white/80 transition-colors hover:text-blush">Text: 212.202.9075</a></li>
+              <li><a href="sms:+12122029075" className="text-white/80 transition-colors hover:text-blush">Text Us</a></li>
               <li><a href="mailto:hey@thenycmobilesalon.com" className="text-white/80 transition-colors hover:text-blush">hey@thenycmobilesalon.com</a></li>
               <li className="text-white/80">150 W 47th St, New York, NY 10036</li>
               <li className="text-white/80">All 5 Boroughs, NYC</li>

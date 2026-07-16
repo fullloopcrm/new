@@ -55,7 +55,7 @@ export default function BookPage() {
               Text Us
             </a>
           </div>
-          <p className="mt-3 text-xs text-slate-400">Text us anytime: 212.202.9075</p>
+          <p className="mt-3 text-xs text-slate-400">Text us anytime</p>
         </div>
       </div>
       </section>

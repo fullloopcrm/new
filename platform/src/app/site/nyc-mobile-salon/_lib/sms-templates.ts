@@ -13,7 +13,7 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 export function smsBookingReceived(booking: any): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  return `NYC Mobile Salon: We received your booking request for ${date} at ${time}. We'll confirm with your stylist's details shortly. Questions? (212) 202-8400${STOP_TEXT}`
+  return `NYC Mobile Salon: We received your booking request for ${date} at ${time}. We'll confirm with your stylist's details shortly. Questions? Text us at (212) 202-8400${STOP_TEXT}`
 }
 
 export function smsBookingConfirmation(booking: any): string {

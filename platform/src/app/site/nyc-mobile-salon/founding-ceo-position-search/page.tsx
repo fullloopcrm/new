@@ -614,7 +614,7 @@ export default function FoundingCEOPage() {
                 Text Founder
               </a>
             </div>
-            <p className="mt-3 text-xs text-slate-400">Text anytime: 212.202.9075</p>
+            <p className="mt-3 text-xs text-slate-400">Text anytime</p>
           </div>
         </div>
       </section>
