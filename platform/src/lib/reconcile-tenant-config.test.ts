@@ -494,6 +494,74 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
   })
 })
 
+describe('computeFindings — Drift F via a stale tenants.domain on an out-of-scope tenant', () => {
+  it('red-gates when a SUSPENDED tenant (excluded from the active/live/setup `tenants` fetch) still has a tenants.domain value that collides with a live tenant\'s domain', () => {
+    // The live resolver's getTenantByDomain() matches tenants.domain with NO
+    // status filter — a suspended/cancelled/deleted tenant whose domain column
+    // was never cleared really can collide with a newly-assigned active
+    // tenant's domain. The primary `tenants` array only carries active/live/
+    // setup rows, so without the allTenantDomains sweep this is entirely
+    // invisible to Drift F.
+    const tenants = [{ id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+    ]
+    // 'ghost' is suspended — absent from `tenants` (status filter excludes it) —
+    // but its tenants.domain row still literally reads 'shared-domain.com'.
+    const allTenantDomains = [
+      { slug: 'alpha', domain: 'shared-domain.com' },
+      { slug: 'ghost', domain: 'shared-domain.com' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenantDomains,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    expect(crit!.slug).toContain('alpha')
+    expect(crit!.slug).toContain('ghost')
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('does not double-count when allTenantDomains re-lists an already in-scope tenant\'s own domain', () => {
+    const tenants = [{ id: 't-alpha', slug: 'alpha', domain: 'foo.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'foo.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+    ]
+    const allTenantDomains = [{ slug: 'alpha', domain: 'foo.com' }]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+      allTenantDomains,
+    })
+
+    expect(findings.some((f) => f.msg.includes('claimed by MULTIPLE tenants'))).toBe(false)
+  })
+
+  it('defaults allTenantDomains to empty and skips this sweep when the caller omits it', () => {
+    const tenants = [{ id: 't-alpha', slug: 'alpha', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.some((f) => f.msg.includes('claimed by MULTIPLE tenants'))).toBe(false)
+  })
+})
+
 describe('computeFindings — orphan gate (Drift L known-pending exemption)', () => {
   it('reports both orphans but only the non-pending one gates CI', () => {
     // No tenants rows resolve either slug; both are bespoke-routed phantoms.

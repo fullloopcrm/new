@@ -100,9 +100,13 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Set|null} input.resolvableSlugs  slugs that resolve to a tenants row of
  *                                  ANY status. Pass null to SKIP Drift L (the
  *                                  orphan-set check that needs a second query).
+ * @param {Array}    [input.allTenantDomains]  tenants.domain rows of ANY status
+ *                                  (not just active/live/setup), each { slug, domain }.
+ *                                  Feeds Drift F ONLY (claim-only, never the main
+ *                                  per-tenant loop) — see the claim() call below for why.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [] }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -184,6 +188,21 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   // squats a domain a live tenant also claims, with no collision ever surfacing.
   for (const r of tds) {
     if (r.active) claim(r.domain, r.slug || `tenant:${(r.tenant_id || '').slice(0, 8)}`, 'tenant_domains')
+  }
+
+  // Claim source: tenants.domain across ANY tenant status, not just the
+  // active/live/setup ones the main loop above iterates. The live resolver's
+  // getTenantByDomain() matches tenants.domain with NO status filter at all —
+  // so a suspended/cancelled/deleted tenant whose domain column was never
+  // cleared still really collides if that same domain gets reassigned to a
+  // new active tenant (or worse, Postgres/PostgREST .single() ambiguity on
+  // TWO matching rows silently swallows the error and falls through to
+  // tenant_domains). Without this sweep, that stale row is entirely absent
+  // from `tenants` here and Drift F never sees it. Distinct-by-slug dedup
+  // below means re-claiming an already in-scope tenant's own domain is a
+  // harmless no-op, not a double-count.
+  for (const t of allTenantDomains) {
+    if (t.domain) claim(t.domain, t.slug, 'tenants.domain(any-status)')
   }
 
   // Drift F: a domain claimed by more than one tenant
@@ -290,12 +309,16 @@ async function main() {
     return readdirSync(d).some((e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(d, e, 'page.tsx')))
   }
 
-  const [tenants, tds] = await Promise.all([
+  const [tenants, tds, allTenantDomains] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
       'select td.tenant_id, td.domain, td.active, td.is_primary, td.routing_mode, td.status, td.vercel_project, t.slug' +
         ' from tenant_domains td left join tenants t on t.id = td.tenant_id',
     ),
+    // ANY status, unlike the `tenants` query above — feeds the Drift F claim-only
+    // sweep so a stale domain on a suspended/cancelled/deleted tenant still
+    // collides (the live resolver's tenants.domain lookup has no status filter).
+    sql('select slug, domain from tenants where domain is not null'),
   ])
 
   // Drift L needs a second query: which bespoke slugs resolve to a tenants row.
@@ -306,7 +329,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
