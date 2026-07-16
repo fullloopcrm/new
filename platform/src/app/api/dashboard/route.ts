@@ -41,7 +41,7 @@ export async function GET() {
     ] = await Promise.all([
       supabaseAdmin
         .from('bookings')
-        .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
+        .select('*, clients(*), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
@@ -70,7 +70,7 @@ export async function GET() {
         .in('status', [...liveStatuses, 'completed']),
       supabaseAdmin
         .from('bookings')
-        .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
+        .select('*, clients(*), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfYear.toISOString())
         .lte('start_time', endOfYear.toISOString())
@@ -83,7 +83,7 @@ export async function GET() {
         .eq('payment_status', 'pending'),
       supabaseAdmin
         .from('bookings')
-        .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
+        .select('*, clients(*), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', fourteenDaysOut.toISOString())
