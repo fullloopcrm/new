@@ -46,6 +46,14 @@ function normalizePhoneDigits(raw: string): string | null {
   return national.length === 10 ? national : null
 }
 
+// Escapes ilike wildcard metacharacters in user-supplied text before it is
+// embedded in a %pattern%. Without this, a referrer_name of e.g. "%" matches
+// EVERY active referrer (first row returned wins), misattributing a stranger's
+// booking -- and its commission -- to an arbitrary real referrer.
+function escapeLike(value: string): string {
+  return value.replace(/[\\%_]/g, '\\$&')
+}
+
 export async function POST(request: NextRequest) {
   try {
     const tenant = await getTenantFromHeaders()
@@ -113,7 +121,7 @@ export async function POST(request: NextRequest) {
       const { data: byName } = (await db
         .from('referrers')
         .select('id')
-        .ilike('name', `%${referrer_name.trim()}%`)
+        .ilike('name', `%${escapeLike(referrer_name.trim())}%`)
         .eq('active', true)
         .limit(1)) as { data: { id: string }[] | null }
 
