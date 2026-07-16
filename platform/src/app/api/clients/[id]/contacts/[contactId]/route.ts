@@ -34,29 +34,63 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         update.receives_email = Boolean(body.receives_email)
         if (body.receives_email) update.email_consent_at = now
         else update.email_opted_out_at = now
-      } else if (key === 'is_primary') {
-        update.is_primary = Boolean(body.is_primary)
+      } else if (key === 'is_primary' && !body.is_primary) {
+        // Un-setting primary is safe to apply directly -- no cross-row demote
+        // needed. Setting it TRUE is intentionally NOT applied here; see the
+        // RPC call below.
+        update.is_primary = false
       }
     }
 
-    if (update.is_primary === true) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.tenantId).eq('client_id', id).eq('is_primary', true).neq('id', contactId)
-    }
+    const settingPrimary = Object.prototype.hasOwnProperty.call(body, 'is_primary') && Boolean(body.is_primary)
 
-    if (Object.keys(update).length === 0) {
+    if (Object.keys(update).length === 0 && !settingPrimary) {
       return NextResponse.json({ error: 'No valid fields' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('client_contacts')
-      .update(update)
-      .eq('tenant_id', tenant.tenantId)
-      .eq('id', contactId)
-      .eq('client_id', id)
-      .select()
-      .single()
+    let data: Record<string, unknown> | null = null
+    if (Object.keys(update).length > 0) {
+      const { data: updated, error } = await supabaseAdmin
+        .from('client_contacts')
+        .update(update)
+        .eq('tenant_id', tenant.tenantId)
+        .eq('id', contactId)
+        .eq('client_id', id)
+        .select()
+        .single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      data = updated
+    }
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (settingPrimary) {
+      // A two-step "demote others, then set/update this one" (in either
+      // order) has a real race: two concurrent "set as primary" requests for
+      // two DIFFERENT contacts can interleave into ZERO primaries left (each
+      // demotes the other's just-set row), not just "two primaries". A
+      // single UPDATE is atomic in Postgres -- no window for a second call
+      // to observe or interleave with a partial state, so every call
+      // deterministically leaves exactly one contact primary for the client.
+      const { error: rpcErr } = await supabaseAdmin.rpc('set_primary_client_contact', {
+        p_tenant_id: tenant.tenantId,
+        p_client_id: id,
+        p_contact_id: contactId,
+      })
+      if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+      if (!data) {
+        const { data: refreshed, error: readErr } = await supabaseAdmin
+          .from('client_contacts')
+          .select()
+          .eq('tenant_id', tenant.tenantId)
+          .eq('id', contactId)
+          .eq('client_id', id)
+          .single()
+        if (readErr || !refreshed) return NextResponse.json({ error: readErr?.message || 'Contact not found' }, { status: 404 })
+        data = refreshed
+      } else {
+        data.is_primary = true
+      }
+    }
+
     return NextResponse.json(data)
   } catch (err) {
     console.error('Contact update error:', err)

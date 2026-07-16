@@ -46,12 +46,20 @@ export interface SupabaseFakeOptions {
   afterInsert?: (row: Record<string, unknown>, table: string) => void
   /** return detached copies from selects (PostgREST-accurate; never a live row) */
   detachReads?: boolean
+  /** `.rpc(name, args)` handlers, keyed by function name -- given the store
+   *  handle + call args, returning the same `{ data, error }` shape a real
+   *  Postgres function call would. Lets a test simulate a single-statement
+   *  atomic RPC (e.g. a "set exactly one row true, rest false" function)
+   *  without the fake's row-by-row `.update()` matcher, which can't express
+   *  a per-row-conditional payload. */
+  rpc?: Record<string, (h: FakeStoreHandle, args: Record<string, unknown>) => { data?: unknown; error?: unknown }>
 }
 
 type State = {
   table: string
   op: 'select' | 'insert' | 'update' | 'delete'
   eqs: Record<string, unknown>
+  neqs: Record<string, unknown>
   gtes: Array<{ col: string; val: unknown }>
   lts: Array<{ col: string; val: unknown }>
   /** `.is(col, null | true | false)` — PostgREST's IS NULL / IS TRUE / IS FALSE. */
@@ -67,6 +75,7 @@ type State = {
 
 function matches(r: Record<string, unknown>, s: State): boolean {
   if (!Object.entries(s.eqs).every(([k, v]) => r[k] === v)) return false
+  if (!Object.entries(s.neqs).every(([k, v]) => r[k] !== v)) return false
   for (const g of s.gtes) if (!(String(r[g.col]) >= String(g.val))) return false
   for (const l of s.lts) if (!(String(r[l.col]) < String(l.val))) return false
   for (const i of s.ises) if ((r[i.col] ?? null) !== i.val) return false
@@ -94,8 +103,14 @@ function runQuery(
       opts.afterInsert?.(row, state.table)
       return row
     })
-    if (terminal === 'many') return { data: inserted, error: null }
-    return { data: inserted[0] ?? null, error: null }
+    // Real PostgREST always returns a JSON-serialized copy from an insert,
+    // never a live reference to the stored row -- without detaching here, a
+    // caller that mutates its own `data` result (e.g. to reflect a follow-up
+    // write's outcome in the response) silently corrupts the store's actual
+    // row out from under a concurrent request.
+    const out = opts.detachReads ? inserted.map((r) => ({ ...r })) : inserted
+    if (terminal === 'many') return { data: out, error: null }
+    return { data: out[0] ?? null, error: null }
   }
 
   if (state.op === 'update') {
@@ -136,14 +151,20 @@ function runQuery(
  */
 export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions = {}) {
   return {
+    rpc(name: string, args: Record<string, unknown> = {}) {
+      const handler = opts.rpc?.[name]
+      if (!handler) return Promise.resolve({ data: null, error: { message: `rpc '${name}' not mocked in this test` } })
+      return Promise.resolve(handler(h, args))
+    },
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, gtes: [], lts: [], ises: [], ins: [], head: false, payload: null, returning: false }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, gtes: [], lts: [], ises: [], ins: [], head: false, payload: null, returning: false }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean }) => { if (o?.head) state.head = true; state.returning = true; return chain },
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
         update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
         delete: () => { state.op = 'delete'; return chain },
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
+        neq: (col: string, val: unknown) => { state.neqs[col] = val; return chain },
         gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
         lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
         is: (col: string, val: null | boolean) => { state.ises.push({ col, val }); return chain },

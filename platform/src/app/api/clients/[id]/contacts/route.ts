@@ -54,19 +54,37 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       role: body.role ? String(body.role).trim() : null,
       phone_e164,
       email,
-      is_primary: Boolean(body.is_primary),
+      // is_primary always starts false on insert -- if requested, set it via
+      // the atomic RPC below instead, so a fresh row is never a second-window
+      // TOCTOU target between insert and demote.
+      is_primary: false,
       receives_sms: Boolean(body.receives_sms) && !!phone_e164,
       receives_email: Boolean(body.receives_email) && !!email,
       sms_consent_at: body.receives_sms && phone_e164 ? now : null,
       email_consent_at: body.receives_email && email ? now : null,
     }
 
-    if (payload.is_primary) {
-      await supabaseAdmin.from('client_contacts').update({ is_primary: false }).eq('tenant_id', tenant.tenantId).eq('client_id', id).eq('is_primary', true)
-    }
-
     const { data, error } = await supabaseAdmin.from('client_contacts').insert(payload).select().single()  // tenant-scope-ok: insert payload carries tenant_id (client.tenant_id)
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    if (Boolean(body.is_primary)) {
+      // Demote-then-insert (or insert-then-demote) is two statements with a
+      // real race window: two concurrent "set as primary" requests for two
+      // DIFFERENT contacts can each run their own step independently and
+      // interleave into ZERO primaries (each demotes the other's just-set
+      // row), not just the obvious "two primaries" failure. A single UPDATE
+      // is atomic in Postgres -- no window exists for a second call to
+      // observe or interleave with a partial state, so every call
+      // deterministically leaves exactly one contact primary.
+      const { error: rpcErr } = await supabaseAdmin.rpc('set_primary_client_contact', {
+        p_tenant_id: tenant.tenantId,
+        p_client_id: id,
+        p_contact_id: data.id,
+      })
+      if (rpcErr) return NextResponse.json({ error: rpcErr.message }, { status: 500 })
+      data.is_primary = true
+    }
+
     return NextResponse.json(data)
   } catch (err) {
     console.error('Contact create error:', err)
