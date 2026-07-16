@@ -292,8 +292,14 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
         if (!claimRows || claimRows.length === 0) {
           console.warn(`[payment-processor] concurrent payout claim lost for booking ${bookingId} — skipping duplicate transfer`)
         } else {
-          const stripe = getStripe(tenant.stripe_api_key)
           try {
+            // getStripe() must be inside this try: it can throw (missing/
+            // corrupted tenant.stripe_api_key, decryptSecret failure) after
+            // the claim above already committed team_member_paid=true. If
+            // that throw weren't caught here, the claim would never be
+            // released — the booking would look permanently paid-out with
+            // zero dollars ever sent and no way to retry.
+            const stripe = getStripe(tenant.stripe_api_key)
             // Idempotency key mirrors the webhooks/stripe/route.ts payout path: a
             // retry of this whole function (double-tap checkout, crash-then-replay)
             // can't double-transfer to the cleaner for the same booking+reference.
