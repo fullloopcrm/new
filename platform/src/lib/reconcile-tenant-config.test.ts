@@ -7,6 +7,7 @@ import {
   computeFindings,
   summarize,
   loadToken,
+  norm,
 } from '../../scripts/reconcile-tenant-config.mjs'
 
 // Codifies the tenant-config drift gate (PR9). The gate decides which domain
@@ -141,6 +142,71 @@ describe('computeFindings — second mismatch (Drift F: one domain, two tenants)
     const { counts, gatingCrit } = summarize(findings)
     expect(counts.CRIT).toBe(1) // exactly the collision, no other CRIT
     expect(gatingCrit).toBe(1) // the double-claim MUST fail CI
+  })
+})
+
+describe('norm — adversarial domain forms that must collapse to the same key', () => {
+  it('strips a port suffix', () => {
+    expect(norm('shared-domain.com:8443')).toBe('shared-domain.com')
+  })
+
+  it('strips a trailing dot (absolute-FQDN form)', () => {
+    expect(norm('shared-domain.com.')).toBe('shared-domain.com')
+  })
+
+  it('strips both a leading www. and a trailing dot together', () => {
+    expect(norm('www.shared-domain.com.')).toBe('shared-domain.com')
+  })
+})
+
+describe('computeFindings — Drift F evades attempted via malformed domain forms', () => {
+  it('still red-gates when one tenant\'s domain is the absolute-FQDN (trailing dot) form of another\'s', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared-domain.com.', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared-domain.com.', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when a stale/orphaned tenant_domains row (owning tenant absent from the tenants fetch) squats a live tenant\'s domain', () => {
+    // Mirrors a hard-deleted tenant, or one whose status fell outside the
+    // active/live/setup filter: the real query LEFT JOINs tenant_domains to
+    // tenants, so its slug comes back null and it never appears in `tenants`.
+    // Nobody deactivated its tenant_domains row, so it still counts as a claim.
+    const tenants = [{ id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' }]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-deleted-beta', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: null },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
   })
 })
 

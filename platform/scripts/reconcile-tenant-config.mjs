@@ -33,7 +33,13 @@ import { dirname, join } from 'node:path'
 const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REF = 'cetnrttgtoajzjacfbhe'
 
-export const norm = (d) => (d || '').toLowerCase().replace(/^www\./, '').trim()
+export const norm = (d) =>
+  (d || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^www\./, '')
+    .replace(/:\d+$/, '') // strip a port suffix (e.g. example.com:8443) — same real domain
+    .replace(/\.+$/, '') // strip trailing dot(s) — absolute-FQDN form (example.com.) is the same domain
 
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---
 export function parseBespokeSet(middlewareSource) {
@@ -100,7 +106,6 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     const dbTemplate = modes.has('template')
 
     if (t.domain) claim(t.domain, t.slug, 'tenants.domain')
-    activeTd.forEach((r) => claim(r.domain, t.slug, 'tenant_domains'))
 
     // Drift A: tenants.domain set but not mirrored in active tenant_domains
     if (t.domain && !activeTd.some((r) => norm(r.domain) === norm(t.domain))) {
@@ -141,6 +146,16 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     if (!folderOk && (t.domain || activeTd.length) && t.slug !== 'full-loop-crm' && t.slug !== 'the-va-virtual-assistant') {
       add('INFO', t.slug, `live domain but no bespoke folder (template-served? confirm it's intentional)`)
     }
+  }
+
+  // Claim source: tenant_domains, scanned across ALL rows (not just ones matched
+  // to a tenant present in `tenants`). The tenants query filters to
+  // active/live/setup status; a row whose owning tenant was hard-deleted or fell
+  // outside that filter (the real query LEFT JOINs, so its slug can be null) is
+  // otherwise invisible to Drift F — a stale active=true row then silently
+  // squats a domain a live tenant also claims, with no collision ever surfacing.
+  for (const r of tds) {
+    if (r.active) claim(r.domain, r.slug || `tenant:${(r.tenant_id || '').slice(0, 8)}`, 'tenant_domains')
   }
 
   // Drift F: a domain claimed by more than one tenant
