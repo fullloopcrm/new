@@ -63,6 +63,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and phone are required.' }, { status: 400 })
     }
 
+    // resumeUrl/portfolioFileUrl/videoUrl are free-text from this unauthenticated
+    // public form and get stored verbatim in `notes` — same bug class already
+    // fixed in /api/management-applications and /api/team-portal/video-upload:
+    // require each to live inside this tenant's own /apply/signed-url upload
+    // prefix for its type, so a forged request can't stash an arbitrary URL
+    // (e.g. javascript:, or another tenant's object) for whenever this data
+    // gets a link-rendering admin view.
+    const uploadPrefix = (folder: string) =>
+      supabaseAdmin.storage.from('uploads').getPublicUrl(`${tenant.id}/applications/${folder}/`).data.publicUrl
+    const fileFields: Array<[keyof ApplyBody, string]> = [
+      ['resumeUrl', uploadPrefix('resumes')],
+      ['portfolioFileUrl', uploadPrefix('portfolios')],
+      ['videoUrl', uploadPrefix('videos')],
+    ]
+    for (const [field, prefix] of fileFields) {
+      const value = body[field]
+      if (value != null && (typeof value !== 'string' || !value.startsWith(prefix))) {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+    }
+
     const cleanPhone = phone.replace(/\D/g, '')
 
     const { data, error } = await supabaseAdmin
