@@ -39,7 +39,7 @@ export async function GET(request: Request) {
 
     // Clean walkthrough video
     if (booking.walkthrough_video_url && booking.walkthrough_video_url_uploaded_at && booking.walkthrough_video_url_uploaded_at < thirtyDaysAgo) {
-      const path = extractStoragePath(booking.walkthrough_video_url)
+      const path = extractOwnStoragePath(booking.walkthrough_video_url, booking.tenant_id)
       if (path) await supabaseAdmin.storage.from('uploads').remove([path])
       updates.walkthrough_video_url = null
       updates.walkthrough_video_url_uploaded_at = null
@@ -48,7 +48,7 @@ export async function GET(request: Request) {
 
     // Clean final video
     if (booking.final_video_url && booking.final_video_url_uploaded_at && booking.final_video_url_uploaded_at < thirtyDaysAgo) {
-      const path = extractStoragePath(booking.final_video_url)
+      const path = extractOwnStoragePath(booking.final_video_url, booking.tenant_id)
       if (path) await supabaseAdmin.storage.from('uploads').remove([path])
       updates.final_video_url = null
       updates.final_video_url_uploaded_at = null
@@ -63,8 +63,16 @@ export async function GET(request: Request) {
   return NextResponse.json({ success: true, deleted })
 }
 
-function extractStoragePath(url: string): string | null {
-  // Extract path after /object/public/uploads/
+// Defense in depth: this cron runs across ALL tenants with the service role
+// (bypasses RLS) and deletes from the shared `uploads` bucket by path. If a
+// stored video_url ever contained a path outside this booking's own tenant
+// folder (e.g. a validation gap upstream, or a row edited directly), a bare
+// regex extract-and-delete would let one tenant's stale video trigger deletion
+// of an ARBITRARY file belonging to a different tenant. Require the extracted
+// path to actually live under this booking's own tenant_id folder.
+function extractOwnStoragePath(url: string, tenantId: string): string | null {
   const match = url.match(/\/object\/public\/uploads\/(.+)$/)
-  return match ? match[1] : null
+  const path = match ? match[1] : null
+  if (!path || !path.startsWith(`${tenantId}/`)) return null
+  return path
 }

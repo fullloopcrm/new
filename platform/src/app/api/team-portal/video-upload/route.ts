@@ -96,6 +96,21 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
       }
 
+      // `url` is caller-supplied and was trusted verbatim — cron/cleanup-videos
+      // later regexes a storage path out of whatever's stored here and deletes
+      // it from the shared `uploads` bucket with the service role (no tenant
+      // filter on the delete). A team member could plant
+      // ".../object/public/uploads/<victim-tenant>/<known-path>" as their OWN
+      // booking's video url; 30 days later the cron would delete an arbitrary
+      // file belonging to a DIFFERENT tenant. Require the url's storage path to
+      // actually live under this tenant+booking's own upload folder (same shape
+      // GET mints above) before accepting it.
+      const expectedPrefix = `${auth.tid}/job-videos/${booking_id}/`
+      const storagePath = extractStoragePath(url)
+      if (!storagePath || !storagePath.startsWith(expectedPrefix)) {
+        return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+      }
+
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'
       await supabaseAdmin.from('bookings').update({
         [field]: url,
@@ -193,4 +208,11 @@ export async function POST(req: NextRequest) {
     console.error('Video upload error:', err)
     return NextResponse.json({ error: 'Upload failed' }, { status: 500 })
   }
+}
+
+// Same extraction shape as cron/cleanup-videos's extractStoragePath — kept in
+// sync so a URL this route accepts is exactly what that cron will later parse.
+function extractStoragePath(url: string): string | null {
+  const match = url.match(/\/object\/public\/uploads\/(.+)$/)
+  return match ? match[1] : null
 }

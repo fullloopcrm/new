@@ -104,13 +104,13 @@ describe('team-portal/video-upload — cross-member isolation', () => {
   })
 
   it('positive control: POST (json) saves the video reference on the member\'s OWN booking', async () => {
-    const res = await postJsonReq('good', 'bk-mine', 'https://public.example/mine.mp4')
+    const res = await postJsonReq('good', 'bk-mine', 'https://public.example/storage/v1/object/public/uploads/tid-a/job-videos/bk-mine/final-123-abc.mp4')
     expect(res.status).toBe(200)
-    expect(bookings[0].final_video_url).toBe('https://public.example/mine.mp4')
+    expect(bookings[0].final_video_url).toBe('https://public.example/storage/v1/object/public/uploads/tid-a/job-videos/bk-mine/final-123-abc.mp4')
   })
 
   it('wrong-member probe: POST (json) 404s and does NOT write when booking belongs to a different team member', async () => {
-    const res = await postJsonReq('good', 'bk-other', 'https://attacker.example/planted.mp4')
+    const res = await postJsonReq('good', 'bk-other', 'https://attacker.example/object/public/uploads/tid-a/job-videos/bk-other/planted.mp4')
     expect(res.status).toBe(404)
     expect(bookings[1].final_video_url).toBeNull()
   })
@@ -119,5 +119,25 @@ describe('team-portal/video-upload — cross-member isolation', () => {
     expect((await getReq(null, 'bk-mine')).status).toBe(401)
     expect((await getReq('bad', 'bk-mine')).status).toBe(401)
     expect((await postJsonReq(null, 'bk-mine', 'https://x')).status).toBe(401)
+  })
+
+  it('cross-tenant storage-path probe: POST (json) 400s and does NOT write when url points OUTSIDE this tenant\'s own upload folder', async () => {
+    // Own booking, own membership — only the storage path inside the url is
+    // poisoned with a victim tenant's id.
+    const res = await postJsonReq('good', 'bk-mine', 'https://public.example/object/public/uploads/tid-VICTIM/job-videos/bk-victim/real.mp4')
+    expect(res.status).toBe(400)
+    expect(bookings[0].final_video_url).toBeNull()
+  })
+
+  it('cross-booking storage-path probe: POST (json) 400s when url points at a DIFFERENT booking\'s folder in the same tenant', async () => {
+    const res = await postJsonReq('good', 'bk-mine', 'https://public.example/object/public/uploads/tid-a/job-videos/bk-other/real.mp4')
+    expect(res.status).toBe(400)
+    expect(bookings[0].final_video_url).toBeNull()
+  })
+
+  it('malformed url probe: POST (json) 400s when url has no recognizable uploads-bucket storage path', async () => {
+    const res = await postJsonReq('good', 'bk-mine', 'https://evil.example/not-a-storage-url')
+    expect(res.status).toBe(400)
+    expect(bookings[0].final_video_url).toBeNull()
   })
 })
