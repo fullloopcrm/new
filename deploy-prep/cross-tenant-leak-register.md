@@ -2721,3 +2721,39 @@ register).
 
 Commit pending (not yet committed as of this entry — see branch changelog).
 File-only otherwise, no push/deploy/DB.
+
+---
+
+## W2 round (21:16 order) — negative result, resolver-lane consumer census + signing-secret audit
+
+Fresh angle vs. all prior resolver-lane rounds: instead of re-checking known
+consumers, did (1) a repo-wide census of every non-test file referencing
+`x-tenant-id` (grep `x-tenant-id` across `src/`, 27 hits vs. the 14 checked
+at 20:14) and manually confirmed each of the 13 newly-covered files —
+`clients/[id]/activity`, `team-availability`, `service-types`,
+`admin-auth`, `errors`, `client/smart-schedule`, `pin-reset`,
+`public-upload`, `reviews/submit`, `reviews/upload`, `chat`, `client/login`,
+plus page components `dashboard/layout.tsx`, `fullloop/page.tsx`,
+`reset-pin/page.tsx`, `site/page.tsx`, `site/template/_config/load.ts`,
+`team/login/page.tsx` — either delegates to `getTenantFromHeaders()`/
+`getTenantForRequest()` or calls `verifyTenantHeaderSig()` inline before
+trusting the header. No third bypass. (2) Audited `tenant-header-sig.ts`'s
+`getSecret()` for a hardcoded/guessable fallback if
+`TENANT_HEADER_SIG_SECRET` is unset — it falls back to
+`ADMIN_TOKEN_SECRET`/`PORTAL_SECRET` (both real per-deploy secrets, not a
+static default) and throws if all three are unset; no forgeable path. (3)
+Full re-read of `middleware.ts` (496 lines) confirmed the unrecognized-
+custom-domain fall-through (`return NextResponse.next()` when
+`getTenantByDomain` finds no match) does NOT strip a caller-supplied
+`x-tenant-id`/`x-tenant-sig` pair, but this is inert — a forged sig requires
+the HMAC secret, which no external caller has, and every consumer verifies
+sig before trust (per #1). (4) Re-diffed `tenant.ts::getCurrentTenant()` vs.
+`tenant-query.ts::getTenantForRequest()` post-P50 for any OTHER precedence
+drift beyond the header-vs-impersonation-cookie ordering already fixed —
+none found; `dashboard/layout.tsx`'s own explicit admin_token gate (lines
+27-36) is what actually authorizes the header path, `getCurrentTenant()`
+returning non-null is tenant *identification* only, consistent design, not
+a gap.
+
+No new P-number. No code changed. `tsc` N/A (no edits). File-only, no
+push/deploy/DB.
