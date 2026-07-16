@@ -5135,3 +5135,34 @@ same concurrent stale-process session, not this lane — left completely
 untouched per blast-radius (unfamiliar state, investigate-don't-delete).
 
 File-only, no push/deploy/DB.
+
+---
+
+## Broad-hunt follow-up (leader order 08:23) — mgmt-application draft cross-applicant fix was inert, frontend now wired
+
+Re-examined the uncommitted `management-applications/draft/route.ts` diff
+flagged in prior rounds as belonging to the stale duplicate `.worker-driver.sh`
+(PID 2278) — confirmed still unchanged (same mtime/diff) this round, so still
+not landed by anyone. That diff fixes a real cross-applicant leak: the draft
+row was keyed by `(tenant_id, ip_address, position)` alone, so two applicants
+sharing a public IP (CGNAT/office wifi/VPN) collided on the same row — GET
+leaked the other applicant's PII + uploaded photo/video, POST/DELETE could
+clobber their draft. Fix adds an opaque `client_id` as the preferred key.
+
+**Found the fix was inert as written:** none of the 3 frontend callers
+(`site/apply`, `wash-and-fold-hoboken`, `wash-and-fold-nyc` — the only 3
+callers of this endpoint repo-wide) ever sent `client_id`, so
+`resolveVisitorKey` always fell back to IP and the collision was still live
+in practice. Added `src/lib/apply-client-id.ts` (localStorage-persisted
+`crypto.randomUUID()`) and wired it into all 3 callers' GET/POST/DELETE
+calls. Did not touch the backend route.ts itself — not mine to claim, left
+for whoever owns that in-flight change.
+
+**Regression lock:** new `route.security.test.ts`, 6 tests — cross-applicant
+probe (2 applicants same IP, different client_id, no cross-visibility),
+**wrong-tenant probe** (same client_id, different tenant → nothing), legacy
+IP-fallback preserved, POST/DELETE scoping. `npx tsc --noEmit` clean;
+`npx vitest run src/app/api/management-applications` 2 files/11 tests pass.
+
+Full detail: `deploy-prep/w2-mgmt-application-draft-frontend-wiring.md`.
+File-only, no push/deploy/DB.

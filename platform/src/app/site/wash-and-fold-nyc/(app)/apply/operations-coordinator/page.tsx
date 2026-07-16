@@ -1,6 +1,7 @@
 'use client'
 import { useState, useRef, useEffect, useCallback } from 'react'
 import { validateEmail } from '@/app/site/wash-and-fold-nyc/_lib/validate-email'
+import { getOrCreateApplyClientId } from '@/lib/apply-client-id'
 
 const EMPTY_FORM = {
   name: '',
@@ -35,7 +36,7 @@ export default function ApplyCoordinatorPage() {
 
   // Load draft on mount
   useEffect(() => {
-    fetch('/api/management-applications/draft?position=operations-coordinator')
+    fetch(`/api/management-applications/draft?position=operations-coordinator&client_id=${encodeURIComponent(getOrCreateApplyClientId())}`)
       .then(r => r.json())
       .then(({ draft }) => {
         if (draft?.form_data) {
@@ -62,6 +63,7 @@ export default function ApplyCoordinatorPage() {
           position: 'operations-coordinator',
           photo_url: photoUrl ?? draftPhotoUrl,
           video_url: videoUrl ?? draftVideoUrl,
+          client_id: getOrCreateApplyClientId(),
         })
       })
         .then(() => setDraftStatus('saved'))
@@ -200,7 +202,7 @@ export default function ApplyCoordinatorPage() {
 
       if (res.ok) {
         setDone(true)
-        fetch('/api/management-applications/draft', { method: 'DELETE' }).catch(() => {})
+        fetch(`/api/management-applications/draft?client_id=${encodeURIComponent(getOrCreateApplyClientId())}`, { method: 'DELETE' }).catch(() => {})
       } else {
         const data = await res.json()
         setError(data.error || 'Something went wrong. / Algo salió mal.')
