@@ -364,11 +364,36 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
     const { error: tdErr } = await supabaseAdmin
       .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
       .upsert(rows, { onConflict: 'domain', ignoreDuplicates: true })
+
+    // ignoreDuplicates means a domain already claimed by a DIFFERENT tenant
+    // (e.g. reassigned from a suspended tenant, or a leftover row from a prior
+    // owner) silently no-ops instead of erroring — the row stays pointed at the
+    // OLD tenant_id and this step used to report 'done' regardless. getTenantByDomain
+    // treats a tenant_domains match as authoritative and refuses to fall through
+    // to any other tenant once matched (its cross-tenant-safety contract), so
+    // THIS tenant's site/lead-routing/SEO ingest on that host stays completely
+    // dead while the UI claims success. Read the rows back and only claim
+    // success for domains that actually landed on this tenant.
+    let landedDomains: string[] = []
+    let contestedDomains: string[] = []
+    if (!tdErr) {
+      const { data: landed } = await supabaseAdmin
+        .from('tenant_domains')
+        .select('domain, tenant_id')
+        .in('domain', rows.map(r => r.domain))
+      landedDomains = (landed || []).filter(r => r.tenant_id === tenantId).map(r => r.domain)
+      contestedDomains = (landed || []).filter(r => r.tenant_id !== tenantId).map(r => r.domain)
+    }
+
     steps.push({
       key: 'domain_routing',
       label: 'Domain routing + SEO link',
-      status: tdErr ? 'failed' : 'done',
-      detail: tdErr ? tdErr.message : `${rows.map(r => r.domain).join(', ')} → lead routing + SEO ingest`,
+      status: tdErr || contestedDomains.length ? 'failed' : 'done',
+      detail: tdErr
+        ? tdErr.message
+        : contestedDomains.length
+          ? `${contestedDomains.join(', ')} already routed to a different tenant_id — reassign in /admin/websites before this domain will serve ${tenant.slug}`
+          : `${landedDomains.join(', ')} → lead routing + SEO ingest`,
     })
   } catch (e) {
     steps.push({ key: 'domain_routing', label: 'Domain routing + SEO link', status: 'failed', detail: msg(e) })
