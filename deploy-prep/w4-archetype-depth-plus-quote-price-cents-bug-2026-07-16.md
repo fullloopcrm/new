@@ -37,6 +37,30 @@ still pass, then re-ran the full archetype sim end-to-end and confirmed the cras
 **Fixed, not just proposed** — this is a code change (not a DB write/migration), consistent with
 other code-only fixes committed this session; no prod DB action needed or taken.
 
+### Third occurrence found via targeted follow-up sweep
+
+After fixing the two library-function instances above, searched the rest of the codebase for the
+same anti-pattern (a `_cents` value divided by 100 immediately before a DB write, as opposed to the
+many legitimate divisions used purely for display/`.toFixed()`/form-field defaults). Found a third,
+independent occurrence: `src/app/api/quotes/[id]/convert/route.ts:122` — the **staff-facing**
+"convert accepted quote to booking" dashboard action (`POST /api/quotes/[id]/convert`, gated by
+`requirePermission('sales.edit')`) has the identical `price: quote.total_cents ? quote.total_cents /
+100 : null` inline (not via the shared lib — this route predates `sale-to-booking.ts`, whose own
+header comment says it "mirrors" this route, i.e. this is where the bug originated and was then
+copy-pasted into the two newer library functions). This is arguably the highest-traffic of the three
+call sites, since staff use manual quote-to-booking conversion routinely, not just occasionally like
+the public accept path. Fixed the same way (removed the `/ 100`). Verified: `npx tsc --noEmit` clean
+(same 3 pre-existing unrelated errors, no new ones), `route.race.test.ts` (3 tests) still passes.
+
+Also swept the rest of the codebase for the same anti-pattern more broadly (any `_cents / 100` not
+obviously feeding a display string or `.toFixed()`) and checked the remaining candidates by hand:
+`tenants.monthly_rate` / `setup_fee` (Stripe webhook) are genuinely dollar-denominated columns
+elsewhere (`admin/businesses` pages display them with a bare `$` prefix, no division) — the `/ 100`
+there is the *correct* conversion, not a bug. The settings/pipeline/HR "cents → dollar string for a
+form default" spots (`dashboard/settings/page.tsx`, `dashboard/sales/pipeline/[id]/page.tsx`,
+`dashboard/hr/[id]/page.tsx`) all have a matching `* 100` on their save handlers — also not bugs.
+No further instances of the real defect found.
+
 ## 2. Archetype depth — three new scenarios in the shared sim harness
 
 Per leader order to continue deepening dumpster/junk/moving coverage

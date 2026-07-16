@@ -119,7 +119,7 @@ export async function POST(request: Request, { params }: Params) {
           start_time: startTime,
           end_time: endTime,
           status: bkStatus,
-          price: quote.total_cents ? quote.total_cents / 100 : null,
+          price: quote.total_cents ? quote.total_cents : null,
           notes: `Converted from quote ${quote.quote_number}`,
           special_instructions: quote.notes || null,
         })
