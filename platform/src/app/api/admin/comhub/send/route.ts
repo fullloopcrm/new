@@ -5,6 +5,7 @@ import { getCurrentTenantId } from '@/lib/tenant'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // Resolve @firstname / @first.last mentions to tenant_members rows.
 async function resolveMentions(tenantId: string, body: string): Promise<string[]> {
@@ -224,6 +225,13 @@ export async function POST(req: NextRequest) {
     if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
       return NextResponse.json({ error: 'SMS is not configured for this business.' }, { status: 400 })
     }
+    // Caller can name any phone number via body.phone with no prior contact —
+    // cap per-tenant volume so a compromised/malicious staff session can't
+    // spam arbitrary numbers or burn the tenant's Telnyx quota.
+    const smsRl = await rateLimitDb(`comhub-send-sms:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!smsRl.allowed) {
+      return NextResponse.json({ error: 'Too many messages sent. Try again shortly.' }, { status: 429 })
+    }
     let smsExternalId: string | null = null
     try {
       const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
@@ -270,6 +278,12 @@ export async function POST(req: NextRequest) {
     if (!email) return NextResponse.json({ error: 'no email on contact' }, { status: 400 })
     if (!tenant?.resend_api_key) {
       return NextResponse.json({ error: 'Email is not configured for this business.' }, { status: 400 })
+    }
+    // Same arbitrary-recipient shape as the sms branch above — cap volume
+    // per tenant (same reasoning as the comms-preview send rate limit).
+    const emailRl = await rateLimitDb(`comhub-send-email:${tenantId}`, 30, 10 * 60 * 1000)
+    if (!emailRl.allowed) {
+      return NextResponse.json({ error: 'Too many messages sent. Try again shortly.' }, { status: 429 })
     }
     const subj = body.subject || `Message from ${tenant?.name || 'us'}`
     const bodyHtml = body.body
