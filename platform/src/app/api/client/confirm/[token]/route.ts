@@ -69,6 +69,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
     message: `${client?.name || 'Client'} tapped the confirm link — terms accepted, ready to assign for ${startTime}.`,
     booking_id: booking.id,
     url: '/admin/bookings',
+    tenantId: booking.tenant_id,
   }).catch(() => {})
 
   return NextResponse.json({ ok: true, start_time: booking.start_time })
