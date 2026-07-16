@@ -1274,6 +1274,19 @@ async function handleListDeals(input: { stage?: string }, tid: string): Promise<
 }
 
 async function handleCreateDeal(input: { client_id: string; value_dollars?: number; follow_up_at?: string; note?: string }, tid: string): Promise<string> {
+  // client_id is model-supplied -- same FK-injection class as
+  // handleCreateManualBooking/handleAssignCleaner/handleUpdateBooking above.
+  // handleListDeals joins clients(name, phone) straight off this FK, so an
+  // unverified foreign id would leak another tenant's client PII into this
+  // tenant's own deal pipeline.
+  const { data: ownedClient } = await supabaseAdmin
+    .from('clients')
+    .select('id')
+    .eq('id', input.client_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!ownedClient) return JSON.stringify({ error: 'client not found' })
+
   const { data, error } = await supabaseAdmin
     .from('deals')
     .insert({
@@ -1498,6 +1511,19 @@ async function handleTriggerCron(input: { name: string }): Promise<string> {
 }
 
 async function handleBlockCleanerDates(input: { cleaner_id: string; from_date: string; to_date: string; reason?: string }, tid: string): Promise<string> {
+  // cleaner_id is model-supplied -- same FK-injection class as the other
+  // handlers above. cleaner_blocks has no read path in this codebase today
+  // (nothing joins off it), so this isn't currently exploitable, but the row
+  // would still tag another tenant's cleaner id under this tenant's blocks,
+  // so verify ownership the same way regardless.
+  const { data: ownedCleaner } = await supabaseAdmin
+    .from('cleaners')
+    .select('id')
+    .eq('id', input.cleaner_id)
+    .eq('tenant_id', tid)
+    .maybeSingle()
+  if (!ownedCleaner) return JSON.stringify({ error: 'cleaner not found' })
+
   const { error } = await supabaseAdmin.from('cleaner_blocks').insert({
     tenant_id: tid,
     cleaner_id: input.cleaner_id,
