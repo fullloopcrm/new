@@ -131,3 +131,18 @@ export function timestampToMin(timeStr: string): number {
   const [h, m] = t.split(':').map(Number)
   return (h || 0) * 60 + (m || 0)
 }
+
+/**
+ * Shift a naive "YYYY-MM-DDTHH:MM[:SS]" timestamp by +/- minutes, staying naive
+ * (no timezone) and crossing midnight correctly. Forcing the arithmetic onto a
+ * UTC instant (appending "Z" before parsing) makes the result independent of the
+ * calling process's local timezone — `new Date(naiveStr)` alone parses a
+ * timezone-less string using the RUNTIME's local offset, so the identical shift
+ * would land on a different wall-clock value in local dev (e.g. America/New_York)
+ * than in prod (Vercel defaults to UTC). Used for booking-conflict buffer windows,
+ * where both sides of the comparison must stay in the same naive space.
+ */
+export function shiftNaiveTimestamp(ts: string, minutes: number): string {
+  const anchored = /[Zz]|[+-]\d{2}:?\d{2}$/.test(ts) ? ts : `${ts}Z`
+  return new Date(new Date(anchored).getTime() + minutes * 60_000).toISOString().replace(/\.\d{3}Z$/, '')
+}

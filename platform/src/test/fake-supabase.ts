@@ -66,6 +66,12 @@ function matchesOne(row: Row, f: Filter): boolean {
   }
 }
 
+/** Parse a Postgres array-literal string, e.g. `("cancelled","no_show")` -> ['cancelled','no_show']. */
+function parseInLiteral(literal: string): string[] {
+  const inner = literal.trim().replace(/^\(/, '').replace(/\)$/, '')
+  return inner.split(',').map((s) => s.trim().replace(/^"(.*)"$/, '$1')).filter(Boolean)
+}
+
 function matches(row: Row, filters: Filter[]): boolean {
   for (const f of filters) {
     if (!matchesOne(row, f)) return false
@@ -140,11 +146,13 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     this.filters.push({ kind: 'ilike', col, pattern: new RegExp(`^${escaped}$`, 'i') })
     return this
   }
-  /** PostgREST `.not(col, 'eq'|'is'|'neq', val)` — negates the named simple filter. */
-  not(col: string, op: 'eq' | 'is' | 'neq', val: unknown): this {
+  /** PostgREST `.not(col, 'eq'|'is'|'neq'|'in', val)` — negates the named simple filter.
+   * `'in'` takes a Postgres array-literal string, e.g. `("cancelled","no_show")`. */
+  not(col: string, op: 'eq' | 'is' | 'neq' | 'in', val: unknown): this {
     const inner: Filter =
       op === 'eq' ? { kind: 'eq', col, val }
       : op === 'neq' ? { kind: 'neq', col, val }
+      : op === 'in' ? { kind: 'in', col, vals: parseInLiteral(val as string) }
       : { kind: 'is', col, val: val as null | boolean }
     this.filters.push({ kind: 'not', inner })
     return this

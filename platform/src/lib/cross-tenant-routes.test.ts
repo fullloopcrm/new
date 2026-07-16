@@ -349,7 +349,7 @@ describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/cl
     expect(body.booking.team_member_id).toBe(ids.member.a)
   })
 
-  it("worker A CANNOT claim tenant B's unassigned job by passing tenant B's booking_id — the tenant_id filter finds no matching row → 409, B's booking stays unassigned", async () => {
+  it("worker A CANNOT claim tenant B's unassigned job by passing tenant B's booking_id — the tenant_id filter finds no matching row → 404, B's booking stays unassigned", async () => {
     const token = createTeamToken(ids.member.a, A_ID, 20, 'worker')
     const req = new Request('http://x', {
       method: 'POST',
@@ -357,7 +357,12 @@ describe('CROSS-TENANT ATTACK · team-portal family — /api/team-portal/jobs/cl
       body: JSON.stringify({ booking_id: ids.booking.bOpen }),
     })
     const res = await jobsClaimPOST(req)
-    expect(res.status).toBe(409)
+    // The route's overlap-guard pre-fetch (tenant-scoped) now finds no row for a
+    // cross-tenant id and returns 404 before reaching the atomic-claim update
+    // (which previously reported this same cross-tenant case as 409 "already
+    // taken" — 404 is the more accurate status; the security property (blocked,
+    // B's booking untouched) is unchanged).
+    expect(res.status).toBe(404)
     const bRow = fake._all('bookings').find((r) => r.id === ids.booking.bOpen)!
     expect(bRow.team_member_id).toBeNull()
     expect(bRow.tenant_id).toBe(B_ID)

@@ -3,6 +3,8 @@ import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { sendPushToTeamMember } from '@/lib/push'
 import { audit } from '@/lib/audit'
+import { getSettings } from '@/lib/settings'
+import { shiftNaiveTimestamp } from '@/lib/cleaner-availability'
 
 // A lead/manager reassigns a job to another field member. Guardrails:
 //   - requires jobs.reassign
@@ -30,9 +32,9 @@ export async function POST(request: Request) {
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, team_member_id, start_time, clients(name)')
+    .select('id, team_member_id, start_time, end_time, clients(name)')
     .eq('id', booking_id)
-    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null } | null }
+    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null; end_time: string | null } | null }
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
   const previous = booking.team_member_id
@@ -42,6 +44,30 @@ export async function POST(request: Request) {
   // crew/lead by simply supplying its booking_id.
   if (previous && !scope.includes(previous)) {
     return NextResponse.json({ error: 'That job is not in your crew' }, { status: 403 })
+  }
+
+  // Time-conflict guard — nothing previously stopped a lead from reassigning a
+  // job onto a member who already has an overlapping job that day. Mirrors the
+  // buffer-aware conflict check /api/bookings' POST applies to admin/agent
+  // assignments and .../jobs/claim now applies to self-service claims.
+  if (booking.start_time) {
+    const settings = await getSettings(auth.tid)
+    const bufferMin = Math.max(0, settings.booking_buffer_minutes)
+    const endTime = booking.end_time || shiftNaiveTimestamp(booking.start_time, 180)
+    const startWithBuffer = shiftNaiveTimestamp(booking.start_time, -bufferMin)
+    const endWithBuffer = shiftNaiveTimestamp(endTime, bufferMin)
+
+    const { count: conflictCount } = await db
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('team_member_id', to_member_id)
+      .neq('id', booking_id)
+      .not('status', 'in', '("cancelled","no_show")')
+      .lt('start_time', endWithBuffer)
+      .gt('end_time', startWithBuffer)
+    if ((conflictCount ?? 0) > 0) {
+      return NextResponse.json({ error: 'That member already has a job that overlaps this time' }, { status: 409 })
+    }
   }
 
   const { data: target } = (await db
