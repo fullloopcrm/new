@@ -710,6 +710,7 @@ type RecurringArchetype = {
   reviewText: string
   reviewRating: number
   scheduleChangeNarrative: string
+  vacationNarrative: string
 }
 
 const RECURRING_ARCHETYPES: RecurringArchetype[] = [
@@ -730,6 +731,7 @@ const RECURRING_ARCHETYPES: RecurringArchetype[] = [
     reviewText: 'Maria was incredible -- so thorough, even got baseboards we forgot about. Booking again every 2 weeks!',
     reviewRating: 5,
     scheduleChangeNarrative: "daughter's birthday party landed on the usual visit day -- moved that visit out two days",
+    vacationNarrative: 'family is at the lake house for two weeks -- pausing the biweekly visits until they get back',
   },
   {
     industry: 'pest',
@@ -748,6 +750,7 @@ const RECURRING_ARCHETYPES: RecurringArchetype[] = [
     reviewText: 'Fast response on the rodent issue and the tech explained everything clearly. Tenants stopped complaining within a week. Signed up for the monthly plan.',
     reviewRating: 5,
     scheduleChangeNarrative: 'monthly visit conflicted with a scheduled fire-alarm inspection -- moved that visit out two days',
+    vacationNarrative: 'building is closed for a 3-week HVAC retrofit -- pausing the monthly plan until tenants are back',
   },
   {
     industry: 'lawn_care',
@@ -766,6 +769,7 @@ const RECURRING_ARCHETYPES: RecurringArchetype[] = [
     reviewText: 'Yard looks 10x better after the aeration, and Tyler is always right on schedule every week.',
     reviewRating: 5,
     scheduleChangeNarrative: 'family is on vacation the week of the usual mow -- moved that visit out two days',
+    vacationNarrative: 'family is traveling for a month over the winter -- pausing weekly mowing until they return',
   },
 ]
 
@@ -848,6 +852,21 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
     const clientId = firstBooking?.client_id as string | undefined
     add('sale: customer record created from the signed quote', !!clientId)
 
+    // Pest-only: "we manage the whole building" is a real multi-address-per-
+    // client shape (client_properties, ported from nycmaid) — an office-park
+    // manager account naturally has more than one serviceable address.
+    if (def.industry === 'pest' && clientId) {
+      const { data: prop, error: propErr } = await supabase.from('client_properties').insert({
+        tenant_id: tenant.id, client_id: clientId, label: 'Building B — East Wing',
+        address: `456 Commerce St, ${loc.city}, ${loc.state} ${loc.zip}`, is_primary: false,
+      }).select('id').single()
+      add('accounts: second serviceable property added for the same customer', !!prop && !propErr, propErr?.message)
+      if (prop) {
+        const { count: propCount } = await supabase.from('client_properties').select('id', { count: 'exact', head: true }).eq('client_id', clientId)
+        add('accounts: customer now has multiple properties on one account', (propCount || 0) >= 1, `${propCount} properties`)
+      }
+    }
+
     // ================= RECURRING PLAN (ongoing schedule, same customer) =================
     const recurringLines = normalizeLineItems([{ name: def.recurringServiceName, quantity: 1, unit_price_cents: recurringSvc.price_cents || 0 }])
     const recurringTotals = computeTotals(recurringLines, 0, 0)
@@ -906,6 +925,27 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
       add('schedule: future occurrence skipped via the real exception ledger', !skipErr, skipErr?.message)
     }
 
+    // ================= RECURRING PAUSE/RESUME (real feature: /api/admin/recurring-schedules/[id]/pause) =================
+    // Mirrors that route's own two-part effect (requirePermission-gated, so
+    // invoked as a direct DB mirror like the exception-ledger block above,
+    // not called as a handler): flip status to 'paused' + cancel every
+    // in-window booking, then resume by flipping back to 'active'.
+    if (schedule) {
+      const pauseUntil = new Date(Date.now() + 21 * 24 * 3600 * 1000).toISOString().slice(0, 10)
+      const { error: pauseErr } = await supabase.from('recurring_schedules')
+        .update({ status: 'paused', paused_until: pauseUntil }).eq('id', schedule.id)
+      const { data: cancelled } = await supabase.from('bookings')
+        .update({ status: 'cancelled' }).eq('schedule_id', schedule.id)
+        .in('status', ['scheduled', 'pending']).lte('start_time', pauseUntil + 'T23:59:59')
+        .select('id')
+      add(`schedule: ${def.vacationNarrative}`, !pauseErr, pauseErr?.message)
+      add('schedule: in-window visits cancelled while paused', (cancelled?.length || 0) >= 1, `${cancelled?.length} cancelled`)
+
+      const { error: resumeErr } = await supabase.from('recurring_schedules')
+        .update({ status: 'active', paused_until: null }).eq('id', schedule.id)
+      add('schedule: plan resumed after the pause window', !resumeErr, resumeErr?.message)
+    }
+
     // ================= HR / ONBOARDING (hire + assign the tech who does the work) =================
     const { seedHrDefaults } = await import('../src/lib/hr')
     await seedHrDefaults(tenant.id)
@@ -927,6 +967,15 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
     if (worker && firstBooking) {
       await supabase.from('bookings').update({ team_member_id: worker.id }).eq('id', firstBooking.id).eq('tenant_id', tenant.id)
       add('hr: tech assigned to the first visit', true)
+    }
+
+    // Cleaning-only: "send the same person every time" is a real, named
+    // feature (clients.preferred_team_member_id, read by nycmaid/smart-schedule
+    // + Selena's own client lookup) — the exact ask in this lead's notes.
+    if (def.industry === 'cleaning' && worker && clientId) {
+      const { error: prefErr } = await supabase.from('clients').update({ preferred_team_member_id: worker.id }).eq('id', clientId)
+      const { data: clientAfter } = await supabase.from('clients').select('preferred_team_member_id').eq('id', clientId).single()
+      add('scheduling: customer\'s preferred-cleaner request is stored + honorable by the real scheduler', !prefErr && clientAfter?.preferred_team_member_id === worker.id, prefErr?.message)
     }
 
     // ================= PAYROLL =================
@@ -969,6 +1018,15 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
       })
       add(`bookkeeping: customer paid via ${def.paymentMethod}`, !payErr, payErr?.message)
       await supabase.from('invoices').update({ status: 'paid', amount_paid_cents: invoice.total_cents, paid_at: new Date().toISOString() }).eq('id', invoice.id)
+
+      // Cleaning-only: a real, wired field (bookings.tip_amount, set by the
+      // production payment-processor path) — happy customers tip the tech.
+      if (def.industry === 'cleaning' && firstBooking) {
+        const tipCents = 2000
+        const { error: tipErr } = await supabase.from('bookings').update({ tip_amount: tipCents }).eq('id', firstBooking.id)
+        const { data: bkAfter } = await supabase.from('bookings').select('tip_amount').eq('id', firstBooking.id).single()
+        add('payment: customer tip recorded on the visit', !tipErr && bkAfter?.tip_amount === tipCents, `tip=${bkAfter?.tip_amount}`)
+      }
       const undeposited = await getAccountIdByCode(tenant.id, '1050')
       const revenue = await getAccountIdByCode(tenant.id, '4000')
       if (undeposited && revenue) {
@@ -1047,7 +1105,7 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
   } finally {
     if (!PERSIST && tenantId) {
       for (const tbl of [
-        'recurring_exceptions', 'reviews', 'referral_commissions', 'referrers', 'team_member_payouts', 'payments',
+        'recurring_exceptions', 'reviews', 'referral_commissions', 'referrers', 'team_member_payouts', 'payments', 'client_properties',
         'territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles',
         'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events',
         'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'portal_leads',
