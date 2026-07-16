@@ -78,7 +78,7 @@ function makeQuote(over: Record<string, any> = {}) {
     tenant_id: TENANT_A,
     quote_number: 'Q-2044',
     title: 'Roof wash — spring package',
-    status: 'sent',
+    status: 'accepted',
     contact_email: 'buyer@example.com',
     deposit_cents: 12000,
     deposit_paid_cents: 0,
@@ -175,5 +175,30 @@ describe('POST /api/quotes/public/[token]/deposit-checkout — customer pays a p
     expect(res.status).toBe(400)
     expect((await res.json()).error).toMatch(/no deposit due/i)
     expect(h.createSession).not.toHaveBeenCalled()
+  })
+
+  it.each(['draft', 'sent', 'viewed'])(
+    'refuses to create a session for a not-yet-accepted proposal (status=%s) — the token is emailed out before signature, so this endpoint is directly reachable pre-acceptance',
+    async (status) => {
+      h.quote = makeQuote({ status })
+
+      const res = await POST(req('tok_A'), ctx('tok_A'))
+
+      expect(res.status).toBe(400)
+      expect((await res.json()).error).toMatch(/accepted/i)
+      // No Stripe session, no event — money can't move before the customer signs.
+      expect(h.createSession).not.toHaveBeenCalled()
+      expect(h.logQuoteEvent).not.toHaveBeenCalled()
+    },
+  )
+
+  it('allows a deposit session once the quote has converted to a job (deposit was skipped or partially paid pre-conversion)', async () => {
+    h.quote = makeQuote({ status: 'converted', deposit_cents: 12000, deposit_paid_cents: 5000 })
+
+    const res = await POST(req('tok_A'), ctx('tok_A'))
+
+    expect(res.status).toBe(200)
+    expect(h.createSession).toHaveBeenCalledTimes(1)
+    expect(h.createSession.mock.calls[0][0].line_items[0].price_data.unit_amount).toBe(7000)
   })
 })

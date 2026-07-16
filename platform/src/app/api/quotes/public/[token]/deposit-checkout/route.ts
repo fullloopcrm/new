@@ -36,6 +36,14 @@ export async function POST(_request: Request, { params }: Params) {
     if (['declined', 'expired'].includes(quote.status)) {
       return NextResponse.json({ error: `Proposal is ${quote.status}` }, { status: 400 })
     }
+    // The UI only shows "Pay Deposit" once the quote is accepted/signed, but
+    // this token is emailed out (and thus reachable) well before that — a
+    // direct POST on a draft/sent/viewed quote would collect real money for a
+    // proposal nobody signed, while the webhook's convertSaleToJob still
+    // requires status 'accepted' and silently no-ops (console.warn only).
+    if (!['accepted', 'converted'].includes(quote.status)) {
+      return NextResponse.json({ error: 'Proposal must be accepted before paying a deposit' }, { status: 400 })
+    }
 
     const depositDue = (quote.deposit_cents || 0) - (quote.deposit_paid_cents || 0)
     if (depositDue <= 0) return NextResponse.json({ error: 'No deposit due' }, { status: 400 })
