@@ -192,28 +192,45 @@ export async function POST(request: Request) {
       await supabaseAdmin.from('entities').insert({ tenant_id: tenantId, is_default: true, active: true, ...entityFields })
     }
 
-    // 2. Persona / social → merge into selena_config (never clobber the whole blob).
-    const { data: current } = await supabaseAdmin
-      .from('tenants')
-      .select('selena_config')
-      .eq('id', tenantId)
-      .single()
-    const cfg = (current?.selena_config as Json) || {}
-    const social = (cfg.social as Json) || {}
-    const mergedConfig: Json = {
-      ...cfg,
-      ...(str(d.businessDescription) && { business_description: str(d.businessDescription) }),
-      ...(str(d.businessStory) && { business_story: str(d.businessStory) }),
-      ...(str(d.googleReviewLink) && { google_review_link: str(d.googleReviewLink) }),
-      social: {
-        ...social,
-        ...(str(d.facebookUrl) && { facebook: str(d.facebookUrl) }),
-        ...(str(d.instagramUrl) && { instagram: str(d.instagramUrl) }),
-        ...(str(d.tiktokUrl) && { tiktok: str(d.tiktokUrl) }),
-        ...(str(d.linkedinUrl) && { linkedin: str(d.linkedinUrl) }),
-        ...(str(d.youtubeUrl) && { youtube: str(d.youtubeUrl) }),
-        ...(str(d.xUrl) && { x: str(d.xUrl) }),
-      },
+    // 2. Persona / social → merge into selena_config atomically in Postgres
+    // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) rather than
+    // reading selena_config, spreading the wizard's fields over it in JS, and
+    // folding the merged blob into the SAME blind tenants UPDATE as every
+    // other field on this route (see step 4 below). This submit racing a
+    // team/service-area/persona/permissions save on the same tenant -- all
+    // of which also patch selena_config -- would otherwise both read the
+    // same stale blob, and whichever write landed second would silently
+    // revert the other's change with no error to either side.
+    const socialPatch: Json = {
+      ...(str(d.facebookUrl) && { facebook: str(d.facebookUrl) }),
+      ...(str(d.instagramUrl) && { instagram: str(d.instagramUrl) }),
+      ...(str(d.tiktokUrl) && { tiktok: str(d.tiktokUrl) }),
+      ...(str(d.linkedinUrl) && { linkedin: str(d.linkedinUrl) }),
+      ...(str(d.youtubeUrl) && { youtube: str(d.youtubeUrl) }),
+      ...(str(d.xUrl) && { x: str(d.xUrl) }),
+    }
+    const hasSocialPatch = Object.keys(socialPatch).length > 0
+    if (str(d.businessDescription) || str(d.businessStory) || str(d.googleReviewLink) || hasSocialPatch) {
+      let socialValue: Json | undefined
+      if (hasSocialPatch) {
+        const { data: current } = await supabaseAdmin
+          .from('tenants')
+          .select('selena_config')
+          .eq('id', tenantId)
+          .single()
+        const social = ((current?.selena_config as Json)?.social as Json) || {}
+        socialValue = { ...social, ...socialPatch }
+      }
+      const { error: scErr } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+        p_tenant_id: tenantId,
+        p_patch: {
+          ...(str(d.businessDescription) && { business_description: str(d.businessDescription) }),
+          ...(str(d.businessStory) && { business_story: str(d.businessStory) }),
+          ...(str(d.googleReviewLink) && { google_review_link: str(d.googleReviewLink) }),
+          ...(socialValue && { social: socialValue }),
+        },
+      })
+      if (scErr) throw scErr
     }
 
     // 3. Licensing + insurance → tenants.compliance jsonb.
@@ -228,8 +245,10 @@ export async function POST(request: Request) {
     }
 
     // 4. Brand + contact → tenants columns. Clear the draft, stamp completion.
+    // selena_config is deliberately NOT included here -- it was already
+    // merged atomically above, and re-including it would reopen the same
+    // blind-clobber race this route just closed.
     const tenantUpdate: Json = {
-      selena_config: mergedConfig,
       compliance,
       onboarding_draft: null,
       onboarding_completed_at: new Date().toISOString(),

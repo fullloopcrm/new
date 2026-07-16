@@ -8,7 +8,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getServiceArea, parseServiceArea, withServiceArea } from '@/lib/service-area'
+import { getServiceArea, parseServiceArea } from '@/lib/service-area'
 
 export async function GET() {
   try {
@@ -33,17 +33,19 @@ export async function PUT(request: Request) {
     const body = await request.json()
     const area = parseServiceArea(body?.serviceArea ?? body)
 
-    const { data: current } = await supabaseAdmin
-      .from('tenants')
-      .select('selena_config')
-      .eq('id', tenant.tenantId)
-      .single()
-
-    const nextConfig = withServiceArea(current?.selena_config, area)
-    const { error } = await supabaseAdmin
-      .from('tenants')
-      .update({ selena_config: nextConfig })
-      .eq('id', tenant.tenantId)
+    // Merge service_area into selena_config atomically in Postgres
+    // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) rather than
+    // reading selena_config, spreading the new area over it in JS, and
+    // blind-writing the merged blob back. This route's own save racing a
+    // team/persona/permissions save on the same tenant (all of which also
+    // patch selena_config) would otherwise both read the same stale blob,
+    // and whichever write landed second would silently revert the other's
+    // change with no error to either side -- the exact race this migration
+    // already called out as unfixed on this route.
+    const { error } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+      p_tenant_id: tenant.tenantId,
+      p_patch: { service_area: area },
+    })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     return NextResponse.json({ serviceArea: area })
