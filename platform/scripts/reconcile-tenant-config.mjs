@@ -192,6 +192,16 @@ export function parseBespokeSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- Source 5: parse APEX_CANONICAL_DOMAINS out of the middleware source.
+// This is the apex/www canonical-redirect loop-prevention exemption list — a
+// domain in it is served at the bare apex instead of being 301'd to www. It
+// lives ONLY in middleware source, outside every DB source the rest of this
+// gate reconciles, so a typo here is invisible to every other Drift check.
+export function parseApexCanonicalSet(middlewareSource) {
+  const block = middlewareSource.match(/APEX_CANONICAL_DOMAINS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -221,9 +231,12 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  (not just active/live/setup), each { slug, domain }.
  *                                  Feeds Drift F ONLY (claim-only, never the main
  *                                  per-tenant loop) — see the claim() call below for why.
+ * @param {Set}      [input.apexCanonicalSet]  domains from middleware's
+ *                                  APEX_CANONICAL_DOMAINS (see parseApexCanonicalSet).
+ *                                  Feeds Drift O ONLY. Pass an empty Set (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set() }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -404,6 +417,29 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift O: an APEX_CANONICAL_DOMAINS entry (middleware's apex/www
+  // redirect-loop exemption list — see parseApexCanonicalSet) that matches NO
+  // known tenant domain anywhere (tenants.domain of any status, or any
+  // tenant_domains row). Either it's dead config for a domain nothing serves
+  // (harmless), or it's a typo of the domain it was meant to protect — in
+  // which case the apex<->www redirect fight the exemption exists to prevent
+  // (Vercel's www->apex 307 vs middleware's apex->www 301, per the comment
+  // above APEX_CANONICAL_DOMAINS in middleware.ts) silently resumes for that
+  // tenant with zero drift signal from any other check, because this list
+  // lives ONLY in middleware source, outside every DB source this gate
+  // otherwise reconciles.
+  if (apexCanonicalSet.size) {
+    const knownDomains = new Set()
+    for (const t of tenants) if (t.domain) knownDomains.add(norm(t.domain))
+    for (const r of tds) if (r.domain) knownDomains.add(norm(r.domain))
+    for (const t of allTenantDomains) if (t.domain) knownDomains.add(norm(t.domain))
+    for (const d of apexCanonicalSet) {
+      if (!knownDomains.has(norm(d))) {
+        add('WARN', d, `in APEX_CANONICAL_DOMAINS (middleware apex/www redirect-loop exemption) but matches NO known tenant domain — dead entry, or a typo silently defeating the loop protection it exists for`)
+      }
+    }
+  }
+
   return findings
 }
 
@@ -455,8 +491,10 @@ async function main() {
     return d
   }
 
-  // Source 3 + 4 from the working tree.
-  const bespokeSet = parseBespokeSet(readFileSync(join(REPO, 'src', 'middleware.ts'), 'utf8'))
+  // Source 3 + 4 + 5 from the working tree.
+  const middlewareSource = readFileSync(join(REPO, 'src', 'middleware.ts'), 'utf8')
+  const bespokeSet = parseBespokeSet(middlewareSource)
+  const apexCanonicalSet = parseApexCanonicalSet(middlewareSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -485,7 +523,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

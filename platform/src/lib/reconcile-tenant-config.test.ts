@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
   parseBespokeSet,
+  parseApexCanonicalSet,
   computeFindings,
   summarize,
   loadToken,
@@ -38,6 +39,36 @@ describe('parseBespokeSet', () => {
 
   it('returns an empty set when the declaration is absent', () => {
     expect(parseBespokeSet('export const x = 1').size).toBe(0)
+  })
+})
+
+describe('parseApexCanonicalSet', () => {
+  it('extracts the domains from a middleware APEX_CANONICAL_DOMAINS declaration', () => {
+    const src = `
+      const APEX_CANONICAL_DOMAINS = new Set<string>([
+        'consortiumnyc.com',
+        "thenycmarketingcompany.com",
+      ])
+    `
+    const set = parseApexCanonicalSet(src)
+    expect(set.has('consortiumnyc.com')).toBe(true)
+    expect(set.has('thenycmarketingcompany.com')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseApexCanonicalSet('export const x = 1').size).toBe(0)
+  })
+
+  it('does not confuse BESPOKE_SITE_TENANTS with APEX_CANONICAL_DOMAINS in the same source', () => {
+    const src = `
+      const APEX_CANONICAL_DOMAINS = new Set<string>(['apex-only.com'])
+      const BESPOKE_SITE_TENANTS = new Set<string>(['bespoke-only'])
+    `
+    const apex = parseApexCanonicalSet(src)
+    expect(apex.has('apex-only.com')).toBe(true)
+    expect(apex.has('bespoke-only')).toBe(false)
+    expect(apex.size).toBe(1)
   })
 })
 
@@ -1350,5 +1381,91 @@ describe('computeFindings — Drift M (ambiguous is_primary among active domains
       resolvableSlugs: null,
     })
     expect(findings.some((f) => f.msg.includes('is_primary'))).toBe(false)
+  })
+})
+
+describe('computeFindings — Drift O (APEX_CANONICAL_DOMAINS entry with no matching known domain)', () => {
+  it('warns when an apex-canonical entry matches no tenants.domain, tenant_domains row, or any-status domain', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenantDomains: [{ slug: 'foo', domain: 'foo.com' }],
+      apexCanonicalSet: new Set(['typo-domain.com']),
+    })
+    const warn = findings.find((f) => f.slug === 'typo-domain.com')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('APEX_CANONICAL_DOMAINS')
+  })
+
+  it('does not warn when the entry matches tenants.domain', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      apexCanonicalSet: new Set(['foo.com']),
+    })
+    expect(findings.some((f) => f.slug === 'foo.com')).toBe(false)
+  })
+
+  it('does not warn when the entry matches only an active tenant_domains row (tenants.domain empty)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: null, status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      apexCanonicalSet: new Set(['foo.com']),
+    })
+    expect(findings.some((f) => f.slug === 'foo.com')).toBe(false)
+  })
+
+  it('does not warn when the entry matches only a stale any-status tenants.domain (out-of-scope tenant)', () => {
+    const tenants: Array<{ id: string; slug: string; domain: string | null; status: string }> = []
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenantDomains: [{ slug: 'suspended-foo', domain: 'foo.com' }],
+      apexCanonicalSet: new Set(['foo.com']),
+    })
+    expect(findings.some((f) => f.slug === 'foo.com')).toBe(false)
+  })
+
+  it('matches through norm() so a www-prefixed or scheme-prefixed known domain still collapses with a bare apex-canonical entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'https://www.foo.com/', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      apexCanonicalSet: new Set(['foo.com']),
+    })
+    expect(findings.some((f) => f.slug === 'foo.com')).toBe(false)
+  })
+
+  it('is skipped entirely when apexCanonicalSet is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('APEX_CANONICAL_DOMAINS')).length).toBe(0)
   })
 })
