@@ -8,6 +8,49 @@ import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 
+const DUPLICATE_WINDOW_MS = 2 * 60 * 1000
+
+/**
+ * Duplicate-submit guard: there's no existing "draft" record for an apology
+ * batch to atomically claim (every call just overwrites the client's
+ * apology_credit_* columns), so a double-click of "Send" or a client retry
+ * would re-text every selected client again. Claim per-client by
+ * conditionally flipping apology_credit_at only if it's unset or outside the
+ * dedup window -- two concurrent identical requests both read the same
+ * client row before either write lands, but only one of these conditional
+ * UPDATEs actually matches, so only the winner proceeds to text this client.
+ * Two attempts (IS NULL, then < cutoff) instead of a single OR filter to
+ * avoid building a raw PostgREST filter string out of any request-derived
+ * value.
+ */
+async function claimApologyCredit(
+  clientId: string,
+  tenantId: string,
+  creditPct: number,
+  reason: string,
+  nowIso: string,
+  sinceIso: string
+): Promise<boolean> {
+  const payload = { apology_credit_pct: creditPct, apology_credit_reason: reason, apology_credit_at: nowIso }
+  const { data: viaNull } = await supabaseAdmin
+    .from('clients')
+    .update(payload)
+    .eq('id', clientId)
+    .eq('tenant_id', tenantId)
+    .is('apology_credit_at', null)
+    .select('id')
+  if (viaNull && viaNull.length > 0) return true
+
+  const { data: viaStale } = await supabaseAdmin
+    .from('clients')
+    .update(payload)
+    .eq('id', clientId)
+    .eq('tenant_id', tenantId)
+    .lt('apology_credit_at', sinceIso)
+    .select('id')
+  return !!viaStale && viaStale.length > 0
+}
+
 export async function POST(request: NextRequest) {
   const { tenant, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
@@ -47,8 +90,10 @@ export async function POST(request: NextRequest) {
     let skippedDns = 0
     let skippedOptOut = 0
     let skippedNoPhone = 0
+    let skippedDuplicate = 0
     let failed = 0
     const now = new Date().toISOString()
+    const sinceIso = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString()
 
     for (const c of clients) {
       // DNS = never contact
@@ -58,16 +103,9 @@ export async function POST(request: NextRequest) {
 
       const text = (message || `Hi ${c.name?.split(' ')[0] || 'there'} — we owe you an apology. Your next booking is ${creditPct}% off, on us. 😊 — ${tenantRow?.name || ''}`).trim()
 
-      // Apply credit
-      await supabaseAdmin
-        .from('clients')
-        .update({
-          apology_credit_pct: creditPct,
-          apology_credit_reason: reason,
-          apology_credit_at: now,
-        })
-        .eq('id', c.id)
-        .eq('tenant_id', tenantId)
+      // Apply credit — atomic claim (see claimApologyCredit doc comment).
+      const claimed = await claimApologyCredit(c.id, tenantId, creditPct, reason, now, sinceIso)
+      if (!claimed) { skippedDuplicate++; continue }
 
       if (tenantRow?.telnyx_api_key && tenantRow?.telnyx_phone) {
         try {
@@ -92,6 +130,7 @@ export async function POST(request: NextRequest) {
       skipped_dns: skippedDns,
       skipped_opt_out: skippedOptOut,
       skipped_no_phone: skippedNoPhone,
+      skipped_duplicate: skippedDuplicate,
       failed,
       total_clients: clients.length,
     })

@@ -73,6 +73,12 @@ vi.mock('@/lib/supabase', () => {
       update: (p: Row) => { kind = 'update'; payload = p; return c },
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       in: (col: string, vals: unknown) => { eqs[col] = vals; return c },
+      // `is`/`lt` back the apology-batch atomic duplicate-claim (route.ts).
+      // The fixtures here never set apology_credit_at, so — matching real
+      // Postgres — the `is(..., null)` branch always matches and the claim
+      // always succeeds; this suite isn't testing the dedup path itself.
+      is: (col: string, val: unknown) => { eqs[col] = val; return c },
+      lt: (col: string, val: unknown) => { eqs[col] = val; return c },
       single: async () => {
         reads.push({ table, eqs: { ...eqs } })
         if (table === 'tenants') return { data: tenantRow, error: null }
@@ -81,7 +87,7 @@ vi.mock('@/lib/supabase', () => {
       then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
         if (kind === 'update') {
           updates.push({ table, payload, eqs: { ...eqs } })
-          return res({ data: null, error: null })
+          return res({ data: [{ id: eqs.id }], error: null })
         }
         reads.push({ table, eqs: { ...eqs } })
         if (table === 'clients') return res({ data: clientsFixture, error: null })
