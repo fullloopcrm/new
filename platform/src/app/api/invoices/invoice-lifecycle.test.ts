@@ -28,6 +28,11 @@ const h = vi.hoisted(() => ({
   tenantId: 'tenant-A',
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
+  // Set only by the from_booking_id race test below: simulates a concurrent
+  // claim (a double-click retry, or the monthly cron) landing on the target
+  // booking in the real gap between this route's own invoice INSERT and its
+  // bookings.invoice_id UPDATE.
+  raceClaimBookingId: null as string | null,
 }))
 
 // Emulates the DB trigger that recomputes an invoice when a payment lands.
@@ -54,6 +59,10 @@ vi.mock('@/lib/supabase', () => {
     insertDefaults: { created_at: '2026-07-12T00:00:00.000Z' },
     afterInsert: (row: Record<string, unknown>, table: string) => {
       if (table === 'payments') applyPaymentTrigger(row)
+      if (table === 'invoices' && h.raceClaimBookingId) {
+        const b = (h.store.bookings || []).find((x) => x.id === h.raceClaimBookingId)
+        if (b) b.invoice_id = 'concurrent-invoice'
+      }
     },
   }
   return { supabaseAdmin: makeSupabaseFake(h, opts), supabase: makeSupabaseFake(h, opts) }
@@ -92,6 +101,7 @@ const jsonReq = (url: string, body: unknown) =>
 beforeEach(() => {
   h.tenantId = TENANT
   h.seq = 0
+  h.raceClaimBookingId = null
   h.store = {
     invoices: [
       // a pre-existing draft owned by ANOTHER tenant — must stay untouched.
@@ -101,6 +111,10 @@ beforeEach(() => {
     payments: [],
     clients: [{ id: 'client-A', tenant_id: TENANT, name: 'Jane Doe' }],
     entities: [{ id: 'ent-1', tenant_id: TENANT, name: 'Acme Co' }],
+    bookings: [
+      { id: 'booking-1', tenant_id: TENANT, invoice_id: null, price: 9000, service_type: 'Cleaning' },
+      { id: 'booking-already-invoiced', tenant_id: TENANT, invoice_id: 'inv-existing', price: 7000, service_type: 'Cleaning' },
+    ],
     tenants: [
       {
         id: TENANT, name: 'Acme Co', slug: 'acme', domain: 'acme.example.com',
@@ -217,5 +231,44 @@ describe('invoice lifecycle: create → send → pay (happy path)', () => {
     expect(other.status).toBe('draft')
     expect(other.amount_paid_cents).toBe(0)
     expect(h.store.payments.every((p) => p.tenant_id === TENANT)).toBe(true)
+  })
+})
+
+describe('CREATE from_booking_id: cannot double-bill the same visit (P1/W1 TOCTOU audit)', () => {
+  it('rejects creating a second invoice for a booking that is already invoiced', async () => {
+    const res = await createInvoice(
+      jsonReq('http://acme.example.com/api/invoices', { booking_id: 'booking-already-invoiced' }),
+    )
+    expect(res.status).toBe(409)
+    // no new invoice was created for the already-billed booking
+    expect(h.store.invoices.some((i) => i.booking_id === 'booking-already-invoiced')).toBe(false)
+  })
+
+  it('claims the booking atomically: invoice_id is set to the new invoice', async () => {
+    const res = await createInvoice(
+      jsonReq('http://acme.example.com/api/invoices', { booking_id: 'booking-1' }),
+    )
+    expect(res.status).toBe(200)
+    const inv = (await res.json()).invoice as Record<string, unknown>
+    expect(h.store.bookings.find((b) => b.id === 'booking-1')?.invoice_id).toBe(inv.id)
+  })
+
+  it('rolls back the invoice instead of double-billing when a concurrent claim wins the race', async () => {
+    // Simulates a double-click / retried request (or the monthly cron) claiming
+    // booking-1 in the real gap between this route's own invoice INSERT and its
+    // bookings.invoice_id UPDATE. Pre-fix this silently overwrote the concurrent
+    // claim with a blind, unconditional update -- two invoices would both carry
+    // the visit, with no trace of which one "really" owns it.
+    h.raceClaimBookingId = 'booking-1'
+
+    const res = await createInvoice(
+      jsonReq('http://acme.example.com/api/invoices', { booking_id: 'booking-1' }),
+    )
+
+    expect(res.status).toBe(409)
+    // the invoice this request created was rolled back, not left as a ghost draft
+    expect(h.store.invoices.some((i) => i.booking_id === 'booking-1')).toBe(false)
+    // booking-1 stays claimed by the concurrent invoice, not overwritten back
+    expect(h.store.bookings.find((b) => b.id === 'booking-1')?.invoice_id).toBe('concurrent-invoice')
   })
 })

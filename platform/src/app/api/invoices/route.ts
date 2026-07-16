@@ -157,8 +157,17 @@ export async function POST(request: Request) {
       if (!client) return NextResponse.json({ error: 'Invalid client_id' }, { status: 400 })
     }
     if (bookingId) {
-      const { data: booking } = await db.from('bookings').select('id').eq('id', bookingId).maybeSingle()
+      const { data: booking } = await db.from('bookings').select('id, invoice_id').eq('id', bookingId).maybeSingle()
       if (!booking) return NextResponse.json({ error: 'Invalid booking_id' }, { status: 400 })
+      // bookings.invoice_id is the shared "already billed" gate (also enforced by
+      // cron/generate-monthly-invoices) -- reject here so a double-click / retried
+      // request doesn't create a second invoice for an already-invoiced visit.
+      // This is a courtesy check, not the real guard: it can't see a concurrent
+      // request that reads NULL here too, which is exactly why the claim below is
+      // re-checked atomically instead of trusting this read.
+      if (booking.invoice_id) {
+        return NextResponse.json({ error: 'This booking has already been invoiced' }, { status: 409 })
+      }
     }
     if (quoteId) {
       const { data: quote } = await db.from('quotes').select('id').eq('id', quoteId).maybeSingle()
@@ -226,9 +235,23 @@ export async function POST(request: Request) {
     // Mark the source booking as billed so it's never picked up again by the
     // monthly rollup generator (cron/generate-monthly-invoices) or re-billed
     // standalone — bookings.invoice_id is the single "already invoiced" gate
-    // shared by both paths.
+    // shared by both paths. Re-check invoice_id IS NULL here (not just the read
+    // above): a concurrent claim on this same booking (double-click, retried
+    // request, or the monthly cron) could have landed in the gap between that
+    // read and this write. If we lose the race, roll back the invoice we just
+    // created instead of leaving a ghost draft with no booking behind it, and
+    // tell the caller instead of silently succeeding with a duplicate invoice.
     if (bookingId) {
-      await db.from('bookings').update({ invoice_id: data.id }).eq('id', bookingId)
+      const { data: claimed } = await db
+        .from('bookings')
+        .update({ invoice_id: data.id })
+        .eq('id', bookingId)
+        .is('invoice_id', null)
+        .select('id')
+      if (!claimed || claimed.length === 0) {
+        await db.from('invoices').delete().eq('id', data.id)
+        return NextResponse.json({ error: 'This booking has already been invoiced' }, { status: 409 })
+      }
     }
 
     await logInvoiceEvent({
