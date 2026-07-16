@@ -1373,6 +1373,19 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
       amount: Math.round(input.amount_dollars * 100),
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
+    }, {
+      // This tool had NO double-submit protection at all -- unlike every
+      // other money-moving path in this codebase (payments insert races all
+      // guarded by a DB unique index + 23505 catch), a double-tapped refund
+      // request, an agent-framework retry on a slow/timed-out response, or
+      // two admin sessions approving the same refund would each fire a
+      // SEPARATE real Stripe refund with no record anywhere to catch it.
+      // A deterministic idempotency key makes Stripe itself -- not app code
+      // racing a read-then-write -- collapse concurrent/retried calls for
+      // the same booking+amount into the single real refund. A genuine
+      // second, distinct-amount refund (e.g. a partial follow-up) still gets
+      // its own key.
+      idempotencyKey: `selena-refund-${tid}-${input.booking_id}-${Math.round(input.amount_dollars * 100)}`,
     })
     await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
