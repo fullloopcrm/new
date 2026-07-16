@@ -48,6 +48,20 @@ export async function POST(request: NextRequest) {
   try {
     const { form_data, photo_url, video_url, resume_url, position } = await request.json()
 
+    // Same bug class fixed in /api/management-applications (the final-submit
+    // twin of this draft-save route): resume_url/photo_url/video_url are
+    // free-text from an unauthenticated public form. Require them to live
+    // inside this tenant's own management-applications upload prefix so a
+    // forged request can't stash an arbitrary URL (e.g. javascript:) here.
+    const { data: uploadPrefix } = supabaseAdmin.storage
+      .from('uploads')
+      .getPublicUrl(`${tenant.id}/management-applications/`)
+    for (const [field, value] of [['resume_url', resume_url], ['photo_url', photo_url], ['video_url', video_url]] as const) {
+      if (value != null && (typeof value !== 'string' || !value.startsWith(uploadPrefix.publicUrl))) {
+        return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+    }
+
     const { error } = await supabaseAdmin
       .from('management_application_drafts')
       .upsert(
