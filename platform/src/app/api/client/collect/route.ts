@@ -187,17 +187,35 @@ export async function POST(request: Request) {
     // SMS conversation handoff — lightweight: link convo to client, mark form received.
     // The tenant-specific recap message (pricing, payment instructions) lives in Selena,
     // not here. Selena will send the next appropriate message on its next turn.
+    //
+    // convo_id is a caller-supplied URL param (from the "finish your booking"
+    // SMS link) with no session tied to it -- the tenant_id filter below only
+    // confines the lookup to this tenant, so without also checking the
+    // conversation's own phone against the phone the submitter just typed,
+    // anyone who obtained another customer's convo_id (a forwarded link,
+    // browser history, a link-preview crawler) could hijack that
+    // conversation and reassign it to an attacker-controlled client.
     if (convo_id) {
       try {
-        await supabaseAdmin
+        const { data: convo } = await supabaseAdmin
           .from('sms_conversations')
-          .update({
-            client_id: data.id,
-            state: 'form_received',
-            updated_at: new Date().toISOString(),
-          })
+          .select('phone')
           .eq('id', convo_id)
           .eq('tenant_id', tenant.id)
+          .is('completed_at', null)
+          .single()
+
+        if (convo && normalizedPhone && normalizePhoneDigits(convo.phone || '') === normalizedPhone) {
+          await supabaseAdmin
+            .from('sms_conversations')
+            .update({
+              client_id: data.id,
+              state: 'form_received',
+              updated_at: new Date().toISOString(),
+            })
+            .eq('id', convo_id)
+            .eq('tenant_id', tenant.id)
+        }
       } catch (e) {
         console.error('Conversation link error:', e)
       }

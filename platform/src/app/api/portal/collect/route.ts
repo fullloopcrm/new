@@ -234,7 +234,15 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Selena conversation handoff
+    // Selena conversation handoff. convo_id is a caller-supplied URL param
+    // (from the "finish your booking" SMS link) with no session tied to it --
+    // tenantDb() confines the lookup to this tenant, but without also
+    // checking the conversation's own phone against the phone the submitter
+    // just typed, anyone who obtained another customer's convo_id (a
+    // forwarded link, browser history, a link-preview crawler) could hijack
+    // that conversation: reassign its client_id to an attacker-controlled
+    // client and fire the recap SMS below at the real customer's phone with
+    // attacker-supplied name/address spliced in.
     if (convo_id) {
       try {
         const { data: convo } = (await db
@@ -244,7 +252,7 @@ export async function POST(request: NextRequest) {
           .is('completed_at', null)
           .single()) as { data: { preferred_date: string | null; preferred_time: string | null; hourly_rate: number | null; phone: string | null } | null }
 
-        if (convo) {
+        if (convo && normalizedPhone && normalizePhoneDigits(convo.phone || '') === normalizedPhone) {
           await db
             .from('sms_conversations')
             .update({

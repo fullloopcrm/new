@@ -54,8 +54,8 @@ beforeEach(() => {
   fake._seed('notifications', [])
   fake._seed('portal_leads', [])
   fake._seed('sms_conversations', [
-    { id: 'convo-a', tenant_id: A_ID, completed_at: null, client_id: null, state: 'active', preferred_date: null, preferred_time: null, hourly_rate: null, phone: null },
-    { id: 'convo-b', tenant_id: B_ID, completed_at: null, client_id: null, state: 'active', preferred_date: null, preferred_time: null, hourly_rate: null, phone: null },
+    { id: 'convo-a', tenant_id: A_ID, completed_at: null, client_id: null, state: 'active', preferred_date: null, preferred_time: null, hourly_rate: null, phone: '5558887777' },
+    { id: 'convo-b', tenant_id: B_ID, completed_at: null, client_id: null, state: 'active', preferred_date: null, preferred_time: null, hourly_rate: null, phone: '5556667777' },
   ])
   fake._seed('sms_conversation_messages', [])
 })
@@ -93,6 +93,14 @@ describe('portal/collect POST — tenantDb isolation', () => {
     const aConvo = fake._all('sms_conversations').find((c) => c.id === 'convo-a')!
     expect(aConvo.client_id).toBe(body.client_id)
     expect(aConvo.state).toBe('form_received')
+  })
+
+  it("a same-tenant convo_id whose phone doesn't match the submitter's is NOT linked (hijack guard) -- convo_id is a caller-supplied URL param, so a valid same-tenant id alone must not be enough to take over someone else's conversation", async () => {
+    const res = await POST(postReq({ name: 'Attacker', phone: '5551230000', convo_id: 'convo-a' }))
+    expect(res.status).toBe(200)
+    const aConvo = fake._all('sms_conversations').find((c) => c.id === 'convo-a')!
+    expect(aConvo.client_id).toBeNull()
+    expect(aConvo.state).toBe('active')
   })
 
   it("LEAK CONTROL: updating sms_conversations by id ALONE (no tenant_id filter) WOULD let tenant A's request link tenant B's conversation — proves the route's tenantDb scoping above is load-bearing", async () => {
