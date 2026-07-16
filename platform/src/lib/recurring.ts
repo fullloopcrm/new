@@ -92,6 +92,43 @@ export function generateRecurringDates({
 }
 
 /**
+ * Compute the occurrence dates a refill pass (cron/generate-recurring) should
+ * ADD, given the date of the LAST already-materialized booking for a
+ * schedule. Anchors on `lastOccurrence` itself — generateRecurringDates
+ * always echoes its startDate as dates[0] — then drops that echo, so the
+ * first NEW date is a full interval after the last real occurrence.
+ *
+ * generate-recurring used to anchor on `lastOccurrence + 1 day` instead of
+ * this. Because generateRecurringDates emits startDate as its first result,
+ * that made every refill's first (and therefore every subsequent, since each
+ * one steps a fixed interval off the previous) generated date land 1 day
+ * after the last visit instead of a full interval after — e.g. a weekly
+ * Monday visit's next refill started on Tuesday, and kept sliding one weekday
+ * later every time the schedule's 4-week buffer topped up. Anchoring here
+ * (and reusing the exact per-type stepping generateRecurringDates already
+ * gets right, including monthly_weekday's week-of-month math) fixes every
+ * recurringType at once instead of re-deriving interval-day math per type.
+ */
+export function nextOccurrenceDates({
+  recurringType,
+  lastOccurrence,
+  dayOfWeek,
+  count = 4,
+}: {
+  recurringType: RecurringType
+  lastOccurrence: Date
+  dayOfWeek?: number
+  count?: number
+}): Date[] {
+  return generateRecurringDates({
+    recurringType,
+    startDate: lastOccurrence,
+    dayOfWeek,
+    weeksToGenerate: count + 1,
+  }).slice(1)
+}
+
+/**
  * Combine a 'YYYY-MM-DD' date + start hour/minute + duration into naive local
  * start/end ISO strings ('YYYY-MM-DDTHH:MM:SS', no timezone offset) for
  * booking storage. Rolls the end time onto the next calendar date when the

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { nextOccurrenceDates, type RecurringType } from '@/lib/recurring'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
@@ -55,18 +55,17 @@ export async function GET(request: Request) {
 
     if (lastDate >= fourWeeksOut) continue // Already generated enough
 
-    const startDate = new Date(lastDate)
-    startDate.setDate(startDate.getDate() + 1)
+    const anchor = new Date(lastDate)
     if (schedule.preferred_time) {
       const [h, m] = schedule.preferred_time.split(':')
-      startDate.setHours(parseInt(h), parseInt(m), 0, 0)
+      anchor.setHours(parseInt(h), parseInt(m), 0, 0)
     }
 
-    const dates = generateRecurringDates({
+    const dates = nextOccurrenceDates({
       recurringType: schedule.recurring_type as RecurringType,
-      startDate,
+      lastOccurrence: anchor,
       dayOfWeek: schedule.day_of_week ?? undefined,
-      weeksToGenerate: 4,
+      count: 4,
     }).filter((d) => d <= fourWeeksOut)
 
     if (dates.length === 0) continue

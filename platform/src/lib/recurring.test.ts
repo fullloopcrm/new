@@ -3,6 +3,7 @@ import {
   generateRecurringDates,
   getRecurringDisplayName,
   computeNaiveVisitWindow,
+  nextOccurrenceDates,
   type RecurringType,
 } from './recurring'
 
@@ -282,5 +283,55 @@ describe('computeNaiveVisitWindow', () => {
     // on the missing hour. The noon-UTC anchor should be unaffected.
     const w = computeNaiveVisitWindow('2026-03-08', 23, 0, 2)
     expect(w.endISO).toBe('2026-03-09T01:00:00')
+  })
+})
+
+describe('nextOccurrenceDates — cron refill anchoring (regression)', () => {
+  // Regression: cron/generate-recurring used to anchor the refill batch on
+  // lastOccurrence + 1 DAY (not + one interval), which — because
+  // generateRecurringDates emits its startDate verbatim as dates[0] — made
+  // the first (and every subsequent) refilled date land exactly 1 day after
+  // the last real visit instead of a full interval later. A weekly Monday
+  // series would refill onto Tuesday, then Wednesday next cycle, drifting
+  // forever. nextOccurrenceDates anchors on lastOccurrence itself and drops
+  // the echoed first result, so the interval math is never truncated.
+
+  it('weekly: first new date is a full 7 days after the last occurrence, not 1', () => {
+    const lastMonday = noon(2026, 0, 5) // Mon Jan 5 2026
+    const dates = nextOccurrenceDates({ recurringType: 'weekly', lastOccurrence: lastMonday, count: 4 })
+    expect(dates).toHaveLength(4)
+    expect(dayGap(lastMonday, dates[0])).toBe(7)
+    expect(dates.map(ymd)).toEqual(['2026-01-12', '2026-01-19', '2026-01-26', '2026-02-02'])
+    for (const d of dates) expect(d.getDay()).toBe(1) // stays Monday forever, not drifting
+  })
+
+  it('biweekly: first new date is a full 14 days after the last occurrence', () => {
+    const last = noon(2026, 0, 5) // Mon Jan 5 2026
+    const dates = nextOccurrenceDates({ recurringType: 'biweekly', lastOccurrence: last, count: 3 })
+    expect(dayGap(last, dates[0])).toBe(14)
+    expect(dates.map(ymd)).toEqual(['2026-01-19', '2026-02-02', '2026-02-16'])
+  })
+
+  it('triweekly: first new date is a full 21 days after the last occurrence', () => {
+    const last = noon(2026, 0, 5)
+    const dates = nextOccurrenceDates({ recurringType: 'triweekly', lastOccurrence: last, count: 2 })
+    expect(dayGap(last, dates[0])).toBe(21)
+    expect(dates.map(ymd)).toEqual(['2026-01-26', '2026-02-16'])
+  })
+
+  it('monthly_weekday: preserves week-of-month + weekday across refills, not just the raw day', () => {
+    // Jan 12 2026 is the 2nd Monday.
+    const last = noon(2026, 0, 12)
+    const dates = nextOccurrenceDates({ recurringType: 'monthly_weekday', lastOccurrence: last, dayOfWeek: 1, count: 2 })
+    for (const d of dates) {
+      expect(d.getDay()).toBe(1)
+      expect(Math.ceil(d.getDate() / 7)).toBe(2)
+    }
+    expect(dates.map(ymd)).toEqual(['2026-02-09', '2026-03-09'])
+  })
+
+  it('defaults count to 4 when omitted', () => {
+    const dates = nextOccurrenceDates({ recurringType: 'weekly', lastOccurrence: noon(2026, 0, 5) })
+    expect(dates).toHaveLength(4)
   })
 })
