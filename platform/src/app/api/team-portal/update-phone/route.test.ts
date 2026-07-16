@@ -111,6 +111,31 @@ describe('GET /api/team-portal/update-phone', () => {
     const res = await GET(req)
     expect(res.status).toBe(404)
   })
+
+  it('rejects an empty-string-keyed token when ADMIN_PASSWORD is unset (fail-closed, not a forgeable key)', async () => {
+    // Broad-hunt finding, 2026-07-16: the old local sign() did
+    // createHmac('sha256', process.env.ADMIN_PASSWORD || '') — if the secret
+    // were ever unset, that signs with a publicly-computable empty-string
+    // key, and anyone could forge a valid token for any team_member_id with
+    // zero credentials. Precompute exactly that forged token, then confirm
+    // it's rejected rather than accepted once ADMIN_PASSWORD is unset.
+    seedMember('member-1')
+    const payload = `member-1.${Date.now() + 60_000}`
+    const forgedSig = createHmac('sha256', '').update(payload).digest('hex')
+    const forgedToken = `${payload}.${forgedSig}`
+
+    const original = process.env.ADMIN_PASSWORD
+    delete process.env.ADMIN_PASSWORD
+    try {
+      const req = new Request(`https://x.test/api/team-portal/update-phone?token=${forgedToken}`)
+      const res = await GET(req)
+      expect(res.status).toBe(400)
+      const body = await res.json()
+      expect(body.error).toBe('bad_signature')
+    } finally {
+      process.env.ADMIN_PASSWORD = original
+    }
+  })
 })
 
 describe('POST /api/team-portal/update-phone', () => {
