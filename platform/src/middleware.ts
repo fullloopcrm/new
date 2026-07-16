@@ -7,9 +7,45 @@ function createRouteMatcher(patterns: string[]) {
   const res = patterns.map((p) => new RegExp('^' + p.replace(/\(\.\*\)/g, '.*') + '$'))
   return (req: NextRequest) => res.some((re) => re.test(req.nextUrl.pathname))
 }
+import { createClient } from '@supabase/supabase-js'
 import { getTenantBySlug, getTenantByDomain } from '@/lib/tenant-lookup'
 import { signTenantHeader } from '@/lib/tenant-header-sig'
 import { verifyAdminTokenEdge } from '@/lib/admin-token-edge-verify'
+
+// seomgr auto-verify — Google Search Console FILE-method verification token.
+// Confirmed live 2026-07-16: auto-verify.ts requests a token from Google and
+// immediately asks Google to verify it, but nothing ever served that token
+// file on the tenant's actual site — every real attempt failed with Google's
+// own "The necessary verification token could not be found on your site."
+//
+// .html paths are excluded from the main matcher below for performance, so
+// this pattern is matched as its own explicit entry — same edge-compatible
+// client tenant-lookup.ts already uses (middleware can't import ./supabase,
+// that's Node-only). No tenant-scoping risk: the token is a random
+// Google-issued string tied to exactly one property in seo_properties.meta.
+const GSC_VERIFY_FILE = /^google[a-f0-9]+\.html$/
+function edgeSupabase() {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co',
+    process.env.SUPABASE_SERVICE_ROLE_KEY || 'placeholder',
+  )
+}
+async function serveGscVerifyFile(req: NextRequest): Promise<NextResponse | null> {
+  const filename = req.nextUrl.pathname.replace(/^\//, '')
+  if (!GSC_VERIFY_FILE.test(filename)) return null
+
+  const hostname = (req.headers.get('host') || '').split(':')[0].replace(/^www\./, '').toLowerCase()
+  if (!hostname) return null
+
+  const { data } = await edgeSupabase().from('seo_properties').select('meta').eq('domain', hostname).maybeSingle()
+  const storedToken = (data?.meta as { verify_token?: string } | null)?.verify_token
+  if (!storedToken || storedToken !== filename) return null
+
+  return new NextResponse(`google-site-verification: ${filename}`, {
+    status: 200,
+    headers: { 'Content-Type': 'text/html; charset=utf-8' },
+  })
+}
 
 // Hosts that are the marketing site / main app (not tenant sites)
 const MAIN_HOSTS = new Set([
@@ -183,6 +219,13 @@ const isPublicRoute = createRouteMatcher([
 ])
 
 export default async function middleware(req: NextRequest) {
+  // Checked first, before any host/tenant logic — a GSC verify-file request
+  // must never get caught by the canonical redirect, tenant rewrite, or any
+  // auth gate below. serveGscVerifyFile no-ops (returns null) for every path
+  // that isn't an exact googleXXXX.html match.
+  const gscVerify = await serveGscVerifyFile(req)
+  if (gscVerify) return gscVerify
+
   const hostname = req.headers.get('host') || req.headers.get('x-forwarded-host') || 'localhost'
 
   // --- Canonical www redirect (301) ---
@@ -528,5 +571,8 @@ export const config = {
   matcher: [
     '/((?!_next|[^?]*\\.(?:html?|css|js(?!on)|jpe?g|webp|png|gif|svg|ttf|woff2?|ico|csv|docx?|xlsx?|zip|webmanifest)).*)',
     '/(api|trpc)(.*)',
+    // Narrow exception to the .html exclusion above — GSC FILE-verification
+    // files only, checked first thing in middleware() via serveGscVerifyFile.
+    '/google:token([a-f0-9]+)\\.html',
   ],
 }
