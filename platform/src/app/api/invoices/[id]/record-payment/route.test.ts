@@ -188,7 +188,10 @@ describe('POST /api/invoices/:id/record-payment — payment recording', () => {
     expect(payment.amount_cents).toBe(5000)
     expect(payment.tip_cents).toBe(0)
     expect(payment.status).toBe('succeeded')
-    expect(payment.reference_id).toBeNull()
+    // Synthesized (not null) when the caller omits reference_id and the
+    // invoice has a booking_id — see route.ts's layer-2 dedup comment and
+    // route.race.test.ts. Deterministic prefix, time-bucket suffix varies.
+    expect(payment.reference_id).toMatch(/^manual-record-payment-book-A1-5000-zelle-\d+$/)
     expect(payment.sender_name).toBeNull()
     expect(payment.received_at).toBeTruthy()
 
