@@ -77,11 +77,16 @@ async function eligibleTenants(): Promise<LinkCandidate[]> {
     .eq('status', 'active')
     .in('slug', [...CLUSTER_SLUGS])
 
-  const { data: domains } = await supabaseAdmin
-    .from('tenant_domains')
-    .select('tenant_id, domain')
-    .eq('is_primary', true)
-  const domainByTenant = new Map((domains ?? []).map((d) => [d.tenant_id as string, d.domain as string]))
+  // Prefer is_primary, but confirmed live 2026-07-16: 7 of the cluster's real
+  // tenants have exactly one active domain and NO row flagged is_primary —
+  // requiring it outright silently dropped most of the cluster. Fall back to
+  // any active domain when no primary is marked.
+  const { data: domains } = await supabaseAdmin.from('tenant_domains').select('tenant_id, domain, is_primary').eq('active', true)
+  const domainByTenant = new Map<string, string>()
+  for (const d of (domains ?? []) as Array<{ tenant_id: string; domain: string; is_primary: boolean }>) {
+    const existing = domainByTenant.has(d.tenant_id)
+    if (!existing || d.is_primary) domainByTenant.set(d.tenant_id, d.domain)
+  }
 
   return ((tenants ?? []) as TenantRow[]).map((t) => ({
     tenant_id: t.id,
