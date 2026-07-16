@@ -38,8 +38,12 @@ vi.mock('@/lib/supabase', () => {
           h.updateSpy(payload)
           return {
             eq: () => ({
-              select: () => ({
-                single: async () => ({ data: { ...h.booking, ...payload }, error: null }),
+              eq: () => ({
+                is: () => ({
+                  select: () => ({
+                    maybeSingle: async () => ({ data: { ...h.booking, ...payload }, error: null }),
+                  }),
+                }),
               }),
             }),
           }
