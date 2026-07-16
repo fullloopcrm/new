@@ -47,7 +47,7 @@ export async function PUT(
   // Get old booking for notification context
   const { data: oldBooking } = await supabaseAdmin
     .from('bookings')
-    .select('start_time, end_time, team_member_id, clients(name)')
+    .select('status, start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
     .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
@@ -64,17 +64,30 @@ export async function PUT(
   if (special_instructions !== undefined) update.special_instructions = special_instructions
   if (status === 'cancelled') update.status = 'cancelled'
 
+  // Check-then-act, not atomic: the read above is a stale snapshot -- an
+  // admin can move this booking to a terminal state (completed, paid,
+  // no_show) between that read and this write. Without re-asserting the
+  // pre-read status in THIS update's own WHERE, a customer's in-flight
+  // reschedule/cancel would silently revert whatever the admin just set
+  // (e.g. un-completing a job that already got marked paid).
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update(update)
     .eq('id', id)
     .eq('tenant_id', auth.tid)
     .eq('client_id', auth.id)
+    .eq('status', oldBooking.status)
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json(
+      { error: 'This booking changed status concurrently — refresh instead of editing' },
+      { status: 409 },
+    )
   }
 
   const clientName = (oldBooking.clients as unknown as { name: string } | null)?.name || 'Client'

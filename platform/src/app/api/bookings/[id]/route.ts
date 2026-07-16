@@ -107,16 +107,34 @@ export async function PUT(
       .eq('tenant_id', tenantId)
       .single()
 
+    if (!oldBooking) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+
+    // Check-then-act, not atomic: the read above is a stale snapshot -- a
+    // concurrent status change (customer cancel via the portal, the dedicated
+    // PATCH /api/bookings/[id]/status transition, a payment webhook) can land
+    // between that read and this write. Without re-asserting the pre-read
+    // status in THIS update's own WHERE, this blind write (which may itself
+    // carry a stale `fields.status` from the same snapshot) would silently
+    // clobber whatever the concurrent action just set.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .eq('status', oldBooking.status)
       .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This booking changed status concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
     }
 
     // Send notifications based on what changed
