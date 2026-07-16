@@ -88,15 +88,34 @@ export async function PATCH(request: NextRequest) {
       updateData.qualifying_answers = qualifying_answers
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('partner_requests')
-      .update(updateData)
-      .eq('id', id)
-      .select()
-      .single()
+    // createTenantFromLead owns the 'sold' transition (via its own
+    // conversion_claimed_at CAS) once converted_tenant_id is set. A manual
+    // status change landing after — or racing — that conversion would
+    // silently revert a lead that already has a live paying tenant back
+    // into the active pipeline view. Guard the status write specifically;
+    // notes/qualifying_answers-only edits can't corrupt that view, so they
+    // stay unguarded.
+    let query = supabaseAdmin.from('partner_requests').update(updateData).eq('id', id)
+    if (status !== undefined) {
+      query = query.is('converted_tenant_id', null)
+    }
+    const { data, error } = await query.select().maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      if (status !== undefined) {
+        const { data: existing } = await supabaseAdmin
+          .from('partner_requests')
+          .select('converted_tenant_id')
+          .eq('id', id)
+          .maybeSingle()
+        if (existing?.converted_tenant_id) {
+          return NextResponse.json({ error: 'Lead already converted to a tenant — status is locked to sold' }, { status: 409 })
+        }
+      }
+      return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
     }
 
     return NextResponse.json({ request: data })
@@ -210,13 +229,30 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({ error: 'id is required' }, { status: 400 })
   }
 
-  const { error } = await supabaseAdmin
+  // Refuse to delete a lead that's already been converted to a live tenant —
+  // the row is the only surviving record of that tenant's sales history
+  // (fit score, qualifying answers, notes thread, territory reservation).
+  const { data, error } = await supabaseAdmin
     .from('partner_requests')
     .delete()
     .eq('id', id)
+    .is('converted_tenant_id', null)
+    .select('id')
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    const { data: existing } = await supabaseAdmin
+      .from('partner_requests')
+      .select('converted_tenant_id')
+      .eq('id', id)
+      .maybeSingle()
+    if (existing?.converted_tenant_id) {
+      return NextResponse.json({ error: 'Cannot delete a lead already converted to a tenant' }, { status: 409 })
+    }
+    return NextResponse.json({ error: 'Lead not found' }, { status: 404 })
   }
 
   return NextResponse.json({ success: true })
