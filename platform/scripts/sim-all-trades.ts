@@ -759,6 +759,25 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
         genericBranch
           ? `generic-tenant pricing branch (${genericBranch.trim().length} chars) has no same-day/emergency logic; only the hardcoded NYC Maid branch does (nycMaidBranchHasLogic=${nycMaidHasEmergencyLogic}) — same root gap as P11.7 on a second self-book surface`
           : 'could not locate the generic (non-NYC-Maid) pricing branch in route source — route.ts shape changed, re-verify this check manually')
+
+      // P11.9 UX-FRICTION finding (3rd dimension: not a bug, not a missing feature —
+      // a real owner's flow is needlessly clunky). Not fixed here (product/design
+      // call), flagging with a concrete "X would flow better if Y" fix. Verified by
+      // reading the actual Settings-page dropdown option lists, not assumed: P11.0
+      // above reached same-day-open-24hr state by writing business_hours_start/end
+      // straight to the tenants row via Supabase — that exact state is UNREACHABLE
+      // through the Settings UI a real owner uses.
+      const settingsSrc = readFileSync(resolve(process.cwd(), 'src/app/dashboard/settings/page.tsx'), 'utf8')
+      const startOptsSrc = settingsSrc.split('const BUSINESS_HOURS_START_OPTIONS = [')[1]?.split(']')[0] || ''
+      const endOptsSrc = settingsSrc.split('const BUSINESS_HOURS_END_OPTIONS = [')[1]?.split(']')[0] || ''
+      const startValues = startOptsSrc.match(/value: '(\d{2}:\d{2})'/g) || []
+      const endValues = endOptsSrc.match(/value: '(\d{2}:\d{2})'/g) || []
+      const earliestStart = startValues[0]?.match(/'([\d:]+)'/)?.[1]
+      const latestEnd = endValues.slice(-1)[0]?.match(/'([\d:]+)'/)?.[1]
+      const canExpressTrue24_7 = /value: '00:00'/.test(startOptsSrc) && /value: '23:30'|value: '24:00'/.test(endOptsSrc)
+      add('UX-friction: owner can configure genuine 24/7 hours through the Scheduling tab UI (no direct-DB shortcut)',
+        canExpressTrue24_7,
+        `dropdowns only run ${earliestStart}–${latestEnd} (BUSINESS_HOURS_START_OPTIONS/END_OPTIONS, settings/page.tsx) — a real emergency dispatcher (this archetype's entire business model) has no UI path to the always-open hours they'd actually advertise; this sim only reached that state by updating tenants.business_hours_start/end directly. Compounding friction: even within that capped range, the hours control lives on the Scheduling tab while the emergency_rate/emergency_available premium meant to pair with it lives on the unrelated Selena tab's Services & Pricing section (page.tsx ~L1420), with no link, hint, or shared "Emergency Service" concept connecting them — an owner has to already know both settings exist and both need touching. Would flow better if: the Scheduling tab's hour dropdowns extended to a true 00:00–23:30/24:00 range (or grew a one-click "24/7" shortcut), and a single "Emergency / 24-7 Service" toggle set hours + surfaced the rate field inline, instead of two disconnected settings across two tabs.`)
     }
 
   } catch (err) {
