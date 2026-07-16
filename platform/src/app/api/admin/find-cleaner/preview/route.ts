@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 
@@ -56,14 +56,17 @@ function bookingOverlapsWindow(b: BookingRow, windowStart: Date, windowEnd: Date
   return bufferedStart < windowEnd && bufferedEnd > windowStart
 }
 
+// Eligible-cleaner lookup for a prospective broadcast: returns team members'
+// name/phone/availability, the same underlying roster + PII the sibling
+// POST /send actually messages (gated behind campaigns.send). This route
+// previously only checked getTenantForRequest() (proves tenant membership at
+// ANY role) with zero permission check. Gated behind campaigns.view — this
+// step is read-only (no SMS sent, no row written), so it uses the weaker
+// read-tier rather than campaigns.send, consistent with the view/mutate split
+// used elsewhere (settings.view/edit, schedules.view/edit).
 export async function POST(request: Request) {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  const { tenant: ctx, error } = await requirePermission('campaigns.view')
+  if (error) return error
   const tenantId = ctx.tenantId
 
   const body = await request.json().catch(() => ({}))

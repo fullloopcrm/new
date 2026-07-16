@@ -1,16 +1,18 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
+// Read-back of past cleaner-broadcast SMS blasts, including each recipient's
+// phone number + reply text — the sibling POST /send (the action that
+// creates this data) is gated behind campaigns.send; this reader previously
+// only checked getTenantForRequest() (proves tenant membership at ANY role),
+// so any staff-tier member (no campaigns.* by default) could read the whole
+// feed. Gated behind campaigns.view — the read-tier used across every other
+// GET/mutate pair in this codebase (settings.view/edit, schedules.view/edit).
 export async function GET() {
-  let ctx
-  try {
-    ctx = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
-  const tenantId = ctx.tenantId
+  const { tenant, error: permError } = await requirePermission('campaigns.view')
+  if (permError) return permError
+  const tenantId = tenant.tenantId
 
   const { data: broadcasts, error } = await tenantDb(tenantId)
     .from('cleaner_broadcasts')
