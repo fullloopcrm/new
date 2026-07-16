@@ -4304,3 +4304,63 @@ POST probe on both files and the manager-override-revocation probe on
 finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
 WIP feature, not touched here). File-only, no push/deploy/DB, not committed
 (leader/Jeff to review + commit).
+
+## 2026-07-16 06:09 round (W2) — P75, fixed: `GET /api/clients/[id]/activity`
+had zero permission check — the one sibling missed when P71 gated the rest
+of the `/api/clients` family
+
+Continuing the broad-hunt (leader order 06:09, lower-risk surface, file-only).
+Re-scanned every `api/*` route file for the "calls `getTenantForRequest`/
+`tenantDb` but never `requirePermission`" shape used to find P59-P74, this
+time specifically re-checking every family already touched this session for
+a missed sibling. `clients/[id]/activity/route.ts` — same client-PII family
+just gated in P71 (`clients.view` on the list/detail/enriched/analytics/stats
+GETs) — still only called `getTenantForRequest()` (proves tenant membership
+at ANY role) with zero permission check, despite reading the same client PII
+plus per-booking payment amounts and GPS check-in/out coordinates. The file's
+own header comment documented a *prior* fix (switching off the unauthenticated
+`getCurrentTenant()` header-only path onto `getTenantForRequest()`) but that
+comment pre-dates today's `clients.view` rollout to the rest of the family —
+this route was never revisited when P71 gated its four siblings.
+
+Same shape as every P68-P74 finding: **override-only**, not live against the
+hard-coded defaults (every default role is granted `clients.view` in
+`rbac.ts`) — invisible until a tenant revokes `clients.view` from a role via
+a `role_permissions` override, at which point every other client-data GET in
+the family already honored the revocation while this one silently ignored it.
+
+**Fix:** switched from a raw `getTenantForRequest()` call to
+`requirePermission('clients.view')` (matches the family convention already
+used on `clients/[id]/route.ts` and its siblings) — one call now covers both
+the auth check and the permission check. `tenant.id` references updated to
+`tenantId` off the returned `TenantContext` (3 call sites: the client lookup,
+the bookings query, the notifications query).
+
+**Regression lock:** new `route.rbac.test.ts` (2 tests: owner-with-
+`clients.view` passes, staff-with-override-revoked-`clients.view` gets 403).
+Mutation-verified via `git stash` against the real pre-fix `route.ts`: the
+override-revocation probe went RED (200 instead of 403) pre-fix, restored,
+GREEN post-fix. Pre-existing `route.isolation.test.ts` (3 tests: unauth 401,
+wrong-tenant 404, own-tenant 200 with activity data) still passes unchanged
+— confirms the permission gate didn't disturb the existing auth/tenant-scope
+behavior it wraps.
+
+`npx tsc --noEmit`: clean. Full suite: 398 files, 1727 passed + 37 skipped,
+0 regressions (was 395/1687... +3 files/+40 tests reflects this round's new
+test file plus the P71-P74 test files that were committed this round after
+sitting uncommitted since their original fix rounds — see below).
+`npm run audit:tenant`: same 1 pre-existing finding in untracked
+`src/lib/seo/recipes.ts` as every prior round (unrelated WIP feature, not
+touched here).
+
+**Housekeeping this round:** found P71-P74's fixes (clients family, referrals,
+bookings, reviews — all previously reported to the leader as done) plus the
+GSC verify-file rewrite and the backlink manual-steps checklist sitting
+uncommitted in the worktree from a prior context window. Re-verified each
+(tsc clean, all relevant tests passing) and committed them as 4 separate
+commits (725d5fcd RBAC P71-P74, df3f4ecf GSC rewrite, 9701c031 backlink
+checklist, f6b4a415 this register's P71-P74 entries) before starting this
+round's fresh work, so they aren't at risk of being lost. No code changes
+made to any of that carried-over work beyond what was already reported.
+
+File-only, no push/deploy/DB.

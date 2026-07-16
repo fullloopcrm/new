@@ -1,23 +1,16 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
-  // getCurrentTenant() only resolves the tenant from the signed x-tenant-id
-  // header middleware injects on ANY request to a tenant's own domain — it
-  // does NOT check a session/admin_token. Middleware's Clerk/PIN auth gate
-  // only runs for isMainHost(); a tenant-domain request bypasses it entirely,
-  // so this let any unauthenticated visitor pull a client's full booking
-  // history, payment amounts, and GPS check-in/out locations. Sibling
-  // clients/[id]/route.ts uses getTenantForRequest() (verified admin_token or
-  // Clerk session) for the same reason.
-  let tenant
-  try {
-    tenant = (await getTenantForRequest()).tenant
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    throw err
-  }
+  // Sibling clients/[id]/route.ts (and the rest of the /api/clients family)
+  // gates this same client-PII data behind clients.view — this endpoint was
+  // missed. requirePermission() covers both the auth check (verified
+  // admin_token or Clerk session, via getTenantForRequest()) and the
+  // permission check in one call.
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+  const { tenantId } = tenant
 
   const { id } = await params
 
@@ -26,7 +19,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .from('clients')
     .select('id, name, created_at')
     .eq('id', id)
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenantId)
     .single()
 
   if (!client) return NextResponse.json([], { status: 404 })
@@ -36,7 +29,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     .from('bookings')
     .select('*, team_members!bookings_team_member_id_fkey(name)')
     .eq('client_id', id)
-    .eq('tenant_id', tenant.id)
+    .eq('tenant_id', tenantId)
     .order('start_time', { ascending: false })
 
   const activities: { type: string; title: string; description: string; timestamp: string; location?: Record<string, unknown> }[] = []
@@ -56,7 +49,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
       ? await supabaseAdmin
           .from('notifications')
           .select('*')
-          .eq('tenant_id', tenant.id)
+          .eq('tenant_id', tenantId)
           .in('booking_id', bookingIds)
       : { data: [] }
 
