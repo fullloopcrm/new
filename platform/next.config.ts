@@ -16,7 +16,14 @@ const nextConfig: NextConfig = {
     // Use afterFiles so these rewrites run AFTER middleware prefixes tenant
     // requests with /site. Tenant content already reads getTenantFromHeaders.
     return {
-      beforeFiles: [],
+      beforeFiles: [
+        // Google Search Console HTML-file verification tokens. middleware's
+        // matcher already excludes .html paths (src/middleware.ts config),
+        // so these requests skip tenant /site prefixing entirely and this
+        // rewrite is the only thing standing between Google's crawler and a
+        // 404. beforeFiles so it wins before Next looks for a static file.
+        { source: '/:file(google[A-Za-z0-9_-]+\\.html)', destination: '/api/seo/verify-file/:file' },
+      ],
       afterFiles: [
         { source: '/site/about', destination: '/site/about-the-nyc-maid-service-company' },
         { source: '/site/reviews', destination: '/site/nyc-customer-reviews-for-the-nyc-maid' },
