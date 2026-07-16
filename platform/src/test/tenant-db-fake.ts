@@ -42,6 +42,7 @@ type State = {
   lts: Array<{ col: string; val: unknown }>
   head: boolean
   wantCount: boolean
+  wantReturn: boolean
   payload: unknown
   onConflict?: string
 }
@@ -124,8 +125,15 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
   }
 
   if (state.op === 'delete') {
+    // Real PostgREST only returns the deleted rows when `.select()` was
+    // chained (Prefer: return=representation) — mirror that so callers who
+    // don't chain `.select()` keep getting `data: null` as before.
+    const deleted = state.wantReturn ? rows.filter((r) => matches(r, state)) : []
     h.store[state.table] = rows.filter((r) => !matches(r, state))
-    return { data: null, error: null }
+    if (!state.wantReturn) return { data: null, error: null }
+    if (terminal === 'single') return { data: deleted[0] ?? null, error: deleted[0] ? null : { message: 'no rows' } }
+    if (terminal === 'maybeSingle') return { data: deleted[0] ?? null, error: null }
+    return { data: deleted, error: null }
   }
 
   const found = rows.filter((r) => matches(r, state))
@@ -139,9 +147,10 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
 export function makeTenantDbFake(h: FakeStoreHandle) {
   return {
     from(table: string) {
-      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], gtes: [], ltes: [], lts: [], head: false, wantCount: false, payload: null }
+      const state: State = { table, op: 'select', eqs: {}, neqs: {}, ins: [], iss: [], notNulls: [], gts: [], gtes: [], ltes: [], lts: [], head: false, wantCount: false, wantReturn: false, payload: null }
       const chain: Record<string, unknown> = {
         select: (_cols?: unknown, o?: { head?: boolean; count?: string }) => {
+          state.wantReturn = true
           if (o?.head) state.head = true
           if (o?.count) state.wantCount = true
           return chain

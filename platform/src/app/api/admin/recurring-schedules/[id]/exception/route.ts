@@ -71,19 +71,32 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
 
+  // Check-then-act, not atomic: the `status in (scheduled, pending)` filter
+  // above is a stale snapshot -- a team member can check in/complete one of
+  // these bookings between that read and the per-row writes below. Without
+  // re-asserting the same status filter on each write, a 'skip' exception
+  // landing in that gap would silently DELETE an already-in-progress/
+  // completed booking (losing checkout time/actual_hours/pay), and
+  // 'move'/'reassign' would silently retime/reassign a job already underway.
   let applied = 0
   for (const b of existing || []) {
     if (type === 'skip') {
-      await db.from('bookings').delete().eq('id', b.id)
-      applied++
+      const { data: deleted } = await db.from('bookings').delete()
+        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .select('id').maybeSingle()
+      if (deleted) applied++
     } else if (type === 'move' && new_start_time) {
       const [mh, mm] = new_start_time.split(':').map(Number)
       const { startISO, endISO } = computeNaiveVisitWindow(occurrence_date, mh || 0, mm || 0, Number(schedule.duration_hours) || 3)
-      await db.from('bookings').update({ start_time: startISO, end_time: endISO }).eq('id', b.id)
-      applied++
+      const { data: moved } = await db.from('bookings').update({ start_time: startISO, end_time: endISO })
+        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .select('id').maybeSingle()
+      if (moved) applied++
     } else if (type === 'reassign') {
-      await db.from('bookings').update({ team_member_id: new_team_member_id }).eq('id', b.id)
-      applied++
+      const { data: reassigned } = await db.from('bookings').update({ team_member_id: new_team_member_id })
+        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .select('id').maybeSingle()
+      if (reassigned) applied++
     }
   }
 
