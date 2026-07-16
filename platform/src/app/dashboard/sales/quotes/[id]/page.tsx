@@ -158,7 +158,14 @@ export default function QuoteDetailPage() {
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Convert to job failed')
     setShowJobPlan(false)
-    setMsg(`Job created with ${payments.length} payment${payments.length === 1 ? '' : 's'}. Schedule the sessions next.`)
+    // A concurrent path (e.g. the customer paying the deposit on the public
+    // quote page right as this submits) can convert the quote first — the
+    // job already exists with its own payment plan, and this custom plan was
+    // never applied. Say so instead of claiming success on payments that
+    // were silently dropped.
+    setMsg(data.already_converted
+      ? 'This quote was already converted to a job (likely by the deposit payment landing first) — your payment plan above was not applied. Review the job’s payments directly.'
+      : `Job created with ${payments.length} payment${payments.length === 1 ? '' : 's'}. Schedule the sessions next.`)
     load()
   })
 
