@@ -52,6 +52,7 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t
 const tenantCtx: { value: Row } = { value: { id: TENANT_A, name: 'Tenant A', timezone: 'America/New_York' } }
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => tenantCtx.value }))
 vi.mock('@/lib/client-auth', () => ({ protectClientAPI: async (_t: string, clientId?: string) => ({ clientId }) }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 1 }) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 vi.mock('@/lib/email', () => ({ sendEmail: async () => {} }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))

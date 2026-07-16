@@ -52,6 +52,7 @@ const tenantCtx: Row = {
 }
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => tenantCtx }))
 vi.mock('@/lib/client-auth', () => ({ protectClientAPI: async (_t: string, clientId?: string) => ({ clientId }) }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 1 }) }))
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 vi.mock('@/lib/email', () => ({ sendEmail: async () => {} }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))

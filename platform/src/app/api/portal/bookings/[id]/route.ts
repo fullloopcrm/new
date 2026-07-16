@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function GET(
   request: Request,
@@ -38,6 +39,14 @@ export async function PUT(
 
   const auth = verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+
+  // Every reschedule/cancel fires a real SMS to the assigned team member plus
+  // an admin email with no other cap -- without this, looping the endpoint is
+  // unmetered SMS/email-cost-abuse. Same pattern as team-portal/running-late.
+  const rl = await rateLimitDb(`portal-booking-update:${auth.id}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
+  }
 
   const { id } = await params
   const body = await request.json().catch(() => ({}))

@@ -46,6 +46,7 @@ function chain(table: string) {
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t) } }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(() => Promise.resolve()) }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 1 }) }))
 
 process.env.PORTAL_SECRET = 'unit-test-portal-secret'
 import { NextRequest } from 'next/server'

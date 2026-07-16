@@ -8,6 +8,7 @@ import { smsJobRescheduled } from '@/lib/sms-templates'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -40,6 +41,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id)
   if (auth instanceof NextResponse) return auth
+
+  // Every reschedule fires a real client SMS, an admin notification, and a
+  // team-member SMS with no other cap -- without this, looping the endpoint
+  // is unmetered SMS/email-cost-abuse against real phone numbers/inboxes.
+  const rl = await rateLimitDb(`client-reschedule:${auth.clientId}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
+  }
 
   // Confirm a caller-supplied team_member_id belongs to this tenant --
   // otherwise a foreign id gets its full row (name/phone/pay_rate) pulled
