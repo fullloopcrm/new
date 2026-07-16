@@ -23,6 +23,14 @@ on:
     - cron: '0 9 * * *'      # 09:00 UTC daily (~05:00 ET) — matches the app's nightly window
   workflow_dispatch: {}       # allow manual "Run workflow" for a test/restore-drill
 
+# Least privilege: this job never checks out the repo and never calls the
+# GitHub API with GITHUB_TOKEN (pg_dump auths via SUPABASE_DB_URL;
+# upload-artifact uses its own internal token, not GITHUB_TOKEN) — so it
+# needs zero scopes. Declared explicitly instead of falling back to the
+# repo's default Actions permission setting, matching ci.yml/tenant-scope.yml/
+# tenant-config-reconcile.yml's existing least-privilege pattern in this repo.
+permissions: {}
+
 concurrency:
   group: db-backup
   cancel-in-progress: false
