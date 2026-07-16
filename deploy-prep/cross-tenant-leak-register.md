@@ -3044,3 +3044,70 @@ cleanup note, not just `_lib/auth.ts` alone.
 
 No new P-number (correction/negative-result entry, not a new live finding).
 No code changed. `tsc` N/A (no edits). File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-15 22:02 round (W2) — negative-result on cross-tenant class, one bounded observation logged
+
+Fresh angle this round: audited Supabase Storage bucket privacy vs. the class of
+data each bucket holds (distinct from prior upload-extension-sanitization and
+IDOR sweeps — this is "is the bucket itself public for sensitive file types",
+not "can another tenant read this row"). Checked every `.storage.from(...)`
+call site across `platform/src/app/api/**/route.ts` (25 sites) against the two
+migrations that actually declare bucket privacy (`031_documents.sql`:
+`documents` bucket `public: FALSE`; `033_receipts.sql`: `receipts` bucket
+`public: FALSE`). Both are used correctly — `documents`/[id]/route.ts and
+`documents/public/[token]/route.ts` and `finance/receipts/route.ts` all use
+`createSignedUrl()` (1hr expiry) against those private buckets, never
+`getPublicUrl()`.
+
+The `uploads` bucket (used by 12+ routes: booking-notes, team-photos,
+management-applications, public-upload, reviews, apply/signed-url, lead-media,
+admin/notes, cleaners/upload, team-applications/upload) has no bucket-creation
+migration in this repo — it predates the migration-tracked buckets and was
+presumably created public via the Supabase dashboard, matching the intent for
+its actual content (application photos, review photos, team photos — content
+meant to be publicly viewable once submitted).
+
+**Bounded observation (not fixed, not a cross-tenant leak):**
+`finance/upload/route.ts` (POST, `requirePermission('finance.expenses')`,
+`type=statement` branch) writes bank statement files into this same public
+`uploads` bucket at `${tenantId}/finance/statements/${timestamp}-${randomId}.${ext}`
+and returns `getPublicUrl()` — a permanent, unauthenticated, never-expiring URL
+for a bank statement. This breaks the private-bucket-for-financial-docs pattern
+its own sibling route (`finance/receipts/route.ts`) correctly follows (private
+`receipts` bucket + 1hr signed URL). Compounding: `finance/statements/route.ts`
+DELETE calls `supabaseAdmin.storage.from('finance').remove([path])` — bucket
+name `finance`, not `uploads` — so even "deleting" a statement row never
+removes the actual public file from storage (no migration creates a `finance`
+bucket either; this delete call has likely never successfully removed a file).
+
+Not escalated to a P-number / not fixed this round because:
+1. Not cross-tenant — `tenantId` is embedded in the storage path and the row
+   is correctly scoped by `requirePermission()` + `.eq('tenant_id', ...)`
+   everywhere; the exposure is a tenant's own statement to the open internet,
+   not another tenant's data.
+2. Zero reachability from the frontend — grepped all of
+   `platform/src/app/**/*.tsx` for `finance/upload` and `/api/finance/statements`;
+   no caller exists anywhere in the UI. `bank_statements` table has no
+   consumer besides this one unwired route file. This is backend-only,
+   callable only by a tenant staff member with `finance.expenses` direct API
+   access, hitting their own tenant's data.
+3. Can't safely fix blind — whether the live Supabase `uploads` bucket is
+   actually public, and whether a `finance` bucket already exists with real
+   uploaded statements sitting in it under the current (broken) path
+   convention, isn't verifiable from this file-only worktree. Migrating bucket
+   contents or bucket ACLs is exactly the kind of prod storage change this
+   worker doesn't execute — needs the leader/Jeff to confirm live bucket state
+   before any fix lands.
+
+Recommendation for whoever picks this up: (a) confirm in the Supabase
+dashboard whether `uploads` is actually public and whether a `finance` bucket
+exists; (b) if `finance/upload`'s statement path is ever wired to a UI, point
+it at a private bucket (new `finance` bucket via migration, matching the
+`receipts`/`documents` pattern) with `createSignedUrl()`, not `getPublicUrl()`;
+(c) fix the bucket-name mismatch in `finance/statements/route.ts` DELETE
+regardless, since it silently no-ops today.
+
+No new P-number (bounded/unreachable observation, not a live exploitable gap).
+No code changed. `tsc` N/A (no edits). File-only, no push/deploy/DB.
