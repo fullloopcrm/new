@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
-import { protectClientAPI, isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { isAdminAuthenticated } from '@/lib/nycmaid/auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
+import { protectClientAPI } from '@/lib/client-auth'
 import {
   listProperties,
   addProperty,
@@ -11,12 +13,22 @@ import {
 
 // Client-portal multi-address management. Ported from nycmaid; tenant scoping is
 // handled inside the lib (rows carry the client's tenant_id).
-// Auth: admins pass through; otherwise the caller must be the client (PIN cookie).
+// Auth: admins pass through; otherwise the caller must be the client. Uses
+// lib/client-auth's tenant-bound protectClientAPI (PORTAL_SECRET-signed, tenant
+// id in the payload, what /api/client/login + /api/client/verify-code actually
+// issue) — same fix already applied to the sibling /api/client/preferred-cleaner
+// and /api/client/recurring routes. This route was still on lib/nycmaid/auth's
+// legacy protectClientAPI, which is signed with the platform-wide ADMIN_PASSWORD,
+// carries no tenant binding, and doesn't even parse the cookie format the real
+// login flow issues (3-part legacy format vs. the 4-part clientId.tenantId.ts.sig
+// format client-auth.ts creates) — so real client sessions never validated here.
 async function authClient(clientId: string | null | undefined): Promise<NextResponse | { isAdmin: boolean }> {
   if (!clientId) return NextResponse.json({ error: 'Missing client_id' }, { status: 400 })
   const isAdmin = await isAdminAuthenticated()
   if (!isAdmin) {
-    const auth = await protectClientAPI(clientId)
+    const tenant = await getTenantFromHeaders()
+    if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+    const auth = await protectClientAPI(tenant.id, clientId)
     if (auth instanceof NextResponse) return auth
   }
   return { isAdmin }
