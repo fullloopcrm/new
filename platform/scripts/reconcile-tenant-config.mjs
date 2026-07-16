@@ -380,6 +380,27 @@ export function parseNextConfigSiteRewriteSources(nextConfigSource) {
   return out
 }
 
+// --- parse next.config.ts's rewrites().afterFiles for EVERY "/site/..."
+// source, regardless of nesting or a ":param" — the complement of
+// parseNextConfigSiteRewriteSources above, which deliberately excludes
+// anything but a bare one-segment source. Feeds Drift AC below: a source like
+// "/site/careers/:slug" has a LITERAL first segment ("careers") exactly like
+// the bare "/site/careers" case — the ":param" is a second, unrelated
+// segment, not a stand-in for the first one — so it is bound by the same
+// unreachability argument as Drift W, just missed by Drift W's own filter.
+export function parseAllNextConfigSiteRewriteSources(nextConfigSource) {
+  const block = nextConfigSource.match(/afterFiles:\s*\[([\s\S]*?)\]\s*,?\s*\n\s*fallback:/)
+  if (!block) return []
+  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const out = []
+  let m
+  while ((m = entryRe.exec(block[1]))) {
+    const source = m[1]
+    if (source.startsWith('/site/')) out.push({ source, destination: m[2] })
+  }
+  return out
+}
+
 // --- parse next.config.ts's redirects() array for { source, destination }
 // pairs. Unlike parseNextConfigSiteRewriteSources (afterFiles rewrites), this
 // covers the OTHER routing list in the same file — permanent 301s. See
@@ -472,6 +493,11 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  from next.config.ts's rewrites().afterFiles
  *                                  (see parseNextConfigSiteRewriteSources). Feeds
  *                                  Drift W ONLY. Pass an empty array (default) to skip.
+ * @param {Array}    [input.allNextConfigSiteRewrites]  { source, destination } pairs
+ *                                  for EVERY "/site/..." afterFiles source, nested/
+ *                                  dynamic included (see
+ *                                  parseAllNextConfigSiteRewriteSources). Feeds
+ *                                  Drift AC ONLY. Pass an empty array (default) to skip.
  * @param {Array}    [input.nextConfigRedirects]  { source, destination } pairs
  *                                  from next.config.ts's redirects() (see
  *                                  parseNextConfigRedirects). Feeds Drift X ONLY.
@@ -500,7 +526,7 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Pass an empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -924,6 +950,39 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AC: a next.config.ts rewrites().afterFiles source starting with
+  // "/site/" whose literal FIRST segment is neither 'template' nor a
+  // BESPOKE_SITE_TENANTS slug, while ROOT_SITE_TENANTS is empty — the same
+  // unreachability argument as Drift W above, just for sources Drift W's own
+  // parser deliberately skips. Drift W only looks at a BARE one-segment
+  // source (no ':param', no extra nesting) because its parser's comment
+  // reasons that a dynamic source "matches any tenant-slug-prefixed path
+  // too" — true ONLY when the param stands in for the first segment itself
+  // (e.g. "/site/:slug"). A source like "/site/careers/:slug" has "careers"
+  // as a literal, fixed first segment; the ":slug" is a second, unrelated
+  // path component. rewriteToSite() can only ever produce "/site/<path>"
+  // (ROOT_SITE_TENANTS, empty today), "/site/<bespoke-slug>/<path>", or
+  // "/site/template/<path>" — so a literal first segment that is neither
+  // 'template' nor a real bespoke slug can never be hit by ANY tenant's
+  // domain-routed traffic, dynamic param or not. Skips any source Drift W
+  // already reports (the bare case) to avoid double-counting the same dead
+  // entry under two different Drift letters.
+  if (allNextConfigSiteRewrites.length && rootSiteTenantsSet.size === 0) {
+    const bareSources = new Set(nextConfigSiteRewrites.map((r) => r.source))
+    for (const { source, destination } of allNextConfigSiteRewrites) {
+      if (bareSources.has(source)) continue
+      const m = source.match(/^\/site\/([^/]+)/)
+      if (!m) continue
+      const firstSegment = m[1]
+      if (firstSegment === 'template' || bespokeSet.has(firstSegment)) continue
+      add(
+        'WARN',
+        source,
+        `next.config.ts rewrites().afterFiles source '${source}' -> '${destination}' has a literal first segment '${firstSegment}' after /site/ that is neither 'template' nor a BESPOKE_SITE_TENANTS slug, but ROOT_SITE_TENANTS is empty -> rewriteToSite() (src/middleware.ts) can only ever produce /site/<bespoke-slug>/... or /site/template/... for tenant-domain-routed traffic, so this source can never match regardless of its ':param'/nesting -- unreachable dead config, same root cause as Drift W (a stale short-URL alias Drift W's own bare-segment-only filter missed)`,
+      )
+    }
+  }
+
   // Drift X: a next.config.ts redirects() entry whose destination begins with
   // "/site/" -- a path into the tenant-sites tree. Unlike Drift W (a rewrite
   // whose SOURCE never matches, so it never fires at all), this is about
@@ -1153,6 +1212,7 @@ async function main() {
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const nextConfigSource = readFileSync(join(REPO, 'next.config.ts'), 'utf8')
   const nextConfigSiteRewrites = parseNextConfigSiteRewriteSources(nextConfigSource)
+  const allNextConfigSiteRewrites = parseAllNextConfigSiteRewriteSources(nextConfigSource)
   const nextConfigRedirects = parseNextConfigRedirects(nextConfigSource)
   const appRootPrefixes = parseAppRootPrefixes(middlewareSource)
   const killedRoutesSet = parseKilledRoutes(middlewareSource)
@@ -1224,7 +1284,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

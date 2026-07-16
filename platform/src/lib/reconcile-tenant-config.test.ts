@@ -15,6 +15,7 @@ import {
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
+  parseAllNextConfigSiteRewriteSources,
   parseNextConfigRedirects,
   parseAppRootPrefixes,
   parseRelativeImportPaths,
@@ -300,6 +301,42 @@ describe('parseNextConfigSiteRewriteSources', () => {
   it('returns an empty array when afterFiles has no /site/<segment> entries', () => {
     const src = wrap(`{ source: '/features', destination: '/full-loop-crm-service-features' },`)
     expect(parseNextConfigSiteRewriteSources(src)).toEqual([])
+  })
+})
+
+describe('parseAllNextConfigSiteRewriteSources', () => {
+  const wrap = (entries: string) => `
+    async rewrites() {
+      return {
+        beforeFiles: [],
+        afterFiles: [
+          ${entries}
+        ],
+        fallback: [],
+      }
+    }
+  `
+
+  it('includes dynamic-param and nested sources that parseNextConfigSiteRewriteSources excludes', () => {
+    const src = wrap(`
+      { source: '/site/about', destination: '/site/about-x' },
+      { source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' },
+      { source: '/site/nycmaid/blog/:slug', destination: '/site/nycmaid/nyc-maid-service-blog/:slug' },
+    `)
+    expect(parseAllNextConfigSiteRewriteSources(src)).toEqual([
+      { source: '/site/about', destination: '/site/about-x' },
+      { source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' },
+      { source: '/site/nycmaid/blog/:slug', destination: '/site/nycmaid/nyc-maid-service-blog/:slug' },
+    ])
+  })
+
+  it('excludes non-/site/ sources', () => {
+    const src = wrap(`{ source: '/features', destination: '/full-loop-crm-service-features' },`)
+    expect(parseAllNextConfigSiteRewriteSources(src)).toEqual([])
+  })
+
+  it('returns an empty array when afterFiles is absent', () => {
+    expect(parseAllNextConfigSiteRewriteSources('export default {}')).toEqual([])
   })
 })
 
@@ -2287,6 +2324,88 @@ describe('computeFindings — Drift W (next.config.ts bare /site/<segment> rewri
   })
 
   it('is skipped entirely when nextConfigSiteRewrites is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+})
+
+describe('computeFindings — Drift AC (next.config.ts nested/dynamic /site/<segment> rewrite unreachable while ROOT_SITE_TENANTS is empty)', () => {
+  it('warns on a dynamic-param source whose literal first segment is neither template nor a bespoke slug (live /site/careers/:slug case)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['nycmaid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      allNextConfigSiteRewrites: [{ source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' }],
+    })
+    const warn = findings.find((f) => f.slug === '/site/careers/:slug' && f.msg.includes('unreachable dead config'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('does not fire when the first segment IS a real BESPOKE_SITE_TENANTS slug (e.g. /site/nycmaid/blog/:slug)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['nycmaid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      allNextConfigSiteRewrites: [{ source: '/site/nycmaid/blog/:slug', destination: '/site/nycmaid/nyc-maid-service-blog/:slug' }],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+
+  it('does not fire when the first segment is "template"', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      allNextConfigSiteRewrites: [{ source: '/site/template/:slug', destination: '/site/x/:slug' }],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+
+  it('does not double-report a bare source Drift W already caught', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(),
+      nextConfigSiteRewrites: [{ source: '/site/about', destination: '/site/about-x' }],
+      allNextConfigSiteRewrites: [{ source: '/site/about', destination: '/site/about-x' }],
+    })
+    expect(findings.filter((f) => f.slug === '/site/about' && f.msg.includes('unreachable dead config'))).toHaveLength(1)
+  })
+
+  it('does not fire when ROOT_SITE_TENANTS has a member (the literal first segment could be real root-tenant content)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      rootSiteTenantsSet: new Set(['nycmaid']),
+      allNextConfigSiteRewrites: [{ source: '/site/careers/:slug', destination: '/site/available-nyc-maid-jobs/:slug' }],
+    })
+    expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when allNextConfigSiteRewrites is empty (default)', () => {
     const findings: Finding[] = computeFindings({
       tenants: [],
       tds: [],
