@@ -11,6 +11,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { resolveVisitorKey } from '@/lib/apply-visitor-key'
 
 // Same gating as the sibling team-applications route: viewing/deciding hiring
 // applications requires team.view/team.edit, not just tenant membership —
@@ -51,6 +52,7 @@ export async function POST(request: Request) {
       name, email, phone, location, current_role, years_experience,
       bilingual, management_experience, why_this_role, availability_start,
       referral_source, references, notes, position, resume_url, photo_url, video_url,
+      client_id,
     } = body
 
     if (!name || !email || !phone || !location || !resume_url || !photo_url || !video_url) {
@@ -111,12 +113,19 @@ export async function POST(request: Request) {
     }).catch(err => console.error('[mgmt-app] notify failed:', err))
 
     // Clear the applicant's draft for this tenant+position now that they submitted.
-    await supabaseAdmin
-      .from('management_application_drafts')
-      .delete()
-      .eq('tenant_id', tenant.id)
-      .eq('ip_address', ip)
-      .eq('position', position || 'operations-coordinator')
+    // Must key by the SAME visitor key draft/route.ts saved it under (client_id
+    // when supplied, else raw IP) — keying by raw ip alone here would silently
+    // miss a client_id-keyed draft row and leave it stale, resurfacing on a
+    // later visit as if the (already-submitted) application were still a draft.
+    const visitorKey = resolveVisitorKey(client_id, ip)
+    if (visitorKey) {
+      await supabaseAdmin
+        .from('management_application_drafts')
+        .delete()
+        .eq('tenant_id', tenant.id)
+        .eq('ip_address', visitorKey)
+        .eq('position', position || 'operations-coordinator')
+    }
 
     return NextResponse.json({ success: true, id: data.id })
   } catch (err) {

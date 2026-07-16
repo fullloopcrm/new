@@ -19,25 +19,13 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-
-function getIp(request: NextRequest): string {
-  return request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
-}
-
-const CLIENT_ID_RE = /^[A-Za-z0-9-]{8,64}$/
-
-// Value actually stored/matched in the `ip_address` column: the caller's
-// client_id when it looks like one we issued, else the raw IP (legacy path).
-function resolveVisitorKey(clientId: unknown, ip: string): string | null {
-  if (typeof clientId === 'string' && CLIENT_ID_RE.test(clientId)) return clientId
-  return ip === 'unknown' ? null : ip
-}
+import { getRequestIp, resolveVisitorKey } from '@/lib/apply-visitor-key'
 
 export async function GET(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ draft: null })
 
-  const ip = getIp(request)
+  const ip = getRequestIp(request)
   const visitorKey = resolveVisitorKey(request.nextUrl.searchParams.get('client_id'), ip)
   if (!visitorKey) return NextResponse.json({ draft: null })
 
@@ -60,7 +48,7 @@ export async function POST(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Unknown tenant' }, { status: 400 })
 
-  const ip = getIp(request)
+  const ip = getRequestIp(request)
   if (ip === 'unknown') return NextResponse.json({ error: 'Cannot identify client' }, { status: 400 })
 
   const rl = await rateLimitDb(`mgmt-draft:${ip}`, 30, 60 * 1000)
@@ -105,7 +93,7 @@ export async function DELETE(request: NextRequest) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ ok: true })
 
-  const ip = getIp(request)
+  const ip = getRequestIp(request)
   const visitorKey = resolveVisitorKey(request.nextUrl.searchParams.get('client_id'), ip)
   if (!visitorKey) return NextResponse.json({ ok: true })
 

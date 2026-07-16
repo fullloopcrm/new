@@ -197,6 +197,7 @@ export default function ApplyCoordinatorPage() {
           position: 'operations-coordinator',
           photo_url,
           video_url,
+          client_id: getOrCreateApplyClientId(),
         })
       })
 
