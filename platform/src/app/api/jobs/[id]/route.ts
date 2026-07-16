@@ -74,6 +74,19 @@ export async function PATCH(request: Request, { params }: Params) {
       ends_on?: string | null
     }
 
+    const { data: current, error: readError } = await supabaseAdmin
+      .from('jobs')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .single()
+    if (readError || !current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    // Captured as a primitive, not read off `current` after the update below —
+    // `current` is a live reference in some test fakes (and, defensively, may
+    // be elsewhere) that the update's own write could otherwise mutate out
+    // from under this comparison.
+    const oldStatus = current.status as string
+
     const patch: Record<string, unknown> = {}
     if (body.title !== undefined) patch.title = body.title
     if (body.notes !== undefined) patch.notes = body.notes
@@ -93,19 +106,35 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
+    // Check-then-act, not atomic: `current` above is a stale snapshot. A
+    // concurrent status change (another admin, a double-click/retry racing
+    // itself) landing between that read and this write must not be silently
+    // clobbered, and a resend of the SAME status (the common double-click
+    // case) must not re-fire the one-time completion side effects below —
+    // same archetype already fixed on the sibling session route
+    // (sessions/[sessionId]/route.ts's `didComplete` guard). Re-assert the
+    // pre-read status in the write's own WHERE.
     const { data: job, error } = await supabaseAdmin
       .from('jobs')
       .update(patch)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', oldStatus)
       .select('*')
-      .single()
-    if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      .maybeSingle()
+    if (error) throw error
+    if (!job) {
+      return NextResponse.json(
+        { error: 'This job changed status concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
-    if (body.status) {
-      await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: body.status, detail: {} })
+    const statusChanged = body.status !== undefined && body.status !== oldStatus
+    if (statusChanged) {
+      await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: body.status!, detail: {} })
       // Release stage-gated payments (e.g. a final milestone) when the job completes.
-      await releasePaymentsForEvent(tenantId, id, body.status)
+      await releasePaymentsForEvent(tenantId, id, body.status!)
       // NOTE: on 'completed', a single review request should fire here (reusing
       // the flag-gated post-job-followup pattern). Left unwired until the review
       // trigger is approved — no client messaging without explicit sign-off.
