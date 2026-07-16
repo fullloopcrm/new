@@ -4130,3 +4130,177 @@ restored, all 12 GREEN post-fix.
 finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
 WIP feature, not touched here). File-only, no push/deploy/DB, not committed
 (leader/Jeff to review + commit).
+
+## 2026-07-16 04:38 round (W2) — P71, fixed: `GET /api/clients`,
+`GET /api/clients/[id]`, `/clients/enriched`, `/clients/analytics`,
+`/clients/stats` had zero permission check across the whole client-PII family
+
+Continuing the broad-hunt (leader order 04:30, lower-risk surface, file-only):
+scanned every `api/*` route file for the "calls `getTenantForRequest`/
+`tenantDb` but never `requirePermission`" shape (same class as P59-P70),
+narrowed to a fresh family not yet mentioned in this register. The entire
+`/api/clients*` family (five GET handlers: the list, the single-client
+detail, and three read-only widgets — `enriched`, `analytics`, `stats`) called
+only `getTenantForRequest()` (proves tenant membership at ANY role) with zero
+permission check, while the sibling handlers on two of those same files
+already gate writes: `POST /api/clients` requires `requirePermission(
+'clients.create')` and `PUT`/`DELETE /api/clients/[id]` require
+`requirePermission('clients.edit'/'clients.delete')`. `rbac.ts` defines
+`clients.view` specifically for this data.
+
+Unlike P68-P70, every default role (owner/admin/manager/staff) is granted
+`clients.view` in `rbac.ts` — so this is an **override-only** bypass, not a
+live bug against the hard-coded defaults: invisible until a tenant revokes
+`clients.view` from a role via `tenants.selena_config.role_permissions`
+(the "Permissions" UI), same shape as P68's `/api/pipeline` finding. Once
+revoked, the write endpoints on the same files already honored it (403), but
+all five GET endpoints silently ignored it, letting a locked-out member still
+read every client's full PII (name, email, phone, address) plus LTV/health
+scores (`enriched`), lifecycle/churn metrics (`analytics`), and aggregate
+revenue (`stats`) via direct API call.
+
+**Fix:** `requirePermission('clients.view')` on all five `GET` handlers,
+matching the family's own write-side convention.
+
+**Regression lock:** new `route.rbac.test.ts` per file (5 files, 10 tests
+total: 1 owner-passes + 1 override-revocation probe each). Mutation-verified
+via `git stash` against the real pre-fix `route.ts` files: all 5
+override-revocation probes went RED (200 instead of 403) pre-fix, restored,
+all 10 GREEN post-fix (plus the 23 pre-existing isolation tests across the
+family, unaffected).
+
+`npx tsc --noEmit`: clean. Full suite: 388 files, 1652 passed + 37 skipped,
+0 regressions (was 1642/383). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
+
+## 2026-07-16 04:47 round (W2) — P72, fixed: `GET`/`POST /api/referrals` had
+zero permission check — a live default-role bug, not override-only
+
+Continuing the broad-hunt (leader order 04:44, lower-risk surface, file-only).
+Every other route in the referral family already enforces RBAC: `referral-
+commissions/route.ts` POST/PUT require `referrals.create`/`referrals.payout`,
+`referrals/[id]/route.ts` PUT requires `referrals.payout`, `referrers/
+analytics/route.ts` GET requires `referrals.view` (P61). But the base
+`referrals/route.ts` — the collection endpoint the dashboard referrals page
+actually calls (`src/app/dashboard/referrals/page.tsx`) — only called
+`getTenantForRequest()` on both GET and POST, with zero permission check on
+either handler.
+
+Unlike every P59-P71 finding so far, this one is **live against the
+hard-coded defaults, not override-only**: `rbac.ts` grants `staff` neither
+`referrals.view` nor `referrals.create`, and grants `manager` `referrals.view`
+but not `referrals.create` — yet with no check in the route, any staff-tier
+member could already list every referrer (name, email, phone,
+`commission_rate`) and any staff-or-manager member could already mint new
+referral codes, with no misconfiguration required.
+
+**Fix:** `requirePermission('referrals.view')` on GET,
+`requirePermission('referrals.create')` on POST, matching the family's own
+convention already used on every sibling route.
+
+**Regression lock:** new `route.rbac.test.ts` (7 tests: owner/manager pass GET,
+staff blocked from GET, manager+staff blocked from POST, plus 1
+override-revocation probe on GET for manager). Mutation-verified via `git
+stash` against the real pre-fix `route.ts`: all 4 permission-probe tests went
+RED (200/201 instead of 403) pre-fix, restored, all 7 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 389 files, 1659 passed + 37 skipped,
+0 regressions (was 388/1652). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
+
+## 2026-07-16 04:51 round (W2) — P73, fixed: `PATCH /api/bookings/[id]/status`,
+`POST /api/bookings/[id]/reset`, `PUT /api/bookings/[id]/team` had zero
+permission check — a live default-role bug on booking-mutation endpoints
+
+Continuing the broad-hunt (leader order 04:51, lower-risk surface, file-only):
+scanned every `api/*` route file for the "calls `getTenantForRequest`/
+`tenantDb` but never `requirePermission`" shape (same class as P59-P72),
+narrowed to the `bookings/[id]/*` sub-resource family. The sibling `PUT
+/api/bookings/[id]` (general booking edit) and `DELETE /api/bookings/[id]`
+already require `requirePermission('bookings.edit')`/`'bookings.delete')`,
+but three sub-resource mutation routes on the same booking — `status`
+(state-machine transitions, which also sync the mirrored deal stage),
+`reset` (admin undo of an accidental check-in/check-out), and `team` (PUT,
+reassigns the booking's lead/extra crew) — called only
+`getTenantForRequest()` (proves tenant membership at ANY role) with zero
+permission check on any of the three.
+
+This is a **live bug against the hard-coded rbac.ts defaults**, not an
+override edge case: `staff` is granted `bookings.view`/`bookings.create` but
+explicitly **not** `bookings.edit` — the stock config already draws the
+"staff can see and create bookings but not edit them" line on the parent
+route, but all three sub-resources silently ignored it, letting a
+default-config staff member force a booking's status (including into
+`paid`, which the deal-sync logic then mirrors onto the linked deal), undo
+another team member's check-in/check-out, or reassign a booking's crew via
+direct API call — matching the design intent already enforced one route up.
+(`bookings/[id]/team`'s GET, and every other booking GET in the codebase,
+stays unguarded — `bookings.view` isn't currently enforced on any booking
+read endpoint, a pre-existing, out-of-scope pattern, not something this
+round changed.)
+
+**Fix:** `requirePermission('bookings.edit')` on all three mutation
+handlers, matching the parent `PUT /api/bookings/[id]` convention exactly.
+
+**Regression lock:** new `status/route.rbac.test.ts` (4 tests) +
+`reset/route.rbac.test.ts` (4 tests) + `team/route.rbac.test.ts` (4 tests) —
+first RBAC tests any of the three files has had. Mutation-verified via `git
+stash` against the real pre-fix `route.ts` files: all 6 permission-probe
+assertions went RED (200 instead of 403) pre-fix — the three staff-blocked
+probes and the three manager-override-revocation probes — restored, all 12
+GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 392 files, 1671 passed + 37 skipped,
+0 regressions (was 389/1659). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
+
+## 2026-07-16 05:08 round (W2) — P74, fixed: `GET`/`POST /api/reviews` and
+`POST /api/reviews/request` had zero permission check — a live default-role
+bug on the review-request send path
+
+Continuing the broad-hunt (standing mandate, lower-risk surface, file-only):
+scanned every `api/*` route file for the "calls `getTenantForRequest`/
+`tenantDb` but never `requirePermission`" shape (same class as P59-P73),
+narrowed to the `reviews` family. Every sibling review route already enforces
+RBAC: `google/reviews/route.ts` gates GET behind `reviews.view` and POST
+(reply to a Google review) behind `reviews.request`; `admin/reviews/route.ts`
+does the same. But the base `reviews/route.ts` — the collection endpoint the
+dashboard reviews page actually calls (`src/app/dashboard/reviews/page.tsx`)
+— and `reviews/request/route.ts` — the "send a review request" action wired
+to that same page's request button (real email/SMS send via `sendEmail`/
+`sendSMS`) — only called `getTenantForRequest()` (proves tenant membership at
+ANY role) with zero permission check on any of the three handlers.
+
+`rbac.ts` grants every default role including `staff` `reviews.view`, so
+GET is an **override-only** bypass (matching P71's shape) — invisible until
+a tenant revokes `reviews.view` via the Permissions UI. But `rbac.ts`
+explicitly withholds `reviews.request` from `staff` — so both POST handlers
+are **live bugs against the hard-coded defaults**, not override edge cases
+(matching P72/P73's shape): a default-config staff member could already
+create review records directly via `POST /api/reviews`, and — more
+consequentially — trigger a real outbound email/SMS review-request send to
+any client via `POST /api/reviews/request`, with no misconfiguration
+required.
+
+**Fix:** `requirePermission('reviews.view')` on GET, `requirePermission(
+'reviews.request')` on both POST handlers, matching the family's own
+convention already used on `google/reviews.ts` and `admin/reviews.ts`.
+
+**Regression lock:** new `reviews/route.rbac.test.ts` (6 tests) +
+`reviews/request/route.rbac.test.ts` (4 tests). Mutation-verified via `git
+stash` against the real pre-fix `route.ts` files: all 4 permission-probe
+assertions went RED (201/200 instead of 403) pre-fix — the staff-blocked
+POST probe on both files and the manager-override-revocation probe on
+`request` — restored, all 10 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 395 files, 1687 passed + 37 skipped,
+0 regressions (was 392/1671). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
