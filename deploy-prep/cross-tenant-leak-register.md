@@ -3628,3 +3628,42 @@ raw-object-present respectively), restored, all GREEN.
 finding in untracked `src/lib/seo/recipes.ts` (unrelated WIP feature, not
 touched by this change, not introduced by it). File-only, no push/deploy/
 DB.
+
+## 2026-07-15 23:40 round (W2) — P61, fixed: `GET /api/referrers/analytics`
+had zero permission gate, leaking referral earnings/PII to any tenant role
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle vs. every prior round: swept the `analytics`/`export`/`report`
+surface (`finance/tax-export` — clean, both FK-adjacent queries are already
+AND-scoped by `tenant_id` and the caller-supplied `entity_id` query param
+can't escape that; `referrers/analytics` — the bug below).
+
+`GET /api/referrers/analytics` called only `getTenantForRequest()` (proves
+tenant membership at *any* role) and returned referrer names, per-referrer
+`total_earned`, referred-booking revenue, and click/session-level analytics
+with no permission check at all. `rbac.ts` defines `referrals.view`
+specifically for this data and grants it to owner/admin/manager only —
+`staff` explicitly does not hold it (line 75-83). Same exact class as P60
+(`GET /api/settings`): the endpoint requires nothing more than a valid
+tenant-member session, so any `staff`-tier account could hit it directly
+(no UI needed) and read data the RBAC catalog says they shouldn't see.
+Confirmed via repo-wide grep that this route also has **zero first-party
+frontend callers today** (the dashboard's `/referrals` page calls the
+unrelated `/api/referrals` table, not this route) — doesn't reduce the
+live exposure (an authenticated staff session can call any route directly
+regardless of what the UI links to), but means no frontend regression risk
+from adding the gate.
+
+**Fix:** gated behind `requirePermission('referrals.view')`, matching every
+sibling `/api/referrers/*` route's existing `requireAdmin()`/token gate and
+the same remediation shape as P60/`client-analytics`'s `requirePermission`
+pattern.
+
+**Regression lock:** new `route.rbac.test.ts` (3 tests) — owner/manager
+(both hold `referrals.view`) get 200; `staff` (doesn't) gets 403 with
+`overview`/`topReferrers` absent from the body. Mutation-verified via
+`git stash` against real pre-fix `route.ts`: staff probe RED (200 instead
+of 403) against the original code, restored, all 3 GREEN.
+
+`npx tsc --noEmit`: clean. Full suite: 347 files, 1517 passed + 37 skipped,
+0 regressions. File-only, no push/deploy/DB.
