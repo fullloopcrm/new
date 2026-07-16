@@ -3313,3 +3313,89 @@ fresh angles this round, all clean:
 
 No new P-number. No code changed. `npx tsc --noEmit` not run (nothing to
 verify). File-only, no push/deploy/DB.
+
+## 2026-07-15 22:37 round (W2) — negative result: cache/CDN-poisoning and
+tenant-resolution-bypass classes not yet swept this session
+
+Fresh angles vs every prior round (caching/CDN cache-key correctness and
+alternate mutation/resolution paths, distinct from the IDOR/RBAC/rate-limit/
+injection/XSS/PRNG classes already exhausted):
+
+- **Next.js data-cache / tag-based cache-poisoning** (`unstable_cache`,
+  `revalidateTag`, `revalidatePath`, React `cache()`): `unstable_cache` has
+  zero call sites in the repo (grepped `src/`). `revalidateTag`/
+  `revalidatePath` appear in exactly 2 non-test files —
+  `api/admin/seo/apply/route.ts` (gated by `requireAdmin()` OR a
+  `safeEqual`-checked `CRON_SECRET` bearer, single-tier trusted-actor class
+  already established elsewhere in this register; `revalidatePath(pathname)`
+  only busts Next's render cache for a path, no cross-tenant read/write) and
+  `api/cron/refresh-job-postings/route.ts` (cron-only, `revalidatePath(root,
+  'layout')` is intentionally broad — its own inline comment explains this
+  is by design so new tenants inherit the shared career-page template
+  automatically). Neither takes a caller-supplied tenant boundary that could
+  be crossed. No gap.
+
+- **`Cache-Control: public`/`s-maxage` responses for CDN cache-key
+  correctness** (a header-resolved-tenant route with public caching could,
+  in principle, get cached under a URL that doesn't vary by tenant and served
+  cross-tenant to the next requester). Only 3 files set `Cache-Control`
+  repo-wide; 2 are `no-store`. The 1 public+cached route,
+  `api/tenant-sitemap/route.ts` (`public, max-age=3600, s-maxage=3600`),
+  resolves its tenant from either `?slug=` (direct call) or the
+  `x-tenant-slug` header (via the tenant's own custom-domain rewrite of
+  `/sitemap.xml`) — in both cases the actual request URL that Vercel's edge
+  cache keys on (host+path+query) already varies per tenant (different host
+  for the rewrite path, different `?slug=` for the direct-call path), so
+  there's no shared cache key across tenants for this route to collide on.
+  Content served (sitemap URLs) is public marketing data anyway. No gap.
+
+- **Supabase Realtime** (`postgres_changes`/`.channel()` subscriptions are a
+  classic multi-tenant leak vector when RLS isn't enabled — the channel
+  filters by table, not by row): zero usage anywhere in the repo (grepped
+  `\.channel(`, `postgres_changes`, `realtime`). Not applicable — this
+  codebase does tenant-scoped polling instead (per `dashboard/messages`'s
+  documented 15s-poll/no-realtime note in `platform/CLAUDE.md`). No gap,
+  and nothing to harden since the feature doesn't exist.
+
+- **Next.js Server Actions** (`'use server'` functions are a second mutation
+  entrypoint that can bypass a route handler's auth/tenant checks if not
+  independently guarded): zero usage anywhere in the repo (grepped
+  `'use server'`). All mutations go through `route.ts` handlers, which is
+  the surface already exhaustively swept. No gap.
+
+- **`middleware.ts` matcher coverage** (a route excluded from the matcher
+  wouldn't get `x-tenant-id`/sig headers injected, and would need its own
+  ad-hoc tenant resolution — a potential source of the exact
+  divergence-drift class this lane exists to prevent): the matcher
+  (`platform/src/middleware.ts:491-494`) excludes only `_next` and static
+  file extensions, plus an explicit `/(api|trpc)(.*)` re-inclusion —
+  functionally every application route (pages and API) passes through
+  middleware. No route silently escapes tenant-header injection.
+
+- **Tenant-selection cookies beyond the already-audited set** (impersonation
+  cookie, `admin_token`, `client_session`): grepped every `cookies().set(`/
+  `.cookies.set(` call site (4 total: `admin-auth` login, `admin-auth`
+  logout, `client/verify-code`, `admin/impersonate`) — no additional
+  tenant-selector cookie exists. All 4 correctly set `httpOnly: true`,
+  `secure` gated on `NODE_ENV === 'production'`, and an explicit
+  `sameSite` (`lax` for the two admin-facing cookies with an inline comment
+  explaining why not `strict`; `strict` for the client-portal session via
+  `clientSessionCookieOptions()` in `lib/client-auth.ts`). No gap.
+
+- **Re-verified `inbound_emails` tenant-scope plan (my own
+  `deploy-prep/inbound-emails-tenant-scope-plan-p1-w2.md` from 2026-07-13)
+  is still just a plan, not silently built around**: grepped `inbound_emails`
+  repo-wide — still only the 2 test files + the single write-only
+  `webhooks/resend/route.ts` consumer; no admin inbox reader has been added
+  since. Migration 062 still not authored (correctly deferred, needs Jeff's
+  approval + the leader to run prod DDL). Not yet a live leak.
+
+- **Tenant-configurable outbound webhook / SSRF surface**: grepped
+  `webhook_url`/`zapier`/`outbound_webhook` — the only hits are an admin
+  onboarding-checklist display flag (`telnyx_webhook_url` boolean shown in
+  `admin/businesses/[id]`), not an actual fetch target. No
+  tenant-configurable outbound-webhook feature exists in this codebase to
+  audit for SSRF.
+
+No new P-number. No code changed. `npx tsc --noEmit` not run (no files
+edited this round). File-only, no push/deploy/DB.
