@@ -27,9 +27,11 @@ vi.mock('@/lib/supabase', () => {
 })
 vi.mock('@/lib/require-admin', () => ({ requireAdmin: (...a: unknown[]) => h.requireAdmin(...a) }))
 
-import { GET } from './route'
+import { GET, POST } from './route'
 
 const getReq = (qs = '') => new NextRequest(`http://x/api/admin/websites${qs}`)
+const postReq = (body: unknown) =>
+  new NextRequest('http://x/api/admin/websites', { method: 'POST', body: JSON.stringify(body) })
 
 beforeEach(() => {
   h.seq = 0
@@ -133,5 +135,27 @@ describe('GET /api/admin/websites — websites/tenants contract', () => {
     expect(json.websites).toHaveLength(1)
     expect(json.websites[0].tenant_id).toBe('tenant-A')
     expect(json.tenants).toHaveLength(2)
+  })
+})
+
+describe('POST /api/admin/websites — routing_mode/type on insert', () => {
+  it('sets routing_mode "bespoke" and type "primary" for a bespoke tenant + is_primary domain', async () => {
+    h.store.tenants.push({ id: 'tenant-bespoke', name: 'NYC Maid', slug: 'nycmaid' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-bespoke', domain: 'thenycmaid.com', is_primary: true }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain).toMatchObject({ routing_mode: 'bespoke', type: 'primary', is_primary: true })
+  })
+
+  it('sets routing_mode "template" and type "generic" for a non-bespoke tenant + non-primary domain', async () => {
+    h.store.tenants.push({ id: 'tenant-template', name: 'Bright Homes', slug: 'bright-homes' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-template', domain: 'alias.brighthomes.com' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain).toMatchObject({ routing_mode: 'template', type: 'generic', is_primary: false })
   })
 })

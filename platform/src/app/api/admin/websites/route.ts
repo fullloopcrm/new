@@ -127,6 +127,41 @@ export async function GET(request: NextRequest) {
   })
 }
 
+// Mirrors src/middleware.ts BESPOKE_SITE_TENANTS VERBATIM — same copy-and-
+// drift-test pattern as src/lib/activate-tenant.ts (see its declaration for
+// why this isn't a shared import: each call site keeps its own guarded copy).
+// Without this, a domain an admin adds manually here for a bespoke tenant
+// falls to tenant_domains.routing_mode's column DEFAULT ('template') instead
+// of 'bespoke' — the same "DB says template-routed while the real site is
+// bespoke" mis-route class already fixed for the onboarding script
+// (onboard-tenant-site.ts) and tenant activation (activate-tenant.ts); this
+// endpoint was the one remaining tenant_domains write path that skipped it.
+// Kept honest by route.bespoke-drift.test.ts.
+const BESPOKE_SITE_TENANTS = new Set<string>([
+  'nycmaid',
+  'we-pay-you-junk',
+  'nyc-mobile-salon',
+  'the-florida-maid',
+  'the-nyc-exterminator',
+  'nyc-tow',
+  'nycroadsideemergencyassistance',
+  'theroadsidehelper',
+  'toll-trucks-near-me',
+  'sunnyside-clean-nyc',
+  'wash-and-fold-nyc',
+  'wash-and-fold-hoboken',
+  'landscaping-in-nyc',
+  'debt-service-ratio-loan',
+  'fla-dumpster-rentals',
+  'stretch-ny',
+  'stretch-service',
+  'the-home-services-company',
+  'the-nyc-interior-designer',
+  'the-nyc-marketing-company',
+  'the-nyc-seo',
+  'consortium-nyc',
+])
+
 export async function POST(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -137,9 +172,25 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'tenant_id and domain are required' }, { status: 400 })
   }
 
+  const { data: tenantRow } = await supabaseAdmin
+    .from('tenants')
+    .select('slug')
+    .eq('id', tenant_id)
+    .single()
+
+  const routingMode = tenantRow?.slug && BESPOKE_SITE_TENANTS.has(tenantRow.slug as string)
+    ? 'bespoke'
+    : 'template'
+
   const { data, error } = await supabaseAdmin
     .from('tenant_domains')
-    .insert({ tenant_id, domain, is_primary: is_primary || false })
+    .insert({
+      tenant_id,
+      domain,
+      is_primary: is_primary || false,
+      type: is_primary ? 'primary' : 'generic',
+      routing_mode: routingMode,
+    })
     .select()
     .single()
 
