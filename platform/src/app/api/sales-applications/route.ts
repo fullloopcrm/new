@@ -155,7 +155,7 @@ export async function POST(request: Request) {
 
 // PUT - Update application status (admin only, tenant-scoped)
 export async function PUT(request: Request) {
-  const { tenant, error: authError } = await requirePermission('team.view')
+  const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
   try {
@@ -184,7 +184,7 @@ export async function PUT(request: Request) {
 
 // DELETE - Remove an application (admin only, tenant-scoped)
 export async function DELETE(request: Request) {
-  const { tenant, error: authError } = await requirePermission('team.view')
+  const { tenant, error: authError } = await requirePermission('team.edit')
   if (authError) return authError
 
   const { searchParams } = new URL(request.url)
