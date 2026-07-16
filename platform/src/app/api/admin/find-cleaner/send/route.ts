@@ -125,6 +125,30 @@ export async function POST(request: Request) {
   const zone = job_address ? guessZoneFromAddress(job_address) : null
   const effectiveRate = hourly_rate_override ?? null
 
+  // Duplicate-submit guard: this route has no existing "draft" record to
+  // atomically claim (every call creates a brand-new broadcast), so a
+  // double-click of "Send" or a client retry after a slow/timeout response
+  // re-blasts the same SMS to every selected cleaner again. Block an
+  // identical job posted again within a short window — legitimate re-
+  // broadcasts of the same recurring shift days/weeks later still go
+  // through untouched.
+  const DUPLICATE_WINDOW_MS = 2 * 60 * 1000
+  const sinceIso = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString()
+  let dupeQuery = supabaseAdmin
+    .from('cleaner_broadcasts')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('job_date', job_date)
+    .eq('start_time', start_time)
+    .gte('created_at', sinceIso)
+  dupeQuery = job_address ? dupeQuery.eq('job_address', job_address) : dupeQuery.is('job_address', null)
+  const { data: recentDupe } = await dupeQuery.limit(1).maybeSingle()
+  if (recentDupe) {
+    return NextResponse.json({
+      error: 'A broadcast for this job was already sent moments ago. Wait a bit before resending.',
+    }, { status: 409 })
+  }
+
   const [sh, sm] = start_time.split(':').map(Number)
   const endMinutes = sh * 60 + sm + Math.round(duration_hours * 60)
   const end_time = `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`
