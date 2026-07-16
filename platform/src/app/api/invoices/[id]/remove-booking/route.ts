@@ -48,6 +48,13 @@ export async function POST(request: Request, { params }: Params) {
     const remainingItems = normalizeLineItems(existingItems.filter((li) => li.id !== targetLineId))
     const totals = computeTotals(remainingItems, Number(invoice.tax_rate_bps) || 0, Number(invoice.discount_cents) || 0)
 
+    // The `invoice.status !== 'draft'` guard above is check-then-act, not
+    // atomic: this invoice can be sent (POST .../send) or paid between that
+    // read and this write. Without re-asserting status='draft' in THIS
+    // update's own WHERE, a concurrent send/payment gets silently
+    // overwritten -- a sent invoice's line_items/totals would be rewritten
+    // out from under a client who's already looking at (or paying) the
+    // version that was just sent.
     const { data: updated, error: uErr } = await db
       .from('invoices')
       .update({
@@ -58,9 +65,16 @@ export async function POST(request: Request, { params }: Params) {
         total_cents: totals.total_cents,
       })
       .eq('id', id)
+      .eq('status', 'draft')
       .select('*')
-      .single()
+      .maybeSingle()
     if (uErr) throw uErr
+    if (!updated) {
+      return NextResponse.json(
+        { error: 'This invoice changed status concurrently (e.g. it was sent) — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
     // Re-check invoice_id = this invoice IN the WHERE clause rather than
     // trusting the line-item check above: only free the booking if it still

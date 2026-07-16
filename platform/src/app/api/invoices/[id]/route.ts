@@ -9,6 +9,8 @@ import { normalizeLineItems, computeTotals, logInvoiceEvent } from '@/lib/invoic
 
 type Params = { params: Promise<{ id: string }> }
 
+const EDITABLE_STATUSES = ['draft', 'sent', 'viewed', 'overdue']
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
@@ -65,7 +67,7 @@ export async function PATCH(request: Request, { params }: Params) {
       .eq('id', id)
       .single()
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (['paid', 'partial', 'void', 'refunded'].includes(existing.status)) {
+    if (!EDITABLE_STATUSES.includes(existing.status)) {
       return NextResponse.json({ error: `Cannot edit ${existing.status} invoice` }, { status: 400 })
     }
 
@@ -111,14 +113,31 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.total_cents = totals.total_cents
     }
 
+    // Check-then-act, not atomic: the guard above reads `existing.status`
+    // once, but a payment (record-payment, or the Stripe webhook) can land
+    // between that read and this write -- the trigger in 027_invoices.sql
+    // bumps status to 'partial'/'paid' immediately on insert. Without
+    // re-asserting the editable-status set in THIS update's own WHERE, a
+    // concurrent payment's status flip gets silently overwritten by whatever
+    // stale totals/line_items this request was computing against a
+    // now-outdated snapshot -- the invoice would show a different total than
+    // what was actually paid. Re-check against the current DB row instead of
+    // trusting the `existing` snapshot.
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .in('status', EDITABLE_STATUSES)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This invoice changed status concurrently (e.g. a payment landed) — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
     await logInvoiceEvent({
       invoice_id: id,
