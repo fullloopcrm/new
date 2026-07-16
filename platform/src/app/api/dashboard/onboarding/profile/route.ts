@@ -66,6 +66,16 @@ export interface OnboardingProfile {
 
 const str = (v: unknown): string | null => (typeof v === 'string' && v.trim() ? v.trim() : null)
 
+// website_url renders as <a href> in dashboard/websites/page.tsx; the social
+// links + google review link are sent to clients / rendered as links too.
+// Reject non-http(s) schemes (javascript:, data:, vbscript:) before storage —
+// same bug class already fixed for photo_url/video_url fields elsewhere
+// (management-applications, sales-applications, team_members, reviews).
+const strUrl = (v: unknown): string | null => {
+  const s = str(v)
+  return s && /^https?:\/\//i.test(s) ? s : null
+}
+
 export async function GET() {
   try {
     const { tenantId } = await getTenantForRequest()
@@ -200,15 +210,15 @@ export async function POST(request: Request) {
       ...cfg,
       ...(str(d.businessDescription) && { business_description: str(d.businessDescription) }),
       ...(str(d.businessStory) && { business_story: str(d.businessStory) }),
-      ...(str(d.googleReviewLink) && { google_review_link: str(d.googleReviewLink) }),
+      ...(strUrl(d.googleReviewLink) && { google_review_link: strUrl(d.googleReviewLink) }),
       social: {
         ...social,
-        ...(str(d.facebookUrl) && { facebook: str(d.facebookUrl) }),
-        ...(str(d.instagramUrl) && { instagram: str(d.instagramUrl) }),
-        ...(str(d.tiktokUrl) && { tiktok: str(d.tiktokUrl) }),
-        ...(str(d.linkedinUrl) && { linkedin: str(d.linkedinUrl) }),
-        ...(str(d.youtubeUrl) && { youtube: str(d.youtubeUrl) }),
-        ...(str(d.xUrl) && { x: str(d.xUrl) }),
+        ...(strUrl(d.facebookUrl) && { facebook: strUrl(d.facebookUrl) }),
+        ...(strUrl(d.instagramUrl) && { instagram: strUrl(d.instagramUrl) }),
+        ...(strUrl(d.tiktokUrl) && { tiktok: strUrl(d.tiktokUrl) }),
+        ...(strUrl(d.linkedinUrl) && { linkedin: strUrl(d.linkedinUrl) }),
+        ...(strUrl(d.youtubeUrl) && { youtube: strUrl(d.youtubeUrl) }),
+        ...(strUrl(d.xUrl) && { x: strUrl(d.xUrl) }),
       },
     }
 
@@ -232,9 +242,9 @@ export async function POST(request: Request) {
     }
     if (str(d.phone)) tenantUpdate.phone = str(d.phone)
     if (str(d.email)) tenantUpdate.email = str(d.email)
-    if (str(d.websiteUrl)) tenantUpdate.website_url = str(d.websiteUrl)
+    if (strUrl(d.websiteUrl)) tenantUpdate.website_url = strUrl(d.websiteUrl)
     if (str(d.businessHours)) tenantUpdate.business_hours = str(d.businessHours)
-    if (str(d.logoUrl)) tenantUpdate.logo_url = str(d.logoUrl)
+    if (strUrl(d.logoUrl)) tenantUpdate.logo_url = strUrl(d.logoUrl)
     if (str(d.primaryColor)) tenantUpdate.primary_color = str(d.primaryColor)
     if (str(d.secondaryColor)) tenantUpdate.secondary_color = str(d.secondaryColor)
     if (str(d.tagline)) tenantUpdate.tagline = str(d.tagline)
