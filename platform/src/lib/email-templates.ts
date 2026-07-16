@@ -237,8 +237,8 @@ export function dailyOpsRecapEmail(data: TemplateData & {
   const todayRows = data.todayJobs.length > 0
     ? data.todayJobs.map(j => `
       <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:8px;font-size:13px;color:#111827;font-weight:500;">${j.clientName}</td>
-        <td style="padding:8px;font-size:13px;color:#6b7280;">${j.teamMemberName}</td>
+        <td style="padding:8px;font-size:13px;color:#111827;font-weight:500;">${escapeHtml(j.clientName)}</td>
+        <td style="padding:8px;font-size:13px;color:#6b7280;">${escapeHtml(j.teamMemberName)}</td>
         <td style="padding:8px;font-size:13px;color:#6b7280;">${j.time}</td>
         <td style="padding:8px;font-size:13px;color:#111827;text-align:right;">${j.revenue}</td>
         <td style="padding:8px;font-size:13px;color:${j.paymentStatus === 'paid' ? '#16a34a' : '#dc2626'};text-align:center;">${j.paymentStatus === 'paid' ? 'Paid' : 'Unpaid'}</td>
@@ -248,8 +248,8 @@ export function dailyOpsRecapEmail(data: TemplateData & {
   const tomorrowRows = data.tomorrowJobs.length > 0
     ? data.tomorrowJobs.map(j => `
       <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:8px;font-size:13px;color:#111827;font-weight:500;">${j.clientName}</td>
-        <td style="padding:8px;font-size:13px;color:#6b7280;">${j.teamMemberName}</td>
+        <td style="padding:8px;font-size:13px;color:#111827;font-weight:500;">${escapeHtml(j.clientName)}</td>
+        <td style="padding:8px;font-size:13px;color:#6b7280;">${escapeHtml(j.teamMemberName)}</td>
         <td style="padding:8px;font-size:13px;color:#6b7280;">${j.time}</td>
         <td style="padding:8px;font-size:13px;color:#111827;text-align:right;">${j.revenue}</td>
       </tr>`).join('')
@@ -303,10 +303,10 @@ export function notificationDigestEmail(data: TemplateData & {
   const rows = data.entries.length > 0
     ? data.entries.map(e => `
       <tr style="border-bottom:1px solid #eee;">
-        <td style="padding:6px 8px;font-size:13px;color:#111827;">${e.type}</td>
-        <td style="padding:6px 8px;font-size:13px;color:#6b7280;">${e.recipient}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#111827;">${escapeHtml(e.type)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;">${escapeHtml(e.recipient)}</td>
         <td style="padding:6px 8px;font-size:13px;color:#6b7280;">${e.time}</td>
-        <td style="padding:6px 8px;font-size:13px;color:#6b7280;">${e.channel}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;">${escapeHtml(e.channel)}</td>
       </tr>`).join('')
     : '<tr><td colspan="4" style="padding:16px;color:#9ca3af;text-align:center;font-size:13px;">No notifications sent today</td></tr>'
 
@@ -501,8 +501,8 @@ export function teamApplicationApprovedEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 4px;">Welcome to the team! / ¡Bienvenido/a al equipo!</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
-      Hi ${firstName} — your application to join <strong>${data.tenantName}</strong> has been approved.<br>
-      Hola ${firstName} — su solicitud para unirse a <strong>${data.tenantName}</strong> ha sido aprobada.
+      Hi ${escapeHtml(firstName)} — your application to join <strong>${data.tenantName}</strong> has been approved.<br>
+      Hola ${escapeHtml(firstName)} — su solicitud para unirse a <strong>${data.tenantName}</strong> ha sido aprobada.
     </p>
 
     <div style="background:#f5f5f5;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
