@@ -121,7 +121,7 @@ async function proposeForIssue(issue: {
   if (newMeta) rows.push({ ...common, field: 'meta_description', before_value: current.meta, after_value: newMeta })
 
   await supabaseAdmin.from('seo_changes').delete().eq('issue_id', issue.id).eq('status', 'proposed')
-  await supabaseAdmin.from('seo_changes').insert(rows)
+  await supabaseAdmin.from('seo_changes').insert(rows)  // tenant-scope-ok: tenant_id is in `common`, spread into every row above
   return rows.length
 }
 

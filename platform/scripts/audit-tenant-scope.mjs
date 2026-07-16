@@ -72,15 +72,41 @@ const EXCLUDE = ALL ? [] : [
 const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include="*.tsx"`, { encoding: 'utf8' })
   .trim().split('\n').filter(Boolean)
   .filter(f => !EXCLUDE.some(rx => rx.test(f)))
+  // Test files exercise mocked/fake query builders with hardcoded fixture
+  // data (e.g. `.from('clients').insert({ name: 'Jane' })` against a fetch
+  // mock) — never a live tenant-owned data path, so never a leak candidate.
+  .filter(f => !/\.test\.tsx?$/.test(f))
 
 const flagged = []
 for (const file of files) {
-  const lines = readFileSync(file, 'utf8').split('\n')
+  const src = readFileSync(file, 'utf8')
+  const lines = src.split('\n')
+
+  // lib/tenant-db.js's `tenantDb(tenantId)` wrapper auto-scopes every
+  // select/insert/update/delete by tenant_id internally (see tenant-db.ts) —
+  // that scoping is invisible to this line-based grep since the literal
+  // string "tenant_id" never appears at the call site. Recognize both the
+  // inline form (`tenantDb(x).from(...)`) and the assigned-variable form
+  // (`const db = tenantDb(x); ...; db.from(...)`) as scoped.
+  const tenantDbVars = new Set()
+  for (const vm of src.matchAll(/\b(?:const|let)\s+(\w+)\s*=\s*tenantDb\(/g)) {
+    tenantDbVars.add(vm[1])
+  }
+
   for (let i = 0; i < lines.length; i++) {
     const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
+    // inline tenantDb(...).from(...) — the call and .from() are usually on
+    // adjacent lines (`tenantDb(tenant.id)\n  .from('clients')`), so check a
+    // 2-line window ending at the .from() line, not just the .from() line alone.
+    const precedingChain = lines.slice(Math.max(0, i - 1), i + 1).join('\n')
+    if (/tenantDb\([^)]*\)\s*\.from\(/.test(precedingChain)) continue
+    // `db.from(...)` where `db = tenantDb(...)` — the variable and .from()
+    // are usually on adjacent lines too (`await db\n  .from('clients')`).
+    const varMatch = precedingChain.match(/\b(\w+)\s*\.from\('[a-z_]+'\)/)
+    if (varMatch && tenantDbVars.has(varMatch[1])) continue
     const chain = lines.slice(i, i + 12).join('\n')
     const scoped = /tenant_id/.test(chain)                       // filter or insert payload
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a

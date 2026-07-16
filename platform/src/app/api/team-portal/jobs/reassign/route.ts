@@ -49,7 +49,7 @@ export async function POST(request: Request) {
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
 
   const { data, error } = await supabaseAdmin
-    .from('bookings')
+    .from('bookings')  // tenant-scope-ok: .eq('tenant_id', auth.tid) below, past the guard's 12-line lookahead
     .update({
       team_member_id: to_member_id,
       pay_rate: target.pay_rate || null,
