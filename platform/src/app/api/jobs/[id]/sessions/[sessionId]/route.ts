@@ -137,7 +137,27 @@ export async function PATCH(request: Request, { params }: Params) {
         return NextResponse.json({ error: `Invalid status: ${body.status}` }, { status: 400 })
       }
       patch.status = body.status
-      didComplete = body.status === 'completed' && current.status !== 'completed'
+      if (body.status === 'completed') {
+        // Atomic claim: `current.status` above was read via a separate
+        // SELECT (loadOwnedSession), so two concurrent PATCHes marking the
+        // same session 'completed' (double-click on the job-session "Mark
+        // Complete" action, a client retry, two open tabs) both used to read
+        // the prior status before either write landed and both concluded
+        // "this is a real completion" — double-firing the session_completed
+        // timeline event and releasePaymentsForEvent. Same TOCTOU shape
+        // already fixed on the job-level PATCH (d4f20506): only the request
+        // whose UPDATE actually flips status away from 'completed' claims
+        // the transition; the loser's conditional UPDATE matches 0 rows.
+        const { data: claimed } = await supabaseAdmin
+          .from('bookings')
+          .update({ status: 'completed' })
+          .eq('id', sessionId)
+          .eq('tenant_id', tenantId)
+          .neq('status', 'completed')
+          .select('id')
+          .maybeSingle()
+        didComplete = !!claimed
+      }
     }
 
     if (Object.keys(patch).length === 0) {

@@ -413,35 +413,57 @@ export async function releasePaymentsForEvent(
   const trigger = EVENT_RELEASES[eventType]
   if (!trigger) return 0
 
+  // Fetch candidates ordered by sort_order, but claim each one with its own
+  // atomic conditional UPDATE below rather than a single SELECT-then-.in(ids)
+  // write. Two sessions on the same multi-milestone job (e.g. a dumpster
+  // swap's "delivery" and "pickup" touches) completing at nearly the same
+  // instant both used to SELECT the SAME "next pending" candidate before
+  // either write landed, so both calls raced for milestone #1 — one won, the
+  // other's own triggering session got no release at all (a lost update,
+  // not just a duplicate). Fetching the full candidate list and claiming
+  // each with `.eq('status', 'pending')` in the WHERE clause means a caller
+  // whose claim loses on one row moves on to the next distinct one instead
+  // of walking away empty-handed.
   let candidateQuery = supabaseAdmin
     .from('job_payments')
-    .select('id')
+    .select('id, label, amount_cents')
     .eq('tenant_id', tenantId)
     .eq('job_id', jobId)
     .eq('trigger', trigger)
     .eq('status', 'pending')
     .order('sort_order', { ascending: true })
-  if (eventType === 'session_completed') candidateQuery = candidateQuery.limit(1)
+  // 'session_completed' still releases at most ONE payment per event — just
+  // widen the candidate window so a lost claim on the first can fall through
+  // to the next instead of limiting the query to a single row up front.
+  if (eventType === 'session_completed') candidateQuery = candidateQuery.limit(5)
 
   const { data: candidates, error: selErr } = await candidateQuery
   if (selErr) {
     console.error('[releasePaymentsForEvent] failed:', selErr)
     return 0
   }
-  const ids = (candidates ?? []).map((c) => c.id as string)
-  if (!ids.length) return 0
+  if (!candidates?.length) return 0
 
-  const { data: released, error } = await supabaseAdmin
-    .from('job_payments')
-    .update({ status: 'invoiced' })
-    .in('id', ids)
-    .select('id, label, amount_cents')
-  if (error) {
-    console.error('[releasePaymentsForEvent] failed:', error)
-    return 0
+  const maxClaims = eventType === 'session_completed' ? 1 : candidates.length
+  const released: { id: string; label: string; amount_cents: number }[] = []
+
+  for (const c of candidates) {
+    if (released.length >= maxClaims) break
+    const { data: claimed, error } = await supabaseAdmin
+      .from('job_payments')
+      .update({ status: 'invoiced' })
+      .eq('id', c.id as string)
+      .eq('status', 'pending')
+      .select('id, label, amount_cents')
+      .maybeSingle()
+    if (error) {
+      console.error('[releasePaymentsForEvent] failed:', error)
+      continue
+    }
+    if (claimed) released.push(claimed as { id: string; label: string; amount_cents: number })
   }
 
-  for (const p of released ?? []) {
+  for (const p of released) {
     await logJobEvent({
       tenant_id: tenantId,
       job_id: jobId,
@@ -449,5 +471,5 @@ export async function releasePaymentsForEvent(
       detail: { payment_id: p.id, label: p.label, amount_cents: p.amount_cents, released_by: eventType },
     })
   }
-  return (released ?? []).length
+  return released.length
 }
