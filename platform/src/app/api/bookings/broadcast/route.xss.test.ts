@@ -37,7 +37,22 @@ vi.mock('@/lib/supabase', () => ({
         return { select: () => ({ eq: () => ({ eq: async () => ({ data: [{ id: MEMBER, name: 'Sam', phone: null, email: 'sam@example.com' }] }) }) }) }
       }
       if (table === 'notifications') {
-        return { insert: async () => ({ data: null }) }
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                eq: () => ({
+                  gte: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({ data: null }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+          insert: async () => ({ data: null }),
+        }
       }
       throw new Error(`unexpected table ${table}`)
     }),

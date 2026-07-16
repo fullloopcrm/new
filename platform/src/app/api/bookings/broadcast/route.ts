@@ -61,6 +61,31 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No notification channels configured. Add Resend or Telnyx keys in Settings.' }, { status: 400 })
   }
 
+  // Duplicate-submit guard: this route has no "draft" record to atomically
+  // claim -- every call blasts SMS+email to every active team member again.
+  // A double-click of "Broadcast" or a client retry after a slow/timeout
+  // response would re-page the whole team for the same urgent job. Reject a
+  // repeat broadcast for this booking within a short window; the summary
+  // 'job_broadcast' notification already written at the end of a prior call
+  // (see below) doubles as the dedup marker, same check-then-act pattern
+  // already used by find-cleaner/send's cleaner_broadcasts dedup.
+  const DUPLICATE_WINDOW_MS = 2 * 60 * 1000
+  const sinceIso = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString()
+  const { data: recentBroadcast } = await supabaseAdmin
+    .from('notifications')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('booking_id', booking_id)
+    .eq('type', 'job_broadcast')
+    .gte('created_at', sinceIso)
+    .limit(1)
+    .maybeSingle()
+  if (recentBroadcast) {
+    return NextResponse.json({
+      error: 'This job was already broadcast moments ago. Wait a bit before resending.',
+    }, { status: 409 })
+  }
+
   const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
   const jobTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const endTime = booking.end_time ? new Date(booking.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
