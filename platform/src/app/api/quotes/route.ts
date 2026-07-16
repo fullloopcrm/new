@@ -75,8 +75,9 @@ export async function POST(request: Request) {
     // Fulfillment: 'booking' (service → Bookings) | 'project' (→ Job board). null = project default.
     const fulfillment_type = ['booking', 'project'].includes(body.fulfillment_type) ? body.fulfillment_type : null
 
-    const quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
-    const public_token = generatePublicToken()
+    const explicitQuoteNumber = Boolean(body.quote_number)
+    let quote_number = body.quote_number || (await generateQuoteNumber(tenantId))
+    let public_token = generatePublicToken()
 
     // client_id/deal_id are cross-table FKs — confirm each belongs to this
     // tenant before writing it, or a caller could attach the quote to another
@@ -104,44 +105,65 @@ export async function POST(request: Request) {
       if (!deal) return NextResponse.json({ error: 'Invalid deal_id' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('quotes')
-      .insert({
-        tenant_id: tenantId,
-        client_id,
-        deal_id,
-        quote_number,
-        status: 'draft',
-        title: body.title || null,
-        description: body.description || null,
-        contact_name: body.contact_name || null,
-        contact_email: body.contact_email || null,
-        contact_phone: body.contact_phone || null,
-        service_address: body.service_address || null,
-        line_items: lineItems,
-        tiers: body.tiers || null,
-        subtotal_cents: totals.subtotal_cents,
-        tax_rate_bps,
-        tax_cents: totals.tax_cents,
-        discount_cents: totals.discount_cents,
-        total_cents: totals.total_cents,
-        terms: body.terms || null,
-        notes: body.notes || null,
-        valid_until: body.valid_until || null,
-        deposit_type,
-        deposit_value,
-        deposit_cents,
-        // Only reference recurring columns when actually recurring, so a
-        // pre-migration DB still creates normal (one-off) quotes fine.
-        ...(recurring_type
-          ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
-          : {}),
-        ...(fulfillment_type ? { fulfillment_type } : {}),
-        public_token,
-      })
-      .select('*')
-      .single()
-    if (error) throw error
+    // idx_quotes_tenant_number (026_quotes.sql) uniquely constrains
+    // (tenant_id, quote_number). Two concurrent creates in the same
+    // tenant+month both read the same monthly count from generateQuoteNumber
+    // (non-atomic SELECT-count, not a DB sequence) and collide on insert.
+    // Pre-fix this threw the raw 23505 as an unhandled 500 for a legitimate
+    // concurrent request. Auto-generated numbers/tokens are safe to retry with
+    // a freshly regenerated value; a caller-supplied quote_number collision is
+    // a real conflict and gets a 409 instead of silently being renumbered.
+    const MAX_NUMBER_ATTEMPTS = 5
+    let data, error
+    for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+      ;({ data, error } = await supabaseAdmin
+        .from('quotes')
+        .insert({
+          tenant_id: tenantId,
+          client_id,
+          deal_id,
+          quote_number,
+          status: 'draft',
+          title: body.title || null,
+          description: body.description || null,
+          contact_name: body.contact_name || null,
+          contact_email: body.contact_email || null,
+          contact_phone: body.contact_phone || null,
+          service_address: body.service_address || null,
+          line_items: lineItems,
+          tiers: body.tiers || null,
+          subtotal_cents: totals.subtotal_cents,
+          tax_rate_bps,
+          tax_cents: totals.tax_cents,
+          discount_cents: totals.discount_cents,
+          total_cents: totals.total_cents,
+          terms: body.terms || null,
+          notes: body.notes || null,
+          valid_until: body.valid_until || null,
+          deposit_type,
+          deposit_value,
+          deposit_cents,
+          // Only reference recurring columns when actually recurring, so a
+          // pre-migration DB still creates normal (one-off) quotes fine.
+          ...(recurring_type
+            ? { recurring_type, recurring_start_date, recurring_preferred_time, recurring_duration_hours }
+            : {}),
+          ...(fulfillment_type ? { fulfillment_type } : {}),
+          public_token,
+        })
+        .select('*')
+        .single())
+      if (!error) break
+      if (error.code !== '23505' || explicitQuoteNumber) break
+      quote_number = await generateQuoteNumber(tenantId)
+      public_token = generatePublicToken()
+    }
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Quote number already in use' }, { status: 409 })
+      }
+      throw error
+    }
 
     await logQuoteEvent({
       quote_id: data.id,

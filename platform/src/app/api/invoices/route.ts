@@ -137,8 +137,9 @@ export async function POST(request: Request) {
         : Number((prefillContact as { discount_cents?: number }).discount_cents || 0)
     const totals = computeTotals(lineItems, tax_rate_bps, discount_cents)
 
-    const invoice_number = body.invoice_number || (await generateInvoiceNumber(tenantId))
-    const public_token = generateInvoicePublicToken()
+    const explicitInvoiceNumber = Boolean(body.invoice_number)
+    let invoice_number = body.invoice_number || (await generateInvoiceNumber(tenantId))
+    let public_token = generateInvoicePublicToken()
     const due_date =
       body.due_date ||
       (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
@@ -170,35 +171,57 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
     }
 
-    const { data, error } = await db
-      .from('invoices')
-      .insert({
-        entity_id: entityId,
-        client_id: clientId,
-        booking_id: bookingId,
-        quote_id: quoteId,
-        invoice_number,
-        status: 'draft',
-        title: body.title || (prefillContact as { title?: string }).title || null,
-        description: body.description || (prefillContact as { description?: string }).description || null,
-        contact_name: body.contact_name || (prefillContact as { contact_name?: string }).contact_name || null,
-        contact_email: body.contact_email || (prefillContact as { contact_email?: string }).contact_email || null,
-        contact_phone: body.contact_phone || (prefillContact as { contact_phone?: string }).contact_phone || null,
-        service_address: body.service_address || (prefillContact as { service_address?: string }).service_address || null,
-        line_items: lineItems,
-        subtotal_cents: totals.subtotal_cents,
-        tax_rate_bps,
-        tax_cents: totals.tax_cents,
-        discount_cents: totals.discount_cents,
-        total_cents: totals.total_cents,
-        terms: body.terms || (prefillContact as { terms?: string }).terms || null,
-        notes: body.notes || null,
-        due_date,
-        public_token,
-      })
-      .select('*')
-      .single()
-    if (error) throw error
+    // idx_invoices_tenant_number (027_invoices.sql) uniquely constrains
+    // (tenant_id, invoice_number). Two concurrent creates in the same
+    // tenant+month both read the same monthly count from generateInvoiceNumber
+    // (non-atomic SELECT-count, not a DB sequence) and collide on insert.
+    // Pre-fix this threw the raw 23505 as an unhandled 500 for a legitimate
+    // concurrent request (same class as the sibling POST /api/quotes fix).
+    // Auto-generated numbers/tokens are safe to retry with a freshly
+    // regenerated value; a caller-supplied invoice_number collision is a real
+    // conflict and gets a 409 instead of silently being renumbered.
+    const MAX_NUMBER_ATTEMPTS = 5
+    let data, error
+    for (let attempt = 0; attempt < MAX_NUMBER_ATTEMPTS; attempt++) {
+      ;({ data, error } = await db
+        .from('invoices')
+        .insert({
+          entity_id: entityId,
+          client_id: clientId,
+          booking_id: bookingId,
+          quote_id: quoteId,
+          invoice_number,
+          status: 'draft',
+          title: body.title || (prefillContact as { title?: string }).title || null,
+          description: body.description || (prefillContact as { description?: string }).description || null,
+          contact_name: body.contact_name || (prefillContact as { contact_name?: string }).contact_name || null,
+          contact_email: body.contact_email || (prefillContact as { contact_email?: string }).contact_email || null,
+          contact_phone: body.contact_phone || (prefillContact as { contact_phone?: string }).contact_phone || null,
+          service_address: body.service_address || (prefillContact as { service_address?: string }).service_address || null,
+          line_items: lineItems,
+          subtotal_cents: totals.subtotal_cents,
+          tax_rate_bps,
+          tax_cents: totals.tax_cents,
+          discount_cents: totals.discount_cents,
+          total_cents: totals.total_cents,
+          terms: body.terms || (prefillContact as { terms?: string }).terms || null,
+          notes: body.notes || null,
+          due_date,
+          public_token,
+        })
+        .select('*')
+        .single())
+      if (!error) break
+      if (error.code !== '23505' || explicitInvoiceNumber) break
+      invoice_number = await generateInvoiceNumber(tenantId)
+      public_token = generateInvoicePublicToken()
+    }
+    if (error) {
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'Invoice number already in use' }, { status: 409 })
+      }
+      throw error
+    }
 
     await logInvoiceEvent({
       invoice_id: data.id,
