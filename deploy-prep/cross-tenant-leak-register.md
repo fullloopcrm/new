@@ -2434,3 +2434,52 @@ pre-existing, unrelated baseline drift noted in every prior round. Full suite
 regressions (1478 baseline + 1 new test).
 
 Commit `35b015ef`. Logged as P53. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 20:30 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order with
+a full re-read of the two files I'm most accountable for as resolver-lane
+owner — `src/middleware.ts` (all 495 lines) and `src/lib/tenant-lookup.ts`
+(the edge-runtime `getTenantBySlug`/`getTenantByDomain` resolvers) — looking
+specifically for host-header-trust and CDN-cache-key issues, a class not yet
+targeted by any prior round in this register (every prior resolver-lane pass
+audited *consumers* of the signed `x-tenant-id` header, not the header-host
+parsing/routing logic itself):
+
+- **`hostname = req.headers.get('host') || req.headers.get('x-forwarded-host')
+  || 'localhost'`** — the `x-forwarded-host` fallback only fires when `host`
+  is absent, which never happens on Vercel (a required HTTP/1.1+ header) — dead
+  branch in practice, not attacker-reachable.
+- **`/virtual-assistant` edge cache (`Cache-Control: public, s-maxage=3600`,
+  middleware.ts:468-470)** — considered whether this could serve tenant A's
+  cached response to tenant B if the CDN cache key doesn't include Host.
+  Vercel's edge cache key always includes the request Host, so a response
+  cached for `tenant-a.fullloopcrm.com/virtual-assistant/...` cannot be
+  served under `tenant-b.fullloopcrm.com`'s cache entry — not a cross-tenant
+  leak. (Also: this path's content is confirmed identical across all
+  visitors on the *same* host, per its own inline comment, so even a same-
+  host cache hit is intentional and safe.)
+- **`STATIC_TENANT_MAP` hardcoded `thefloridamaid.com` → tenant id fallback**
+  (middleware.ts:241-249, checked unconditionally, ahead of the DB lookup,
+  despite the comment calling it a fallback "when DB lookup ... is
+  unreliable") — considered whether a stale hardcoded id could route this
+  domain to a *different* live tenant if `the-florida-maid`'s real tenant id
+  ever changed in the DB. Could not verify against live data from this
+  worktree without a DB read (out of scope for a file-only round), so this
+  is flagged as unverified, not confirmed — worth a one-query check
+  (`select id from tenants where slug='the-florida-maid'` vs. the hardcoded
+  `56490a6b-820c-49e6-8c14-cb4e54ffcb06`) next time someone has DB access in
+  hand, but not acted on here since it's speculative.
+- **`getTenantByDomain`'s TRANSITION ASSERT-AND-REFUSE guard** (my own P1
+  work) re-read end-to-end — still correct: only compares the matched
+  `tenant_domains` row against `tenants.domain` for the same host, refuses
+  (throws, doesn't cache, doesn't serve) on any tenant-id mismatch, and a
+  dangling `tenant_domains` pointer (tenant row missing) also refuses rather
+  than falling through to the legacy table. No change since P50.
+- **Negative-cache staleness** (`getTenantByDomain` caches `null` for 5 min
+  on a miss) — a purely-availability concern (a brand-new domain claim
+  wouldn't resolve for up to 5 min post-DNS-cutover if probed early), not a
+  cross-tenant leak; same class already logged as accepted latent debt in
+  the 20:09 round's domain-cache-staleness note.
+
+No new gap found. No code changed, `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
