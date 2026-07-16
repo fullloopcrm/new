@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP, type EligibleApplicant } from '../constants'
 
 // Preview who an applicant broadcast would reach. Ported from nycmaid,
@@ -27,13 +27,13 @@ type ApplicantRow = {
 }
 
 export async function POST() {
-  let tenantId: string
-  try {
-    ({ tenantId } = await getTenantForRequest())
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-  }
+  // Same blast-radius-preview class as the sibling send route (gated on
+  // campaigns.send) — returns every applicant's name+phone. Match the
+  // gate here so a role that can't send the broadcast can't read the
+  // recipient list either.
+  const { tenant: ctx, error: authError } = await requirePermission('campaigns.send')
+  if (authError) return authError
+  const tenantId = ctx.tenantId
 
   const { data: applicants, error } = await supabaseAdmin
     .from('cleaner_applications')

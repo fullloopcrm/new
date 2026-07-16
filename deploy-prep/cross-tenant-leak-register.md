@@ -3667,3 +3667,46 @@ of 403) against the original code, restored, all 3 GREEN.
 
 `npx tsc --noEmit`: clean. Full suite: 347 files, 1517 passed + 37 skipped,
 0 regressions. File-only, no push/deploy/DB.
+
+## 2026-07-15 23:44 round (W2) — P62, fixed: `POST /api/admin/message-
+applicants/preview` had zero permission gate, leaking applicant PII to any
+tenant role
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: census of every `/api/admin/*` route file with no
+`requirePermission`/`requireAdmin` call at all (18 hits). Most check out —
+`payments/finalize-match` is internal-key-gated (P35), `system-check` reads
+the raw `admin_token` cookie directly, `smart-schedule`/`schedule-issues`
+return data every default role already holds `schedules.view`/
+`bookings.view` for. One real gap: `message-applicants/preview`.
+
+The route previewed who a mass-SMS applicant broadcast would reach,
+returning every `cleaner_applications` row's `name`+`phone` (job-applicant
+PII) for the tenant, gated by nothing but `getTenantForRequest()` (proves
+tenant membership at *any* role). Its sibling send route,
+`message-applicants/send`, was already fixed in an earlier round to require
+`campaigns.send` — the fix comment there explicitly documents that `staff`
+(no `campaigns.send` per `rbac.ts`) could otherwise broadcast SMS directly.
+That earlier fix closed the *write* path but missed the *read* path: the
+preview endpoint still let any authenticated role, including `staff` and
+`manager` (neither holds `campaigns.send`), read the full recipient list
+(names + phone numbers) with a direct API call, no UI needed. Zero
+first-party frontend caller exists for either `preview` or `send` today
+(grepped `src/app/dashboard`, `src/app/admin`, `src/components`) — same as
+P58/P59/P61's pattern, doesn't reduce exposure since a valid tenant session
+can call any route directly regardless of what the UI links to.
+
+**Fix:** gated behind `requirePermission('campaigns.send')`, matching the
+sibling `send` route exactly (preview only has value in service of that
+send flow, so gating it any looser would let a role preview a broadcast
+list it can never actually send).
+
+**Regression lock:** new `route.isolation.test.ts` (3 tests, harness-based
+like `send`'s) — owner gets 200 with the applicant list; `staff` and
+`manager` (neither holds `campaigns.send`) get 403 with no `eligible`/
+`excluded` fields in the body. Mutation-verified via `git stash` against
+real pre-fix `route.ts`: both probes RED (200 with full PII instead of 403)
+against the original code, restored, all 3 GREEN.
+
+`npx tsc --noEmit`: clean. Full suite: 348 files, 1520 passed + 37 skipped,
+0 regressions. File-only, no push/deploy/DB.
