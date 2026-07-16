@@ -917,6 +917,41 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
         emergencyTogglePrefillsRate
           ? 'prefill logic found'
           : `BookingsAdmin.tsx's Emergency/Same-Day onChange handler (found: ${!!serviceDropdownOnChangeMatch}, ${serviceDropdownOnChange.length} chars) never references emergency_rate/selena_config — it only sets is_emergency/cleaner_id. hourly_rate's initial-state default is hardcoded to 69 everywhere it's declared (same value regardless of service type, emergency or not — ${allDefaultsIdentical ? 'confirmed identical across the form\'s useState calls' : 'defaults vary across forms, re-verify manually'}). Completes the trilogy with P11.7/P11.8: portal self-book, public self-book, AND the operator's own manual creation panel all ignore the configured emergency_rate; only the AI chat prompt (P11.6) ever surfaces it.`)
+
+      // P11.16 a fourth, more exposed surface in the same "does the owner's
+      // configured emergency_rate ever reach real billing" chain, on the ONE
+      // channel this archetype's whole business model runs through: the
+      // fully-automated SMS/AI booking flow itself (selena-legacy.ts, the
+      // generic non-NYC-Maid implementation this archetype's tenants use).
+      // P11.6 already proved emergency_rate/emergency_available reach the
+      // live system prompt as TEXT the AI can read and mention — but reading
+      // the prompt and ENFORCING the number are different things. The
+      // create_booking tool's own schema (below) requires the LLM to supply
+      // hourly_rate as a bare number argument, and handleCreateBooking
+      // (source extracted below) computes price: hourlyRate * estimatedHours
+      // * 100 straight from whatever the LLM passed — with ZERO server-side
+      // reference to selena_config's emergency_rate/emergency_available,
+      // even though selena-legacy-core.ts's own intent classifier has a
+      // dedicated 'emergency' intent (readNextStep/getAllowedTools ~L385)
+      // that explicitly permits this exact tool for that intent. So the one
+      // promise this archetype's whole after-hours/same-day product exists
+      // to keep — an emergency call gets priced at the owner's configured
+      // premium — is left entirely to the LLM correctly re-deriving "195"
+      // from its own system prompt and typing it into a tool argument, with
+      // no guardrail if it doesn't. This is the most exposed of the four
+      // surfaces this trilogy now covers (portal self-book P11.7, public
+      // self-book P11.8, operator manual panel P11.15, and this one) — it's
+      // the only one with zero human review before the booking (and its
+      // price) is created. Verified by reading the source directly (client
+      // component / live-LLM-round-trip surfaces aren't invokable in this
+      // harness, same constraint as P11.8-P11.15).
+      const selenaLegacySrc = readFileSync(resolve(process.cwd(), 'src/lib/selena-legacy.ts'), 'utf8')
+      const handleCreateBookingBody = (selenaLegacySrc.split('async function handleCreateBooking')[1] || '').split('\n\nasync function ')[0]
+      const createBookingToolSchema = (selenaLegacySrc.split("name: 'create_booking'")[1] || '').split('},\n  {')[0]
+      const enforcesEmergencyRateServerSide = /emergency_rate|selena_config|emergency_available/.test(handleCreateBookingBody)
+      add("emergency: the AI/SMS create_booking tool enforces the owner's configured emergency_rate server-side (not just relies on the LLM re-typing the prompt number)",
+        enforcesEmergencyRateServerSide,
+        `handleCreateBooking (selena-legacy.ts, ${handleCreateBookingBody.trim().length} chars) computes price purely as hourlyRate * estimatedHours * 100 from input.hourly_rate — a bare number the create_booking tool schema requires the LLM to supply (schema: ${createBookingToolSchema.replace(/\s+/g, ' ').trim()}) — with no reference to emergency_rate/selena_config/emergency_available anywhere in the handler. selena-legacy-core.ts's own intent classifier has a dedicated 'emergency' intent that explicitly allows this tool, yet nothing server-side ties its price to the owner's configured premium; correctness depends entirely on the LLM re-deriving the number from its own prompt (P11.6) and typing it into the tool call. Fourth and most exposed surface in the P11.7/P11.8/P11.15 trilogy — the only one with no human review before the priced booking is created.`)
     }
 
   } catch (err) {
