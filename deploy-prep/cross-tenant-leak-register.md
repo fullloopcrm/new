@@ -3192,3 +3192,54 @@ intentional.
 No new P-number (confirmed non-exploitable given the `NOT NULL` schema
 constraint). No code changed. `tsc` N/A (no edits). File-only, no
 push/deploy/DB.
+
+## 2026-07-15 22:23 round (W2) — negative result: `IMPERSONATION_ALLOW_UNSIGNED`
+legacy-cutover flag audited, confirmed to grant no privilege beyond the
+already-intended admin capability
+
+Fresh angle: audited every consumer of `verifyImpersonationCookie()`
+(`src/lib/impersonation.ts`) for the legacy-unsigned-cookie bypass branch —
+distinct from every prior round's focus on the *signed* header/cookie paths
+(P50/P52/P53/P57 all concerned the signed x-tenant-id header or the signed
+impersonation cookie itself; this round is the first to specifically chase
+the unsigned fallback).
+
+The function's own comment flags real intent to worry about: "Accepts
+legacy unsigned values too (raw UUID) when `IMPERSONATION_ALLOW_UNSIGNED=1`
+— useful during rolling cutover; remove once all in-flight sessions have
+rotated." Introduced in `f8091068`, still present, never removed. On its
+face this looks like the same shape as P1's TRANSITION ASSERT-AND-REFUSE
+class (a cutover escape hatch that outlives its cutover) — worth checking
+whether it's still armed.
+
+**Traced actual reachability.** `verifyImpersonationCookie()`'s unsigned
+branch only fires when `IMPERSONATION_ALLOW_UNSIGNED==='1'` (unverifiable
+from a file-only round — this is deploy-env state, same class as the
+previously-flagged-not-verified `STATIC_TENANT_MAP` hardcode). But even
+assuming worst case (flag is on in prod): every caller of
+`verifyImpersonationCookie()` that actually grants tenant access
+(`getAdminImpersonatedTenant()` in `tenant.ts`, and the equivalent in
+`tenant-query.ts`) requires the impersonation cookie **AND** a separately
+HMAC-verified `admin_token` (`verifyAdminToken()`, constant-time compared,
+checked in `admin-auth/route.ts`) before trusting the impersonated tenant id
+— confirmed by reading both gates side by side. A forged unsigned
+`fl_impersonate=<any-uuid>` cookie is worthless without an already-valid
+`admin_token`. And anyone holding a valid `admin_token` doesn't need to
+forge anything: `POST /api/admin/impersonate` (the *intended* mint path) is
+gated by the identical `requireAdmin()` check and will happily sign a
+legitimate impersonation cookie for any tenant on request. So the unsigned
+branch, even if left armed, adds **zero** reachable capability beyond what
+the already-designed admin flow grants the same token holder — it's inert
+tech debt, not a live escalation path.
+
+**Not fixed this round:** since it's provably inert (not exploitable, just
+undead), removing the branch is a cleanup call, not a security fix, and
+outside an unattended file-only pass's risk budget for touching a
+security-adjacent helper with 3 non-test callers. Flagging for whoever next
+does the deploy-env audit: worth confirming `IMPERSONATION_ALLOW_UNSIGNED`
+is unset in prod and then deleting the unsigned branch + the now-pointless
+`IMPERSONATION_ALLOW_UNSIGNED` env var entirely, since the "rolling cutover"
+this comment describes should be long over.
+
+No new P-number (confirmed inert, not exploitable). No code changed. `tsc`
+N/A (no edits). File-only, no push/deploy/DB.
