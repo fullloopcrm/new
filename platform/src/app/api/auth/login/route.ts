@@ -57,8 +57,12 @@ export async function POST(request: Request) {
           maxAge: 60 * 60 * 24,
           path: '/'
         })
-        // Role cookie for middleware page-level enforcement (not httpOnly — middleware reads it)
+        // Role hint cookie, read server-side only (protectAdminAPI in _lib/auth.ts).
+        // No middleware or client code reads this — httpOnly so it can't be read
+        // or forged via document.cookie/XSS. The prior non-httpOnly setting had
+        // no live consumer that needed JS access; this closes that gap.
         cookieStore.set('admin_role', user.role, {
+          httpOnly: true,
           secure: process.env.NODE_ENV === 'production',
           sameSite: 'strict',
           maxAge: 60 * 60 * 24,
@@ -87,6 +91,7 @@ export async function POST(request: Request) {
         path: '/'
       })
       cookieStore.set('admin_role', 'owner', {
+        httpOnly: true,
         secure: process.env.NODE_ENV === 'production',
         sameSite: 'strict',
         maxAge: 60 * 60 * 24,

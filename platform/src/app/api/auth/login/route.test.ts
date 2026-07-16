@@ -46,9 +46,13 @@ vi.mock('@/lib/rate-limit-db', () => ({
 }))
 
 const cookieStore = new Map<string, string>()
+const cookieOptions = new Map<string, Record<string, unknown> | undefined>()
 vi.mock('next/headers', () => ({
   cookies: async () => ({
-    set: (name: string, value: string) => { cookieStore.set(name, value) },
+    set: (name: string, value: string, options?: Record<string, unknown>) => {
+      cookieStore.set(name, value)
+      cookieOptions.set(name, options)
+    },
     get: (name: string) => (cookieStore.has(name) ? { value: cookieStore.get(name) } : undefined),
   }),
 }))
@@ -70,6 +74,7 @@ beforeEach(() => {
   fake._store.clear()
   rlCounts.clear()
   cookieStore.clear()
+  cookieOptions.clear()
   notifySpy.mockClear()
   emailAdminsSpy.mockClear()
   delete process.env.ADMIN_PASSWORD
@@ -141,5 +146,15 @@ describe('POST /api/auth/login — stored XSS in login-alert email', () => {
     const html = emailAdminsSpy.mock.calls[0][1]
     expect(html).not.toContain('<img src=x onerror=alert(1)>')
     expect(html).toContain('&lt;img src=x onerror=alert(1)&gt;')
+  })
+
+})
+
+describe('POST /api/auth/login — admin_role cookie', () => {
+  it('sets admin_role httpOnly so it cannot be read or forged via document.cookie/XSS', async () => {
+    process.env.ADMIN_PASSWORD = 'correct-horse-battery-staple'
+    const res = await POST(req({ password: 'correct-horse-battery-staple' }))
+    expect(res.status).toBe(200)
+    expect(cookieOptions.get('admin_role')?.httpOnly).toBe(true)
   })
 })
