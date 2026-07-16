@@ -62,6 +62,12 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (body.notes !== undefined) updatePayload.notes = body.notes
   if (body.special_instructions !== undefined) updatePayload.special_instructions = body.special_instructions
   if (body.status !== undefined) updatePayload.status = body.status
+  if (body.invoice_consolidation !== undefined) {
+    if (!['per_visit', 'monthly'].includes(body.invoice_consolidation)) {
+      return NextResponse.json({ error: 'invoice_consolidation must be per_visit or monthly' }, { status: 400 })
+    }
+    updatePayload.invoice_consolidation = body.invoice_consolidation
+  }
 
   const { data, error: uErr } = await db
     .from('recurring_schedules')

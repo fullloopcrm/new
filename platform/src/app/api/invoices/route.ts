@@ -223,6 +223,14 @@ export async function POST(request: Request) {
       throw error
     }
 
+    // Mark the source booking as billed so it's never picked up again by the
+    // monthly rollup generator (cron/generate-monthly-invoices) or re-billed
+    // standalone — bookings.invoice_id is the single "already invoiced" gate
+    // shared by both paths.
+    if (bookingId) {
+      await db.from('bookings').update({ invoice_id: data.id }).eq('id', bookingId)
+    }
+
     await logInvoiceEvent({
       invoice_id: data.id,
       tenant_id: tenantId,

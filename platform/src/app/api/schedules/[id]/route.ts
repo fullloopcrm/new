@@ -53,7 +53,11 @@ export async function PUT(
     const db = tenantDb(tenantId)
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions'])
+    const fields = pick(body, ['recurring_type', 'day_of_week', 'preferred_time', 'duration_hours', 'notes', 'special_instructions', 'invoice_consolidation'])
+
+    if (fields.invoice_consolidation !== undefined && !['per_visit', 'monthly'].includes(fields.invoice_consolidation as string)) {
+      return NextResponse.json({ error: 'invoice_consolidation must be per_visit or monthly' }, { status: 400 })
+    }
 
     const { data, error } = await db
       .from('recurring_schedules')

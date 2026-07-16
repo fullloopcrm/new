@@ -96,6 +96,7 @@ export async function POST(request: Request) {
     price,
     service_type,
     status: bookingStatus,
+    invoice_consolidation,
   } = body
 
   const teamMemberId = team_member_id || cleaner_id || null
@@ -107,6 +108,13 @@ export async function POST(request: Request) {
       { error: 'client_id, recurring_type, and start_date are required' },
       { status: 400 }
     )
+  }
+
+  // 'per_visit' (default, standalone invoice per completed booking) or
+  // 'monthly' (commercial/office accounts — one rollup statement, folded by
+  // cron/generate-monthly-invoices).
+  if (invoice_consolidation !== undefined && !['per_visit', 'monthly'].includes(invoice_consolidation)) {
+    return NextResponse.json({ error: 'invoice_consolidation must be per_visit or monthly' }, { status: 400 })
   }
 
   // Confirm the client belongs to this tenant (prevents cross-tenant writes).
@@ -161,6 +169,7 @@ export async function POST(request: Request) {
       special_instructions: special_instructions || null,
       status: 'active',
       next_generate_after: nextGenerateAfter,
+      invoice_consolidation: invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit',
     })
     .select()
     .single()

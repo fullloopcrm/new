@@ -55,10 +55,19 @@ export async function POST(request: Request) {
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
 
+    // invoice_consolidation: 'per_visit' (default, standalone invoice per
+    // completed booking) or 'monthly' (commercial/office accounts — folded
+    // into one rollup statement by cron/generate-monthly-invoices).
+    // validate.ts has no enum type, so this is checked by hand.
+    if (body.invoice_consolidation !== undefined && !['per_visit', 'monthly'].includes(body.invoice_consolidation)) {
+      return NextResponse.json({ error: 'invoice_consolidation must be per_visit or monthly' }, { status: 400 })
+    }
+    const invoiceConsolidation = body.invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit'
+
     // Create schedule
     const { data: schedule, error } = await db
       .from('recurring_schedules')
-      .insert({ ...v, status: 'active' })
+      .insert({ ...v, status: 'active', invoice_consolidation: invoiceConsolidation })
       .select()
       .single()
 

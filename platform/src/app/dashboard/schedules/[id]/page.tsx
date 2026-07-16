@@ -16,6 +16,7 @@ type Schedule = {
   paused_until: string | null
   notes: string | null
   special_instructions: string | null
+  invoice_consolidation: 'per_visit' | 'monthly' | null
   clients: { name: string; phone: string | null; address: string | null } | null
   team_members: { name: string; phone: string | null } | null
   created_at: string
@@ -44,6 +45,7 @@ export default function ScheduleDetailPage() {
     duration_hours: '',
     notes: '',
     special_instructions: '',
+    invoice_consolidation: 'per_visit' as 'per_visit' | 'monthly',
   })
 
   useEffect(() => {
@@ -85,6 +87,7 @@ export default function ScheduleDetailPage() {
       duration_hours: schedule.duration_hours != null ? String(schedule.duration_hours) : '',
       notes: schedule.notes || '',
       special_instructions: schedule.special_instructions || '',
+      invoice_consolidation: schedule.invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit',
     })
     setEditing(true)
   }
@@ -100,6 +103,7 @@ export default function ScheduleDetailPage() {
         duration_hours: editForm.duration_hours ? Number(editForm.duration_hours) : null,
         notes: editForm.notes || null,
         special_instructions: editForm.special_instructions || null,
+        invoice_consolidation: editForm.invoice_consolidation,
       }),
     })
     if (res.ok) {
@@ -163,6 +167,14 @@ export default function ScheduleDetailPage() {
               <input type="number" value={editForm.duration_hours} onChange={e => setEditForm({...editForm, duration_hours: e.target.value})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
+            <div>
+              <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Billing</label>
+              <select value={editForm.invoice_consolidation} onChange={e => setEditForm({...editForm, invoice_consolidation: e.target.value as 'per_visit' | 'monthly'})}
+                className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
+                <option value="per_visit">Invoice per visit</option>
+                <option value="monthly">Monthly rollup statement</option>
+              </select>
+            </div>
             <div className="md:col-span-2">
               <label className="text-[10px] text-slate-400 uppercase tracking-wide mb-1 block">Notes</label>
               <textarea value={editForm.notes} onChange={e => setEditForm({...editForm, notes: e.target.value})} rows={2}
@@ -191,6 +203,7 @@ export default function ScheduleDetailPage() {
               <div className="flex justify-between"><dt className="text-slate-400">Time</dt><dd>{schedule.preferred_time || '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Duration</dt><dd>{schedule.duration_hours ? `${schedule.duration_hours} hours` : '—'}</dd></div>
               <div className="flex justify-between"><dt className="text-slate-400">Status</dt><dd className="capitalize font-medium">{schedule.status}</dd></div>
+              <div className="flex justify-between"><dt className="text-slate-400">Billing</dt><dd>{schedule.invoice_consolidation === 'monthly' ? 'Monthly rollup statement' : 'Invoice per visit'}</dd></div>
               {schedule.paused_until && <div className="flex justify-between"><dt className="text-slate-400">Paused Until</dt><dd>{new Date(schedule.paused_until).toLocaleDateString()}</dd></div>}
               {schedule.notes && <div><dt className="text-slate-400 mb-1">Notes</dt><dd className="bg-slate-50 rounded p-2">{schedule.notes}</dd></div>}
             </dl>
