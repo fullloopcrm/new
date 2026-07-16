@@ -24,7 +24,7 @@ const TENANT_B = 'tid-b'
 const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn(async () => ({ tenantId: TENANT_A })),
+  getTenantForRequest: vi.fn(async () => ({ tenantId: TENANT_A, tenant: { id: TENANT_A }, role: 'owner' })),
   AuthError: class AuthError extends Error {
     status: number
     constructor(message: string, status = 401) {

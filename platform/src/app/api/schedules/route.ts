@@ -1,13 +1,17 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('schedules.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
 
     const { data, error } = await db
@@ -29,8 +33,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { tenant, error: authError } = await requirePermission('schedules.create')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const body = await request.json()
 

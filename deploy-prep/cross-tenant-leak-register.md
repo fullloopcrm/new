@@ -4430,3 +4430,75 @@ Flagging rather than fixing all of them this round to keep this round's
 diff small and independently verifiable.
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 06:30 round (W2) — P77, fixed: 4 route files (`schedules`
+collection + by-id, `notifications`, `reviews/[id]`) had zero permission
+check — 3 of the 4 are live default-role bugs, not override-only
+
+Continuing the broad-hunt (leader order 06:30, lower-risk surface,
+file-only). Picked up the exact shortlist flagged at the end of P76 above
+instead of re-scanning from scratch — all three were confirmed real on
+inspection:
+
+- **`schedules/route.ts`** (GET/POST) and **`schedules/[id]/route.ts`**
+  (GET/PUT/DELETE) — none of the 5 handlers called anything but
+  `getTenantForRequest()`, despite `rbac.ts` defining
+  `schedules.view`/`schedules.create`/`schedules.edit` for this exact
+  resource and the sibling `schedules/[id]/pause` route already gating
+  behind them.
+- **`notifications/route.ts`** (GET/POST) — same shape, `rbac.ts` defines
+  `notifications.view` and nothing gated either handler.
+- **`reviews/[id]/route.ts`** (PUT) — P74 (above) gated the base
+  `/api/reviews` collection behind `reviews.view`/`reviews.request`; this
+  by-id sibling (rating/comment/status edits) was missed, same shape as
+  P75's `clients/[id]/activity` gap.
+
+**3 of these 4 files are NOT override-only** — by default `rbac.ts` grants
+`schedules.create`/`schedules.edit` to `owner`/`admin`/`manager` only, and
+`reviews.request` to `owner`/`admin`/`manager` only; `staff` gets none of
+them (staff only has `schedules.view`/`reviews.view`). So, same class as
+P72/P76: any staff-tier member could already create/edit/cancel a
+recurring schedule (and the bookings it generates) or edit any review's
+rating/comment/status with zero role check, no override needed.
+`notifications.view` (used for both GET and POST on that route, since no
+separate `notifications.create` permission exists) IS granted to every
+default role including staff, so that one file's gap was override-only.
+
+**Fix:** `requirePermission('schedules.view')` on both GET handlers,
+`requirePermission('schedules.create')` on schedule POST,
+`requirePermission('schedules.edit')` on schedule PUT/DELETE,
+`requirePermission('notifications.view')` on both notifications handlers,
+`requirePermission('reviews.request')` on the reviews PUT (no
+`reviews.edit`/`schedules.delete` permission exists in `rbac.ts`, so edit
+routes reuse the family's `.edit`/`.request` write permission, matching
+how `bookings/[id]` DELETE reuses `bookings.delete` rather than inventing
+a new name).
+
+**Regression lock:** 4 new `route.rbac.test.ts` files, 21 tests total
+(schedules collection: 6, schedules by-id: 7, notifications: 4, reviews
+by-id: 4) — each covers an owner/manager-succeeds control plus a
+staff-forbidden default-role probe (or, for `notifications.view`, an
+explicit override-revocation probe since staff has it by default) and at
+least one override-revocation probe on a role that has the permission by
+default. Mutation-verified via `git stash` of just the 4 fixed
+`route.ts` files (test files are new/untracked so stashing by explicit
+path left them in place): 11 of 21 probes went RED pre-fix (every
+staff-forbidden and override-revocation assertion returned 200 instead of
+403/its expected code), restored, all 21 GREEN post-fix. One pre-existing
+test needed an update to keep passing: `notifications/route.witness.test.ts`
+mocked `getTenantForRequest` returning only `{ tenantId }` with no `role`
+field (an isolation-focused test written before any permission gate
+existed on this route) — added `tenant: { id }` + `role: 'owner'` to its
+mock, matching every other test file's convention; its actual assertions
+(booking_id FK-ownership guard) are untouched.
+
+`npx tsc --noEmit`: clean. Full suite: 403 files, 1753 passed + 37
+skipped, 0 regressions (was 399/1732 — 4 new files, 21 new tests, one
+pre-existing test's mock updated not its assertions). `npm run
+audit:tenant`: same 1 pre-existing finding in untracked
+`src/lib/seo/recipes.ts` as every prior round (unrelated WIP feature, not
+touched here).
+
+File-only, no push/deploy/DB.

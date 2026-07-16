@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
 
 export async function POST(request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('notifications.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const body = await request.json()
     const { type, booking_id, message } = body
@@ -77,8 +81,11 @@ export async function POST(request: NextRequest) {
 }
 
 export async function GET(request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('notifications.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const markRead = request.nextUrl.searchParams.get('mark_read')
 
