@@ -2483,3 +2483,121 @@ parsing/routing logic itself):
 
 No new gap found. No code changed, `npx tsc --noEmit` not run (nothing to
 verify). File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 20:37 order) — P54, fixed: `team-members/[id]/stripe-status`
+tenant fallback was circular — any caller-supplied UUID resolved its own
+tenant scope, no auth required.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Diffed the full `api/**/route.ts` file list against every path already named
+in this register and picked 13 previously-unenumerated, lower-traffic
+directories to sweep file-by-file: `admin-auth` (3), `apply` (2), `booking-
+notes` (3), `changelog` (2), `cleaners` (5), `connect` (3, top-level —
+distinct from the already-reviewed `portal/connect`), `ingest` (2),
+`management-applications` (4), `payments` (2), `social` (7), `team-
+applications` (3), `team-members` (2), `tenants` (2) — 39 files total.
+
+37/39 clean or already-hardened (tenant-scoped queries, verified caller-
+supplied FKs before use, HMAC-signed+expiring OAuth state on the Facebook/
+Instagram connect callbacks — same CSRF-binding pattern as `lib/oauth-
+state.ts`'s Google Business flow — timing-safe secret comparisons on the
+`ingest/*` shared-secret routes, `notify()` calls all pass explicit
+`tenantId`). 2 gaps found and fixed:
+
+`api/team-members/[id]/stripe-status/route.ts` (both GET and POST) —
+`resolveTenantForTeamMember()`'s fallback, used whenever `getTenantFromHeaders()`
+returns null (i.e. no host-resolved tenant — which is **every** request to
+this endpoint, since Stripe's `return_url`/`refresh_url` redirect lands on
+the main dashboard host `homeservicesbusinesscrm.com`, which never gets a
+host-based `x-tenant-id` header per middleware's `isMainHost()` branch),
+looked the tenant up straight off the `team_members` row keyed by the
+caller-supplied `id` path param — `SELECT tenant_id FROM team_members WHERE
+id = :id`, no proof required. Every downstream `.eq('tenant_id', ...)` check
+in the handler was then scoped to *that* tenant_id — circular, since it was
+derived from the very id the check was supposed to be validating. Net
+effect: this endpoint had no real authentication or tenant isolation at all.
+Confirmed live and directly reachable (independent of any frontend wiring —
+Next.js API routes are callable by raw HTTP regardless of what the UI links
+to): an unauthenticated caller who knows or guesses a `team_members.id` UUID
+could (a) read that team member's Stripe Connect `charges_enabled`/
+`payouts_enabled`/`details_submitted` state cross-tenant, (b) on first
+success, cause an unauthenticated write to `stripe_ready_at` and trigger a
+`notify()` + `smsAdmins()` ("X just set up instant pay") to that tenant's
+admins — real SMS cost and a spoofable-timing notification for a team member
+the caller has no relationship to. (Separately, and NOT fixed here since it
+wasn't a security question: the one live frontend caller of this route,
+`src/app/stripe-onboard/complete/page.tsx`, is itself orphaned — nothing in
+the codebase sets a Stripe `return_url` pointing at it, so it's unreachable
+through the real onboarding flow. The actual configured `return_url`,
+`/dashboard/team/${id}?stripe=connected`, is a dashboard page that doesn't
+read the `stripe` query param at all. This is a pre-existing, unrelated
+functional/wiring bug — flagging for whoever next touches team-member Stripe
+onboarding, not fixing here. It doesn't reduce this finding's severity: the
+API endpoint itself was reachable and exploitable via direct HTTP request
+regardless of frontend wiring.)
+
+**Fix:** added a short-lived (15 min) HMAC-signed token binding the exact
+tenant+team-member pair — same `lib/oauth-state.ts` `signOAuthState`/
+`verifyOAuthState` HMAC-with-expiry pattern already used to close the
+identical class of problem on the Facebook/Instagram/Google OAuth callbacks.
+`stripe-onboard/route.ts`'s (already `team.edit`-authenticated) POST now
+mints `signOAuthState(\`${tenantId}:${id}\`)` and appends it to the account
+link's `return_url` as `&t=...`. `stripe-status`'s fallback now requires and
+verifies this token, checking both the tenant id AND that the token's bound
+team-member id matches the requested one, before trusting anything.
+
+New `route.test.ts` (6 tests): rejects no token, rejects a token minted for
+a different team member, rejects a forged (bad-signature) token, accepts a
+valid token for both POST and GET. Mutation-verified against the actual
+pre-fix `route.ts` (via `git show HEAD:...`): 4/6 went RED — the "accepts
+valid token" tests trivially passed pre-fix too since the old code ignored
+tokens entirely (confirming the old code accepted *any* caller for *any*
+id), and correcting the test mock to include `tenant_id` in the mocked
+`team_members` row (an earlier mock omission had been silently absorbing the
+vulnerability by 404ing for an unrelated reason) made all 4 reject-cases
+show the real pre-fix behavior: **200, not 404**, for no-token/wrong-token/
+forged-token requests — i.e. the pre-fix code really did serve any caller
+for any guessed id. Restored the fix: 6/6 green. Also had to add
+`ADMIN_TOKEN_SECRET` to the sibling `stripe-onboard/route.idempotency.test.ts`'s
+`beforeEach` (that test's POST now calls `signOAuthState`, which throws
+without the secret configured — pre-existing test had never needed it).
+`npx tsc --noEmit` clean.
+
+Commit `3a49e309`. Logged as P54.
+
+**2026-07-15 (W2, 20:37 order) — P55, fixed: `team-applications/upload` —
+unsanitized file extension, same storage-key-escape class already fixed on
+4 sibling upload routes.**
+
+Found during the same sweep. `api/team-applications/upload/route.ts`
+(fully public, unauthenticated, live — the photo-upload step of
+`/apply/[slug]`, the public team-application form) built its storage key as
+`applications/${Date.now()}-${randomId}.${file.name.split('.').pop()}` — the
+raw, caller-controlled extension spliced straight in with zero sanitization.
+Every sibling upload route in this codebase (`public-upload`, `management-
+applications/upload`, `booking-notes/upload`, `cleaners/upload`) already
+carries an explicit fix + comment for exactly this shape: a dot-segment
+smuggled in via the extension (e.g. a `file.name` with no dot, so
+`.split('.').pop()` returns the whole caller-controlled string) gets
+resolved by the storage API's URL normalization, escaping the intended
+prefix in the shared `team-photos`/`uploads` bucket. This route was simply
+missed when that fix was applied elsewhere.
+
+**Fix:** lowercase + strip to `[a-z0-9]` only + cap at 8 chars, identical to
+the sanitization already used in `cleaners/upload/route.ts` and the other 3
+sibling routes.
+
+New `route.test.ts` (3 tests): sanitizes a dotted traversal payload, strips
+a dotless traversal filename to the safe fallback extension, positive
+control (legitimate `.jpg` upload still gets its real extension). Mutation-
+verified against pre-fix `route.ts`: RED (`expected 3 to be 2`, i.e. the
+sanitize test's extra path segment survived), restored, GREEN.
+`npx tsc --noEmit` clean.
+
+Commit `f3050995`. Logged as P55.
+
+Full suite after both fixes: 342/342 files, 1488/1488 tests pass (37
+pre-existing skips, unchanged), 0 regressions (1479 baseline + 9 new tests:
+6 for P54 + 3 for P55). `audit-tenant-scope.mjs`'s 1 finding (`seo/recipes.ts`)
+is the same pre-existing, unrelated baseline drift noted in every prior
+round. File-only, no push/deploy/DB.
