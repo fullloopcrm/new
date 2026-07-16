@@ -72,6 +72,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
+  // Confirm a caller-supplied team member actually belongs to this tenant --
+  // otherwise a foreign id gets written onto every regenerated booking and
+  // resurfaces via the team_members() join, a cross-tenant PII leak (same
+  // class fixed on the base recurring-schedules route in 4c0e3635).
+  if (teamMemberId) {
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members').select('id').eq('id', teamMemberId).eq('tenant_id', tenantId).single()
+    if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+  }
+
   // Fall back to the schedule's stored rates when the caller omits them, so an
   // edit that doesn't resend pay_rate can't zero out cleaner payout.
   const effPayRate = payRate ?? schedule.pay_rate ?? null
