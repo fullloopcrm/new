@@ -67,6 +67,7 @@ const navMain: Array<{
     { letter: 'F', label: 'Websites', href: '/dashboard/websites' },
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
     { letter: 'H', label: 'Map', href: '/dashboard/map' },
+    { letter: 'I', label: 'SEO', href: '/dashboard/seo' },
   ]},
   { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
