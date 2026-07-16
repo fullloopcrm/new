@@ -24,6 +24,7 @@ export type BookingLike = {
   client_confirm_token?: string | null
   team_members?: { name?: string | null } | null
   cleaners?: { name?: string | null } | null
+  is_emergency?: boolean | null
 }
 
 const etDate = (t: string) =>

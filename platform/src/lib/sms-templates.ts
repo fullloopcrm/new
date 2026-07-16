@@ -10,9 +10,14 @@ const STOP_TEXT_ES = '\nResponde STOP para cancelar.'
 // CLIENT SMS
 // ============================================
 
-export function smsBookingReceived(bizName: string, booking: { start_time: string }): string {
+// P11.14: was urgency-blind by construction (no emergency field in the signature
+// at all). is_emergency is optional so every existing caller keeps working unchanged.
+export function smsBookingReceived(bizName: string, booking: { start_time: string; is_emergency?: boolean | null }): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+  if (booking.is_emergency) {
+    return `${bizName}: URGENT request received for ${date} at ${time}. We're treating this as a priority and working to confirm ASAP.${STOP_TEXT}`
+  }
   return `${bizName}: We received your booking request for ${date} at ${time}. We'll confirm with details shortly.${STOP_TEXT}`
 }
 

@@ -48,6 +48,7 @@ export function bookingReceivedEmail(tenant: TenantLike, booking: any): EmailOut
     clientName: booking.clients?.name || 'Client',
     dateTime: flatDateTime(booking.start_time),
     serviceName: booking.service_type || 'Appointment',
+    isEmergency: !!booking.is_emergency,
   })
   return { subject: `Booking received — ${tenant.name || 'Your booking'}`, html }
 }

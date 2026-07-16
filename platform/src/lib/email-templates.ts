@@ -193,11 +193,19 @@ export function bookingReceivedEmail(data: TemplateData & {
   clientName: string
   serviceName: string
   dateTime: string
+  /** P11.14: customer confirmation was urgency-blind by construction — this tells the
+   * customer who just reported an emergency that it was actually noticed. */
+  isEmergency?: boolean
 }): string {
+  const urgent = !!data.isEmergency
   return baseTemplate(`
-    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">We Received Your Booking Request!</h2>
+    <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${urgent ? 'We Received Your Urgent Request' : 'We Received Your Booking Request!'}</h2>
+    ${urgent ? `
+    <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:0 0 20px;">
+      <p style="color:#991b1b;font-size:13px;font-weight:600;margin:0;">Marked urgent — we're prioritizing this and working to confirm as soon as possible.</p>
+    </div>` : ''}
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${escapeHtml(data.tenantName)}. We're reviewing your request and will confirm shortly.
+      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${escapeHtml(data.tenantName)}. ${urgent ? "We've flagged this as urgent and are reviewing it right away." : "We're reviewing your request and will confirm shortly."}
     </p>
     <table width="100%" style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
     <tr><td style="padding:8px 16px;">
@@ -210,7 +218,7 @@ export function bookingReceivedEmail(data: TemplateData & {
     </td></tr>
     <tr><td style="padding:8px 16px;">
       <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Status</p>
-      <p style="color:#f59e0b;font-size:14px;font-weight:600;margin:4px 0 0;">Pending Confirmation</p>
+      <p style="color:${urgent ? '#dc2626' : '#f59e0b'};font-size:14px;font-weight:600;margin:4px 0 0;">${urgent ? 'Priority — Reviewing Now' : 'Pending Confirmation'}</p>
     </td></tr>
     </table>
     <p style="color:#9ca3af;font-size:12px;margin:0;">
@@ -414,6 +422,7 @@ export function clientBookingReceivedEmail(data: TemplateData & {
   clientName: string
   serviceName?: string
   dateTime?: string
+  isEmergency?: boolean
 }): string {
   return bookingReceivedEmail({
     ...data,
