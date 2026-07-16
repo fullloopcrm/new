@@ -19,7 +19,12 @@ export type SiteHealth = {
 
 /** HTTP-check every active public tenant domain. ok = final status is 2xx/3xx. */
 export async function checkFleetHealth(): Promise<SiteHealth[]> {
-  const { data } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id').eq('active', true)
+  const { data, error } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id').eq('active', true)
+  // Fail loud, not silent: a query error must not fall through to an empty
+  // target list — runFleetHealth would then read that as "0 checked, 0 down"
+  // and unconditionally wipe every real open site_down issue with no signal
+  // that the check itself never ran.
+  if (error) throw new Error(`tenant_domains query failed: ${error.message}`)
   const seen = new Set<string>()
   const targets = (data ?? [])
     .map((r) => ({ domain: norm(String(r.domain)), tenant_id: (r.tenant_id as string | null) ?? null }))
@@ -36,7 +41,10 @@ export async function checkFleetHealth(): Promise<SiteHealth[]> {
         // this runs unattended off a cron with no per-request auth — same SSRF
         // class already guarded in tenant-health.ts/site-readiness.ts, just
         // missed here (cron/seo-health wasn't in the original guarded set).
-        const res = await safeFetch(`https://www.${t.domain}/`, {
+        // Use the domain as stored (bare apex — see 043_tenant_domains.sql),
+        // matching tenant-health.ts's checkTenant(); forcing a www. prefix
+        // false-positives an apex-only tenant with no working www CNAME.
+        const res = await safeFetch(`https://${t.domain}/`, {
           method: 'GET',
           signal: AbortSignal.timeout(12000),
           headers: { 'user-agent': 'seomgr-health/1.0' },
@@ -71,7 +79,7 @@ export async function runFleetHealth(): Promise<{ checked: number; down: SiteHea
         severity: 'critical',
         tier: 0,
         status: 'open',
-        target_url: `https://www.${d.domain}/`,
+        target_url: `https://${d.domain}/`,
         detail: { http_status: d.status, vercel_error: d.vercelError ?? null },
       })),
     )
