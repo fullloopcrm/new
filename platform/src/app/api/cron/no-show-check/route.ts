@@ -46,11 +46,22 @@ export async function GET(request: Request) {
 
   for (const b of candidates) {
     try {
-      await supabaseAdmin
+      // Claim BEFORE notifying: the initial SELECT filters on status IN
+      // (scheduled/confirmed/pending), but this cron runs every 15 min and a
+      // slow run (or a manual re-trigger) overlapping the next tick could
+      // still see the same booking as eligible on two invocations — both
+      // would flip status (idempotent) but both would also fire the admin
+      // notify(), double-alerting. Repeat the status-IN condition on the
+      // UPDATE itself so only the run whose UPDATE actually matches a row
+      // (i.e. status hadn't already been flipped by the other run) proceeds.
+      const { data: claimed } = await supabaseAdmin
         .from('bookings')
         .update({ status: 'no_show' })
         .eq('id', b.id)
         .eq('tenant_id', b.tenant_id)
+        .in('status', ['scheduled', 'confirmed', 'pending'])
+        .select('id')
+      if (!claimed || claimed.length === 0) continue // claimed by a concurrent run
 
       const client = b.clients as unknown as { name: string } | null
       const member = b.team_members as unknown as { name: string } | null
