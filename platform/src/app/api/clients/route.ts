@@ -8,8 +8,11 @@ import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
 
 export async function GET(request: NextRequest) {
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const url = request.nextUrl
     const search = url.searchParams.get('search') || ''

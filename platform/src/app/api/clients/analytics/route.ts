@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { getSettings } from '@/lib/settings'
 import { tenantDb } from '@/lib/tenant-db'
 
@@ -12,8 +13,11 @@ import { tenantDb } from '@/lib/tenant-db'
  *   churned: beyond at_risk_threshold_days
  */
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('clients.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const settings = await getSettings(tenantId)
     const dayMs = 24 * 60 * 60 * 1000

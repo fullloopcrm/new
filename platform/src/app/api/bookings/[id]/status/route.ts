@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
 import { tenantDb } from '@/lib/tenant-db'
+import { requirePermission } from '@/lib/require-permission'
 import { audit } from '@/lib/audit'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
@@ -18,8 +19,11 @@ export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('bookings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const { id } = await params
     const { status } = await request.json()

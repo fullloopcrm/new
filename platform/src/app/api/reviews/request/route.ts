@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
@@ -8,7 +9,9 @@ import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('reviews.request')
+    if (authError) return authError
+    const { tenantId, tenant } = authTenant
     const { client_id, booking_id } = await request.json()
 
     if (!client_id) {
