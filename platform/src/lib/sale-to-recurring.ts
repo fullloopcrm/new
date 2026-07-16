@@ -202,7 +202,18 @@ async function createSeriesAfterClaim(
   let bookingsCreated = 0
   if (rows.length) {
     const { data: bk, error: bErr } = await supabaseAdmin.from('bookings').insert(rows).select('id')
-    if (bErr) throw bErr
+    if (bErr) {
+      // The schedule row is already committed at this point. Without this,
+      // a failed batch (e.g. fn_block_booking_overlap rejecting the whole
+      // insert on one overlapping occurrence) leaves an orphaned 'active'
+      // schedule with zero bookings — the outer catch releases the quote's
+      // claim so the caller can retry, but the retry then creates a SECOND
+      // schedule while the first lingers forever and the weekly cron keeps
+      // trying (and eventually succeeding) to generate phantom bookings
+      // against it. Delete it so a retry starts clean.
+      await supabaseAdmin.from('recurring_schedules').delete().eq('id', scheduleId)
+      throw bErr
+    }
     bookingsCreated = bk?.length || 0
   }
 

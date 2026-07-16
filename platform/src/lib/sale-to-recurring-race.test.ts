@@ -139,4 +139,32 @@ describe('createRecurringSeriesFromQuote — concurrent conversion race', () => 
     expect(fake._all('recurring_schedules').length).toBe(1)
     expect(fake._all('bookings').length).toBeGreaterThan(0)
   })
+
+  it('rolls back the just-created schedule when the bookings insert fails, so retry does not leave an orphaned active schedule', async () => {
+    // Force the bookings insert to fail AFTER the schedule row is already
+    // created (simulates the real fn_block_booking_overlap trigger rejecting
+    // the whole batch on an overlapping occurrence — see generate-recurring
+    // cron's identical failure mode). Deterministic first occurrence for
+    // this quote is 2026-08-01T09:00:00.
+    fake._addUniqueConstraint('bookings', 'start_time')
+    fake._seed('bookings', [
+      { id: 'existing-booking-1', tenant_id: TENANT_ID, start_time: '2026-08-01T09:00:00' },
+    ])
+
+    await expect(createRecurringSeriesFromQuote(TENANT_ID, QUOTE_ID)).rejects.toThrow()
+
+    // No orphaned schedule left behind from the failed attempt.
+    const schedules = fake._all('recurring_schedules')
+    expect(schedules.length).toBe(0)
+
+    const stuckQuote = fake._all('quotes').find((q) => q.id === QUOTE_ID)
+    expect(stuckQuote?.converted_at).toBeNull()
+    expect(stuckQuote?.converted_schedule_id).toBeNull()
+
+    // Clear the conflict and retry — should succeed cleanly, exactly one schedule.
+    fake._store.set('bookings', fake._all('bookings').filter((b) => b.id !== 'existing-booking-1'))
+    const retried = await createRecurringSeriesFromQuote(TENANT_ID, QUOTE_ID)
+    expect(retried.already_converted).toBe(false)
+    expect(fake._all('recurring_schedules').length).toBe(1)
+  })
 })

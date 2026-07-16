@@ -213,7 +213,12 @@ export async function POST(request: Request) {
     .select('id')
 
   if (batchError) {
-    return NextResponse.json({ error: batchError.message, schedule }, { status: 500 })
+    // Roll back the schedule so a retry doesn't leave this orphaned 'active'
+    // row (zero bookings) behind — otherwise the weekly cron keeps trying to
+    // generate against it indefinitely, and a retry creates a second,
+    // duplicate schedule alongside it. Same failure mode as sale-to-recurring.ts.
+    await supabaseAdmin.from('recurring_schedules').delete().eq('id', schedule.id)
+    return NextResponse.json({ error: batchError.message }, { status: 500 })
   }
 
   // No client/team notifications here by design (admin-only flow).
