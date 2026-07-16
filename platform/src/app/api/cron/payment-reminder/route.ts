@@ -68,9 +68,33 @@ export async function GET(request: Request) {
         const client = b.clients as unknown as { name?: string; phone?: string } | null
         if (!client?.phone) continue
 
-        const lastReminder = b.payment_reminder_sent_at as string | null
-        const sinceLast = lastReminder ? Date.now() - new Date(lastReminder).getTime() : Infinity
-        if (sinceLast < 5 * 60 * 1000) continue // throttle 5 min
+        // Claim BEFORE sending: this cron runs every 5 min (throttle window),
+        // and a slow run (or a manual re-trigger overlapping a scheduled one)
+        // could still see the same stale payment_reminder_sent_at on both
+        // invocations and double-text the client / double-escalate to the
+        // owner. Two-step conditional UPDATE (IS NULL, then < cutoff) claims
+        // the row atomically — the loser's WHERE clause matches 0 rows.
+        // (.or() isn't used because a single `.lt()`/`.is()` claim is enough
+        // and keeps this testable against the in-memory fake.)
+        const nowIso = new Date().toISOString()
+        const cutoffIso = new Date(Date.now() - 5 * 60 * 1000).toISOString()
+        let claim = await supabaseAdmin
+          .from('bookings')
+          .update({ payment_reminder_sent_at: nowIso })
+          .eq('id', b.id)
+          .eq('tenant_id', tenantId)
+          .is('payment_reminder_sent_at', null)
+          .select('id')
+        if (!claim.data || claim.data.length === 0) {
+          claim = await supabaseAdmin
+            .from('bookings')
+            .update({ payment_reminder_sent_at: nowIso })
+            .eq('id', b.id)
+            .eq('tenant_id', tenantId)
+            .lt('payment_reminder_sent_at', cutoffIso)
+            .select('id')
+        }
+        if (!claim.data || claim.data.length === 0) continue // claimed by a concurrent run
 
         // First reminder ≤30min — gentle nudge to client
         const alertTime = new Date(b.fifteen_min_alert_time).getTime()
@@ -109,12 +133,6 @@ export async function GET(request: Request) {
             escalated++
           }
         }
-
-        await supabaseAdmin
-          .from('bookings')
-          .update({ payment_reminder_sent_at: new Date().toISOString() })
-          .eq('id', b.id)
-          .eq('tenant_id', tenantId)
       }
     } catch (e) {
       errors.push(`tenant ${tenantId}: ${e instanceof Error ? e.message : 'unknown'}`)

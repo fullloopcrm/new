@@ -35,6 +35,22 @@ export async function runNycMaidPaymentReminder(
   for (const booking of forNudge || []) {
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
     if (!client?.phone || !booking.client_id) continue
+
+    // Claim BEFORE sending: the SELECT above filters on
+    // payment_reminder_sent_at IS NULL, but that alone doesn't stop two
+    // overlapping invocations (a slow run bumping the next 5-min tick, or a
+    // manual re-trigger) from both reading the same booking as eligible and
+    // both texting the client before either writes the timestamp. Same claim
+    // pattern as the rating-prompt cron fix.
+    const { data: claimed } = await supabaseAdmin
+      .from('bookings')
+      .update({ payment_reminder_sent_at: new Date().toISOString() })
+      .eq('id', booking.id)
+      .eq('tenant_id', tenantId)
+      .is('payment_reminder_sent_at', null)
+      .select('id')
+    if (!claimed || claimed.length === 0) continue // claimed by a concurrent run
+
     const firstName = client.name?.split(' ')[0] || 'there'
     const nudgeText = `Hi ${firstName} — your cleaner will be wrapping up soon and we want to confirm your payment was sent. If you've already paid, please reply "paid" (and a payer name if it's not yours) so we can release your cleaner. Thank you! — The NYC Maid`
 
@@ -43,15 +59,6 @@ export async function runNycMaidPaymentReminder(
       bookingId: booking.id,
     }).catch(() => ({ sent: 0, skipped: 0 }))
     if (result?.sent && result.sent > 0) nudges++
-
-    // Stamp on ATTEMPT, not just success. A permanently-undeliverable number
-    // (e.g. Telnyx 40309 for non-whitelisted regions) must not re-fire every
-    // 5 min forever — Stage 2 escalates it to admin instead.
-    await supabaseAdmin
-      .from('bookings')
-      .update({ payment_reminder_sent_at: new Date().toISOString() })
-      .eq('id', booking.id)
-      .eq('tenant_id', tenantId)
   }
 
   // ── STAGE 2: admin escalation at +60 min ──
