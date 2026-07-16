@@ -759,7 +759,22 @@ async function runCommsGateCheck(): Promise<{ passed: number; failed: number; fa
   return { passed, failed, failures }
 }
 
+// CITIES[idx % CITIES.length] assigns each trade the SAME zip on every run (fixed
+// TRADES order), so idx_prospects_trade_zip_active (trade, primary_zip) WHERE
+// status IN ('approved','paid') means a single orphaned row from a run that got
+// killed before its finally-block cleanup ran (timeout, Ctrl+C, crash) blocks that
+// trade in EVERY subsequent run forever. Sweep any such orphans before starting.
+async function purgeStaleSimProspects(): Promise<void> {
+  const { data: stale } = await supabase.from('prospects')
+    .select('id, business_name, trade, primary_zip')
+    .like('business_name', 'SIM %').in('status', ['approved', 'paid'])
+  if (!stale?.length) return
+  await supabase.from('prospects').delete().in('id', stale.map(p => p.id))
+  console.log(`[pre-flight] purged ${stale.length} orphaned sim prospect(s) from a prior incomplete run: ${stale.map(p => `${p.trade}/${p.primary_zip}`).join(', ')}`)
+}
+
 async function main() {
+  await purgeStaleSimProspects()
   const list = ONLY.length ? TRADES.filter(t => ONLY.some(o => t.category.toLowerCase().includes(o.toLowerCase()) || t.model === o)) : TRADES
   console.log(`\n=== ALL-TRADES SIM — ${list.length} trades (P1-P9) ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
   const results: TradeResult[] = []
