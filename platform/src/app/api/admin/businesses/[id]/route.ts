@@ -4,7 +4,7 @@ import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
-import { computeMonthly } from '@/lib/billing-pricing'
+import { PRICING } from '@/lib/billing-pricing'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
 // of truth so write paths can't drift (see secret-crypto.ts).
@@ -327,22 +327,30 @@ export async function PUT(
     }
   }
 
-  // Seats are authoritative for the monthly rate. If seat counts change, recompute
-  // monthly_rate server-side (never trust a client-sent rate) from the new seats
-  // merged over the tenant's current values.
+  // Seats are authoritative for the monthly rate. If seat counts change,
+  // merge them + recompute monthly_rate atomically in Postgres
+  // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql, merge_tenant_seats)
+  // rather than reading current admin_seats/team_seats, merging in JS, and
+  // writing all three back as part of the SAME blind `updates` UPDATE below —
+  // one admin bumping admin_seats while another bumps team_seats in a
+  // second tab would otherwise both read the same stale pair, and whichever
+  // write lands second silently reverts the first admin's seat change (and
+  // recomputes monthly_rate off the wrong pair). Deleted from `updates` so
+  // the later blind UPDATE can never stomp what the RPC just set.
   let seatChange: { admins: number; teamMembers: number } | null = null
   if (updates.admin_seats !== undefined || updates.team_seats !== undefined) {
-    const { data: cur } = await supabaseAdmin
-      .from('tenants')
-      .select('admin_seats, team_seats')
-      .eq('id', id)
-      .single()
-    const admins = Math.max(1, Number(updates.admin_seats ?? cur?.admin_seats ?? 1))
-    const teamMembers = Math.max(0, Number(updates.team_seats ?? cur?.team_seats ?? 0))
-    updates.admin_seats = admins
-    updates.team_seats = teamMembers
-    updates.monthly_rate = computeMonthly(admins, teamMembers)
-    seatChange = { admins, teamMembers }
+    const { data: merged, error: seatErr } = await supabaseAdmin.rpc('merge_tenant_seats', {
+      p_tenant_id: id,
+      p_admin_seats: updates.admin_seats !== undefined ? Number(updates.admin_seats) : null,
+      p_team_seats: updates.team_seats !== undefined ? Number(updates.team_seats) : null,
+      p_admin_monthly_cents: PRICING.adminMonthly,
+      p_team_member_monthly_cents: PRICING.teamMemberMonthly,
+    }).single() as { data: { admin_seats: number; team_seats: number; monthly_rate: number } | null; error: { message: string } | null }
+    if (seatErr) return NextResponse.json({ error: seatErr.message }, { status: 500 })
+    delete updates.admin_seats
+    delete updates.team_seats
+    delete updates.monthly_rate
+    seatChange = { admins: merged!.admin_seats, teamMembers: merged!.team_seats }
   }
 
   const { error } = await supabaseAdmin
