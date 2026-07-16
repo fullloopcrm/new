@@ -65,6 +65,10 @@
       "schedule": "0 9 * * *"
     },
     {
+      "path": "/api/cron/seo-volatility",
+      "schedule": "15 9 * * *"
+    },
+    {
       "path": "/api/cron/seo-propose",
       "schedule": "0 7 * * 1"
     },
@@ -83,6 +87,14 @@
     {
       "path": "/api/cron/seo-verify-revert",
       "schedule": "30 9 * * 5"
+    },
+    {
+      "path": "/api/cron/seo-cross-link",
+      "schedule": "0 7 * * 6"
+    },
+    {
+      "path": "/api/cron/seo-digest",
+      "schedule": "0 10 * * 1"
     },
     {
       "path": "/api/cron/auto-reply-reviews",
