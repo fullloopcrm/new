@@ -149,6 +149,19 @@ function runQuery(h: FakeStoreHandle, state: State, terminal: 'single' | 'maybeS
           }
         }
       }
+      // Mirrors 2026_07_16_team_member_payouts_dedup.sql's partial unique
+      // index on team_member_payouts(tenant_id, idempotency_key) WHERE
+      // idempotency_key IS NOT NULL -- lets the manual cleaner-payout route's
+      // 23505 handling be exercised for real on a true concurrent resubmission.
+      if (state.op === 'insert' && state.table === 'team_member_payouts' && p.idempotency_key != null) {
+        const dup = rows.find((r) => r.tenant_id === p.tenant_id && r.idempotency_key === p.idempotency_key)
+        if (dup) {
+          return {
+            data: null,
+            error: { message: 'duplicate key value violates unique constraint on team_member_payouts(tenant_id,idempotency_key)', code: '23505' },
+          }
+        }
+      }
       if (state.op === 'upsert' && state.upsertOpts?.onConflict) {
         const keys = state.upsertOpts.onConflict.split(',').map((k) => k.trim())
         const dup = rows.find((r) => keys.every((k) => r[k] === p[k]))
