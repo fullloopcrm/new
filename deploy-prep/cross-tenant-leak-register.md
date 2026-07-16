@@ -2161,3 +2161,276 @@ rate-limited on both send and verify. No sibling gap found.
 
 No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
 verify). File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 19:44 order) — P52, fixed: notify() header fallback**
+**trusted x-tenant-id with no signature — unauthenticated cross-tenant**
+**notification injection + real Telegram send.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: every consumer of the middleware-signed x-tenant-id header
+verifies its x-tenant-sig companion before trusting it (getCurrentTenant,
+getTenantForRequest, getTenantFromHeaders, chat/route.ts, yinez/route.ts's
+own top-of-handler check, pin-reset, errors/route.ts — several with inline
+comments explaining exactly why: "a raw x-tenant-id header lets an attacker
+impersonate any tenant"). Audited every OTHER direct reader of this header
+for the same guard. Found two that skip it: `lib/notify.ts` and
+`lib/nycmaid/notify.ts` — both implement a "nycmaid pattern" fallback
+(resolve tenant from `headers().get('x-tenant-id')`) for callers of their
+shared `notify()` helper that omit an explicit `tenantId`, and neither
+checked `x-tenant-sig`.
+
+Two confirmed unauthenticated, reachable call sites:
+- `/api/auth/login` (ported nycmaid cookie/bcrypt auth, public route) — its
+  "Admin Login" (success), "Admin Login" (PIN), and "Failed Login" security
+  alerts (lines 79/108/127) NEVER pass `tenantId`, relying entirely on the
+  header fallback in `lib/nycmaid/notify.ts`.
+- `/api/yinez` (public web-chat endpoint) — its catch-all error notify
+  (`type: 'yinez_error'`) fires from the outer `try/catch`, which wraps
+  `req.json()` itself. A request whose body fails to parse throws BEFORE
+  the route's own `x-tenant-id`/`x-tenant-sig` check runs (that check is a
+  few lines further down, inside the try), landing in the catch block where
+  `notify({ type: 'yinez_error', ... })` is called with no `tenantId` —
+  going through the exact same unverified fallback the route's own
+  first-lines check exists specifically to prevent.
+
+Impact: an unauthenticated POST to either route with a forged
+`x-tenant-id: <any-tenant-uuid>` header — no valid `x-tenant-sig` required,
+since it was never checked — gets trusted. This writes a `notifications`
+row against the ARBITRARY victim tenant (spam/alert-fatigue vector, could
+mask a real alert), and for `TELEGRAM_NOTIFY_TYPES` (`yinez_error` is one),
+triggers `sendTenantTelegram()` to look up and message THAT tenant's own
+configured `telegram_bot_token`/`telegram_chat_id` — a real external side
+effect against a tenant the caller was never authenticated as, keyed
+entirely on a header any curl request can set.
+
+**Fix:** both `resolveTenantId()`-equivalent blocks now call
+`verifyTenantHeaderSig(headerTenantId, sig)` before trusting the header
+value (identical pattern to every other consumer), returning
+`null`/`undefined` on a missing or wrong signature. An explicit `tenantId`
+argument still always wins — unaffected. No caller changes needed; every
+legitimate caller either passes `tenantId` explicitly (resolved via
+`getTenantForRequest()`/`getCurrentTenant()` upstream) or runs in a request
+whose header was already signed by middleware.
+
+New `notify.test.ts` + `nycmaid/notify.test.ts` (4 tests each) with
+WRONG-TENANT PROBES: a forged `x-tenant-id` with no `x-tenant-sig`, and one
+with a wrong signature, must never be trusted. Mutation-verified via
+`cp`-based backup/restore against the real pre-fix code in both files:
+all 4 probe assertions went RED in each file (the forged victim tenant id
+was accepted — `lib/notify.ts` proceeded to a "Tenant not found" DB lookup
+instead of short-circuiting; `lib/nycmaid/notify.ts` inserted a
+`notifications` row tagged to the victim and skipped the Telegram fallback
+in favor of the victim's own bot), restored, all 8 GREEN. `npx tsc --noEmit`
+clean. `audit-tenant-scope.mjs`'s 1 finding (`seo/recipes.ts`) is the same
+pre-existing untouched-file baseline drift noted in prior rounds, unrelated
+(uncommitted WIP from a separate SEO-manager task track, not part of this
+hunt). Full suite 339/339 files, 1478/1478 tests pass (37 pre-existing
+skips, unchanged), 0 regressions (1470 baseline + 8 new tests).
+
+Commit `a658b5d2`. Logged as P52. File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 19:57 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order with
+four fresh angles, each chosen to be distinct from every class already
+exhausted in this register (FK-injection-on-write is essentially fully
+swept at this point across W1-W4's combined passes):
+
+- **GET-by-`[id]` IDOR sweep.** Every prior finding in this register is on a
+  write path (POST/PATCH/PUT/DELETE); nobody had specifically re-checked
+  every GET handler under an `[id]` route for a missing `tenant_id` filter
+  on the primary lookup (the classic "just increment/guess the UUID" IDOR
+  class). Read all ~38 `api/**/[id]/route.ts` files' GET handlers (`clients`,
+  `bookings`, `invoices`, `quotes`, `team`, `campaigns`, `documents`, `jobs`,
+  `routes`, `deals`, `schedules`, `portal/bookings`, `client/booking`,
+  `dashboard/hr`, `dashboard/import/batch`, `admin/comhub/threads`, etc.).
+  Every one scopes its primary row lookup by `.eq('tenant_id', tenantId)` (or
+  the portal/client-auth equivalent: token-derived `tid`/`client_id`). One
+  exception: `admin/prospects/[id]` GET has no tenant filter at all — but
+  `prospects` has no `tenant_id` column (pre-tenant sales-lead intake,
+  migration 037: "Prospect submits public form → super-admin reviews →
+  approved → tenant row created") and the route is `requireAdmin()`-gated,
+  which — per this register's own P22-adjacent confirmation — is
+  EXCLUSIVELY the global platform super-admin (`verifyAdminToken()` hard-
+  codes `role === 'super_admin'`), same established cross-tenant-by-design
+  god-mode class as `admin/calendar`/`admin/finance`/`admin/tenants/[id]`
+  already cleared in the 18:51 round. Not a new precedent, not a leak.
+- **Batch/array-of-ids operation sweep.** Grepped every route using `.in(
+  'id', ...)` against a caller-supplied id array (a shape none of the
+  single-id FK-injection findings would catch). `bookings/[id]/team` PUT
+  (multi-tech assignment) verifies every `lead_id`/`extra_team_member_ids`
+  entry against a tenant-scoped `team_members` query before writing.
+  `jobs/[id]/sessions` POST and `jobs/[id]/sessions/[sessionId]` PATCH both
+  verify `crew_id` and every `assignee_ids`/`team_member_id` entry against
+  tenant-scoped `crews`/`team_members` lookups. `routes/auto-build` POST
+  only ever reads/writes bookings already scoped by its own
+  `getTenantForRequest()` tenant. Clean.
+- **`[id]` PATCH/PUT/DELETE routes not yet named in this register**
+  (`reviews/[id]`, `cleaners/[id]`, `referrals/[id]`, `booking-notes/[id]`,
+  `client/reschedule/[id]`, `finance/entities|periods|bank-transactions/[id]`,
+  `settings/services/[id]`, `deals/[id]`, `routes/[id]`). All correctly
+  `tenant_id`-scope the target row and verify any FK field before write
+  (`client/reschedule/[id]` even has an explicit inline comment on its
+  `team_member_id` ownership check citing the same IDOR class as this
+  register's other findings). One dead-weight column found: `deals/[id]`
+  PATCH accepts a caller-supplied `owner_id` with no ownership check — but
+  `owner_id UUID` (migration 011) carries no FK constraint, is never set on
+  `POST /api/deals`, and is never read/embedded anywhere in the codebase
+  (`grep -rl owner_id src/app src/lib` matches only this one PATCH route).
+  Not a live vector (same "genuinely dead code, not a leak" shape as the
+  `portal/messages` finding in `w2-portal-broad-hunt-sweep.md`) — not fixed,
+  per scope discipline (noticing dead code isn't authorization to touch it
+  outside this hunt's mandate).
+- **Domain-claim/takeover check** (resolver-lane-specific, since I own this
+  surface): could a lower-privileged actor claim a domain another tenant
+  already owns and hijack `getTenantByDomain()`'s resolution? `tenant_domains
+  .domain` is `NOT NULL UNIQUE` at the DB level (migration 043); the only
+  writer (`admin/websites` POST) does a plain `.insert()` (not an upsert),
+  so a duplicate-domain claim hits the unique constraint and 500s rather than
+  silently reassigning ownership — and that route is `requireAdmin()`-gated
+  (super-admin only) anyway, no tenant-level self-service domain path exists
+  anywhere (`settings`, `dashboard/onboarding/activate` don't expose one).
+  `getTenantByDomain()`'s `tenants.domain` legacy-fallback query also uses
+  `.single()`, which fails closed (returns null) rather than picking
+  arbitrarily even if two rows ever did collide. No new gap; the
+  TRANSITION ASSERT-AND-REFUSE guard from the P50 reconciliation stands
+  unchanged.
+- **Re-verified P52 closed the header-signature gap completely**, not just
+  at its two found call sites: grepped every file reading `x-tenant-id`
+  directly (14 non-test files) and confirmed each one either delegates to a
+  centralized, signature-verifying resolver (`getTenantFromHeaders()` →
+  `tenant-site.ts` calls `verifyTenantHeaderSig` before returning non-null;
+  `getTenantForRequest()`/`getCurrentTenant()` likewise) or calls
+  `verifyTenantHeaderSig` inline (`admin-auth`, `chat`, `errors`,
+  `pin-reset`, `yinez` — all already correct). No third unguarded consumer
+  exists.
+
+No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 20:09 order) — negative-result sweep, no fix needed:**
+continued the leader's "continue broad-hunt, lower-risk surface" order with
+a pass focused specifically on my own lane (resolver + tenant-isolation) —
+re-verifying every consumer of the domain/slug resolution stack rather than
+a new HTTP-route class, since P1's `tenant_domains`-first / `tenants.domain`-
+fallback contract is the thing I'm accountable for keeping correct as more
+callers get added over time:
+
+- **Re-confirmed `tenant.ts`'s `getTenantByDomain`/`getTenantBySlug` and
+  `tenant-lookup.ts`'s edge-runtime equivalents haven't drifted.** Grepped
+  every caller of both (`middleware.ts`, `webhooks/resend`,
+  `cron/tenant-health`, `ingest/lead`, `ingest/application` — 5 non-test
+  call sites total, unchanged from prior confirmation) — each already uses
+  the correct resolver for its context (edge vs. server) and neither
+  resolver has grown a second, competing implementation. The
+  TRANSITION ASSERT-AND-REFUSE divergence guard is present and identical in
+  both.
+- **`webhooks/resend`'s inbound-email tenant resolution** (`resolveInboundTenantId`,
+  calls `getTenantByDomain` on the parsed `to:` address domain) — feature-flagged
+  off by default (`INBOUND_EMAILS_TENANT_SCOPE_ENABLED`), Svix-signature
+  verified, and even when enabled only tags a row for later triage — not a
+  live leak.
+- **Domain-write path re-checked for a self-service claim vector**: the ONLY
+  writer of `tenant_domains` reachable from an HTTP route is `admin/websites`
+  POST (`requireAdmin()`-gated, super-admin only, per this register's
+  established god-mode precedent) — no tenant-level self-service domain
+  add/remove exists anywhere (confirmed again, `lib/domains.ts` is read-only
+  helpers with no route callers outside marketing attribution code). No
+  caller-controlled input reaches a `tenant_domains` write.
+- **Considered, did not fix: in-memory domain-cache staleness on
+  reassignment.** `tenant-lookup.ts`'s `domainCache` has a 5-minute TTL with
+  no invalidation hook. If a domain were ever moved between tenants (no live
+  path does this today — no delete/reassign UI exists, only insert), a warm
+  edge instance could serve the old tenant for up to 5 minutes post-change.
+  Not fixed: no reachable trigger exists for this scenario currently (would
+  require building domain reassignment first), so this is a latent
+  operational note for whoever eventually ships domain transfer/delete, not
+  a live gap — flagging here so it isn't rediscovered from scratch.
+- **`lead-media/signed-url` and `uploads` POST** (public + authed upload
+  paths using tenant-prefixed storage keys) re-read end-to-end — both
+  already strip/allowlist path segments before splicing into the storage
+  key (prior fix, still intact) and scope the prefix to the resolved
+  tenant. No new gap.
+
+No new P-number. No code changed, `npx tsc --noEmit` not run (nothing to
+verify). File-only, no push/deploy/DB.
+
+**2026-07-15 (W2, 20:16 order) — P53, fixed: `client/confirm/[token]`
+notify() misattributed cross-tenant on a genuinely-signed request, no
+forgery required.**
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Diffed the full `api/**/route.ts` file list (502 files) against every path
+string already named in this register and worked the ~119 residual
+candidates, prioritizing public unauthenticated token-based lookups (the
+same class as the quote/invoice/document public-token routes, a shape not
+yet enumerated file-by-file here). Also independently re-verified (not
+re-fixed) the site-clone `_lib/auth.ts` "known debt" admin-session finding
+from `w2-legacy-admin-session-dead-code-audit.md` — confirmed zero live
+importers of `wash-and-fold-{nyc,hoboken}/_lib/auth.ts` still holds; the only
+component using an `_lib/auth.ts`-adjacent orphan is `CleanerJobsMap` inside
+`team/dashboard` (client/cleaner-portal territory, unrelated to that finding,
+`AdminSidebar`/`DashboardMap`/`ClientsMap`/etc. remain confirmed dead).
+
+`api/client/confirm/[token]/route.ts` (unauthenticated, public per
+middleware's `/api/client(.*)` allowlist — "tenant resolved via signed
+x-tenant-id header, not Clerk") looks up a booking purely by its global
+`client_confirm_token` (`.eq('client_confirm_token', token)`, no tenant
+filter) — correct by design, same "the token IS the auth" pattern as every
+other public-token route in this register. POST's `smsAdmins(booking.tenant_id,
+...)` call is correctly scoped to the booking's real tenant. Two lines below
+it, `notify({ type: 'booking_confirmed_by_client', ..., booking_id:
+booking.id, url: '/admin/bookings' })` — **omitted `tenantId`.**
+
+`lib/nycmaid/notify.ts`'s `resolveTenantId()` (hardened by this finding's
+predecessor, P52, to require a valid `x-tenant-sig`) falls back to the
+*current request's* signed tenant-header when no explicit `tenantId` is
+passed — i.e. whichever tenant's domain actually served the request, not the
+tenant that owns the resource being acted on. For `/api/auth/login` and
+`/api/yinez` (P52's two fixed sites) that fallback is correct, because those
+routes' own identity IS "whichever tenant's domain this request hit." For
+`client/confirm/[token]` it is wrong: the booking's tenant is already known
+(`booking.tenant_id`, selected two lines earlier) and is NOT necessarily the
+tenant whose domain the request arrived on.
+
+**Impact — no signature forgery required, unlike P52's findings:** a caller
+who knows tenant A's `client_confirm_token` (leaked, guessed, or simply a
+past/legitimate client re-using an old link) and sends the POST to **tenant
+B's own subdomain** (a completely ordinary, honestly-routed request —
+middleware genuinely signs `x-tenant-id`/`x-tenant-sig` for tenant B, no
+forgery needed) gets: the booking looked up cross-tenant (by design, token-
+scoped), but the `notify()` call resolves `tid` to **tenant B** (from the
+honestly-signed request header) instead of tenant A (`booking.tenant_id`).
+Result: a `notifications` row is inserted tagged to tenant B containing
+tenant A's real client's name and booking time ("`${client.name} tapped the
+confirm link...`"), visible on tenant B's own dashboard/notifications feed —
+and since `booking_confirmed_by_client` is a `TELEGRAM_NOTIFY_TYPES` entry,
+`sendTenantTelegram(tenant-B-id, text)` fires, pushing tenant A's client's
+PII straight into **tenant B's own configured Telegram bot**. A real cross-
+tenant PII leak triggered by an everyday cross-tenant token replay, not an
+attacker forging any signature.
+
+Grepped every other `notify(`/`nycmaid/notify(` call site across all 41
+files importing either module for the same "omits `tenantId`" shape (extending
+P52's audit, which only covered header-trusting *readers*, not notify()
+*callers*): 39/41 pass an explicit `tenantId`; the 2 that don't
+(`api/auth/login`, `api/yinez`) are P52's own already-reviewed, already-
+correct-by-design exceptions. `client/confirm/[token]` was the only
+unaddressed gap.
+
+**Fix:** added `tenantId: booking.tenant_id` to the `notify()` call,
+matching the sibling `smsAdmins(booking.tenant_id, ...)` call's scoping — no
+other behavior change.
+
+New `route.tenant-scope.test.ts` (1 test) asserting `notify()` is called with
+`tenantId: booking.tenant_id` regardless of ambient request context (the
+harness doesn't simulate `next/headers`, so the meaningful assertion is that
+the call is explicit, not that it resolves correctly under a forged header —
+P52's tests already cover the header-verification half). Mutation-verified
+via `cp`-based backup/restore against the real pre-fix line: assertion went
+RED (`expected undefined to be 'tid-a'`), restored, GREEN. `npx tsc --noEmit`
+clean. `audit-tenant-scope.mjs`'s 1 finding (`seo/recipes.ts`) is the same
+pre-existing, unrelated baseline drift noted in every prior round. Full suite
+340/340 files, 1479/1479 tests pass (37 pre-existing skips, unchanged), 0
+regressions (1478 baseline + 1 new test).
+
+Commit `35b015ef`. Logged as P53. File-only, no push/deploy/DB.
