@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { BacklinksPanel } from './backlinks-panel'
 
 type Row = {
   property: string
@@ -255,6 +256,8 @@ export default function AdminSeoPage() {
           </div>
         </div>
       )}
+
+      <BacklinksPanel />
 
       {/* Opportunity — detected issues */}
       {data.issues.length > 0 && (
