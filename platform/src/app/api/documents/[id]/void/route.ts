@@ -24,10 +24,26 @@ export async function POST(request: Request, { params }: Params) {
     if (!doc) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (isTerminalStatus(doc.status)) return NextResponse.json({ error: `Already ${doc.status}` }, { status: 400 })
 
-    await supabaseAdmin
+    // Check-then-act, not atomic: `doc.status` was read once and validated
+    // non-terminal above, but a concurrent signer completing the last
+    // required signature (public sign route's finalizeDocument, which stamps
+    // status='completed' + writes the signed PDF) can land in the gap. Without
+    // re-asserting the pre-read status in THIS update's own WHERE, a void
+    // click racing a signer's final signature would silently revert an
+    // already-completed, already-emailed document back to 'voided'.
+    const { data: voided } = await supabaseAdmin
       .from('documents')
       .update({ status: 'voided', voided_at: new Date().toISOString(), void_reason: reason || null })
       .eq('id', id)
+      .eq('status', doc.status)
+      .select('id')
+      .maybeSingle()
+    if (!voided) {
+      return NextResponse.json(
+        { error: 'This document changed status concurrently — refresh and retry' },
+        { status: 409 },
+      )
+    }
 
     await logDocEvent({
       document_id: id,
