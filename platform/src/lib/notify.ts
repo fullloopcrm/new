@@ -246,6 +246,9 @@ export async function notify({
         rolledBack: (metadata?.rolledBack as number) || 0,
         sitesDown: (metadata?.sitesDown as number) || 0,
         keywords: (metadata?.keywords as { query: string; position: number; clicks: number; impressions: number }[]) || [],
+        needsWork: (metadata?.needsWork as number) || 0,
+        winners: (metadata?.winners as { query: string; current: number; previous: number; delta: number }[]) || [],
+        losers: (metadata?.losers as { query: string; current: number; previous: number; delta: number }[]) || [],
       })
       break
   }

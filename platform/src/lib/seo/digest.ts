@@ -81,24 +81,18 @@ async function statsFor(tenantId: string | null): Promise<DigestStats> {
 }
 
 export type KeywordRow = { query: string; position: number; clicks: number; impressions: number }
+export type MetricRow = { query: string; clicks: number; impressions: number; position: number }
 
-/**
- * Every tracked query for a property over the period — not just the ones
- * that crossed an issue threshold. Sorted best position first ("low and
- * high", per Jeff 2026-07-16: the digest was only ever surfacing issue
- * counts, never the underlying keyword-level rankings seomgr actually
- * tracks in seo_metrics).
- */
-async function keywordBreakdown(property: string, since: string): Promise<KeywordRow[]> {
-  const { data } = await supabaseAdmin
-    .from('seo_metrics')
-    .select('query,clicks,impressions,position')
-    .eq('property', property)
-    .neq('query', '')
-    .gte('date', since)
-    .limit(20000)
+// Below this, a query's position is noise, not a real ranking signal — a
+// query with 2-3 impressions over a week can show a wild, meaningless
+// position. Jeff's call (2026-07-16): 25, not 10 — and a query that never
+// clears this bar isn't just "no data," it's a sign that page/keyword needs
+// real work (thin content, wrong targeting), so it's reported as its own
+// count, not silently dropped.
+const MIN_IMPRESSIONS_TO_COUNT = 25
 
-  const rows = (data ?? []) as Array<{ query: string; clicks: number; impressions: number; position: number }>
+/** Pure aggregation: raw seo_metrics rows -> one row per query, best position first. */
+export function aggregateKeywords(rows: MetricRow[]): KeywordRow[] {
   const byQuery = new Map<string, { clicks: number; impressions: number; weightedPos: number }>()
   for (const r of rows) {
     const cur = byQuery.get(r.query) ?? { clicks: 0, impressions: 0, weightedPos: 0 }
@@ -116,6 +110,73 @@ async function keywordBreakdown(property: string, since: string): Promise<Keywor
       position: v.impressions > 0 ? Math.round((v.weightedPos / v.impressions) * 10) / 10 : 0,
     }))
     .sort((a, b) => a.position - b.position)
+}
+
+/** Split into real (>= MIN_IMPRESSIONS_TO_COUNT) vs. too-thin-to-mean-anything. */
+export function splitByVolume(keywords: KeywordRow[]): { real: KeywordRow[]; needsWork: KeywordRow[] } {
+  return {
+    real: keywords.filter((k) => k.impressions >= MIN_IMPRESSIONS_TO_COUNT),
+    needsWork: keywords.filter((k) => k.impressions < MIN_IMPRESSIONS_TO_COUNT),
+  }
+}
+
+/**
+ * Every tracked query for a property over the period — not just the ones
+ * that crossed an issue threshold. Sorted best position first ("low and
+ * high", per Jeff 2026-07-16: the digest was only ever surfacing issue
+ * counts, never the underlying keyword-level rankings seomgr actually
+ * tracks in seo_metrics). Split at MIN_IMPRESSIONS_TO_COUNT — under that,
+ * position is noise, and the query itself is a "needs work" signal.
+ */
+async function keywordBreakdown(
+  property: string,
+  currentSince: string,
+  previousSince: string,
+): Promise<{ real: KeywordRow[]; needsWork: number; winners: Mover[]; losers: Mover[] }> {
+  const [currentRows, previousRows] = await Promise.all([
+    fetchMetrics(property, currentSince),
+    fetchMetrics(property, previousSince, currentSince),
+  ])
+
+  const current = aggregateKeywords(currentRows)
+  const previous = aggregateKeywords(previousRows)
+  const { real, needsWork } = splitByVolume(current)
+  const { winners, losers } = computeMovers(current, previous)
+  return { real, needsWork: needsWork.length, winners, losers }
+}
+
+export type Mover = { query: string; current: number; previous: number; delta: number }
+
+/**
+ * Biggest winners/losers: current vs. previous period, same query, both
+ * sides real (>= MIN_IMPRESSIONS_TO_COUNT) so a swing isn't just volume
+ * noise. delta = current - previous; negative = improved (lower position is
+ * better), positive = declined.
+ */
+export function computeMovers(current: KeywordRow[], previous: KeywordRow[], topN = 5): { winners: Mover[]; losers: Mover[] } {
+  const prevReal = new Map(splitByVolume(previous).real.map((k) => [k.query, k.position]))
+  const moves: Mover[] = []
+  for (const k of splitByVolume(current).real) {
+    const prevPos = prevReal.get(k.query)
+    if (prevPos == null) continue // new this period — nothing to compare against
+    moves.push({ query: k.query, current: k.position, previous: prevPos, delta: Math.round((k.position - prevPos) * 10) / 10 })
+  }
+  const winners = moves.filter((m) => m.delta < 0).sort((a, b) => a.delta - b.delta).slice(0, topN)
+  const losers = moves.filter((m) => m.delta > 0).sort((a, b) => b.delta - a.delta).slice(0, topN)
+  return { winners, losers }
+}
+
+async function fetchMetrics(property: string, sinceDate: string, untilDate?: string): Promise<MetricRow[]> {
+  let q = supabaseAdmin
+    .from('seo_metrics')
+    .select('query,clicks,impressions,position')
+    .eq('property', property)
+    .neq('query', '')
+    .gte('date', sinceDate)
+    .limit(20000)
+  if (untilDate) q = q.lt('date', untilDate)
+  const { data } = await q
+  return (data ?? []) as MetricRow[]
 }
 
 export function formatDigest(stats: DigestStats, label: string): string {
@@ -161,6 +222,7 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
   const result: DigestRunResult = { admin: { sent: false }, tenants: [] }
 
   const since = new Date(Date.now() - PERIOD_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const previousSince = new Date(Date.now() - 2 * PERIOD_DAYS * 86_400_000).toISOString().slice(0, 10)
 
   if (adminTenant?.id) {
     const fleetStats = await statsFor(null)
@@ -185,6 +247,9 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
         // thousands of rows in one email — out of scope for the admin
         // executive rollup. Per-tenant reports below carry the full list.
         keywords: [],
+        needsWork: 0,
+        winners: [],
+        losers: [],
       },
     })
     result.admin = { sent: res.success, error: res.error }
@@ -204,7 +269,9 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
       const body = formatDigest(stats, t.slug)
 
       const { data: prop } = await supabaseAdmin.from('seo_properties').select('property').eq('tenant_id', t.id).limit(1).maybeSingle()
-      const keywords = prop?.property ? await keywordBreakdown(prop.property, since) : []
+      const kw = prop?.property
+        ? await keywordBreakdown(prop.property, since, previousSince)
+        : { real: [], needsWork: 0, winners: [], losers: [] }
 
       const res = await notify({
         tenantId: t.id,
@@ -222,7 +289,10 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
           rejected: stats.rejected,
           rolledBack: stats.rolledBack,
           sitesDown: stats.sitesDown,
-          keywords,
+          keywords: kw.real,
+          needsWork: kw.needsWork,
+          winners: kw.winners,
+          losers: kw.losers,
         },
       })
       await sendTenantMessage(t.id, body)
