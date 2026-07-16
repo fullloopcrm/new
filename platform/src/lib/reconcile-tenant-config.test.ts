@@ -713,6 +713,83 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     const { gatingCrit } = summarize(findings)
     expect(gatingCrit).toBeGreaterThanOrEqual(1)
   })
+
+  it('collapses IDNA dot-equivalent characters (ideographic/fullwidth/halfwidth full stop) to "."', () => {
+    // Verified against Node's URL parser: new URL('https://shared-domain\u3002com')
+    // .hostname === 'shared-domain.com' — the WHATWG URL host parser runs
+    // IDNA/UTS46 domain-to-ASCII mapping, which treats U+3002 (ideographic full
+    // stop), U+FF0E (fullwidth full stop), and U+FF61 (halfwidth ideographic
+    // full stop) as equivalent to the ASCII ".". A domain pasted with one of
+    // these visually-similar-but-distinct characters resolves to the exact same
+    // real host in a browser but survived here as a distinct, uncollapsed key.
+    expect(norm('shared-domain\u3002com')).toBe('shared-domain.com')
+    expect(norm('shared-domain\uff0ecom')).toBe('shared-domain.com')
+    expect(norm('shared-domain\uff61com')).toBe('shared-domain.com')
+    expect(norm('https://shared-domain\u3002com')).toBe('shared-domain.com')
+  })
+
+  it('strips zero-width and other default-ignorable Unicode code points from anywhere in the domain', () => {
+    // Verified against Node's URL parser: new URL('https://shared\u200bdomain.com')
+    // .hostname === 'shareddomain.com' — IDNA/UTS46 mapping silently REMOVES
+    // (not just ignores) default-ignorable code points including U+200B (zero-
+    // width space), U+2060 (word joiner), U+FEFF (BOM / zero-width no-break
+    // space), and U+00AD (soft hyphen), from anywhere in the host, not just the
+    // edges. Each is invisible or near-invisible when pasted, and without this
+    // strip survives here as a distinct, uncollapsed key.
+    expect(norm('shared\u200bdomain.com')).toBe('shareddomain.com')
+    expect(norm('shared\u2060domain.com')).toBe('shareddomain.com')
+    expect(norm('shared\ufeffdomain.com')).toBe('shareddomain.com')
+    expect(norm('shared\u00addomain.com')).toBe('shareddomain.com')
+    expect(norm('https://shared-domain.com\u200b')).toBe('shared-domain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with an IDNA dot-equivalent character instead of a plain "."', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared-domain\u3002com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared-domain\u3002com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with a zero-width space hiding inside it', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shareddomain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'shared\u200bdomain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shareddomain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'shared\u200bdomain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
 })
 
 describe('computeFindings — Drift F via a stale tenants.domain on an out-of-scope tenant', () => {

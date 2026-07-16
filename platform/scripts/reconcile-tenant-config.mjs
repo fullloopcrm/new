@@ -59,6 +59,23 @@ export const norm = (d) => {
   // collision. Must run BEFORE the scheme-strip loop so the scheme is intact
   // for it to match.
   s = s.replace(/[\t\n\r]/g, '')
+  // Per IDNA/UTS46 domain-to-ASCII mapping (used by the WHATWG URL host
+  // parser), certain non-ASCII "dot" look-alikes are treated as the ASCII
+  // full stop '.', and certain zero-width/default-ignorable code points are
+  // stripped outright — from ANYWHERE in the string, not just the edges.
+  // Verified against Node's URL parser: new URL('https://shared-domain\u3002com')
+  // .hostname === 'shared-domain.com' (U+3002 ideographic full stop), same
+  // for U+FF0E (fullwidth full stop) and U+FF61 (halfwidth ideographic full
+  // stop); new URL('https://shared\u200bdomain.com').hostname ===
+  // 'shareddomain.com' (U+200B zero-width space silently removed), same for
+  // U+2060 (word joiner), U+FEFF (BOM / zero-width no-break space), and
+  // U+00AD (soft hyphen). A domain pasted with one of these invisible or
+  // near-invisible characters resolves to the EXACT SAME real host in a
+  // browser but survives here as a distinct, uncollapsed key — hiding a
+  // Drift F collision instead of merely failing to normalize it. Must run
+  // BEFORE the scheme-strip loop so a dot-lookalike inside a scheme name
+  // (however unlikely) is already normalized when that loop matches.
+  s = s.replace(/[\u3002\uff0e\uff61]/g, '.').replace(/[\u200b\u2060\ufeff\u00ad]/g, '')
   // Strip a URL scheme, a protocol-relative/stray-slash prefix, AND userinfo
   // (user:pass@), LOOPED to a fixed point rather than one pass each. A single
   // pass only partially strips a DOUBLED scheme ("https://https://host" ->
