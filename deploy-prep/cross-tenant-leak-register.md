@@ -3774,3 +3774,53 @@ green again.
 0 regressions. `npm run audit:tenant`: same 1 pre-existing finding in
 untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
 feature, not touched here). File-only, no push/deploy/DB.
+
+## 2026-07-16 00:05 round (W2) — P64, fixed: all 6 `api/deals/*` write handlers
+had zero permission gate, letting `staff` create/edit/delete/close sales
+pipeline deals directly via the API
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: census of every route file calling `getTenantForRequest()` with
+no `requirePermission`/`requireAdmin`/`requireRole` anywhere in the file,
+cross-referenced against every directory already ruled clean in prior W2
+rounds. Narrowed to `api/deals/*` (6 files: `route.ts` GET/POST/PUT/DELETE,
+`[id]/route.ts` GET/PATCH/DELETE, `[id]/stage/route.ts` POST, `[id]/
+activities/route.ts` GET/POST, `manual/route.ts` POST, `at-risk/route.ts`
+GET/POST) — the sales pipeline CRUD surface, none of it permission-gated.
+
+`rbac.ts` grants `sales.view` to every role including `staff`, but
+`sales.edit` only to owner/admin/manager — the exact same split already
+enforced on the sibling `documents/*` routes (`requirePermission('sales.view')`
+on GET, `requirePermission('sales.edit')` on writes). Every `deals/*` handler
+skipped this entirely: a `staff` session could create leads/deals, edit any
+deal's value/notes/client, move a deal through the pipeline (including
+closing it as sold/lost, which auto-converts a quote to a job), delete any
+deal outright, log fabricated activity entries, or flip a client's outreach
+status — all writes the RBAC catalog reserves for owner/admin/manager. The
+dashboard hides `/dashboard/sales` from roles lacking `leads.view` (which
+`staff` also lacks), so this was UI-hidden but fully API-open — same shape
+as every prior round in this register: a `staff`-tier session can call any
+route directly regardless of what the UI links to.
+
+**Fix:** gated every GET behind `requirePermission('sales.view')` (no
+behavior change — staff already holds this) and every POST/PUT/PATCH/DELETE
+behind `requirePermission('sales.edit')`, matching `documents/*`'s existing
+pattern exactly (`{ tenant: _authTenant, error: _authError } =
+await requirePermission(...); if (_authError) return _authError`).
+
+**Regression lock:** 6 new `route.rbac.test.ts` files (26 tests total) using
+the `tenantDb`-isolation harness + a settable-role `tenant-query` mock, so
+the REAL `rbac.ts`/`requirePermission` logic is under test, not a stub. Each
+write handler: owner (has `sales.edit`) gets 200 and the harness's
+`capture.inserts/updates/deletes` shows the mutation happened; `staff`
+(doesn't) gets 403 with the capture showing nothing was mutated. Each GET:
+owner and `staff` (both hold `sales.view`) get 200. Mutation-verified via
+`git stash` against all 6 real pre-fix `route.ts` files at once: all 9
+staff-403 write probes RED (200 instead of 403) against the original code,
+35 other tests (positive controls + view-probes) still green, stash popped
+to restore the fix, all 44 green again.
+
+`npx tsc --noEmit`: clean. Full suite: 357 files, 1557 passed + 37 skipped,
+0 regressions. `npm run audit:tenant`: same 1 pre-existing finding in
+untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
+feature, not touched here). File-only, no push/deploy/DB.

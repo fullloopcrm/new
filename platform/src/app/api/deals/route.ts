@@ -3,11 +3,14 @@
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 
 export async function GET() {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.view')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { data: deals, error } = await tenantDb(tenantId)
       .from('deals')
       .select('*, clients(id, name, email, phone, address, status, created_at)')
@@ -28,7 +31,9 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const body = await request.json()
     const {
@@ -106,7 +111,9 @@ export async function POST(request: Request) {
 
 export async function PUT(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const db = tenantDb(tenantId)
     const { id, follow_up_at, follow_up_note, notes, stage } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -160,7 +167,9 @@ export async function PUT(request: Request) {
 
 export async function DELETE(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
 

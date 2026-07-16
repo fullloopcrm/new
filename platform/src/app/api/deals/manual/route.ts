@@ -6,14 +6,17 @@
  * /api/contact + /api/lead so manual entry lands the same way as web leads.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
 
 export async function POST(request: Request) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
+    if (_authError) return _authError
+    const { tenantId } = _authTenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
 
     const name = typeof body.name === 'string' ? body.name.trim() : ''
