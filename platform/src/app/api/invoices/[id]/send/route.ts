@@ -32,6 +32,28 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Cannot send ${invoice.status} invoice` }, { status: 400 })
     }
 
+    // Atomic claim on the draft -> sent transition, done before dispatch.
+    // Two near-simultaneous calls (double-click "Send", a client retry) on a
+    // still-draft invoice both read 'draft' from the snapshot above; without
+    // this claim both would email/SMS the customer. Only the winner
+    // dispatches; the loser gets a clean 409. Resends of an already-'sent'
+    // invoice are a deliberate, repeatable action, so they intentionally
+    // skip this gate — same as before.
+    const isFirstSend = invoice.status === 'draft'
+    if (isFirstSend) {
+      const { data: claimed } = await supabaseAdmin
+        .from('invoices')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'draft')
+        .select('id')
+        .maybeSingle()
+      if (!claimed) {
+        return NextResponse.json({ error: 'Invoice was already sent' }, { status: 409 })
+      }
+    }
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
@@ -93,15 +115,27 @@ export async function POST(request: Request, { params }: Params) {
     }
 
     const anyOk = results.email?.ok || results.sms?.ok
-    if (!anyOk) return NextResponse.json({ error: 'Neither channel sent', results }, { status: 400 })
+    if (!anyOk) {
+      // Release the claim so a corrected retry (e.g. after fixing tenant
+      // comms config) can win the atomic claim above and send again —
+      // preserves the pre-existing "stay draft until something actually
+      // sends" retry behavior.
+      if (isFirstSend) {
+        await supabaseAdmin
+          .from('invoices')
+          .update({ status: 'draft', sent_at: null })
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+      }
+      return NextResponse.json({ error: 'Neither channel sent', results }, { status: 400 })
+    }
 
     const sentVia =
       results.email?.ok && results.sms?.ok ? 'both' : results.email?.ok ? 'email' : 'sms'
 
-    const newStatus = invoice.status === 'draft' ? 'sent' : invoice.status
     await supabaseAdmin
       .from('invoices')
-      .update({ status: newStatus, sent_at: new Date().toISOString(), sent_via: sentVia })
+      .update({ sent_at: new Date().toISOString(), sent_via: sentVia })
       .eq('id', id)
 
     await logInvoiceEvent({
