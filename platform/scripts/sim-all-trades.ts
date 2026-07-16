@@ -952,6 +952,34 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add("emergency: the AI/SMS create_booking tool enforces the owner's configured emergency_rate server-side (not just relies on the LLM re-typing the prompt number)",
         enforcesEmergencyRateServerSide,
         `handleCreateBooking (selena-legacy.ts, ${handleCreateBookingBody.trim().length} chars) computes price purely as hourlyRate * estimatedHours * 100 from input.hourly_rate — a bare number the create_booking tool schema requires the LLM to supply (schema: ${createBookingToolSchema.replace(/\s+/g, ' ').trim()}) — with no reference to emergency_rate/selena_config/emergency_available anywhere in the handler. selena-legacy-core.ts's own intent classifier has a dedicated 'emergency' intent that explicitly allows this tool, yet nothing server-side ties its price to the owner's configured premium; correctness depends entirely on the LLM re-deriving the number from its own prompt (P11.6) and typing it into the tool call. Fourth and most exposed surface in the P11.7/P11.8/P11.15 trilogy — the only one with no human review before the priced booking is created.`)
+
+      // P11.17 a second, independent gap in the SAME handleCreateBooking
+      // insert P11.16 just extracted — not price this time, but the
+      // is_emergency FLAG itself. /api/client/book (P11.8/P11.11/P11.14's
+      // route) derives bkIsEmergency and threads it through: into the
+      // bookings row (p_is_emergency on its RPC), into smsBookingReceived()
+      // (P11.14's fix branches on booking.is_emergency for the "URGENT
+      // request received... treating this as a priority" wording), and into
+      // client-email.ts's isEmergency flag. handleCreateBooking's own insert
+      // (extracted above for P11.16) sets tenant_id/client_id/start_time/
+      // end_time/status/notes/price — is_emergency is absent from the object
+      // entirely, and nothing after the insert (the sms_conversations update,
+      // updateChecklist) ever sets it either. So even a tenant whose LLM gets
+      // P11.16's price exactly right still produces a booking row that is
+      // BY CONSTRUCTION indistinguishable from a routine one to every
+      // downstream consumer that branches on is_emergency: the P11.14 fix's
+      // urgency-acknowledgment SMS can never fire for a booking created
+      // through this channel (is_emergency reads as falsy), and any future
+      // admin/team-portal UI that badges emergency jobs by that column stays
+      // blind to them here too. Unlike P11.16 this isn't about the LLM's
+      // arithmetic — it is a field the tool schema never even asks the LLM
+      // for, so no amount of LLM correctness can fix it without a code
+      // change. Verified by reading the source directly, same as P11.16.
+      const createBookingInsertBlock = (handleCreateBookingBody.split("from('bookings').insert({")[1] || '').split('}).select')[0]
+      const setsIsEmergencyFlag = /is_emergency/.test(createBookingInsertBlock)
+      add("emergency: the AI/SMS create_booking tool sets is_emergency on the booking row it inserts (not just the price)",
+        setsIsEmergencyFlag,
+        `handleCreateBooking's bookings insert (selena-legacy.ts, insert body: ${createBookingInsertBlock.trim().replace(/\s+/g, ' ')}) has no is_emergency field at all — nothing after the insert sets it either. /api/client/book (P11.8/P11.11/P11.14's route) derives and threads bkIsEmergency into the row, into smsBookingReceived()'s urgency wording (the P11.14 fix), and into client-email.ts's isEmergency flag; this channel's insert carries none of that. Even once P11.16's price gap is fixed, a booking created here is BY CONSTRUCTION indistinguishable from a routine one to every consumer that reads is_emergency — the P11.14 fix can never fire for it, and no future is_emergency-driven UI badge would either. The tool schema never asks the LLM for this field at all, so unlike P11.16 this can't be closed by the LLM getting something right; it needs a code change.`)
     }
 
   } catch (err) {
