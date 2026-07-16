@@ -9,6 +9,10 @@ import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
 
 type Params = { params: Promise<{ id: string }> }
 
+// Full enum: 026_quotes.sql — everything except accepted/converted stays
+// editable (including declined/expired, e.g. to reopen and resend).
+const EDITABLE_STATUSES = ['draft', 'sent', 'viewed', 'declined', 'expired']
+
 export async function GET(_request: Request, { params }: Params) {
   try {
     const { tenant, error: authError } = await requirePermission('sales.view')
@@ -54,7 +58,7 @@ export async function PATCH(request: Request, { params }: Params) {
       .eq('id', id)
       .single()
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (existing.status === 'accepted' || existing.status === 'converted') {
+    if (!EDITABLE_STATUSES.includes(existing.status)) {
       return NextResponse.json({ error: 'Cannot edit accepted or converted quotes' }, { status: 400 })
     }
 
@@ -134,14 +138,30 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.fulfillment_type = body.fulfillment_type
     }
 
+    // Check-then-act, not atomic: the guard above reads `existing.status`
+    // once, but the public accept route (POST
+    // /api/quotes/public/[token]/accept) can land between that read and this
+    // write -- it's already CAS-guarded on its own end, so it always wins a
+    // true race, but without re-asserting the editable-status set in THIS
+    // update's own WHERE, this blind write would still silently overwrite
+    // the line_items/totals/deposit a customer just signed off on, out from
+    // under the deal/booking that accept just spun up from the ORIGINAL
+    // values.
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .in('status', EDITABLE_STATUSES)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This quote was accepted or converted concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
     // Autosave passes silent:true so a draft being typed doesn't spam the
     // activity log with an 'edited' row on every keystroke-debounce.
@@ -174,11 +194,28 @@ export async function DELETE(_request: Request, { params }: Params) {
       .eq('id', id)
       .single()
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (existing.status === 'accepted' || existing.status === 'converted') {
+    if (!EDITABLE_STATUSES.includes(existing.status)) {
       return NextResponse.json({ error: 'Cannot delete accepted or converted quotes' }, { status: 400 })
     }
-    const { error } = await supabaseAdmin.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
+    // Same TOCTOU class as PATCH above: re-assert the editable-status set in
+    // the DELETE's own WHERE so a quote accepted concurrently (between the
+    // read above and this delete) survives instead of being erased along
+    // with the deal/booking that accept just created from it.
+    const { data: deleted, error } = await supabaseAdmin
+      .from('quotes')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .in('status', EDITABLE_STATUSES)
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!deleted) {
+      return NextResponse.json(
+        { error: 'This quote was accepted or converted concurrently — refresh instead of deleting' },
+        { status: 409 },
+      )
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
