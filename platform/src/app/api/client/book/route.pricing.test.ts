@@ -29,9 +29,10 @@ const holder = vi.hoisted(() => ({
   rpcCalls: [] as Array<Record<string, unknown>>,
   bookings: new Map<string, Record<string, unknown>>(),
   serviceTypeRate: null as number | null,
+  selenaConfig: null as { emergency_available?: boolean; emergency_rate?: number } | null,
 }))
 
-vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => TENANT }))
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ ...TENANT, selena_config: holder.selenaConfig }) }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 10 }) }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [] }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
@@ -140,6 +141,7 @@ beforeEach(() => {
   holder.rpcCalls.length = 0
   holder.bookings.clear()
   holder.serviceTypeRate = null
+  holder.selenaConfig = null
   nycMaidFlag.current = false
 })
 
@@ -199,6 +201,35 @@ describe('generic tenant — a tenant-configured service_types rate is authorita
     const res = await bookReq({ hourly_rate: 20, estimated_hours: 2, service_type: 'Some New Service' })
     expect(res.status).toBe(200)
     expect(holder.rpcCalls[0].p_hourly_rate).toBe(20)
+  })
+})
+
+describe('generic tenant — a same-day booking applies the configured emergency_rate (P11.8 fix)', () => {
+  it('a same-day booking is billed at emergency_rate, overriding the client-supplied rate', async () => {
+    holder.selenaConfig = { emergency_available: true, emergency_rate: 120 }
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const res = await bookReq({ start_time: `${todayStr}T10:00:00`, end_time: `${todayStr}T12:00:00`, hourly_rate: 75, estimated_hours: 2 })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(120)
+    expect(holder.rpcCalls[0].p_price).toBe(120 * 2 * 100)
+    expect(holder.rpcCalls[0].p_is_emergency).toBe(true)
+  })
+
+  it('a same-day booking with no emergency_rate configured is still flagged is_emergency but keeps the normal rate', async () => {
+    holder.selenaConfig = null
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const res = await bookReq({ start_time: `${todayStr}T10:00:00`, end_time: `${todayStr}T12:00:00`, hourly_rate: 75, estimated_hours: 2 })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(75)
+    expect(holder.rpcCalls[0].p_is_emergency).toBe(true)
+  })
+
+  it('a non-same-day booking is not flagged emergency even with emergency_rate configured', async () => {
+    holder.selenaConfig = { emergency_available: true, emergency_rate: 120 }
+    const res = await bookReq({ hourly_rate: 75, estimated_hours: 2 })
+    expect(res.status).toBe(200)
+    expect(holder.rpcCalls[0].p_hourly_rate).toBe(75)
+    expect(holder.rpcCalls[0].p_is_emergency).toBe(false)
   })
 })
 

@@ -281,6 +281,20 @@ export async function POST(request: Request) {
         bkHourlyRate = configuredRate
         bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
       }
+
+      // Same-day = emergency (same server-side determination as the AI/SMS
+      // create_booking tool, selena-legacy.ts handleCreateBooking). Until now
+      // this stayed permanently false for every non-NYC-Maid tenant -- the
+      // owner's configured selena_config.emergency_rate never reached this
+      // route at all, so a same-day self-book through the public marketing
+      // site was always billed the flat/configured rate no matter what.
+      const todayStr = new Date().toLocaleDateString('en-CA')
+      bkIsEmergency = bookingDate === todayStr
+      const selenaConfig = (tenant as { selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }).selena_config
+      if (bkIsEmergency && selenaConfig?.emergency_available && selenaConfig.emergency_rate) {
+        bkHourlyRate = selenaConfig.emergency_rate
+        bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+      }
     }
 
     // Resolve property (multi-address per client). Matches this booking's
