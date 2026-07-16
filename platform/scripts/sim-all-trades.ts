@@ -686,6 +686,16 @@ interface ProjectScenario {
   // change-order invoice specifically, never touching the base contract's
   // deposit/progress/final milestones.
   cancellation: { note: string; killFeePct: number }
+  // Warranty callback — a legitimate workmanship issue the customer reports
+  // AFTER the job is marked 'completed' and every invoice is settled (not a
+  // dispute against an open invoice, not scope creep: the job is closed out,
+  // paid, and the crew is going back for free under the trade's own
+  // workmanship guarantee). Exercises a real transition never exercised
+  // elsewhere in this harness — every prior scenario leaves job.status at
+  // 'scheduled' the whole run — plus proves a post-completion service event
+  // stays a $0 job_events entry: no new invoice, no new payment, no revenue
+  // leak into the P&L for work done under warranty.
+  warrantyCallback: { note: string; offsetDaysAfterCompletion: number }
 }
 
 const PROJECT_LOC = { city: 'Charlotte', state: 'NC', zip: '28202' }
@@ -758,6 +768,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "State Farm's depreciation check came in lower than Marcus expected once it finally cleared, so he asked to cancel the decking change order rather than pay it in full — the crew had already bought and cut the OSB sheets before he called, so a kill fee covering the material cost was applied and the labor portion refunded.",
       killFeePct: 0.55,
     },
+    warrantyCallback: {
+      note: "Six weeks after final inspection Marcus called about a drip stain forming on the garage ceiling during a heavy rain — crew went back out under the 5-year workmanship warranty and found one of the new pipe boots hadn't fully seated. Resealed on site, no charge — it's a workmanship callback, not a new sale.",
+      offsetDaysAfterCompletion: 42,
+    },
   },
   {
     key: 'remodeling',
@@ -826,6 +840,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
       note: "Elena and her husband got cold feet on the mudroom nook extension once they saw the running total — the wine fridge cutout hadn't been cut into the cabinet run yet but the cabinet shop had already built the extra boxes to spec, so a kill fee covering the shop's build cost was applied and the rest of the add-on refunded.",
       killFeePct: 0.40,
     },
+    warrantyCallback: {
+      note: "Two months after punch list, Elena reported one of the new cabinet doors near the range wasn't closing flush anymore — crew went back under the 1-year workmanship warranty and re-shimmed the hinge (humidity settling, not a install defect). No charge — it's a callback, not a new job.",
+      offsetDaysAfterCompletion: 60,
+    },
   },
   {
     key: 'interior_design',
@@ -887,6 +905,10 @@ const PROJECT_SCENARIOS: ProjectScenario[] = [
     cancellation: {
       note: "Priya's in-laws ended up booking a hotel instead, so she asked to cancel the guest bedroom add-on — the designer had already placed the vendor deposit to hold the case-good pieces on backorder before she called, so a kill fee covering that vendor deposit was applied and the rest of the add-on refunded.",
       killFeePct: 0.30,
+    },
+    warrantyCallback: {
+      note: "A month after install day, Priya noticed the living room drapery track had pulled loose from the drywall on one end — installer went back under the workmanship warranty and re-anchored it into a stud (original anchor was in drywall only). No charge — installation callback, not a furniture defect.",
+      offsetDaysAfterCompletion: 30,
     },
   },
 ]
@@ -1343,6 +1365,54 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       const { data: jobAfterCancel } = await supabase.from('jobs').select('total_cents').eq('id', jobRes.job_id).single()
       add('cancellation: job total = base contract + kill fee only (cancelled remainder not silently kept)', jobAfterCancel?.total_cents === cancelledJobTotal, `${jobAfterCancel?.total_cents} vs ${cancelledJobTotal}`)
     }
+
+    // ================= 7d. WARRANTY CALLBACK (post-completion, no charge) =================
+    // Every scenario above leaves the job sitting in 'scheduled' — nothing in
+    // this harness has ever exercised the real completion transition (PATCH
+    // /api/jobs/[id] { status: 'completed' }: stamps completed_at, logs a
+    // 'completed' job_event, releases any remaining stage-gated payments).
+    // Complete the job for real here, then simulate the actual next thing
+    // that happens on these trades weeks later across every one of them: a
+    // legitimate workmanship callback — distinct from `dispute` (credits an
+    // invoice that's still open) and `changeOrder` (new billable scope): the
+    // job is closed out, every invoice settled, and the crew goes back for
+    // free under the trade's own warranty. Must land as a $0 job_events
+    // entry — no new invoice, no new payment, no revenue leak into the P&L
+    // for warranty work — and the job must stay 'completed', not silently
+    // revert.
+    const { releasePaymentsForEvent } = await import('../src/lib/jobs')
+    const { error: completeErr } = await supabase.from('jobs')
+      .update({ status: 'completed', completed_at: new Date().toISOString() })
+      .eq('id', jobRes.job_id)
+    add('completion: job marked completed', !completeErr, completeErr?.message)
+    await supabase.from('job_events').insert({
+      tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'completed', detail: {},
+    })
+    await releasePaymentsForEvent(tenant.id, jobRes.job_id, 'completed')
+    const { data: jobAfterComplete } = await supabase.from('jobs').select('status, completed_at').eq('id', jobRes.job_id).single()
+    add('completion: job.status = completed with completed_at stamped', jobAfterComplete?.status === 'completed' && !!jobAfterComplete?.completed_at, jobAfterComplete?.status)
+
+    const invoicesCreatedBeforeCallback = invoicesCreated
+    const revenueBeforeCallback = revenueRecognizedCents
+
+    await supabase.from('job_events').insert({
+      tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'warranty_callback',
+      detail: { note: cfg.warrantyCallback.note, charge_cents: 0 },
+    })
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'note',
+      description: `Warranty callback — ${cfg.warrantyCallback.note}`,
+      metadata: { job_id: jobRes.job_id, charge_cents: 0 },
+    })
+
+    const { data: jobAfterCallback } = await supabase.from('jobs').select('status').eq('id', jobRes.job_id).single()
+    add('warranty: job stays completed after the callback (not silently reopened)', jobAfterCallback?.status === 'completed', jobAfterCallback?.status)
+    add('warranty: callback creates no new invoice', invoicesCreated === invoicesCreatedBeforeCallback, `${invoicesCreated} vs ${invoicesCreatedBeforeCallback}`)
+    add('warranty: callback does not touch recognized revenue (free work, no leak into P&L)', revenueRecognizedCents === revenueBeforeCallback, `${revenueRecognizedCents} vs ${revenueBeforeCallback}`)
+
+    const { data: callbackEvent } = await supabase.from('job_events').select('id, detail')
+      .eq('job_id', jobRes.job_id).eq('event_type', 'warranty_callback').maybeSingle()
+    add('warranty: callback logged on the job timeline at $0', !!callbackEvent && (callbackEvent.detail as { charge_cents?: number } | null)?.charge_cents === 0, JSON.stringify(callbackEvent?.detail))
 
     // ================= 8. REFERRALS =================
     const { data: referrer, error: refErr } = await supabase.from('referrers').insert({
