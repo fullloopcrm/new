@@ -115,8 +115,14 @@ export async function getTenantBySlug(slug: string): Promise<TenantInfo | null> 
  * tenants.domain is retired.
  */
 export async function getTenantByDomain(domain: string): Promise<TenantInfo | null> {
-  // Strip www. prefix for lookup
-  const cleanDomain = domain.replace(/^www\./, '')
+  // Lowercase THEN strip www. — order matters: the www. regex is
+  // case-sensitive, so a mixed-case host like "WWW.Acme.com" would otherwise
+  // skip the strip and never match a lowercase DB row. Callers (middleware,
+  // the resend webhook) already normalize their inputs, but this resolver's
+  // contract (see the doc comment above) is host -> tenant, and hosts are
+  // case-insensitive by spec — the guarantee shouldn't depend on every
+  // present and future caller remembering to lowercase first.
+  const cleanDomain = domain.toLowerCase().replace(/^www\./, '')
 
   const cached = getCached(domainCache, cleanDomain)
   if (cached !== undefined) return cached

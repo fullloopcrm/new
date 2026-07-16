@@ -204,4 +204,17 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     resolve = () => ({ data: null, error: null })
     expect(await getTenantByDomain('nobody5.com')).toBeNull()
   })
+
+  it('MALFORMED-INPUT PROBE: a mixed-case host (e.g. "WWW.Acme.com") resolves the same as the lowercase host', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenant_domains' && eqs.domain === 'acme.com'
+        ? { data: domainRow(), error: null }
+        : table === 'tenants' && eqs.id === 't-1'
+          ? { data: tenantRow(), error: null }
+          : { data: null, error: null }
+
+    const t = await getTenantByDomain('WWW.Acme.com')
+    expect(singleCalls[0].eqs.domain).toBe('acme.com')
+    expect(t?.slug).toBe('acme')
+  })
 })

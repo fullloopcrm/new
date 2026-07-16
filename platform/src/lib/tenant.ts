@@ -208,10 +208,12 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
 // The legacy divergence cross-check is status-agnostic (mirrors tenant-lookup)
 // so a stale/inactive legacy row still trips the guard.
 export async function getTenantByDomain(domain: string): Promise<Tenant | null> {
-  // Strip www. prefix so www.<host> and <host> resolve identically (matches
-  // tenant-lookup's normalization — otherwise the two resolvers would diverge
-  // on www hosts).
-  const cleanDomain = domain.replace(/^www\./, '')
+  // Lowercase THEN strip www. so www.<host> / WWW.<HOST> / <host> all resolve
+  // identically (matches tenant-lookup's normalization — otherwise the two
+  // resolvers would diverge on mixed-case or www hosts). Order matters: the
+  // www. regex is case-sensitive, so lowercasing first is required for a
+  // mixed-case "WWW." prefix to strip at all.
+  const cleanDomain = domain.toLowerCase().replace(/^www\./, '')
 
   // 1. tenant_domains FIRST (host -> tenant_id).
   const { data: domainRow } = await supabaseAdmin

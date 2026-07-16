@@ -226,6 +226,19 @@ describe('getTenantByDomain', () => {
     expect(await getTenantByDomain('nobody5.com')).toBeNull()
   })
 
+  it('MALFORMED-INPUT PROBE: a mixed-case host (e.g. "WWW.MixedCase7.com") resolves the same as the lowercase host', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenant_domains' && eqs.domain === 'mixedcase7.com'
+        ? { data: domainRow({ tenant_id: 't-mc7', domain: 'mixedcase7.com' }), error: null }
+        : table === 'tenants' && eqs.id === 't-mc7'
+          ? { data: tenantRow({ id: 't-mc7', slug: 'mixedcase7', domain: 'mixedcase7.com' }), error: null }
+          : { data: null, error: null }
+
+    const t = await getTenantByDomain('WWW.MixedCase7.com')
+    expect(singleCalls[0].eqs.domain).toBe('mixedcase7.com')
+    expect(t?.slug).toBe('mixedcase7')
+  })
+
   it('caches a resolved tenant — a second lookup does not re-query', async () => {
     resolve = (table, eqs) => {
       if (table === 'tenant_domains' && eqs.domain === 'cached6.com')
