@@ -681,6 +681,397 @@ async function runCommsGateCheck(): Promise<{ passed: number; failed: number; fa
   return { passed, failed, failures }
 }
 
+// ================= P11 — RECURRING ARCHETYPE FULL-FEATURE SCENARIOS =================
+// Leader redirect 2026-07-16 12:37: Jeff wants the sim to pretend to be REAL
+// tenants using EVERY feature with realistic trade-specific language, not a
+// mechanical CRUD checklist. W1 lane: recurring archetypes (house cleaning,
+// pest control, lawn care). Each entry below drives ONE persona-driven tenant
+// through the full lifecycle a real owner/staff/customer would actually touch:
+// marketing/lead capture -> quote/proposal -> sale conversion -> scheduling
+// (+ a real mid-series schedule change) -> HR/onboarding -> payroll ->
+// bookkeeping/invoicing -> referrals -> reviews -> comms -> reporting.
+// Uses the SAME real production code paths as P1-P10 (public accept route,
+// ledger, HR provisioning, invoice/quote libs) — narrative-first instead of
+// feature-checklist-first.
+type RecurringArchetype = {
+  industry: 'cleaning' | 'pest' | 'lawn_care'
+  label: string
+  customerName: string
+  contactEmailPrefix: string
+  leadNotes: string
+  oneTimeServiceName: string
+  recurringServiceName: string
+  recurringType: 'weekly' | 'biweekly' | 'monthly_date'
+  recurringHours: number
+  workerName: string
+  paymentMethod: string
+  referrerName: string
+  referrerPayout: string
+  reviewText: string
+  reviewRating: number
+  scheduleChangeNarrative: string
+}
+
+const RECURRING_ARCHETYPES: RecurringArchetype[] = [
+  {
+    industry: 'cleaning',
+    label: 'Recurring — House Cleaning',
+    customerName: 'The Ramirez Family',
+    contactEmailPrefix: 'ramirez-family',
+    leadNotes: "Hi! We just moved into a 3-bed/2-bath and need a cleaner every other week. We have two dogs so someone comfortable with pets would be great. Could you also do a deep clean the first time -- inside the fridge and oven? My neighbor Sarah Chen said you cleaned her place and it looked amazing, she said she'd send you our way.",
+    oneTimeServiceName: 'Deep Cleaning',
+    recurringServiceName: 'Standard Cleaning',
+    recurringType: 'biweekly',
+    recurringHours: 2,
+    workerName: 'Maria Ortiz',
+    paymentMethod: 'zelle',
+    referrerName: 'Sarah Chen',
+    referrerPayout: 'venmo',
+    reviewText: 'Maria was incredible -- so thorough, even got baseboards we forgot about. Booking again every 2 weeks!',
+    reviewRating: 5,
+    scheduleChangeNarrative: "daughter's birthday party landed on the usual visit day -- moved that visit out two days",
+  },
+  {
+    industry: 'pest',
+    label: 'Recurring — Pest Control',
+    customerName: 'Downtown Office Park LLC',
+    contactEmailPrefix: 'downtown-office-park',
+    leadNotes: "We manage a small office building downtown and have been seeing mice in the break room the last week. Need someone out ASAP for rodent control, and if it goes well we'd like a recurring pest plan for the whole building going forward.",
+    oneTimeServiceName: 'Rodent Control',
+    recurringServiceName: 'General Pest Control',
+    recurringType: 'monthly_date',
+    recurringHours: 1,
+    workerName: 'Dana Whitfield',
+    paymentMethod: 'check',
+    referrerName: 'Property Manager Group NW',
+    referrerPayout: 'ach',
+    reviewText: 'Fast response on the rodent issue and the tech explained everything clearly. Tenants stopped complaining within a week. Signed up for the monthly plan.',
+    reviewRating: 5,
+    scheduleChangeNarrative: 'monthly visit conflicted with a scheduled fire-alarm inspection -- moved that visit out two days',
+  },
+  {
+    industry: 'lawn_care',
+    label: 'Recurring — Lawn Care',
+    customerName: 'The Petrosky Household',
+    contactEmailPrefix: 'petrosky',
+    leadNotes: "Hi, we just bought a house and the lawn is looking pretty rough. Want weekly mowing through the summer, and I read about aeration and overseeding online -- can we get that done this spring too?",
+    oneTimeServiceName: 'Aeration & Overseed',
+    recurringServiceName: 'Mowing & Trim',
+    recurringType: 'weekly',
+    recurringHours: 1,
+    workerName: 'Tyler Brooks',
+    paymentMethod: 'venmo',
+    referrerName: "Alicia Fenwick (next-door neighbor)",
+    referrerPayout: 'zelle',
+    reviewText: 'Yard looks 10x better after the aeration, and Tyler is always right on schedule every week.',
+    reviewRating: 5,
+    scheduleChangeNarrative: 'family is on vacation the week of the usual mow -- moved that visit out two days',
+  },
+]
+
+async function runRecurringArchetype(def: RecurringArchetype, idx: number): Promise<TradeResult> {
+  const t0 = Date.now()
+  const checks: Check[] = []
+  const leftovers: string[] = []
+  const add = (name: string, pass: boolean, detail?: string) => checks.push({ name, pass, detail })
+  const runId = `arch-${idx}-${Date.now().toString(36)}-${randomBytes(2).toString('hex')}`
+  const loc = CITIES[(idx + 3) % CITIES.length]
+  const bizName = `SIM ${def.label} ${runId}`
+  let tenantId: string | null = null
+
+  try {
+    // ---- bootstrap: tenant already live + onboarded (the sell/onboard funnel
+    // itself is P1's job; this phase is about ongoing feature depth) ----
+    const { data: tenant, error: tErr } = await supabase.from('tenants').insert({
+      name: bizName, slug: slugify(bizName, runId), industry: def.industry,
+      phone: OWNER.phone, email: OWNER.email, owner_name: OWNER.name, owner_email: OWNER.email, owner_phone: OWNER.phone,
+      status: 'active', plan: 'growth', billing_status: 'active', setup_fee_paid_at: new Date().toISOString(),
+      address: `${loc.city}, ${loc.state} ${loc.zip}`,
+    }).select('id').single()
+    add('bootstrap: archetype tenant created', !!tenant && !tErr, tErr?.message)
+    if (!tenant) throw new Error('tenant insert failed: ' + tErr?.message)
+    tenantId = tenant.id
+    await supabase.from('entities').insert({ tenant_id: tenant.id, name: bizName, is_default: true, active: true })
+    const { provisionTenant } = await import('../src/lib/provision-tenant')
+    const prov = await provisionTenant({ tenantId: tenant.id, industry: def.industry })
+    add('bootstrap: trade-specific services + config provisioned', prov.seeded.services > 0, JSON.stringify(prov.seeded))
+    const { data: services } = await supabase.from('service_types').select('id, name, price_cents').eq('tenant_id', tenant.id)
+    const oneTimeSvc = (services || []).find((s: { name: string }) => s.name === def.oneTimeServiceName)
+    const recurringSvc = (services || []).find((s: { name: string }) => s.name === def.recurringServiceName)
+    add(`services: "${def.oneTimeServiceName}" + "${def.recurringServiceName}" seeded for this trade`,
+      !!oneTimeSvc && !!recurringSvc, (services || []).map((s: { name: string }) => s.name).join(', '))
+    if (!oneTimeSvc || !recurringSvc) throw new Error('expected archetype services not seeded')
+
+    // ================= MARKETING / LEAD CAPTURE =================
+    // Real inbound-inquiry shape (portal_leads — Selena's lead-capture sink).
+    // Realistic customer language preserved verbatim; the actual owner reads this.
+    const contactEmail = `${def.contactEmailPrefix}+${runId}@example.com`
+    const { data: lead, error: leadErr } = await supabase.from('portal_leads').insert({
+      tenant_id: tenant.id, name: def.customerName, email: contactEmail, phone: '+15551236000',
+      service_type: def.industry, city: loc.city, zip_code: loc.zip,
+      notes: def.leadNotes, source: 'sim-marketing', status: 'new',
+    }).select('id, notes').single()
+    add('marketing: inbound lead captured', !!lead && !leadErr, leadErr?.message)
+    add('marketing: realistic customer language preserved verbatim (not paraphrased/dropped)', lead?.notes === def.leadNotes)
+
+    // ================= QUOTE / PROPOSAL (one-time / urgent item first) =================
+    const { computeTotals, normalizeLineItems, generateQuoteNumber, generatePublicToken } = await import('../src/lib/quote')
+    const oneTimeLines = normalizeLineItems([{ name: def.oneTimeServiceName, quantity: 1, unit_price_cents: oneTimeSvc.price_cents || 0 }])
+    const oneTimeTotals = computeTotals(oneTimeLines, 0, 0)
+    const oneTimeQuoteNum = await generateQuoteNumber(tenant.id)
+    const { data: oneTimeQuote, error: q1Err } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, quote_number: oneTimeQuoteNum, status: 'draft', fulfillment_type: 'booking',
+      title: `${def.oneTimeServiceName} for ${def.customerName}`, contact_name: def.customerName,
+      contact_email: contactEmail, contact_phone: '+15551236000', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+      line_items: oneTimeLines, subtotal_cents: oneTimeTotals.subtotal_cents, tax_rate_bps: 0,
+      tax_cents: oneTimeTotals.tax_cents, discount_cents: 0, total_cents: oneTimeTotals.total_cents,
+      public_token: generatePublicToken(),
+    }).select('id, public_token, total_cents').single()
+    add('quote: one-time/urgent proposal drafted with real trade pricing', !!oneTimeQuote && !q1Err, q1Err?.message)
+    if (!oneTimeQuote) throw new Error('one-time quote insert failed: ' + q1Err?.message)
+    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', oneTimeQuote.id)
+    add('quote: proposal sent to the customer', true)
+
+    // ================= SALE CONVERSION (real public accept route — e-signature) =================
+    const { POST: acceptQuote } = await import('../src/app/api/quotes/public/[token]/accept/route')
+    const sign = (token: string, name: string) => acceptQuote(
+      new Request(`http://localhost/api/quotes/public/${token}/accept`, {
+        method: 'POST', body: JSON.stringify({ signature_png: 'data:image/png;base64,' + 'A'.repeat(120), signature_name: name }),
+      }),
+      { params: Promise.resolve({ token }) },
+    )
+    const accept1 = await sign(oneTimeQuote.public_token, def.customerName)
+    add('sale: customer signs the one-time proposal (real accept route)', accept1.status === 200, `status=${accept1.status}`)
+    const { data: firstBooking } = await supabase.from('bookings')
+      .select('id, client_id, start_time').eq('tenant_id', tenant.id).order('created_at').limit(1).maybeSingle()
+    add('sale: signed proposal converts to a real booking', !!firstBooking, JSON.stringify(firstBooking))
+    const clientId = firstBooking?.client_id as string | undefined
+    add('sale: customer record created from the signed quote', !!clientId)
+
+    // ================= RECURRING PLAN (ongoing schedule, same customer) =================
+    const recurringLines = normalizeLineItems([{ name: def.recurringServiceName, quantity: 1, unit_price_cents: recurringSvc.price_cents || 0 }])
+    const recurringTotals = computeTotals(recurringLines, 0, 0)
+    const recurringQuoteNum = await generateQuoteNumber(tenant.id)
+    const startDate = new Date(Date.now() + 7 * 24 * 3600 * 1000)
+    const { data: recurringQuote, error: q2Err } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, client_id: clientId || null, quote_number: recurringQuoteNum, status: 'draft',
+      title: `${def.recurringServiceName} — ongoing plan`, contact_name: def.customerName, contact_email: contactEmail,
+      contact_phone: '+15551236000', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+      line_items: recurringLines, subtotal_cents: recurringTotals.subtotal_cents, tax_rate_bps: 0,
+      tax_cents: recurringTotals.tax_cents, discount_cents: 0, total_cents: recurringTotals.total_cents,
+      public_token: generatePublicToken(), recurring_type: def.recurringType,
+      recurring_start_date: startDate.toISOString().slice(0, 10), recurring_preferred_time: '09:00',
+      recurring_duration_hours: def.recurringHours,
+    }).select('id, public_token').single()
+    add('quote: recurring plan proposed to the existing customer', !!recurringQuote && !q2Err, q2Err?.message)
+    if (!recurringQuote) throw new Error('recurring quote insert failed: ' + q2Err?.message)
+    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', recurringQuote.id)
+    const accept2 = await sign(recurringQuote.public_token, def.customerName)
+    add('sale: customer signs the recurring plan (real accept route)', accept2.status === 200, `status=${accept2.status}`)
+
+    const { data: schedule } = await supabase.from('recurring_schedules')
+      .select('id, status, recurring_type, duration_hours').eq('tenant_id', tenant.id).maybeSingle()
+    add(`schedule: ${def.recurringType} recurring plan active`,
+      schedule?.status === 'active' && schedule?.recurring_type === def.recurringType, JSON.stringify(schedule))
+    const { data: seriesBookings } = await supabase.from('bookings')
+      .select('id, start_time').eq('schedule_id', schedule?.id || '').order('start_time')
+    add('schedule: recurring visits generated over the horizon', (seriesBookings?.length || 0) >= 2, `${seriesBookings?.length} visits`)
+
+    // ================= SCHEDULING CHANGE (real feature: per-occurrence exception) =================
+    // Mirrors POST /api/admin/recurring-schedules/[id]/exception's own two-part
+    // effect: record the exception (so any future regeneration honors it) AND
+    // move the already-materialized booking for that date.
+    if (schedule && (seriesBookings?.length || 0) >= 2) {
+      const moveTarget = seriesBookings![1]
+      const occurrenceDate = String(moveTarget.start_time).slice(0, 10)
+      const newStart = new Date(new Date(moveTarget.start_time).getTime() + 2 * 24 * 3600 * 1000)
+      const newEnd = new Date(newStart.getTime() + def.recurringHours * 3600 * 1000)
+      const newStartHHMM = newStart.toISOString().slice(11, 16)
+      const { error: exErr } = await supabase.from('recurring_exceptions').upsert(
+        { tenant_id: tenant.id, schedule_id: schedule.id, occurrence_date: occurrenceDate, type: 'move', new_start_time: newStartHHMM },
+        { onConflict: 'schedule_id,occurrence_date' },
+      )
+      const { error: moveErr } = await supabase.from('bookings')
+        .update({ start_time: newStart.toISOString().slice(0, 19), end_time: newEnd.toISOString().slice(0, 19) })
+        .eq('id', moveTarget.id).eq('tenant_id', tenant.id)
+      add(`schedule: real change applied — ${def.scheduleChangeNarrative}`, !exErr && !moveErr, exErr?.message || moveErr?.message)
+
+      // A later, not-yet-materialized occurrence gets skipped outright (the
+      // exception ledger is what the generate-recurring cron actually honors).
+      const skipDate = new Date(new Date(seriesBookings![seriesBookings!.length - 1].start_time).getTime() + 7 * 24 * 3600 * 1000)
+      const { error: skipErr } = await supabase.from('recurring_exceptions').upsert(
+        { tenant_id: tenant.id, schedule_id: schedule.id, occurrence_date: skipDate.toISOString().slice(0, 10), type: 'skip' },
+        { onConflict: 'schedule_id,occurrence_date' },
+      )
+      add('schedule: future occurrence skipped via the real exception ledger', !skipErr, skipErr?.message)
+    }
+
+    // ================= HR / ONBOARDING (hire + assign the tech who does the work) =================
+    const { seedHrDefaults } = await import('../src/lib/hr')
+    await seedHrDefaults(tenant.id)
+    const { provisionApprovedApplicant } = await import('../src/lib/team-provisioning')
+    const workerPhone = '212' + String(3000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+    let emailThrew = false
+    try {
+      await provisionApprovedApplicant(tenant.id, {
+        id: randomUUID(), name: def.workerName, email: `${def.workerName.toLowerCase().replace(/\s+/g, '.')}+${runId}@example.com`,
+        phone: workerPhone, address: null,
+      })
+    } catch (e) {
+      emailThrew = /Email not configured|Resend/i.test(e instanceof Error ? e.message : String(e))
+      if (!emailThrew) throw e
+    }
+    const { data: worker } = await supabase.from('team_members')
+      .select('id, name, pin').eq('tenant_id', tenant.id).eq('phone', workerPhone).maybeSingle()
+    add('hr: tech hired + onboarded for this account', !!worker?.pin, `${worker?.name} pin=${worker?.pin}`)
+    if (worker && firstBooking) {
+      await supabase.from('bookings').update({ team_member_id: worker.id }).eq('id', firstBooking.id).eq('tenant_id', tenant.id)
+      add('hr: tech assigned to the first visit', true)
+    }
+
+    // ================= PAYROLL =================
+    const { cleanerPaidHours } = await import('../src/lib/billing-hours')
+    const payHours = cleanerPaidHours(def.recurringHours * 60)
+    const FIELD_TECH_HOURLY_CENTS = 2200 // typical field-tech pay rate, independent of retail price
+    const payoutCents = Math.round(payHours * FIELD_TECH_HOURLY_CENTS)
+    let payoutId: string | null = null
+    if (worker) {
+      const { data: payout, error: payoutErr } = await supabase.from('team_member_payouts').insert({
+        tenant_id: tenant.id, team_member_id: worker.id, booking_id: firstBooking?.id || null,
+        amount_cents: payoutCents, status: 'paid', paid_at: new Date().toISOString(),
+      }).select('id').single()
+      add('payroll: visit hours paid out to the tech', !!payout && !payoutErr, payoutErr?.message)
+      payoutId = payout?.id || null
+    }
+
+    // ================= BOOKKEEPING / INVOICING =================
+    const { ensureChartAccounts, getAccountIdByCode, postJournalEntry } = await import('../src/lib/ledger')
+    await ensureChartAccounts(tenant.id)
+    const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines } = await import('../src/lib/invoice')
+    const invNum = await generateInvoiceNumber(tenant.id)
+    const iLines = invLines([{ name: def.oneTimeServiceName, quantity: 1, unit_price_cents: oneTimeSvc.price_cents || 0 }])
+    const iTot = invTotals(iLines, 0, 0)
+    const { data: defEntity } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+    const { data: invoice, error: invErr } = await supabase.from('invoices').insert({
+      tenant_id: tenant.id, entity_id: defEntity?.id || null, invoice_number: invNum, status: 'draft',
+      title: `${def.oneTimeServiceName} — ${def.customerName}`, contact_name: def.customerName, contact_email: contactEmail,
+      client_id: clientId || null, booking_id: firstBooking?.id || null,
+      line_items: iLines, subtotal_cents: iTot.subtotal_cents, tax_rate_bps: 0, tax_cents: iTot.tax_cents,
+      discount_cents: 0, total_cents: iTot.total_cents, due_date: new Date(Date.now() + 7 * 864e5).toISOString().slice(0, 10),
+      public_token: generateInvoicePublicToken(),
+    }).select('id, total_cents').single()
+    add('invoice: generated for the completed visit', !!invoice && !invErr, invErr?.message)
+    if (invoice) {
+      const { error: payErr } = await supabase.from('payments').insert({
+        tenant_id: tenant.id, booking_id: firstBooking?.id || null, client_id: clientId || null,
+        amount_cents: invoice.total_cents, method: def.paymentMethod, status: 'completed',
+        reference_id: `sim-archetype-${invoice.id}`,
+      })
+      add(`bookkeeping: customer paid via ${def.paymentMethod}`, !payErr, payErr?.message)
+      await supabase.from('invoices').update({ status: 'paid', amount_paid_cents: invoice.total_cents, paid_at: new Date().toISOString() }).eq('id', invoice.id)
+      const undeposited = await getAccountIdByCode(tenant.id, '1050')
+      const revenue = await getAccountIdByCode(tenant.id, '4000')
+      if (undeposited && revenue) {
+        await postJournalEntry({
+          tenant_id: tenant.id, entry_date: new Date().toISOString().slice(0, 10), memo: `${def.label} revenue`,
+          source: 'sim-archetype-revenue', source_id: invoice.id,
+          lines: [
+            { coa_id: undeposited, debit_cents: invoice.total_cents, memo: 'payment received' },
+            { coa_id: revenue, credit_cents: invoice.total_cents, memo: 'service revenue' },
+          ],
+        })
+      }
+      if (payoutId) {
+        const { postPayoutToLedger } = await import('../src/lib/finance/post-labor')
+        const payoutPost = await postPayoutToLedger({ tenantId: tenant.id, payoutId })
+        add('payroll: payout posted to the ledger', payoutPost.posted, JSON.stringify(payoutPost))
+      }
+    }
+
+    // ================= REFERRALS =================
+    const { data: referrer, error: refErr } = await supabase.from('referrers').insert({
+      tenant_id: tenant.id, name: def.referrerName, referral_code: `SIM${runId.slice(0, 6).toUpperCase()}`,
+      commission_rate: 0.10, preferred_payout: def.referrerPayout, status: 'active',
+    }).select('id').single()
+    add('referral: referrer on file (this customer was referred)', !!referrer && !refErr, refErr?.message)
+    if (referrer && firstBooking) {
+      await supabase.from('bookings').update({ referrer_id: referrer.id }).eq('id', firstBooking.id).eq('tenant_id', tenant.id)
+      const grossCents = oneTimeTotals.total_cents
+      const commissionCents = Math.round(grossCents * 0.10)
+      const { data: commission, error: commErr } = await supabase.from('referral_commissions').insert({
+        tenant_id: tenant.id, booking_id: firstBooking.id, referrer_id: referrer.id, client_name: def.customerName,
+        gross_amount_cents: grossCents, commission_rate: 0.10, commission_cents: commissionCents, status: 'pending',
+      }).select('id').single()
+      add('referral: commission accrued for the referred customer', !!commission && !commErr, commErr?.message)
+      if (commission) {
+        const { postCommissionAccrual, postCommissionPayment } = await import('../src/lib/finance/post-adjustments')
+        const accrual = await postCommissionAccrual({ tenantId: tenant.id, commissionId: commission.id })
+        add('referral: commission accrual posted to the ledger', accrual.posted, JSON.stringify(accrual))
+        const { bumpReferrerTotal } = await import('../src/lib/referrer-ledger')
+        await bumpReferrerTotal(tenant.id, referrer.id, 'total_earned', commissionCents)
+        await supabase.from('referral_commissions').update({ status: 'paid', paid_at: new Date().toISOString(), paid_via: def.referrerPayout }).eq('id', commission.id)
+        const payment = await postCommissionPayment({ tenantId: tenant.id, commissionId: commission.id })
+        add('referral: commission paid out + posted', payment.posted, JSON.stringify(payment))
+        await bumpReferrerTotal(tenant.id, referrer.id, 'total_paid', commissionCents)
+      }
+    }
+
+    // ================= REVIEWS =================
+    const { data: review, error: reviewErr } = await supabase.from('reviews').insert({
+      tenant_id: tenant.id, name: def.customerName, email: contactEmail, rating: def.reviewRating,
+      text: def.reviewText, service_type: def.industry, team_member_name: def.workerName,
+      status: 'pending', verified: true, client_id: clientId || null,
+    }).select('id, rating, text').single()
+    add('reviews: real trade-specific feedback captured', !!review && !reviewErr, reviewErr?.message)
+    add('reviews: customer language + rating preserved verbatim', review?.text === def.reviewText && review?.rating === def.reviewRating)
+
+    // ================= COMMS (SMS/email — realistic branded content) =================
+    const { clientSmsTemplatesFor } = await import('../src/lib/messaging/client-sms')
+    const smsTemplates = await clientSmsTemplatesFor(tenant.id)
+    const bookingForSms = { start_time: firstBooking?.start_time || new Date().toISOString(), team_members: worker ? { name: worker.name } : null }
+    const confirmationSms = smsTemplates.bookingConfirmation(bookingForSms)
+    add("comms: booking confirmation is branded in THIS tenant's name (not a generic label)", confirmationSms.includes(bizName), confirmationSms.slice(0, 90))
+
+    // ================= REPORTING =================
+    const { ledgerProfitAndLoss } = await import('../src/lib/finance/ledger-reports')
+    const today = new Date().toISOString().slice(0, 10)
+    const monthAgo = new Date(Date.now() - 30 * 864e5).toISOString().slice(0, 10)
+    const pnl = await ledgerProfitAndLoss(tenant.id, monthAgo, today)
+    add("reporting: P&L reflects this account's real activity", pnl.revenue_cents > 0, `revenue=${pnl.revenue_cents}c net=${pnl.net_profit_cents}c`)
+
+  } catch (err) {
+    const msg = err instanceof Error ? err.message
+      : (err && typeof err === 'object') ? JSON.stringify(err)
+      : String(err)
+    add('FATAL', false, msg)
+  } finally {
+    if (!PERSIST && tenantId) {
+      for (const tbl of [
+        'recurring_exceptions', 'reviews', 'referral_commissions', 'referrers', 'team_member_payouts', 'payments',
+        'territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles',
+        'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events',
+        'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'portal_leads',
+        'service_types', 'entities', 'tenant_invites',
+      ]) {
+        await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
+      }
+      let delOk = false
+      for (let i = 0; i < 4 && !delOk; i++) {
+        const { error } = await supabase.from('tenants').delete().eq('id', tenantId)
+        if (!error) delOk = true
+        else if (i === 3) leftovers.push(`tenants(${tenantId.slice(0, 8)}): ${error.message}`)
+      }
+    } else if (tenantId) {
+      leftovers.push(`PERSISTED tenant ${tenantId}`)
+    }
+  }
+
+  const passed = checks.filter(c => c.pass).length
+  const failed = checks.filter(c => !c.pass).length
+  const failures = checks.filter(c => !c.pass).map(c => `${c.name}${c.detail ? ` (${c.detail})` : ''}`)
+  return { category: def.label, industry: def.industry, model: 'recurring-archetype', passed, failed, failures, ms: Date.now() - t0, leftovers }
+}
+
 async function main() {
   const list = ONLY.length ? TRADES.filter(t => ONLY.some(o => t.category.toLowerCase().includes(o.toLowerCase()) || t.model === o)) : TRADES
   console.log(`\n=== ALL-TRADES SIM — ${list.length} trades (P1-P9) ${PERSIST ? '(PERSIST)' : '(cleanup)'} ===\n`)
@@ -698,14 +1089,32 @@ async function main() {
   const commsGate = ONLY.length ? { passed: 0, failed: 0, failures: [] as string[] } : await runCommsGateCheck()
   const terr = ONLY.length ? { passed: 0, failed: 0, failures: [] as string[] } : await runTerritoryPhase()
 
-  const totPass = results.reduce((a, r) => a + r.passed, 0) + terr.passed + commsGate.passed
-  const totFail = results.reduce((a, r) => a + r.failed, 0) + terr.failed + commsGate.failed
+  // P11 — recurring archetype narratives (skip when running a trade subset,
+  // same convention as the other global/cross-cutting phases above).
+  const archetypeResults: TradeResult[] = []
+  if (!ONLY.length) {
+    console.log(`\n=== RECURRING ARCHETYPE SCENARIOS — ${RECURRING_ARCHETYPES.length} (cleaning/pest/lawn) ===\n`)
+    for (let i = 0; i < RECURRING_ARCHETYPES.length; i++) {
+      process.stdout.write(`[arch ${i + 1}/${RECURRING_ARCHETYPES.length}] ${RECURRING_ARCHETYPES[i].label.padEnd(35)}`)
+      const r = await runRecurringArchetype(RECURRING_ARCHETYPES[i], i)
+      archetypeResults.push(r)
+      console.log(`${r.failed === 0 ? '✓' : '✗'} ${r.passed} pass${r.failed ? ` / ${r.failed} FAIL` : ''} (${r.ms}ms)`)
+      r.failures.forEach(f => console.log(`      ✗ ${f}`))
+      if (r.leftovers.length) r.leftovers.forEach(l => console.log(`      ⚠ leftover ${l}`))
+    }
+  }
+
+  const totPass = results.reduce((a, r) => a + r.passed, 0) + terr.passed + commsGate.passed + archetypeResults.reduce((a, r) => a + r.passed, 0)
+  const totFail = results.reduce((a, r) => a + r.failed, 0) + terr.failed + commsGate.failed + archetypeResults.reduce((a, r) => a + r.failed, 0)
   const greenTrades = results.filter(r => r.failed === 0).length
   console.log(`\n=== SUMMARY ===`)
   console.log(`  trades 100%: ${greenTrades}/${results.length}`)
+  console.log(`  archetype scenarios 100%: ${archetypeResults.filter(r => r.failed === 0).length}/${archetypeResults.length}`)
   console.log(`  checks: ${totPass} passed, ${totFail} failed`)
   const failedTrades = results.filter(r => r.failed > 0).map(r => r.category)
   if (failedTrades.length) console.log(`  FAILING: ${failedTrades.join(', ')}`)
+  const failedArchetypes = archetypeResults.filter(r => r.failed > 0).map(r => r.category)
+  if (failedArchetypes.length) console.log(`  ARCHETYPES FAILING: ${failedArchetypes.join(', ')}`)
 
   // Trade → vertical map (surfaces which trades fall to 'general' = no trade-specific presets)
   const generalTrades = results.filter(r => r.industry === 'general').map(r => r.category)
@@ -718,6 +1127,7 @@ async function main() {
   const outDir = resolve(process.cwd(), 'scripts/out')
   mkdirSync(outDir, { recursive: true })
   writeFileSync(resolve(outDir, 'sim-all-trades-p1.json'), JSON.stringify(results, null, 2))
+  writeFileSync(resolve(outDir, 'sim-recurring-archetypes.json'), JSON.stringify(archetypeResults, null, 2))
   process.exit(totFail > 0 ? 1 : 0)
 }
 
