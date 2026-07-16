@@ -34,7 +34,23 @@ const DIRECTORY_DOMAINS = new Set([
 
 const isDirectory = (domain: string) => DIRECTORY_DOMAINS.has(domain)
 
-type Property = { property: string; domain: string | null; tenant_id: string | null }
+type Property = { property: string; domain: string | null; tenant_id: string | null; meta?: Record<string, unknown> | null }
+
+// 15 sequential SERP calls/property at real-world Serper latency routinely
+// exceeds 20s/property — at fleet size (20+ properties) a full pass blows the
+// 300s function budget (measured: FUNCTION_INVOCATION_TIMEOUT on a 20-property
+// run). Cap properties per run and rotate oldest-scanned-first so the fleet
+// cycles across multiple weekly runs instead of one run always timing out.
+const DEFAULT_PROPERTIES_PER_RUN = 6
+
+async function markScanned(property: string): Promise<void> {
+  const cur = await supabaseAdmin.from('seo_properties').select('meta').eq('property', property).maybeSingle()
+  const meta = (cur.data?.meta as Record<string, unknown>) ?? {}
+  await supabaseAdmin
+    .from('seo_properties')
+    .update({ meta: { ...meta, competitors_last_scanned_at: new Date().toISOString() } })
+    .eq('property', property)
+}
 
 type MoneyKeyword = {
   query: string
@@ -191,6 +207,13 @@ async function detectCompetitorGaps(prop: Property, serps: SerpRow[]): Promise<n
   const ourDomain = prop.domain ? prop.domain.replace(/^www\./, '').toLowerCase() : ''
   const issues: Record<string, unknown>[] = []
 
+  // Fresh slate for THIS property only (moved out of the run-level orchestrator
+  // — see runCompetitorScan). A single global delete before the property loop
+  // meant a mid-run timeout, which happens routinely once the fleet outgrows
+  // the 300s budget, left every not-yet-reached property showing zero
+  // competitor_gap issues instead of its real (just stale) ones.
+  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'competitor_gap').eq('property', prop.property)
+
   for (const s of serps) {
     // Winnable = we're on page 1–2 for it AND someone is above us.
     if (s.our_position == null || s.our_position > STRIKING_MAX_POS) continue
@@ -273,15 +296,19 @@ export async function runCompetitorScan(opts?: { propertyLimit?: number }): Prom
     return { enabled: false, properties: 0, scanned: 0, serpCalls: 0, competitors: 0, gaps: 0, skipped: ['SERPER_API_KEY not set'] }
   }
 
-  // Fresh slate for competitor issues — the GSC detector no longer touches these.
-  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'competitor_gap')
-
   const { data: props } = await supabaseAdmin
     .from('seo_properties')
-    .select('property,domain,tenant_id')
+    .select('property,domain,tenant_id,meta')
     .eq('enabled', true)
   let properties = (props ?? []) as Property[]
-  if (opts?.propertyLimit) properties = properties.slice(0, opts.propertyLimit)
+  // Oldest-scanned-first (never-scanned = '' sorts first) — rotates the fleet
+  // across runs instead of always re-scanning the same head of the list.
+  properties = properties.sort((a, b) => {
+    const at = (a.meta?.competitors_last_scanned_at as string | undefined) ?? ''
+    const bt = (b.meta?.competitors_last_scanned_at as string | undefined) ?? ''
+    return at < bt ? -1 : at > bt ? 1 : 0
+  })
+  properties = properties.slice(0, opts?.propertyLimit ?? DEFAULT_PROPERTIES_PER_RUN)
 
   let serpCalls = 0
   let competitors = 0
@@ -301,6 +328,7 @@ export async function runCompetitorScan(opts?: { propertyLimit?: number }): Prom
       competitors += await computeCompetitors(prop, serps)
       gaps += await detectCompetitorGaps(prop, serps)
       scanned++
+      await markScanned(prop.property)
     } catch (e) {
       skipped.push(`${prop.domain ?? prop.property}: ${e instanceof Error ? e.message : String(e)}`)
     }

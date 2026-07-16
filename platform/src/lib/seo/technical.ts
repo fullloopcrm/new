@@ -20,8 +20,25 @@ const URLS_PER_PROPERTY = 20 // URL Inspection calls per property per run
 const SITEMAP_URL_CAP = 800 // max <loc> entries we parse per property
 const CHILD_SITEMAP_CAP = 15 // max child sitemaps to follow in a sitemap index
 const INSPECT_CONCURRENCY = 6 // parallel URL Inspection calls (fits 300s cron budget)
+// Sitemap fetch + up to 20 sequential-batched URL Inspection calls routinely
+// takes >20s/property — at fleet size (20+ properties) a full pass blows the
+// 300s function budget and Vercel kills the run mid-loop (measured: a 20-
+// property run hit FUNCTION_INVOCATION_TIMEOUT before finishing property 1's
+// batch of ~20). Cap properties per run and rotate oldest-scanned-first (via
+// markScanned/meta.technical_last_scanned_at) so the fleet cycles across
+// multiple runs instead of one run always timing out on the same subset.
+const DEFAULT_PROPERTIES_PER_RUN = 6
 
-type Property = { property: string; domain: string | null; tenant_id: string | null }
+type Property = { property: string; domain: string | null; tenant_id: string | null; meta?: Record<string, unknown> | null }
+
+async function markScanned(property: string): Promise<void> {
+  const cur = await supabaseAdmin.from('seo_properties').select('meta').eq('property', property).maybeSingle()
+  const meta = (cur.data?.meta as Record<string, unknown>) ?? {}
+  await supabaseAdmin
+    .from('seo_properties')
+    .update({ meta: { ...meta, technical_last_scanned_at: new Date().toISOString() } })
+    .eq('property', property)
+}
 
 function propertyToDomain(property: string): string {
   if (property.startsWith('sc-domain:')) return property.slice('sc-domain:'.length)
@@ -217,6 +234,12 @@ async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspe
     }
   }
 
+  // Fresh slate for THIS property only, right before writing its results. Scoped
+  // per-property (not a single global delete before the run's loop) so a
+  // mid-run timeout — which happens routinely once the fleet outgrows the
+  // 300s budget — never leaves not-yet-reached properties with zero issues
+  // for a type they were never actually rescanned for.
+  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'not_indexed').eq('property', prop.property)
   if (problems.length) {
     const { error } = await supabaseAdmin.from('seo_issues').insert(problems)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     if (error) throw new Error(`not_indexed insert ${prop.property}: ${error.message}`)
@@ -236,15 +259,19 @@ export type TechnicalScanResult = {
 }
 
 export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promise<TechnicalScanResult> {
-  // Fresh slate for indexing issues — GSC + competitor detectors don't touch these.
-  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'not_indexed')
-
   const { data: props } = await supabaseAdmin
     .from('seo_properties')
-    .select('property,domain,tenant_id')
+    .select('property,domain,tenant_id,meta')
     .eq('enabled', true)
   let properties = (props ?? []) as Property[]
-  if (opts?.propertyLimit) properties = properties.slice(0, opts.propertyLimit)
+  // Oldest-scanned-first (never-scanned = '' sorts first) — rotates the fleet
+  // across runs instead of always re-scanning the same head of the list.
+  properties = properties.sort((a, b) => {
+    const at = (a.meta?.technical_last_scanned_at as string | undefined) ?? ''
+    const bt = (b.meta?.technical_last_scanned_at as string | undefined) ?? ''
+    return at < bt ? -1 : at > bt ? 1 : 0
+  })
+  properties = properties.slice(0, opts?.propertyLimit ?? DEFAULT_PROPERTIES_PER_RUN)
 
   const out: TechnicalScanResult = {
     properties: properties.length,
@@ -266,6 +293,7 @@ export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promi
       out.urlsInspected += inspected
       out.notIndexed += problems
       out.scanned++
+      await markScanned(prop.property)
     } catch (e) {
       out.skipped.push(`${prop.domain ?? propertyToDomain(prop.property)}: ${e instanceof Error ? e.message : String(e)}`)
     }
