@@ -5166,3 +5166,63 @@ IP-fallback preserved, POST/DELETE scoping. `npx tsc --noEmit` clean;
 
 Full detail: `deploy-prep/w2-mgmt-application-draft-frontend-wiring.md`.
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 08:30 round (W2) — P89, fixed: `POST /api/admin/campaigns/generate`
++ `POST /api/admin/campaigns/preview` had zero permission check — any
+staff-tier (or manager-tier) member could trigger a billed Anthropic AI
+call or pull the full client PII list (name/email/phone/marketing-opt-out
+status) for the tenant with zero role check
+
+Continuing the broad-hunt (leader order 08:30, "lower-risk surface").
+Same detection signal as P70-P88: grepped every `api/**/route.ts` calling
+`getTenantForRequest`/`tenantDb` with no `requirePermission` gate, cross-
+referenced against `rbac.ts`. Found a clear sibling-precedent match in the
+campaigns family:
+
+- `campaigns/route.ts` POST/PUT/DELETE, `campaigns/[id]/route.ts`
+  PUT/DELETE, and `campaigns/send/route.ts` POST/PUT all gate the
+  campaign-authoring/send workflow behind `requirePermission('campaigns.create')`.
+- `admin/campaigns/generate/route.ts` (AI-generated campaign copy via
+  Anthropic, billed to the tenant's own stored key or the platform key) and
+  `admin/campaigns/preview/route.ts` (audience preview — returns the FULL
+  `clients` table filtered by segment: id/name/email/phone/opt-out flags)
+  are both pre-send steps in that same workflow, but neither had any
+  `requirePermission` call — only the bare `getTenantForRequest()` (proves
+  tenant membership at ANY role).
+
+Not override-only: by default `rbac.ts` grants `manager` `campaigns.view`
+but NOT `campaigns.create`, and `staff` gets no `campaigns.*` at all — so
+both manager- and staff-tier members could already hit either route with
+zero role check, no override needed. Same "no live frontend caller yet,
+but the route fully executes for any authenticated tenant member" shape as
+P83 (`import-clients`) — not dead code (which always 401s), so still a
+live gap worth closing before a caller is wired up.
+
+**Fix:** `requirePermission('campaigns.create')` on both, matching the
+rest of the family's create-workflow gate (consistent with `campaigns/send/route.ts`
+POST/PUT already using `campaigns.create`, not a separate `campaigns.send`,
+for the actual send action). Also had to fix a naming trap while wiring
+this in: `requirePermission()` returns `{ tenant: TenantContext }` (the
+whole auth context, with the DB tenant row nested at `.tenant`), not the
+raw tenant row directly like `getTenantForRequest()`'s destructured
+`{ tenant }` — both routes used `tenant.name`/`tenant.anthropic_api_key`/etc.
+downstream, so left as a bare rename it would have silently broken (not
+just a lint issue — `tenant.anthropic_api_key` etc. would be `undefined`).
+Fixed by aliasing to `authTenant` and re-deriving `tenant = authTenant.tenant`,
+matching how `campaigns/route.ts` handles the same shape via `authTenant.tenantId`.
+
+**Regression lock:** 2 new `route.rbac.test.ts` files (11 tests total —
+owner/admin-succeeds, manager-forbidden [has `campaigns.view` but not
+`campaigns.create`], staff-forbidden, override-revoke-admin, and an
+override-grant-to-manager probe on generate). Mutation-verified via
+`git stash push -- <2 route.ts files>` / `git stash pop`: 6 of 11 probes
+went RED pre-fix, restored cleanly, all 11 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 424 files, 1868 passed + 37
+skipped, 0 regressions (was 421/1851). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
