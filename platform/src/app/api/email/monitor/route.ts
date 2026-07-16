@@ -18,6 +18,7 @@ import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-m
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
 import { safeEqual } from '@/lib/secret-compare'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 export const maxDuration = 60
 
@@ -163,8 +164,15 @@ interface MatchResult {
   clientPhone?: string
 }
 
-async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): Promise<MatchResult> {
+export async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): Promise<MatchResult> {
   const senderLower = (payment.senderName || '').toLowerCase().trim()
+  // payment.senderName is attacker-influenceable (the monitored inbox's email
+  // "From" display name / body text, see payment-email-parser.ts) -- escape
+  // %/_ so it can't widen the ilike wildcard match (e.g. senderName:'%' would
+  // otherwise match ANY unpaid booking/client in the tenant, auto-marking an
+  // arbitrary booking paid off a forged payment-confirmation email). Same bug
+  // class as portal/collect + client/collect's referrer_name fix.
+  const escapedSender = escapeLikeValue(senderLower)
 
   // 1. Match by bookings.payment_sender_name (Selena confirm_payment recorded a custom payer name)
   if (senderLower) {
@@ -173,7 +181,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
       .select('id, client_id, clients(phone)')
       .eq('tenant_id', tenant.id)
       .neq('payment_status', 'paid')
-      .ilike('payment_sender_name', `%${senderLower}%`)
+      .ilike('payment_sender_name', `%${escapedSender}%`)
       .order('start_time', { ascending: false })
       .limit(1)
     if (byPayer && byPayer.length > 0) {
@@ -188,7 +196,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
       .from('clients')
       .select('id, phone')
       .eq('tenant_id', tenant.id)
-      .ilike('name', `%${senderLower}%`)
+      .ilike('name', `%${escapedSender}%`)
       .limit(5)
     for (const client of clients || []) {
       const { data: booking } = await supabaseAdmin
