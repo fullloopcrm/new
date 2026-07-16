@@ -211,7 +211,10 @@ export async function PUT(
     // Onboarding fields
     'gmail_account', 'domain', 'domain_name', 'dns_configured',
     'email_domain_verified', 'sms_number',
-    'website_published', 'website_content', 'setup_progress',
+    'website_published', 'website_content',
+    // NOT 'setup_progress' — merged via the atomic RPC below, never a direct
+    // assignment, so a partial checklist patch can never blindly clobber a
+    // concurrently-checked box (see the merge block near the main update).
     // Integration fields
     'resend_api_key', 'resend_domain', 'email_from',
     'telegram_bot_token', 'telegram_chat_id',
@@ -231,7 +234,10 @@ export async function PUT(
     // Agent identity — single source of truth for the AI's name across SMS
     // (Selena) and web/Telegram/admin/email (Yinez). Default 'Jefe'.
     'agent_name',
-    // Selena persona (full config blob)
+    // Selena persona (full config blob) — NOT included here when only a
+    // partial patch (e.g. service_areas alone) is being merged in; see the
+    // atomic RPC merge below. Only a caller sending the full blob directly
+    // takes the direct-assignment path.
     'selena_config',
   ]
   const updates: Record<string, unknown> = {}
@@ -259,30 +265,46 @@ export async function PUT(
     updates.domain = cleanDomain || null
   }
 
-  // For setup_progress, merge with existing instead of overwriting
-  if (body.setup_progress) {
-    const { data: current } = await supabaseAdmin
-      .from('tenants')
-      .select('setup_progress')
-      .eq('id', id)
-      .single()
-    updates.setup_progress = { ...(current?.setup_progress || {}), ...body.setup_progress }
+  // For setup_progress, merge with existing instead of overwriting. A plain
+  // read-merge-write here (read setup_progress, spread the patch over it in
+  // JS, blind-write it back alongside the rest of `updates` below) races: two
+  // admins checking off DIFFERENT onboarding steps in two tabs both read the
+  // same stale blob, and whichever write lands second silently reverts the
+  // first admin's checked box. Merge atomically in Postgres instead
+  // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) — no read step, so
+  // there's nothing to race. Applied as its own statement, not folded into
+  // `updates`, so the later blind tenants UPDATE never touches this column.
+  if (body.setup_progress && typeof body.setup_progress === 'object') {
+    const { error: spErr } = await supabaseAdmin.rpc('merge_tenant_setup_progress', {
+      p_tenant_id: id, p_patch: body.setup_progress,
+    })
+    if (spErr) return NextResponse.json({ error: spErr.message }, { status: 500 })
   }
 
   // service_areas lives inside selena_config. Merge it in rather than letting a
   // caller overwrite the whole blob (which would wipe persona/pricing/checklist).
   // Drives activation coverage + the template's geo/service/job page generation.
+  // If the caller already sent the full blob (body.selena_config), merge areas
+  // into THAT in JS — a full replace the caller opted into, no DB read, no
+  // race. If only service_areas was sent, a fresh DB read would be needed to
+  // merge against — the same lost-update shape as setup_progress above (a
+  // service-area save racing a persona/pricing save on selena_config could
+  // silently revert the other), so use the same atomic Postgres-side merge.
+  // Also drives the cache-bust below for the RPC-merge branch, where
+  // selena_config was changed on the row but never touches `updates`.
+  let selenaConfigMergedViaRpc = false
   if (body.service_areas !== undefined) {
-    let base = updates.selena_config as Record<string, unknown> | undefined
-    if (!base) {
-      const { data } = await supabaseAdmin.from('tenants').select('selena_config').eq('id', id).single()
-      base = (data?.selena_config as Record<string, unknown>) || {}
-    }
-    updates.selena_config = {
-      ...base,
-      service_areas: Array.isArray(body.service_areas)
-        ? body.service_areas.map((s: unknown) => String(s).trim()).filter(Boolean)
-        : [],
+    const areas = Array.isArray(body.service_areas)
+      ? body.service_areas.map((s: unknown) => String(s).trim()).filter(Boolean)
+      : []
+    if (updates.selena_config) {
+      updates.selena_config = { ...(updates.selena_config as Record<string, unknown>), service_areas: areas }
+    } else {
+      const { error: scErr } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+        p_tenant_id: id, p_patch: { service_areas: areas },
+      })
+      if (scErr) return NextResponse.json({ error: scErr.message }, { status: 500 })
+      selenaConfigMergedViaRpc = true
     }
   }
 
@@ -351,8 +373,10 @@ export async function PUT(
   }
 
   // Bust Selena config cache if selena_config was touched so persona
-  // changes take effect immediately (default TTL is 5 min).
-  if (updates.selena_config !== undefined) {
+  // changes take effect immediately (default TTL is 5 min). Also true for the
+  // RPC-merge branch above, which changes the row without ever touching
+  // `updates.selena_config`.
+  if (updates.selena_config !== undefined || selenaConfigMergedViaRpc) {
     const { clearSelenaConfigCache } = await import('@/lib/selena-legacy')
     clearSelenaConfigCache(id)
   }
