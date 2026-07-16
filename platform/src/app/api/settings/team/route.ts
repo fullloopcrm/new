@@ -57,24 +57,21 @@ export async function PUT(request: Request) {
       }
     }
 
-    // Merge into selena_config (canonical store), preserve other keys.
-    const { data: current } = await supabaseAdmin
-      .from('tenants')
-      .select('selena_config')
-      .eq('id', tenantId)
-      .single()
-
-    const next = {
-      ...((current?.selena_config || {}) as Record<string, unknown>),
-      team_roles: config.roles,
-      team_pay_rates: config.pay_rates,
-      default_working_days: config.default_working_days,
-    }
-
-    const { error } = await supabaseAdmin
-      .from('tenants')
-      .update({ selena_config: next })
-      .eq('id', tenantId)
+    // Merge into selena_config (canonical store), preserve other keys. Atomic
+    // Postgres-side merge (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql)
+    // instead of a JS read-merge-write -- a team-config save racing a
+    // persona/service-area save via admin/businesses PUT (or another tab's
+    // team save) would otherwise both read the same stale selena_config blob,
+    // and whichever write landed second would silently revert the other's
+    // change with no error to either side.
+    const { error } = await supabaseAdmin.rpc('merge_tenant_selena_config', {
+      p_tenant_id: tenantId,
+      p_patch: {
+        team_roles: config.roles,
+        team_pay_rates: config.pay_rates,
+        default_working_days: config.default_working_days,
+      },
+    })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

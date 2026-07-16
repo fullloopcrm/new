@@ -50,6 +50,30 @@ BEGIN
 END;
 $$;
 
+-- tenants.compliance: same read-merge-write clobber, found on
+-- PATCH /api/admin/businesses/[id]/profile (the canonical one-form live-save
+-- profile UI -- routeProfileWrite() sends a fresh PATCH per field edit, so
+-- two fields saved in quick succession, or two admins editing the same
+-- tenant's compliance section in separate tabs, both read the same stale
+-- `compliance` blob and the second write silently reverts the first field's
+-- save). No existing RPC covered this column.
+CREATE OR REPLACE FUNCTION public.merge_tenant_compliance(
+  p_tenant_id uuid,
+  p_patch jsonb
+) RETURNS jsonb
+LANGUAGE plpgsql AS $$
+DECLARE
+  v_result jsonb;
+BEGIN
+  UPDATE public.tenants
+  SET compliance = COALESCE(compliance, '{}'::jsonb) || p_patch
+  WHERE id = p_tenant_id
+  RETURNING compliance INTO v_result;
+
+  RETURN v_result;
+END;
+$$;
+
 -- POST /api/setup-checklist's "uncomplete_key" toggle-off has the same
 -- read-merge-write shape but needs to REMOVE a key, not merge one in --
 -- `||` can't do that, so it needs its own atomic Postgres-side op (jsonb `-`

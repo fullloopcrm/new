@@ -55,6 +55,22 @@ export async function POST(request: Request) {
         : [{ coa_id: bankCoa, debit_cents: amount }, { coa_id: t.suggested_coa_id, credit_cents: amount }]
 
       try {
+        // Atomic claim BEFORE posting the journal entry: the batch's initial
+        // SELECT (status='pending') is a stale snapshot by the time this loop
+        // iteration runs, so a second accept-suggestions run (or a manual
+        // /match / [id] PATCH categorize on the same row) started while this
+        // one is mid-loop would otherwise both post a journal entry for the
+        // same transaction -- double-counting it in the ledger. Gated on the
+        // DB row's CURRENT status; a loss here is counted as skipped, not failed.
+        const { data: claimed } = await db
+          .from('bank_transactions')
+          .update({ status: 'posted' })
+          .eq('id', t.id)
+          .eq('status', 'pending')
+          .select('id')
+          .maybeSingle()
+        if (!claimed) { skipped++; continue }
+
         const entryId = await postJournalEntry({
           tenant_id: tenantId,
           entry_date: t.txn_date,
@@ -65,7 +81,7 @@ export async function POST(request: Request) {
         })
         await db
           .from('bank_transactions')
-          .update({ coa_id: t.suggested_coa_id, status: 'posted', journal_entry_id: entryId })
+          .update({ coa_id: t.suggested_coa_id, journal_entry_id: entryId })
           .eq('id', t.id)
 
         // Bump pattern

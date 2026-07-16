@@ -11,8 +11,8 @@
  *   PATCH → { field, value }  |  { values: {key:value,…} }   → applied, fresh readiness
  *
  * Secrets (stripe/resend/telnyx/… keys) are encrypted at rest via
- * encryptTenantSecrets. jsonb stores are read-modify-merged so a single-field
- * save never clobbers sibling keys.
+ * encryptTenantSecrets. jsonb stores are merged atomically in Postgres (no
+ * JS-side read step) so a single-field save never clobbers sibling keys.
  */
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
@@ -81,19 +81,24 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (error) throw new Error(`entity: ${error.message}`)
     }
 
-    // jsonb stores → read-modify-merge so a single field never clobbers siblings.
-    if (Object.keys(selenaKeys).length || Object.keys(complianceKeys).length) {
-      const { data: cur } = await supabaseAdmin
-        .from('tenants').select('selena_config, compliance').eq('id', id).single()
-      if (Object.keys(selenaKeys).length) {
-        tenantCols.selena_config = { ...((cur?.selena_config as Record<string, unknown>) || {}), ...selenaKeys }
-      }
-      if (Object.keys(complianceKeys).length) {
-        tenantCols.compliance = { ...((cur?.compliance as Record<string, unknown>) || {}), ...complianceKeys }
-      }
+    // jsonb stores → atomic Postgres-side merge (migrations/2026_07_16_tenant_
+    // jsonb_merge_atomic.sql), not a JS read-modify-merge. This is the
+    // canonical live-save endpoint -- routeProfileWrite() fires a fresh PATCH
+    // per field edit, so two fields in the same jsonb store saved back-to-back
+    // (or two admins editing the same tenant's profile in separate tabs) each
+    // read-then-write; a JS-side merge would race on the stale snapshot and
+    // whichever write lands second would silently clobber the sibling field
+    // the first write just saved. No read step here, so nothing to race.
+    if (Object.keys(selenaKeys).length) {
+      const { error } = await supabaseAdmin.rpc('merge_tenant_selena_config', { p_tenant_id: id, p_patch: selenaKeys })
+      if (error) throw new Error(`selena_config: ${error.message}`)
+    }
+    if (Object.keys(complianceKeys).length) {
+      const { error } = await supabaseAdmin.rpc('merge_tenant_compliance', { p_tenant_id: id, p_patch: complianceKeys })
+      if (error) throw new Error(`compliance: ${error.message}`)
     }
 
-    // Tenant columns (+ merged jsonb) → encrypt secrets, then write.
+    // Tenant columns → encrypt secrets, then write.
     if (Object.keys(tenantCols).length) {
       const safe = encryptTenantSecrets(tenantCols)
       const { error } = await supabaseAdmin.from('tenants').update(safe).eq('id', id)

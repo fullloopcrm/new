@@ -50,6 +50,24 @@ export async function POST(request: Request) {
       if (!bankCoa) {
         return NextResponse.json({ error: 'Bank account has no CoA link.' }, { status: 400 })
       }
+
+      // Atomic claim BEFORE posting the journal entry: the `txn.status ===
+      // 'pending'` check above reads a stale snapshot, so a concurrent call
+      // for the same bank transaction (double-click, or a race against
+      // /match or the [id] PATCH categorize route) would both pass it and
+      // both post a journal entry -- double-counting the expense in the
+      // ledger. Gated on the DB row's CURRENT status; the loser's UPDATE
+      // matches zero rows and is turned away here, before postJournalEntry runs.
+      const { data: claimed } = await db
+        .from('bank_transactions')
+        .update({ status: 'posted' })
+        .eq('tenant_id', tenantId)
+        .eq('id', txnId)
+        .in('status', ['pending', 'categorized'])
+        .select('id')
+        .maybeSingle()
+      if (!claimed) return NextResponse.json({ error: 'Already processed' }, { status: 400 })
+
       const amount = Math.abs(txn.amount_cents)
       const isOutflow = txn.amount_cents < 0
       const lines = isOutflow
@@ -65,7 +83,6 @@ export async function POST(request: Request) {
         lines,
       })
       updates.coa_id = coaId
-      updates.status = 'posted'
       updates.journal_entry_id = entryId
 
       // Bump pattern

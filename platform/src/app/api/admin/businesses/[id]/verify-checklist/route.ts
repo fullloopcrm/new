@@ -39,10 +39,13 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   const checks = await runAllChecks(tenantForVerify, appUrl)
 
   // Persist auto-verified flags into setup_progress so the /admin/businesses/[id]
-  // checklist UI reflects live state without manual toggles.
-  const current = (tenant.setup_progress || {}) as Record<string, boolean>
-  const updated = {
-    ...current,
+  // checklist UI reflects live state without manual toggles. Merged atomically
+  // in Postgres (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) instead
+  // of a JS read-merge-write -- a live check racing a manual admin checkbox
+  // toggle on PUT /api/admin/businesses/[id] (or another concurrent verify
+  // run) would otherwise both read the same stale setup_progress blob, and
+  // whichever write landed second would silently revert the other's change.
+  const patch = {
     dns_a_record: checks.dns_a.ok,
     dns_cname_www: checks.dns_cname_www.ok,
     mx_records: checks.mx_records.ok,
@@ -51,12 +54,17 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
     telnyx_messaging_profile: checks.telnyx_number_active.ok,
     stripe_webhook_configured: checks.stripe_webhook_configured.ok,
     stripe_business_verified: checks.stripe_account.ok,
-    auto_verified_at: new Date().toISOString() as unknown as boolean,
+    auto_verified_at: new Date().toISOString(),
   }
+
+  const { error: spErr } = await supabaseAdmin.rpc('merge_tenant_setup_progress', {
+    p_tenant_id: id, p_patch: patch,
+  })
+  if (spErr) return NextResponse.json({ error: spErr.message }, { status: 500 })
 
   await supabaseAdmin
     .from('tenants')
-    .update({ setup_progress: updated, dns_configured: checks.dns_a.ok && checks.dns_cname_www.ok })
+    .update({ dns_configured: checks.dns_a.ok && checks.dns_cname_www.ok })
     .eq('id', id)
 
   return NextResponse.json({

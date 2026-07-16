@@ -30,10 +30,18 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!txn) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (body.status === 'ignored') {
-      await db
+      // Atomic claim: only flip a still-open txn, gated on the DB row's
+      // CURRENT status. A concurrent PATCH (double-click, or a race against
+      // /match or /accept-suggestions on the same txn) that already posted
+      // or ignored this row is turned away instead of silently re-ignoring it.
+      const { data: claimed } = await db
         .from('bank_transactions')
         .update({ status: 'ignored' })
         .eq('id', id)
+        .in('status', ['pending', 'categorized'])
+        .select('id')
+        .maybeSingle()
+      if (!claimed) return NextResponse.json({ error: 'Already processed' }, { status: 400 })
       return NextResponse.json({ ok: true })
     }
 
@@ -52,6 +60,23 @@ export async function PATCH(request: Request, { params }: Params) {
     if (!bankCoa) {
       return NextResponse.json({ error: 'Bank account has no Chart-of-Accounts link. Set one in bank settings.' }, { status: 400 })
     }
+
+    // Atomic claim BEFORE posting the journal entry: this route previously
+    // read txn.status once and never re-checked it, so a concurrent PATCH for
+    // the same transaction (double-click, or a race against /match or
+    // /accept-suggestions) would both pass through and both post a journal
+    // entry for the same bank transaction -- double-counting the expense/
+    // revenue in the ledger. Gated on the DB row's CURRENT status; the
+    // loser's UPDATE matches zero rows and is turned away here, before any
+    // side-effecting write runs.
+    const { data: claimed } = await db
+      .from('bank_transactions')
+      .update({ status: 'posted' })
+      .eq('id', id)
+      .in('status', ['pending', 'categorized'])
+      .select('id')
+      .maybeSingle()
+    if (!claimed) return NextResponse.json({ error: 'Already processed' }, { status: 400 })
 
     const amount = Math.abs(txn.amount_cents)
     const isOutflow = txn.amount_cents < 0
@@ -75,7 +100,6 @@ export async function PATCH(request: Request, { params }: Params) {
       .update({
         coa_id: body.coa_id,
         memo: body.memo || null,
-        status: 'posted',
         journal_entry_id: entryId,
       })
       .eq('id', id)

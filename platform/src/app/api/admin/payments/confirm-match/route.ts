@@ -66,12 +66,25 @@ export async function POST(req: Request) {
       }
     }
 
-    // 1. Mark unmatched as matched
-    await supabaseAdmin
+    // 1. Atomic claim: flip status to matched in one conditional UPDATE gated
+    // on the DB row's CURRENT status (not the stale `unmatched.status` read
+    // above), before either side-effecting write below (payments insert /
+    // booking payment_status update) runs. Two concurrent confirm-match
+    // requests for the SAME unmatched payment both pass the read-time check
+    // above; without this, both would insert a `payments` row and flip the
+    // booking to paid -- double-recording the same real-world payment. The
+    // loser's UPDATE now matches zero rows and is turned away here instead.
+    const { data: claimed } = await supabaseAdmin
       .from('unmatched_payments')
       .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
       .eq('id', unmatchedPaymentId)
       .eq('tenant_id', tenantId)
+      .neq('status', 'matched')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json({ error: 'Already matched' }, { status: 409 })
+    }
 
     // 2. Insert payment row
     await supabaseAdmin.from('payments').insert({

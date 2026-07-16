@@ -86,20 +86,17 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'Config must be an object' }, { status: 400 })
     }
 
-    // Read current setup_progress, merge in page config
-    const { data: current } = await supabaseAdmin
-      .from('tenants')
-      .select('setup_progress')
-      .eq('id', tenantId)
-      .single()
-
-    const sp = (current?.setup_progress || {}) as Record<string, unknown>
-    sp[configKey(page)] = config
-
-    const { error } = await supabaseAdmin
-      .from('tenants')
-      .update({ setup_progress: sp })
-      .eq('id', tenantId)
+    // Merge this page's config key into setup_progress atomically in Postgres
+    // (migrations/2026_07_16_tenant_jsonb_merge_atomic.sql) instead of a JS
+    // read-merge-write -- two different admin pages saving their page config
+    // concurrently (or racing an onboarding-checklist toggle on the same
+    // setup_progress column) would otherwise both read the same stale blob,
+    // and whichever write landed second would silently drop the other page's
+    // just-saved config key.
+    const { error } = await supabaseAdmin.rpc('merge_tenant_setup_progress', {
+      p_tenant_id: tenantId,
+      p_patch: { [configKey(page)]: config },
+    })
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
