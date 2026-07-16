@@ -6,6 +6,14 @@
 // taken at apply time. Clear losers are reverted (the override is switched off,
 // so the page falls back to its original copy). Winners/neutral are marked
 // verified and kept. Only autopilot's own changes are ever auto-reverted.
+//
+// Position judges ONE query — the page's top query at proposal time. If that
+// query's demand dries up or the rewrite shifted what the page ranks for,
+// currentPosition() returns null and the old logic kept the change forever
+// ("can't prove harm"). A second, independent signal closes that gap: total
+// page-level clicks (all queries, from seo_page_rollup's own 28-day window,
+// mirrored here so before/after are apples-to-apples) — a hard drop reverts
+// even when the originally-tracked query has gone quiet.
 // ---------------------------------------------------------------------------
 import { supabaseAdmin } from '@/lib/supabase'
 import { revertOverride } from './overrides'
@@ -14,11 +22,22 @@ const VERIFY_WEEKS = 4 // wait this long before judging (GSC lags + ranking nois
 const LOOKBACK_DAYS = 21 // window of recent metrics to read the current position
 const REVERT_THRESHOLD = 3 // positions worse than baseline before we roll back
 
+const TRAFFIC_LOOKBACK_DAYS = 28 // mirrors seo_page_rollup's window, for a fair before/after
+const TRAFFIC_DROP_THRESHOLD = 0.5 // revert if current clicks <= 50% of baseline
+const MIN_BASELINE_CLICKS = 5 // ignore pages too small for click counts to mean anything
+
 type AppliedChange = {
   id: string
   property: string
   target_url: string
-  before_metric: { query?: string; top_query?: string; position?: number; best_position?: number } | null
+  before_metric: {
+    query?: string
+    top_query?: string
+    position?: number
+    best_position?: number
+    clicks?: number
+    impressions?: number
+  } | null
 }
 
 function baselinePosition(m: AppliedChange['before_metric']): number | null {
@@ -30,6 +49,10 @@ function baselinePosition(m: AppliedChange['before_metric']): number | null {
 function baselineQuery(m: AppliedChange['before_metric']): string | null {
   if (!m) return null
   return m.query ?? m.top_query ?? null
+}
+
+function baselineClicks(m: AppliedChange['before_metric']): number | null {
+  return typeof m?.clicks === 'number' ? m.clicks : null
 }
 
 /** Impression-weighted current position for (page, query) over the lookback. */
@@ -47,6 +70,24 @@ async function currentPosition(property: string, url: string, query: string): Pr
   const wsum = rows.reduce((a, r) => a + (r.impressions || 0), 0)
   if (wsum === 0) return rows.reduce((a, r) => a + r.position, 0) / rows.length
   return rows.reduce((a, r) => a + r.position * (r.impressions || 0), 0) / wsum
+}
+
+/** Total page-level clicks across every query, over the same window seo_page_rollup uses. */
+async function currentPageClicks(property: string, url: string): Promise<number> {
+  const since = new Date(Date.now() - TRAFFIC_LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10)
+  const { data } = await supabaseAdmin
+    .from('seo_metrics')
+    .select('clicks')
+    .eq('property', property)
+    .eq('page', url)
+    .gte('date', since)
+  return (data ?? []).reduce((sum, r) => sum + (Number((r as { clicks?: number }).clicks) || 0), 0)
+}
+
+/** True if the page's total traffic cratered relative to baseline, independent of any single query. */
+export function isTrafficRegression(baseline: number | null, current: number): boolean {
+  if (baseline == null || baseline < MIN_BASELINE_CLICKS) return false
+  return current <= baseline * (1 - TRAFFIC_DROP_THRESHOLD)
 }
 
 export type VerifyResult = {
@@ -82,10 +123,20 @@ export async function runVerifyRevert(): Promise<VerifyResult> {
 
   const now = new Date().toISOString()
 
+  const revert = async (url: string, ids: string[], afterMetric: Record<string, unknown>): Promise<void> => {
+    await revertOverride(url)
+    await supabaseAdmin
+      .from('seo_changes')
+      .update({ status: 'rolled_back', verified_at: now, after_metric: afterMetric })
+      .in('id', ids)
+    out.reverted++
+  }
+
   for (const [url, group] of byUrl) {
     const head = group[0]
     const query = baselineQuery(head.before_metric)
     const baseline = baselinePosition(head.before_metric)
+    const baseClicks = baselineClicks(head.before_metric)
     const ids = group.map((g) => g.id)
 
     if (!query || baseline == null) {
@@ -97,31 +148,51 @@ export async function runVerifyRevert(): Promise<VerifyResult> {
     out.judged++
 
     if (current == null) {
-      // No recent data for this query on this page — can't prove harm, keep it.
+      // The tracked query went quiet — position alone can't judge this page
+      // anymore. Fall back to total page traffic before defaulting to keep.
+      const currentClicks = await currentPageClicks(head.property, url)
+      if (isTrafficRegression(baseClicks, currentClicks)) {
+        await revert(url, ids, { query, baseline, current: null, baseClicks, currentClicks, verdict: 'reverted_traffic_drop' })
+        out.details.push(`REVERT ${url} (traffic) clicks ${baseClicks}→${currentClicks}, "${query}" went quiet`)
+        continue
+      }
       out.skippedNoData++
-      await markVerified(ids, { query, baseline, current: null, verdict: 'no_data_kept' }, now)
+      await markVerified(ids, { query, baseline, current: null, baseClicks, currentClicks, verdict: 'no_data_kept' }, now)
       continue
     }
 
     // Lower position is better. Reverting only on a clear regression.
     if (current > baseline + REVERT_THRESHOLD) {
-      await revertOverride(url)
-      await supabaseAdmin
-        .from('seo_changes')
-        .update({
-          status: 'rolled_back',
-          verified_at: now,
-          after_metric: { query, baseline, current: Math.round(current * 10) / 10, verdict: 'reverted' },
-        })
-        .in('id', ids)
-      out.reverted++
+      await revert(url, ids, { query, baseline, current: Math.round(current * 10) / 10, verdict: 'reverted' })
       out.details.push(`REVERT ${url} "${query}" ${baseline}→${current.toFixed(1)}`)
-    } else {
-      const verdict = current < baseline - 0.5 ? 'improved' : 'held'
-      await markVerified(ids, { query, baseline, current: Math.round(current * 10) / 10, verdict }, now)
-      out.verified++
-      out.details.push(`KEEP ${url} "${query}" ${baseline}→${current.toFixed(1)} (${verdict})`)
+      continue
     }
+
+    // Position looks fine or neutral — still check for a traffic collapse the
+    // single tracked query wouldn't show (e.g. the rewrite tanked CTR on other
+    // queries the page used to pull impressions from).
+    const currentClicks = await currentPageClicks(head.property, url)
+    if (isTrafficRegression(baseClicks, currentClicks)) {
+      await revert(url, ids, {
+        query,
+        baseline,
+        current: Math.round(current * 10) / 10,
+        baseClicks,
+        currentClicks,
+        verdict: 'reverted_traffic_drop',
+      })
+      out.details.push(`REVERT ${url} (traffic) clicks ${baseClicks}→${currentClicks}, position held`)
+      continue
+    }
+
+    const verdict = current < baseline - 0.5 ? 'improved' : 'held'
+    await markVerified(
+      ids,
+      { query, baseline, current: Math.round(current * 10) / 10, baseClicks, currentClicks, verdict },
+      now,
+    )
+    out.verified++
+    out.details.push(`KEEP ${url} "${query}" ${baseline}→${current.toFixed(1)} (${verdict})`)
   }
 
   return out
