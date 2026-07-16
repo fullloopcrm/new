@@ -83,7 +83,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
   // Auth: the update must come from this tenant's registered owner chat.
-  if (tenant.telegram_chat_id && String(chatId) !== String(tenant.telegram_chat_id)) {
+  // Fail CLOSED when telegram_chat_id isn't set yet (bot token saved but the
+  // owner hasn't sent their first message to capture their chat id) — the
+  // old `tenant.telegram_chat_id && mismatch` form short-circuited false in
+  // that gap, letting ANY chat through with owner-tier agent access (same
+  // fail-open shape already fixed on the platform Jefe bot, see
+  // ../jefe/route.ts).
+  if (!tenant.telegram_chat_id || String(chatId) !== String(tenant.telegram_chat_id)) {
     await sendTelegram(chatId, 'This bot is private.', botToken)
     return NextResponse.json({ ok: true, private: true })
   }

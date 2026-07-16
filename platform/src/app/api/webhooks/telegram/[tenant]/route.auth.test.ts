@@ -90,3 +90,35 @@ describe('POST /api/webhooks/telegram/[tenant] — secret_token gate', () => {
     expect(res.status).not.toBe(401)
   })
 })
+
+describe('POST /api/webhooks/telegram/[tenant] — chat-id ownership gate fails closed', () => {
+  beforeEach(() => {
+    process.env.SECRET_ENCRYPTION_KEY = '0'.repeat(64)
+  })
+
+  // WRONG-TENANT PROBE: bot token saved (secret configured, gate active) but
+  // telegram_chat_id not yet set — the pre-fix `tenant.telegram_chat_id &&
+  // mismatch` check short-circuited false here, admitting ANY chat with
+  // owner-tier agent access instead of rejecting as private.
+  it('rejects an arbitrary chat when telegram_chat_id is not yet configured', async () => {
+    seedTenant({ telegram_webhook_secret: encryptSecret('tenant-real-secret'), telegram_chat_id: null })
+
+    const res = await POST(
+      req({ message: { chat: { id: 999999 }, text: 'do the thing' } }, 'tenant-real-secret'),
+      params()
+    )
+    const json = await res.json()
+    expect(json.private).toBe(true)
+  })
+
+  it('still admits the registered owner chat once telegram_chat_id is set', async () => {
+    seedTenant({ telegram_webhook_secret: encryptSecret('tenant-real-secret'), telegram_chat_id: '555' })
+
+    const res = await POST(
+      req({ message: { chat: { id: 555 }, text: 'do the thing' } }, 'tenant-real-secret'),
+      params()
+    )
+    const json = await res.json()
+    expect(json.private).toBeUndefined()
+  })
+})
