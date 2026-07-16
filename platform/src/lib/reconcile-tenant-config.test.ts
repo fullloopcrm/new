@@ -165,6 +165,32 @@ describe('norm — adversarial domain forms that must collapse to the same key',
   it('strips a scheme + www + path + query together', () => {
     expect(norm('http://www.Shared-Domain.com/some/path?x=1')).toBe('shared-domain.com')
   })
+
+  it('strips userinfo (user:pass@) when a full URL with credentials got pasted into a domain field', () => {
+    expect(norm('https://user:pass@shared-domain.com/')).toBe('shared-domain.com')
+  })
+
+  it('strips a bare userinfo (no password) before the host', () => {
+    expect(norm('https://evil@shared-domain.com/')).toBe('shared-domain.com')
+  })
+
+  it('strips a protocol-relative prefix ("//example.com") instead of collapsing the whole value', () => {
+    expect(norm('//shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('strips the stray extra slash from a malformed triple-slash URL instead of collapsing the whole value to empty', () => {
+    // A single-slash strip after the scheme leaves one leading slash behind
+    // ("https:/// " -> "/shared-domain.com"), which the path-strip rule then
+    // treats as the path separator for an EMPTY host, collapsing the entire
+    // value to '' — and claim() silently skips empty keys, so this row
+    // disappears from Drift F collision detection instead of just failing to
+    // collapse with its well-formed counterpart.
+    expect(norm('https:///shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('strips arbitrarily many stray slashes (quad-slash URL)', () => {
+    expect(norm('https:////shared-domain.com')).toBe('shared-domain.com')
+  })
 })
 
 describe('computeFindings — Drift F evades attempted via malformed domain forms', () => {
@@ -229,6 +255,60 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     const tds = [
       { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
       { tenant_id: 't-beta', domain: 'https://shared-domain.com/', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted as a full URL with userinfo (user:pass@host) instead of a bare hostname', () => {
+    // Same zero-normalization insert path (POST /api/admin/websites) — a copy-paste
+    // that carries basic-auth credentials or a stray "user@" prefix must not let
+    // the collision hide behind the extra authority component.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https://evil@shared-domain.com/', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https://evil@shared-domain.com/', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted as a malformed triple-slash URL instead of a bare hostname', () => {
+    // Without the fix, norm('https:///shared-domain.com') collapses to '' —
+    // claim() no-ops on an empty key, so this row is invisible to Drift F
+    // entirely (not merely uncollapsed), silently hiding the collision.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https:///shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https:///shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
     ]
 
     const findings: Finding[] = computeFindings({

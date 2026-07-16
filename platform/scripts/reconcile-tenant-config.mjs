@@ -38,6 +38,8 @@ export const norm = (d) =>
     .trim()
     .toLowerCase()
     .replace(/^[a-z][a-z0-9+.-]*:\/\//, '') // strip a URL scheme (e.g. https://) if a full URL got pasted into a domain field
+    .replace(/^\/+/, '') // strip a protocol-relative prefix ("//example.com") AND any stray extra slashes left by a malformed triple/quad-slash URL ("https:///example.com") — a single-slash strip left one leading slash behind, which the path-strip below then treated as the path separator, collapsing the WHOLE host to '' and making it silently invisible to Drift F (claim() skips empty keys)
+    .replace(/^[^/?#]*@/, '') // strip userinfo (user:pass@) if a full URL with credentials got pasted — the host after the LAST '@' is what actually routes
     .replace(/[/?#].*$/, '') // strip any path/query/fragment after the scheme strip — only the host decides routing
     .replace(/^www\./, '')
     .replace(/:\d+$/, '') // strip a port suffix (e.g. example.com:8443) — same real domain
