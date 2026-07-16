@@ -125,16 +125,18 @@ export function verifyTelnyx(
  * body (including a guessed/leaked chat_id) and the route has no way to
  * tell it apart from a real Telegram delivery.
  *
- * `expectedSecret` undefined/empty means the secret hasn't been activated
- * yet for this bot (registered via setWebhook + env/DB configured) — callers
- * should treat that as "verification not yet active" rather than a hard
- * failure, so the code can ship ahead of the Telegram-side registration step.
+ * Fail-CLOSED in every case, including when expectedSecret is unset — an
+ * unconfigured secret means the endpoint's only "auth" is a body-supplied
+ * chat_id (not a secret, forgeable), and these bots can trigger the
+ * Selena/Jefe agent with owner-tier tools. Callers must configure a secret
+ * via BotFather/setWebhook's secret_token param (and the matching env var /
+ * tenant column) before the webhook will accept traffic.
  */
 export function verifyTelegramSecretToken(
   headers: Headers,
   expectedSecret: string | undefined
 ): VerifyResult {
-  if (!expectedSecret) return { valid: true, reason: 'secret not configured — enforcement pending activation' }
+  if (!expectedSecret) return { valid: false, reason: 'secret not configured' }
 
   const provided = headers.get('x-telegram-bot-api-secret-token')
   if (!provided) return { valid: false, reason: 'missing secret token header' }

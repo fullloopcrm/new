@@ -6,7 +6,8 @@
  * body — not a real origin check. This suite proves the secret_token gate
  * rejects a forged update once a tenant has telegram_webhook_secret set
  * (populated on next bot-token save — see businesses/[id]/route.ts) and
- * stays a no-op for tenants that haven't re-saved yet (NULL secret).
+ * ALSO rejects (fails closed) for tenants that haven't re-saved yet (NULL
+ * secret) — an unconfigured secret must not silently accept traffic.
  */
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
@@ -81,13 +82,11 @@ describe('POST /api/webhooks/telegram/[tenant] — secret_token gate', () => {
     expect(res.status).toBe(401)
   })
 
-  it('passes through to the chat-id check when telegram_webhook_secret is NULL (pre-activation)', async () => {
+  it('rejects everything (fails closed) when telegram_webhook_secret is NULL', async () => {
     seedTenant({ telegram_webhook_secret: null })
 
-    // Unknown chat id → falls through to the private-bot branch, not a 401
-    // from the secret gate.
-    const res = await POST(req({ message: { chat: { id: 1 }, text: 'hi' } }), params())
-    expect(res.status).not.toBe(401)
+    const res = await POST(req({ message: { chat: { id: 555 }, text: 'hi' } }), params())
+    expect(res.status).toBe(401)
   })
 })
 

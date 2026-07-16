@@ -57,8 +57,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   // Telegram never signs webhook bodies — telegram_chat_id alone is not a
   // real auth boundary since it's compared against a value taken from the
   // (attacker-controlled) POST body. telegram_webhook_secret is NULL until
-  // this tenant's bot token is next re-saved (see businesses/[id]/route.ts),
-  // so this stays backward compatible with bots registered before this fix.
+  // this tenant's bot token is next re-saved (see businesses/[id]/route.ts);
+  // verifyTelegramSecretToken fails CLOSED in that case, so this tenant's
+  // bot 401s its own traffic until the token is re-saved + re-registered.
   const expectedSecret = tenant.telegram_webhook_secret ? decryptSecret(tenant.telegram_webhook_secret) : undefined
   const secretCheck = verifyTelegramSecretToken(req.headers, expectedSecret)
   if (!secretCheck.valid) {

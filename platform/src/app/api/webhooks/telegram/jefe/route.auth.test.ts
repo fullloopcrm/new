@@ -62,15 +62,15 @@ describe('POST /api/webhooks/telegram/jefe — secret_token gate', () => {
     expect(res.status).toBe(401)
   })
 
-  it('passes through when no secret is configured yet (pre-activation)', async () => {
+  it('rejects everything (fails closed) when no secret is configured at all', async () => {
     process.env.JEFE_BOT_TOKEN = 'fake-bot-token'
     delete process.env.JEFE_WEBHOOK_SECRET
     delete process.env.TELEGRAM_WEBHOOK_SECRET
     process.env.JEFE_OWNER_CHAT_ID = '99999'
     const { POST } = await import('./route')
 
-    const res = await POST(req({ message: { chat: { id: 1 }, text: 'hi' } }))
-    expect(res.status).not.toBe(401)
+    const res = await POST(req({ message: { chat: { id: 99999 }, text: 'hi' } }))
+    expect(res.status).toBe(401)
   })
 })
 
@@ -85,14 +85,14 @@ describe('POST /api/webhooks/telegram/jefe — owner-chat-id gate fails closed',
 
   it('rejects an arbitrary chat id and never calls askJefe when OWNER_CHAT_ID is unset', async () => {
     process.env.JEFE_BOT_TOKEN = 'fake-bot-token'
-    delete process.env.JEFE_WEBHOOK_SECRET
+    process.env.JEFE_WEBHOOK_SECRET = 'real-secret'
     delete process.env.TELEGRAM_WEBHOOK_SECRET
     delete process.env.JEFE_OWNER_CHAT_ID
     delete process.env.TELEGRAM_OWNER_CHAT_ID
     const { askJefe } = await import('@/lib/jefe/agent')
     const { POST } = await import('./route')
 
-    const res = await POST(req({ message: { chat: { id: 666666 }, text: 'attacker message' } }))
+    const res = await POST(req({ message: { chat: { id: 666666 }, text: 'attacker message' } }, 'real-secret'))
     const json = await res.json()
 
     expect(json.private).toBe(true)

@@ -7,10 +7,12 @@
  * Anyone who found this URL and guessed/leaked TELEGRAM_OWNER_CHAT_ID could
  * forge an update and drive Yinez with owner-tier tools.
  *
- * This suite proves the new secret_token gate actually rejects bad/missing
+ * This suite proves the secret_token gate actually rejects bad/missing
  * headers at the route level (not just in the underlying helper) once
- * TELEGRAM_WEBHOOK_SECRET is configured, and stays a no-op (today's behavior)
- * when it isn't — so shipping this doesn't break the live bot pre-activation.
+ * TELEGRAM_WEBHOOK_SECRET is configured, and ALSO rejects (fails closed)
+ * when it isn't configured at all — an unconfigured secret must not
+ * silently accept unauthenticated updates to a bot that can trigger the
+ * Selena agent with owner-tier tools.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { NextResponse } from 'next/server'
@@ -78,15 +80,13 @@ describe('POST /api/webhooks/telegram — secret_token gate', () => {
     expect(res.status).toBe(401)
   })
 
-  it('passes through to the chat-id check when no secret is configured yet (pre-activation)', async () => {
+  it('rejects everything (fails closed) when no secret is configured at all', async () => {
     delete process.env.TELEGRAM_WEBHOOK_SECRET
     process.env.TELEGRAM_OWNER_CHAT_ID = '99999'
     const { POST } = await import('./route')
 
-    // Unknown chat id → falls through to the private-bot branch, not a 401
-    // from the secret gate — proves the gate itself didn't block this.
-    const res = await POST(req({ message: { chat: { id: 1 }, text: 'hi' } }))
-    expect(res.status).not.toBe(401)
+    const res = await POST(req({ message: { chat: { id: 99999 }, text: 'hi' } }))
+    expect(res.status).toBe(401)
   })
 })
 

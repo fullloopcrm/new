@@ -146,9 +146,15 @@ describe('verifyTelegramSecretToken', () => {
     expect(result.reason).toBe('secret mismatch')
   })
 
-  it('allows through (unverified) when no secret is configured yet — transitional/pre-activation state', () => {
+  it('fails CLOSED when no secret is configured, even with no header sent', () => {
     const result = verifyTelegramSecretToken(headers(null), undefined)
-    expect(result.valid).toBe(true)
-    expect(result.reason).toMatch(/pending activation/)
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret not configured')
+  })
+
+  it('fails CLOSED when no secret is configured, regardless of header content', () => {
+    const result = verifyTelegramSecretToken(headers('anything'), '')
+    expect(result.valid).toBe(false)
+    expect(result.reason).toBe('secret not configured')
   })
 })
