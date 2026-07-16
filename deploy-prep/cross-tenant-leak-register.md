@@ -5070,3 +5070,68 @@ in-progress work (an IP-collision fix in draft-save keying), not mine,
 already documented in the P86 entry above. Left untouched, unstaged.
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 08:09 round (W2) — P88, fixed: `POST /api/admin/find-cleaner/preview`
++ `GET /api/admin/find-cleaner/recent` had zero permission check — any
+staff-tier member could pull the full team-member roster (name/phone) or
+read the broadcast-reply PII (phone + SMS reply text) for every past
+cleaner broadcast
+
+Continuing the broad-hunt (leader order 08:09, "lower-risk surface").
+Cross-referenced the `admin/find-cleaner/*` family: `send/route.ts` (the
+actual mass-SMS broadcast action) is correctly gated behind
+`requirePermission('campaigns.send')`, with its own comment documenting
+the exact bug class already fixed there in a prior round. Its two
+siblings were missed:
+
+- `preview/route.ts` (POST) — computes the eligible-cleaner list for a
+  prospective broadcast; returns each team member's name/phone/
+  availability, the same PII the sibling `send` route actually messages.
+- `recent/route.ts` (GET) — reads back `cleaner_broadcasts` +
+  `cleaner_broadcast_recipients` (10 most recent), including each
+  recipient's phone number and free-text SMS reply.
+
+Both only called `getTenantForRequest()` (proves tenant membership at ANY
+role) — no `requirePermission` anywhere. Not override-only: by default
+`rbac.ts` grants `staff` NO `campaigns.*` permission at all (not even
+`campaigns.view`) — so any staff-tier member could already pull the full
+cleaner roster or the full broadcast-reply history with zero role check,
+same class as P70-P88.
+
+**Fix:** `requirePermission('campaigns.view')` on both — the read tier
+(neither route sends SMS or writes a row), consistent with the
+view/mutate split used elsewhere (`settings.view`/`edit`,
+`schedules.view`/`edit`), rather than requiring the stronger
+`campaigns.send` already used by the actual send action. This also means
+`manager` (has `campaigns.view` but not `campaigns.send` by default) can
+still preview/review history without being able to actually broadcast.
+
+**Regression lock:** 2 new `route.rbac.test.ts` files (8 tests total: 4
+per route — owner-succeeds, manager-succeeds, staff-forbidden, and an
+override-revocation probe on manager). Mutation-verified via
+`git stash push -- <2 files>` / `git stash pop`: 4 of 8 probes went RED
+pre-fix (both staff-forbidden, both override-revoked-manager), restored
+cleanly, all 8 GREEN post-fix. Existing `recent/route.isolation.test.ts`
+(tenant-scoping regression lock) and `send/route.isolation.test.ts` still
+pass unmodified — both mock role `'owner'`, which has `campaigns.view`,
+so the new gate doesn't interfere.
+
+`npx tsc --noEmit`: clean. Full suite: 421 files, 1851 passed + 37
+skipped, 0 regressions (was 419/1843). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+**Noticed, not touched:** `platform/src/app/api/management-applications/draft/route.ts`
+still has an uncommitted change in the working tree — reconfirmed (again)
+this is the stale duplicate `.worker-driver.sh` process's in-progress work
+(PID 2278, still running alongside this session per `ps`), not mine,
+documented in the P86/P87 entries above. Left untouched, unstaged. Also
+confirmed via `ps` this round: a large set of untracked SEO-manager files
+(`platform/SEOMGR.md`, `src/app/api/cron/seo-{health,improve}`,
+`src/lib/seo/*`, `public/lp/`, etc.) in this working tree belong to that
+same concurrent stale-process session, not this lane — left completely
+untouched per blast-radius (unfamiliar state, investigate-don't-delete).
+
+File-only, no push/deploy/DB.
