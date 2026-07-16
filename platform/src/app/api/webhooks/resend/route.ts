@@ -43,9 +43,26 @@ export async function POST(request: Request) {
         return NextResponse.json({ ok: true, dropped: 'no_tenant' })
       }
 
+      const resendEmailId = (d.email_id as string) || (d.id as string) || null
+
+      // Resend retries a webhook delivery that doesn't ack 2xx in time. With
+      // no dedup, a retry of the same email.received event wrote a second
+      // inbound_emails row (duplicate entry in the admin inbox). Skip if
+      // we've already stored this exact Resend email ID.
+      if (resendEmailId) {
+        const { data: existing } = await supabaseAdmin
+          .from('inbound_emails')
+          .select('id')
+          .eq('resend_email_id', resendEmailId)
+          .limit(1)
+        if (existing && existing.length > 0) {
+          return NextResponse.json({ ok: true, duplicate: true })
+        }
+      }
+
       await supabaseAdmin.from('inbound_emails').insert({
         tenant_id: tenantId,
-        resend_email_id: (d.email_id as string) || (d.id as string) || null,
+        resend_email_id: resendEmailId,
         from_address: join(d.from),
         to_address: toAddress,
         subject: (d.subject as string) || null,

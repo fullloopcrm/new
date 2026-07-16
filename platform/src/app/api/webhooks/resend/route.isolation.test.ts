@@ -29,6 +29,13 @@ const h = vi.hoisted(() => {
         }
         return Promise.resolve({ data: null, error: null })
       },
+      // New dedup check before insert — no prior rows in these tests, so the
+      // chain always resolves empty and the insert path proceeds as before.
+      select: () => ({
+        eq: () => ({
+          limit: () => Promise.resolve({ data: [], error: null }),
+        }),
+      }),
     }),
   }
 
