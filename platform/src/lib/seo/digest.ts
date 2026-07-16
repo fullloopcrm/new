@@ -80,6 +80,44 @@ async function statsFor(tenantId: string | null): Promise<DigestStats> {
   }
 }
 
+export type KeywordRow = { query: string; position: number; clicks: number; impressions: number }
+
+/**
+ * Every tracked query for a property over the period — not just the ones
+ * that crossed an issue threshold. Sorted best position first ("low and
+ * high", per Jeff 2026-07-16: the digest was only ever surfacing issue
+ * counts, never the underlying keyword-level rankings seomgr actually
+ * tracks in seo_metrics).
+ */
+async function keywordBreakdown(property: string, since: string): Promise<KeywordRow[]> {
+  const { data } = await supabaseAdmin
+    .from('seo_metrics')
+    .select('query,clicks,impressions,position')
+    .eq('property', property)
+    .neq('query', '')
+    .gte('date', since)
+    .limit(20000)
+
+  const rows = (data ?? []) as Array<{ query: string; clicks: number; impressions: number; position: number }>
+  const byQuery = new Map<string, { clicks: number; impressions: number; weightedPos: number }>()
+  for (const r of rows) {
+    const cur = byQuery.get(r.query) ?? { clicks: 0, impressions: 0, weightedPos: 0 }
+    cur.clicks += r.clicks || 0
+    cur.impressions += r.impressions || 0
+    cur.weightedPos += (r.position || 0) * (r.impressions || 0)
+    byQuery.set(r.query, cur)
+  }
+
+  return [...byQuery.entries()]
+    .map(([query, v]) => ({
+      query,
+      clicks: v.clicks,
+      impressions: v.impressions,
+      position: v.impressions > 0 ? Math.round((v.weightedPos / v.impressions) * 10) / 10 : 0,
+    }))
+    .sort((a, b) => a.position - b.position)
+}
+
 export function formatDigest(stats: DigestStats, label: string): string {
   const lines = [`seomgr weekly report — ${label}`, '']
   lines.push(`Properties monitored: ${stats.properties}`)
@@ -122,6 +160,8 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
   const { data: adminTenant } = await supabaseAdmin.from('tenants').select('id').eq('slug', 'full-loop-crm').maybeSingle()
   const result: DigestRunResult = { admin: { sent: false }, tenants: [] }
 
+  const since = new Date(Date.now() - PERIOD_DAYS * 86_400_000).toISOString().slice(0, 10)
+
   if (adminTenant?.id) {
     const fleetStats = await statsFor(null)
     const body = formatDigest(fleetStats, 'fleet-wide')
@@ -132,6 +172,20 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
       message: body,
       channel: 'email',
       recipientType: 'admin',
+      metadata: {
+        label: 'fleet-wide',
+        propertiesMonitored: fleetStats.properties,
+        newIssues: Object.entries(fleetStats.newIssues).map(([type, count]) => ({ type, count })),
+        proposed: fleetStats.proposed,
+        applied: fleetStats.applied,
+        rejected: fleetStats.rejected,
+        rolledBack: fleetStats.rolledBack,
+        sitesDown: fleetStats.sitesDown,
+        // Fleet-wide keyword-by-keyword across every property would be
+        // thousands of rows in one email — out of scope for the admin
+        // executive rollup. Per-tenant reports below carry the full list.
+        keywords: [],
+      },
     })
     result.admin = { sent: res.success, error: res.error }
   }
@@ -147,6 +201,10 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
       const stats = await statsFor(t.id)
       if (stats.properties === 0) continue // not onboarded into seomgr yet — nothing to report
       const body = formatDigest(stats, t.slug)
+
+      const { data: prop } = await supabaseAdmin.from('seo_properties').select('property').eq('tenant_id', t.id).limit(1).maybeSingle()
+      const keywords = prop?.property ? await keywordBreakdown(prop.property, since) : []
+
       const res = await notify({
         tenantId: t.id,
         type: 'seo_digest',
@@ -154,6 +212,17 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
         message: body,
         channel: 'email',
         recipientType: 'admin',
+        metadata: {
+          label: t.slug,
+          propertiesMonitored: stats.properties,
+          newIssues: Object.entries(stats.newIssues).map(([type, count]) => ({ type, count })),
+          proposed: stats.proposed,
+          applied: stats.applied,
+          rejected: stats.rejected,
+          rolledBack: stats.rolledBack,
+          sitesDown: stats.sitesDown,
+          keywords,
+        },
       })
       await sendTenantMessage(t.id, body)
       result.tenants.push({ tenant_id: t.id, slug: t.slug, sent: res.success, error: res.error })

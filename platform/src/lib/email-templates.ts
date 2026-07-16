@@ -325,6 +325,73 @@ export function notificationDigestEmail(data: TemplateData & {
   `, data)
 }
 
+export function seoWeeklyReportEmail(data: TemplateData & {
+  label: string
+  propertiesMonitored: number
+  newIssues: { type: string; count: number }[]
+  proposed: number
+  applied: number
+  rejected: number
+  rolledBack: number
+  sitesDown: number
+  keywords: { query: string; position: number; clicks: number; impressions: number }[]
+}): string {
+  const issueRows = data.newIssues.length > 0
+    ? data.newIssues.map(i => `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px 8px;font-size:13px;color:#111827;">${escapeHtml(i.type)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${i.count}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="2" style="padding:16px;color:#9ca3af;text-align:center;font-size:13px;">No new issues this week</td></tr>'
+
+  // All tracked keywords, best position first — "low and high", not just the
+  // ones that crossed an issue threshold.
+  const keywordRows = data.keywords.length > 0
+    ? data.keywords.map(k => `
+      <tr style="border-bottom:1px solid #eee;">
+        <td style="padding:6px 8px;font-size:13px;color:#111827;">${escapeHtml(k.query)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${k.position.toFixed(1)}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${k.clicks}</td>
+        <td style="padding:6px 8px;font-size:13px;color:#6b7280;text-align:right;">${k.impressions}</td>
+      </tr>`).join('')
+    : '<tr><td colspan="4" style="padding:16px;color:#9ca3af;text-align:center;font-size:13px;">No keyword data yet</td></tr>'
+
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 8px;">Your Weekly SEO Report</h2>
+    <p style="color:#6b7280;font-size:14px;margin:0 0 24px;">${escapeHtml(data.label)} · ${data.propertiesMonitored} propert${data.propertiesMonitored === 1 ? 'y' : 'ies'} monitored</p>
+
+    ${data.sitesDown > 0 ? `<p style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:10px 14px;color:#dc2626;font-size:13px;margin:0 0 20px;">⚠️ ${data.sitesDown} site(s) currently down</p>` : ''}
+
+    <h3 style="color:#111827;font-size:16px;margin:0 0 12px;">New Issues This Week</h3>
+    <table width="100%" style="border-collapse:collapse;margin-bottom:16px;">
+      <thead><tr style="border-bottom:2px solid #111827;">
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:left;text-transform:uppercase;">Type</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Count</th>
+      </tr></thead>
+      <tbody>${issueRows}</tbody>
+    </table>
+
+    <p style="font-size:13px;color:#6b7280;margin:0 0 24px;">
+      Proposals drafted: <strong style="color:#111827;">${data.proposed}</strong> &middot;
+      Autopilot applied: <strong style="color:#111827;">${data.applied}</strong> &middot;
+      rejected: ${data.rejected} &middot; reverted: ${data.rolledBack}
+    </p>
+
+    <hr style="border:none;border-top:1px solid #e5e7eb;margin:24px 0;" />
+
+    <h3 style="color:#111827;font-size:16px;margin:0 0 12px;">All Tracked Keywords — ${data.keywords.length}, best position first</h3>
+    <table width="100%" style="border-collapse:collapse;">
+      <thead><tr style="border-bottom:2px solid #111827;">
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:left;text-transform:uppercase;">Query</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Position</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Clicks</th>
+        <th style="padding:6px 8px;font-size:11px;color:#6b7280;text-align:right;text-transform:uppercase;">Impr.</th>
+      </tr></thead>
+      <tbody>${keywordRows}</tbody>
+    </table>
+  `, data)
+}
+
 export function paymentReceiptEmail(data: TemplateData & {
   clientName: string
   serviceName: string
