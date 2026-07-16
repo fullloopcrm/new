@@ -588,9 +588,11 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     // whole business model here — F4's exact bug class (same-day + business-hours
     // gates), already patched in availability.ts; this is the trade group that
     // breaks first if it regresses. Also exercises the emergency_rate/emergency_available
-    // selena_config keys the live AI prompt builder reads (selena-legacy.ts) but that
-    // have no dashboard settings field to set them from yet — a real, separate gap,
-    // flagged not fixed.
+    // selena_config keys the live AI prompt builder reads (selena-legacy.ts).
+    // CORRECTION (was wrong in the original P11 commit): a dashboard field for both
+    // DOES exist — Settings > Selena tab > Services & Pricing section
+    // (src/app/dashboard/settings/page.tsx ~L1420-1439), wired through saveSelenaConfig().
+    // No gap there; retracting the earlier "no dashboard field yet" claim.
     const emScenario = EMERGENCY_SCENARIOS[t.category]
     if (emScenario) {
       const { clearSettingsCache } = await import('../src/lib/settings')
@@ -682,12 +684,47 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
         urgencyField ? (urgencyField as { question?: string }).question : `no urgency signal in: ${checklist.map(f => (f as { key: string }).key).join(', ')}`)
 
       // P11.6 emergency_rate/emergency_available actually reach the live AI system
-      // prompt once an owner sets them — proves the read-path works even though
-      // there's no dashboard field to set it from yet (config must be written
-      // directly, same as this sim just did).
+      // prompt once an owner sets them (Settings > Selena tab) — proves the
+      // read-path works end to end.
       const { buildSystemPromptForPreview } = await import('../src/lib/selena-legacy')
       const prompt = await buildSystemPromptForPreview(tenant.id)
       add('emergency: emergency_rate reaches the live AI system prompt', prompt.includes('195') && /emergency/i.test(prompt), prompt.length > 400 ? `${prompt.length} chars` : prompt)
+
+      // P11.7 real gap: emergency_rate never reaches actual BILLING, only the AI's
+      // chat prompt (P11.6). The other real accept path — a customer self-booking
+      // through the live client portal (src/app/portal/book/page.tsx ->
+      // POST /api/portal/bookings) once allow_same_day is on — computes price as
+      // plain default_hourly_rate * default_duration_hours with zero same-day/
+      // emergency multiplier anywhere in that route. So the exact scenario this
+      // archetype exists for (a burst-pipe customer self-booking a same-day slot)
+      // is charged the identical price as a routine booking 3 weeks out; the
+      // premium the owner configured only shows up if the AI happens to mention
+      // it in conversation. Calls the live route handler directly (not mocked).
+      const emSvcId = emSvc?.id || baseRepair?.id
+      if (emSvcId) {
+        const { data: emClient } = await supabase.from('clients')
+          .insert({ tenant_id: tenant.id, name: 'Emergency Portal Customer', phone: '+15551237777', status: 'active' })
+          .select('id').single()
+        const { data: emSvcFull } = await supabase.from('service_types')
+          .select('id, default_hourly_rate, default_duration_hours').eq('id', emSvcId).single()
+        if (emClient && emSvcFull?.default_hourly_rate && emSvcFull?.default_duration_hours) {
+          const { createToken } = await import('../src/app/api/portal/auth/token')
+          const { POST: portalBookingPost } = await import('../src/app/api/portal/bookings/route')
+          const portalToken = createToken(emClient.id, tenant.id)
+          const req = new Request('http://localhost/api/portal/bookings', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${portalToken}`, 'content-type': 'application/json' },
+            body: JSON.stringify({ service_type_id: emSvcFull.id, start_time: `${today}T18:00:00.000Z`, recurring_type: 'none' }),
+          })
+          const res = await portalBookingPost(req)
+          const resBody = await res.json().catch(() => ({} as { booking?: { price?: number } }))
+          const chargedPrice = resBody?.booking?.price
+          const flatRate = emSvcFull.default_hourly_rate * emSvcFull.default_duration_hours * 100
+          add('emergency: self-service same-day portal booking is charged an emergency premium (not the flat rate)',
+            res.status === 201 && chargedPrice != null && chargedPrice !== flatRate,
+            `status=${res.status} charged=${chargedPrice} flatRate=${flatRate} — POST /api/portal/bookings applies no same-day/emergency multiplier; emergency_rate never reaches actual billing, only the AI's chat prompt`)
+        }
+      }
     }
 
   } catch (err) {
