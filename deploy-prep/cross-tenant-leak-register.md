@@ -4550,3 +4550,62 @@ finding in untracked `src/lib/seo/recipes.ts` as every prior round
 (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:00 round (W2) — P79, fixed: `GET`+`POST`+`PATCH`+`DELETE
+/api/crews` had zero permission check — live default-role bug
+
+Continuing the broad-hunt (leader order 06:57, lower-risk surface,
+file-only). Re-ran the same detection scan used for P75-P78 (every
+`api/*/route.ts` calling `getTenantForRequest`/`tenantDb` but never
+`requirePermission`) and worked the resulting ~80-file candidate list,
+prioritizing mutating (POST/PATCH/DELETE) handlers on sensitive resources
+over GET-only/self-scoped ones (e.g. `user/preferences`, `permissions/me`
+are legitimately unguarded — they're caller-scoped by definition, not a
+role gap). `api/crews/route.ts` stood out: all four handlers
+(GET/POST/PATCH/DELETE) called raw `getTenantForRequest()` only, no
+`requirePermission` anywhere in the file — same gap shape as P78, just on
+a different resource family.
+
+Not override-only: by default `rbac.ts` grants `team.edit` to
+`owner`/`admin` only and `team.delete` to `owner` only — `manager` and
+`staff` get just `team.view`. So any manager or staff-tier member could
+already create a crew, rename/archive one, or wipe-and-repopulate its
+member roster (POST/PATCH), and any non-owner (including admin) could
+delete one outright (DELETE), with zero role check, no override needed —
+same class as P72/P76/P77/P78.
+
+**Fix:** `requirePermission('team.view')` on GET,
+`requirePermission('team.edit')` on POST+PATCH,
+`requirePermission('team.delete')` on DELETE — matching the established
+`team.*` gating convention already used for every other team-sub-resource
+route (`/api/team/[id]/route.ts`, `/api/cleaners/[id]/route.ts`,
+`/api/dashboard/hr/[id]/*`). Crews are explicitly "a named, reusable group
+of team members" per the file's own header comment, so this is the same
+resource family, not a scheduling permission.
+
+**Regression lock:** new `route.rbac.test.ts` (11 tests: owner-succeeds
+controls for all 4 verbs, staff/manager-forbidden default-role probes for
+POST/PATCH/DELETE, one override-revocation probe each for GET (staff) and
+PATCH (admin), plus roster-untouched assertions on the blocked
+PATCH/DELETE probes). Mutation-verified via `git stash` of just the fixed
+`route.ts` (the new test file and the two pre-existing test files —
+`route.isolation.test.ts`, `route.witness.test.ts` — are untouched by the
+stash): 7 of 11 probes went RED pre-fix (POST staff/manager, PATCH
+staff/admin-override, DELETE owner-control false-negative avoided —
+DELETE admin/staff probes and PATCH staff probe all wrongly 200/succeeded),
+restored, all 11 GREEN post-fix. Pre-existing `route.isolation.test.ts` (2
+tests: cross-tenant GET filtering + DELETE 404-not-ok:true probe) and
+`route.witness.test.ts` (3 tests: PATCH join-table cross-tenant lock) pass
+unchanged — both hardcode role `'owner'` in their `getTenantForRequest`
+mock, which has every permission by default, so the isolation/join-table
+behavior they wrap is undisturbed.
+
+`npx tsc --noEmit`: clean. Full suite: 405 files, 1769 passed + 37
+skipped, 0 regressions (was 404/1758). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
+
