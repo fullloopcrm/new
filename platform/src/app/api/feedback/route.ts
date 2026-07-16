@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { requireAdmin } from '@/lib/require-admin'
+import { trackError } from '@/lib/error-tracking'
 
 // SQL to create table:
 // CREATE TABLE platform_feedback (
@@ -27,7 +28,10 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .limit(200)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (error) {
+    await trackError(error, { source: 'api/feedback:GET', severity: 'medium' }).catch(() => {})
+    return NextResponse.json({ error: 'Failed to load feedback' }, { status: 500 })
+  }
 
   const { count: unreadCount } = await supabaseAdmin
     .from('platform_feedback')
@@ -61,7 +65,10 @@ export async function POST(request: Request) {
         status: 'unread',
       })
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      await trackError(error, { source: 'api/feedback:POST', severity: 'medium' }).catch(() => {})
+      return NextResponse.json({ error: 'Failed to submit feedback' }, { status: 500 })
+    }
 
     // Notify admin
     sendEmail({
@@ -105,7 +112,10 @@ export async function PATCH(request: Request) {
       .update(update)
       .eq('id', id)
 
-    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (error) {
+      await trackError(error, { source: 'api/feedback:PATCH', severity: 'medium' }).catch(() => {})
+      return NextResponse.json({ error: 'Failed to update feedback' }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   } catch {
     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
