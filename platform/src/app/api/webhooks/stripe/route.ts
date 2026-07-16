@@ -17,6 +17,7 @@ import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -306,7 +307,7 @@ export async function POST(request: Request) {
             .from('clients')
             .select('id, name')
             .eq('tenant_id', NYCMAID_TENANT_ID)
-            .ilike('email', payerEmail)
+            .ilike('email', escapeLikeValue(payerEmail))
             .limit(1)
             .maybeSingle()
           if (mc) {
