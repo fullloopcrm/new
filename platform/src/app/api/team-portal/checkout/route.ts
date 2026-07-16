@@ -112,6 +112,17 @@ export async function POST(request: Request) {
     }
   }
 
+  // Atomic claim on the in_progress -> completed transition. The status +
+  // check_out_time checks above read a plain SELECT snapshot; a field cleaner
+  // double-tapping "Check Out" on a spotty connection (or a client-side retry
+  // after a timeout) fires two near-simultaneous requests that both read
+  // 'in_progress'/null and both fall through. Without a conditional WHERE
+  // here, both would push a client "Cleaning complete!" notification, both
+  // could fire the NYC Maid unpaid-checkout SMS alert to admins, and the
+  // booking row would end up with whichever call's actual_hours/pay/price
+  // happened to land last (lost update) rather than the true first checkout.
+  // `eq('status','in_progress')` means only the request that actually flips
+  // the row proceeds past this point; the loser gets a clean 409.
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({
@@ -124,11 +135,16 @@ export async function POST(request: Request) {
       price: updatedPriceCents,
     })
     .eq('id', booking_id)
+    .eq('tenant_id', auth.tid)
+    .eq('status', 'in_progress')
     .select()
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Already checked out' }, { status: 409 })
   }
 
   // Referral commission — if this booking came through an affiliate referrer,

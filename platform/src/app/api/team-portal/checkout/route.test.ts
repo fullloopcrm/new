@@ -39,6 +39,14 @@ function builder(table: string) {
       if (table === 'service_types') return { data: serviceRow, error: null }
       return { data: null, error: null }
     },
+    maybeSingle: async () => {
+      // Only the atomic checkout claim (bookings update) calls maybeSingle().
+      // Mirrors the real conditional WHERE: a null updatedRow (or a caller
+      // that explicitly wants a lost claim) means "no row matched" — same as
+      // the atomic claim losing the race in production.
+      if (table === 'bookings' && didUpdate) return { data: updatedRow, error: updateError }
+      return { data: null, error: null }
+    },
   }
   return chain
 }
