@@ -2893,3 +2893,75 @@ way) if it's not already there.
 
 No new P-number. No code changed. `tsc` N/A (no edits). File-only, no
 push/deploy/DB.
+
+---
+
+## W2 round (21:44 order) — negative result, PostgREST filter-injection sweep
++ resolver-lane regression check + gate self-audit
+
+Fresh angle vs. every prior round in this register (which has focused on
+IDOR/FK-injection, mass-assignment, rate-limit budgets, XSS, randomness,
+webhook/cookie/CORS hardening): audited every `.or(`/`.filter(`/`.not(`
+call site that builds a PostgREST filter STRING by interpolating caller
+input. This is a distinct bug class from the ones already exhausted — a
+missing `.eq('tenant_id', ...)` leaks by omission, but an unescaped value
+inside a `.or('name.ilike.%<input>%')` string can leak by *injection*
+(PostgREST's filter grammar uses `,` to separate conditions and `(`/`)` to
+nest logic, so unescaped input can break out of the intended column and
+inject e.g. an OR'd `tenant_id.neq.X` clause, bypassing the `.eq('tenant_id',
+...)` scoping entirely rather than just being unscoped).
+
+**Result: already fully hardened, no gap.** Found 21 `.or(` call sites across
+`clients`, `admin/clients`, `admin/comhub/templates`, `admin/comhub/search-
+recipients`, `admin/activity`, `admin/ai-chat`, `ai/assistant`, `announcements/
+unread`, `team-portal/notifications`, `webhooks/telnyx-voice`, `client/collect`,
+`finance/bank-transactions/[id]/match`, `cron/recurring-expenses`, plus several
+with only static/hardcoded filter strings (no interpolation, safe by
+construction). Every site that interpolates caller- or DB-sourced text runs it
+through `src/lib/postgrest-safe.ts`'s `sanitizePostgrestValue()` first, which
+strips `,()"\` (PostgREST's structural characters) before the value reaches
+the filter string — confirmed by reading the helper itself (not just its call
+sites) and its doc comment, which names this exact attack. No `.or()`/
+`.filter()`/`.not()` call in the codebase interpolates unsanitized input.
+Zero `.filter(`/`.not(` calls exist in `src/app/api` at all (grep, 0 hits) —
+only `.or()` is used for this pattern.
+
+**Resolver-lane regression check** (my own lane, re-verified rather than
+assumed after several rounds of unrelated work): re-read
+`src/lib/tenant-lookup.ts::getTenantByDomain()` end-to-end. Still correctly
+tenant_domains-FIRST, tenants.domain-FALLBACK-only-on-no-active-row, and the
+TRANSITION ASSERT-AND-REFUSE divergence guard (throws + refuses to serve
+rather than silently picking a tenant when tenant_domains and legacy
+tenants.domain disagree on the same host) is unchanged and intact. No
+regression from any other worker's concurrent commits.
+
+**One gate-script false positive found and diagnosed, not fixed:** running
+`node scripts/audit-tenant-scope.mjs` (the register's own backstop gate)
+flags 1 new unscoped query: `src/lib/seo/recipes.ts:124`
+(`supabaseAdmin.from('seo_changes').insert(rows)`). Traced it — this file is
+UNCOMMITTED/untracked (part of a separate, apparently-concurrent SEO-manager
+feature build, not this session's leak-hunt work; per `git status` it's new
+alongside `platform/SEOMGR.md` and `src/lib/seo/health.ts`/`ingest.ts`/etc.).
+Read the full function (`proposeForIssue`): every row in `rows` is built by
+spreading `common`, which sets `tenant_id: issue.tenant_id` — `issue` comes
+from a `seo_issues` row fetched server-side (its own `tenant_id` column, not
+caller input), so the insert IS correctly tenant-stamped; the gate can't see
+this because its static regex scan only recognizes `tenant_id` inside a
+literal `.eq(...)`/insert-object chain within 12 source lines, not a spread
+variable. Confirmed false positive, not a leak. Did not add the `// tenant-
+scope-ok:` annotation myself — this file belongs to a different, apparently
+in-progress feature outside this round's scope (broad-hunt on the existing
+API surface, not editing another concurrent workstream's uncommitted code) —
+flagging here so whoever lands the SEO-manager branch adds the annotation
+before that gate is wired into CI for real.
+
+**Also checked, clean:** `admin/websites` `POST` (add a `tenant_domains` row)
+accepts a caller-supplied `tenant_id` with no ownership check — but it's
+gated by `requireAdmin()` (platform superadmin `admin_token`, not a tenant-
+scoped session), same single-trusted-actor exception already established
+elsewhere in this register (`admin/notes`, `partner_requests` DELETE, etc.) —
+not a leak.
+
+No new P-number. No code changed (nothing to fix; the one static-analysis
+hit is a false positive in unrelated WIP code, not this round's to edit).
+`tsc` N/A (no edits). File-only, no push/deploy/DB.
