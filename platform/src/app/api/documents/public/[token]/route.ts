@@ -33,18 +33,26 @@ export async function GET(request: Request, { params }: Params) {
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
-    // Record view
+    // Record view. view_count/last_viewed_at/first_viewed_at are informational
+    // and safe to apply unconditionally; the 'sent'->'viewed' status flips are
+    // not — a concurrent decline/sign-completion (document_signers) or
+    // void/finalize (documents) landing between the read above and these
+    // writes would otherwise get silently reverted back to 'viewed'. Guard
+    // both with the same re-assert-in-WHERE pattern as ../decline and
+    // ../sign's own status writes.
     const now = new Date().toISOString()
     const viewUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (signer.view_count || 0) + 1,
     }
     if (!signer.first_viewed_at) viewUpdate.first_viewed_at = now
-    if (signer.status === 'sent') viewUpdate.status = 'viewed'
     await supabaseAdmin.from('document_signers').update(viewUpdate).eq('id', signer.id)
+    if (signer.status === 'sent') {
+      await supabaseAdmin.from('document_signers').update({ status: 'viewed' }).eq('id', signer.id).eq('status', 'sent')
+    }
 
     if (doc.status === 'sent') {
-      await supabaseAdmin.from('documents').update({ status: 'viewed' }).eq('id', doc.id)
+      await supabaseAdmin.from('documents').update({ status: 'viewed' }).eq('id', doc.id).eq('status', 'sent')
     }
 
     await logDocEvent({
