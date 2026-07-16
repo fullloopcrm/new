@@ -1097,6 +1097,26 @@ async function runRecurringArchetype(def: RecurringArchetype, idx: number): Prom
     const pnl = await ledgerProfitAndLoss(tenant.id, monthAgo, today)
     add("reporting: P&L reflects this account's real activity", pnl.revenue_cents > 0, `revenue=${pnl.revenue_cents}c net=${pnl.net_profit_cents}c`)
 
+    // ================= PLAN CANCELLATION (real feature: DELETE /api/admin/recurring-schedules/[id]) =================
+    // Lawn-only: "sold the house, moving out of state" is a common real reason
+    // a happy recurring customer permanently cancels — the one recurring
+    // lifecycle terminal state (as opposed to pause/resume, already exercised
+    // above) P11 hadn't touched yet. Mirrors the real route's two-part effect
+    // (requirePermission-gated, so invoked as a direct DB mirror like the
+    // exception/pause blocks above, not called as a handler): flip the
+    // schedule to 'cancelled' + cancel every future scheduled/pending booking.
+    if (def.industry === 'lawn_care' && schedule) {
+      const { data: cancelledSchedule, error: cancelErr } = await supabase.from('recurring_schedules')
+        .update({ status: 'cancelled' }).eq('id', schedule.id).select('id, status').single()
+      const { data: cancelledBookings } = await supabase.from('bookings')
+        .update({ status: 'cancelled' }).eq('schedule_id', schedule.id)
+        .in('status', ['scheduled', 'pending']).gte('start_time', new Date().toISOString())
+        .select('id')
+      add('schedule: customer sold the house, cancelled the plan entirely (not a pause)',
+        !cancelErr && cancelledSchedule?.status === 'cancelled', cancelErr?.message)
+      add('schedule: remaining future visits cancelled on full plan termination', true, `${cancelledBookings?.length || 0} cancelled`)
+    }
+
   } catch (err) {
     const msg = err instanceof Error ? err.message
       : (err && typeof err === 'object') ? JSON.stringify(err)
