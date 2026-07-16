@@ -57,12 +57,23 @@ export async function POST(_request: Request, { params }: Params) {
     const bytes = new Uint8Array(await pdfBlob.arrayBuffer())
     const hash = sha256Hex(bytes)
 
-    // Transition doc status
+    // Check-then-act, not atomic: `isEditableStatus(doc.status)` above is a
+    // stale snapshot -- a double-tap on Send (or a retry) can land in the gap.
+    // Without re-asserting status='draft' in this update's own WHERE, both
+    // requests would fall through and each send a real signature-request
+    // email/SMS to every signer below, duplicating outbound contact to real
+    // people. Claim the transition first; the loser bails before sending.
     const now = new Date().toISOString()
-    await supabaseAdmin
+    const { data: claimed } = await supabaseAdmin
       .from('documents')
       .update({ status: 'sent', sent_at: now, original_sha256: hash })
       .eq('id', id)
+      .eq('status', 'draft')
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json({ error: 'This document was already sent' }, { status: 409 })
+    }
 
     // Look up tenant for sending
     const { data: tenant } = await supabaseAdmin
