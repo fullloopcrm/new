@@ -824,6 +824,34 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: same-day-accepted quote auto-assigns the on-call worker found in P11.1 (not left unassigned)',
         assignsWorkerOnConvert,
         `createBookingFromQuote's bookings insert (sale-to-booking.ts) never references team_member_id (insert body: ${bookingsInsertBlock.trim().replace(/\s+/g, ' ')}) — even once the known +3-day placeholder-date bug is fixed, the resulting booking lands with nobody dispatched; the on-call tech this archetype specifically schedules for same-day coverage (P11.0/P11.1) is never attached to the booking it was found for.`)
+
+      // P11.13 real gap, compounds P11.10/P11.12 with a third independent
+      // angle: the auto-converted booking (status 'pending', per
+      // sale-to-booking.ts line ~111 above; team_member_id null per P11.12)
+      // is also invisible to the ONE other dispatch path that doesn't need
+      // the owner at all — the team-portal "open jobs" self-claim pool a
+      // field tech proactively checks (GET /api/team-portal/jobs?available=
+      // true). Verified by reading that route: its query only returns
+      // bookings with status IN ('scheduled','confirmed') — 'pending' isn't
+      // one of them, so a tech looking for work never sees it either. Worse,
+      // the codebase already HAS a working, tenant-generic (not NYC-Maid-
+      // only) fix for exactly this scenario — POST /api/bookings/broadcast,
+      // an SMS/email blast to every active team member — already wired to
+      // BookingsAdmin.tsx's manual "Emergency" booking-creation toggle one
+      // click away in the operator UI. createBookingFromQuote never calls
+      // it. So this archetype's real customer flow (same-day quote-accept,
+      // P11.4) produces a booking silent to the owner (P11.10), invisible
+      // to the self-claim pool (this check), and never triggers the
+      // broadcast dispatch already proven to work for the identical
+      // scenario in a different code path.
+      const teamPortalJobsSrc = readFileSync(resolve(process.cwd(), 'src/app/api/team-portal/jobs/route.ts'), 'utf8')
+      const availablePoolStatusMatch = teamPortalJobsSrc.match(/\.in\('status',\s*(\[[^\]]*\])\)/)
+      const availablePoolStatuses = availablePoolStatusMatch ? availablePoolStatusMatch[1] : ''
+      const pendingInPool = /'pending'/.test(availablePoolStatuses)
+      const callsBroadcast = /bookings\/broadcast/.test(saleToBookingSrc)
+      add('emergency: same-day-accepted quote booking is claimable via the self-claim pool OR triggers the existing broadcast dispatch',
+        pendingInPool || callsBroadcast,
+        `team-portal open-jobs pool filters status IN ${availablePoolStatuses || '(pattern not found — re-verify manually)'} ('pending' included=${pendingInPool}); createBookingFromQuote calls /api/bookings/broadcast=${callsBroadcast}. The broadcast route (src/app/api/bookings/broadcast/route.ts) already exists, is tenant-generic, and is already wired to BookingsAdmin.tsx's manual "Emergency" toggle — createBookingFromQuote never calls it, so this archetype's real same-day quote-accept path gets none of the 3 dispatch signals (owner notify, self-claim pool, broadcast) that already exist elsewhere in the codebase.`)
     }
 
   } catch (err) {
