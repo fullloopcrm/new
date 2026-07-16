@@ -26,8 +26,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (lead.converted_tenant_id) return NextResponse.json({ error: 'Already converted to a tenant' }, { status: 400 })
   if (!lead.proposal_sent_at) return NextResponse.json({ error: 'Build the proposal first' }, { status: 400 })
 
+  // Prefer the platform's own canonical URL over client-supplied Host headers
+  // (X-Forwarded-Host in particular is attacker-settable) so the Stripe
+  // success/cancel URLs this customer is redirected to after paying can't be
+  // pointed at a spoofed domain. Same convention as agreement/route.ts.
   const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
-  const origin = host ? `https://${host}` : new URL(request.url).origin
+  const origin = process.env.NEXT_PUBLIC_APP_URL || (host ? `https://${host}` : new URL(request.url).origin)
 
   try {
     const { url } = await createProposalCheckout({

@@ -343,8 +343,12 @@ export async function PUT(
   if (rawTelegramToken) {
     const { data: t } = await supabaseAdmin.from('tenants').select('slug').eq('id', id).single()
     if (t?.slug) {
+      // Prefer the platform's own canonical URL over client-supplied Host headers
+      // (X-Forwarded-Host in particular is attacker-settable) so the registered
+      // webhook can't be pointed at a spoofed domain. Same convention as
+      // admin/requests/[id]/agreement/route.ts and proposal-checkout/route.ts.
       const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
-      const origin = host ? `https://${host}` : new URL(request.url).origin
+      const origin = process.env.NEXT_PUBLIC_APP_URL || (host ? `https://${host}` : new URL(request.url).origin)
       const { registerTelegramWebhook } = await import('@/lib/telegram')
       const { deriveTelegramSecret } = await import('@/lib/telegram-webhook-auth')
       // Scope the secret to this tenant's id so the webhook can fail-closed verify
