@@ -1,6 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
+import { warrantyStatus, suggestWarrantyDays, type WarrantyStatus } from '@/lib/pest-warranty'
 
 const APPLICATION_METHODS = ['spray', 'bait', 'dust', 'granular', 'fog', 'injection', 'other']
 
@@ -20,6 +21,9 @@ type LogRow = {
   applicator_license_number: string | null
   team_member_id: string | null
   notes: string | null
+  warranty_days: number | null
+  is_reservice: boolean
+  reservice_of_log_id: string | null
 }
 
 type Member = { id: string; name: string }
@@ -39,6 +43,9 @@ type Form = {
   applicator_license_number: string
   team_member_id: string
   notes: string
+  warranty_days: string
+  is_reservice: boolean
+  reservice_of_log_id: string
 }
 
 function emptyForm(): Form {
@@ -48,7 +55,15 @@ function emptyForm(): Form {
     active_ingredient: '', application_method: 'spray', quantity_used: '',
     dilution_rate: '', area_treated: '', weather_conditions: '',
     applicator_license_number: '', team_member_id: '', notes: '',
+    warranty_days: '', is_reservice: false, reservice_of_log_id: '',
   }
+}
+
+const WARRANTY_BADGE: Record<WarrantyStatus, { label: string; cls: string }> = {
+  none: { label: '—', cls: 'text-gray-400' },
+  active: { label: 'Active', cls: 'text-emerald-600 font-medium' },
+  expiring_soon: { label: 'Expiring soon', cls: 'text-amber-600 font-medium' },
+  expired: { label: 'Expired', cls: 'text-gray-400' },
 }
 
 export default function TreatmentLogsPage() {
@@ -98,6 +113,8 @@ export default function TreatmentLogsPage() {
         body: JSON.stringify({
           ...form,
           team_member_id: form.team_member_id || null,
+          warranty_days: form.warranty_days.trim() === '' ? null : Number(form.warranty_days),
+          reservice_of_log_id: form.is_reservice ? (form.reservice_of_log_id || null) : null,
         }),
       })
       const json = await res.json()
@@ -134,7 +151,13 @@ export default function TreatmentLogsPage() {
             </select>
           </Field>
           <Field label="Service address"><Input value={form.service_address} onChange={v => set('service_address', v)} /></Field>
-          <Field label="Target pest *"><Input value={form.target_pest} onChange={v => set('target_pest', v)} /></Field>
+          <Field label="Target pest *">
+            <Input
+              value={form.target_pest}
+              onChange={v => set('target_pest', v)}
+              onBlur={() => { if (!form.warranty_days.trim()) set('warranty_days', String(suggestWarrantyDays(form.target_pest))) }}
+            />
+          </Field>
           <Field label="Product name *"><Input value={form.product_name} onChange={v => set('product_name', v)} /></Field>
           <Field label="EPA reg. number"><Input value={form.epa_reg_number} onChange={v => set('epa_reg_number', v)} /></Field>
           <Field label="Active ingredient"><Input value={form.active_ingredient} onChange={v => set('active_ingredient', v)} /></Field>
@@ -149,6 +172,31 @@ export default function TreatmentLogsPage() {
           <Field label="Area treated"><Input value={form.area_treated} onChange={v => set('area_treated', v)} placeholder="e.g. kitchen, basement" /></Field>
           <Field label="Weather conditions"><Input value={form.weather_conditions} onChange={v => set('weather_conditions', v)} placeholder="e.g. 68°F, calm wind" /></Field>
           <Field label="Applicator license #"><Input value={form.applicator_license_number} onChange={v => set('applicator_license_number', v)} /></Field>
+          <Field label="Guarantee (days)">
+            <Input type="number" value={form.warranty_days} onChange={v => set('warranty_days', v)} placeholder="e.g. 30" />
+          </Field>
+        </div>
+        <div className="mt-3 flex items-start gap-2">
+          <input
+            type="checkbox" id="is_reservice" checked={form.is_reservice}
+            onChange={e => set('is_reservice', e.target.checked)}
+            className="mt-1"
+          />
+          <label htmlFor="is_reservice" className="text-sm text-slate-700">
+            This is a free re-service under an existing guarantee
+            {form.is_reservice && (
+              <select
+                value={form.reservice_of_log_id}
+                onChange={e => set('reservice_of_log_id', e.target.value)}
+                className="ml-2 px-2 py-1 border border-gray-300 rounded-lg text-sm bg-white text-slate-900"
+              >
+                <option value="">— Original visit —</option>
+                {logs.filter(l => !l.is_reservice).map(l => (
+                  <option key={l.id} value={l.id}>{l.application_date} · {l.target_pest} · {l.product_name}</option>
+                ))}
+              </select>
+            )}
+          </label>
         </div>
         <div className="mt-3">
           <Field label="Notes">
@@ -181,19 +229,30 @@ export default function TreatmentLogsPage() {
                   <th className="py-2 pr-3">Product</th>
                   <th className="py-2 pr-3">Method</th>
                   <th className="py-2 pr-3">Address</th>
+                  <th className="py-2 pr-3">Guarantee</th>
                 </tr>
               </thead>
               <tbody>
-                {logs.map(log => (
+                {logs.map(log => {
+                  const status = warrantyStatus(log.application_date, log.warranty_days)
+                  const badge = WARRANTY_BADGE[status]
+                  return (
                   <tr key={log.id} className="border-b border-gray-50 last:border-0">
                     <td className="py-2 pr-3 text-slate-700">{log.application_date}</td>
                     <td className="py-2 pr-3 text-slate-700">{memberName(log.team_member_id)}</td>
-                    <td className="py-2 pr-3 text-slate-700">{log.target_pest}</td>
+                    <td className="py-2 pr-3 text-slate-700">
+                      {log.target_pest}
+                      {log.is_reservice && <span className="ml-1 text-xs text-blue-600">(re-service)</span>}
+                    </td>
                     <td className="py-2 pr-3 text-slate-700">{log.product_name}</td>
                     <td className="py-2 pr-3 text-slate-700 capitalize">{log.application_method}</td>
                     <td className="py-2 pr-3 text-slate-500">{log.service_address || '—'}</td>
+                    <td className={`py-2 pr-3 ${badge.cls}`}>
+                      {log.warranty_days ? `${badge.label} · ${log.warranty_days}d` : badge.label}
+                    </td>
                   </tr>
-                ))}
+                  )
+                })}
               </tbody>
             </table>
           </div>
@@ -212,11 +271,11 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
   )
 }
 
-function Input({ value, onChange, type = 'text', placeholder }: {
-  value: string; onChange: (v: string) => void; type?: string; placeholder?: string
+function Input({ value, onChange, type = 'text', placeholder, onBlur }: {
+  value: string; onChange: (v: string) => void; type?: string; placeholder?: string; onBlur?: () => void
 }) {
   return (
-    <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)}
+    <input type={type} value={value} placeholder={placeholder} onChange={e => onChange(e.target.value)} onBlur={onBlur}
       className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white text-slate-900 focus:ring-2 focus:ring-teal-600 outline-none" />
   )
 }

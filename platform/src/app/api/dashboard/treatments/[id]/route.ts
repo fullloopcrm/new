@@ -27,7 +27,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       'booking_id', 'client_id', 'team_member_id', 'application_date', 'service_address',
       'target_pest', 'product_name', 'epa_reg_number', 'active_ingredient', 'application_method',
       'quantity_used', 'dilution_rate', 'area_treated', 'weather_conditions',
-      'applicator_license_number', 'notes',
+      'applicator_license_number', 'notes', 'warranty_days', 'is_reservice', 'reservice_of_log_id',
     ]
     for (const key of editable) {
       if (key in body) patch[key] = body[key]
@@ -36,6 +36,23 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       return NextResponse.json({ error: 'target_pest cannot be empty' }, { status: 400 })
     if ('product_name' in patch && !String(patch.product_name || '').trim())
       return NextResponse.json({ error: 'product_name cannot be empty' }, { status: 400 })
+    if ('warranty_days' in patch && patch.warranty_days !== null) {
+      const n = Number(patch.warranty_days)
+      if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n))
+        return NextResponse.json({ error: 'warranty_days must be a positive integer' }, { status: 400 })
+      patch.warranty_days = n
+    }
+    // reservice_of_log_id is a cross-row FK a caller controls — confirm it
+    // belongs to this tenant (same isolation guard as POST) before it can be
+    // attached to this row.
+    if ('reservice_of_log_id' in patch && patch.reservice_of_log_id) {
+      const { data: owned } = await tenantDb(tenantId)
+        .from('pest_treatment_logs')
+        .select('id')
+        .eq('id', patch.reservice_of_log_id as string)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid reservice_of_log_id' }, { status: 400 })
+    }
 
     const { data, error: dbError } = await tenantDb(tenantId)
       .from('pest_treatment_logs')

@@ -58,6 +58,9 @@ export async function POST(req: NextRequest) {
       weather_conditions?: string
       applicator_license_number?: string
       notes?: string
+      warranty_days?: number | null
+      is_reservice?: boolean
+      reservice_of_log_id?: string | null
     }
     try {
       body = await req.json()
@@ -72,6 +75,27 @@ export async function POST(req: NextRequest) {
     const method = body.application_method || 'spray'
     if (!APPLICATION_METHODS.includes(method))
       return NextResponse.json({ error: 'invalid application_method' }, { status: 400 })
+
+    let warrantyDays: number | null = null
+    if (body.warranty_days !== undefined && body.warranty_days !== null) {
+      const n = Number(body.warranty_days)
+      if (!Number.isFinite(n) || n <= 0 || !Number.isInteger(n))
+        return NextResponse.json({ error: 'warranty_days must be a positive integer' }, { status: 400 })
+      warrantyDays = n
+    }
+
+    // reservice_of_log_id is a cross-row FK a caller controls — confirm it
+    // belongs to this tenant before inserting, or a caller could link a free
+    // re-service to (and thereby infer the existence of) another tenant's log.
+    const reserviceOfLogId = body.reservice_of_log_id || null
+    if (reserviceOfLogId) {
+      const { data: owned } = await tenantDb(tenantId)
+        .from('pest_treatment_logs')
+        .select('id')
+        .eq('id', reserviceOfLogId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Invalid reservice_of_log_id' }, { status: 400 })
+    }
 
     const { data, error: dbError } = await tenantDb(tenantId)
       .from('pest_treatment_logs')
@@ -92,6 +116,9 @@ export async function POST(req: NextRequest) {
         weather_conditions: body.weather_conditions?.trim() || null,
         applicator_license_number: body.applicator_license_number?.trim() || null,
         notes: body.notes?.trim() || null,
+        warranty_days: warrantyDays,
+        is_reservice: body.is_reservice === true,
+        reservice_of_log_id: reserviceOfLogId,
       })
       .select('*')
       .single()

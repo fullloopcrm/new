@@ -52,6 +52,26 @@ describe('PATCH /api/dashboard/treatments/[id] — tenant isolation', () => {
     const res = await PATCH(patchReq({ target_pest: '  ' }), { params: params('log-A1') })
     expect(res.status).toBe(400)
   })
+
+  it('rejects a non-positive warranty_days', async () => {
+    h.store.pest_treatment_logs.push({ id: 'log-A1', tenant_id: 'tenant-A', target_pest: 'ant', product_name: 'X' })
+    const res = await PATCH(patchReq({ warranty_days: -5 }), { params: params('log-A1') })
+    expect(res.status).toBe(400)
+  })
+
+  it("rejects attaching a reservice_of_log_id that belongs to another tenant", async () => {
+    h.store.pest_treatment_logs.push({ id: 'log-A1', tenant_id: 'tenant-A', target_pest: 'ant', product_name: 'X' })
+    const res = await PATCH(patchReq({ reservice_of_log_id: 'log-B1' }), { params: params('log-A1') })
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts a valid warranty_days update', async () => {
+    h.store.pest_treatment_logs.push({ id: 'log-A1', tenant_id: 'tenant-A', target_pest: 'ant', product_name: 'X' })
+    const res = await PATCH(patchReq({ warranty_days: 90 }), { params: params('log-A1') })
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.log.warranty_days).toBe(90)
+  })
 })
 
 describe('DELETE /api/dashboard/treatments/[id] — tenant isolation', () => {

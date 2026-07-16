@@ -77,4 +77,35 @@ describe('POST /api/dashboard/treatments — validation', () => {
     expect(json.log.tenant_id).toBe('tenant-A')
     expect(json.log.application_method).toBe('spray')
   })
+
+  it('rejects a non-positive warranty_days', async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', warranty_days: 0 }))
+    expect(res.status).toBe(400)
+  })
+
+  it('rejects a fractional warranty_days', async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', warranty_days: 30.5 }))
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts a valid warranty_days and defaults is_reservice to false', async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', warranty_days: 30 }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.log.warranty_days).toBe(30)
+    expect(json.log.is_reservice).toBe(false)
+  })
+
+  it("rejects a reservice_of_log_id that belongs to another tenant", async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', is_reservice: true, reservice_of_log_id: 'log-B1' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('accepts a reservice_of_log_id that belongs to the caller tenant', async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', is_reservice: true, reservice_of_log_id: 'log-A1' }))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    expect(json.log.reservice_of_log_id).toBe('log-A1')
+    expect(json.log.is_reservice).toBe(true)
+  })
 })
