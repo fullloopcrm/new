@@ -4029,3 +4029,104 @@ use role `owner`, who is always permitted).
 in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
 feature, not touched here). File-only, no push/deploy/DB, not committed
 (leader/Jeff to review + commit).
+
+## 2026-07-16 00:56 round (W2) — P69, fixed: `GET/PUT/DELETE
+/api/campaigns/[id]` had zero permission check — a LIVE default-role bypass,
+not just an override edge case
+
+Continuing the broad-hunt into lower-risk (single-entity-family) surface not
+yet swept: scanned every `api/*` route file for the "calls
+`getTenantForRequest`/`tenantDb` but never `requirePermission`" shape (the
+same class as P59-P68), narrowed to dirs not yet mentioned anywhere in this
+register. `booking-notes/*`, `connect/channels`, `connect/messages` were
+already correctly hardened with explicit caller-supplied-FK ownership checks
+from prior sessions (no permission gate, but that matches the client-portal-
+style pattern elsewhere in this register — own-tenant-scoped, not a leak).
+`security/events` GET has the same zero-permission-check shape but **no live
+frontend caller anywhere in the repo** (grep confirms; `admin/security/
+page.tsx` doesn't call it, `admin/docs/page.tsx`'s hit is just its own API
+docs table) — flagging only, not fixed, same "known-debt, not a live attack
+surface" precedent as the prior `portal/messages` finding.
+
+`campaigns/[id]/route.ts` (single-campaign GET/PUT/DELETE, backing the
+campaign detail/edit view) was the live bug: all three handlers called only
+`getTenantForRequest()` (proves tenant membership at ANY role) with zero
+permission check, while the sibling collection route
+(`POST /api/campaigns`) already requires `requirePermission('campaigns.
+create')`, and the list `GET /api/campaigns` had the identical
+zero-permission-check gap. Unlike P68 (which needed a per-tenant override to
+be exploitable because every *default* role has `sales.view`), this is a
+**live bug against the hard-coded rbac.ts defaults**: the `manager` role is
+granted `campaigns.view` but explicitly **not** `campaigns.create` — the
+tenant's own stock config already draws the "managers can see campaigns but
+not create/edit/delete them" line for `POST`, but `PUT`/`DELETE
+/api/campaigns/[id]` silently ignored it, letting a default-config manager
+(or any custom role missing `campaigns.create`) edit or delete any campaign
+via direct API call despite the UI/POST path blocking exactly that action.
+`staff` (which has neither `campaigns.view` nor `campaigns.create` by
+default) could also read the full campaign body/subject/recipient_filter of
+any specific campaign it knew the id of.
+
+**Fix:** `requirePermission('campaigns.view')` on both GET handlers (list +
+single), `requirePermission('campaigns.create')` on PUT/DELETE — campaigns
+has no distinct edit/delete permission in `rbac.ts`, so this matches the
+existing create-gated-write convention used elsewhere (e.g. `sales.view` on
+GET / `sales.edit` on PUT+DELETE for `/api/deals`).
+
+**Regression lock:** new `campaigns/route.rbac.test.ts` (3 tests) +
+`campaigns/[id]/route.rbac.test.ts` (6 tests) — first tests either file has
+had. Mutation-verified via `git stash` against the real pre-fix `route.ts`
+files: 5 of the 9 new probes went RED (200 instead of 403) pre-fix —
+`staff` blocked from `GET /api/campaigns/[id]`, `staff` blocked from
+`GET /api/campaigns`, the `campaigns.view`-revocation override probe, and
+critically the two **default-role** probes (`manager` blocked from PUT and
+from DELETE with zero override needed) — restored, all 9 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 381 files, 1632 passed + 37 skipped,
+0 regressions (was 1623/379). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
+
+## 2026-07-16 01:05 round (W2) — P70, fixed: `GET/POST /api/recurring-expenses`
++ `PATCH/DELETE /api/recurring-expenses/[id]` had zero permission check —
+a LIVE default-role bypass on tenant financial data (rent/insurance amounts)
+
+Continuing the broad-hunt (leader order 01:02, lower-risk surface, file-only):
+scanned every `api/*` route file for the "calls `getTenantForRequest`/
+`tenantDb` but never `requirePermission`" shape (same class as P59-P69),
+narrowed to a fresh family not yet mentioned in this register.
+`recurring-expenses/route.ts` (GET/POST) and `recurring-expenses/[id]/
+route.ts` (PATCH/DELETE) — the tenant's recurring rent/insurance/software-sub
+line items — called only `getTenantForRequest()` (proves tenant membership at
+ANY role) with zero permission check on all 4 handlers, while the sibling
+`api/finance/expenses/route.ts` already requires `requirePermission(
+'finance.view')` on GET / `requirePermission('finance.expenses')` on POST,
+and rbac.ts defines `finance.expenses` ("Manage expenses") specifically to
+gate this class of data. This is a **live bug against the hard-coded rbac.ts
+defaults**, not just an override edge case: `manager` is granted
+`finance.view` but explicitly **not** `finance.expenses` — the stock config
+already draws the "managers can see finance totals but not manage expense
+line items" line on the sibling route, but `recurring-expenses` silently
+ignored it, letting a default-config manager (or staff, who has neither
+permission) view, create, edit, or delete any recurring expense row
+(dollar amounts, vendor labels, due dates) via direct API call.
+
+**Fix:** `requirePermission('finance.view')` on GET, `requirePermission(
+'finance.expenses')` on POST/PATCH/DELETE — matches `/api/finance/expenses`
+exactly.
+
+**Regression lock:** new `recurring-expenses/route.rbac.test.ts` (5 tests) +
+`recurring-expenses/[id]/route.rbac.test.ts` (4 tests) — first RBAC tests
+either file has had (a pre-existing `route.isolation.test.ts` on the
+collection route was untouched and still passes). Mutation-verified via
+`git stash` against the real pre-fix `route.ts` files: all 6 new
+permission-probe assertions went RED (200 instead of 403) pre-fix — the
+manager-blocked-from-POST/PATCH/DELETE probes and the staff-blocked probes —
+restored, all 12 GREEN post-fix.
+
+`npx tsc --noEmit`: clean. Full suite: 383 files, 1642 passed + 37 skipped,
+0 regressions (was 1632/381). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round (unrelated
+WIP feature, not touched here). File-only, no push/deploy/DB, not committed
+(leader/Jeff to review + commit).
