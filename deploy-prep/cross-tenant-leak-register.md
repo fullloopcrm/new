@@ -3415,3 +3415,83 @@ injection/XSS/PRNG classes already exhausted):
 
 No new P-number. No code changed. `npx tsc --noEmit` not run (no files
 edited this round). File-only, no push/deploy/DB.
+
+## 2026-07-15 22:57 round (W2) — negative result: referrer OTP login,
+admin-invite/tenant-join flow, and the new (uncommitted) seomgr autopilot
+surface
+
+Fresh angles vs every prior round — three classes not yet named in this
+register:
+
+- **Referrer portal OTP login** (`referrers/auth/request`, `referrers/auth/
+  verify`) — both correctly resolve tenant from `getTenantFromHeaders()`
+  (not caller input), scope the `referrers` row lookup by `tenant_id` +
+  email, rate-limit per IP+email, use crypto-random 6-digit codes
+  (`crypto.randomInt`, not `Math.random()`), and always return `{ok:true}`
+  on `request` regardless of match (no email-enumeration oracle). The
+  session token (`lib/referrer-portal-auth.ts`) is an HMAC-signed
+  `{rid,tid,scope:'ref',exp}` payload verified with `timingSafeEqual`,
+  reusing `TEAM_PORTAL_SECRET` with a `scope` tag so it can't be replayed
+  against team-portal routes. Its one consumer, `GET /api/referrers/[code]`,
+  re-checks `referrer.tenant_id === auth.tid` AND `referrer.referral_code
+  === code` before returning earnings data — so even a token with a
+  correct signature but stale/foreign tenant claim can't pull another
+  referrer's data. No gap.
+
+- **Admin-invite → tenant-membership-grant flow** (`admin/invites` POST,
+  `lib/accept-invite.ts`, `app/join/[token]/accept/page.tsx`) — invite
+  creation is `requireAdmin()`-gated (platform super-admin only, same
+  trusted-actor class as `admin/territories`), token is `crypto.
+  randomBytes(32)` (unguessable), single-use (`accepted` flag) and
+  time-boxed (7 days). The accept path already carries its own inline
+  comment documenting the exact cross-tenant escalation this closes:
+  `acceptInviteForAdmin` requires the signed-in admin's own email to match
+  the invite's email *before* it ever inserts a `tenant_members` row —
+  otherwise whichever `admin_session` happens to be active in the browser
+  (not necessarily the invited person) would silently inherit
+  tenant_members access to a tenant the invite was never sent to them for.
+  Confirmed the guard runs inside the library function itself (not just
+  trusted by the caller), so the DB write never happens on a mismatch
+  regardless of what the page does with the result. No gap.
+
+- **New, not-yet-committed seomgr autopilot pipeline** (`src/lib/seo/
+  health.ts`, `recipes.ts`, `autopilot.ts`, `overrides.ts` + `cron/seo-
+  health`, `cron/seo-improve` — all untracked per `git status`, part of the
+  SEO-manager-rebuild initiative). Checked because it's genuinely
+  unreviewed code, not because it was asked for by name:
+  - Both new cron routes gate on `safeEqual(authHeader, Bearer
+    ${CRON_SECRET})` — the same already-hardened pattern as every other
+    cron route in this register. No naive compare introduced.
+  - `checkFleetHealth()` reads live tenant domains from `tenant_domains`
+    (the real per-tenant table this lane owns) and fetches each via
+    `safeFetch` (the existing SSRF guard, same one used by `tenant-
+    health.ts`/`site-export.ts`) — not a raw `fetch`. `tenant_id` travels
+    with each domain through to the `seo_issues` insert; no mixing.
+  - `recipes.ts`'s `generateDeterministicProposals` → `autopilot.ts`'s
+    `runAutopilot` → `overrides.ts`'s `applyOverride`: `tenant_id`,
+    `property`, and `target_url` are carried as one bundle from the
+    originating `seo_issues` row all the way to the `seo_changes`/
+    `seo_overrides` write — no step re-derives or swaps any of the three,
+    so a proposal computed for tenant A's page can't apply to tenant B's.
+  - **Functional gap noted, NOT a cross-tenant leak** (flagging for
+    whoever continues the seomgr rebuild, not fixing here — out of this
+    lane and this round's scope): `getSeoOverride(url)` — the read side
+    that's supposed to make an applied fix actually show up — has exactly
+    one caller in the whole repo, `app/(marketing)/[combo]/page.tsx`
+    (Full Loop's own `homeservicesbusinesscrm.com` product-marketing
+    pages, not a customer tenant site). None of the ~200 tenant-site
+    `generateMetadata` functions under `src/app/site/*` call
+    `getSeoOverride`. So `applyOverride()` upserts a `seo_overrides` row
+    and marks the `seo_changes` row `status:'applied'` for a real tenant's
+    `target_url`, but nothing on that tenant's live page ever reads it —
+    the autopilot believes it shipped a fix and reports `applied` even
+    though the tenant's actual rendered title/meta never changes. Because
+    it's write-only-with-no-tenant-facing-reader today, there's also no
+    cross-tenant collision to worry about (a same-path collision across two
+    tenants' template pages would only become a real risk once a tenant-
+    site read path is wired up — worth re-checking at that point, since
+    `seo_overrides` is keyed on raw `url` with no explicit tenant column in
+    the read query).
+
+No new P-number. No code changed. `npx tsc --noEmit` not run (no files
+edited this round). File-only, no push/deploy/DB.
