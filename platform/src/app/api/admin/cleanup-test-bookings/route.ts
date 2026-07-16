@@ -8,7 +8,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 
 const TEST_PHONE_PATTERNS = ['2125550', '917555', '7185550']
-const TEST_EMAIL_PATTERN = /@e\.com$|test\d*@/i
+// Anchored to the start of the local-part: unanchored `test\d*@` previously
+// matched any email containing that substring anywhere (latest@, protest@,
+// contest@, attest@ all false-positive-matched), causing this tool to
+// permanently delete real clients + their bookings/payments/notifications.
+export const TEST_EMAIL_PATTERN = /@e\.com$|^test\d*@/i
 const TEST_NAME_PATTERNS = [
   'Test Person', 'Test User', 'Test X', 'Carmen Diaz', 'Sofia Ruiz',
   'Change Mind', 'Price First', 'Mary Jones',
