@@ -424,11 +424,18 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       !BESPOKE_SITE_TENANTS.has(tenant.slug) || FL_SIGNAL_BESPOKE_SLUGS.has(tenant.slug)
         ? FL_PROJECT_ID
         : null
-    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; notes: string; routing_mode: string; vercel_project: string | null }> = [
-      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, notes: 'Carrying domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject },
+    // type must mirror is_primary (068's own backfill maps is_primary:true ->
+    // type:'primary', else 'generic') or this row silently falls to the
+    // column's enforced DEFAULT ('generic') — same mis-classification class
+    // already fixed for onboard-tenant-site.ts and the admin POST
+    // /api/admin/websites write path; this was the one remaining tenant_domains
+    // write path (and the highest-volume one — every activation goes through
+    // it) that still skipped it.
+    const rows: Array<{ tenant_id: string; domain: string; active: boolean; is_primary: boolean; type: string; notes: string; routing_mode: string; vercel_project: string | null }> = [
+      { tenant_id: tenantId, domain: carryHost, active: true, is_primary: !customHost, type: !customHost ? 'primary' : 'generic', notes: 'Carrying domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject },
     ]
     if (customHost) {
-      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, notes: 'Custom domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject })
+      rows.push({ tenant_id: tenantId, domain: customHost, active: true, is_primary: true, type: 'primary', notes: 'Custom domain — auto-registered on activation', routing_mode: routingMode, vercel_project: vercelProject })
     }
     const { error: tdErr } = await supabaseAdmin
       .from('tenant_domains')  // tenant-scope-ok: upsert rows carry tenant_id (built above)
@@ -483,9 +490,27 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       if (!autoErr) vercelProjectFixed += fromAuto?.length ?? 0
     }
 
+    // Same re-sync, for type — but per-row (unlike routing_mode/vercel_project,
+    // the target value differs between the carrying domain and the custom
+    // domain), so this loops rows instead of a single tenant-wide update.
+    let typeFixed = 0
+    if (!tdErr) {
+      for (const r of rows) {
+        const { data: fixedType, error: typeErr } = await supabaseAdmin
+          .from('tenant_domains')
+          .update({ type: r.type })
+          .eq('tenant_id', tenantId)
+          .eq('domain', r.domain)
+          .neq('type', r.type)
+          .select('id')
+        if (!typeErr) typeFixed += fixedType?.length ?? 0
+      }
+    }
+
     const corrections = [
       driftFixed > 0 ? `routing_mode on ${driftFixed} row(s)` : null,
       vercelProjectFixed > 0 ? `vercel_project on ${vercelProjectFixed} row(s)` : null,
+      typeFixed > 0 ? `type on ${typeFixed} row(s)` : null,
     ].filter(Boolean)
 
     steps.push({
