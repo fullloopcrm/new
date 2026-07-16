@@ -17,6 +17,8 @@ import {
   parseNextConfigSiteRewriteSources,
   parseNextConfigRedirects,
   parseAppRootPrefixes,
+  parseRelativeImportPaths,
+  findHardcodedWwwApexDomains,
   computeFindings,
   summarize,
   loadToken,
@@ -2598,6 +2600,102 @@ describe('computeFindings — Drift AA (robots.ts KILLED_ROUTES copy drifted fro
       tenants: [],
       tds: [],
       bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings).toHaveLength(0)
+  })
+})
+
+describe('parseRelativeImportPaths', () => {
+  it('extracts relative import specifiers, ignoring package imports', () => {
+    const src = `
+      import type { MetadataRoute } from 'next'
+      import { SITE_DOMAIN, services } from './_lib/siteData'
+      import { blogPosts } from './_lib/blogPosts'
+    `
+    const paths = parseRelativeImportPaths(src)
+    expect(paths.has('./_lib/siteData')).toBe(true)
+    expect(paths.has('./_lib/blogPosts')).toBe(true)
+    expect(paths.has('next')).toBe(false)
+    expect(paths.size).toBe(2)
+  })
+
+  it('returns an empty set when there are no relative imports', () => {
+    expect(parseRelativeImportPaths("import type { MetadataRoute } from 'next'").size).toBe(0)
+  })
+})
+
+describe('findHardcodedWwwApexDomains', () => {
+  const apexSet = new Set(['thenycmarketingcompany.com', 'consortiumnyc.com'])
+
+  it('finds a hardcoded www. form of an APEX_CANONICAL_DOMAINS entry', () => {
+    const found = findHardcodedWwwApexDomains(['const BASE = "https://www.thenycmarketingcompany.com";'], apexSet)
+    expect(found.has('thenycmarketingcompany.com')).toBe(true)
+    expect(found.size).toBe(1)
+  })
+
+  it('ignores a bare-apex (non-www) URL for the same domain', () => {
+    const found = findHardcodedWwwApexDomains(['const BASE = "https://thenycmarketingcompany.com";'], apexSet)
+    expect(found.size).toBe(0)
+  })
+
+  it('ignores a www. URL for a domain NOT in APEX_CANONICAL_DOMAINS', () => {
+    const found = findHardcodedWwwApexDomains(['const BASE = "https://www.some-other-tenant.com";'], apexSet)
+    expect(found.size).toBe(0)
+  })
+
+  it('skips null/undefined sources (unread files)', () => {
+    const found = findHardcodedWwwApexDomains([null, 'const BASE = "https://www.consortiumnyc.com";', undefined], apexSet)
+    expect(found.has('consortiumnyc.com')).toBe(true)
+    expect(found.size).toBe(1)
+  })
+
+  it('returns an empty set for an empty apexCanonicalSet', () => {
+    const found = findHardcodedWwwApexDomains(['const BASE = "https://www.thenycmarketingcompany.com";'], new Set())
+    expect(found.size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AB (bespoke tenant sitemap hardcodes www. for an APEX_CANONICAL_DOMAINS entry)', () => {
+  it('warns when a slug\'s sitemap/robots source hardcodes https://www.<domain> for an apex-canonical domain', () => {
+    // Mirrors the real, live drift: the-nyc-marketing-company, consortium-nyc,
+    // and the-nyc-interior-designer all hardcode a www. base in their own
+    // sitemap.ts even though their domains are apex-canonical in middleware.
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-nyc-marketing-company']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      wwwApexDomainsBySlug: new Map([['the-nyc-marketing-company', new Set(['thenycmarketingcompany.com'])]]),
+    })
+    const warn = findings.find((f) => f.slug === 'the-nyc-marketing-company')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('https://www.thenycmarketingcompany.com')
+    expect(warn!.msg).toContain('APEX_CANONICAL_DOMAINS')
+  })
+
+  it('emits one finding per domain when a slug has multiple hardcoded-www matches', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['multi-domain-slug']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      wwwApexDomainsBySlug: new Map([['multi-domain-slug', new Set(['a.com', 'b.com'])]]),
+    })
+    const warns = findings.filter((f) => f.slug === 'multi-domain-slug')
+    expect(warns).toHaveLength(2)
+    expect(warns.every((f) => f.sev === 'WARN')).toBe(true)
+  })
+
+  it('is skipped entirely when wwwApexDomainsBySlug is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-nyc-marketing-company']),
       hasHome: alwaysHome,
       resolvableSlugs: null,
     })

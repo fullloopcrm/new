@@ -204,6 +204,34 @@ export function parseApexCanonicalSet(middlewareSource) {
   return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse the relative import specifiers ("from './foo'") out of a source
+// file. Used to follow a bespoke tenant's sitemap.ts one hop into a sibling
+// _lib module when it re-exports its URL base (e.g. SITE_DOMAIN) rather than
+// inlining it — see findHardcodedWwwApexDomains below and Drift AB.
+export function parseRelativeImportPaths(source) {
+  return new Set([...source.matchAll(/from\s*['"](\.[^'"]+)['"]/g)].map((m) => m[1]))
+}
+
+// --- scan a bespoke tenant's own canonical-URL sources (sitemap.ts, robots.ts,
+// and anything sitemap.ts relative-imports) for a hardcoded "https://www.<x>"
+// literal naming a domain that IS in middleware's APEX_CANONICAL_DOMAINS. That
+// list exists specifically because www does not serve cleanly on Vercel for
+// those domains (see the comment above APEX_CANONICAL_DOMAINS in middleware.ts)
+// — a tenant's own generator hardcoding the www form anyway means every URL it
+// produces (a sitemap.xml can carry thousands) points crawlers at the exact
+// host the exemption was added to avoid. See Drift AB below.
+export function findHardcodedWwwApexDomains(sources, apexCanonicalSet) {
+  const found = new Set()
+  for (const src of sources) {
+    if (!src) continue
+    for (const m of src.matchAll(/https?:\/\/(www\.[a-z0-9.-]+)/gi)) {
+      const apex = m[1].toLowerCase().replace(/^www\./, '')
+      if (apexCanonicalSet.has(apex)) found.add(apex)
+    }
+  }
+  return found
+}
+
 // --- Source 5: parse the PROTECTED slugs out of verify-protected-tenants.mjs.
 // That script is the OTHER guard over BESPOKE_SITE_TENANTS: at build time it
 // asserts every PROTECTED entry is still in the middleware set AND still has a
@@ -464,9 +492,15 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  own hand-maintained copy of KILLED_ROUTES (see
  *                                  parseRobotsKilledRoutes). Feeds Drift AA ONLY.
  *                                  Pass an empty Set (default) to skip.
+ * @param {Map}      [input.wwwApexDomainsBySlug]  slug -> Set<domain> from
+ *                                  findHardcodedWwwApexDomains — bespoke tenants
+ *                                  whose own sitemap.ts/robots.ts hardcode a
+ *                                  "https://www.<domain>" for a domain that IS in
+ *                                  APEX_CANONICAL_DOMAINS. Feeds Drift AB ONLY.
+ *                                  Pass an empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1027,6 +1061,34 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AB: a BESPOKE_SITE_TENANTS tenant's own canonical-URL sources
+  // (sitemap.ts, a relative-imported SITE_DOMAIN/BASE-shaped constant, or
+  // robots.ts — see findHardcodedWwwApexDomains) hardcode an absolute
+  // "https://www.<domain>" URL for a domain that IS in middleware's
+  // APEX_CANONICAL_DOMAINS. That list exists specifically because www does
+  // not serve cleanly on Vercel for these domains (Vercel's own alias 307s
+  // www->apex; APEX_CANONICAL_DOMAINS keeps middleware from ALSO redirecting
+  // apex->www, which is what would infinite-loop the two). A tenant's own
+  // generator hardcoding the www form anyway means every URL it builds from
+  // that base — up to thousands, in a rich sitemap — points crawlers at the
+  // exact host the exemption exists to steer them away from, adding a
+  // redirect hop per URL and splitting canonical/link-equity signal across
+  // two hosts instead of the one middleware itself declared canonical.
+  // Invisible to Drift O, which only checks that the APEX_CANONICAL_DOMAINS
+  // entry matches a KNOWN tenant domain — not what that tenant's own
+  // generated URLs actually use.
+  if (wwwApexDomainsBySlug.size) {
+    for (const [slug, domains] of wwwApexDomainsBySlug) {
+      for (const domain of domains) {
+        add(
+          'WARN',
+          slug,
+          `own sitemap/canonical-URL source hardcodes https://www.${domain}, but ${domain} is in middleware's APEX_CANONICAL_DOMAINS (apex is the canonical host there specifically because www does not serve cleanly on Vercel for it) -> every URL built from that hardcoded www base points crawlers at the non-canonical host through an extra redirect hop, splitting canonical signal between two hosts; invisible to Drift O, which only checks that the APEX_CANONICAL_DOMAINS entry matches a known tenant domain, not what that tenant's own generated URLs use`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1109,6 +1171,35 @@ async function main() {
     return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))
   }
 
+  // Feeds Drift AB: for every bespoke tenant, read its own sitemap.ts (plus
+  // whatever it relative-imports one hop deep — e.g. a sibling _lib/siteData.ts
+  // re-exporting SITE_DOMAIN) and robots.ts, then scan those sources for a
+  // hardcoded www. form of an APEX_CANONICAL_DOMAINS entry.
+  const wwwApexDomainsBySlug = new Map()
+  if (apexCanonicalSet.size) {
+    for (const slug of bespokeSet) {
+      const dir = join(siteDir, slug)
+      const sources = []
+      const sitemapPath = join(dir, 'sitemap.ts')
+      let sitemapSrc = null
+      if (existsSync(sitemapPath)) {
+        sitemapSrc = readFileSync(sitemapPath, 'utf8')
+        sources.push(sitemapSrc)
+      }
+      const robotsPath = join(dir, 'robots.ts')
+      if (existsSync(robotsPath)) sources.push(readFileSync(robotsPath, 'utf8'))
+      if (sitemapSrc) {
+        for (const rel of parseRelativeImportPaths(sitemapSrc)) {
+          const base = join(dir, rel)
+          const candidate = [`${base}.ts`, `${base}.tsx`, join(base, 'index.ts')].find((p) => existsSync(p))
+          if (candidate) sources.push(readFileSync(candidate, 'utf8'))
+        }
+      }
+      const found = findHardcodedWwwApexDomains(sources, apexCanonicalSet)
+      if (found.size) wwwApexDomainsBySlug.set(slug, found)
+    }
+  }
+
   const [tenants, tds, allTenantDomains, allTenants] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
@@ -1133,7 +1224,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
