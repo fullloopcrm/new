@@ -34,6 +34,30 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: `Cannot re-send ${quote.status} quote` }, { status: 400 })
     }
 
+    // Atomic claim on the draft -> sent transition, done before dispatch.
+    // Two near-simultaneous calls (double-click "Send", a client retry) on a
+    // still-draft quote both read 'draft' from the snapshot above; without
+    // this claim both would email/SMS the customer AND both would log a
+    // duplicate "sent" deal-pipeline activity + duplicate owner alert. Only
+    // the winner dispatches; the loser gets a clean 409. Resends of an
+    // already-'sent' quote are a deliberate, repeatable action (rep clicks
+    // Send again after edits), so they intentionally skip this gate — same
+    // as the existing unprotected resend behavior on invoices/[id]/send.
+    const isFirstSend = quote.status === 'draft'
+    if (isFirstSend) {
+      const { data: claimed } = await supabaseAdmin
+        .from('quotes')
+        .update({ status: 'sent', sent_at: new Date().toISOString() })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .eq('status', 'draft')
+        .select('id')
+        .maybeSingle()
+      if (!claimed) {
+        return NextResponse.json({ error: 'Quote was already sent' }, { status: 409 })
+      }
+    }
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name, slug, domain, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, resend_api_key, email_from, selena_config')
@@ -110,6 +134,17 @@ export async function POST(request: Request, { params }: Params) {
 
     const anyOk = results.email?.ok || results.sms?.ok
     if (!anyOk) {
+      // Release the claim so a corrected retry (e.g. after fixing tenant
+      // comms config) can win the atomic claim above and send again —
+      // preserves the pre-existing "stay draft until something actually
+      // sends" retry behavior.
+      if (isFirstSend) {
+        await supabaseAdmin
+          .from('quotes')
+          .update({ status: 'draft', sent_at: null })
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+      }
       return NextResponse.json({ error: 'Neither channel sent', results }, { status: 400 })
     }
 
@@ -130,8 +165,7 @@ export async function POST(request: Request, { params }: Params) {
 
     // Announce to the deal's pipeline timeline on the FIRST send only (drafts
     // are created silently now, so this is where a proposal enters the pipeline).
-    // quote.status is the pre-update value → 'draft' means this is the first send.
-    if (quote.status === 'draft' && quote.deal_id) {
+    if (isFirstSend && quote.deal_id) {
       await supabaseAdmin.from('deal_activities').insert({
         tenant_id: tenantId,
         deal_id: quote.deal_id,
