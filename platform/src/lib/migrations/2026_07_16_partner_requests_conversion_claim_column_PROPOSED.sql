@@ -1,0 +1,99 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes a duplicate-tenant-creation race in createTenantFromLead()
+-- (src/lib/create-tenant-from-lead.ts), the single shared function BOTH
+--   (a) the paid-proposal Stripe webhook (webhooks/stripe-platform/route.ts,
+--       checkout.session.completed) and
+--   (b) the manual admin "Convert" comp override
+--       (admin/requests/convert/route.ts)
+-- call to turn a sold `partner_requests` lead into a live `tenants` row.
+--
+-- The function's own header claims "Idempotent: a lead already converted
+-- returns its existing tenant" -- but the idempotency check is a plain
+-- check-then-act on a SELECT snapshot:
+--   const { data: lead } = await ...select('*')...
+--   if (lead.converted_tenant_id) return { ...alreadyConverted: true }
+--   ... (territory reservation, tenant INSERT, provisioning, onboarding
+--        tasks, owner PIN creation -- dozens of DB writes) ...
+--   await ...update({ converted_tenant_id: tenant.id, status: 'sold', ... })
+--     .eq('id', leadId)   -- UNCONDITIONAL, no claim guard
+--
+-- Two concurrent calls for the SAME lead both read converted_tenant_id as
+-- null before either write lands, both pass the idempotency check, and both
+-- run the full tenant-creation pipeline. This is not a rare edge case for
+-- this codebase specifically -- this session already found and fixed the
+-- exact "webhook redelivery races a second call" shape multiple times
+-- (Resend, Telnyx voice/inbound webhooks). Stripe redelivers
+-- checkout.session.completed on any non-2xx/timeout response, and this
+-- webhook's own handler runs the same expensive multi-step pipeline (tenant
+-- insert + provisionTenant + seedOnboardingTasks + owner PIN) that's a
+-- plausible cause of the very timeout that triggers the retry. A human
+-- double-click on the admin "Convert" button, or an admin manually converting
+-- a lead at the same moment its Stripe payment webhook fires, hits the same
+-- window.
+--
+-- Impact if it fires: TWO separate tenants created for one lead/one payment
+-- -- each with its own full provisioning, onboarding checklist, and a fresh
+-- randomly-generated owner PIN (only one of which the admin actually sees,
+-- since ownerPin is returned once per call and the two calls' responses go to
+-- two different callers/logs). Worse: `territory_claims` uses a UNIQUE
+-- (territory_id, category_id) constraint as its own concurrency guard, so
+-- only ONE of the two concurrent calls can genuinely hold the reservation --
+-- but both calls' 23505-recovery branch (lines checking
+-- `existing.tenant_id == null`) can independently decide they're the
+-- rightful claimant and each write `territory_claims.tenant_id` for the SAME
+-- reservation row, with the second write silently overwriting the first.
+-- Whichever tenant creation finishes last "wins" the territory attachment;
+-- the other tenant is a live, real tenant with NO territory_claims row
+-- pointing to it at all -- a paying customer with a fully provisioned
+-- account and no exclusive-territory protection, and the lead's
+-- `converted_tenant_id` link (last-write-wins) may not even point at the
+-- territory-holding tenant.
+--
+-- Same fix shape already used elsewhere in this codebase for the identical
+-- "claim before doing expensive work" problem (createJobFromQuote's
+-- converted_at claim marker, quotes/documents/team-portal send-route atomic
+-- claims from earlier this session): reserve the conversion BEFORE the
+-- territory/tenant/provisioning work starts, using a dedicated nullable
+-- timestamp column so the claim can't collide with any existing status
+-- value or an unverified FK on converted_tenant_id.
+--
+-- NOT wired into create-tenant-from-lead.ts yet -- this column does not
+-- exist in prod, and this repo's tracked migrations never defined
+-- `partner_requests.converted_tenant_id` or `territory_claims` either (both
+-- appear to have been added out-of-band), so their exact constraints
+-- couldn't be verified from this worktree before proposing a fix that
+-- depends on them. Once this migration is applied, createTenantFromLead()
+-- should claim the lead FIRST:
+--
+--   const { data: claim } = await supabaseAdmin
+--     .from('partner_requests')
+--     .update({ conversion_claimed_at: new Date().toISOString() })
+--     .eq('id', leadId)
+--     .is('converted_tenant_id', null)
+--     .is('conversion_claimed_at', null)
+--     .select('id')
+--     .maybeSingle()
+--   if (!claim) {
+--     // Someone else already claimed (in flight) or finished it.
+--     const { data: latest } = await supabaseAdmin
+--       .from('partner_requests').select('converted_tenant_id').eq('id', leadId).maybeSingle()
+--     if (latest?.converted_tenant_id) {
+--       const { data: existing } = await supabaseAdmin
+--         .from('tenants').select('id, slug, name, status').eq('id', latest.converted_tenant_id).single()
+--       return { ok: true, tenant: existing || undefined, alreadyConverted: true }
+--     }
+--     return { ok: false, error: 'Lead conversion already in progress' }
+--   }
+--
+-- ...then, symmetric to createJobFromQuote's catch block: if tenant creation
+-- fails before the final converted_tenant_id/status:'sold' write lands,
+-- release the claim (`conversion_claimed_at: null`) so a legitimate retry
+-- isn't permanently blocked.
+
+ALTER TABLE partner_requests
+  ADD COLUMN IF NOT EXISTS conversion_claimed_at TIMESTAMPTZ;
+
+COMMENT ON COLUMN partner_requests.conversion_claimed_at IS
+  'Atomic claim marker for createTenantFromLead() — set immediately before territory/tenant/provisioning work starts so two concurrent calls (webhook redelivery racing a manual admin Convert, or a double-click) cannot both create a tenant for the same lead. Cleared back to NULL if tenant creation fails before the lead is fully linked, so a retry is not permanently blocked.';
