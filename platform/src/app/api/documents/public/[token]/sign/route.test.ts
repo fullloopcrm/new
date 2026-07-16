@@ -27,6 +27,7 @@ vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: vi.fn(() => 'decrypted') 
 
 import { POST } from './route'
 import { logDocEvent } from '@/lib/documents'
+import { sendEmail } from '@/lib/email'
 
 const TOKEN = 'tok-signer-1'
 const SIGNATURE_PNG = `data:image/png;base64,${'A'.repeat(120)}`
@@ -72,5 +73,39 @@ describe('POST /api/documents/public/[token]/sign', () => {
     expect(res.status).toBe(200)
     expect(h.store.document_signers[0].status).toBe('signed')
     await expect(res.json()).resolves.toMatchObject({ ok: true, all_done: false })
+  })
+
+  // sendCompletionCopies() (all-signed path) and send/route.ts's renderInviteEmail()
+  // both escape signer name/title into the HTML email body they build. The
+  // sequential "you're up" notification below sendSigningInviteToSigner() was the
+  // one call site that skipped escapeHtml() on the next signer's name, letting an
+  // authenticated staffer who names a signer `</p><script>...` inject HTML/links
+  // into an email sent from the tenant's docs@ domain to that next (often
+  // external) signer.
+  it("escapes the next signer's name in the sequential-invite email", async () => {
+    h.store.documents[0].sign_order = 'sequential'
+    h.store.documents[0].tenants = {
+      name: 'Acme',
+      domain: null,
+      telnyx_api_key: null,
+      telnyx_phone: null,
+      resend_api_key: 'key123',
+      email_from: 'docs@acme.com',
+    }
+    h.store.document_signers[1] = {
+      ...h.store.document_signers[1],
+      status: 'pending',
+      name: '</p><script>alert(1)</script>',
+      email: 'next@example.com',
+      public_token: 'tok-signer-2',
+    }
+
+    const res = await POST(signReq(validBody), params)
+
+    expect(res.status).toBe(200)
+    expect(sendEmail).toHaveBeenCalledTimes(1)
+    const html = vi.mocked(sendEmail).mock.calls[0][0].html as string
+    expect(html).not.toContain('<script>')
+    expect(html).toContain('&lt;script&gt;')
   })
 })
