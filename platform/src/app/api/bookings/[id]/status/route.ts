@@ -46,16 +46,31 @@ export async function PATCH(
       )
     }
 
+    // Check-then-act, not atomic: `allowed` above was validated against the
+    // status read at the top of this request, but a concurrent status change
+    // (PUT /api/bookings/[id], the portal's PUT /api/portal/bookings/[id], a
+    // payment webhook) can land between that read and this write. Without
+    // re-asserting the pre-read status in THIS update's own WHERE, this write
+    // would silently apply a transition that was only ever valid from the
+    // STALE status, not the booking's actual current status — and the audit
+    // log below would record a false `from` value.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .eq('status', booking.status)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      return NextResponse.json(
+        { error: 'This booking changed status concurrently — refresh and retry' },
+        { status: 409 },
+      )
     }
 
     // Sync the mirrored booking-mode deal to match the booking outcome:
