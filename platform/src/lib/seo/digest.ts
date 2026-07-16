@@ -195,6 +195,7 @@ export async function sendSeoDigests(): Promise<DigestRunResult> {
     .select('id, slug')
     .eq('status', 'active')
     .neq('slug', 'full-loop-crm')
+    .neq('slug', 'nycmaid') // excluded on Jeff's call (2026-07-16) — mid-cutover, no owner_email set
 
   for (const t of (tenants ?? []) as Array<{ id: string; slug: string }>) {
     try {
