@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendPushToTenantAdmins, sendPushToClient } from '@/lib/push'
 import { smsRunningLateClient, smsRunningLateAdmin } from '@/lib/sms-templates'
 
@@ -49,7 +50,7 @@ export async function POST(request: Request) {
 
     // SMS to admin
     const adminPhone = tenant.owner_phone || tenant.phone
-    if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenantId, 'owner_late_alert', 'sms'))) {
       sendSMS({ to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`, body: smsRunningLateAdmin(tenant.name, memberName, clientName, time, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
 

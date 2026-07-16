@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -73,6 +74,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_phone || !tenant.payment_link) continue
+    if (!(await isCommEnabled(tenant.id, 'payment_reminder', 'sms'))) continue
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')

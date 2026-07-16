@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsDailySummary } from '@/lib/sms-templates'
 import { sendSMS } from '@/lib/sms'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -121,7 +122,7 @@ export async function GET(request: Request) {
       if (!upcomingJobs || upcomingJobs.length === 0) continue
 
       // SMS summary
-      if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone && (await isCommEnabled(tenantId, 'team_daily_summary', 'sms'))) {
         const smsBody = smsDailySummary(tenant.name, member.name, upcomingJobs.length)
         await sendSMS({
           to: member.phone,

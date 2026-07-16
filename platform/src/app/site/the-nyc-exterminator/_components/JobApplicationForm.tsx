@@ -16,9 +16,42 @@ export default function JobApplicationForm({
   const [status, setStatus] = useState<"idle" | "sending" | "sent" | "error">(
     "idle"
   );
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [photoName, setPhotoName] = useState<string>("");
+  const [photoUploading, setPhotoUploading] = useState(false);
+  const [photoError, setPhotoError] = useState<string | null>(null);
   const openedRef = useRef(false);
   const submittedRef = useRef(false);
   const lastFieldRef = useRef<string | undefined>(undefined);
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      setPhotoError("Photo must be an image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setPhotoError("Photo too large (max 10MB).");
+      return;
+    }
+    setPhotoError(null);
+    setPhotoUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "job-applications");
+      const res = await fetch("/api/public-upload", { method: "POST", body });
+      const uploadData = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (!res.ok || !uploadData.success || !uploadData.url) throw new Error(uploadData.error || "Upload failed");
+      setPhotoUrl(uploadData.url);
+      setPhotoName(file.name);
+    } catch (err: unknown) {
+      setPhotoError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
 
   useEffect(() => {
     if (!openedRef.current) {
@@ -49,6 +82,10 @@ export default function JobApplicationForm({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    if (!photoUrl) {
+      setPhotoError("A profile photo is required to apply.");
+      return;
+    }
     setStatus("sending");
 
     const form = e.currentTarget;
@@ -63,6 +100,7 @@ export default function JobApplicationForm({
       availability: (form.elements.namedItem("availability") as HTMLSelectElement).value,
       location: (form.elements.namedItem("location") as HTMLInputElement).value,
       message: (form.elements.namedItem("message") as HTMLTextAreaElement).value,
+      photo_url: photoUrl,
       session_id: getSessionId(),
     };
 
@@ -207,6 +245,21 @@ export default function JobApplicationForm({
           className={inputClass}
           placeholder="Your pest control experience, certifications, what kind of role you're looking for, and why you want to join The NYC Exterminator..."
         />
+      </div>
+
+      <div>
+        <label htmlFor="app-photo" className={labelClass}>Profile photo *</label>
+        <input
+          type="file"
+          id="app-photo"
+          accept="image/*"
+          onChange={handlePhoto}
+          disabled={photoUploading}
+          className="mt-1 block w-full text-sm text-zinc-300 file:mr-3 file:rounded-lg file:border-0 file:bg-green-600 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-green-500"
+        />
+        {photoUploading && <p className="mt-1 text-xs text-zinc-500">Uploading photo…</p>}
+        {photoUrl && !photoUploading && <p className="mt-1 text-xs font-semibold text-green-400">✓ {photoName || "Photo uploaded"}</p>}
+        {photoError && <p className="mt-1 text-xs text-red-400">{photoError}</p>}
       </div>
 
       <button

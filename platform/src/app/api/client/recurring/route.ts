@@ -4,6 +4,7 @@ import { generateToken } from '@/lib/tokens'
 import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -173,12 +174,16 @@ export async function POST(request: Request) {
   const first = bookings?.[0]
   if (first && first.status !== 'pending') {
     try {
-      const email = await confirmationEmailFor(tenantId, first)
-      await sendClientEmail(client_id, email.subject, email.html)
-      sendClientSMS(client_id, (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first), {
-        smsType: 'confirmation',
-        bookingId: first.id,
-      }).catch((err: unknown) => console.error('Recurring confirmation SMS error:', err))
+      if (await isCommEnabled(tenantId, 'booking_confirmed', 'email')) {
+        const email = await confirmationEmailFor(tenantId, first)
+        await sendClientEmail(client_id, email.subject, email.html)
+      }
+      if (await isCommEnabled(tenantId, 'booking_confirmed', 'sms')) {
+        sendClientSMS(client_id, (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first), {
+          smsType: 'confirmation',
+          bookingId: first.id,
+        }).catch((err: unknown) => console.error('Recurring confirmation SMS error:', err))
+      }
     } catch (err) {
       console.error('Recurring confirmation error:', err)
     }

@@ -6,11 +6,47 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
   const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [photoUrl, setPhotoUrl] = useState<string>("");
+  const [photoName, setPhotoName] = useState<string>("");
+  const [photoUploading, setPhotoUploading] = useState(false);
   const location = city && state ? `${city}, ${state}` : state || "NYC (All Boroughs)";
+
+  async function handlePhoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!/^image\//.test(file.type)) {
+      setError("Profile photo must be an image.");
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setError("Profile photo too large (max 10MB).");
+      return;
+    }
+    setError(null);
+    setPhotoUploading(true);
+    try {
+      const body = new FormData();
+      body.append("file", file);
+      body.append("folder", "job-applications");
+      const res = await fetch("/api/public-upload", { method: "POST", body });
+      const data = (await res.json()) as { success: boolean; url?: string; error?: string };
+      if (!res.ok || !data.success || !data.url) throw new Error(data.error || "Upload failed");
+      setPhotoUrl(data.url);
+      setPhotoName(file.name);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Photo upload failed");
+    } finally {
+      setPhotoUploading(false);
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setError(null);
+    if (!photoUrl) {
+      setError("A profile photo is required to apply.");
+      return;
+    }
     setSubmitting(true);
 
     const fd = new FormData(e.currentTarget);
@@ -24,6 +60,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       license: String(fd.get("hasLicense") || ""),
       availability: String(fd.get("availability") || ""),
       message: [`Can lift: ${String(fd.get("canLift") || "")}`, String(fd.get("about") || "")].filter(Boolean).join("\n"),
+      photo_url: photoUrl,
       source: typeof window !== "undefined" ? window.location.pathname : "",
     };
 
@@ -104,6 +141,12 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       <div>
         <label className="block text-sm font-semibold text-slate-700 mb-1">Brief note about yourself</label>
         <textarea name="about" rows={3} placeholder="Any relevant experience, why you're interested, when you can start..." className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
+      </div>
+      <div>
+        <label className="block text-sm font-semibold text-slate-700 mb-1">Profile photo *</label>
+        <input type="file" accept="image/*" onChange={handlePhoto} disabled={photoUploading} className="w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-teal-800" />
+        {photoUploading && <p className="mt-1 text-xs text-slate-500">Uploading photo…</p>}
+        {photoUrl && !photoUploading && <p className="mt-1 text-xs font-semibold text-teal-700">✓ {photoName || "Photo uploaded"}</p>}
       </div>
       {error && (
         <p className="rounded-md bg-red-50 p-2 text-sm text-red-700">{error}</p>

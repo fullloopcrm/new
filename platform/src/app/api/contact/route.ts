@@ -22,6 +22,7 @@ import { sendEmail, tenantSender } from '@/lib/email'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
@@ -49,6 +50,7 @@ interface ContactBody {
   experience?: string
   license?: string
   availability?: string
+  photo_url?: string
 }
 
 function inferFormType(body: ContactBody): 'service-quote' | 'general-inquiry' | 'job-application' {
@@ -166,6 +168,7 @@ export async function POST(request: NextRequest) {
           address: body.location || null,
           experience: body.experience || null,
           availability: body.availability || null,
+          photo_url: body.photo_url || null,
           notes,
           status: 'pending',
         })
@@ -185,18 +188,21 @@ export async function POST(request: NextRequest) {
         const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
         const subject = `[${tenant.name}] New team application: ${name}`
         const html = `<h2>New Team Application</h2>
+          ${body.photo_url ? `<img src="${body.photo_url}" alt="Applicant photo" style="width:120px;height:120px;object-fit:cover;border-radius:8px;margin:0 0 12px" />` : ''}
           <p><strong>Name:</strong> ${name}</p>
           <p><strong>Email:</strong> ${email || '—'}</p>
           <p><strong>Phone:</strong> ${phone}</p>
           ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
           <p><a href="${adminUrl}">View in admin</a></p>`
-        await emailAdmins(tenant, subject, html)
+        if (await isCommEnabled(tenant.id, 'owner_new_application', 'email')) {
+          await emailAdmins(tenant, subject, html)
+        }
       } catch (emailErr) {
         console.error('[api/contact] job-app email error:', emailErr)
       }
 
       // Applicant confirmation — per-tenant opt-in, non-blocking.
-      if (email && leadConfirmationEnabled(tenant)) {
+      if (email && leadConfirmationEnabled(tenant) && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
         try {
           await sendEmail({
             to: email,
@@ -395,14 +401,16 @@ export async function POST(request: NextRequest) {
           adminUrl,
         },
       )
-      await emailAdmins(tenant, msg.subject, msg.html)
+      if (await isCommEnabled(tenant.id, 'owner_new_lead', 'email')) {
+        await emailAdmins(tenant, msg.subject, msg.html)
+      }
     } catch (emailErr) {
       console.error('[api/contact] lead email error:', emailErr)
     }
 
     // Customer confirmation — per-tenant opt-in. Non-blocking: a failed
     // confirmation must never fail the lead capture (already saved above).
-    if (email && leadConfirmationEnabled(tenant)) {
+    if (email && leadConfirmationEnabled(tenant) && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
       try {
         await sendEmail({
           to: email,

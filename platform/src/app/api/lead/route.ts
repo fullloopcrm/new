@@ -34,7 +34,7 @@ interface LeadBody {
 // Standard fields handled explicitly; everything else a form sends
 // (service, address, city, budget, timeframe, etc.) is folded into notes
 // so no field is silently dropped.
-const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source'])
+const STANDARD_KEYS = new Set(['type', 'name', 'email', 'phone', 'details', 'message', 'source', 'photo_url'])
 
 function buildLeadNotes(body: LeadBody): string | null {
   const lines: string[] = []
@@ -101,6 +101,7 @@ export async function POST(request: NextRequest) {
             phone: appPhone || null,
             availability: (body.availability as string) || null,
             referral_source: (body.source as string) || null,
+            photo_url: (body.photo_url as string) || null,
             notes,
             status: 'pending',
           })
@@ -123,12 +124,15 @@ export async function POST(request: NextRequest) {
           const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
           const subject = `[${tenant.name}] New job application: ${name}`
           const html = `<h2>New Job Application</h2>
+            ${body.photo_url ? `<img src="${body.photo_url}" alt="Applicant photo" style="width:120px;height:120px;object-fit:cover;border-radius:8px;margin:0 0 12px" />` : ''}
             <p><strong>Name:</strong> ${name}</p>
             <p><strong>Email:</strong> ${email || '—'}</p>
             <p><strong>Phone:</strong> ${phoneRaw || '—'}</p>
             ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
             <p><a href="${adminUrl}">View in admin</a></p>`
-          await emailAdmins(tenant, subject, html)
+          if (await isCommEnabled(tenant.id, 'owner_new_application', 'email')) {
+            await emailAdmins(tenant, subject, html)
+          }
         } catch (emailErr) {
           console.error('[api/lead] job-app email error:', emailErr)
         }

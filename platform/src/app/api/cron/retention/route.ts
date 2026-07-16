@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 export const maxDuration = 300
 
@@ -31,6 +32,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+    if (!(await isCommEnabled(tenant.id, 'retention', 'sms'))) continue
 
     try {
       // Find active clients with SMS consent

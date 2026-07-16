@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
@@ -29,6 +30,7 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    if (!(await isCommEnabled(tenantId, 'confirmation_reminder', 'sms'))) continue
     const clientSms = await clientSmsTemplatesFor(tenantId)
 
     const { data: pending, error } = await supabaseAdmin

@@ -9,6 +9,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
+import { isCommEnabled } from '@/lib/comms-prefs'
 
 interface CeoBody {
   name?: string
@@ -105,7 +106,7 @@ export async function POST(request: Request) {
     // Applicant confirmation — per-tenant opt-in (selena_config), sent from the
     // tenant's verified email_from. Non-blocking: never fail the submission.
     const cfg = (tenant.selena_config ?? {}) as Record<string, unknown>
-    if (email && cfg.lead_confirmation_enabled === true) {
+    if (email && cfg.lead_confirmation_enabled === true && (await isCommEnabled(tenant.id, 'lead_received', 'email'))) {
       const color = (tenant as { primary_color?: string | null }).primary_color || '#111111'
       const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
         <h2 style="color:${color};margin:0 0 12px">Thanks for applying, ${name.split(' ')[0]}!</h2>

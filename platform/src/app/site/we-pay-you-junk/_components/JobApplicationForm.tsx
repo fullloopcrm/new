@@ -27,7 +27,8 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
     try {
       const body = new FormData();
       body.append("file", file);
-      const res = await fetch("/api/upload", { method: "POST", body });
+      body.append("folder", "job-applications");
+      const res = await fetch("/api/public-upload", { method: "POST", body });
       const data = (await res.json()) as { success: boolean; url?: string; error?: string };
       if (!res.ok || !data.success || !data.url) throw new Error(data.error || "Upload failed");
       setPhotoUrl(data.url);
@@ -62,7 +63,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
       canLift: String(fd.get("canLift") || ""),
       availability: String(fd.get("availability") || ""),
       about: String(fd.get("about") || ""),
-      photoUrl,
+      photo_url: photoUrl,
       source: typeof window !== "undefined" ? window.location.pathname : "",
     };
 
@@ -163,7 +164,7 @@ export function JobApplicationForm({ city, state }: { city?: string; state?: str
         <textarea name="about" rows={3} placeholder="Any relevant experience, why you're interested, when you can start..." className="w-full rounded-lg border border-slate-300 bg-slate-50 px-4 py-3 text-sm text-slate-900 placeholder:text-slate-400 focus:border-teal-500 focus:bg-white focus:outline-none focus:ring-1 focus:ring-teal-500" />
       </div>
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-1">Profile photo (optional)</label>
+        <label className="block text-sm font-semibold text-slate-700 mb-1">Profile photo *</label>
         <input type="file" accept="image/*" onChange={handlePhoto} disabled={photoUploading} className="w-full text-sm text-slate-700 file:mr-3 file:rounded-lg file:border-0 file:bg-teal-700 file:px-4 file:py-2 file:font-semibold file:text-white hover:file:bg-teal-800" />
         {photoUploading && <p className="mt-1 text-xs text-slate-500">Uploading photo…</p>}
         {photoUrl && !photoUploading && <p className="mt-1 text-xs font-semibold text-teal-700">✓ {photoName || "Photo uploaded"}</p>}

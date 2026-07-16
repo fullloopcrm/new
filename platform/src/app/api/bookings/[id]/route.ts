@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { checkMemberDayOff } from '@/lib/availability'
 import { notify } from '@/lib/notify'
+import { isCommEnabled } from '@/lib/comms-prefs'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
@@ -126,7 +127,7 @@ export async function PUT(
             metadata: { clientName: data.clients?.name, serviceName: data.service_type },
           })
         }
-        if (data.clients?.phone && hasSMS) {
+        if (data.clients?.phone && hasSMS && (await isCommEnabled(tenantId, 'booking_confirmed', 'sms'))) {
           sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -137,7 +138,7 @@ export async function PUT(
       }
 
       // Team member assigned/reassigned
-      if (memberChanged && data.team_members?.phone && hasSMS) {
+      if (memberChanged && data.team_members?.phone && hasSMS && (await isCommEnabled(tenantId, 'team_assignment', 'sms'))) {
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
@@ -147,7 +148,7 @@ export async function PUT(
       }
 
       // Rescheduled
-      if (timeChanged && data.clients?.phone && hasSMS) {
+      if (timeChanged && data.clients?.phone && hasSMS && (await isCommEnabled(tenantId, 'reschedule', 'sms'))) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
@@ -227,7 +228,7 @@ export async function DELETE(
         }
 
         // Client cancellation SMS
-        if (booking.clients?.phone && hasSMS) {
+        if (booking.clients?.phone && hasSMS && (await isCommEnabled(tenantId, 'cancellation', 'sms'))) {
           sendSMS({
             to: booking.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),
