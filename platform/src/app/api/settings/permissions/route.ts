@@ -82,6 +82,19 @@ export async function PUT(request: Request) {
     const incoming: IncomingOverrides =
       body && typeof body.overrides === 'object' && body.overrides ? body.overrides : {}
 
+    // A non-owner admin editing the 'admin' role's own overrides is
+    // self-escalation: admin's hard-coded default deliberately withholds
+    // team.delete/settings.integrations (see ROLES description), and this
+    // endpoint is the only path to grant them without owner involvement.
+    // Only owner may touch the 'admin' entry; admin can still re-tune
+    // manager/staff.
+    if (tenant.role !== 'owner' && Object.prototype.hasOwnProperty.call(incoming, 'admin')) {
+      return NextResponse.json(
+        { error: 'Only an owner can customize the admin role' },
+        { status: 403 },
+      )
+    }
+
     const cleaned: RolePermissionOverrides = {}
 
     for (const [role, perms] of Object.entries(incoming)) {
@@ -123,6 +136,16 @@ export async function PUT(request: Request) {
     // Merge into selena_config without clobbering other keys.
     const currentConfig =
       (tenant.tenant?.selena_config as Record<string, unknown> | null) || {}
+
+    // This payload is otherwise a full-replace of role_permissions (see PUT
+    // docstring). A non-owner admin's request never includes 'admin' (blocked
+    // above), so a naive full-replace would silently wipe any admin-role
+    // override the owner previously set. Carry it forward untouched.
+    if (tenant.role !== 'owner') {
+      const existingAdminOverride = readOverrides(currentConfig).admin
+      if (existingAdminOverride) cleaned.admin = existingAdminOverride
+    }
+
     const nextConfig = { ...currentConfig, role_permissions: cleaned }
 
     const { error } = await supabaseAdmin
