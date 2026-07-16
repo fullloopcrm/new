@@ -105,13 +105,54 @@ export async function PUT(
       }
     }
 
-    // Get old booking for change detection
-    const { data: oldBooking } = await supabaseAdmin
-      .from('bookings')
-      .select('status, team_member_id, start_time')
-      .eq('id', id)
-      .eq('tenant_id', tenantId)
-      .single()
+    // Atomic claim per notification-triggering field: two concurrent PUTs
+    // carrying the same target status/team_member_id/start_time (double-
+    // click on "Confirm"/"Reassign"/"Reschedule", a client retry, two admin
+    // tabs) previously both read the prior values via a separate SELECT
+    // BEFORE either write landed, so both concluded "this is a real change"
+    // and both fired the client confirmation email/SMS, the team member
+    // assignment SMS, or the reschedule SMS — a real duplicate-message cost,
+    // same TOCTOU shape already fixed on jobs status transitions. A `neq`
+    // conditional UPDATE per field means only the request that actually
+    // flips that field can claim it; the loser's UPDATE matches 0 rows and
+    // does not notify. Values are also applied in the final combined update
+    // below regardless (harmless no-op re-write for the loser).
+    let statusChanged = false
+    let memberChanged = false
+    let timeChanged = false
+    if (fields.status !== undefined) {
+      const { data: won } = await supabaseAdmin
+        .from('bookings')
+        .update({ status: fields.status })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .neq('status', fields.status)
+        .select('id')
+        .maybeSingle()
+      statusChanged = !!won
+    }
+    if (fields.team_member_id !== undefined) {
+      const { data: won } = await supabaseAdmin
+        .from('bookings')
+        .update({ team_member_id: fields.team_member_id })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .neq('team_member_id', fields.team_member_id)
+        .select('id')
+        .maybeSingle()
+      memberChanged = !!won
+    }
+    if (fields.start_time !== undefined) {
+      const { data: won } = await supabaseAdmin
+        .from('bookings')
+        .update({ start_time: fields.start_time })
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .neq('start_time', fields.start_time)
+        .select('id')
+        .maybeSingle()
+      timeChanged = !!won
+    }
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
@@ -136,10 +177,6 @@ export async function PUT(
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-
-      const statusChanged = fields.status && fields.status !== oldBooking?.status
-      const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
-      const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
       // Booking confirmed (status changed to scheduled)
       if (statusChanged && fields.status === 'scheduled') {
