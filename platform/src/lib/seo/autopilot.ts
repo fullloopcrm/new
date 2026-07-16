@@ -16,7 +16,10 @@ const CANARY_PAGES_PER_RUN = 3 // new pages auto-applied per site, per run
 const RATE_CAP_PER_WEEK = 5 // max autopilot applies per site in a rolling 7 days
 
 export function autopilotEnabled(): boolean {
-  return process.env.SEO_AUTOPILOT_ENABLED === 'true'
+  // Trimmed defensively — a sibling flag (SEOMGR_AUTOVERIFY_ENABLED) was found
+  // stored in prod as literally 'true\n' (trailing-newline artifact), which a
+  // strict === silently failed on for 11 days. See auto-verify.ts.
+  return (process.env.SEO_AUTOPILOT_ENABLED ?? '').trim() === 'true'
 }
 
 type ChangeRow = {
