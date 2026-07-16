@@ -80,10 +80,14 @@ export function validate<T extends Record<string, unknown>>(body: unknown, schem
         if (isNaN(Date.parse(val))) return { data: null, error: `${field} must be a valid date` }
         result[field] = val
         break
-      case 'url':
+      case 'url': {
         if (typeof val !== 'string') return { data: null, error: `${field} must be a string` }
-        result[field] = val.trim()
+        const trimmed = val.trim()
+        if (!/^https?:\/\//i.test(trimmed)) return { data: null, error: `${field} must be a valid http(s) URL` }
+        if (def.max && trimmed.length > def.max) return { data: null, error: `${field} exceeds max length ${def.max}` }
+        result[field] = trimmed
         break
+      }
     }
   }
 
