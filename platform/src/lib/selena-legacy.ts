@@ -760,7 +760,7 @@ async function handleCheckAvailability(tenantId: string, input: Record<string, u
   }
 }
 
-async function handleCreateBooking(tenantId: string, input: Record<string, unknown>, conversationId: string, result: SelenaResult): Promise<string> {
+export async function handleCreateBooking(tenantId: string, input: Record<string, unknown>, conversationId: string, result: SelenaResult, config: SelenaConfig): Promise<string> {
   try {
     const { data: convo } = await supabaseAdmin
       .from('sms_conversations').select('client_id').eq('id', conversationId).single()
@@ -769,7 +769,6 @@ async function handleCreateBooking(tenantId: string, input: Record<string, unkno
     const date = input.date as string
     const time = input.time as string
     const serviceType = input.service_type as string
-    const hourlyRate = input.hourly_rate as number
     const estimatedHours = (input.estimated_hours as number) || 2
 
     const parsed = parseTime(time)
@@ -778,6 +777,19 @@ async function handleCreateBooking(tenantId: string, input: Record<string, unkno
     const startTimeStr = `${date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const endHours = parsed.hours + estimatedHours
     const endTimeStr = `${date}T${endHours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
+
+    // Same-day = emergency (matches the "Emergency/same-day rate" language the
+    // system prompt shows the AI, buildSystemPrompt L404-405). Determined
+    // server-side from the booking date, not from anything the LLM says, so a
+    // model that forgets/miscalculates the configured rate can't underbill —
+    // closes P11.16 (price) and P11.17 (is_emergency flag) together, the
+    // fourth surface in the emergency-rate trilogy (P11.7/P11.8/P11.15).
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const isEmergency = date === todayStr
+    const llmRate = input.hourly_rate as number
+    const hourlyRate = isEmergency && config.emergency_available && config.emergency_rate
+      ? config.emergency_rate
+      : llmRate
 
     // Prevent duplicates
     const { data: existing } = await supabaseAdmin.from('bookings').select('id')
@@ -792,6 +804,7 @@ async function handleCreateBooking(tenantId: string, input: Record<string, unkno
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', notes: `SMS booking | ${serviceType}`,
       price: hourlyRate * estimatedHours * 100,
+      is_emergency: isEmergency,
     }).select('id').single()
 
     if (error) throw error
@@ -964,7 +977,7 @@ export async function askSelena(
           email: checklist.email,
           notes: checklist.notes,
         }
-        await handleCreateBooking(tenantId, bookingInput, conversationId, result)
+        await handleCreateBooking(tenantId, bookingInput, conversationId, result, config)
         if (result.text) {
           result.checklist = await loadChecklist(conversationId)
           return result
@@ -1108,7 +1121,7 @@ export async function askSelena(
               case 'create_client': toolResult = await handleCreateClient(tenantId, inp, conversationId, result); break
               case 'save_info': toolResult = await handleSaveInfo(tenantId, inp, conversationId); break
               case 'check_availability': toolResult = await handleCheckAvailability(tenantId, inp); break
-              case 'create_booking': toolResult = await handleCreateBooking(tenantId, inp, conversationId, result); break
+              case 'create_booking': toolResult = await handleCreateBooking(tenantId, inp, conversationId, result, config); break
               case 'add_to_waitlist': toolResult = await handleAddToWaitlist(tenantId, inp, conversationId); break
               default: {
                 const extended = await routeExtendedTool(tool.name, tenantId, inp, conversationId)
