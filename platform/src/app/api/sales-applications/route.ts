@@ -55,6 +55,14 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business, name, email, phone, location, and selfie video are required.' }, { status: 400 })
     }
 
+    // linkedin_url is free-text from an unauthenticated public form and is
+    // rendered as a raw <a href> in the admin dashboard (SalesAppsTab.tsx) —
+    // reject non-http(s) schemes so a submission can't smuggle a javascript:
+    // URI into an admin's click.
+    if (linkedin_url && !/^https?:\/\//i.test(String(linkedin_url))) {
+      return NextResponse.json({ error: 'LinkedIn URL must start with http:// or https://' }, { status: 400 })
+    }
+
     // Look up tenant
     const { data: tenantData } = await supabaseAdmin
       .from('tenants')
@@ -67,6 +75,20 @@ export async function POST(request: Request) {
     }
 
     const tenantId = tenantData.id
+
+    // video_url is expected to come from the legitimate signed-upload flow
+    // (/api/apply/signed-url), but nothing previously checked that — a caller
+    // could POST any string, which is later rendered as a raw <a href> in the
+    // admin dashboard ("Watch Selfie Video"). Same bug class already fixed in
+    // team-portal/video-upload: require it to live inside this tenant's own
+    // application-video storage prefix.
+    const { data: videoPrefix } = supabaseAdmin.storage
+      .from('uploads')
+      .getPublicUrl(`${tenantId}/applications/videos/`)
+    if (typeof video_url !== 'string' || !video_url.startsWith(videoPrefix.publicUrl)) {
+      return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+    }
+
     const cleanPhone = phone.replace(/\D/g, '')
     const segments = Array.isArray(target_segments)
       ? target_segments
