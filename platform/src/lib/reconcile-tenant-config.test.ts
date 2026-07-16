@@ -481,6 +481,17 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     expect(gatingCrit).toBeGreaterThanOrEqual(1)
   })
 
+  it('fully unwraps 11+ stacked scheme prefixes instead of stopping at a fixed iteration cap', () => {
+    // The fixed-point loop must be bounded by a property that guarantees
+    // termination (s.length), not an arbitrary constant. A hard cap of 10
+    // iterations strips only 10 of 11+ stacked "https://" prefixes, leaving
+    // one behind; the path-strip rule then truncates the leftover at ITS OWN
+    // "//" instead of the real host, corrupting the key to "https" — a
+    // non-empty value that silently fails to collapse with its clean twin.
+    expect(norm('https://'.repeat(11) + 'shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('https://'.repeat(50) + 'shared-domain.com')).toBe('shared-domain.com')
+  })
+
   it('does NOT collapse to empty when a scheme-strip exposes a bare userinfo "@" that in turn exposes a leading slash', () => {
     // Regression guard for the fix itself: looping the scheme/slash strip
     // WITHOUT also looping the userinfo strip inside the same loop can eat a
@@ -491,6 +502,216 @@ describe('computeFindings — Drift F evades attempted via malformed domain form
     // and vanishing it from Drift F entirely. This is worse than the original
     // "https:" garbage-key bug it was meant to fix.
     expect(norm('https:/@/shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with 11+ STACKED schemes instead of a bare hostname', () => {
+    // A fixed 10-iteration cap on the scheme-strip loop unwraps only 10 of 11+
+    // stacked "https://" prefixes, leaving one behind for the path-strip rule
+    // to truncate at — corrupting the key to "https" instead of the real
+    // host, a non-empty value that silently fails to collapse with its clean
+    // counterpart, hiding the collision.
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https://'.repeat(11) + 'shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https://'.repeat(11) + 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('collapses a scheme with ZERO slashes ("https:host", no "//" at all) to the bare host', () => {
+    // Verified against Node's WHATWG-compliant URL parser: new URL('https:host')
+    // resolves hostname "host" — for the "special" schemes (http/https/ws/wss/
+    // ftp) the authority is parsed even with no separator at all after the
+    // colon. The old regex required "\/+" (at least one slash) so this form
+    // passed through completely unnormalized, a distinct non-empty key from
+    // its clean twin, silently hiding the Drift F collision.
+    expect(norm('https:shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('http:shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('does NOT collapse a NON-special scheme with zero slashes ("foo:host") — that is genuinely a different value', () => {
+    // Verified against Node's URL parser: new URL('foo:host') parses with an
+    // EMPTY host and "host" as an opaque path — "foo:" is not one of the
+    // special schemes that get zero-separator authority parsing. Collapsing
+    // this would be a FALSE positive collision, not a fix, so the zero-slash
+    // rule must stay scoped to http/https/ws/wss/ftp only.
+    expect(norm('foo:shared-domain.com')).toBe('foo:shared-domain.com')
+    expect(norm('mailto:shared-domain.com')).toBe('mailto:shared-domain.com')
+  })
+
+  it('treats backslash as equivalent to forward slash in the scheme separator, per WHATWG URL parsing', () => {
+    // Verified against Node's URL parser: new URL('https:\\host'),
+    // new URL('https:\\\\host'), new URL('https:/\\host'), and
+    // new URL('https:\\/host') all resolve hostname "host" — browsers
+    // normalize "\" to "/" for special schemes. The old regex only matched
+    // "\/+" (forward slash), so any backslash-containing paste survived
+    // unnormalized as a distinct key.
+    expect(norm('https:\\shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('https:\\\\shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('https:/\\shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('https:\\/shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('treats a backslash-led prefix as protocol-relative, same as "//host"', () => {
+    // Verified against Node's URL parser (resolved against a special-scheme
+    // base): new URL('\\\\host', 'https://example.org/') resolves hostname
+    // "host" — same as the already-handled "//host" form.
+    expect(norm('\\\\shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('treats a backslash as a path separator after the host, same as "/"', () => {
+    // Verified: new URL('https://host\\path') resolves hostname "host" —
+    // backslash terminates the authority the same as forward slash does.
+    expect(norm('https://shared-domain.com\\some\\path')).toBe('shared-domain.com')
+  })
+
+  it('does NOT collapse a bare special-scheme prefix with nothing left after it ("https:" alone) to empty', () => {
+    // Regression guard for the fix itself: the zero-slash special-scheme rule
+    // must require something survive the strip. Without that guard, "https:"
+    // alone would collapse to '' and claim() silently skips empty keys,
+    // vanishing the row from Drift F instead of merely failing to normalize.
+    expect(norm('https:')).not.toBe('')
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with NO slashes after the scheme ("https:host" typo)', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https:shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https:shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('still red-gates when one tenant\'s domain was pasted with BACKSLASHES instead of forward slashes ("https:\\\\host")', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'https:\\\\shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'https:\\\\shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('strips an ASCII tab/newline/CR pasted into the MIDDLE of a domain, not just the ends', () => {
+    // Verified against Node's URL parser: new URL('ht\ttps://host').hostname
+    // === 'host' — the WHATWG spec removes ALL tab/LF/CR from anywhere in the
+    // string as a mandatory preprocessing step, not just the leading/trailing
+    // whitespace that `.trim()` handles. A stray tab/newline/CR splitting a
+    // scheme or hiding inside a hostname is invisible to a real URL parser but
+    // survived here untouched, at best failing to collapse with a clean twin
+    // and at worst corrupting the scheme-strip into a garbage non-empty key.
+    expect(norm('sha\tred-domain.com')).toBe('shared-domain.com')
+    expect(norm('shared-domain\n.com')).toBe('shared-domain.com')
+    expect(norm('sha\rred-domain.com')).toBe('shared-domain.com')
+    expect(norm('ht\ttps://shared-domain.com')).toBe('shared-domain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain has a stray tab SPLITTING the scheme ("ht\\ttps://host")', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: 'ht\ttps://shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: 'ht\ttps://shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
+  })
+
+  it('strips leading/trailing C0 control characters that JS `.trim()` does not recognize as whitespace', () => {
+    // `.trim()` only strips ECMAScript "whitespace" (tab/LF/VT/FF/CR/space +
+    // some Unicode whitespace) — it leaves NUL, BEL, backspace, and most other
+    // C0 controls (0x00-0x08, 0x0E-0x1F) untouched at the edges. The WHATWG
+    // URL spec strips ALL of 0x00-0x20 from leading/trailing position. A
+    // leading control char in that gap blocks every "^[a-z]"-anchored
+    // scheme-strip rule below, so the path-strip rule truncates at the
+    // scheme's own "//" instead of the real host — corrupting the key into
+    // garbage (verified: the old code turned "\x00https://host" into
+    // "\x00https", not the real host) instead of merely failing to collapse.
+    expect(norm('\x00https://shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('https://shared-domain.com\x07')).toBe('shared-domain.com')
+    expect(norm('\x08https://shared-domain.com')).toBe('shared-domain.com')
+    expect(norm('\x00\x01\x02https://shared-domain.com\x1f\x1e')).toBe('shared-domain.com')
+  })
+
+  it('still red-gates when one tenant\'s domain has a leading NUL byte blocking the scheme-strip', () => {
+    const tenants = [
+      { id: 't-alpha', slug: 'alpha', domain: 'shared-domain.com', status: 'active' },
+      { id: 't-beta', slug: 'beta', domain: '\x00https://shared-domain.com', status: 'active' },
+    ]
+    const tds = [
+      { tenant_id: 't-alpha', domain: 'shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'a', slug: 'alpha' },
+      { tenant_id: 't-beta', domain: '\x00https://shared-domain.com', active: true, is_primary: true, routing_mode: '', status: 'active', vercel_project: 'b', slug: 'beta' },
+    ]
+
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set<string>(),
+      hasHome: neverHome,
+      resolvableSlugs: null,
+    })
+
+    const crit = findings.find((f) => f.msg.includes('claimed by MULTIPLE tenants'))
+    expect(crit).toBeDefined()
+    const { gatingCrit } = summarize(findings)
+    expect(gatingCrit).toBeGreaterThanOrEqual(1)
   })
 })
 

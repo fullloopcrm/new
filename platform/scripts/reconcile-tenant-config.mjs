@@ -34,7 +34,31 @@ const REPO = join(dirname(fileURLToPath(import.meta.url)), '..')
 const REF = 'cetnrttgtoajzjacfbhe'
 
 export const norm = (d) => {
-  let s = (d || '').trim().toLowerCase()
+  // Per the WHATWG URL spec's mandatory preprocessing step, leading/trailing
+  // "C0 control or space" (0x00-0x20) is stripped — a WIDER range than
+  // JS's `.trim()`, which only recognizes ECMAScript "whitespace" and misses
+  // NUL, BEL, backspace, and most other C0 controls (0x00-0x08, 0x0E-0x1F).
+  // A leading control char in that gap survives `.trim()` and then blocks
+  // EVERY scheme-strip rule below (all anchored on "^[a-z]" / "^[\/\\]" at
+  // position 0), so the path-strip at the end truncates at the scheme's own
+  // "//" instead of the real host, corrupting the key into garbage (verified:
+  // "\x00https://host" -> old code produced "\x00https", not the real host)
+  // instead of merely failing to normalize it.
+  let s = (d || '')
+    .replace(/^[\x00-\x20]+/, '')
+    .replace(/[\x00-\x20]+$/, '')
+    .toLowerCase()
+  // Per the WHATWG URL spec's mandatory preprocessing step, ALL ASCII tab
+  // (U+0009) / LF (U+000A) / CR (U+000D) are removed from ANYWHERE in the
+  // string, not just the ends — a stray tab/newline pasted into the MIDDLE of
+  // a domain (or splitting a scheme, e.g. "ht\ttps://host") is invisible to a
+  // real URL parser (verified: new URL('ht\\ttps://host').hostname === 'host')
+  // but survives `.trim()` untouched here, and can corrupt the scheme-strip
+  // below into a garbage non-empty key (e.g. "ht\ttps://host" -> "ht\ttps")
+  // that silently fails to collapse with its clean twin, hiding the Drift F
+  // collision. Must run BEFORE the scheme-strip loop so the scheme is intact
+  // for it to match.
+  s = s.replace(/[\t\n\r]/g, '')
   // Strip a URL scheme, a protocol-relative/stray-slash prefix, AND userinfo
   // (user:pass@), LOOPED to a fixed point rather than one pass each. A single
   // pass only partially strips a DOUBLED scheme ("https://https://host" ->
@@ -54,16 +78,32 @@ export const norm = (d) => {
   // an empty host followed by a path, collapsing the whole value to '' —
   // reintroducing the exact silently-invisible-to-Drift-F failure mode this
   // loop exists to close, just via a different combination of strips.
-  for (let i = 0; i < 10; i++) {
+  //
+  // The bound is the INPUT length (captured once, below, before the loop
+  // starts shrinking s — reading s.length live in the loop condition would
+  // re-evaluate against the shrinking string each check and undercount): every
+  // successful strip in this loop matches a non-empty prefix and therefore
+  // shrinks s by at least one character, so input-length iterations is always
+  // enough to reach a fixed point and the loop provably terminates — no
+  // pathological input can spin it forever. A fixed cap (10) is NOT enough:
+  // 11+ stacked "https://" prefixes needs 11+ iterations to fully unwrap, and
+  // a hard iteration cap that fires before the fixed point silently leaves a
+  // leftover scheme in place. That leftover then gets truncated by the
+  // path-strip below at ITS OWN "//" instead of the real host, corrupting the
+  // key (e.g. to "https") — a non-empty value that fails to collapse with its
+  // clean twin, hiding the Drift F collision instead of merely mangling it.
+  const maxIters = s.length + 1 // captured ONCE, before the loop shrinks s — see note above
+  for (let i = 0; i < maxIters; i++) {
     const before = s
     s = s
-      .replace(/^[a-z][a-z0-9+.-]*:\/+/, '')
-      .replace(/^\/+/, '')
-      .replace(/^[^/?#]*@(?=.)/, '') // the (?=.) lookahead requires at least one char AFTER the '@': without it, any value ending in a bare '@' (nothing left to be a host) matches the whole string and collapses to '' — and claim() silently skips empty keys, making that row vanish from Drift F collision detection instead of just failing to normalize.
+      .replace(/^[a-z][a-z0-9+.-]*:[\\/]+/, '') // scheme + 1-or-more separators, ANY scheme name — a "\" counts too: WHATWG URL parsing treats backslash as equivalent to "/" for special schemes, so "https:\\host" and "https:/\\host" are the SAME host in a real browser and must collapse the same as "https://host", not survive as a distinct, uncollapsed key.
+      .replace(/^(?:https?|wss?|ftp):(?![\\/])(?=.)/, '') // ONLY the web-relevant "special" schemes (http/https/ws/wss/ftp) get zero-separator authority parsing per the URL spec — "https:host" (colon, no slash at all) resolves to host "host" in a real URL parser. A generic scheme name is NOT special ("foo:host" parses with an EMPTY host and "host" as an opaque path — genuinely not the same value), so this must stay scoped to the known special-scheme list, not the broad scheme-name class above. (?=.) requires something survive the strip — bare "https:" with nothing after must NOT collapse to '' (claim() would silently skip it).
+      .replace(/^[\\/]+/, '') // protocol-relative prefix — backslash-led forms ("\\host") are the same host as "//host" per the URL spec.
+      .replace(/^[^/\\?#]*@(?=.)/, '') // the (?=.) lookahead requires at least one char AFTER the '@': without it, any value ending in a bare '@' (nothing left to be a host) matches the whole string and collapses to '' — and claim() silently skips empty keys, making that row vanish from Drift F collision detection instead of just failing to normalize.
     if (s === before) break
   }
   return s
-    .replace(/[/?#].*$/, '') // strip any path/query/fragment after the scheme strip — only the host decides routing
+    .replace(/[/\\?#].*$/, '') // strip any path/query/fragment after the scheme strip — only the host decides routing. Backslash counts as a path separator here too (verified: "https://host\\path" parses with host "host").
     .replace(/^www\./, '')
     .replace(/:\d*$/, '') // strip a port suffix (e.g. example.com:8443), OR a bare trailing colon left by a truncated/typo'd port ("example.com:") — same real domain either way
     .replace(/\.+$/, '') // strip trailing dot(s) — absolute-FQDN form (example.com.) is the same domain
