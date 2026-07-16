@@ -852,6 +852,36 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: same-day-accepted quote booking is claimable via the self-claim pool OR triggers the existing broadcast dispatch',
         pendingInPool || callsBroadcast,
         `team-portal open-jobs pool filters status IN ${availablePoolStatuses || '(pattern not found — re-verify manually)'} ('pending' included=${pendingInPool}); createBookingFromQuote calls /api/bookings/broadcast=${callsBroadcast}. The broadcast route (src/app/api/bookings/broadcast/route.ts) already exists, is tenant-generic, and is already wired to BookingsAdmin.tsx's manual "Emergency" toggle — createBookingFromQuote never calls it, so this archetype's real same-day quote-accept path gets none of the 3 dispatch signals (owner notify, self-claim pool, broadcast) that already exist elsewhere in the codebase.`)
+
+      // P11.14 a DIFFERENT angle from P11.5-P11.13 (all of which check whether
+      // the SYSTEM/owner side behaves differently for an emergency): this
+      // checks whether the CUSTOMER who just declared an emergency is told
+      // anything different by the automated confirmation they actually
+      // receive. /api/client/book (the same public self-book route P11.8/
+      // P11.11 exercise) sends the customer a "booking received" email + SMS
+      // via bookingReceivedEmail() (src/lib/email-templates.ts) and
+      // smsBookingReceived() (src/lib/sms-templates.ts) unconditionally on
+      // every booking — verified these are urgency-blind BY CONSTRUCTION, not
+      // just by this test's inputs: neither function's signature accepts an
+      // urgency/emergency parameter at all (email data shape: {clientName,
+      // serviceName, dateTime}; SMS: {start_time} only), so there is no code
+      // path by which either could ever render differently for a same-day
+      // emergency vs a routine booking 3 weeks out. Calls both live (not
+      // mocked, not grepped) to confirm the actual rendered copy has zero
+      // urgency acknowledgment.
+      const { bookingReceivedEmail } = await import('../src/lib/email-templates')
+      const { smsBookingReceived } = await import('../src/lib/sms-templates')
+      const emEmailHtml = bookingReceivedEmail({
+        tenantName: t.category, clientName: 'Emergency Customer',
+        serviceName: emSvc?.name || 'Emergency service call', dateTime: `${today} ASAP`,
+      })
+      const emSmsBody = smsBookingReceived(t.category, { start_time: new Date().toISOString() })
+      const urgencyWords = /emergency|urgent|priority|asap|same.?day|right away|as soon as possible/i
+      const emailAcknowledgesUrgency = urgencyWords.test(emEmailHtml)
+      const smsAcknowledgesUrgency = urgencyWords.test(emSmsBody)
+      add('emergency: customer-facing booking-received confirmation (email+SMS) acknowledges the urgency the customer just reported',
+        emailAcknowledgesUrgency || smsAcknowledgesUrgency,
+        `bookingReceivedEmail() and smsBookingReceived() take no urgency/emergency parameter at all (email data shape: {clientName, serviceName, dateTime}; SMS: {start_time} only) — both confirmations are urgency-blind by construction, not just by this test's inputs. Actual rendered SMS: "${emSmsBody}"; email body includes the fixed line "We're reviewing your request and will confirm shortly" — identical wording a routine booking 3 weeks out would receive. A customer who just reported a burst pipe / no heat / storm damage gets zero reassurance that the emergency itself was noticed, only that "a request" was received.`)
     }
 
   } catch (err) {
