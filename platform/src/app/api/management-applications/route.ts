@@ -10,6 +10,14 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
+import { verifySignedUpload, type UploadTypeConfig } from '@/lib/verify-signed-upload'
+
+// Mirrors the ALLOWED_TYPES allow-list in the sibling signed-url endpoint.
+const UPLOAD_CONFIGS: Record<string, UploadTypeConfig> = {
+  resumes: { mimes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], maxSize: 10 * 1024 * 1024 },
+  photos: { mimes: ['image/jpeg', 'image/png', 'image/webp'], maxSize: 10 * 1024 * 1024 },
+  videos: { mimes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'], maxSize: 100 * 1024 * 1024 },
+}
 
 // GET/PUT are admin actions (review + approve/reject candidates) and must be
 // permission-gated like the canonical /api/team-applications route. This
@@ -60,22 +68,19 @@ export async function POST(request: Request) {
     }
 
     // resume_url/photo_url/video_url are expected to come from the
-    // signed-upload flow (/api/management-applications/signed-url), but
-    // nothing previously checked that — an unauthenticated applicant could
-    // POST any string here. Same bug class already fixed in
-    // team-portal/video-upload and sales-applications: require each to be a
-    // real object under this tenant's own signed-upload prefix.
-    const uploads = supabaseAdmin.storage.from('uploads')
-    const checks: Array<[string, unknown]> = [
+    // signed-upload flow (/api/management-applications/signed-url). Checking
+    // only the URL prefix (the historical pattern here, in apply-ceo, and in
+    // sales-applications) stops cross-tenant URL swapping but not an
+    // attacker PUTting an oversized or wrongly-typed file straight to the
+    // signed URL, bypassing the app's own type/size check entirely —
+    // verifySignedUpload re-checks the actual uploaded object.
+    for (const [folder, url] of [
       ['resumes', resume_url],
       ['photos', photo_url],
       ['videos', video_url],
-    ]
-    for (const [folder, url] of checks) {
-      const { data: prefix } = uploads.getPublicUrl(`${tenant.id}/management-applications/${folder}/`)
-      if (typeof url !== 'string' || !url.startsWith(prefix.publicUrl)) {
-        return NextResponse.json({ error: 'Invalid upload URL' }, { status: 400 })
-      }
+    ] as const) {
+      const result = await verifySignedUpload('uploads', `${tenant.id}/management-applications/${folder}`, url, UPLOAD_CONFIGS[folder])
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
     const normalizedEmail = String(email).toLowerCase().trim()

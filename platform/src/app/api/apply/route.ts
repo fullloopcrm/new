@@ -8,6 +8,14 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { verifySignedUpload, type UploadTypeConfig } from '@/lib/verify-signed-upload'
+
+// Mirrors the ALLOWED_TYPES allow-list in the sibling signed-url endpoint.
+const UPLOAD_CONFIGS: Record<string, UploadTypeConfig> = {
+  resumes: { mimes: ['application/pdf', 'application/msword', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'], maxSize: 10 * 1024 * 1024 },
+  videos: { mimes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'], maxSize: 100 * 1024 * 1024 },
+  portfolios: { mimes: ['application/pdf'], maxSize: 50 * 1024 * 1024 },
+}
 
 interface ApplyBody {
   name?: string
@@ -61,6 +69,25 @@ export async function POST(request: Request) {
 
     if (!name || !phone) {
       return NextResponse.json({ error: 'Name and phone are required.' }, { status: 400 })
+    }
+
+    // resumeUrl/portfolioFileUrl/videoUrl are expected to come from the
+    // signed-upload flow (/api/apply/signed-url) and are shown to admins as
+    // clickable links in the applicant's notes. Nothing previously checked
+    // that these are real objects under this tenant's own upload prefix —
+    // an unauthenticated applicant could submit any string, or a URL to an
+    // object PUT straight to a signed URL with an oversized/wrongly-typed
+    // body bypassing the signed-url endpoint's own type/size check. Same
+    // verification now applied to the sibling application forms
+    // (management-applications, apply-ceo, sales-applications).
+    for (const [folder, url] of [
+      ['resumes', body.resumeUrl],
+      ['portfolios', body.portfolioFileUrl],
+      ['videos', body.videoUrl],
+    ] as const) {
+      if (!url) continue
+      const result = await verifySignedUpload('uploads', `${tenant.id}/applications/${folder}`, url, UPLOAD_CONFIGS[folder])
+      if (!result.ok) return NextResponse.json({ error: result.error }, { status: 400 })
     }
 
     const cleanPhone = phone.replace(/\D/g, '')

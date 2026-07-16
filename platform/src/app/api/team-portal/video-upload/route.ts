@@ -3,9 +3,11 @@ import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
+import { verifySignedUpload } from '@/lib/verify-signed-upload'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
 const ALLOWED_MIMES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v']
+const UPLOAD_CONFIG = { mimes: ALLOWED_MIMES, maxSize: MAX_SIZE }
 
 // GET — generate signed upload URL (bypasses Vercel 4.5MB body limit)
 export async function GET(req: NextRequest) {
@@ -104,12 +106,14 @@ export async function POST(req: NextRequest) {
       // dashboard) at an arbitrary external URL: fabricated job-completion
       // evidence, or injected external content, with zero upload required.
       // Require it to be a real object under the signed-upload prefix this
-      // exact tenant+booking was granted in GET above.
-      const { data: prefixUrlData } = supabaseAdmin.storage
-        .from('uploads')
-        .getPublicUrl(`${auth.tid}/job-videos/${booking_id}/`)
-      if (typeof url !== 'string' || !url.startsWith(prefixUrlData.publicUrl)) {
-        return NextResponse.json({ error: 'Invalid video url' }, { status: 400 })
+      // exact tenant+booking was granted in GET above, AND verify the
+      // object actually uploaded matches the declared type/size --
+      // createSignedUploadUrl() doesn't itself constrain the PUT, so a
+      // prefix-only check would accept an oversized or wrongly-typed file
+      // planted straight at the signed URL.
+      const videoCheck = await verifySignedUpload('uploads', `${auth.tid}/job-videos/${booking_id}`, url, UPLOAD_CONFIG)
+      if (!videoCheck.ok) {
+        return NextResponse.json({ error: videoCheck.error }, { status: 400 })
       }
 
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'

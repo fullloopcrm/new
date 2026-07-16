@@ -4,6 +4,10 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { verifySignedUpload } from '@/lib/verify-signed-upload'
+
+// Mirrors the ALLOWED_TYPES 'video' entry in /api/apply/signed-url.
+const VIDEO_UPLOAD_CONFIG = { mimes: ['video/mp4', 'video/quicktime', 'video/webm', 'video/x-m4v'], maxSize: 100 * 1024 * 1024 }
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
@@ -85,16 +89,14 @@ export async function POST(request: Request) {
     const tenantId = tenantData.id
 
     // video_url is expected to come from the legitimate signed-upload flow
-    // (/api/apply/signed-url), but nothing previously checked that — a caller
-    // could POST any string, which is later rendered as a raw <a href> in the
-    // admin dashboard ("Watch Selfie Video"). Same bug class already fixed in
-    // team-portal/video-upload: require it to live inside this tenant's own
-    // application-video storage prefix.
-    const { data: videoPrefix } = supabaseAdmin.storage
-      .from('uploads')
-      .getPublicUrl(`${tenantId}/applications/videos/`)
-    if (typeof video_url !== 'string' || !video_url.startsWith(videoPrefix.publicUrl)) {
-      return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+    // (/api/apply/signed-url) and is later rendered as a raw <a href> in the
+    // admin dashboard ("Watch Selfie Video"). Checking only the URL prefix
+    // stops cross-tenant URL swapping but not an attacker PUTting an
+    // oversized or wrongly-typed file straight to the signed URL —
+    // verifySignedUpload re-checks the actual uploaded object.
+    const videoCheck = await verifySignedUpload('uploads', `${tenantId}/applications/videos`, video_url, VIDEO_UPLOAD_CONFIG)
+    if (!videoCheck.ok) {
+      return NextResponse.json({ error: videoCheck.error }, { status: 400 })
     }
     const cleanPhone = phone.replace(/\D/g, '')
     const segments = Array.isArray(target_segments)

@@ -42,6 +42,13 @@ vi.mock('@/lib/supabase', () => ({
     storage: {
       from: () => ({
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example/public/uploads/${path}` } }),
+        info: (path: string) => {
+          const contentType = path.includes('/resumes/') ? 'application/pdf'
+            : path.includes('/videos/') ? 'video/mp4'
+            : 'application/octet-stream'
+          return Promise.resolve({ data: { size: 1024, contentType }, error: null })
+        },
+        remove: () => Promise.resolve({ data: null, error: null }),
       }),
     },
   },
