@@ -238,11 +238,19 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   // sensible default (a Google search for the business) so the gate can pass.
   // Stored in selena_config.google_review_link, which getSettings reads.
   try {
-    const { data: tRow } = await supabaseAdmin
+    // error checked explicitly (not just data:null) — on a masked read error
+    // `selena` below would silently collapse to {}, and the update a few lines
+    // down replaces the whole selena_config column with just the seeded
+    // review link, destroying any real config (bot settings, etc.) already
+    // stored there. Fail this step instead of risking that data loss.
+    const { data: tRow, error: tRowErr } = await supabaseAdmin
       .from('tenants')
       .select('google_place_id, selena_config')
       .eq('id', tenantId)
-      .single()
+      .maybeSingle()
+    if (tRowErr) {
+      throw new Error(`REVIEW_DEST_TENANT_LOOKUP_ERROR tenant_id=${tenantId} error=${tRowErr.message}`)
+    }
     const selena = (tRow?.selena_config || {}) as Record<string, unknown>
     const hasReview = !!(tRow?.google_place_id || selena.google_review_link)
     if (!hasReview) {

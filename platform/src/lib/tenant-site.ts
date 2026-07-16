@@ -32,11 +32,21 @@ export async function getTenantFromHeaders() {
   // on any public /api route that uses this helper.
   if (!verifyTenantHeaderSig(tenantId, sig)) return null
 
-  const { data } = await supabaseAdmin
+  // maybeSingle() (not single()), error checked explicitly — same masked-error
+  // pattern already fixed in tenant.ts/tenant-query.ts. This helper backs ~35
+  // public site/API routes' tenant-not-found check; discarding the error here
+  // made a genuine DB failure indistinguishable from "no such tenant", so an
+  // outage silently 404'd every public lead/contact/booking form instead of
+  // surfacing the real cause.
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('id', tenantId)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.error(`TENANT_HEADER_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`TENANT_HEADER_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
   return data
 }
 
@@ -60,11 +70,15 @@ export async function getTenantTeamCount(tenantId: string) {
 }
 
 export async function getTenantAreas(tenantId: string): Promise<string[]> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('selena_config')
     .eq('id', tenantId)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.error(`TENANT_AREAS_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`TENANT_AREAS_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
   return (data?.selena_config as any)?.service_areas || []
 }
 

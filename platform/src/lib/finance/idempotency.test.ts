@@ -140,4 +140,18 @@ describe('Stripe webhook idempotency — duplicate event does not double-apply',
     await postRefundToLedger({ tenantId: 'tenant_A', sourceId: 're_SHARED', amountCents: 100 }) // dup of #1
     expect(postJournalEntry).toHaveBeenCalledTimes(2)
   })
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
+  it('MASKED-ERROR PROBE: normalizes a raw Stripe refund id into a valid UUID before it reaches journal_entries.source_id (a UUID column) — the un-normalized id raises Postgres 22P02 in production, which the webhook route\'s .catch() silently swallows, so real refunds never actually reach the ledger', async () => {
+    await postRefundToLedger({ tenantId: TENANT, sourceId: 're_LiveStripeRefundId123', amountCents: 500 })
+    const call = postJournalEntry.mock.calls.at(-1)?.[0] as { source_id?: string }
+    expect(call.source_id).toMatch(UUID_RE)
+  })
+
+  it('MASKED-ERROR PROBE: normalizes a raw Stripe dispute id into a valid UUID before it reaches journal_entries.source_id', async () => {
+    await postChargebackToLedger({ tenantId: TENANT, sourceId: 'dp_LiveStripeDisputeId456', amountCents: 500 })
+    const call = postJournalEntry.mock.calls.at(-1)?.[0] as { source_id?: string }
+    expect(call.source_id).toMatch(UUID_RE)
+  })
 })

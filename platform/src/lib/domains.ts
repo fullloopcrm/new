@@ -44,14 +44,23 @@ export async function getDomainsForNeighborhood(tenantId: string, neighborhood: 
 
 // Get neighborhood from zip code (per tenant)
 export async function getNeighborhoodFromZip(tenantId: string, zip: string): Promise<string | null> {
-  const { data } = await supabaseAdmin
+  // maybeSingle() (not single()) — most zips legitimately match zero
+  // tenant_domains rows (no neighborhood mapped), which single() treats as
+  // the same error as a genuine DB failure. Discarding that error made both
+  // cases collapse to "no neighborhood" silently instead of surfacing a real
+  // outage loud.
+  const { data, error } = await supabaseAdmin
     .from('tenant_domains')
     .select('neighborhood')
     .eq('tenant_id', tenantId)
     .contains('zip_codes', [zip])
     .limit(1)
-    .single()
+    .maybeSingle()
 
+  if (error) {
+    console.error(`TENANT_DOMAIN_ZIP_LOOKUP_ERROR tenant_id=${tenantId} zip=${zip} error=${error.message}`)
+    throw new Error(`TENANT_DOMAIN_ZIP_LOOKUP_ERROR tenant_id=${tenantId} zip=${zip} error=${error.message}`)
+  }
   return data?.neighborhood || null
 }
 

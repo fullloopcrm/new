@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  */
 
 type Eqs = Record<string, unknown>
-let resolve: (table: string, eqs: Eqs) => { data: unknown; count?: number }
+let resolve: (table: string, eqs: Eqs) => { data: unknown; count?: number; error?: unknown }
 
 function builder(table: string) {
   const eqs: Eqs = {}
@@ -27,6 +27,7 @@ function builder(table: string) {
     order: () => chain,
     limit: () => chain,
     single: async () => resolve(table, eqs),
+    maybeSingle: async () => resolve(table, eqs),
     then: (onFulfilled: (v: { data: unknown; count?: number }) => unknown) =>
       Promise.resolve(resolve(table, eqs)).then(onFulfilled),
   }
@@ -105,6 +106,15 @@ describe('getTenantFromHeaders', () => {
 
     const result = await getTenantFromHeaders()
     expect(result).toEqual({ id: 't-1', slug: 'acme' })
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning null (indistinguishable from "no such tenant")', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    resolve = () => ({ data: null, error: { message: 'connection timeout' } })
+
+    await expect(getTenantFromHeaders()).rejects.toThrow(/TENANT_HEADER_LOOKUP_ERROR/)
   })
 })
 
