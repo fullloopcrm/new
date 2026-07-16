@@ -10,6 +10,7 @@
  * Global, per the platform rule: one codebase, every query tenant-scoped.
  */
 import { supabaseAdmin } from './supabase'
+import type { IndustryKey } from './industry-presets'
 
 export type EmploymentType = 'contractor_1099' | 'employee_w2'
 export type HrStatus = 'active' | 'on_leave' | 'terminated'
@@ -43,6 +44,21 @@ export const DEFAULT_HR_DOC_REQUIREMENTS: HrDocumentRequirement[] = [
 ]
 
 /**
+ * Trade-specific requirements added on top of the baseline, keyed by the
+ * tenant's canonical IndustryKey (industry-presets.ts's mapIndustry output —
+ * what tenants.industry actually stores). This is the data this module's own
+ * comment above promised ("CDL, pesticide applicator license, etc. are added
+ * per-tenant on top of this as extra rows") but never actually populated —
+ * every pest tenant's compliance tracker was missing the one document their
+ * trade is legally required to keep (EPA/state DEC applicator licensing).
+ */
+export const TRADE_HR_DOC_REQUIREMENTS: Partial<Record<IndustryKey, HrDocumentRequirement[]>> = {
+  pest: [
+    { doc_type: 'pesticide_applicator_license', label: 'Pesticide Applicator License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 },
+  ],
+}
+
+/**
  * Ordered expiry-reminder milestones for the (future) auto-nudge engine. Each
  * is written to hr_document_reminders at most once per document (UNIQUE
  * constraint), so nudges never double-send. 'missing' covers a required doc that
@@ -52,26 +68,40 @@ export const HR_REMINDER_MILESTONES = ['expiry_30d', 'expiry_14d', 'expiry_7d', 
 export type HrReminderMilestone = (typeof HR_REMINDER_MILESTONES)[number]
 
 /**
- * Seed HR defaults for a tenant. Idempotent: the requirement template is only
- * seeded when the tenant has none, and each existing team_member gets an HR
- * profile only if it lacks one. Safe to run on every activation.
+ * Seed HR defaults for a tenant. Idempotent per doc_type (not just per whole
+ * table): each call inserts only the requirement rows the tenant is still
+ * missing, so it stays safe to call again after TRADE_HR_DOC_REQUIREMENTS
+ * gains a new trade entry — an already-activated tenant picks up the new
+ * requirement instead of being frozen at whatever existed on its first
+ * activation. Each existing team_member also gets an HR profile only if it
+ * lacks one.
+ *
+ * `industry` should be the tenant's canonical IndustryKey (tenants.industry);
+ * omitted/unrecognized industries just get the baseline requirements.
  *
  * Returns a small summary of what it created.
  */
-export async function seedHrDefaults(tenantId: string): Promise<{
+export async function seedHrDefaults(tenantId: string, industry?: string): Promise<{
   requirementsSeeded: number
   profilesBackfilled: number
 }> {
   let requirementsSeeded = 0
 
-  // 1. Document-requirement template — seed only if the tenant has none.
-  const { count: reqCount } = await supabaseAdmin
+  // 1. Document-requirement template — insert whichever of the desired
+  //    doc_types (baseline + trade-specific) this tenant doesn't have yet.
+  const desired = [
+    ...DEFAULT_HR_DOC_REQUIREMENTS,
+    ...(TRADE_HR_DOC_REQUIREMENTS[industry as IndustryKey] || []),
+  ]
+  const { data: existingReqs } = await supabaseAdmin
     .from('hr_document_requirements')
-    .select('id', { count: 'exact', head: true })
+    .select('doc_type')
     .eq('tenant_id', tenantId)
+  const haveDocTypes = new Set((existingReqs || []).map((r) => r.doc_type as string))
+  const missing = desired.filter((r) => !haveDocTypes.has(r.doc_type))
 
-  if ((reqCount || 0) === 0) {
-    const rows = DEFAULT_HR_DOC_REQUIREMENTS.map((r) => ({
+  if (missing.length > 0) {
+    const rows = missing.map((r) => ({
       tenant_id: tenantId,
       doc_type: r.doc_type,
       label: r.label,
