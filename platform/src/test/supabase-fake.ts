@@ -109,8 +109,13 @@ function runQuery(
   }
 
   if (state.op === 'delete') {
+    let deleted = rows.filter((r) => matches(r, state))
     h.store[state.table] = rows.filter((r) => !matches(r, state))
-    return { data: null, error: null }
+    if (!state.returning) return { data: null, error: null }
+    if (opts.detachReads) deleted = deleted.map((r) => ({ ...r }))
+    if (terminal === 'single') return { data: deleted[0] ?? null, error: deleted[0] ? null : { message: 'no rows' } }
+    if (terminal === 'maybeSingle') return { data: deleted[0] ?? null, error: null }
+    return { data: deleted, error: null }
   }
 
   let found = rows.filter((r) => matches(r, state))

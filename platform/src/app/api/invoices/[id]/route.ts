@@ -154,8 +154,29 @@ export async function DELETE(request: Request, { params }: Params) {
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     if (hard && existing.status === 'draft' && (existing.amount_paid_cents || 0) === 0) {
-      const { error } = await supabaseAdmin.from('invoices').delete().eq('tenant_id', tenantId).eq('id', id)
+      // Same TOCTOU class as the void guard below: record-payment only blocks
+      // void/refunded invoices, so a payment can land on this draft invoice
+      // between the SELECT above and this DELETE (record-payment's own insert
+      // trigger bumps amount_paid_cents/status before this DELETE runs). Without
+      // re-asserting amount_paid_cents = 0 in the DELETE's own WHERE, a
+      // concurrent payment gets hard-deleted along with its invoice record --
+      // the payment row survives (invoice_id ON DELETE SET NULL) but orphaned,
+      // with the invoice that explains what it was for gone.
+      const { data: deleted, error } = await supabaseAdmin
+        .from('invoices')
+        .delete()
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+        .eq('amount_paid_cents', 0)
+        .select('id')
+        .maybeSingle()
       if (error) throw error
+      if (!deleted) {
+        return NextResponse.json(
+          { error: 'A payment was recorded on this invoice concurrently — refresh instead of deleting' },
+          { status: 409 },
+        )
+      }
       return NextResponse.json({ ok: true, hard: true })
     }
 
