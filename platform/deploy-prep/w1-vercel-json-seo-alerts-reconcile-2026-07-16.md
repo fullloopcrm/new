@@ -6,6 +6,8 @@
 
 **18:04 re-check (no new findings, situation unchanged):** re-diffed all 6 branches' `vercel.json` crons arrays and the gdpr-purge implementation files again. Nothing has moved since 17:37 — p1-w2 still has `seo-alerts`' code (route.ts/alerts.ts/alerts.test.ts, commit `2ebf48b2`) but no vercel.json entry for it; p1-w1 (this branch) still has only the entry; `seo-index-cliff` is still the mirror gap (w1 has both, w2/w3/w5/w6 have neither); w4's `seo-health` is still solo; `gdpr-purge` is still two live implementations at two schedules (w2 `src/lib/gdpr-deletion.ts` @ `0 9 * * *`, w5 `src/lib/gdpr.ts` @ `30 5 * * *`), still needing a pick-one decision, not a merge. No consolidation appears to have started yet per LEADER-CHANNEL. Nothing further to add until one of the branches actually moves or a merge attempt surfaces a new conflict.
 
+**18:55 re-check (no new findings, situation unchanged):** re-verified live by grepping all 6 worktrees directly (not from memory): p1-w2 HEAD now at `81c41f58` (moved since 18:04, but the `seo-alerts` route.ts/alerts.ts are still present, unmerged, no vercel.json entry added on w2's side). p1-w1 HEAD now at `c1dcf2e0` — vercel.json entry still present, route.ts still absent here, matching the reverse `seo-index-cliff` gap (entry+route only on w1, both absent on w2/w3/w4/w5/w6). w4's `seo-health` still solo. gdpr-purge still exactly two competing implementations, unchanged (w2 `gdpr-deletion.ts`, w5 `gdpr.ts`). No merge/consolidation activity detected on any branch. Everything in this note as of 18:04 remains accurate verbatim; only the confirmation timestamp and w2's HEAD SHA have moved.
+
 ## The gap
 
 `platform/vercel.json` on **p1-w1** has a crons entry:
