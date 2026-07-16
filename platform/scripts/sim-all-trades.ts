@@ -42,6 +42,15 @@ import { SERVICE_PRESETS } from '../src/lib/industry-presets'
 
 const VALID_INDUSTRIES = Object.keys(SERVICE_PRESETS)
 
+// F3 (MASTER-TODO-LIST.md:154) — verticals billed flat/per-item/per-visit/per-lb/
+// per-session, not per-hour. Named trades from the doc that are actually reachable
+// in TRADES below (dumpster/towing have no distinct 53-list category today).
+const FLAT_FEE_INDUSTRIES = new Set<IndustryKey>(['bin_cleaning', 'junk_removal', 'pet_waste', 'snow_removal', 'laundry', 'fitness'])
+
+// F4 (MASTER-TODO-LIST.md:155) — verticals that plausibly run 24/7/365 emergency
+// service, reachable in TRADES below (towing has no distinct 53-list category).
+const EMERGENCY_247_INDUSTRIES = new Set<IndustryKey>(['locksmith', 'restoration', 'septic', 'hvac', 'plumbing', 'tree_service'])
+
 const CITIES = [
   { city: 'Austin', state: 'TX', zip: '78701' }, { city: 'Charlotte', state: 'NC', zip: '28202' },
   { city: 'Phoenix', state: 'AZ', zip: '85004' }, { city: 'Denver', state: 'CO', zip: '80202' },
@@ -189,6 +198,15 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const zeroPriced = (services || []).filter(s => !s.price_cents || s.price_cents <= 0)
     add('services: all have price_cents > 0', zeroPriced.length === 0, zeroPriced.length ? `${zeroPriced.length} at $0: ${zeroPriced.map(s => s.name).join(', ')}` : 'ok')
 
+    // ---- P1.6b F3 (MASTER-TODO-LIST.md:154): flat-fee/per-unit trades must not
+    // be quoted "$X/hr" — provision-tenant.ts:120 stamps every seeded service
+    // per_unit:'hour' unconditionally, regardless of trade billing shape. ----
+    if (FLAT_FEE_INDUSTRIES.has(ind)) {
+      const hourlyPriced = (services || []).filter(s => s.per_unit === 'hour')
+      add('services: flat-fee/per-visit trade not priced "/hr" (F3)', hourlyPriced.length === 0,
+        hourlyPriced.length ? `${hourlyPriced.length}/${svcCount} still per_unit=hour: ${hourlyPriced.map(s => s.name).join(', ')}` : 'ok')
+    }
+
     // ---- P1.7 selena_config + industry checklist ----
     const { data: fresh } = await supabase.from('tenants')
       .select('selena_config, payment_methods, business_hours, guidelines_en').eq('id', tenant.id).single()
@@ -199,6 +217,20 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     // cleaning is the ONLY vertical that asks bedrooms; others must NOT.
     const hasBedrooms = checklist.some(f => f.key === 'bedrooms')
     add('config: bedrooms only for cleaning', ind === 'cleaning' ? hasBedrooms : !hasBedrooms, `hasBedrooms=${hasBedrooms}`)
+
+    // ---- P1.7b F2 (MASTER-TODO-LIST.md:153): the LIVE agent's intake must
+    // actually reflect this tenant's per-trade checklist_fields, not a hardcoded
+    // generic script. getAgentConfig() (agent-config-loader.ts:85) is the config
+    // consumed by src/lib/selena/agent.ts (askSelena/askYinez) — the runtime
+    // behind /api/yinez (generic, any tenant) and the NYC-Maid chat/SMS path. ----
+    const { getAgentConfig } = await import('../src/lib/selena/agent-config-loader')
+    const checklistFull = (cfg.checklist_fields as Array<{ key: string; enabled: boolean; question: string }> | undefined) || []
+    const agentCfg = await getAgentConfig(tenant.id)
+    const checklistQuestions = checklistFull.filter(f => f.enabled).map(f => f.question)
+    const intakeText = agentCfg.intake.questions.join(' | ')
+    const intakeReflectsChecklist = checklistQuestions.length > 0 && checklistQuestions.some(q => intakeText.includes(q))
+    add('agent: live getAgentConfig() intake reflects per-trade checklist (F2)', intakeReflectsChecklist,
+      intakeReflectsChecklist ? 'ok' : `intake=${JSON.stringify(agentCfg.intake.questions)} checklist[0].question="${checklistQuestions[0] || ''}"`)
 
     // ---- P1.8 payment/hours/guidelines ----
     add('config: payment_methods populated', Array.isArray(fresh?.payment_methods) && (fresh!.payment_methods as unknown[]).length > 0)
@@ -270,6 +302,95 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     // P2.3 idempotent convert — re-running returns same booking, no dupe
     const conv2 = await createBookingFromQuote(tenant.id, quote.id)
     add('sell: convert idempotent', conv2.already_converted && conv2.booking_id === conv.booking_id)
+
+    // ================= P2b — SALES PIPELINE (deals): gap flagged 09:16 LEADER
+    // dispatch — everything above goes prospect(signup)→tenant→quote→booking and
+    // never touches `deals`, the sales-board a TENANT's own end-customers move
+    // through (src/lib/pipeline.ts stage spine: new→qualifying→quoted→pending→
+    // sold/lost). The transitions live inline in requirePermission()-gated route
+    // handlers (deals/manual, deals/[id]/stage, quotes send/accept) this script
+    // can't call directly, so this mirrors their exact insert/update shapes —
+    // same as the double-book guard at P5.4 does for bookings — while verifying
+    // against the real pipeline.ts lib (stageMeta/OPEN_STAGES/CLOSED_STAGES/
+    // computeForecast), not a re-derived copy. ====
+    const { stageMeta, OPEN_STAGES, CLOSED_STAGES, computeForecast } = await import('../src/lib/pipeline')
+
+    // P2b.1 lead → client + deal at 'new' (mirrors deals/manual + ingest/lead)
+    const dealCustEmail = `dealcust+${runId}@example.com`
+    const { data: dealClient, error: dcErr } = await supabase.from('clients').insert({
+      tenant_id: tenant.id, name: 'Pipeline Customer', email: dealCustEmail, phone: '+15551236666',
+      pin: String(Math.floor(100000 + Math.random() * 900000)),
+    }).select('id').single()
+    add('pipeline: client created for deal', !!dealClient && !dcErr, dcErr?.message)
+
+    const { data: deal, error: dealErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, client_id: dealClient?.id, title: `${ind} lead`, stage: 'new',
+      mode: 'sales', value_cents: 0, probability: stageMeta('new').defaultProbability,
+      source: 'sim', status: 'active',
+    }).select('id, stage, probability').single()
+    add('pipeline: deal created at stage "new"', !!deal && !dealErr && deal.stage === 'new', dealErr?.message)
+
+    // P2b.2 DB rejects a stage value outside the locked spine
+    const { error: badStageErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, client_id: dealClient?.id, title: 'bad stage probe', stage: 'not_a_real_stage', mode: 'sales', status: 'active',
+    })
+    add('pipeline: DB rejects invalid stage value', !!badStageErr, badStageErr ? 'rejected ✓' : 'ACCEPTED — no stage check constraint')
+
+    if (deal) {
+      // P2b.3 qualify (operator moves new → qualifying, mirrors deals/[id]/stage)
+      await supabase.from('deals').update({ stage: 'qualifying', probability: stageMeta('qualifying').defaultProbability }).eq('id', deal.id)
+      await supabase.from('deal_activities').insert({ tenant_id: tenant.id, deal_id: deal.id, type: 'stage_change', description: 'Moved from new to qualifying' })
+
+      // P2b.4 proposal linked to the deal via deal_id (mirrors POST /api/quotes carrying the proposal onto the deal's timeline)
+      const dealQNum = await generateQuoteNumber(tenant.id)
+      const { data: dealQuote, error: dqErr } = await supabase.from('quotes').insert({
+        tenant_id: tenant.id, client_id: dealClient?.id, deal_id: deal.id, quote_number: dealQNum, status: 'draft',
+        title: `${ind} pipeline proposal`, contact_name: 'Pipeline Customer', contact_email: dealCustEmail,
+        contact_phone: '+15551236666', service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+        line_items: liveLineItems, subtotal_cents: liveTotals.subtotal_cents, tax_rate_bps: 0, tax_cents: liveTotals.tax_cents,
+        discount_cents: 0, total_cents: liveTotals.total_cents, public_token: generatePublicToken(),
+      }).select('id, total_cents, deal_id').single()
+      add('pipeline: proposal linked to deal via deal_id', !!dealQuote && !dqErr && dealQuote.deal_id === deal.id, dqErr?.message)
+
+      // Sending the proposal is a manual kanban move to "quoted" — quote creation itself does not auto-advance the stage.
+      await supabase.from('deals').update({ stage: 'quoted', probability: stageMeta('quoted').defaultProbability, value_cents: dealQuote?.total_cents || 0 }).eq('id', deal.id)
+      await supabase.from('deal_activities').insert({ tenant_id: tenant.id, deal_id: deal.id, type: 'note', description: `Proposal ${dealQNum} sent` })
+
+      const { data: quotedDeal } = await supabase.from('deals').select('stage, value_cents').eq('id', deal.id).single()
+      add('pipeline: deal advances to "quoted" carrying the proposal value', quotedDeal?.stage === 'quoted' && quotedDeal?.value_cents === dealQuote?.total_cents, JSON.stringify(quotedDeal))
+
+      // P2b.5 accept — mirrors quotes/public/[token]/accept: a deposit-less proposal closes the deal SOLD.
+      if (dealQuote) await supabase.from('quotes').update({ status: 'accepted' }).eq('id', dealQuote.id)
+      await supabase.from('deals').update({ stage: 'sold', probability: 100, closed_at: new Date().toISOString() }).eq('id', deal.id)
+      await supabase.from('deal_activities').insert({ tenant_id: tenant.id, deal_id: deal.id, type: 'stage_change', description: 'Moved from quoted to sold' })
+
+      const { data: soldDeal } = await supabase.from('deals').select('stage, closed_at').eq('id', deal.id).single()
+      add('pipeline: accepted proposal closes deal "sold"', soldDeal?.stage === 'sold' && !!soldDeal?.closed_at)
+      add('pipeline: "sold" sits in CLOSED_STAGES, not OPEN_STAGES', CLOSED_STAGES.includes('sold' as never) && !OPEN_STAGES.includes('sold' as never))
+
+      // P2b.6 activity timeline recorded across every transition
+      const { data: activities } = await supabase.from('deal_activities').select('type').eq('deal_id', deal.id).order('created_at')
+      add('pipeline: deal_activities timeline recorded (>= 3 entries)', (activities?.length || 0) >= 3, `${activities?.length} entries`)
+
+      // P2b.7 forecast math (real computeForecast from pipeline.ts): OPEN deals count, CLOSED deals don't
+      const closeDate = new Date().toISOString().slice(0, 10)
+      const openSnapshot = { stage: 'quoted', status: 'active', value_cents: dealQuote?.total_cents || 0, probability: 50, expected_close_date: closeDate }
+      const forecastOpen = computeForecast([openSnapshot])
+      add('pipeline: forecast includes an OPEN deal', forecastOpen.some(b => b.deals > 0))
+      const forecastClosed = computeForecast([{ ...openSnapshot, stage: 'sold' }])
+      add('pipeline: forecast excludes a CLOSED (sold) deal', forecastClosed.every(b => b.deals === 0))
+
+      // P2b.8 a separate lead closed straight to "lost" with a reason (mirrors the deals/[id]/stage 'lost' branch)
+      const { data: lostDeal } = await supabase.from('deals').insert({
+        tenant_id: tenant.id, client_id: dealClient?.id, title: `${ind} lost lead`, stage: 'new', mode: 'sales',
+        probability: stageMeta('new').defaultProbability, source: 'sim', status: 'active',
+      }).select('id').single()
+      if (lostDeal) {
+        await supabase.from('deals').update({ stage: 'lost', probability: 0, lost_reason: 'Went with a competitor', closed_at: new Date().toISOString() }).eq('id', lostDeal.id)
+        const { data: lostRow } = await supabase.from('deals').select('stage, probability, lost_reason').eq('id', lostDeal.id).single()
+        add('pipeline: deal can close "lost" with a reason', lostRow?.stage === 'lost' && lostRow?.probability === 0 && lostRow?.lost_reason === 'Went with a competitor', JSON.stringify(lostRow))
+      }
+    }
 
     // ================= P3 — JOBS & SCHEDULING =================
     const { deriveDurationClass } = await import('../src/lib/schedule/duration-class')
@@ -460,6 +581,35 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     add('site: gate marks cleaning-only pages (isCleaning)', siteProf.isCleaning === isClean, `isCleaning=${siteProf.isCleaning}`)
     add('site: non-cleaning gets non-maid service label', isClean ? siteProf.serviceLabel === 'House Cleaning' : siteProf.serviceLabel !== 'House Cleaning', siteProf.serviceLabel)
 
+    // ================= P8b — F4 (MASTER-TODO-LIST.md:155): 24/7-EMERGENCY TRADES
+    // MUST BE ABLE TO SELF-BOOK ON HOLIDAYS / OUTSIDE THE 9-5 WINDOW WHEN open_365
+    // IS SET. availability.ts's holiday gate is open_365-aware, but its BUSINESS_
+    // START/END (9am-5pm) has no override for any tenant — and client/book/
+    // route.ts:200 calls isHoliday() unconditionally with no open_365 check at
+    // all (not exercised here — requires the P9 HTTP layer to hit that route). ====
+    if (EMERGENCY_247_INDUSTRIES.has(ind) && worker?.id) {
+      await supabase.from('tenants').update({
+        selena_config: { ...cfg, open_365: true },
+      }).eq('id', tenant.id)
+      await supabase.from('team_members').update({ working_days: ['0', '1', '2', '3', '4', '5', '6'] }).eq('id', worker.id)
+      const { checkAvailability } = await import('../src/lib/availability')
+      const nextNewYearsDay = `${new Date().getFullYear() + 1}-01-01`
+      const holidayResult = await checkAvailability(tenant.id, nextNewYearsDay, 2)
+      add('availability: open_365 trade not blanket-blocked on a holiday (F4a)',
+        !holidayResult.message?.toLowerCase().includes('closed for'), holidayResult.message || 'ok')
+      const farOutDate = new Date(Date.now() + 10 * 24 * 3600 * 1000).toLocaleDateString('en-CA')
+      const hoursResult = await checkAvailability(tenant.id, farOutDate, 2)
+      const offHoursSlot = (hoursResult.slots || []).some(s => {
+        const m = s.time.match(/^(\d{1,2}):\d{2}\s*(AM|PM)/i)
+        if (!m) return false
+        let h = parseInt(m[1], 10) % 12
+        if (m[2].toUpperCase() === 'PM') h += 12
+        return h < 8 || h >= 18
+      })
+      add('availability: open_365/emergency trade offers off-hours (outside 9-5) slots (F4b)', offHoursSlot,
+        `slots=${JSON.stringify((hoursResult.slots || []).map(s => s.time))}`)
+    }
+
     // ================= P9 — RECURRING SERIES + INVOICING =================
     const { createRecurringSeriesFromQuote } = await import('../src/lib/sale-to-recurring')
     // P9.1 recurring sale → recurring_schedules + generated bookings over horizon
@@ -511,7 +661,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       // best-effort fast path; the tenant delete is the real guarantee. Only a
       // surviving TENANT row is a true leftover — retry it through timeouts.
       if (tenantId) {
-        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
+        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'deal_activities', 'deals', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
         }
         let delOk = false
