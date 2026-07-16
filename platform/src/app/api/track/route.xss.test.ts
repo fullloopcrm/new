@@ -27,6 +27,10 @@ vi.mock('@/lib/settings', () => ({
   getSettings: vi.fn().mockResolvedValue({ lead_notification_email: 'owner@tenant.test', business_name: 'Test Biz' }),
 }))
 
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: vi.fn().mockResolvedValue({ id: 'tenant-1', slug: 'test-tenant' }),
+}))
+
 const { insert } = vi.hoisted(() => ({
   insert: vi.fn().mockResolvedValue({ error: null }),
 }))

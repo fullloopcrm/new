@@ -4,6 +4,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getSettings } from '@/lib/settings'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -158,7 +159,7 @@ export async function POST(request: Request) {
       const { error: err2 } = await supabaseAdmin.from('lead_clicks').insert(payload)  // tenant-scope-ok: tracking payload carries tenant_id (nullable for unattributed hits)
       if (err2) {
         delete payload.visitor_ip
-        await supabaseAdmin.from('lead_clicks').insert(payload)
+        await supabaseAdmin.from('lead_clicks').insert(payload)  // tenant-scope-ok: tracking payload carries tenant_id (nullable for unattributed hits)
       }
     }
 
@@ -167,17 +168,29 @@ export async function POST(request: Request) {
     // must not affect the tracking response. De-duped per session+tenant
     // for 1 hour so a single visitor clicking five CTAs doesn't spam the
     // owner — first click within a session triggers, the rest are silent.
-    if (cta_clicked && tenant_id && (action === 'cta' || body.cta_type)) {
-      notifyLeadEmailIfNeeded({
-        tenantId: tenant_id as string,
-        sessionId: (session_id as string) || null,
-        ctaType: (body.cta_type as string) || (action as string) || 'click',
-        page: (page as string) || null,
-        referrer: (referrer as string) || null,
-        utmSource: (utm_source as string) || null,
-      }).catch((e) => {
-        console.error('[track] lead notification failed:', e)
-      })
+    //
+    // The tenant that gets notified/emailed is resolved from the signed
+    // x-tenant-id header (middleware, bound to the actual request host),
+    // NOT the client-supplied `tenant_id` body field above -- this route is
+    // public/unauthenticated, so trusting body.tenant_id here would let any
+    // caller pick an arbitrary tenant_id and repeatedly trigger real "New
+    // lead" emails to that tenant's lead_notification_email inbox with no
+    // relationship to the caller's actual domain (email-bombing / spam
+    // amplification against a target of the caller's choosing).
+    if (cta_clicked && (action === 'cta' || body.cta_type)) {
+      const resolvedTenant = await getTenantFromHeaders()
+      if (resolvedTenant?.id) {
+        notifyLeadEmailIfNeeded({
+          tenantId: resolvedTenant.id,
+          sessionId: (session_id as string) || null,
+          ctaType: (body.cta_type as string) || (action as string) || 'click',
+          page: (page as string) || null,
+          referrer: (referrer as string) || null,
+          utmSource: (utm_source as string) || null,
+        }).catch((e) => {
+          console.error('[track] lead notification failed:', e)
+        })
+      }
     }
 
     return NextResponse.json({ success: true }, { headers: corsHeaders })
