@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('settings.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
 
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
@@ -27,8 +31,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const db = tenantDb(tenantId)
     const body = await request.json()
 

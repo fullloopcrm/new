@@ -7,7 +7,8 @@
  * Tenant-scoped via getTenantForRequest (operator auth), like /api/deals.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 
@@ -21,8 +22,11 @@ function num(v: unknown): number | null {
 }
 
 export async function GET() {
+  const { tenant, error: authError } = await requirePermission('settings.view')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { data, error } = await tenantDb(tenantId)
       .from('service_types')
       .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
@@ -51,8 +55,11 @@ export async function GET() {
 }
 
 export async function POST(request: Request) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const name = typeof body.name === 'string' ? body.name.trim() : ''
     if (!name) return NextResponse.json({ error: 'Name is required' }, { status: 400 })
@@ -90,8 +97,11 @@ export async function POST(request: Request) {
 }
 
 export async function PATCH(request: Request) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const body = await request.json().catch(() => ({} as Record<string, unknown>))
     const id = body.id as string | undefined
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
@@ -130,8 +140,11 @@ export async function PATCH(request: Request) {
 }
 
 export async function DELETE(request: Request) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
@@ -17,8 +18,11 @@ export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
     const updates = pick(body, EDITABLE_SERVICE_FIELDS)
@@ -49,8 +53,11 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
+  const { tenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenantId } = tenant
     const { id } = await params
 
     const { data, error } = await tenantDb(tenantId)

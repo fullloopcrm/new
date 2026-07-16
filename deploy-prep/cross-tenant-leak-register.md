@@ -4609,3 +4609,57 @@ round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
 
+---
+
+## 2026-07-16 07:03 round (W2) — P80, fixed: `service_types` (catalog/services)
+CRUD had zero permission check across 3 route files — live default-role bug
+
+Continuing the broad-hunt (leader order 06:57, lower-risk surface,
+file-only). Same detection scan as P79, next candidate: `/api/catalog/
+route.ts` (GET/POST/PATCH/DELETE) manages the `service_types` table with
+zero `requirePermission` anywhere in the file. While fixing it, found the
+same table is managed by two more ungated route files discovered in the
+same scan pass — `/api/settings/services/route.ts` (GET/POST) and
+`/api/settings/services/[id]/route.ts` (PUT/DELETE) — a duplicate CRUD
+surface over the identical table, also with zero permission check, even
+though every other `/api/settings/*` route (`settings/route.ts`,
+`settings/team/route.ts`, `settings/permissions/route.ts`,
+`settings/page-config/route.ts`, `settings/portal-permissions/route.ts`)
+is already gated behind `settings.view`/`settings.edit`. Fixing all three
+files together since they're the same underlying bug on the same table.
+
+Not override-only: by default `rbac.ts` grants `settings.edit` to
+`owner`/`admin` only, and `settings.view` to `owner`/`admin`/`manager`
+only — `staff` gets neither. So any manager could already create, edit
+(price/cost/active flag), or delete a catalog/service item, and any
+staff-tier member could read the full catalog including `cost_cents`
+(internal cost data), with zero role check, no override needed — same
+class as P72/P76/P77/P78/P79.
+
+**Fix:** `requirePermission('settings.view')` on all 3 GETs,
+`requirePermission('settings.edit')` on all mutating verbs (POST/PATCH/
+DELETE on `/api/catalog`, POST on `/api/settings/services`, PUT/DELETE on
+`/api/settings/services/[id]`) — matching the established `settings.*`
+gating convention already used by every sibling `/api/settings/*` route.
+
+**Regression lock:** 3 new `route.rbac.test.ts` files (10 tests total:
+owner-succeeds controls for every verb across all 3 files,
+manager/staff-forbidden default-role probes on the mutating verbs and the
+staff-view probe, one override-revocation probe each on catalog PATCH
+(admin) and settings/services POST (admin)). Mutation-verified via `git
+stash` of just the 3 fixed `route.ts` files (all pre-existing
+`route.isolation.test.ts` files across all 3 routes are untouched by the
+stash): 10 of 18 probes went RED pre-fix (every manager/staff-forbidden
+and staff-view probe wrongly succeeded), restored, all 18 GREEN post-fix.
+The 3 pre-existing `route.isolation.test.ts` files (9 tests: cross-tenant
+GET filtering, forged-tenant-id POST stamp checks, foreign-id PUT/PATCH/
+DELETE 404-not-ok:true probes) pass unchanged — all three hardcode role
+`'owner'` in their `getTenantForRequest` mock, which has every permission
+by default, so the isolation behavior they wrap is undisturbed.
+
+`npx tsc --noEmit`: clean. Full suite: 408 files, 1787 passed + 37
+skipped, 0 regressions (was 405/1769). `npm run audit:tenant`: same 1
+pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
+round (unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
