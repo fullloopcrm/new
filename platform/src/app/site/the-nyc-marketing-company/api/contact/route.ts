@@ -18,6 +18,14 @@ const TO = "thenycmarketingco@gmail.com";
 const MAX_FILES = 5;
 const MAX_TOTAL_ATTACHMENT_BYTES = 20 * 1024 * 1024; // 20MB combined, matches Resend's own request-size ceiling
 
+// Rejects whitespace/control chars (blocks CRLF header-injection attempts) and
+// angle-bracket/quote header-metacharacters, not just "is this field empty" --
+// this value flows straight into Resend's replyTo field below.
+const EMAIL_RE = /^[^\s<>"']+@[^\s<>"']+\.[^\s<>"']+$/;
+function isValidEmail(value: unknown): value is string {
+  return typeof value === "string" && EMAIL_RE.test(value);
+}
+
 export async function POST(req: NextRequest) {
   try {
     // Public, unauthenticated form — same abuse class as the sibling
@@ -71,8 +79,8 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      if (!data.name || !data.email) {
-        return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+      if (!data.name || !isValidEmail(data.email)) {
+        return NextResponse.json({ error: "Name and a valid email are required" }, { status: 400 });
       }
     } else {
       const body = await req.json();
@@ -81,28 +89,28 @@ export async function POST(req: NextRequest) {
 
       switch (type) {
         case "strategy":
-          if (!data.name || !data.email || !data.message) {
-            return NextResponse.json({ error: "Name, email, and message are required" }, { status: 400 });
+          if (!data.name || !isValidEmail(data.email) || !data.message) {
+            return NextResponse.json({ error: "Name, a valid email, and message are required" }, { status: 400 });
           }
           break;
         case "strategy-quick":
-          if (!data.name || !data.email) {
-            return NextResponse.json({ error: "Name and email are required" }, { status: 400 });
+          if (!data.name || !isValidEmail(data.email)) {
+            return NextResponse.json({ error: "Name and a valid email are required" }, { status: 400 });
           }
           break;
         case "seo-audit":
-          if (!data.email || !data.url) {
-            return NextResponse.json({ error: "Email and URL are required" }, { status: 400 });
+          if (!isValidEmail(data.email) || !data.url) {
+            return NextResponse.json({ error: "A valid email and URL are required" }, { status: 400 });
           }
           break;
         case "exit-intent-audit":
-          if (!data.email) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+          if (!isValidEmail(data.email)) {
+            return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
           }
           break;
         default:
-          if (!data.email) {
-            return NextResponse.json({ error: "Email is required" }, { status: 400 });
+          if (!isValidEmail(data.email)) {
+            return NextResponse.json({ error: "A valid email is required" }, { status: 400 });
           }
       }
     }
