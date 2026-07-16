@@ -81,6 +81,19 @@ export async function POST(request: Request) {
   }
   const cleanPhone = phone.replace(/\D/g, '')
 
+  // photo_url comes from the calling standalone site's own storage (this
+  // route funnels applications from external tenant sites, so it can't be
+  // checked against a FullLoop storage-bucket prefix like the direct
+  // /api/team-applications route does). It's still stored verbatim and
+  // rendered as <img src={app.photo_url}> in the admin dashboard
+  // (dashboard/team/page.tsx), so a caller holding INGEST_SECRET could
+  // otherwise stash an arbitrary value there. Require a plain http(s) URL.
+  if (body.photo_url !== undefined && body.photo_url !== null) {
+    if (typeof body.photo_url !== 'string' || !/^https?:\/\//i.test(body.photo_url)) {
+      return NextResponse.json({ error: 'Invalid photo_url' }, { status: 400 })
+    }
+  }
+
   try {
     // Dedup: a retry or backfill overlap should not create a second row for
     // the same applicant. Match on tenant + phone + name (case-insensitive).

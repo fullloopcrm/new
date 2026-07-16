@@ -14,6 +14,14 @@ function validType(t: string | null): t is 'lead' | 'tenant' {
   return t === 'lead' || t === 'tenant'
 }
 
+// image_urls is rendered as <a href={u}><img src={u} /></a> in the admin
+// sales panel (admin/sales/LeadsPanel.tsx) — a javascript: URI here would
+// execute in whichever admin views/clicks the note next. Require plain
+// http(s) URLs.
+function isHttpUrl(u: unknown): u is string {
+  return typeof u === 'string' && /^https?:\/\//i.test(u)
+}
+
 export async function GET(request: Request) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -45,7 +53,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'subject_type and subject_id required' }, { status: 400 })
   }
   const text = typeof body === 'string' ? body.trim() : ''
-  const imgs = Array.isArray(image_urls) ? image_urls.filter((u) => typeof u === 'string') : []
+  const imgs = Array.isArray(image_urls) ? image_urls.filter(isHttpUrl) : []
   if (!text && imgs.length === 0) {
     return NextResponse.json({ error: 'A note needs text or an image' }, { status: 400 })
   }
@@ -69,7 +77,7 @@ export async function PATCH(request: Request) {
 
   const updates: Record<string, unknown> = { updated_at: new Date().toISOString() }
   if (body !== undefined) updates.body = typeof body === 'string' ? body.trim() || null : null
-  if (Array.isArray(image_urls)) updates.image_urls = image_urls.filter((u) => typeof u === 'string')
+  if (Array.isArray(image_urls)) updates.image_urls = image_urls.filter(isHttpUrl)
 
   const { data, error } = await supabaseAdmin
     .from('crm_notes')
