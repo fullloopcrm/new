@@ -14,6 +14,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
+import { findSchedulingConflicts } from '@/lib/schedule/conflict-check'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -143,28 +144,19 @@ export async function POST(request: Request) {
     // so back-to-back jobs always leave the configured gap.
     if (validated.team_member_id && validated.start_time) {
       const endTime = validated.end_time || new Date(new Date(validated.start_time as string).getTime() + 3 * 3600000).toISOString()
-      const bufferMs = Math.max(0, settings.booking_buffer_minutes) * 60_000
-      const startWithBuffer = new Date(new Date(validated.start_time as string).getTime() - bufferMs).toISOString()
-      const endWithBuffer = new Date(new Date(endTime as string).getTime() + bufferMs).toISOString()
+      const conflicts = await findSchedulingConflicts(
+        tenantId,
+        validated.team_member_id as string,
+        validated.start_time as string,
+        endTime as string,
+        settings.booking_buffer_minutes,
+      )
 
-      const { data: conflicts } = await supabaseAdmin
-        .from('bookings')
-        .select('id, start_time, end_time')
-        .eq('tenant_id', tenantId)
-        .eq('team_member_id', validated.team_member_id)
-        .not('status', 'in', '("cancelled","no_show")')
-        .lt('start_time', endWithBuffer)
-        .gt('end_time', startWithBuffer)
-
-      if (conflicts && conflicts.length > 0) {
-        const bufferNote = bufferMs > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
+      if (conflicts.length > 0) {
+        const bufferNote = settings.booking_buffer_minutes > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
         return NextResponse.json({
           error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
-          conflicts: conflicts.map(c => ({
-            id: c.id,
-            start: c.start_time,
-            end: c.end_time,
-          }))
+          conflicts,
         }, { status: 409 })
       }
     }

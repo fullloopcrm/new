@@ -9,6 +9,8 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
+import { getSettings } from '@/lib/settings'
+import { findSchedulingConflicts } from '@/lib/schedule/conflict-check'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -73,6 +75,23 @@ export async function POST(request: Request, { params }: Params) {
     }
     const assigneeList = [...assignees]
     const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)
+
+    // Same double-booking guard POST /api/bookings enforces — this route is
+    // the other live path that assigns a team member to a time slot (the
+    // primary scheduling path for multi-touch jobs), and had no conflict
+    // check at all, so a crew member could be scheduled onto two overlapping
+    // sessions across different jobs (or two sessions of the same job).
+    if (leadId) {
+      const settings = await getSettings(tenantId)
+      const conflicts = await findSchedulingConflicts(tenantId, leadId, start.toISOString(), end.toISOString(), settings.booking_buffer_minutes)
+      if (conflicts.length > 0) {
+        const bufferNote = settings.booking_buffer_minutes > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
+        return NextResponse.json({
+          error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
+          conflicts,
+        }, { status: 409 })
+      }
+    }
 
     const { data: booking, error: bErr } = await supabaseAdmin
       .from('bookings')

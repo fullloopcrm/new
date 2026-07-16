@@ -16,6 +16,8 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type RawSession } from '@/lib/jobs'
+import { getSettings } from '@/lib/settings'
+import { findSchedulingConflicts } from '@/lib/schedule/conflict-check'
 
 type Params = { params: Promise<{ id: string; sessionId: string }> }
 
@@ -26,7 +28,7 @@ type SessionStatus = (typeof SESSION_STATUS)[number]
 async function loadOwnedSession(tenantId: string, jobId: string, sessionId: string) {
   const { data, error } = await supabaseAdmin
     .from('bookings')
-    .select('id, job_id, tenant_id, start_time, end_time, status')
+    .select('id, job_id, tenant_id, start_time, end_time, status, team_member_id')
     .eq('id', sessionId)
     .eq('tenant_id', tenantId)
     .single()
@@ -125,6 +127,30 @@ export async function PATCH(request: Request, { params }: Params) {
       patch.crew_id = crewId
       patch.team_member_id = leadId
       didReassign = true
+    }
+
+    // --- Conflict check: a move or reassign can put a team member on two
+    // overlapping sessions. POST /api/bookings has always enforced this;
+    // this route (and its POST sibling) didn't, so a crew member could be
+    // silently double-booked via job scheduling while the same double-booking
+    // attempted through the plain booking form would be rejected.
+    if (didReschedule || didReassign) {
+      const effectiveTeamMemberId = didReassign ? (patch.team_member_id as string | null) : current.team_member_id
+      const effectiveStart = (patch.start_time as string | undefined) ?? current.start_time
+      const effectiveEnd = (patch.end_time as string | undefined) ?? current.end_time
+      if (effectiveTeamMemberId && effectiveStart && effectiveEnd) {
+        const settings = await getSettings(tenantId)
+        const conflicts = await findSchedulingConflicts(
+          tenantId, effectiveTeamMemberId, effectiveStart, effectiveEnd, settings.booking_buffer_minutes, sessionId,
+        )
+        if (conflicts.length > 0) {
+          const bufferNote = settings.booking_buffer_minutes > 0 ? ` (with ${settings.booking_buffer_minutes} min buffer)` : ''
+          return NextResponse.json({
+            error: `Scheduling conflict: team member already has a booking during this time${bufferNote}`,
+            conflicts,
+          }, { status: 409 })
+        }
+      }
     }
 
     // --- Simple field edits. ---
