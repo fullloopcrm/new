@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
-import { pick } from '@/lib/validate'
+import { pick, isSafeImageUrl } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
 export async function GET(
@@ -48,6 +48,9 @@ export async function PUT(
     const { id } = await params
     const body = await request.json()
     const fields = pick(body, ['name', 'email', 'phone', 'role', 'hourly_rate', 'pay_rate', 'working_days', 'status', 'preferred_language', 'notes', 'avatar_url'])
+    if (fields.avatar_url && !isSafeImageUrl(fields.avatar_url)) {
+      return NextResponse.json({ error: 'avatar_url must be an http(s) URL or a data:image URI' }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('team_members')

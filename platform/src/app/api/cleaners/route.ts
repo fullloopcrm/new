@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
+import { isSafeImageUrl } from '@/lib/validate'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -27,6 +28,9 @@ export async function POST(request: NextRequest) {
   if (authError) return authError
 
   const body = await request.json()
+  if (body.photo_url && !isSafeImageUrl(body.photo_url)) {
+    return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 })
+  }
   const { data, error } = await supabaseAdmin
     .from('team_members')
     .insert({

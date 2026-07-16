@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
-import { validate } from '@/lib/validate'
+import { validate, isSafeImageUrl } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
 
@@ -48,9 +48,12 @@ export async function POST(request: Request) {
       hourly_rate: { type: 'number', min: 0 },
       pay_rate: { type: 'number', min: 0 },
       working_days: { type: 'array' },
-      avatar_url: { type: 'string', max: 1000 },
+      avatar_url: { type: 'string', max: 200000 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+    if (fields!.avatar_url && !isSafeImageUrl(fields!.avatar_url)) {
+      return NextResponse.json({ error: 'avatar_url must be an http(s) URL or a data:image URI' }, { status: 400 })
+    }
 
     // Apply tenant defaults when caller didn't provide values explicitly.
     const settings = await getSettings(tenantId)

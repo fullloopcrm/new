@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
+import { isSafeImageUrl } from '@/lib/validate'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -14,6 +15,10 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
 
   const { id } = await params
   const body = await request.json()
+
+  if (body.photo_url && !isSafeImageUrl(body.photo_url)) {
+    return NextResponse.json({ error: 'Invalid photo URL' }, { status: 400 })
+  }
 
   const today = new Date().toISOString().split('T')[0]
   const futureDates = (body.unavailable_dates || []).filter((d: string) => d >= today)

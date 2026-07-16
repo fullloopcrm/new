@@ -104,3 +104,15 @@ export function pick<T extends Record<string, unknown>>(body: unknown, fields: s
   }
   return result as Partial<T>
 }
+
+// Team member photo/avatar fields are populated two ways: an http(s) URL from
+// a storage upload, or a client-side-resized `data:image/...;base64,` URI
+// (see dashboard/team/[id]/page.tsx's canvas.toDataURL flow). Reject anything
+// else — in particular `javascript:`/`vbscript:` schemes — before the value
+// is stored and later rendered as <img src>.
+const DATA_IMAGE_RE = /^data:image\/(jpeg|jpg|png|webp|gif);base64,/i
+
+export function isSafeImageUrl(val: unknown): val is string {
+  if (typeof val !== 'string' || !val) return false
+  return /^https?:\/\//i.test(val) || DATA_IMAGE_RE.test(val)
+}
