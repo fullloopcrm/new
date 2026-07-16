@@ -83,3 +83,41 @@ describe('POST /api/team-portal/checkin — tenantDb scoping', () => {
     expect(bookingB.status).toBe('confirmed')
   })
 })
+
+describe('POST /api/team-portal/checkin — status guard', () => {
+  // A booking cancelled (or marked no-show) before the assigned cleaner ever
+  // checked in still has check_in_time === null, so the double-check-in guard
+  // alone would not stop it. Without a status check, checking in would flip it
+  // to 'in_progress' and checkout would then complete it with real
+  // payment/payroll side effects for a job that was cancelled.
+  it('400s: a cancelled booking cannot be checked in', async () => {
+    DB.bookings = [
+      { id: BOOKING_ID, tenant_id: TENANT_A, status: 'cancelled', team_member_id: MEMBER_ID, start_time: '2020-01-01T09:00:00', check_in_time: null, notes: null },
+    ]
+    const token = createToken(MEMBER_ID, TENANT_A, 0, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/checkin', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+    const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A)!
+    expect(bookingA.status).toBe('cancelled')
+    expect(bookingA.check_in_time).toBeNull()
+  })
+
+  it('400s: a no-show booking cannot be checked in', async () => {
+    DB.bookings = [
+      { id: BOOKING_ID, tenant_id: TENANT_A, status: 'no_show', team_member_id: MEMBER_ID, start_time: '2020-01-01T09:00:00', check_in_time: null, notes: null },
+    ]
+    const token = createToken(MEMBER_ID, TENANT_A, 0, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/checkin', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(400)
+  })
+})

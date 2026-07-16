@@ -68,6 +68,7 @@ function checkedInMinutesAgo(mins: number): string {
 
 const baseBooking = (over: Record<string, unknown> = {}) => ({
   id: 'b-1',
+  status: 'in_progress',
   team_member_id: 'm-1',
   check_in_time: checkedInMinutesAgo(120),
   hourly_rate: 69,
@@ -166,6 +167,27 @@ describe('team-portal checkout — authorization guards', () => {
 
   it('400s on replay: a booking that already has check_out_time cannot be checked out again (no pay/price re-inflation)', async () => {
     bookingRow = baseBooking({ check_out_time: checkedInMinutesAgo(5) })
+    const res = await POST(req({ booking_id: 'b-1' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400s: a cancelled booking that was never checked in cannot be checked out into completed', async () => {
+    // No check_in_time — this is the exact shape a cancelled/no-show booking
+    // has. Without the status guard this would have sailed through to
+    // 'completed' with real payment/payroll side effects.
+    bookingRow = baseBooking({ status: 'cancelled', check_in_time: null })
+    const res = await POST(req({ booking_id: 'b-1' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400s: a no-show booking cannot be checked out', async () => {
+    bookingRow = baseBooking({ status: 'no_show', check_in_time: null })
+    const res = await POST(req({ booking_id: 'b-1' }))
+    expect(res.status).toBe(400)
+  })
+
+  it('400s: an already-completed booking cannot be re-checked-out to re-run payment side effects', async () => {
+    bookingRow = baseBooking({ status: 'completed', check_out_time: null })
     const res = await POST(req({ booking_id: 'b-1' }))
     expect(res.status).toBe(400)
   })

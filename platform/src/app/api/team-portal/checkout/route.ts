@@ -26,13 +26,23 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, status, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
 
   if (!booking || booking.team_member_id !== auth.id) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
+  }
+
+  // Booking must still be in_progress. Without this, a booking that was never
+  // checked in (e.g. cancelled/no-show after assignment) could be pushed
+  // straight to 'completed' by the assigned cleaner, skipping actual_hours
+  // computation and — for NYC Maid — triggering a real processPayment/Stripe
+  // Connect transfer and referral commission on a job that never happened.
+  // Mirrors bookings/[id]/status/route.ts, which only allows in_progress -> completed.
+  if (booking.status !== 'in_progress') {
+    return NextResponse.json({ error: `Cannot check out — booking is ${booking.status}` }, { status: 400 })
   }
 
   if (booking.check_out_time) {

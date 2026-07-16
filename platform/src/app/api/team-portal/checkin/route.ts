@@ -30,6 +30,16 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Not found' }, { status: 404 })
   }
 
+  // Booking must still be in a check-in-able state. Without this, a job the
+  // client/admin already cancelled (or a no-show) — which never got a
+  // check_in_time — could be resurrected to 'in_progress' by the assigned
+  // cleaner, and then checked out into 'completed' with real payment/payroll
+  // side effects. Mirrors the transitions bookings/[id]/status/route.ts allows
+  // into 'in_progress' (from 'scheduled' or 'confirmed' only).
+  if (booking.status !== 'scheduled' && booking.status !== 'confirmed') {
+    return NextResponse.json({ error: `Cannot check in — booking is ${booking.status}` }, { status: 400 })
+  }
+
   // Block double check-in
   if (booking.check_in_time) {
     return NextResponse.json({ error: 'Already checked in' }, { status: 400 })
