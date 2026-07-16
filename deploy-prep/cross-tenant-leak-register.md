@@ -4819,3 +4819,66 @@ pre-existing finding in untracked `src/lib/seo/recipes.ts` as every prior
 round (unrelated WIP feature, not touched here).
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-16 07:35 round (W2) — P84, fixed: `admin/users` family let any
+`admin`-tier member self-escalate to owner, demote/remove the real owner,
+or reset+read-back the owner's PIN for a full account takeover
+
+Continuing the broad-hunt (leader order 07:16). Different bug class from
+P70-P83's missing-permission-gate pattern: `PUT /api/admin/users`,
+`PUT`+`DELETE /api/admin/users/[id]`, and `POST`+`DELETE
+/api/admin/users/[id]/pin` all correctly called `requirePermission('settings.edit')`
+— but that permission alone was treated as owner-equivalent for role/PIN
+writes on ANY target member, including an owner. By default `rbac.ts`
+grants `settings.edit` to `owner`/`admin` only, so this is live for
+`admin`-tier, not override-only.
+
+Concretely, with zero owner-only check:
+- `PUT /api/admin/users` (id in body) or `PUT /api/admin/users/[id]` (id in
+  URL) let an `admin` set `role:'owner'` on their OWN member row
+  (self-escalation) or change the real owner's role away from `'owner'`
+  (demotion) — the existing "can't remove the last owner" check on DELETE
+  only guarded a headcount, not caller-vs-target role, and PUT had no
+  analogous check at all.
+- `DELETE /api/admin/users` / `[id]` let an `admin` remove an owner outright
+  whenever a second owner existed (the headcount check only blocks removing
+  the *last* owner).
+- `POST /api/admin/users/[id]/pin` returns the new PIN plaintext once, by
+  design, for legitimate hand-off — an `admin` resetting the OWNER's PIN
+  gets that plaintext back, then can log in as the owner via
+  `/api/admin-auth`, which mints a session token with `memberRole` taken
+  straight from the matched `tenant_members` row. Direct account takeover,
+  not just a PIN edit.
+- `DELETE /api/admin/users/[id]/pin` let an `admin` clear the owner's PIN,
+  locking the real owner out of admin/PIN login entirely.
+
+**Fix:** ported the guard shape already used by the "can't remove the last
+owner" check to every role/PIN-mutating path in this family: block with 403
+when `tenant.role !== 'owner'` AND (the requested `role` is `'owner'` OR the
+target's current `role` is `'owner'`). Applied to all 3 files, both
+directions (grant-to-owner and touch-existing-owner) on PUT, target-is-owner
+on DELETE/pin-POST/pin-DELETE.
+
+**Regression lock:** 3 new `route.owner-escalation.test.ts` files (22
+tests: owner-succeeds controls for owner<->owner writes, `admin`-forbidden
+probes for self-escalation/demotion/removal/PIN-reset/PIN-clear against an
+owner target, and `admin`-still-allowed controls against a non-owner target
+to prove the fix doesn't over-block). Mutation-verified via `git stash` of
+just the 3 fixed `route.ts` files: 8/22 probes went RED pre-fix (all the
+`admin`-forbidden ones), restored, all 22 GREEN post-fix. The pin route's
+`hashAdminPin()` reads `ADMIN_TOKEN_SECRET` into a module-level const at
+import time — its test needed a dynamic `await import('./route')` inside
+`beforeEach` (after setting the env var + `vi.resetModules()`) instead of a
+static top-level import, matching the pattern already established in
+`admin-auth/route.fails-closed.test.ts`; a static import silently left
+`SECRET` undefined and both success-path tests threw before the fix was
+even reachable.
+
+`npx tsc --noEmit`: clean. Full suite: 415 files, 1825 passed + 37 skipped,
+0 regressions (was 412/1803). `npm run audit:tenant`: same 1 pre-existing
+finding in untracked `src/lib/seo/recipes.ts` as every prior round
+(unrelated WIP feature, not touched here).
+
+File-only, no push/deploy/DB.
