@@ -239,6 +239,26 @@ export async function PUT(
     if (body[key] !== undefined) updates[key] = body[key]
   }
 
+  // Normalize `domain` to the SAME host form the resolver's tenants.domain
+  // fallback looks up at request time (getTenantByDomain in tenant-lookup.ts /
+  // tenant.ts: lowercase, strip protocol/path/www) — mirrors the fix already
+  // applied to tenant_domains inserts in /api/admin/websites and to `domain`
+  // on tenant creation in /api/admin/businesses (POST). Without this, an
+  // admin pasting "https://WWW.Acme.com/" into this onboarding field stores
+  // that exact string; the resolver's `.eq('domain', cleanDomain)` fallback
+  // query never finds it, so the domain silently never routes even though
+  // setup_progress shows it as configured. `domain_name` is left raw — it's
+  // the display/registrar-facing field, not what the resolver queries.
+  if (updates.domain !== undefined) {
+    const cleanDomain = String(updates.domain || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '')
+    updates.domain = cleanDomain || null
+  }
+
   // For setup_progress, merge with existing instead of overwriting
   if (body.setup_progress) {
     const { data: current } = await supabaseAdmin

@@ -72,9 +72,26 @@ export async function PUT(
     'domain', 'website_url', 'logo_url', 'tagline',
     'primary_color', 'secondary_color',
   ]
-  const updates: Record<string, string> = {}
+  const updates: Record<string, string | null> = {}
   for (const key of allowed) {
     if (body[key] !== undefined) updates[key] = body[key]
+  }
+
+  // Normalize to the SAME host form the resolver's tenants.domain fallback
+  // looks up at request time (getTenantByDomain in tenant-lookup.ts /
+  // tenant.ts: lowercase, strip protocol/path/www) — mirrors the fix already
+  // applied to tenant_domains inserts in /api/admin/websites. Without this,
+  // an admin pasting "https://WWW.Acme.com/" here stores that exact string;
+  // the resolver's `.eq('domain', cleanDomain)` fallback query never finds
+  // it, so the domain silently never routes even though it's saved.
+  if (updates.domain !== undefined) {
+    const cleanDomain = String(updates.domain || '')
+      .trim()
+      .toLowerCase()
+      .replace(/^https?:\/\//, '')
+      .replace(/\/.*$/, '')
+      .replace(/^www\./, '')
+    updates.domain = cleanDomain || null
   }
 
   // tenantServesSite() is a case-sensitive exact match against a fixed status
