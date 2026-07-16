@@ -51,6 +51,9 @@ vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: TENANT, name: 'Canary', slug: 'canary' }),
 }))
 vi.mock('@/lib/notify', () => ({ notify: async () => ({ success: true }) }))
+// GET's code/email lookup is admin-gated; mock it authorized here so the
+// ref_code-sync assertions below aren't blocked by the auth gate.
+vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
 
 import { NextRequest } from 'next/server'
 import { GET, POST } from '@/app/api/referrers/route'

@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * GET/POST /api/referrers is unauthenticated by design (self-serve
- * code/email lookup for tenant-site referral portals). Its `email` param
- * went straight into `.ilike('email', email)` with no wildcard escaping —
+ * GET /api/referrers (admin session required — see route.auth.test.ts)
+ * lookup by code/email. Its `email` param went straight into
+ * `.ilike('email', email)` with no wildcard escaping —
  * a caller who supplies raw '%'/'_' controls the ILIKE pattern, so
  * `?email=%25` (a bare '%') matches ANY row instead of confirming a single
  * known address, letting an attacker with zero prior knowledge enumerate
@@ -70,6 +70,9 @@ vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: async () => ({ id: TENANT, name: 'Canary', slug: 'canary' }),
 }))
 vi.mock('@/lib/notify', () => ({ notify: async () => ({ success: true }) }))
+// GET's code/email lookup is admin-gated; mock it authorized here so these
+// tests can focus on the ILIKE wildcard fix.
+vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => null }))
 
 import { NextRequest } from 'next/server'
 import { GET } from '@/app/api/referrers/route'

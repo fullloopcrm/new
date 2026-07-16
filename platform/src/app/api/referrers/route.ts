@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { requireAdmin } from '@/lib/require-admin'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -32,8 +33,17 @@ export async function GET(request: NextRequest) {
   const code = request.nextUrl.searchParams.get('code')
   const email = request.nextUrl.searchParams.get('email')
 
+  // Admin-only: this used to be an unauthenticated code/email -> name+email+
+  // earnings+payout-method lookup (rate-limited, but still a public oracle —
+  // referral codes are shareable/guessable and emails are often public). The
+  // referrer-facing dashboard reads its own data via the Bearer-token-gated
+  // GET /api/referrers/[code] (src/lib/referrer-portal-auth.ts) instead, so
+  // nothing legitimate needs this code/email lookup unauthenticated.
+  const authError = await requireAdmin()
+  if (authError) return authError
+
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  const lookupRl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000)
+  const lookupRl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000, { failClosed: true })
   if (!lookupRl.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }

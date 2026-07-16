@@ -1,74 +1,145 @@
 'use client'
 
-import { Suspense, useEffect, useState } from 'react'
-import { useSearchParams } from 'next/navigation'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
-interface Referrer { id: string; name: string; email: string; ref_code: string; total_earned: number; total_paid: number }
-interface Commission { id: string; client_name: string; gross_amount: number; commission_amount: number; status: string; paid_via: string; paid_at: string; created_at: string }
+interface Referrer { id: string; name: string; email: string; ref_code: string; commission_rate: number; total_earned: number; total_paid: number }
+interface Commission { id: string; client_name: string; amount: number; status: string; paid_via: string | null; created_at: string }
 interface LinkStats { clicks: number; uniqueVisitors: number; bookClicks: number; thisWeek: number; thisMonth: number }
 interface Activity { action: string; device: string; page: string; time: string }
 
-function ReferrerPortalContent() {
-  const searchParams = useSearchParams()
+type Step = 'login' | 'otp' | 'dashboard'
+
+// Session token is stored the same way the top-level /referral + /referral/[code]
+// portal stores it, so a referrer who's already logged in there stays logged in
+// here too (same origin, same key).
+const AUTH_STORAGE_KEY = 'referrer_auth'
+
+export default function ReferrerPortalPage() {
+  useEffect(() => { document.title = 'Referral Program | The NYC Maid' }, [])
+
+  const [step, setStep] = useState<Step>('login')
   const [referrer, setReferrer] = useState<Referrer | null>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
-  const [linkStats, setLinkStats] = useState<LinkStats>({ clicks: 0, uniqueVisitors: 0, bookClicks: 0, thisWeek: 0, thisMonth: 0 })
-  const [recentActivity, setRecentActivity] = useState<Activity[]>([])
+  const [linkStats] = useState<LinkStats>({ clicks: 0, uniqueVisitors: 0, bookClicks: 0, thisWeek: 0, thisMonth: 0 })
+  const [recentActivity] = useState<Activity[]>([])
   const [loading, setLoading] = useState(true)
   const [email, setEmail] = useState('')
+  const [code, setCode] = useState('')
   const [error, setError] = useState('')
 
+  // On first load, a previously verified session (email+code done, token
+  // stored) skips straight to the dashboard instead of asking for the code
+  // again every visit.
   useEffect(() => {
-    const code = searchParams.get('code')
-    if (code) fetchReferrer(code)
-    else setLoading(false)
-  }, [searchParams])
+    let token = ''
+    let storedCode = ''
+    try {
+      const stored = localStorage.getItem(AUTH_STORAGE_KEY)
+      if (stored) {
+        const parsed = JSON.parse(stored)
+        token = parsed.token || ''
+        storedCode = parsed.code || ''
+      }
+    } catch { /* ignore */ }
 
-  const fetchReferrer = async (code: string) => {
+    if (token && storedCode) {
+      loadDashboard(storedCode, token)
+    } else {
+      setLoading(false)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const loadDashboard = async (refCode: string, token: string) => {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/referrers?code=' + code + '&stats=true')
-      if (res.ok) {
-        const data = await res.json()
-        setReferrer(data)
-        if (data.linkStats) setLinkStats(data.linkStats)
-        if (data.recentActivity) setRecentActivity(data.recentActivity)
-        const commRes = await fetch('/api/referral-commissions?referrer_id=' + data.id)
-        const commData = await commRes.json()
-        setCommissions(Array.isArray(commData) ? commData : [])
-      } else setError('Invalid referral code')
-    } catch { setError('Failed to load') }
+      const res = await fetch('/api/referrers/' + refCode, { headers: { Authorization: 'Bearer ' + token } })
+      if (res.status === 401 || res.status === 403) {
+        localStorage.removeItem(AUTH_STORAGE_KEY)
+        setStep('login')
+        setError('Your session expired. Please log in again.')
+        setLoading(false)
+        return
+      }
+      if (!res.ok) {
+        localStorage.removeItem(AUTH_STORAGE_KEY)
+        setStep('login')
+        setError('Failed to load your dashboard.')
+        setLoading(false)
+        return
+      }
+      const data = await res.json()
+      setReferrer({
+        id: data.referrer.id,
+        name: data.referrer.name,
+        email: data.referrer.email,
+        ref_code: data.referrer.referral_code,
+        commission_rate: data.referrer.commission_rate,
+        total_earned: data.referrer.total_earned,
+        total_paid: data.referrer.total_paid,
+      })
+      setCommissions(Array.isArray(data.commissions) ? data.commissions : [])
+      setStep('dashboard')
+    } catch {
+      localStorage.removeItem(AUTH_STORAGE_KEY)
+      setError('Failed to load')
+      setStep('login')
+    }
     setLoading(false)
   }
 
-  const fetchByEmail = async () => {
+  const requestCode = async () => {
     if (!email) return
     setLoading(true)
     setError('')
     try {
-      const res = await fetch('/api/referrers?email=' + encodeURIComponent(email))
+      const res = await fetch('/api/referrers/auth/request', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email }),
+      })
       if (res.ok) {
-        const data = await res.json()
-        setReferrer(data)
-        window.history.pushState({}, '', '/referral?code=' + data.ref_code)
-        const statsRes = await fetch('/api/referrers?code=' + data.ref_code + '&stats=true')
-        if (statsRes.ok) {
-          const sd = await statsRes.json()
-          if (sd.linkStats) setLinkStats(sd.linkStats)
-          if (sd.recentActivity) setRecentActivity(sd.recentActivity)
-        }
-        const commRes = await fetch('/api/referral-commissions?referrer_id=' + data.id)
-        const commData = await commRes.json()
-        setCommissions(Array.isArray(commData) ? commData : [])
-      } else setError('Email not found.')
-    } catch { setError('Failed to load') }
-    setLoading(false)
+        setStep('otp')
+        setLoading(false)
+      } else {
+        const d = await res.json().catch(() => ({}))
+        setError(d.error || 'Something went wrong. Please try again.')
+        setLoading(false)
+      }
+    } catch {
+      setError('Failed to connect. Please try again.')
+      setLoading(false)
+    }
+  }
+
+  const verifyCode = async () => {
+    if (!code) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/referrers/auth/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, code }),
+      })
+      const d = await res.json().catch(() => ({}))
+      if (res.ok && d.token && d.referral_code) {
+        localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify({ token: d.token, code: d.referral_code }))
+        await loadDashboard(d.referral_code, d.token)
+      } else {
+        setError(d.error || 'Invalid or expired code.')
+        setLoading(false)
+      }
+    } catch {
+      setError('Failed to connect. Please try again.')
+      setLoading(false)
+    }
   }
 
   const formatMoney = (cents: number) => '$' + (cents / 100).toFixed(2)
-  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+  const formatDate = (d: string) => new Date(d).toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
   const formatTime = (d: string) => {
     const date = new Date(d)
     const now = new Date()
@@ -80,7 +151,7 @@ function ReferrerPortalContent() {
     if (hrs < 24) return hrs + 'h ago'
     const days = Math.floor(hrs / 24)
     if (days < 7) return days + 'd ago'
-    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+    return date.toLocaleDateString('en-US', { timeZone: 'America/New_York', month: 'short', day: 'numeric' })
   }
   const copyLink = () => { if (referrer) { navigator.clipboard.writeText('https://www.thenycmaid.com/book/new?ref=' + referrer.ref_code); alert('Copied!') } }
   const pendingAmount = referrer ? referrer.total_earned - referrer.total_paid : 0
@@ -93,7 +164,11 @@ function ReferrerPortalContent() {
     'directions': '📍 Clicked Directions'
   }
 
-  if (!referrer && !loading) {
+  if (loading) {
+    return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>
+  }
+
+  if (step === 'login') {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
         <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
@@ -105,9 +180,9 @@ function ReferrerPortalContent() {
           <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">Email Address</label>
-              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && fetchByEmail()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]" placeholder="Enter your email" />
+              <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} onKeyDown={(e) => e.key === 'Enter' && requestCode()} className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A]" placeholder="Enter your email" autoFocus />
             </div>
-            <button onClick={fetchByEmail} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90">View My Earnings</button>
+            <button onClick={requestCode} disabled={!email} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90 disabled:opacity-50">Email Me a Login Code</button>
           </div>
           <div className="mt-6 pt-6 border-t text-center">
             <p className="text-sm text-gray-500">Not a referrer yet? <Link href="/referral/signup" className="text-[#1E2A4A] hover:underline">Join the program</Link></p>
@@ -117,7 +192,38 @@ function ReferrerPortalContent() {
     )
   }
 
-  if (loading) return <div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>
+  if (step === 'otp') {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+        <div className="bg-white rounded-lg shadow-lg p-8 w-full max-w-md">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-[#1E2A4A]">Referrer Portal</h1>
+            <p className="text-gray-500 mt-1">We sent a 6-digit code to <span className="font-medium text-[#1E2A4A]">{email}</span></p>
+          </div>
+          {error && <div className="bg-red-50 text-red-600 p-3 rounded-lg mb-4 text-sm">{error}</div>}
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">Login Code</label>
+              <input
+                type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                value={code}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                onKeyDown={(e) => e.key === 'Enter' && verifyCode()}
+                className="w-full px-4 py-3 border rounded-lg text-[#1E2A4A] text-center text-2xl tracking-[0.4em] font-mono"
+                placeholder="000000"
+                autoFocus
+              />
+            </div>
+            <button onClick={verifyCode} disabled={code.length < 6} className="w-full py-3 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90 disabled:opacity-50">View My Earnings</button>
+            <button onClick={() => { setStep('login'); setCode(''); setError('') }} className="w-full text-sm text-gray-400 hover:text-gray-600">Use a different email</button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -180,7 +286,7 @@ function ReferrerPortalContent() {
               {commissions.map(c => (
                 <div key={c.id} className="p-4 flex items-center justify-between">
                   <div><p className="font-medium text-[#1E2A4A]">{c.client_name}</p><p className="text-sm text-gray-500">{formatDate(c.created_at)}</p></div>
-                  <div className="text-right"><p className="font-bold text-green-600">{formatMoney(c.commission_amount)}</p><p className={'text-xs ' + (c.status === 'paid' ? 'text-green-500' : 'text-yellow-500')}>{c.status === 'paid' ? 'Paid via ' + c.paid_via : 'Pending'}</p></div>
+                  <div className="text-right"><p className="font-bold text-green-600">{formatMoney(c.amount)}</p><p className={'text-xs ' + (c.status === 'paid' ? 'text-green-500' : 'text-yellow-500')}>{c.status === 'paid' ? 'Paid via ' + c.paid_via : 'Pending'}</p></div>
                 </div>
               ))}
             </div>
@@ -190,9 +296,4 @@ function ReferrerPortalContent() {
       </main>
     </div>
   )
-}
-
-export default function ReferrerPortalPage() {
-  useEffect(() => { document.title = 'Referral Program | The NYC Maid' }, []);
-  return <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}><ReferrerPortalContent /></Suspense>
 }
