@@ -3824,3 +3824,56 @@ to restore the fix, all 44 green again.
 0 regressions. `npm run audit:tenant`: same 1 pre-existing finding in
 untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
 feature, not touched here). File-only, no push/deploy/DB.
+
+## 2026-07-16 00:11 round (W2) — P65, fixed: all 6 `api/quotes/*` (+
+`quote-templates`) handlers had zero permission gate — same shape as P64,
+one module over
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Picked up directly where the deals fix (P64, previous round) left a gap:
+`jobs-rbac-proposal-w2.md` references "the deals/quotes writeup Jeff already
+resolved" for the `sales.view`/`sales.edit` split, and that decision was
+applied to `deals/*` this session — but grepping every route file calling
+`getTenantForRequest()`/`tenantDb()` with no `requirePermission` anywhere in
+the file showed `quotes/route.ts` (GET/POST), `quotes/[id]/route.ts`
+(GET/PATCH/DELETE), `quotes/[id]/send/route.ts` (POST — notifies the
+customer, flips draft→sent), `quotes/[id]/convert/route.ts` (POST — accepted
+quote → live booking), `quotes/[id]/convert-to-job/route.ts` (POST —
+accepted quote → multi-session Job + payment plan), and
+`quote-templates/route.ts` (GET/POST) all still ungated. `rbac.ts`'s "Sales &
+Documents" permission group literally labels `sales.view`/`sales.edit` as
+"View proposals & documents" / "Create / edit / send documents" — quotes
+*are* the proposals that label describes, and `documents/*` (the sibling
+e-sign feature) already enforces this split. Same UI-hidden/API-open shape
+as every prior round: the dashboard nav gates `/dashboard/sales` on
+`leads.view` (which `staff` lacks), but nothing stopped a `staff` session
+from listing every quote (with embedded client PII), editing or deleting
+any quote, sending one to a customer, or converting an accepted quote into
+a real booking or a multi-session Job with a live payment plan — directly
+via the API.
+
+**Fix:** gated every GET behind `requirePermission('sales.view')` and every
+POST/PATCH/DELETE behind `requirePermission('sales.edit')`, matching
+`documents/*` and this session's `deals/*` fix exactly (`{ tenant:
+_authTenant, error: _authError } = await requirePermission(...); if
+(_authError) return _authError`).
+
+**Regression lock:** 6 new `route.rbac.test.ts` files (20 tests total) using
+the `tenantDb`-isolation harness + a settable-role `tenant-query` mock, so
+the REAL `rbac.ts`/`requirePermission` logic is under test. `convert-to-job`
+mocks `convertSaleToJob` (already covered by its own dedicated
+`lib/jobs-conversion-race.test.ts`) so this file tests only the permission
+wiring, not the job-creation internals. One pre-existing test,
+`quotes/[id]/convert/route.race.test.ts`, mocked `getTenantForRequest()`
+without a `role` field — updated its mock to `role: 'owner'` so the new gate
+doesn't break the race-condition coverage it was already providing.
+Mutation-verified via `git stash` against all 6 real pre-fix `route.ts`
+files at once: all 7 staff-403 probes RED (200 instead of 403) against the
+original code, 33 other tests (positive controls + view-probes + the
+pre-existing race suite) still green, stash popped to restore the fix, all
+40 green again.
+
+`npx tsc --noEmit`: clean. Full suite: 363 files, 1577 passed + 37 skipped,
+0 regressions. `npm run audit:tenant`: same 1 pre-existing finding in
+untracked `src/lib/seo/recipes.ts` as every prior round (unrelated WIP
+feature, not touched here). File-only, no push/deploy/DB.
