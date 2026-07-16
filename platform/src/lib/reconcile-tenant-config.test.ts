@@ -12,6 +12,8 @@ import {
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
+  parseNextConfigRedirects,
+  parseAppRootPrefixes,
   computeFindings,
   summarize,
   loadToken,
@@ -2212,5 +2214,132 @@ describe('computeFindings — Drift W (next.config.ts bare /site/<segment> rewri
       rootSiteTenantsSet: new Set(),
     })
     expect(findings.filter((f) => f.msg.includes('unreachable dead config'))).toHaveLength(0)
+  })
+})
+
+describe('parseNextConfigRedirects', () => {
+  const wrap = (entries: string) => `
+    async redirects() {
+      return [
+        ${entries}
+      ]
+    }
+  `
+
+  it('extracts source/destination pairs regardless of other fields', () => {
+    const src = wrap(`
+      { source: '/sm.xml', destination: '/sitemap.xml', permanent: true },
+      { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator', permanent: true },
+    `)
+    expect(parseNextConfigRedirects(src)).toEqual([
+      { source: '/sm.xml', destination: '/sitemap.xml' },
+      { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' },
+    ])
+  })
+
+  it('returns an empty array when redirects() is absent', () => {
+    expect(parseNextConfigRedirects('export default {}')).toEqual([])
+  })
+
+  it('returns an empty array when the return array is empty', () => {
+    expect(parseNextConfigRedirects(wrap(''))).toEqual([])
+  })
+})
+
+describe('parseAppRootPrefixes', () => {
+  it('extracts the prefix list from a middleware APP_ROOT_PREFIXES declaration', () => {
+    const src = `
+      const APP_ROOT_PREFIXES = [
+        '/api/', '/portal', '/team', '/dashboard', '/admin',
+      ]
+    `
+    expect(parseAppRootPrefixes(src)).toEqual(['/api/', '/portal', '/team', '/dashboard', '/admin'])
+  })
+
+  it('returns an empty array when APP_ROOT_PREFIXES is absent', () => {
+    expect(parseAppRootPrefixes('export default {}')).toEqual([])
+  })
+})
+
+describe('computeFindings — Drift X (next.config.ts redirect destination double-prefixed by rewriteToSite on a bespoke tenant domain)', () => {
+  it('warns when a redirect destination lands in the tenant-sites tree outside APP_ROOT_PREFIXES', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      nextConfigRedirects: [{ source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' }],
+      appRootPrefixes: ['/api/', '/portal', '/team', '/dashboard', '/admin', '/fullloop', '/reset-pin'],
+    })
+    const warn = findings.find((f) => f.slug === '/apply/operations-coordinator' && f.msg.includes('double-prefixed'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+  })
+
+  it('does not fire for a destination outside the tenant-sites tree (e.g. /portal/collect)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      nextConfigRedirects: [{ source: '/book/collect', destination: '/portal/collect' }],
+      appRootPrefixes: ['/portal'],
+    })
+    expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(0)
+  })
+
+  it('still fires for a /site/ destination even when appRootPrefixes is populated (prefix and /site/ spaces never overlap)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      nextConfigRedirects: [{ source: '/legacy-admin', destination: '/site/admin/settings' }],
+      appRootPrefixes: ['/admin', '/portal', '/dashboard'],
+    })
+    expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(1)
+  })
+
+  it('does not fire for a non-/site/ destination', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      nextConfigRedirects: [{ source: '/features', destination: '/full-loop-crm-service-features' }],
+      appRootPrefixes: [],
+    })
+    expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when nextConfigRedirects is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(0)
+  })
+
+  it('reports one finding per offending redirect entry', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      nextConfigRedirects: [
+        { source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' },
+        { source: '/apply/commission-sales-partner', destination: '/site/careers/commission-sales-partner' },
+      ],
+      appRootPrefixes: [],
+    })
+    expect(findings.filter((f) => f.msg.includes('double-prefixed'))).toHaveLength(2)
   })
 })

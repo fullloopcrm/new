@@ -318,6 +318,31 @@ export function parseNextConfigSiteRewriteSources(nextConfigSource) {
   return out
 }
 
+// --- parse next.config.ts's redirects() array for { source, destination }
+// pairs. Unlike parseNextConfigSiteRewriteSources (afterFiles rewrites), this
+// covers the OTHER routing list in the same file — permanent 301s. See
+// Drift X below for why a destination landing in the tenant-sites tree is a
+// distinct hazard from the afterFiles case.
+export function parseNextConfigRedirects(nextConfigSource) {
+  const block = nextConfigSource.match(/async redirects\(\)\s*\{[\s\S]*?return\s*\[([\s\S]*?)\]\s*\n\s*\}/)
+  if (!block) return []
+  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const out = []
+  let m
+  while ((m = entryRe.exec(block[1]))) out.push({ source: m[1], destination: m[2] })
+  return out
+}
+
+// --- parse APP_ROOT_PREFIXES out of the middleware source. This is
+// rewriteToSite()'s list of pathnames that are served at their OWN root path
+// (tenant headers injected, no /site/<slug> prefix applied) rather than
+// rewritten into the tenant-sites tree — /portal, /dashboard, /api/, etc.
+// Feeds Drift X ONLY, as the "safe" destination-prefix allowlist.
+export function parseAppRootPrefixes(middlewareSource) {
+  const block = middlewareSource.match(/APP_ROOT_PREFIXES\s*=\s*\[([\s\S]*?)\]/)
+  return block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -382,9 +407,18 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  from next.config.ts's rewrites().afterFiles
  *                                  (see parseNextConfigSiteRewriteSources). Feeds
  *                                  Drift W ONLY. Pass an empty array (default) to skip.
+ * @param {Array}    [input.nextConfigRedirects]  { source, destination } pairs
+ *                                  from next.config.ts's redirects() (see
+ *                                  parseNextConfigRedirects). Feeds Drift X ONLY.
+ *                                  Pass an empty array (default) to skip.
+ * @param {Array}    [input.appRootPrefixes]  prefixes from src/middleware.ts's
+ *                                  APP_ROOT_PREFIXES (see parseAppRootPrefixes).
+ *                                  Feeds Drift X ONLY, as the safe-destination
+ *                                  allowlist. Pass an empty array (default) to skip
+ *                                  (treats every "/site/..." destination as unsafe).
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = () => true, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [] }) {
   const findings = []
   const add = (sev, slug, msg) => findings.push({ sev, slug, msg })
 
@@ -799,6 +833,42 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift X: a next.config.ts redirects() entry whose destination begins with
+  // "/site/" -- a path into the tenant-sites tree. Unlike Drift W (a rewrite
+  // whose SOURCE never matches, so it never fires at all), this is about
+  // where the 301 SENDS the browser: rewriteToSite() in src/middleware.ts
+  // UNCONDITIONALLY re-prefixes any incoming pathname on a tenant's own
+  // custom domain with that tenant's siteBase ('/site/<slug>' for a
+  // BESPOKE_SITE_TENANTS member) -- EXCEPT for an exact '/sitemap.xml',
+  // '/robots.txt', '/admin' (or '/admin/...'), or an APP_ROOT_PREFIXES entry
+  // (/portal, /dashboard, /api/, etc.). None of those live in the '/site/'
+  // string space, so ANY destination starting with '/site/' is unconditionally
+  // unsafe here -- appRootPrefixes is accepted for documentation/future-proofing
+  // (see parseAppRootPrefixes) but never actually changes the verdict, since a
+  // prefix match and a '/site/' match are mutually exclusive by construction.
+  // So the follow-up request this redirect sends the browser to gets
+  // DOUBLE-prefixed on a bespoke tenant's own domain (e.g. "/site/careers/x"
+  // on nycmaid's domain becomes "/site/nycmaid/site/careers/x", which
+  // resolves nowhere) even though the exact same redirect can appear to work
+  // when the destination is browsed directly on the main host, where
+  // rewriteToSite() is never invoked at all. Same "written assuming bare
+  // /site/<path> is directly reachable, never updated for
+  // BESPOKE_SITE_TENANTS" root cause as Drift W, just via redirects() instead
+  // of rewrites().afterFiles. This check needs no DB/tenant data at all -- the
+  // destination is broken for ANY bespoke tenant's own domain regardless of
+  // which specific tenant a source path happens to belong to, so it is not
+  // gated on resolvableSlugs like Drift L/N/V.
+  if (nextConfigRedirects.length) {
+    for (const { source, destination } of nextConfigRedirects) {
+      if (!destination.startsWith('/site/')) continue
+      add(
+        'WARN',
+        source,
+        `next.config.ts redirects() source '${source}' -> '${destination}' sends visitors into the tenant-sites tree, but rewriteToSite() (src/middleware.ts) unconditionally re-prefixes ANY pathname on a tenant's own custom domain with that tenant's siteBase (unless it is exactly /sitemap.xml, /robots.txt, /admin(/*), or an APP_ROOT_PREFIXES entry -- none of which start with /site/) -- on a BESPOKE_SITE_TENANTS tenant's own domain this destination gets double-prefixed (e.g. '/site/<slug>${destination}') and resolves nowhere, even though it may appear to work when browsed directly on the main host`,
+      )
+    }
+  }
+
   return findings
 }
 
@@ -863,6 +933,8 @@ async function main() {
   const protectedSlugs = parseProtectedSlugs(verifyProtectedSource)
   const nextConfigSource = readFileSync(join(REPO, 'next.config.ts'), 'utf8')
   const nextConfigSiteRewrites = parseNextConfigSiteRewriteSources(nextConfigSource)
+  const nextConfigRedirects = parseNextConfigRedirects(nextConfigSource)
+  const appRootPrefixes = parseAppRootPrefixes(middlewareSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -899,7 +971,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
