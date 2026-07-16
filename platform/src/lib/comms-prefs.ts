@@ -169,11 +169,20 @@ export function deriveCapabilities(tenant: {
   }
 }
 
+// maybeSingle() (not single()), error checked explicitly — same masked-error
+// pattern already fixed in tenant.ts/tenant-query.ts/the notifications route
+// above. `error` used to be discarded (only `data` was destructured), so a
+// genuine DB failure looked identical to "no api keys configured" and
+// silently returned all-capabilities-off instead of surfacing loud.
 export async function getCapabilities(tenantId: string): Promise<CommCapabilities> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('resend_api_key, telnyx_api_key, telnyx_phone')
     .eq('id', tenantId)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.error(`TENANT_CAPABILITIES_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`TENANT_CAPABILITIES_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
   return deriveCapabilities(data || {})
 }

@@ -1,6 +1,22 @@
-import { describe, it, expect } from 'vitest'
-import { defaultCommTiming } from './comms-prefs'
+import { describe, it, expect, vi } from 'vitest'
 import { COMM_TIMING } from './comms-registry'
+
+type Resolution = { data: unknown; error: unknown }
+let resolveTenantRead: () => Resolution
+
+vi.mock('./supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({
+      select: () => ({
+        eq: () => ({
+          maybeSingle: async () => resolveTenantRead(),
+        }),
+      }),
+    }),
+  },
+}))
+
+const { defaultCommTiming, getCapabilities } = await import('./comms-prefs')
 
 describe('defaultCommTiming', () => {
   it('mirrors the registry defaults exactly', () => {
@@ -28,5 +44,20 @@ describe('defaultCommTiming', () => {
     expect(a.reminder_hours_before).not.toBe(b.reminder_hours_before)
     expect(COMM_TIMING.reminder_days.default).toEqual([3, 1])
     expect(COMM_TIMING.reminder_hours_before.default).toEqual([2])
+  })
+})
+
+describe('getCapabilities', () => {
+  it('MASKED-ERROR PROBE: a genuine DB failure on the api-key read fails loud, not silently treated as "no keys configured"', async () => {
+    resolveTenantRead = () => ({ data: null, error: { message: 'read replica unreachable' } })
+    await expect(getCapabilities('t-1')).rejects.toThrow(/TENANT_CAPABILITIES_LOOKUP_ERROR/)
+  })
+
+  it('returns real capabilities when the tenant row loads normally', async () => {
+    resolveTenantRead = () => ({
+      data: { resend_api_key: 'k', telnyx_api_key: 'tk', telnyx_phone: '+15551234567' },
+      error: null,
+    })
+    expect(await getCapabilities('t-1')).toEqual({ email: true, sms: true })
   })
 })

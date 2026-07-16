@@ -14,11 +14,22 @@ export async function GET() {
   const { tenant, error: authError } = await requirePermission('settings.view')
   if (authError) return authError
 
-  const { data } = await supabaseAdmin
+  // maybeSingle() (not single()), error checked explicitly — same masked-error
+  // pattern already fixed in tenant.ts/tenant-query.ts. This route's `error` used
+  // to be discarded entirely (only `data` was destructured), so a genuine DB
+  // failure looked identical to "no preferences set yet" and silently returned
+  // defaultCommPrefs()-shaped output with zero capabilities instead of a loud
+  // 500 — an outage read as "this tenant just hasn't configured comms."
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('notification_preferences, resend_api_key, telnyx_api_key, telnyx_phone')
     .eq('id', tenant.tenantId)
-    .single()
+    .maybeSingle()
+
+  if (error) {
+    console.error(`TENANT_NOTIFICATION_PREFS_LOOKUP_ERROR tenant_id=${tenant.tenantId} error=${error.message}`)
+    throw new Error(`TENANT_NOTIFICATION_PREFS_LOOKUP_ERROR tenant_id=${tenant.tenantId} error=${error.message}`)
+  }
 
   return NextResponse.json({
     preferences: normalizePrefs(data?.notification_preferences),
