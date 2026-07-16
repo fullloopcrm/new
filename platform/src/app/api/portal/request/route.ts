@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
 import { ownerAlert } from '@/lib/messaging/owner-alerts'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Client "request a quote / appointment" for pipeline & lead_only tenants (trades
 // that don't self-serve an hourly time slot). Drops the request into the SAME
@@ -71,8 +72,8 @@ export async function POST(request: NextRequest) {
   await ownerAlert({
     tenantId: auth.tid,
     kicker: 'Portal request',
-    heading: `${client.name || 'A client'} requested service`,
-    bodyHtml: noteLines.map((l) => `<div>${l}</div>`).join('') || '<div>New request from the client portal.</div>',
+    heading: `${escapeHtml(client.name || '') || 'A client'} requested service`,
+    bodyHtml: noteLines.map((l) => `<div>${escapeHtml(l)}</div>`).join('') || '<div>New request from the client portal.</div>',
     sms: `New portal request from ${client.name || 'a client'}${serviceName ? `: ${serviceName}` : ''}`,
     subject: `New portal request from ${client.name || 'a client'}`,
   })
