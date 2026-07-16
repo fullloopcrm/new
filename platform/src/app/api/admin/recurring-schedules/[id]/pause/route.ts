@@ -32,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const pauseEnd = paused_until + 'T23:59:59'
   const { data: cancelled } = await db
     .from('bookings')
-    .update({ status: 'cancelled' })
+    .update({ status: 'cancelled', cancelled_reason: 'schedule_paused' })
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending'])
     .gte('start_time', now)
@@ -46,7 +46,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   })
 }
 
-// DELETE: resume early (un-pause).
+// DELETE: resume early (un-pause). Also restores any bookings this schedule's
+// pause cancelled (cancelled_reason='schedule_paused') whose date hasn't
+// already passed — see ../../../schedules/[id]/pause/route.ts DELETE header
+// for the full rationale (2026_07_16_bookings_cancellation_source.sql).
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error } = await requirePermission('schedules.edit')
   if (error) return error
@@ -62,5 +65,15 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
-  return NextResponse.json({ success: true, schedule })
+  const now = new Date().toISOString()
+  const { data: restored } = await db
+    .from('bookings')
+    .update({ status: 'scheduled', cancelled_reason: null })
+    .eq('schedule_id', id)
+    .eq('status', 'cancelled')
+    .eq('cancelled_reason', 'schedule_paused')
+    .gte('start_time', now)
+    .select('id')
+
+  return NextResponse.json({ success: true, schedule, bookings_restored: restored?.length || 0 })
 }

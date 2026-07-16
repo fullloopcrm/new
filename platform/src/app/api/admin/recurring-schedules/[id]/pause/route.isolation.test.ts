@@ -69,6 +69,7 @@ describe('POST /api/admin/recurring-schedules/:id/pause — tenant isolation', (
     const bookB = h.store.bookings.find((b) => b.id === 'book-B1')
     expect(schedA?.status).toBe('paused')
     expect(bookA?.status).toBe('cancelled')
+    expect(bookA?.cancelled_reason).toBe('schedule_paused')
     expect(bookX?.status).toBe('scheduled')
     expect(bookB?.status).toBe('scheduled')
   })
@@ -91,5 +92,20 @@ describe('DELETE /api/admin/recurring-schedules/:id/pause — tenant isolation',
 
     const schedA = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')
     expect(schedA?.status).toBe('active')
+  })
+
+  it("restores a future booking this schedule's own pause cancelled, never tenant B's same-schedule_id row", async () => {
+    h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.status = 'paused'
+    h.store.bookings.push(
+      { id: 'book-A-restore', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'cancelled', cancelled_reason: 'schedule_paused', start_time: '2099-01-05T09:00:00' },
+      { id: 'book-X-restore', tenant_id: 'tenant-B', schedule_id: 'sched-A1', status: 'cancelled', cancelled_reason: 'schedule_paused', start_time: '2099-01-05T09:00:00' },
+    )
+
+    const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(json.bookings_restored).toBe(1)
+    expect(h.store.bookings.find((b) => b.id === 'book-A-restore')?.status).toBe('scheduled')
+    expect(h.store.bookings.find((b) => b.id === 'book-X-restore')?.status).toBe('cancelled')
   })
 })

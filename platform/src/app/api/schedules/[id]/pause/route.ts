@@ -36,7 +36,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data: cancelled } = await db
       .from('bookings')
-      .update({ status: 'cancelled' })
+      .update({ status: 'cancelled', cancelled_reason: 'schedule_paused' })
       .eq('schedule_id', id)
       .in('status', ['scheduled', 'pending', 'confirmed'])
       .gte('start_time', now)
@@ -80,7 +80,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   }
 }
 
-// DELETE — resume early.
+// DELETE — resume early. Restores any bookings that this schedule's pause
+// cancelled (cancelled_reason='schedule_paused') and whose date hasn't
+// already passed — resuming early should give the client back the visits
+// that fall inside the now-shortened pause window, not just flip the
+// schedule's own status and leave those visits cancelled forever.
 export async function DELETE(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { tenant, error: authError } = await requirePermission('schedules.edit')
@@ -100,17 +104,28 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: error?.message || 'Schedule not found' }, { status: 404 })
     }
 
+    const now = new Date().toISOString()
+    const { data: restored } = await db
+      .from('bookings')
+      .update({ status: 'scheduled', cancelled_reason: null })
+      .eq('schedule_id', id)
+      .eq('status', 'cancelled')
+      .eq('cancelled_reason', 'schedule_paused')
+      .gte('start_time', now)
+      .select('id')
+    const restoredCount = restored?.length || 0
+
     const client = schedule.clients as unknown as { name?: string } | null
     await db.from('notifications').insert({
       type: 'schedule_resumed',
       title: 'Schedule Resumed',
-      message: `${client?.name || 'Client'} — ${schedule.recurring_type} resumed`,
+      message: `${client?.name || 'Client'} — ${schedule.recurring_type} resumed${restoredCount > 0 ? ` (${restoredCount} visit${restoredCount === 1 ? '' : 's'} restored)` : ''}`,
       channel: 'in_app',
     })
 
-    await audit({ tenantId, action: 'schedule.updated', entityType: 'schedule', entityId: id, details: { resumed: true } })
+    await audit({ tenantId, action: 'schedule.updated', entityType: 'schedule', entityId: id, details: { resumed: true, bookings_restored: restoredCount } })
 
-    return NextResponse.json({ success: true, schedule })
+    return NextResponse.json({ success: true, schedule, bookings_restored: restoredCount })
   } catch (e) {
     if (e instanceof AuthError) return NextResponse.json({ error: e.message }, { status: e.status })
     console.error('DELETE /api/schedules/[id]/pause error:', e)

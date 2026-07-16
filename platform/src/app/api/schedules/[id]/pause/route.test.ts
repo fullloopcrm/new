@@ -158,6 +158,12 @@ describe('POST /api/schedules/:id/pause', () => {
       })
     )
   })
+
+  it("tags cancelled bookings with cancelled_reason='schedule_paused' so an early resume can tell them apart from other cancellations", async () => {
+    await POST(postReq({ paused_until: '2099-01-31' }), params('sched-A1'))
+
+    expect(h.store.bookings.find((b) => b.id === 'book-in-window')?.cancelled_reason).toBe('schedule_paused')
+  })
 })
 
 describe('DELETE /api/schedules/:id/pause — resume', () => {
@@ -193,11 +199,32 @@ describe('DELETE /api/schedules/:id/pause — resume', () => {
     expect(res.status).toBe(200)
     expect(json.schedule.status).toBe('active')
     expect(json.schedule.paused_until).toBeNull()
+    expect(json.bookings_restored).toBe(0)
     const notif = h.store.notifications[0]
     expect(notif.type).toBe('schedule_resumed')
     expect(notif.message).toContain('Alice')
     expect(h.audit).toHaveBeenCalledWith(
-      expect.objectContaining({ tenantId: 'tenant-A', action: 'schedule.updated', entityId: 'sched-A1', details: { resumed: true } })
+      expect.objectContaining({ tenantId: 'tenant-A', action: 'schedule.updated', entityId: 'sched-A1', details: { resumed: true, bookings_restored: 0 } })
     )
+  })
+
+  it('restores future bookings this schedule paused, leaves past ones and other-reason cancellations alone', async () => {
+    h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.status = 'paused'
+    h.store.bookings.push(
+      { id: 'book-future-paused', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'cancelled', cancelled_reason: 'schedule_paused', start_time: '2099-01-05T09:00:00' },
+      { id: 'book-past-paused', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'cancelled', cancelled_reason: 'schedule_paused', start_time: '2000-01-05T09:00:00' },
+      { id: 'book-client-cancelled', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'cancelled', cancelled_reason: 'client_request', start_time: '2099-01-06T09:00:00' },
+    )
+
+    const res = await DELETE(new Request('http://x'), params('sched-A1'))
+    const json = await res.json()
+
+    expect(json.bookings_restored).toBe(1)
+    expect(h.store.bookings.find((b) => b.id === 'book-future-paused')?.status).toBe('scheduled')
+    expect(h.store.bookings.find((b) => b.id === 'book-future-paused')?.cancelled_reason).toBeNull()
+    expect(h.store.bookings.find((b) => b.id === 'book-past-paused')?.status).toBe('cancelled')
+    expect(h.store.bookings.find((b) => b.id === 'book-client-cancelled')?.status).toBe('cancelled')
+    const notif = h.store.notifications[0]
+    expect(notif.message).toContain('1 visit restored')
   })
 })
