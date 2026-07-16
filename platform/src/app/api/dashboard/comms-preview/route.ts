@@ -9,6 +9,7 @@ import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { requirePermission } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function GET(request: Request) {
   try {
@@ -56,6 +57,14 @@ export async function GET(request: Request) {
 
     // ?send=<email> → deliver all three variants via the tenant's Resend.
     if (sendTo) {
+      // This forwards mail to any address the caller names, using the tenant's
+      // own Resend key/domain — cap it so it can't be looped into a spam/
+      // reputation-abuse or cost-abuse vector (same reasoning as the other
+      // arbitrary-recipient / paid-send routes in this codebase).
+      const rl = await rateLimitDb(`comms-preview-send:${tenantId}`, 10, 10 * 60 * 1000)
+      if (!rl.allowed) {
+        return new Response(JSON.stringify({ error: 'Too many preview sends. Try again shortly.' }), { status: 429, headers: { 'Content-Type': 'application/json' } })
+      }
       const apiKey = t?.resend_api_key ? decryptSecret(t.resend_api_key) : null
       if (!apiKey) return new Response(JSON.stringify({ error: 'Tenant has no Resend key configured' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
       const from = t?.email_from || `hello@${t?.domain || 'fullloopcrm.com'}`
