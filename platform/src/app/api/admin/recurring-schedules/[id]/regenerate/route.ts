@@ -66,7 +66,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await supabaseAdmin
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, updated_at')
     .eq('id', id)
     .eq('tenant_id', tenantId)
     .single()
@@ -89,7 +89,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
   const lastDate = dates[dates.length - 1]
 
-  // 1. Update the rule.
+  // 1. Update the rule -- atomically claimed (see comment below).
   const rulePatch: Record<string, unknown> = { updated_at: new Date().toISOString(), next_generate_after: lastDate }
   if (recurring_type !== undefined) rulePatch.recurring_type = recurring_type
   if (day_of_week !== undefined) rulePatch.day_of_week = day_of_week
@@ -99,7 +99,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (payRate !== null) rulePatch.pay_rate = effPayRate
   if (teamMemberId !== null) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
-  await supabaseAdmin.from('recurring_schedules').update(rulePatch).eq('id', id).eq('tenant_id', tenantId)
+
+  // Atomic claim: two concurrent regenerate calls (double-click of Save, or a
+  // client retry after a slow response) both read the same `schedule` row
+  // above and, without a guard here, would both insert a full duplicate set
+  // of new booking rows for the same series in step 3 before either's delete
+  // of the old rows runs in step 4 -- net result is duplicate scheduled
+  // bookings left on the calendar/team portal for the same series. Use the
+  // row's own updated_at as an optimistic-concurrency version: only the
+  // caller whose earlier read is still current gets to write; the loser's
+  // compare-and-swap UPDATE matches zero rows and gets a clean 409 instead of
+  // racing the insert below.
+  let claimQuery = supabaseAdmin
+    .from('recurring_schedules')
+    .update(rulePatch)
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+  claimQuery = schedule.updated_at
+    ? claimQuery.eq('updated_at', schedule.updated_at)
+    : claimQuery.is('updated_at', null)
+  const { data: claimed } = await claimQuery.select('id')
+  if (!claimed || claimed.length === 0) {
+    return NextResponse.json({ error: 'This schedule was just updated elsewhere. Reload and try again.' }, { status: 409 })
+  }
 
   // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
   // the cutoff forward. Completed/paid/cancelled rows are never touched. We

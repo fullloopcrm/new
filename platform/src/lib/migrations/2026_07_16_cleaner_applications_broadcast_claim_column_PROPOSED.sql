@@ -1,0 +1,63 @@
+-- PROPOSED — not yet applied to prod. File-only per worker rules; leader runs
+-- prod DDL after Jeff approves.
+--
+-- Closes a duplicate-submit race in POST /api/admin/message-applicants/send
+-- (src/app/api/admin/message-applicants/send/route.ts).
+--
+-- The route has NO idempotency guard at all: it validates applicant_ids +
+-- message + confirmed, re-applies its safety filters (excluded statuses,
+-- TEST_MODE, phone dedup within the request), then unconditionally fires
+-- Promise.all(recipients.map(sendSMS)) for the whole batch. A double-click of
+-- "Send", or a client retry after a slow/timeout response, re-texts every
+-- selected applicant again — no claim, no "already sent" check anywhere.
+-- Same bug class already found + fixed this session on the analogous batch
+-- broadcast routes: find-cleaner/send (cleaner_broadcasts dedup, 45cbfdea),
+-- send-apology-batch (per-client apology_credit_at claim, 50db3d87), and
+-- bookings/broadcast (job_broadcast notification-row dedup, this session).
+--
+-- Unlike those three, cleaner_applications has no existing timestamp column
+-- (and no sibling table like cleaner_broadcasts or notifications keyed by
+-- applicant_id) that can stand in as a dedup marker without a schema change
+-- — this repo's own migration (2026_05_19_cleaner_applications.sql) defines
+-- the full table and confirms no such column exists. Proposed a purely
+-- additive, nullable last_broadcast_sms_at column, same convention as
+-- send-apology-batch's apology_credit_at claim.
+--
+-- NOT wired into route.ts yet — referencing an undefined column before this
+-- migration runs would 500 the route in prod. Once applied, add a
+-- per-applicant atomic claim immediately before each send (mirrors
+-- claimApologyCredit in send-apology-batch/route.ts exactly):
+--
+--   const DUPLICATE_WINDOW_MS = 2 * 60 * 1000
+--   const nowIso = new Date().toISOString()
+--   const sinceIso = new Date(Date.now() - DUPLICATE_WINDOW_MS).toISOString()
+--
+--   async function claimBroadcastSms(applicantId: string, tenantId: string): Promise<boolean> {
+--     const { data: viaNull } = await supabaseAdmin
+--       .from('cleaner_applications')
+--       .update({ last_broadcast_sms_at: nowIso })
+--       .eq('id', applicantId)
+--       .eq('tenant_id', tenantId)
+--       .is('last_broadcast_sms_at', null)
+--       .select('id')
+--     if (viaNull && viaNull.length > 0) return true
+--
+--     const { data: viaStale } = await supabaseAdmin
+--       .from('cleaner_applications')
+--       .update({ last_broadcast_sms_at: nowIso })
+--       .eq('id', applicantId)
+--       .eq('tenant_id', tenantId)
+--       .lt('last_broadcast_sms_at', sinceIso)
+--       .select('id')
+--     return !!viaStale && viaStale.length > 0
+--   }
+--
+-- Then in the recipients.map(...) send loop, claim before texting and skip
+-- (report as already-sent, not failed) on a lost claim — same shape as
+-- send-apology-batch's skippedDuplicate counter.
+
+ALTER TABLE cleaner_applications
+  ADD COLUMN IF NOT EXISTS last_broadcast_sms_at TIMESTAMPTZ;
+
+COMMENT ON COLUMN cleaner_applications.last_broadcast_sms_at IS
+  'Atomic claim marker for POST /api/admin/message-applicants/send — set immediately before texting this applicant so two concurrent broadcast calls (double-click of Send, or a client retry) cannot both text the same applicant. Claim wins if unset or older than the 2-minute dedup window; a genuinely new broadcast days/weeks later is unaffected.';
