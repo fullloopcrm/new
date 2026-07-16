@@ -2840,3 +2840,56 @@ unchanged.
 (37 pre-existing skips, unchanged), 0 regressions (1493 baseline + 4 new).
 
 File-only, no push/deploy/DB. Commit pending locally — not pushed.
+
+---
+
+**2026-07-15 (W2, 21:37 order) — negative-result sweep, no fix needed:**
+lowest-mention "lower-risk" API directories (18 route files across 18
+previously-barely-touched dirs).
+
+Continued the leader's "continue broad-hunt, lower-risk surface" order.
+Fresh angle: counted every directory-name mention across this register itself
+(`grep -c` per `src/app/api/*` dir name) to find the least-audited surface
+rather than re-walking already-heavily-swept areas (portal/*, comhub/*,
+finance/*, cron/*). Read all route files in the 18 lowest-count dirs:
+`migrate-cleaner-notifications`, `migrate-sms`, `referrals` (+`track`,
+`[id]`), `admin-chat`, `announcements/unread`, `apply-ceo`,
+`cleaner-applications`, `docs`, `domain-notes`, `import-clients`,
+`indexnow`, `permissions/me`, `recurring-expenses` (+`[id]`),
+`sales-applications`, `send-booking-emails`, `setup-checklist`,
+`sidebar-counts`, `territories/options`, `test-emails` — 22 files total.
+
+**Result: all clean.** Every authenticated route resolves tenant via
+`getTenantForRequest()`/`requirePermission()` and scopes every query/write by
+the resolved `tenant.tenantId`/`tenant.id` — no caller-supplied tenant id
+accepted anywhere in this batch. Every public route (`apply-ceo`,
+`sales-applications` POST, `territories/options`) resolves tenant from
+host/header/slug lookup, not from client-controlled trust, before writing.
+Two files are inert compatibility shims
+(`migrate-cleaner-notifications`, `migrate-sms` — hardcoded `migrated: 0`,
+no DB access at all). `admin-chat/route.ts` already has an inline comment
+and explicit ownership check for the exact caller-supplied-`sessionId`
+cross-tenant-Selena-hijack shape this register has flagged elsewhere (P27-
+class) — already closed here, not a new gap.
+
+**One observation, not a finding:** `referrals/track/route.ts` (public,
+unauthenticated — resolves which tenant a referral link belongs to) looks up
+`referrals` by `referral_code` alone with no scoping, then returns that row's
+`tenant.{id,name,slug}`. This is correct/intended (a referral link has to
+resolve to a tenant before the tenant is known), and the returned fields are
+already public marketing-site info, not the leak class this register tracks.
+Flagging only because I could not confirm from migrations whether
+`referral_code` is enforced globally-unique vs. only per-tenant unique — the
+`referrals` table's `CREATE TABLE` isn't in this repo's `src/lib/migrations/`
+(predates tracked migrations), only its downstream FK reference in
+`008_missing_tables_and_columns.sql`. If two tenants can produce the same
+code, `.single()` returns whichever row matches first, misattributing a
+referral click to the wrong (but still arbitrary, still public) tenant — a
+correctness bug, not a data-exposure one. Didn't fix: no DB access from this
+worktree per standing rules, and even worst-case impact doesn't rise to this
+register's leak bar. Flagging for whoever next touches `referrals` schema to
+confirm/add a `UNIQUE(referral_code)` (or scope the track lookup another
+way) if it's not already there.
+
+No new P-number. No code changed. `tsc` N/A (no edits). File-only, no
+push/deploy/DB.
