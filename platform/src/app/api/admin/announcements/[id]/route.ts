@@ -12,9 +12,19 @@ export async function PUT(
   const { id } = await params
   const body = await request.json()
 
+  // Allowlist writable columns — same set the POST handler accepts. A raw
+  // `.update(body)` here would let the caller mass-assign any column
+  // (including `id`, `created_at`) since this is a straight passthrough
+  // of the parsed request body with no field filtering.
+  const ALLOWED_FIELDS = ['title', 'body', 'type', 'target', 'target_value', 'priority', 'published'] as const
+  const update: Record<string, unknown> = {}
+  for (const field of ALLOWED_FIELDS) {
+    if (field in body) update[field] = body[field]
+  }
+
   const { error } = await supabaseAdmin
     .from('platform_announcements')
-    .update(body)
+    .update(update)
     .eq('id', id)
 
   if (error) {
