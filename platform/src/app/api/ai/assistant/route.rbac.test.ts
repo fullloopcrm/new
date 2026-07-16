@@ -102,6 +102,9 @@ beforeEach(() => {
   fake._seed('bookings', [
     { id: 'b1', tenant_id: 'tenant-A', price: 10000, payment_status: 'paid', status: 'completed', start_time: '2026-01-01T00:00:00' },
   ])
+  fake._seed('team_members', [
+    { id: 'tm-1', tenant_id: 'tenant-A', name: 'Jordan Lee', email: 'jl@x.com', phone: '555', status: 'active', working_days: ['mon'], pay_rate: 42.5 },
+  ])
 })
 
 describe('ai/assistant search_clients tool — RBAC gate', () => {
@@ -141,6 +144,28 @@ describe('ai/assistant update_client tool — RBAC gate', () => {
     expect(res.status).toBe(200)
     const result = toolResultFromCall(1)
     expect(result).toContain('"success":true')
+  })
+})
+
+describe('ai/assistant search_team_members tool — field-level leak', () => {
+  // fake-supabase's .select(cols) is a documented no-op (it always returns
+  // full rows regardless of the requested column list -- see the "deliberately
+  // dumb" note at the top of src/test/fake-supabase.ts), so a runtime
+  // assertion against the tool's JSON result can't prove column projection
+  // the way it can prove a permission gate. Asserting on the literal select()
+  // string is the direct regression guard: it fails if pay_rate (or any other
+  // RESTRICTED_MEMBER_FIELDS-class column -- pin, notes, tax_*) is ever added
+  // back to this team.view-gated tool, which staff (the lowest role) can reach.
+  it('search_team_members select() does not request pay_rate/pin/notes/tax_* (payroll+HR fields gated behind team.edit elsewhere)', async () => {
+    const fs = await import('node:fs')
+    const path = await import('node:path')
+    const src = fs.readFileSync(path.join(process.cwd(), 'src/app/api/ai/assistant/route.ts'), 'utf8')
+    const match = src.match(/case 'search_team_members':[\s\S]*?\.select\('([^']+)'\)/)
+    expect(match, "couldn't find search_team_members' select() call -- update this test if the tool was restructured").toBeTruthy()
+    const selectedCols = match![1].split(',').map(c => c.trim())
+    for (const restricted of ['pay_rate', 'pin', 'notes', 'tax_classification', 'tax_ssn_last4']) {
+      expect(selectedCols).not.toContain(restricted)
+    }
   })
 })
 

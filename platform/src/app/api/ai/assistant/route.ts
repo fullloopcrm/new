@@ -206,7 +206,11 @@ async function executeTool(
 
     case 'search_team_members': {
       const q = input.query as string | undefined
-      let query = supabaseAdmin.from('team_members').select('id, name, email, phone, status, working_days, pay_rate').eq('tenant_id', tenantId)
+      // pay_rate is payroll/HR data gated behind finance.payroll / team.edit
+      // elsewhere (see team/[id]/route.ts RESTRICTED_MEMBER_FIELDS) -- this
+      // tool is gated at team.view only, which 'staff' (the lowest role)
+      // holds, so it must not select pay_rate.
+      let query = supabaseAdmin.from('team_members').select('id, name, email, phone, status, working_days').eq('tenant_id', tenantId)
       if (q) query = query.ilike('name', `%${q}%`)
       else query = query.eq('status', 'active')
       const { data, error } = await query.limit(20)
