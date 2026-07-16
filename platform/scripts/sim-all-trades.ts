@@ -271,6 +271,78 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
     const conv2 = await createBookingFromQuote(tenant.id, quote.id)
     add('sell: convert idempotent', conv2.already_converted && conv2.booking_id === conv.booking_id)
 
+    // ================= P2b — SALES PIPELINE (deals + proposal stage) =================
+    // Real end-to-end wiring: customer lead -> deal (stage new) -> qualify -> proposal
+    // quote linked via deal_id -> proposal sent -> accepted through the REAL public
+    // accept route (not a raw status flip) -> deal auto-advances per the deposit rule.
+    // This is the layer flagged as completely untested — the sim used to go
+    // prospect->tenant->quote->booking directly, never touching deals/pipeline at all.
+    const { PIPELINE_STAGES: STAGES } = await import('../src/lib/pipeline')
+
+    const { data: deal, error: dealErr } = await supabase.from('deals').insert({
+      tenant_id: tenant.id, title: `${ind} inquiry — ${bizName}`, stage: 'new',
+      value_cents: 0, probability: STAGES[0].defaultProbability, source: 'sim',
+    }).select('id, stage').single()
+    add('pipeline: deal created at new stage', !!deal && !dealErr && deal.stage === 'new', dealErr?.message)
+    if (!deal) throw new Error('deal insert failed: ' + dealErr?.message)
+
+    // Regression guard for the byStage['lead'] dead-key bug fixed in /api/pipeline
+    // route.ts — a deal's stage must always be one of the real PIPELINE_STAGES keys.
+    add('pipeline: deal stage is a valid PIPELINE_STAGES value', STAGES.some(s => s.value === deal.stage), deal.stage)
+
+    // P2b.1 qualify (mirrors POST /api/deals/[id]/stage's write shape)
+    const { error: qualErr } = await supabase.from('deals')
+      .update({ stage: 'qualifying', probability: STAGES[1].defaultProbability }).eq('id', deal.id)
+    add('pipeline: deal qualifies (new → qualifying)', !qualErr, qualErr?.message)
+
+    // P2b.2 proposal quote linked to the deal via deal_id — the FK the pipeline
+    // board actually reads to show "Proposal sent" on a deal card.
+    const dealQuoteNum = await generateQuoteNumber(tenant.id)
+    const dealQuoteLines = normalizeLineItems(svcForQuote.map(s => ({ name: s.name, quantity: 1, unit_price_cents: s.price_cents || 0 })))
+    const dealQuoteTotals = computeTotals(dealQuoteLines, 0, 0)
+    const { data: dealQuote, error: dealQuoteErr } = await supabase.from('quotes').insert({
+      tenant_id: tenant.id, deal_id: deal.id, client_id: null, quote_number: dealQuoteNum, status: 'draft',
+      title: `${ind} proposal for ${bizName}'s customer`, contact_name: 'Pipeline Customer',
+      contact_email: `pipeline+${runId}@example.com`, contact_phone: '+15551235555',
+      service_address: `${loc.city}, ${loc.state} ${loc.zip}`,
+      line_items: dealQuoteLines, subtotal_cents: dealQuoteTotals.subtotal_cents, tax_rate_bps: 0,
+      tax_cents: dealQuoteTotals.tax_cents, discount_cents: 0, total_cents: dealQuoteTotals.total_cents,
+      public_token: generatePublicToken(),
+    }).select('id, public_token, total_cents').single()
+    add('pipeline: proposal quote created + linked via deal_id', !!dealQuote && !dealQuoteErr, dealQuoteErr?.message)
+    if (!dealQuote) throw new Error('deal quote insert failed: ' + dealQuoteErr?.message)
+
+    // P2b.3 send the proposal (mirrors quotes/[id]/send's real side effect: deal
+    // moves to 'quoted' + a deal_activities row logged — what the pipeline board
+    // depends on to show a deal moved past qualifying).
+    await supabase.from('quotes').update({ status: 'sent', sent_at: new Date().toISOString() }).eq('id', dealQuote.id)
+    const { error: sendStageErr } = await supabase.from('deals')
+      .update({ stage: 'quoted', probability: STAGES[2].defaultProbability, value_cents: dealQuote.total_cents }).eq('id', deal.id)
+    await supabase.from('deal_activities').insert({
+      tenant_id: tenant.id, deal_id: deal.id, type: 'stage_change',
+      description: 'Moved from qualifying to quoted', metadata: { from: 'qualifying', to: 'quoted', quote_id: dealQuote.id },
+    })
+    add('pipeline: deal moves to quoted on proposal send', !sendStageErr, sendStageErr?.message)
+
+    // P2b.4 accept through the REAL public route (not a raw status flip) — the
+    // actual production code path a customer hits, and the sole owner of the
+    // deal-stage-advance-on-accept logic, never exercised by this sim before.
+    const { POST: acceptQuote } = await import('../src/app/api/quotes/public/[token]/accept/route')
+    const acceptReq = new Request(`http://localhost/api/quotes/public/${dealQuote.public_token}/accept`, {
+      method: 'POST',
+      body: JSON.stringify({ signature_png: 'data:image/png;base64,' + 'A'.repeat(120), signature_name: 'Pipeline Customer' }),
+    })
+    const acceptRes = await acceptQuote(acceptReq, { params: Promise.resolve({ token: dealQuote.public_token }) })
+    add('pipeline: real public accept route returns ok', acceptRes.status === 200, `status=${acceptRes.status}`)
+
+    const { data: dealAfterAccept } = await supabase.from('deals').select('stage, probability, closed_at').eq('id', deal.id).single()
+    add('pipeline: deal auto-advances on accept (no deposit → sold)',
+      dealAfterAccept?.stage === 'sold' && dealAfterAccept?.probability === 100 && !!dealAfterAccept?.closed_at,
+      JSON.stringify(dealAfterAccept))
+
+    const { count: activityCount } = await supabase.from('deal_activities').select('id', { count: 'exact', head: true }).eq('deal_id', deal.id)
+    add('pipeline: deal_activities logged through the funnel', (activityCount || 0) >= 3, `${activityCount} activities`)
+
     // ================= P3 — JOBS & SCHEDULING =================
     const { deriveDurationClass } = await import('../src/lib/schedule/duration-class')
     // P3.0 duration-class pure logic
@@ -511,7 +583,7 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       // best-effort fast path; the tenant delete is the real guarantee. Only a
       // surviving TENANT row is a true leftover — retry it through timeouts.
       if (tenantId) {
-        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
+        for (const tbl of ['territory_claims', 'journal_lines', 'journal_entries', 'chart_of_accounts', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices', 'quote_activity', 'quotes', 'deal_activities', 'deals', 'job_events', 'job_payments', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'clients', 'service_types', 'entities', 'tenant_invites']) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
         }
         let delOk = false
