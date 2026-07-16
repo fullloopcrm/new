@@ -39,7 +39,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     .from('bookings')
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
-    .single()) as { data: { client_id: string | null; start_time: string } | null }
+    .single()) as { data: { client_id: string | null; start_time: string; end_time: string | null } | null }
   if (!oldBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id ?? undefined)
@@ -66,12 +66,38 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
+  // Same-day = emergency (same server-side determination as the AI/SMS
+  // create_booking tool, client/book, and portal/bookings — see P11.8/16/17).
+  // This is the reschedule path's version of the same gap: a client could
+  // book routine service for next week (routine rate, is_emergency=false)
+  // then use THIS endpoint to move it to today, and until now the row's
+  // price/is_emergency were never re-evaluated — start_time/end_time were
+  // the only fields ever written here. Only recompute when the client is
+  // actually changing the date (body.start_time present); a team-member-only
+  // reassignment must not touch pricing.
+  let emergencyOverride: { hourly_rate: number; price: number } | null = null
+  const becomesEmergency = body.start_time ? body.start_time.split('T')[0] === new Date().toLocaleDateString('en-CA') : null
+  if (becomesEmergency) {
+    const selenaConfig = (tenant as { selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }).selena_config
+    if (selenaConfig?.emergency_available && selenaConfig.emergency_rate) {
+      const startMs = new Date(body.start_time as string).getTime()
+      const endMs = new Date(body.end_time ?? oldBooking.end_time ?? body.start_time as string).getTime()
+      const durationHours = Math.max((endMs - startMs) / 3_600_000, 0.25)
+      emergencyOverride = {
+        hourly_rate: selenaConfig.emergency_rate,
+        price: Math.round(selenaConfig.emergency_rate * durationHours * 100),
+      }
+    }
+  }
+
   const { data: updated, error } = await db
     .from('bookings')
     .update({
       start_time: body.start_time,
       end_time: body.end_time,
       ...(body.team_member_id !== undefined ? { team_member_id: body.team_member_id } : {}),
+      ...(becomesEmergency !== null ? { is_emergency: becomesEmergency } : {}),
+      ...(emergencyOverride ?? {}),
     })
     .eq('id', id)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
