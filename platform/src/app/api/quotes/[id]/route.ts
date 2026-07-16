@@ -116,14 +116,24 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.total_cents = totals.total_cents
     }
 
-    // Deposit — resolve against the (possibly just-recomputed) total.
+    // Deposit — resolve against the (possibly just-recomputed) total. When no
+    // pricing fields were sent above, updates.total_cents is still undefined
+    // here, so this does its own stale read of total_cents to compute against.
+    // That read is just as vulnerable to the race the pricing block's CAS
+    // guard exists for: a concurrent line-item/discount edit can bump
+    // total_cents between this read and the write below, and without a CAS
+    // guard this deposit-only write would land anyway, storing deposit_cents
+    // computed off a total that's no longer current. Capture updated_at here
+    // too (only if the pricing block above didn't already set it) so the same
+    // eq('updated_at', ...) guard on the final write covers this path.
     if ('deposit_type' in body || 'deposit_value' in body) {
       const dtype = ['flat', 'percent'].includes(body.deposit_type) ? body.deposit_type : 'none'
       const dval = Math.max(0, Math.round(Number(body.deposit_value) || 0))
       let total = updates.total_cents as number | undefined
       if (total == null) {
-        const { data: c2 } = await db.from('quotes').select('total_cents').eq('id', id).single()
+        const { data: c2 } = await db.from('quotes').select('total_cents, updated_at').eq('id', id).single()
         total = Number(c2?.total_cents) || 0
+        if (!pricingCasUpdatedAt) pricingCasUpdatedAt = c2?.updated_at as string | undefined
       }
       updates.deposit_type = dtype
       updates.deposit_value = dval
