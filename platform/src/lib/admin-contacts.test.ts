@@ -94,7 +94,7 @@ beforeEach(() => {
   handlers = {}
   insertCalls = {}
   insertShouldThrow = false
-  sendEmail.mockClear()
+  sendEmail.mockReset().mockResolvedValue({ id: 'email-1' })
   tenantSender.mockClear()
   sendSMS.mockClear()
   delete process.env.ADMIN_EMAIL
@@ -266,6 +266,39 @@ describe('emailAdmins', () => {
 
     await expect(emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')).resolves.toBeUndefined()
     expect(sendEmail).toHaveBeenCalledTimes(1)
+  })
+
+  it('logs a per-recipient send failure as status "failed", not "sent"', async () => {
+    handlers.tenants = () => FULL_TENANT
+    handlers.tenant_members = () => [
+      { email: 'ok@acme.com', phone: null, name: 'Ok', role: 'owner' },
+      { email: 'broken@acme.com', phone: null, name: 'Broken', role: 'admin' },
+    ]
+    sendEmail.mockImplementation(async ({ to }: { to: string }) => {
+      if (to === 'broken@acme.com') throw new Error('Resend 500')
+      return { id: 'email-1' }
+    })
+
+    await emailAdmins(FULL_TENANT, 'Subject', '<p>body</p>')
+
+    expect(sendEmail).toHaveBeenCalledTimes(2)
+    const rows = insertCalls.email_logs as { to_email: string; status: string }[]
+    expect(rows).toContainEqual(expect.objectContaining({ to_email: 'ok@acme.com', status: 'sent' }))
+    expect(rows).toContainEqual(expect.objectContaining({ to_email: 'broken@acme.com', status: 'failed' }))
+  })
+
+  it('logs the ADMIN_EMAIL fallback as "failed" when the fallback send itself throws', async () => {
+    process.env.ADMIN_EMAIL = 'platform-fallback@fullloopcrm.com'
+    handlers.tenants = () => ({ ...FULL_TENANT, email: null, phone: null })
+    handlers.tenant_members = () => []
+    sendEmail.mockRejectedValue(new Error('Resend 500'))
+
+    await emailAdmins('t-1', 'Subject', '<p>body</p>')
+
+    const rows = insertCalls.email_logs as { to_email: string; status: string }[]
+    expect(rows).toContainEqual(
+      expect.objectContaining({ to_email: 'platform-fallback@fullloopcrm.com', status: 'failed' }),
+    )
   })
 })
 
