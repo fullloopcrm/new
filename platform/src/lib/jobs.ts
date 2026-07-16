@@ -41,6 +41,9 @@ export interface PaymentPlanItem {
   due_at?: string | null
   /** How this payment becomes due. Defaults to 'manual'. */
   trigger?: PaymentTrigger
+  /** Defaults to 'pending'. Used to pre-mark a line already collected (e.g. a Stripe deposit). */
+  status?: PaymentStatus
+  paid_at?: string | null
 }
 
 /** One scheduled work session → becomes a booking under the job. */
@@ -188,6 +191,7 @@ export async function createJobFromQuote(
     }
 
     const totalCents = (quote.total_cents as number) || 0
+    const depositPaidCents = (quote.deposit_paid_cents as number) || 0
 
     const { data: job, error: jErr } = await supabaseAdmin
       .from('jobs')
@@ -208,11 +212,26 @@ export async function createJobFromQuote(
     if (jErr) throw jErr
     jobId = job.id as string
 
-    // Payment plan: caller-supplied, else a single 'final' payment for the total.
+    // Payment plan: caller-supplied, else derived from the quote. A quote
+    // whose deposit was already collected (deposit_paid_cents, set by the
+    // Stripe deposit-checkout webhook before it calls convertSaleToJob with
+    // empty opts) must NOT be billed for the full total again — net the
+    // deposit off and pre-mark that line paid, since the money already moved.
     const plan: PaymentPlanItem[] =
       opts.payments && opts.payments.length > 0
         ? opts.payments
-        : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
+        : depositPaidCents > 0
+          ? [
+              {
+                label: 'Deposit',
+                kind: 'deposit',
+                amount_cents: depositPaidCents,
+                status: 'paid',
+                paid_at: (quote.deposit_paid_at as string) || new Date().toISOString(),
+              },
+              { label: 'Final payment', kind: 'final', amount_cents: Math.max(totalCents - depositPaidCents, 0) },
+            ]
+          : [{ label: 'Final payment', kind: 'final', amount_cents: totalCents }]
 
     const paymentRows = plan.map((p, i) => ({
       tenant_id: tenantId,
@@ -222,6 +241,8 @@ export async function createJobFromQuote(
       amount_cents: p.amount_cents,
       due_at: p.due_at ?? null,
       trigger: p.trigger ?? 'manual',
+      status: p.status ?? 'pending',
+      paid_at: p.paid_at ?? null,
       sort_order: i,
     }))
     const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)

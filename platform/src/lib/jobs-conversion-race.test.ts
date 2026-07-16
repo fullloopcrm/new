@@ -167,3 +167,44 @@ describe('createJobFromQuote — concurrent conversion race', () => {
     expect(results.filter((r) => r.status === 'fulfilled').length).toBeGreaterThanOrEqual(1)
   })
 })
+
+describe('createJobFromQuote — deposit-aware default payment plan', () => {
+  // Mirrors the live call site: webhooks/stripe/route.ts sets deposit_paid_cents
+  // then calls convertSaleToJob(tenantId, { type: 'quote', quoteId }, {}) with
+  // NO explicit payment plan — createJobFromQuote must derive one that nets
+  // the already-collected deposit off the total, or the job asks the customer
+  // for the FULL total again on top of the deposit they already paid.
+  it('nets an already-paid deposit off the default plan instead of double-billing the full total', async () => {
+    seedQuote({ total_cents: 50_000, deposit_paid_cents: 15_000, deposit_paid_at: '2026-07-16T10:00:00.000Z' })
+
+    const result = await createJobFromQuote(TENANT_ID, QUOTE_ID)
+    expect(result.already_converted).toBe(false)
+
+    const payments = fake._all('job_payments').filter((p) => p.job_id === result.job_id)
+    expect(payments.length).toBe(2)
+
+    const deposit = payments.find((p) => p.kind === 'deposit')
+    expect(deposit?.amount_cents).toBe(15_000)
+    expect(deposit?.status).toBe('paid')
+    expect(deposit?.paid_at).toBe('2026-07-16T10:00:00.000Z')
+
+    const final = payments.find((p) => p.kind === 'final')
+    expect(final?.amount_cents).toBe(35_000)
+    expect(final?.status).toBe('pending')
+
+    // The plan must sum to the contracted total, not total + deposit.
+    const sum = payments.reduce((acc, p) => acc + (p.amount_cents as number), 0)
+    expect(sum).toBe(50_000)
+  })
+
+  it('falls back to a single final payment for the full total when no deposit was collected', async () => {
+    seedQuote({ total_cents: 50_000, deposit_paid_cents: 0 })
+
+    const result = await createJobFromQuote(TENANT_ID, QUOTE_ID)
+    const payments = fake._all('job_payments').filter((p) => p.job_id === result.job_id)
+
+    expect(payments.length).toBe(1)
+    expect(payments[0].kind).toBe('final')
+    expect(payments[0].amount_cents).toBe(50_000)
+  })
+})
