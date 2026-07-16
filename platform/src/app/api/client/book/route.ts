@@ -18,6 +18,8 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
+import { getSettings } from '@/lib/settings'
+import { isHoliday } from '@/lib/holidays'
 
 // Escape LIKE/ILIKE wildcards so `emailLower` is matched literally (Postgres
 // default LIKE escape char is backslash). Without this, a '%'/'_' in the
@@ -181,11 +183,17 @@ export async function POST(request: Request) {
     const tokenExpiresAt = new Date(startTime)
     tokenExpiresAt.setHours(tokenExpiresAt.getHours() + 24)
 
-    // Holiday gate
-    const { isHoliday } = await import('@/lib/holidays')
-    const holidayName = isHoliday(startTime.split('T')[0])
-    if (holidayName) {
-      return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+    // Holiday gate — open_365 tenants (e.g. nycmaid) never treat a holiday as
+    // closed, same as checkAvailability() in lib/availability.ts. Previously
+    // this called isHoliday() unconditionally, so an open_365 tenant's public
+    // booking form still hard-blocked every federal holiday despite the
+    // portal availability check (and dashboard settings) saying open (F4).
+    const bookSettings = await getSettings(tenant.id)
+    if (!bookSettings.open_365) {
+      const holidayName = isHoliday(startTime.split('T')[0])
+      if (holidayName) {
+        return NextResponse.json({ error: `We're closed for ${holidayName}. Please choose another date.` }, { status: 400 })
+      }
     }
 
     const bookingDate = startTime.split('T')[0]

@@ -52,6 +52,9 @@ vi.mock('@/lib/email-templates', () => ({
   referralSignupNotifyEmail: () => ({ subject: 's', html: 'h' }),
 }))
 vi.mock('@/lib/nycmaid/recurring-discount', () => ({ applyRecurringDiscount: (price: number) => price }))
+// open_365:true skips the holiday-gate branch entirely, matching this suite's
+// pre-existing behavior before that gate started reading tenant settings.
+vi.mock('@/lib/settings', () => ({ getSettings: async () => ({ open_365: true }) }))
 
 function stubChain(result: { data: unknown; error: unknown } = { data: null, error: null }) {
   const chain: Record<string, unknown> = {

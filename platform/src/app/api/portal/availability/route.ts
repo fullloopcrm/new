@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { getSettings } from '@/lib/settings'
 import { verifyPortalToken } from '../auth/token'
 
 export async function GET(request: NextRequest) {
@@ -14,6 +15,15 @@ export async function GET(request: NextRequest) {
 
   if (!date) return NextResponse.json({ error: 'Date required' }, { status: 400 })
 
+  // Tenant-configured business hours (set in onboarding/dashboard settings) —
+  // previously hardcoded to an 8am-6pm window here regardless of what the
+  // tenant configured, same F4 bug already fixed in lib/availability.ts's
+  // checkAvailability(). Defaults match the prior hardcoded values so
+  // unconfigured tenants see unchanged behavior.
+  const settings = await getSettings(auth.tid)
+  const businessStart = settings.business_hours_start ?? 8
+  const businessEnd = settings.business_hours_end ?? 18
+
   // Get existing bookings for this date
   const dayStart = `${date}T00:00:00`
   const dayEnd = `${date}T23:59:59`
@@ -27,18 +37,17 @@ export async function GET(request: NextRequest) {
     .lte('start_time', dayEnd)
     .not('status', 'eq', 'cancelled')) as { data: { start_time: string; end_time: string | null }[] | null }
 
-  // Generate 30-minute slots from 8am to 6pm
+  // Generate 30-minute slots across the tenant's business hours
   const slots: { time: string; available: boolean }[] = []
   const bookedRanges = (bookings || []).map((b) => ({
     start: new Date(b.start_time).getTime(),
     end: new Date(b.end_time || new Date(new Date(b.start_time).getTime() + 2 * 3600000).toISOString()).getTime(),
   }))
 
-  for (let hour = 8; hour <= 18; hour++) {
+  for (let hour = businessStart; hour < businessEnd; hour++) {
     for (const minute of [0, 30]) {
-      // Don't show slots that would end after 9pm
-      if (hour + duration > 21) continue
-      if (hour === 18 && minute === 30) continue
+      // Don't show slots that would end after the tenant's configured close.
+      if (hour + minute / 60 + duration > businessEnd) continue
 
       const slotStart = new Date(`${date}T${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}:00`)
       const slotEnd = new Date(slotStart.getTime() + duration * 3600000)
