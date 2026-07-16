@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -15,6 +16,15 @@ function ipFromRequest(req: Request): string | null {
 export async function POST(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Public, unauthenticated action endpoint — same guard as the sibling
+    // accept route (fires owner email/SMS + deal activity on every call).
+    const ip = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`quote-public-decline:${ip}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const body = await request.json().catch(() => ({}))
     const reason = String(body.reason || '').slice(0, 500)
 

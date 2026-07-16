@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -23,6 +24,15 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { token } = await params
     if (!token) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
+
+    // Public, unauthenticated, DB-write-per-request (view_count/last_viewed_at
+    // bump + a quote_events insert) — cap so a scripted poller can't churn
+    // writes indefinitely. Mirrors the guard on /api/leads/visits and /api/track.
+    const ip = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`quote-public:${ip}`, 30, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     const { data: quote } = await supabaseAdmin
       .from('quotes')

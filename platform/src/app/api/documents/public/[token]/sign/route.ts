@@ -17,6 +17,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -28,6 +29,17 @@ function ipFromRequest(req: Request): string | null {
 export async function POST(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Public, unauthenticated — the heaviest route in this family (PDF
+    // generation via pdf-lib, storage upload, on-completion email/SMS).
+    // Cap per-IP so a scripted retry loop can't churn this into a real cost/
+    // DoS vector. Same guard as the sibling public quote/invoice/document routes.
+    const rlIp = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`document-sign:${rlIp}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
+
     const body = await request.json()
     const signaturePng = String(body.signature_png || '')
     const signatureName = String(body.signature_name || '').trim()

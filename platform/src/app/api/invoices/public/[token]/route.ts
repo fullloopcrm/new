@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logInvoiceEvent } from '@/lib/invoice'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -16,6 +17,14 @@ export async function GET(request: Request, { params }: Params) {
   try {
     const { token } = await params
     if (!token) return NextResponse.json({ error: 'Invalid' }, { status: 400 })
+
+    // Public, unauthenticated, DB-write-per-request — same guard as the
+    // sibling quote view route.
+    const ip = ipFromRequest(request) || 'unknown'
+    const rl = await rateLimitDb(`invoice-public:${ip}`, 30, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+    }
 
     const { data: invoice } = await supabaseAdmin
       .from('invoices')

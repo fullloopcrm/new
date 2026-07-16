@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { sendEmail } from '@/lib/email'
 import { requireAdmin } from '@/lib/require-admin'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 /*
   SQL to create the partner_requests table:
@@ -75,6 +76,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Public, unauthenticated form. The existing per-email 24h dedup below
+    // doesn't stop a caller from rotating emails to spam inserts + the admin
+    // notification email — cap per-IP too, matching the guard already applied
+    // to the other public marketing-site forms this session.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`requests-post:${ip}`, 10, 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const body = await request.json()
 
     // Validate required fields
