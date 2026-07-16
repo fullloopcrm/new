@@ -72,8 +72,18 @@ export async function POST(req: Request) {
       .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
       .eq('id', unmatchedPaymentId)
 
-    // 2. Insert payment row
-    await db.from('payments').insert({
+    // 2. Insert payment row. Deterministic reference_id (an unmatched_payments
+    // row should only ever be matched once) backed by migration
+    // 065_unique_payments_reference.sql's partial unique index on
+    // payments(tenant_id, booking_id, reference_id) -- closes the race where a
+    // double-tapped "Confirm Match" button, or two staff members independently
+    // matching the same Zelle/Venmo notification, both pass the `status ===
+    // 'matched'` check above before either write commits and land two payments
+    // rows (double revenue in finance/summary, booking flipped to 'paid' twice
+    // and double SMS/notifications sent). Same pattern as mark-paid and
+    // invoices/[id]/record-payment. A losing race hits 23505 here and is
+    // treated as an idempotent no-op -- the winner already ran steps 3-5.
+    const { error: paymentInsertErr } = await db.from('payments').insert({
       booking_id: bookingId,
       client_id: booking.client_id,
       amount_cents: amountCents,
@@ -81,7 +91,15 @@ export async function POST(req: Request) {
       method: unmatched.method,
       status,
       payment_sender_name: unmatched.sender_name,
+      reference_id: `confirm-match-${unmatchedPaymentId}`,
     })
+    if (paymentInsertErr?.code === '23505') {
+      return NextResponse.json({ success: true, status, tipCents, deduped: true })
+    }
+    if (paymentInsertErr) {
+      console.error('[confirm-match] payment insert failed:', paymentInsertErr)
+      return NextResponse.json({ error: 'Failed to record payment' }, { status: 500 })
+    }
 
     // 3. Update booking
     await db
