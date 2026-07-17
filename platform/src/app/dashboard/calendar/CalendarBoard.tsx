@@ -6,6 +6,7 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import SidePanel from '@/components/SidePanel'
+import { formatRecurringLabel } from '@/lib/recurring'
 
 interface Client { id: string; name: string; phone: string; address: string }
 interface TeamMember { id: string; name: string }
@@ -636,7 +637,7 @@ export default function CalendarBoard() {
                 'bg-slate-100 text-slate-500'
               }`}>{panelBooking.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
               {panelBooking.recurring_type && (
-                <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{panelBooking.recurring_type}</span>
+                <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{formatRecurringLabel(panelBooking.recurring_type, panelBooking.start_time)}</span>
               )}
             </div>
 
