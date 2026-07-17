@@ -328,11 +328,11 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   // Client confirmation SMS
   const { data: clientRecord } = await supabaseAdmin
     .from('clients')
-    .select('phone')
+    .select('phone, sms_consent')
     .eq('id', clientId)
     .eq('tenant_id', tenantId)
     .single()
-  if (clientRecord?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+  if (clientRecord?.phone && clientRecord.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
     const tipThank = tipCents > 0
       ? ` Your generous tip of $${tipAmount} has been passed along — thank you!`
       : ''
