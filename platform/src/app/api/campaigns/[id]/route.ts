@@ -81,6 +81,25 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
+    // campaign_recipients has campaign_id ON DELETE CASCADE (migration 008) --
+    // it's the per-recipient send/bounce/delivery audit trail. Once a campaign
+    // has actually gone out, hard-deleting the row silently destroys that
+    // record with it. The UI already only offers Delete for status:'draft'
+    // (dashboard/campaigns/page.tsx), but that's client-side only; this
+    // enforces it server-side so a direct API call can't bypass it.
+    const { data: existing } = await supabaseAdmin
+      .from('campaigns')
+      .select('status')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .single()
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    if (existing.status !== 'draft') {
+      return NextResponse.json({ error: 'Only draft campaigns can be deleted. This campaign has already been sent or scheduled.' }, { status: 409 })
+    }
+
     const { error } = await supabaseAdmin
       .from('campaigns')
       .delete()

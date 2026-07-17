@@ -64,7 +64,7 @@ vi.mock('@/lib/tenant-query', () => ({
 import { GET, PUT, DELETE } from './route'
 
 function reset() {
-  DB.campaigns = [{ id: CAMPAIGN_ID, tenant_id: TENANT_A, name: 'Spring Promo' }]
+  DB.campaigns = [{ id: CAMPAIGN_ID, tenant_id: TENANT_A, name: 'Spring Promo', status: 'draft' }]
 }
 
 function params() {
