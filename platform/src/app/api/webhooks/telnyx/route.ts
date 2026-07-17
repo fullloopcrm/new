@@ -409,7 +409,13 @@ export async function POST(request: Request) {
         .single()
 
       if (ratingClient) {
-        // Find recently completed booking with [FOLLOWUP_SENT] in notes (last 48hrs)
+        // Find recently completed booking with [FOLLOWUP_SENT] in notes (last 48hrs).
+        // POST /api/finance/payroll (bulk payroll) or a manual mark-paid can flip
+        // a booking's status straight to 'paid' well within this 48hr window --
+        // 'completed' alone silently dropped the lookup, so a client's 1-5 star
+        // SMS reply fell through to the generic inbound-SMS branch: no rating
+        // stored, no admin low-rating alert, no reply sent. Same root cause as
+        // the finance/dashboard status='paid' blind-spot sweep this session.
         const fortyEightHrsAgo = new Date(Date.now() - 48 * 60 * 60 * 1000)
 
         const { data: recentBooking } = await supabaseAdmin
@@ -417,7 +423,7 @@ export async function POST(request: Request) {
           .select('id, notes')
           .eq('tenant_id', tenantId)
           .eq('client_id', ratingClient.id)
-          .eq('status', 'completed')
+          .in('status', ['completed', 'paid'])
           .gte('check_out_time', fortyEightHrsAgo.toISOString())
           .like('notes', '%[FOLLOWUP_SENT]%')
           .order('check_out_time', { ascending: false })
