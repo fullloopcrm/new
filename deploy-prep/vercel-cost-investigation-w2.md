@@ -283,3 +283,48 @@ approve a test build before this lands on `main`.
    deps, dependency-location issue is real but doesn't move the cost needle.
    The one real structural lever (per-tenant build isolation) requires a
    monorepo restructure, out of scope for a file-only proposal.
+
+## Addendum (20:xx pass): `turbopackFileSystemCacheForBuild` validated — DO NOT LAND, it breaks the build
+
+Per the leader's 20:10 direction, validated the flag with real local `next
+build` runs in `platform/` (no push/deploy, config reverted after testing).
+
+**Method:**
+1. Baseline: no `.next` cache present, plain `next build` (flag off). Result:
+   **clean success**, 1:45.02 wall time, `.next` 604M, `BUILD_ID` present, all
+   ~52 tenant site trees + routes emitted normally.
+2. Added `experimental: { turbopackFileSystemCacheForBuild: true }` to
+   `platform/next.config.ts`, cleared `.next`, ran `next build` again (cold,
+   flag on).
+
+**Result: build failed, reproducibly, on both attempts (ran twice to rule out
+a fluke).** Exact error:
+
+```
+Error: Turbopack build failed with 21 errors:
+./src/app/globals.css
+CssSyntaxError: tailwindcss: .../src/app/globals.css:1:1: .../src/app/globals.css:2:139397: Missed semicolon
+```
+
+...repeated for **every** tenant's `globals.css` (root + `consortium-nyc`,
+`debt-service-ratio-loan`, `fla-dumpster-rentals`, `landscaping-in-nyc`,
+`nyc-classifieds`, `nyc-mobile-salon`, `nyc-tow`,
+`nycroadsideemergencyassistance`, `stretch-ny`, `we-pay-you-junk`, and more —
+21 total failures). Each error lands at a huge column offset near the end of
+line 2 — these are single-line, Tailwind-generated CSS files — consistent
+with the beta filesystem-cache layer truncating or corrupting its read of
+large generated CSS during the Turbopack→postcss→tailwindcss transform
+pipeline. The files themselves are unchanged and build cleanly with the flag
+off, so this is not a real CSS defect — it's an incompatibility between this
+beta cache flag and this codebase's per-tenant Tailwind CSS setup (52
+generated `globals.css` files, one per tenant + root).
+
+**Verdict: confirmed unsafe. Do not add this flag to `next.config.ts` on any
+branch that deploys.** `next.config.ts` has been reverted to its original
+state (no diff) and all test `.next` build output deleted — nothing from this
+test was committed or applied. The Cache finding above (bottom-line item 1)
+is now **retracted as a proposal** — the gap is real (cache defaults off) but
+the fix as documented is not viable for this repo without upstream Next.js
+fixing the beta flag's interaction with large generated CSS. Not resurfacing
+this again unless a newer Next.js release specifically notes a fix for
+Turbopack filesystem-cache + CSS/postcss handling.
