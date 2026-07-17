@@ -28,33 +28,67 @@ export async function POST(request: Request) {
       .single()
     if (!txn) return NextResponse.json({ error: 'Transaction not found' }, { status: 404 })
 
-    const updates: Record<string, unknown> = {
-      receipt_path: path,
-      receipt_extracted: extracted,
+    // If no coa_id was passed, this call only attaches the receipt file —
+    // no claim needed, plain update.
+    if (!coaId) {
+      const { error } = await supabaseAdmin
+        .from('bank_transactions')
+        .update({ receipt_path: path, receipt_extracted: extracted })
+        .eq('tenant_id', tenantId)
+        .eq('id', txnId)
+      if (error) throw error
+      return NextResponse.json({ ok: true })
     }
 
-    // If a coa_id was also passed, post the journal and mark posted.
-    if (coaId && txn.status === 'pending') {
-      // Confirm coa_id belongs to this tenant — FK alone doesn't scope tenancy.
-      const { data: coaRow } = await supabaseAdmin
-        .from('chart_of_accounts')
-        .select('id')
-        .eq('id', coaId)
+    // Confirm coa_id belongs to this tenant — FK alone doesn't scope tenancy.
+    const { data: coaRow } = await supabaseAdmin
+      .from('chart_of_accounts')
+      .select('id')
+      .eq('id', coaId)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+
+    const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
+    if (!bankCoa) {
+      return NextResponse.json({ error: 'Bank account has no CoA link.' }, { status: 400 })
+    }
+
+    // Atomic claim: guard the status transition with the 'pending' status this
+    // request actually read (compare-and-swap) before posting the journal
+    // entry, so a double-submit (double-click, retry) can't post the same
+    // txn's journal entry twice or overwrite the winner's journal_entry_id
+    // with a null loser write. Same pattern as the sibling categorize route
+    // (../[id]/route.ts) and accept-suggestions.
+    const { data: claim } = await supabaseAdmin
+      .from('bank_transactions')
+      .update({ receipt_path: path, receipt_extracted: extracted, coa_id: coaId, status: 'posted' })
+      .eq('tenant_id', tenantId)
+      .eq('id', txnId)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
+    if (!claim) {
+      // Already posted by another request — still attach the receipt file,
+      // just without re-posting or re-claiming.
+      const { error } = await supabaseAdmin
+        .from('bank_transactions')
+        .update({ receipt_path: path, receipt_extracted: extracted })
         .eq('tenant_id', tenantId)
-        .maybeSingle()
-      if (!coaRow) return NextResponse.json({ error: 'Invalid coa_id' }, { status: 400 })
+        .eq('id', txnId)
+      if (error) throw error
+      return NextResponse.json({ ok: true, already_processed: true })
+    }
 
-      const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
-      if (!bankCoa) {
-        return NextResponse.json({ error: 'Bank account has no CoA link.' }, { status: 400 })
-      }
-      const amount = Math.abs(txn.amount_cents)
-      const isOutflow = txn.amount_cents < 0
-      const lines = isOutflow
-        ? [{ coa_id: coaId, debit_cents: amount }, { coa_id: bankCoa, credit_cents: amount }]
-        : [{ coa_id: bankCoa, debit_cents: amount }, { coa_id: coaId, credit_cents: amount }]
+    const amount = Math.abs(txn.amount_cents)
+    const isOutflow = txn.amount_cents < 0
+    const lines = isOutflow
+      ? [{ coa_id: coaId, debit_cents: amount }, { coa_id: bankCoa, credit_cents: amount }]
+      : [{ coa_id: bankCoa, debit_cents: amount }, { coa_id: coaId, credit_cents: amount }]
 
-      const entryId = await postJournalEntry({
+    let entryId: string | null
+    try {
+      entryId = await postJournalEntry({
         tenant_id: tenantId,
         entry_date: txn.txn_date,
         memo: txn.description,
@@ -62,39 +96,46 @@ export async function POST(request: Request) {
         source_id: txn.id,
         lines,
       })
-      updates.coa_id = coaId
-      updates.status = 'posted'
-      updates.journal_entry_id = entryId
-
-      // Bump pattern
-      const pattern = normalizeDescription(txn.description).slice(0, 64)
-      if (pattern) {
-        const { data: existing } = await supabaseAdmin
-          .from('categorization_patterns')
-          .select('id, hit_count')
-          .eq('tenant_id', tenantId)
-          .eq('pattern', pattern)
-          .eq('coa_id', coaId)
-          .maybeSingle()
-        if (existing) {
-          await supabaseAdmin
-            .from('categorization_patterns')
-            .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
-            .eq('id', existing.id)
-        } else {
-          await supabaseAdmin.from('categorization_patterns').insert({
-            tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
-          })
-        }
-      }
+    } catch (postErr) {
+      // Release the claim -- leaving the row 'posted' with no
+      // journal_entry_id would hide it from every future retry (this route,
+      // the categorize route, and accept-suggestions all only claim
+      // status='pending'), while the ledger silently drops this amount.
+      await supabaseAdmin
+        .from('bank_transactions')
+        .update({ coa_id: null, status: 'pending' })
+        .eq('id', txnId)
+        .eq('status', 'posted')
+      throw postErr
     }
 
     const { error } = await supabaseAdmin
       .from('bank_transactions')
-      .update(updates)
-      .eq('tenant_id', tenantId)
+      .update({ journal_entry_id: entryId })
       .eq('id', txnId)
     if (error) throw error
+
+    // Bump pattern
+    const pattern = normalizeDescription(txn.description).slice(0, 64)
+    if (pattern) {
+      const { data: existing } = await supabaseAdmin
+        .from('categorization_patterns')
+        .select('id, hit_count')
+        .eq('tenant_id', tenantId)
+        .eq('pattern', pattern)
+        .eq('coa_id', coaId)
+        .maybeSingle()
+      if (existing) {
+        await supabaseAdmin
+          .from('categorization_patterns')
+          .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
+          .eq('id', existing.id)
+      } else {
+        await supabaseAdmin.from('categorization_patterns').insert({
+          tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
+        })
+      }
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {

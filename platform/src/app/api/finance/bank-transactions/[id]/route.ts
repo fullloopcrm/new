@@ -76,15 +76,30 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ ok: true, already_processed: true })
     }
 
-    const entryId = await postJournalEntry({
-      tenant_id: tenantId,
-      entity_id: txn.entity_id || null,
-      entry_date: txn.txn_date,
-      memo: body.memo || txn.description,
-      source: 'bank_txn',
-      source_id: txn.id,
-      lines,
-    })
+    // If posting fails (unbalanced/empty entry, transient RPC error), release
+    // the claim back to 'pending' instead of leaving the txn permanently
+    // stuck as 'posted' with no journal_entry_id -- that state is invisible
+    // (looks categorized in the UI) and un-retryable (status !== 'pending'
+    // excludes it from every future claim here and from accept-suggestions).
+    let entryId: string | null
+    try {
+      entryId = await postJournalEntry({
+        tenant_id: tenantId,
+        entity_id: txn.entity_id || null,
+        entry_date: txn.txn_date,
+        memo: body.memo || txn.description,
+        source: 'bank_txn',
+        source_id: txn.id,
+        lines,
+      })
+    } catch (postErr) {
+      await supabaseAdmin
+        .from('bank_transactions')
+        .update({ coa_id: null, memo: null, status: 'pending' })
+        .eq('id', id)
+        .eq('status', 'posted')
+      throw postErr
+    }
 
     await supabaseAdmin
       .from('bank_transactions')

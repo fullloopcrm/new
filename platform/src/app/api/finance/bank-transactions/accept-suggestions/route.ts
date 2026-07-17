@@ -77,7 +77,22 @@ export async function POST(request: Request) {
           .from('bank_transactions')
           .update({ journal_entry_id: entryId })
           .eq('id', t.id)
+      } catch (e) {
+        // Release the claim -- leaving the row 'posted' with no
+        // journal_entry_id would hide it from every future run (the top
+        // query only selects status='pending') while it looks categorized in
+        // the UI, with the ledger silently short by this amount.
+        await supabaseAdmin
+          .from('bank_transactions')
+          .update({ status: 'pending', coa_id: null })
+          .eq('id', t.id)
+          .eq('status', 'posted')
+        console.warn('[accept-suggestions] failed for txn', t.id, e)
+        skipped++
+        continue
+      }
 
+      try {
         // Bump pattern
         const pattern = normalizeDescription(t.description).slice(0, 64)
         if (pattern) {
