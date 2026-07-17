@@ -110,9 +110,17 @@ export async function POST(req: NextRequest) {
       }).catch(() => {})
     }
 
-    // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+    // Log inbound. Stamp tenant_id when verified — an unstamped insert falls
+    // back to sms_conversation_messages' column DEFAULT ('nycmaid', the
+    // rollout safety net from 2026_05_09_tenant_id_core.sql), which mis-tags
+    // every OTHER tenant's message as nycmaid's and hides it from that
+    // tenant's own tenant-scoped GET ?convoId read. Same gap already fixed on
+    // the selena reset-insert sibling; tracked as P2 "write-side siblings" in
+    // deploy-prep/idor-remediation-status.md. Omit when unverified (matches
+    // the conversation row's own untagged state for that case, above).
+    await supabaseAdmin.from('sms_conversation_messages').insert({
       conversation_id: conversationId, direction: 'inbound', message,
+      ...(reqTenantId ? { tenant_id: reqTenantId } : {}),
     })
 
     const result = await askSelena('web', message, conversationId, phone || undefined)
@@ -120,9 +128,10 @@ export async function POST(req: NextRequest) {
     // and the agent.ts catch already notifies admin so we know there's a gap.
     const reply = result.text || ''
 
-    // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+    // Log outbound — tenant_id stamped (when verified), same reasoning as the inbound insert above.
+    await supabaseAdmin.from('sms_conversation_messages').insert({
       conversation_id: conversationId, direction: 'outbound', message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      ...(reqTenantId ? { tenant_id: reqTenantId } : {}),
     })
 
     if (result.bookingCreated) {

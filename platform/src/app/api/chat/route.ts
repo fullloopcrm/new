@@ -110,9 +110,19 @@ export async function POST(req: NextRequest) {
       }).catch(() => {})
     }
 
-    // Log inbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
-      conversation_id: conversationId, direction: 'inbound', message,
+    // Log inbound. tenant_id is stamped explicitly — an unstamped insert
+    // falls back to sms_conversation_messages' column DEFAULT ('nycmaid',
+    // the rollout safety net from 2026_05_09_tenant_id_core.sql), which
+    // mis-tags every OTHER tenant's message as nycmaid's. That mis-tag then
+    // hides the message from that tenant's own tenant-scoped GET ?convoId
+    // read (self-visibility bug), and — since the row's real tenant_id ends
+    // up 'nycmaid' rather than NULL — makes it visible to a nycmaid operator
+    // who already knows the foreign conversation id. Same gap already fixed
+    // on the selena reset-insert sibling (see route.reset-insert-tenant-tag
+    // witness test); tracked as P2 "write-side siblings" in
+    // deploy-prep/idor-remediation-status.md.
+    await supabaseAdmin.from('sms_conversation_messages').insert({
+      conversation_id: conversationId, direction: 'inbound', message, tenant_id: tenantId,
     })
 
     // NYC Maid runs the REAL Yinez agent (src/lib/selena/agent) — warm voice,
@@ -133,10 +143,10 @@ export async function POST(req: NextRequest) {
       bookingCreated = !!result.bookingCreated
     }
 
-    // Log outbound
-    await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+    // Log outbound — tenant_id stamped, same reasoning as the inbound insert above.
+    await supabaseAdmin.from('sms_conversation_messages').insert({
       conversation_id: conversationId, direction: 'outbound',
-      message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(),
+      message: reply.replace(/\[ESCALATE[^\]]*\]/gi, '').trim(), tenant_id: tenantId,
     })
 
     // Booking notification

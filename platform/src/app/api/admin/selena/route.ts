@@ -221,10 +221,19 @@ export async function POST(req: NextRequest) {
       }
 
       if (newConvoId) {
-        await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+        // tenant_id stamped explicitly — an unstamped insert falls back to
+        // sms_conversation_messages' column DEFAULT ('nycmaid', the rollout
+        // safety net from 2026_05_09_tenant_id_core.sql), mis-tagging this
+        // tenant's own recovery message as nycmaid's and hiding it from this
+        // same tenant's own tenant-scoped GET ?convoId read. Identical to the
+        // already-fixed sibling insert in selena/route.ts's reset handler
+        // (see route.reset-insert-tenant-tag.witness.test.ts); tracked as P2
+        // "write-side siblings" in deploy-prep/idor-remediation-status.md.
+        await supabaseAdmin.from('sms_conversation_messages').insert({
           conversation_id: newConvoId,
           direction: 'outbound',
           message: recoveryText,
+          tenant_id: tenantId,
         })
       }
     }
