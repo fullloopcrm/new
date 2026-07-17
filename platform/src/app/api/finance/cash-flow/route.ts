@@ -95,16 +95,24 @@ export async function GET(request: Request) {
         : r.start_date
         ? new Date(r.start_date as string)
         : now
+      // Anchor day-of-month captured once from the recurrence's TRUE anchor
+      // (start_date — the only field ever written by the create-form UI,
+      // same confirmed source as cron/recurring-expenses' fix) so
+      // monthly/quarterly ticks never chain off a previous tick's own
+      // possibly-overflowed day. Falls back to next_due_date/startDate's
+      // own day if start_date is missing.
+      const anchorSource = r.start_date || r.next_due_date
+      const anchorDay = anchorSource ? new Date(anchorSource as string).getUTCDate() : startDate.getUTCDate()
       let cursor = new Date(startDate)
       if (cursor < now) {
         // Advance cursor until >= now
-        while (cursor < now) cursor = advanceCursor(cursor, r.frequency as string)
+        while (cursor < now) cursor = advanceCursor(cursor, r.frequency as string, anchorDay)
       }
       while (cursor <= endDate) {
         const key = weekKey(cursor)
         const bucket = buckets.get(key)
         if (bucket) bucket.outflows_cents += amount
-        cursor = advanceCursor(cursor, r.frequency as string)
+        cursor = advanceCursor(cursor, r.frequency as string, anchorDay)
       }
     }
 
@@ -127,14 +135,29 @@ export async function GET(request: Request) {
   }
 }
 
-function advanceCursor(d: Date, frequency: string): Date {
+function advanceCursor(d: Date, frequency: string, anchorDay: number): Date {
   const r = new Date(d)
   switch (frequency) {
     case 'daily': r.setUTCDate(r.getUTCDate() + 1); break
     case 'weekly': r.setUTCDate(r.getUTCDate() + 7); break
     case 'biweekly': r.setUTCDate(r.getUTCDate() + 14); break
-    case 'monthly': r.setUTCMonth(r.getUTCMonth() + 1); break
-    case 'quarterly': r.setUTCMonth(r.getUTCMonth() + 3); break
+    case 'monthly':
+    case 'quarterly': {
+      // Zero the day before advancing months, then clamp back to the
+      // ORIGINAL anchor day — not whatever `r`'s day drifted to. The old
+      // `r.setUTCMonth(r.getUTCMonth() + N)` chained off the previous
+      // tick's (possibly already-overflowed) result: a day-29/30/31
+      // anchor that overflowed a short month (Jan 31 -> Feb 31 rolls to
+      // Mar 3) became the new baseline for every tick after it within
+      // this forecast walk, silently shifting the projected week for
+      // every remaining occurrence.
+      const months = frequency === 'monthly' ? 1 : 3
+      r.setUTCDate(1)
+      r.setUTCMonth(r.getUTCMonth() + months)
+      const lastDayOfMonth = new Date(Date.UTC(r.getUTCFullYear(), r.getUTCMonth() + 1, 0)).getUTCDate()
+      r.setUTCDate(Math.min(anchorDay, lastDayOfMonth))
+      break
+    }
     case 'yearly': r.setUTCFullYear(r.getUTCFullYear() + 1); break
     default: r.setUTCDate(r.getUTCDate() + 30)
   }
