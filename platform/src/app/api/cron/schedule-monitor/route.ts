@@ -6,6 +6,7 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -177,13 +178,19 @@ export async function GET(request: Request) {
       if (isNycMaid(tenantId)) {
         const nowT = new Date()
         const dayAgoIso = new Date(nowT.getTime() - 24 * 60 * 60 * 1000).toISOString()
+        // start_time/end_time are naive-ET; dayAgoIso/nowT.toISOString() are
+        // true-UTC and skew any comparison against those two columns by 4-5h
+        // (see lib/recurring's nowNaiveET header) -- created_at is a real
+        // timestamptz column and correctly keeps using dayAgoIso/nowT as-is.
+        const nowNaive = nowNaiveET()
+        const dayAgoNaive = nowNaiveET(-24 * 60 * 60 * 1000)
 
         // no_show — scheduled, past end_time, never checked in.
         const { data: noShows } = await supabaseAdmin
           .from('bookings')
           .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'scheduled')
-          .lte('end_time', nowT.toISOString()).gte('start_time', todayStr + 'T00:00:00').is('check_in_time', null)
+          .lte('end_time', nowNaive).gte('start_time', todayStr + 'T00:00:00').is('check_in_time', null)
         for (const b of noShows || []) {
           issues.push({ type: 'no_show', severity: 'critical', message: `${(b.team_members as { name?: string } | null)?.name || 'Unassigned'} never checked in for ${(b.clients as { name?: string } | null)?.name || 'client'} — job should be done by now`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
         }
@@ -192,7 +199,7 @@ export async function GET(request: Request) {
         const { data: stuck } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, clients(name)')
-          .eq('tenant_id', tenantId).eq('status', 'pending').lt('created_at', dayAgoIso).gte('start_time', nowT.toISOString())
+          .eq('tenant_id', tenantId).eq('status', 'pending').lt('created_at', dayAgoIso).gte('start_time', nowNaive)
         for (const b of stuck || []) {
           issues.push({ type: 'stuck_pending', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — pending 24h+, not yet scheduled`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
         }
@@ -201,18 +208,18 @@ export async function GET(request: Request) {
         const { data: overdue } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, price, end_time, clients(name)')
-          .eq('tenant_id', tenantId).eq('status', 'completed').neq('payment_status', 'paid').gt('price', 0).lte('end_time', dayAgoIso)
+          .eq('tenant_id', tenantId).eq('status', 'completed').neq('payment_status', 'paid').gt('price', 0).lte('end_time', dayAgoNaive)
         for (const b of overdue || []) {
           issues.push({ type: 'payment_overdue', severity: 'warning', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} — $${(Number(b.price) / 100).toFixed(0)} unpaid (completed ${String(b.end_time).split('T')[0]})`, booking_ids: [b.id], client_id: b.client_id || undefined, tenant_id: tenantId })
         }
 
         // cleaner_unpaid — completed 48h+ ago, team member not paid.
-        const twoDayIso = new Date(nowT.getTime() - 48 * 60 * 60 * 1000).toISOString()
+        const twoDayNaive = nowNaiveET(-48 * 60 * 60 * 1000)
         const { data: unpaidCleaner } = await supabaseAdmin
           .from('bookings')
           .select('id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId).eq('status', 'completed').gt('price', 0)
-          .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayIso)
+          .or('team_member_paid.is.null,team_member_paid.eq.false').lte('end_time', twoDayNaive)
         for (const b of unpaidCleaner || []) {
           issues.push({ type: 'cleaner_unpaid', severity: 'warning', message: `${(b.team_members as { name?: string } | null)?.name || 'Team member'} not paid for ${(b.clients as { name?: string } | null)?.name || 'client'}`, booking_ids: [b.id], team_member_id: b.team_member_id || undefined, tenant_id: tenantId })
         }

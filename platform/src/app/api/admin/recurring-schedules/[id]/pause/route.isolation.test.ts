@@ -26,6 +26,7 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 
 import { POST, DELETE } from './route'
+import { nowNaiveET } from '@/lib/recurring'
 
 const postReq = (body: unknown) => new Request('http://x', { method: 'POST', body: JSON.stringify(body) })
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
@@ -72,6 +73,22 @@ describe('POST /api/admin/recurring-schedules/:id/pause — tenant isolation', (
     expect(bookA?.cancelled_reason).toBe('schedule_paused')
     expect(bookX?.status).toBe('scheduled')
     expect(bookB?.status).toBe('scheduled')
+  })
+
+  it('cancels a booking due within the ET/UTC gap window, not just far-future ones', async () => {
+    // Regression: a true-UTC `now` reads 4-5h ahead of the naive-ET start_time
+    // column, so a booking only 2h out (always inside that gap) used to be
+    // read as already in the past and left un-cancelled by pause.
+    h.store.bookings.push({
+      id: 'book-soon', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled',
+      start_time: nowNaiveET(2 * 60 * 60 * 1000),
+    })
+
+    const res = await POST(postReq({ paused_until: '2099-01-01' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(json.bookings_cancelled).toBe(2)
+    expect(h.store.bookings.find((b) => b.id === 'book-soon')?.status).toBe('cancelled')
   })
 })
 

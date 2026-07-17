@@ -42,6 +42,7 @@ vi.mock('@/lib/sms', () => ({ sendSMS: (...a: unknown[]) => h.sendSMS(...a) }))
 
 import { POST, DELETE } from './route'
 import { AuthError } from '@/lib/tenant-query'
+import { nowNaiveET } from '@/lib/recurring'
 
 const params = (id: string) => ({ params: Promise.resolve({ id }) })
 const postReq = (body: unknown) => new Request('http://x', { method: 'POST', body: JSON.stringify(body) })
@@ -110,6 +111,22 @@ describe('POST /api/schedules/:id/pause', () => {
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.status).toBe('paused')
     expect(h.store.bookings.find((b) => b.id === 'book-in-window')?.status).toBe('cancelled')
     expect(h.store.bookings.find((b) => b.id === 'book-after-window')?.status).toBe('scheduled')
+  })
+
+  it('cancels a booking due within the ET/UTC gap window, not just far-future ones', async () => {
+    // Regression: a true-UTC `now` reads 4-5h ahead of the naive-ET start_time
+    // column, so a booking only 2h out (always inside that gap) used to be
+    // read as already in the past and left un-cancelled by pause.
+    h.store.bookings.push({
+      id: 'book-soon', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled',
+      start_time: nowNaiveET(2 * 60 * 60 * 1000),
+    })
+
+    const res = await POST(postReq({ paused_until: '2099-01-31' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(json.bookings_cancelled).toBe(2)
+    expect(h.store.bookings.find((b) => b.id === 'book-soon')?.status).toBe('cancelled')
   })
 
   it('inserts an in-app notification describing the pause and cancellation count', async () => {
@@ -226,5 +243,19 @@ describe('DELETE /api/schedules/:id/pause — resume', () => {
     expect(h.store.bookings.find((b) => b.id === 'book-client-cancelled')?.status).toBe('cancelled')
     const notif = h.store.notifications[0]
     expect(notif.message).toContain('1 visit restored')
+  })
+
+  it('restores a cancelled booking due within the ET/UTC gap window, not just far-future ones', async () => {
+    h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.status = 'paused'
+    h.store.bookings.push({
+      id: 'book-soon-paused', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'cancelled',
+      cancelled_reason: 'schedule_paused', start_time: nowNaiveET(2 * 60 * 60 * 1000),
+    })
+
+    const res = await DELETE(new Request('http://x'), params('sched-A1'))
+    const json = await res.json()
+
+    expect(json.bookings_restored).toBe(1)
+    expect(h.store.bookings.find((b) => b.id === 'book-soon-paused')?.status).toBe('scheduled')
   })
 })

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -14,7 +15,10 @@ export async function GET(request: Request) {
   const auth = await protectClientAPI(tenant.id, clientId)
   if (auth instanceof NextResponse) return auth
 
-  const now = new Date().toISOString()
+  // start_time is naive-ET (see lib/recurring.ts's nowNaiveET header) -- a
+  // true-UTC "now" here silently moved bookings in the next 4-5h from
+  // "upcoming" into "past" in the client's own portal.
+  const now = nowNaiveET()
 
   const { data: clientRecord } = await supabaseAdmin
     .from('clients')

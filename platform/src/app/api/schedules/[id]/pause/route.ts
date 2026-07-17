@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
+import { nowNaiveET } from '@/lib/recurring'
 
 // POST — pause until date. Cancels any bookings within the pause window and
 // notifies the client via SMS if tenant has Telnyx configured.
@@ -31,7 +32,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: error?.message || 'Schedule not found' }, { status: 404 })
     }
 
-    const now = new Date().toISOString()
+    const now = nowNaiveET()
     const pauseEnd = `${paused_until}T23:59:59`
 
     const { data: cancelled } = await db
@@ -104,7 +105,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
       return NextResponse.json({ error: error?.message || 'Schedule not found' }, { status: 404 })
     }
 
-    const now = new Date().toISOString()
+    const now = nowNaiveET()
     const { data: restored } = await db
       .from('bookings')
       .update({ status: 'scheduled', cancelled_reason: null })

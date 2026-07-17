@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -39,16 +40,16 @@ export async function GET(request: Request) {
       // TEAM MEMBER CONFIRMATION — Resend hourly until confirmed
       // For jobs in the next 48 hours with no team confirmation
       // ============================================
-      const twoDaysAhead = new Date(now.getTime() + 48 * 60 * 60 * 1000)
-
+      // start_time is naive-ET; a true-UTC "now"/"+48h" here would skew both
+      // edges of this window by 4-5h (see lib/recurring's nowNaiveET header).
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
         .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', twoDaysAhead.toISOString())
+        .gte('start_time', nowNaiveET())
+        .lte('start_time', nowNaiveET(48 * 60 * 60 * 1000))
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
 

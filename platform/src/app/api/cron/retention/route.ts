@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -69,7 +70,11 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .eq('client_id', client.id)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', now.toISOString())
+          // start_time is naive-ET; now.toISOString() is true-UTC and would
+          // skew this "any upcoming booking?" gate by 4-5h (see lib/recurring's
+          // nowNaiveET header) -- a client due for a retention text could get
+          // skipped/kept based on a booking that isn't really upcoming yet.
+          .gte('start_time', nowNaiveET())
 
         if ((upcomingCount || 0) > 0) { skipped++; continue }
 

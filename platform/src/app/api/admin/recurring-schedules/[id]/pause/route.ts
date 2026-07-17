@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Pause / resume a recurring schedule. Tenant-scoped, admin-only. Pausing
 // cancels the bookings that fall inside the pause window but sends NO client
@@ -28,7 +29,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
-  const now = new Date().toISOString()
+  const now = nowNaiveET()
   const pauseEnd = paused_until + 'T23:59:59'
   const { data: cancelled } = await db
     .from('bookings')
@@ -65,7 +66,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .single()
   if (sErr) return NextResponse.json({ error: sErr.message }, { status: 500 })
 
-  const now = new Date().toISOString()
+  const now = nowNaiveET()
   const { data: restored } = await db
     .from('bookings')
     .update({ status: 'scheduled', cancelled_reason: null })
