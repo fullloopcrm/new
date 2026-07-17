@@ -6464,3 +6464,60 @@ regressions (same pre-existing, unrelated `tenant-scope` guard warning on
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (142) New fresh-ground surface — `job_payments.status = 'void'` fully declared at every layer, never written
+
+`job_payments`'s CHECK constraint (`2026_07_02_jobs_projects.sql`) names four
+values (`pending`, `invoiced`, `paid`, `void`), and `PATCH
+/api/jobs/[id]/payments`'s own `VALID` array already accepts all four with
+zero special-casing needed for `void` — but grepping every fetch call into
+that endpoint across `src/app/dashboard/jobs/[id]/page.tsx` (the only UI
+surface that touches job payments) found exactly one: `status: 'paid'`. A
+milestone that got waived, renegotiated away, or was simply wrong had no way
+to be retired — it just sat there forever as an active line in the payment
+plan with a "Mark paid" button and no other option. Same "declared status,
+generic writer already there, zero call site" shape as (140)'s routes
+`cancelled`.
+
+**Fixed** — added a "Void" button next to "Mark paid" for any payment not
+already `paid`/`void`, reusing the existing PATCH endpoint with no backend
+change (same reasoning as (140): the writer already worked, the gap was
+purely the missing UI trigger). Voided payments render a `—` in place of
+either action and a small "voided" tag next to the amount, same treatment
+as the existing `invoiced` → "due" tag.
+
+## (143) Continuing (142)'s surface — cancelling a job left its outstanding payments stranded, and unlike (141)'s `started`, this one already has a real trigger
+
+`lib/jobs.ts` already runs every job status change through
+`releasePaymentsForEvent()`, which flips matching `pending` payments to
+`invoiced` via an `EVENT_RELEASES` map keyed on job event type (`created`,
+`session_completed`, `completed`). `cancelled` was never in that map. So a
+cancelled job's `pending` (never released) and `invoiced` (due, uncollected)
+payments just kept existing exactly as before — still showing "due", still
+offering "Mark paid" after (142)'s fix, on a job that will never be worked.
+This is the same declared-status-no-write-path shape as (141), but the
+distinction (141) drew doesn't apply here: (141) left `started` unbuilt
+because no team-member-facing route view exists to be its natural trigger —
+here the natural trigger (job cancellation) already exists and already
+drives this exact payment-release machinery for three other events.
+
+**Fixed** — added `voidPaymentsForCancellation()` in `lib/jobs.ts`, the void
+counterpart to `releasePaymentsForEvent()`: on `PATCH /api/jobs/[id]` with
+`status: 'cancelled'`, it flips every `pending`/`invoiced` payment (not yet
+paid) to `void` and logs a `payment_voided` job event per row. Already-`paid`
+payments are left untouched — cancellation doesn't refund money already
+collected, the same voiding-vs-refunding distinction (138)/(139) drew for
+invoices.
+
+4 new tests (`route.payment-void.test.ts`): manual void via the payments
+PATCH endpoint persists `status: 'void'`; cancelling a job voids pending and
+invoiced payments while leaving a paid one untouched; cancelling logs a
+`payment_voided` event per voided row; a non-cancel status change (e.g.
+`in_progress`) leaves payments alone. `tsc --noEmit` clean, full suite
+436/436 files, 2088/2088 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
