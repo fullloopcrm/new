@@ -25,6 +25,34 @@ function getStripe(): Stripe {
   return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
+// Looks up a tenant for a Full Loop subscription-billing webhook. Prefers the
+// stable stripe_subscription_id (set at signup, immune to the owner_email
+// being edited later via PATCH /api/admin/tenants/[id]) and falls back to
+// owner_email only for tenants that predate the 2026-07-05 migration that
+// added the column.
+async function findTenantForSubscriptionBilling(
+  subscriptionId: string | null,
+  email: string | null
+): Promise<{ id: string; name: string; owner_email: string } | null> {
+  if (subscriptionId) {
+    const { data } = await supabaseAdmin
+      .from('tenants')
+      .select('id, name, owner_email')
+      .eq('stripe_subscription_id', subscriptionId)
+      .maybeSingle()
+    if (data) return data
+  }
+  if (email) {
+    const { data } = await supabaseAdmin
+      .from('tenants')
+      .select('id, name, owner_email')
+      .eq('owner_email', email)
+      .maybeSingle()
+    if (data) return data
+  }
+  return null
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
@@ -675,17 +703,15 @@ export async function POST(request: Request) {
     }
 
     case 'invoice.paid': {
-      // Monthly subscription renewal succeeded for a Full Loop tenant.
-      // Look up the tenant by the Stripe customer email (subscription was
-      // created from the prospect's checkout session).
+      // Monthly subscription renewal succeeded for a Full Loop tenant. Look
+      // up by the subscription id first (stable, survives an admin later
+      // editing owner_email); fall back to customer email for tenants that
+      // predate stripe_subscription_id being stored.
       const invoice = event.data.object as Stripe.Invoice
+      const subDetails = invoice.parent?.subscription_details?.subscription
+      const subscriptionId = typeof subDetails === 'string' ? subDetails : subDetails?.id || null
       const customerEmail = invoice.customer_email
-      if (!customerEmail) break
-      const { data: tenant } = await supabaseAdmin
-        .from('tenants')
-        .select('id')
-        .eq('owner_email', customerEmail)
-        .maybeSingle()
+      const tenant = await findTenantForSubscriptionBilling(subscriptionId, customerEmail)
       if (!tenant) break
       await supabaseAdmin
         .from('tenants')
@@ -696,13 +722,10 @@ export async function POST(request: Request) {
 
     case 'invoice.payment_failed': {
       const invoice = event.data.object as Stripe.Invoice
+      const subDetails = invoice.parent?.subscription_details?.subscription
+      const subscriptionId = typeof subDetails === 'string' ? subDetails : subDetails?.id || null
       const customerEmail = invoice.customer_email
-      if (!customerEmail) break
-      const { data: tenant } = await supabaseAdmin
-        .from('tenants')
-        .select('id, name, owner_email')
-        .eq('owner_email', customerEmail)
-        .maybeSingle()
+      const tenant = await findTenantForSubscriptionBilling(subscriptionId, customerEmail)
       if (!tenant) break
       await supabaseAdmin
         .from('tenants')
@@ -729,7 +752,22 @@ export async function POST(request: Request) {
       // failed). Flip billing_status so dashboard can gate features, but do
       // not delete the tenant — data retention window is separate.
       const sub = event.data.object as Stripe.Subscription
-      // Fetch customer to get email for tenant lookup
+      // Prefer the subscription id itself (this event's own object — no
+      // extra Stripe API call needed) over a customer-email lookup.
+      const { data: bySubId } = await supabaseAdmin
+        .from('tenants')
+        .select('id')
+        .eq('stripe_subscription_id', sub.id)
+        .maybeSingle()
+      if (bySubId) {
+        await supabaseAdmin
+          .from('tenants')
+          .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
+          .eq('id', bySubId.id)
+        break
+      }
+      // Pre-migration tenant with no stored subscription id — fall back to
+      // a live customer lookup for its email.
       try {
         const stripeClient = stripe ?? getStripe()
         const customer = await stripeClient.customers.retrieve(sub.customer as string)
