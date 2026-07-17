@@ -3,6 +3,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
+import { notify } from '@/lib/notify'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['scheduled', 'cancelled'],
@@ -30,9 +31,9 @@ export async function PATCH(
     // Get current booking
     const { data: booking } = (await db
       .from('bookings')
-      .select('status')
+      .select('status, team_member_id, start_time')
       .eq('id', id)
-      .single()) as { data: { status: string } | null }
+      .single()) as { data: { status: string; team_member_id: string | null; start_time: string } | null }
 
     if (!booking) {
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -79,6 +80,29 @@ export async function PATCH(
     }
 
     await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: status } })
+
+    // A tech assigned to a job that gets cancelled from the admin dashboard
+    // was never told — they'd show up to a job that no longer exists. The
+    // client-portal self-cancel path (POST /api/portal/bookings/[id]) already
+    // fires this same team-member SMS; this is the operator-initiated side
+    // of that same gap.
+    if (status === 'cancelled' && booking.team_member_id) {
+      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      try {
+        await notify({
+          tenantId,
+          type: 'booking_cancelled',
+          title: 'Job Cancelled',
+          message: `Your ${bookingDate} job has been cancelled.`,
+          channel: 'sms',
+          recipientType: 'team_member',
+          recipientId: booking.team_member_id,
+          bookingId: id,
+        })
+      } catch (notifyErr) {
+        console.error('Cancellation notify error (non-blocking):', notifyErr)
+      }
+    }
 
     return NextResponse.json({ booking: data })
   } catch (e) {

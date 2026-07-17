@@ -15,6 +15,7 @@ interface Booking {
   recurring_type: string | null
   cleaners: { name: string } | null
   hourly_rate?: number
+  is_emergency?: boolean | null
 }
 
 interface Slot {
@@ -584,6 +585,11 @@ export default function ClientDashboardPage() {
                       <p className="text-gray-500 text-sm">{booking.cleaners?.name || 'Cleaner TBD'}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1 ml-3">
+                      {booking.is_emergency && (
+                        <span className="text-xs px-2 py-1 rounded-full font-medium bg-red-100 text-red-700">
+                          🚨 Emergency
+                        </span>
+                      )}
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`}>
                         {statusLabel}
                       </span>
@@ -602,7 +608,10 @@ export default function ClientDashboardPage() {
                       </div>
                       <div>
                         <p className="text-gray-400 text-xs uppercase tracking-wide">Price</p>
-                        <p className="text-[#1E2A4A] font-medium">${(booking.price / 100).toFixed(0)}</p>
+                        <p className="text-[#1E2A4A] font-medium">
+                          ${(booking.price / 100).toFixed(0)}
+                          {booking.is_emergency && <span className="text-red-600 text-xs font-normal"> (emergency rate)</span>}
+                        </p>
                       </div>
                       <div>
                         <p className="text-gray-400 text-xs uppercase tracking-wide">Cleaner</p>
