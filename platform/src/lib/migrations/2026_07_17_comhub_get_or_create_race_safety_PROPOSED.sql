@@ -1,48 +1,33 @@
--- 2026_07_17_comhub_contact_by_email_missing_fn_plus_race_safety_PROPOSED.sql
+-- 2026_07_17_comhub_get_or_create_race_safety_PROPOSED.sql
 --
--- PART 1 — MISSING FUNCTION (currently broken in production on every call).
+-- CORRECTION (2026-07-17 ~17:26): this migration originally shipped as
+-- "add missing comhub_get_or_create_contact_by_email fn + race safety" on
+-- the assumption that the function was undefined in prod (it's absent from
+-- every tracked migration file). A read-only prod check
+-- (`pg_proc`) confirmed `comhub_get_or_create_contact_by_email` DOES exist
+-- live, same as `_by_phone` and `comhub_get_or_create_thread` — untracked
+-- in migration files, but not actually missing from the live DB. So the 5
+-- call sites (portal messages, admin send, email backfill, comhub-email
+-- cron) have NOT been silently failing since inception; that part of the
+-- original write-up was wrong. Trimmed this file down to just the part
+-- that's still real: the TOCTOU race hardening below, applied ONLY to
+-- `_by_phone` and `comhub_get_or_create_thread` — their bodies are tracked
+-- in migrations/2026_05_19_comhub.sql, so this CREATE OR REPLACE is a known
+-- 1:1 patch (retry loop added, nothing else changed). `_by_email`'s live
+-- body was never tracked anywhere; the original file's `_by_email` block
+-- was a guess (mirrored from `_by_phone`) written back when we still
+-- thought the function needed creating from scratch. Applying that guess
+-- now, against a live function we've only confirmed *exists* (not what it
+-- actually contains), would risk silently overwriting real prod logic.
+-- Left out — see the comment at its former position below.
 --
--- `comhub_get_or_create_contact_by_email` is called live via
--- `supabaseAdmin.rpc('comhub_get_or_create_contact_by_email', ...)` from 5
--- call sites:
---   - src/app/api/portal/messages/route.ts        (customer portal message thread)
---   - src/app/api/admin/comhub/send/route.ts       (admin sending an email to a new contact)
---   - src/app/api/admin/comhub/email/backfill/route.ts (manual email backfill)
---   - src/app/api/cron/comhub-email/route.ts       (scheduled inbound-email ingestion)
--- but no `CREATE FUNCTION comhub_get_or_create_contact_by_email` exists
--- anywhere in this repo's tracked migrations (migrations/2026_05_19_comhub.sql
--- defines only `comhub_get_or_create_contact_by_phone` and
--- `comhub_get_or_create_thread` — the by-email sibling was referenced by the
--- calling code in the same commit but its own CREATE FUNCTION was never
--- written). Unless it was created ad hoc directly against prod outside any
--- tracked migration (unconfirmed — this worker has no DB access to check
--- `pg_proc`), every one of those 5 call sites has been failing on
--- "function comhub_get_or_create_contact_by_email(...) does not exist"
--- (Postgres 42883 / PostgREST PGRST202) since the day they shipped:
---   - portal/messages/route.ts: swallows the RPC error entirely (destructures
---     only `data`), so an email-only client (no phone on file) silently gets
---     an empty message thread instead of their real history — no error
---     surfaced anywhere.
---   - admin/comhub/send/route.ts: returns HTTP 500 on every attempt to email
---     a contact that doesn't have a comhub_contacts row yet — directly
---     user-visible, reproducible every time.
---   - email/backfill + cron/comhub-email: both `skipped++; continue` on RPC
---     error — every inbound email for a not-yet-known sender is silently
---     dropped from comhub. The "email channel" of the comms hub has
---     effectively never ingested a new-sender message in production.
--- Jeff should confirm via `SELECT proname FROM pg_proc WHERE proname =
--- 'comhub_get_or_create_contact_by_email'` against prod before applying —
--- if it turns out to already exist (untracked ad hoc creation), this
--- CREATE OR REPLACE just reconciles the tracked migration history with
--- prod's real definition instead of creating it fresh, and PART 2's
--- hardening still applies either way.
---
--- PART 2 — TOCTOU RACE (same class as
+-- TOCTOU RACE (same class as
 -- 2026_07_17_rate_limit_check_and_record_atomic_PROPOSED.sql and
 -- 2026_07_16_booking_overlap_trigger_advisory_lock_PROPOSED.sql).
 --
 -- All three get-or-create functions in this family (`..._by_phone`,
--- `..._by_email` new here, `comhub_get_or_create_thread`) do a plain
+-- `..._by_email`, `comhub_get_or_create_thread`) share this race shape;
+-- this migration hardens the two whose bodies are known. Plain
 -- SELECT-then-INSERT with no locking between the two steps. Two concurrent
 -- callers for the same not-yet-existing key (e.g. an inbound SMS and an
 -- inbound voice call landing near-simultaneously for the same new customer
@@ -74,12 +59,11 @@
 -- looping forever.
 --
 -- ROLLOUT SAFETY: pure CREATE OR REPLACE FUNCTION, same signatures as
--- today — no TypeScript changes needed, no fallback path required. Once
--- applied, all 5 existing call sites for `_by_email` start working (today
--- they 100%-fail), and the phone/thread race closes for every existing
--- caller transparently.
+-- today — no TypeScript changes needed, no fallback path required. The
+-- race closes for every existing `_by_phone` / `_thread` caller
+-- transparently. `_by_email`'s race is NOT addressed here (see above).
 --
--- Apply: PGPASSWORD='<pw>' psql -h db.<project>.supabase.co -p 5432 -U postgres -d postgres -f src/lib/migrations/2026_07_17_comhub_contact_by_email_missing_fn_plus_race_safety_PROPOSED.sql
+-- Apply: PGPASSWORD='<pw>' psql -h db.<project>.supabase.co -p 5432 -U postgres -d postgres -f src/lib/migrations/2026_07_17_comhub_get_or_create_race_safety_PROPOSED.sql
 
 BEGIN;
 
@@ -146,67 +130,17 @@ BEGIN
 END;
 $$;
 
--- ─── comhub_get_or_create_contact_by_email — NEW (was missing entirely) ─
--- Mirrors comhub_get_or_create_contact_by_phone's shape, keyed by email,
--- with the same race-safe retry loop from day one.
-CREATE OR REPLACE FUNCTION comhub_get_or_create_contact_by_email(
-  p_tenant_id UUID,
-  p_email TEXT,
-  p_name TEXT DEFAULT NULL,
-  p_client_id UUID DEFAULT NULL
-) RETURNS UUID
-LANGUAGE plpgsql AS $$
-DECLARE
-  v_contact_id UUID;
-  v_phone TEXT;
-  v_name_lookup TEXT;
-  v_client_id UUID := p_client_id;
-  v_team_member_id UUID;
-  v_attempt INT := 0;
-BEGIN
-  IF p_email IS NULL OR p_email = '' THEN RETURN NULL; END IF;
-  IF v_client_id IS NOT NULL THEN
-    PERFORM 1 FROM clients WHERE id = v_client_id AND tenant_id = p_tenant_id;
-    IF NOT FOUND THEN v_client_id := NULL; END IF;
-  END IF;
-
-  LOOP
-    v_attempt := v_attempt + 1;
-    SELECT id INTO v_contact_id FROM comhub_contacts WHERE tenant_id = p_tenant_id AND lower(email) = lower(p_email) LIMIT 1;
-    IF v_contact_id IS NOT NULL THEN
-      UPDATE comhub_contacts SET name = COALESCE(name, p_name), client_id = COALESCE(client_id, v_client_id), updated_at = now() WHERE id = v_contact_id;
-      RETURN v_contact_id;
-    END IF;
-    IF v_client_id IS NULL THEN
-      SELECT id, phone, name INTO v_client_id, v_phone, v_name_lookup FROM clients WHERE tenant_id = p_tenant_id AND lower(email) = lower(p_email) LIMIT 1;
-    ELSE
-      SELECT phone, name INTO v_phone, v_name_lookup FROM clients WHERE id = v_client_id LIMIT 1;
-    END IF;
-    IF v_client_id IS NULL THEN
-      SELECT id INTO v_team_member_id FROM team_members WHERE tenant_id = p_tenant_id AND lower(email) = lower(p_email) LIMIT 1;
-    END IF;
-    IF v_phone IS NOT NULL THEN
-      SELECT id INTO v_contact_id FROM comhub_contacts WHERE tenant_id = p_tenant_id AND phone = v_phone LIMIT 1;
-      IF v_contact_id IS NOT NULL THEN
-        UPDATE comhub_contacts
-           SET email = COALESCE(email, p_email), name = COALESCE(name, p_name, v_name_lookup),
-               client_id = COALESCE(client_id, v_client_id), team_member_id = COALESCE(team_member_id, v_team_member_id),
-               updated_at = now()
-         WHERE id = v_contact_id;
-        RETURN v_contact_id;
-      END IF;
-    END IF;
-    BEGIN
-      INSERT INTO comhub_contacts (tenant_id, phone, email, name, client_id, team_member_id)
-        VALUES (p_tenant_id, v_phone, p_email, COALESCE(p_name, v_name_lookup), v_client_id, v_team_member_id)
-        RETURNING id INTO v_contact_id;
-      RETURN v_contact_id;
-    EXCEPTION WHEN unique_violation THEN
-      IF v_attempt >= 3 THEN RAISE; END IF;
-    END;
-  END LOOP;
-END;
-$$;
+-- ─── comhub_get_or_create_contact_by_email — INTENTIONALLY OMITTED ──────
+-- This function is confirmed live in prod (pg_proc) but its body was never
+-- tracked in any migration file — the prior version of this file guessed a
+-- body by mirroring `_by_phone` (phone/email swapped) and proposed a
+-- CREATE OR REPLACE using that guess. Applying an unverified guessed body
+-- against a live, untracked, possibly-different implementation risks
+-- silently replacing real prod logic with something that only looks
+-- equivalent. Left out of this migration entirely. If the race-safety
+-- retry loop should also apply here, that requires first pulling the
+-- actual live body (`SELECT pg_get_functiondef('comhub_get_or_create_contact_by_email'::regproc)`)
+-- and hardening THAT — a separate, follow-up migration.
 
 -- ─── comhub_get_or_create_thread — hardened (race-safe) ─────────────────
 CREATE OR REPLACE FUNCTION comhub_get_or_create_thread(
@@ -237,12 +171,11 @@ COMMIT;
 
 -- Verify:
 -- SELECT proname FROM pg_proc WHERE proname LIKE 'comhub_get_or_create%';
---   (expect all 3: _by_phone, _by_email, _thread)
--- SELECT comhub_get_or_create_contact_by_email('<a real tenant_id>', 'smoke-test@example.com', 'Smoke Test');
---   (expect a UUID back, not a 42883 "does not exist" error)
+--   (expect all 3: _by_phone, _by_email, _thread — _by_email untouched by
+--   this migration, confirm it's still there as a sanity check only)
 --
 -- Manual race repro for the hardening (run concurrently in two psql sessions
--- against a phone/email/contact+channel combo that does NOT exist yet):
+-- against a phone/contact+channel combo that does NOT exist yet):
 --   Session A: BEGIN; SELECT comhub_get_or_create_contact_by_phone('<tenant>', '+15550001111'); -- hold, don't commit
 --   Session B: SELECT comhub_get_or_create_contact_by_phone('<tenant>', '+15550001111');
 --   Before this fix: B's INSERT can raise unique_violation once A commits,

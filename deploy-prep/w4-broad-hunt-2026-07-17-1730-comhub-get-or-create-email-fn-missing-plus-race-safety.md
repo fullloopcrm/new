@@ -1,5 +1,30 @@
 # W4 broad-hunt — 2026-07-17 17:30 — comhub get-or-create: missing by-email RPC + race hardening
 
+## CORRECTION (17:38, per LEADER read-only prod check)
+
+**Finding A below is wrong.** A read-only check against prod `pg_proc`
+confirmed `comhub_get_or_create_contact_by_email` DOES exist live, same as
+`_by_phone` and `comhub_get_or_create_thread` — untracked in migration
+files (as described below), but not actually missing from the live DB. The
+5 call sites have **not** been silently failing since inception. This is
+the same false-gap-signal pattern as `partner_requests` and the campaign
+migration earlier this session: absent from tracked migrations ≠ absent
+from prod.
+
+**Finding B is still real.** The TOCTOU race in `_by_phone` / `_thread`
+stands independent of Finding A.
+
+The migration file
+(`src/lib/migrations/2026_07_17_comhub_get_or_create_race_safety_PROPOSED.sql`,
+renamed from `..._email_missing_fn_plus_race_safety_PROPOSED.sql`) has been
+trimmed to just the `_by_phone` / `_thread` race hardening. The `_by_email`
+`CREATE OR REPLACE` block was removed entirely, not just its rationale —
+its live body was never tracked anywhere, so the version in the original
+file was a guess (mirrored from `_by_phone`) that risked silently
+overwriting whatever the real prod implementation actually contains.
+Hardening `_by_email`'s race, if warranted, needs its actual live body
+pulled first (`pg_get_functiondef`) as a separate follow-up.
+
 Queue (17:11 LEADER order, 3-deep, file-only, no push/deploy/DB):
 (1) new fresh-ground surface. (2) continue whichever surface (1) opens up.
 (3) keep gap/fluidity current.
