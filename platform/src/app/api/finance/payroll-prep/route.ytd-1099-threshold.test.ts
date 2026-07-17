@@ -32,6 +32,7 @@ vi.mock('@/lib/supabase', () => {
       select: () => c,
       eq: (col: string, val: unknown) => { filters.push({ col, op: 'eq', val }); return c },
       neq: (col: string, val: unknown) => { filters.push({ col, op: 'neq', val }); return c },
+      in: (col: string, vals: unknown[]) => { filters.push({ col, op: 'in', val: vals }); return c },
       gte: (col: string, val: unknown) => { filters.push({ col, op: 'gte', val }); return c },
       lte: (col: string, val: unknown) => { filters.push({ col, op: 'lte', val }); return c },
       then: (resolve: (v: { data: unknown; error: null }) => unknown) => {
@@ -41,6 +42,7 @@ vi.mock('@/lib/supabase', () => {
             const rowVal = row[f.col]
             if (f.op === 'eq') return rowVal === f.val
             if (f.op === 'neq') return rowVal !== f.val
+            if (f.op === 'in') return Array.isArray(f.val) && f.val.includes(rowVal)
             if (f.op === 'gte') return String(rowVal) >= String(f.val)
             if (f.op === 'lte') return String(rowVal) <= String(f.val)
             return true

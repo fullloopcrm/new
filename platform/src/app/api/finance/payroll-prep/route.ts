@@ -41,11 +41,21 @@ export async function GET(request: Request) {
       .eq('tenant_id', tenantId)
       .neq('active', false)
 
+    // Include 'paid' alongside 'completed': POST /api/finance/payroll (bulk
+    // payroll) flips a claimed booking's own status straight to 'paid' with
+    // no booking_id link anywhere else (its payroll_payments row is one
+    // lump sum per run, not per-booking) -- a booking excluded here the
+    // moment payroll runs on it would silently vanish from both this
+    // period's gross pay AND (see thresholdYear below) the contractor's
+    // real YTD earnings for the 1099 threshold, even though the money was
+    // genuinely earned and paid. 'paid' rows are counted as already-settled
+    // via the status check in the accumulation loop below, same as
+    // 'completed' rows already flagged team_member_paid via cleaner-payout.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('id, team_member_id, team_member_pay, actual_hours, start_time, status')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .gte('start_time', from)
       .lte('start_time', toTs)
 
@@ -80,7 +90,7 @@ export async function GET(request: Request) {
         .from('bookings')
         .select('team_member_id, team_member_pay')
         .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .gte('start_time', `${thresholdYear}-01-01`)
         .lte('start_time', `${thresholdYear}-12-31T23:59:59Z`)
       for (const b of ytdBookings || []) {
@@ -133,7 +143,13 @@ export async function GET(request: Request) {
       if (!row) continue
       row.hours += Number(b.actual_hours) || 0
       row.jobs += 1
-      row.gross_pay_cents += Math.round(Number(b.team_member_pay || 0)) // already cents
+      const payCents = Math.round(Number(b.team_member_pay || 0)) // already cents
+      row.gross_pay_cents += payCents
+      // 'paid' means bulk payroll already claimed and paid this booking
+      // (POST /api/finance/payroll) -- count it toward paid_out_cents here
+      // since that flow never writes a per-booking team_member_payouts row
+      // for the payouts query below to pick up.
+      if (b.status === 'paid') row.paid_out_cents += payCents
     }
 
     for (const p of payouts || []) {
