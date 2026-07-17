@@ -7349,3 +7349,70 @@ flagged) only; not visually exercised in a browser this round
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (162) New fresh-ground surface, same bug class as (140)/(141) (declared enum value with styling/transition wired but zero writer) — the onboarding checklist's 'blocked' status was completely unreachable
+
+`onboarding_tasks_status_check` (`037_leads_qualification.sql`) declares
+`status IN ('pending','in_progress','blocked','completed','skipped')`. The
+owner-facing checklist (`go-live/page.tsx`) already had a red
+`STATUS_STYLE.blocked` badge and a `STATUS_CYCLE.blocked -> 'in_progress'`
+exit transition defined — someone had clearly designed for a tenant to flag
+a task as stuck. But the only two ways to change a task's status from the
+UI were clicking the badge itself (which cycles
+`pending -> in_progress -> completed -> pending`, never touching `blocked`)
+or the "skip" button (hard-coded to `'skipped'`). No call site anywhere in
+the codebase ever sent `status:'blocked'` to the fully generic
+`PATCH /api/dashboard/onboarding` writer. A tenant whose "Provision Telnyx"
+or "Connect Stripe" step was genuinely stuck waiting on FullLoop staff or a
+third party had no way to say so — only a manual DB write could ever
+produce the state the UI was already styled to display.
+
+**Fixed** — added a "block" action button next to the existing "skip"
+button in `go-live/page.tsx`, shown whenever a task isn't already
+blocked/completed/skipped, wired to the same generic PATCH endpoint
+`skip` already used.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (163) Continuing (162)'s surface — the newly-reachable 'blocked' status carried zero information about why, unlike every sibling exception-status in this codebase
+
+Once (162) made `status:'blocked'` reachable, it exposed that
+`onboarding_tasks` has no reason column at all — unlike every comparable
+"exception" status elsewhere in this same codebase: `documents.declined` ->
+`decline_reason`, `prospects.rejected` -> `reject_reason`,
+`accounting_periods.reopened` -> `reopened_reason`. A blocked task would
+show a bare red pill with no explanation to the tenant, and (162)'s own
+mechanism gave no way to record one.
+
+**Fixed** — added `onboarding_tasks.blocked_reason TEXT` via a new
+migration file (`2026_07_17_onboarding_tasks_blocked_reason.sql`, additive
+only, not applied to prod this round — reconcile-gate token absent, file
+staged for Jeff's approval same as prior DDL-shaped fixes this session).
+`PATCH /api/dashboard/onboarding` now persists `blocked_reason` only when
+`status:'blocked'`, and — matching (161)'s stale-field discipline, so a
+resolved block's reason can't keep showing next to a task that isn't
+blocked anymore — clears it to `null` on every other transition, including
+a direct `blocked -> completed` jump. `go-live/page.tsx`'s new "block"
+button prompts for the reason (`prompt('What's blocking this step?')`,
+same pattern as the existing `reopened_reason`/`reject_reason` prompts in
+`finance/close/page.tsx` and `admin/prospects/page.tsx`) and displays it
+under the task label plus as the badge's tooltip.
+
+New test file `route.blocked-reason.test.ts` (4 tests): `status:'blocked'`
+persists the literal status and its reason; moving from `blocked` to
+`in_progress` clears `blocked_reason`; moving from `blocked` straight to
+`completed` also clears it; an invalid status is still rejected. Mutation-
+verified — reverted the `route.ts` diff via `git apply -R`, reran all 4:
+3 failed for the right reason (`blocked_reason` stayed `null` instead of
+the given reason; stayed `'waiting on staff'` instead of being cleared),
+1 passed incidentally (the invalid-status rejection predates this diff),
+reapplied and confirmed all 4 GREEN. `tsc --noEmit` clean. Full repo
+suite: 452/452 files, 2145/2145 tests, zero regressions (same
+pre-existing unrelated `fixture/route.ts` tenant-scope baseline warning
+every prior report has flagged) — not visually exercised in a browser
+this round (non-interactive worker session, no dev server driven this
+round).
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
