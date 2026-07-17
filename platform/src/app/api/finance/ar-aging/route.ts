@@ -33,12 +33,23 @@ export async function GET(request: Request) {
     if (entityId) invQ = invQ.eq('entity_id', entityId)
     const { data: invoices } = await invQ
 
-    // Completed bookings where payment_status != paid and no invoice yet
+    // Completed bookings where payment_status != paid and no invoice yet.
+    // `status` and `payment_status` are independent: `status` tracks the
+    // job/team-pay lifecycle (POST /api/finance/payroll flips a booking
+    // straight from 'completed' to 'paid' once the TEAM MEMBER is paid,
+    // regardless of whether the CLIENT ever paid), while `payment_status`
+    // tracks the client's own payment separately (unpaid/partial/paid,
+    // set by Stripe/mark-paid/bank-transaction-match). Filtering only on
+    // `status='completed'` meant the moment payroll ran on a booking it
+    // vanished from Accounts Receivable entirely, even with
+    // payment_status still 'unpaid' -- real client debt going dark with no
+    // collections visibility. Include 'paid' too; it's still gated by the
+    // same not-paid/refunded payment_status check below.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('id, price, start_time, payment_status, client_id, clients(id, name, email, phone)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .not('payment_status', 'in', '(paid,refunded)')
       .is('route_id', null)
       .order('start_time', { ascending: true })

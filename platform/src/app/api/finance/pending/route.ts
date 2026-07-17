@@ -9,11 +9,19 @@ export async function GET() {
     if (_authError) return _authError
     const { tenantId } = _authTenant
 
+    // status='completed' alone missed bookings POST /api/finance/payroll
+    // (bulk payroll) already flipped to 'paid' -- that status change only
+    // means the TEAM MEMBER got paid, it says nothing about payment_status
+    // (the client's own payment). A booking the client still owes money on
+    // vanished from this pending-collections list the moment payroll ran,
+    // even though the `or` below already exists specifically to catch
+    // "client hasn't paid yet" independent of team-pay state. Same fix as
+    // ar-aging/route.ts and payroll-prep/route.ts this session.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .select('id, start_time, price, team_member_pay, actual_hours, payment_status, team_member_paid, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .or('payment_status.neq.paid,team_member_paid.is.null,team_member_paid.eq.false')
       .order('start_time', { ascending: false })
       .limit(100)
