@@ -58,9 +58,9 @@ export async function POST(request: Request) {
   // Get all active team members
   const { data: members } = (await db
     .from('team_members')
-    .select('id, name, phone, email')
+    .select('id, name, phone, email, sms_consent')
     .eq('status', 'active')) as {
-      data: { id: string; name: string; phone: string | null; email: string | null }[] | null
+      data: { id: string; name: string; phone: string | null; email: string | null; sms_consent: boolean | null }[] | null
     }
 
   if (!members || members.length === 0) {
@@ -88,7 +88,7 @@ export async function POST(request: Request) {
     let emailSent = false
 
     // SMS broadcast
-    if (member.phone && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
+    if (member.phone && member.sms_consent !== false && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
       const smsBody = smsUrgentBroadcast(tenantConfig.name, { start_time: booking.start_time, team_pay_rate: payRate })
       try {
         await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenantConfig.telnyx_api_key, telnyxPhone: tenantConfig.telnyx_phone })

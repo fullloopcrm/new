@@ -17,6 +17,7 @@ export interface TeamMemberRecord {
   name: string
   email: string
   phone: string
+  sms_consent: boolean
 }
 
 export interface TenantRecord {
@@ -47,6 +48,9 @@ export type ClientNamePhoneEmailConsent = Pick<ClientRecord, 'name' | 'phone' | 
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
 export type TeamMemberNamePhone = Pick<TeamMemberRecord, 'name' | 'phone'> | null
 export type TeamMemberNamePhoneEmail = Pick<TeamMemberRecord, 'name' | 'phone' | 'email'> | null
+// Consent-carrying variant — same rationale as ClientNamePhoneConsent above,
+// for the team-member side of the STOP/START webhook gate.
+export type TeamMemberNamePhoneConsent = Pick<TeamMemberRecord, 'name' | 'phone' | 'sms_consent'> | null
 
 // ============================================
 // Booking with joined relations
@@ -73,7 +77,7 @@ export interface BookingWith2HourReminder {
   service_type: string | null
   start_time: string
   clients: ClientNamePhoneEmailConsent
-  team_members: TeamMemberNamePhone
+  team_members: TeamMemberNamePhoneConsent
 }
 
 /** reminders/route.ts — payment alert query */
@@ -112,7 +116,7 @@ export interface BookingUnconfirmed {
   team_member_id: string | null
   is_emergency?: boolean | null
   clients: ClientNameAddress
-  team_members: TeamMemberNamePhone
+  team_members: TeamMemberNamePhoneConsent
 }
 
 /** confirmations/route.ts — tomorrow bookings query */

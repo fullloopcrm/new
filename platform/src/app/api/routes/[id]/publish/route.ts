@@ -20,13 +20,13 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: route } = await supabaseAdmin
       .from('routes')
-      .select('*, team_members!routes_team_member_id_fkey(id, name, phone)')
+      .select('*, team_members!routes_team_member_id_fkey(id, name, phone, sms_consent)')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (!route) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const tm = route.team_members as { id: string; name: string | null; phone: string | null } | null
+    const tm = route.team_members as { id: string; name: string | null; phone: string | null; sms_consent: boolean | null } | null
     if (!tm || !tm.phone) {
       return NextResponse.json({ error: 'Route has no team member with phone number' }, { status: 400 })
     }
@@ -65,7 +65,9 @@ export async function POST(_request: Request, { params }: Params) {
     const firstName = (tm.name || 'there').split(' ')[0]
     const body = `Hi ${firstName}, your route for ${new Date(route.route_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} is ready.\n\n${stops.length} stops · ${distance} · ~${duration}\n\n${stopSummary}${mapsUrl ? `\n\nFull route: ${mapsUrl}` : ''}`
 
-    await sendSMS({ to: tm.phone, body, telnyxApiKey: apiKey, telnyxPhone: from })
+    if (tm.sms_consent !== false) {
+      await sendSMS({ to: tm.phone, body, telnyxApiKey: apiKey, telnyxPhone: from })
+    }
 
     const { data: updated } = await supabaseAdmin
       .from('routes')

@@ -41,7 +41,7 @@ export async function POST(req: Request) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, team_member_id, hourly_rate, actual_hours, price, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, preferred_language)')
+      .select('id, client_id, team_member_id, hourly_rate, actual_hours, price, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, preferred_language, sms_consent)')
       .eq('id', bookingId)
       .eq('tenant_id', tenantId)
       .single()
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
       .eq('tenant_id', tenantId)
 
     // 4. Notify team member of tip if any (bilingual)
-    const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string } | null
+    const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string; sms_consent?: boolean | null } | null
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
     const { data: tenantRow } = await supabaseAdmin
@@ -109,7 +109,7 @@ export async function POST(req: Request) {
       .eq('id', tenantId)
       .single()
 
-    if (tm?.phone && tenantRow?.telnyx_api_key && tenantRow.telnyx_phone) {
+    if (tm?.phone && tm.sms_consent !== false && tenantRow?.telnyx_api_key && tenantRow.telnyx_phone) {
       const isEs = tm.preferred_language === 'es'
       const clientLabel = client?.name || (isEs ? 'cliente' : 'client')
       const tipLine = tipCents > 0

@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, team_member_id, is_emergency, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, end_time, team_member_id, is_emergency, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
 
       for (const booking of unconfirmedJobs || []) {
         const member = booking.team_members
-        if (!member?.phone) continue
+        if (!member?.phone || member.sms_consent === false) continue
 
         // Check if team member already confirmed this job
         const { data: confirmed } = await supabaseAdmin

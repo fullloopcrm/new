@@ -109,7 +109,7 @@ export async function GET(request: Request) {
 
     const { data: teamMembers } = await supabaseAdmin
       .from('team_members')
-      .select('id, name, phone, email, pin')
+      .select('id, name, phone, email, pin, sms_consent')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .limit(500) // Don't process more than 500 per tenant per run
@@ -129,7 +129,7 @@ export async function GET(request: Request) {
       if (!upcomingJobs || upcomingJobs.length === 0) continue
 
       // SMS summary
-      if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (member.phone && member.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
         const smsBody = teamSmsTemplates(tenant).dailySummary(member.name, upcomingJobs.length, member.pin || undefined, upcomingJobs)
         await sendSMS({
           to: member.phone,
