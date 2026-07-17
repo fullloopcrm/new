@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { parseNaiveET } from '@/lib/recurring'
 
 interface ClientRow {
   id: string
@@ -68,14 +69,24 @@ export async function GET() {
       const totalSpent = completed.reduce((sum, b) => sum + (b.price || 0), 0)
       const totalBookings = completed.length
 
+      // bookings.start_time is stored as naive ET wall-clock (see
+      // parseNaiveET's own doc), not UTC. Comparing it via raw `new Date()`
+      // misreads the ET wall-clock numbers as UTC, which UNDERSTATES the
+      // real instant by the ET/UTC gap (4-5h) since ET is behind UTC -- so a
+      // booking that is genuinely still hours away in real time reads as
+      // already in the past, silently hiding a client with a real upcoming
+      // booking from `withUpcoming` (or worse, surfacing them in `workable`
+      // for reactivation outreach even though they're already booked). Same
+      // bug class as tonight's other naive-ET/true-UTC fixes, fresh ground
+      // here (sales outreach feed, not a cron).
       const futureBookings = cb.filter(b =>
-        b.start_time && new Date(b.start_time).getTime() > now.getTime() && b.status !== 'completed'
+        b.start_time && parseNaiveET(b.start_time).getTime() > now.getTime() && b.status !== 'completed'
       )
       const hasUpcoming = futureBookings.length > 0
 
       const lastCompleted = completed
         .filter(b => b.start_time)
-        .map(b => new Date(b.start_time as string))
+        .map(b => parseNaiveET(b.start_time as string))
         .sort((a, b) => b.getTime() - a.getTime())[0]
 
       const daysSinceLastBooking = lastCompleted
