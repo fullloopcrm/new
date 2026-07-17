@@ -80,7 +80,14 @@ export async function GET(request: Request) {
       .eq('status', 'completed')
       .gt('price', 0)
       .gte('end_time', recencyFloor)
-      .not('payment_status', 'in', '("paid","partial")')
+      // finance/ar-aging and finance/reconcile-candidates already exclude
+      // 'refunded' alongside 'paid' from their own "still owes money"
+      // queries — this cron only excluded paid/partial, so a booking an
+      // admin/Selena had approved or issued a refund on (refund_pending /
+      // refunded) with no payment_method recorded on the booking row would
+      // still get "your balance is still open, pay here" SMS + a live
+      // payment link, the opposite of what refund_pending/refunded means.
+      .not('payment_status', 'in', '("paid","partial","refunded","refund_pending")')
       .is('payment_method', null)
 
     let sent = 0
