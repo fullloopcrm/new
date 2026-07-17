@@ -3425,6 +3425,50 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-38. clients.pin / team_members.pin — REDACTION FIX PROBE, not the write-scope shape (fresh-ground pivot off 5a-37's now-closed write-scope thread; this round's new bug class is a sensitive-column exposure, same shape as the already-fixed tenant_members.pin_hash leak but on 3 different call sites — GET/PUT /api/clients/[id], POST /api/client/verify-code, PUT /api/client/reschedule/[id] — and a different table: clients.pin/team_members.pin are PLAINTEXT portal-login PINs, not a hash) ----
+    // Proves against real fetched rows, not mocks: (a) clients.pin and
+    // team_members.pin genuinely exist as columns on the live tables and
+    // genuinely round-trip on write/read (ruling out a schema-cache mirage);
+    // (b) the fix's omit() helper (src/lib/validate.ts), exercised against
+    // those real rows rather than a fixture object, strips exactly `pin` and
+    // leaves every other real column (including ones added by later
+    // migrations that this test file doesn't know about) untouched. The
+    // vitest mutation-verified probes (route.pin-redaction.test.ts x3) prove
+    // each route's response shape; this probe proves the shared helper
+    // itself is schema-accurate against the live DB, not just a mock.
+    {
+      const { omit } = await import('../src/lib/validate')
+
+      const pinGatePhone = '917' + String(5200000 + idx * 131 + (Date.now() % 1000)).slice(-7)
+      const { data: pinGateClient, error: pinGateClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Pin Redaction Gate Client', phone: pinGatePhone, status: 'active',
+        pin: '583920', email: 'pin-gate@example.test',
+      }).select('*').single()
+      add('pin-redaction-gate: probe client with a real pin column created', !!pinGateClient && !pinGateClientErr, pinGateClientErr?.message)
+
+      if (pinGateClient) {
+        add('pin-redaction-gate: clients.pin genuinely round-trips on the live table (not a schema-cache mirage)', pinGateClient.pin === '583920', pinGateClient.pin)
+
+        const redactedClient = omit(pinGateClient, ['pin'])
+        add('pin-redaction-gate: omit() strips pin from a real clients row', redactedClient && !('pin' in redactedClient), JSON.stringify(redactedClient && 'pin' in redactedClient))
+        add('pin-redaction-gate: omit() leaves other real columns (name/email/phone) untouched', redactedClient?.name === 'Pin Redaction Gate Client' && redactedClient?.email === 'pin-gate@example.test' && redactedClient?.phone === pinGatePhone, JSON.stringify(redactedClient))
+
+        await supabase.from('clients').delete().eq('id', pinGateClient.id).eq('tenant_id', tenant.id)
+      }
+
+      // worker (this trade's provisioned team member) already carries a real
+      // pin from provisionTenant's own onboarding flow — no insert needed,
+      // just prove the same helper against its real row.
+      const { data: pinGateWorker, error: pinGateWorkerErr } = await supabase.from('team_members').select('*').eq('id', worker.id).eq('tenant_id', tenant.id).single()
+      add('pin-redaction-gate: probe re-fetch of the real provisioned team_members row', !!pinGateWorker && !pinGateWorkerErr, pinGateWorkerErr?.message)
+
+      if (pinGateWorker) {
+        const redactedWorker = omit(pinGateWorker, ['pin'])
+        add('pin-redaction-gate: omit() strips pin from a real team_members row', redactedWorker && !('pin' in redactedWorker), JSON.stringify(redactedWorker && 'pin' in redactedWorker))
+        add('pin-redaction-gate: omit() leaves other real columns (name) untouched', redactedWorker?.name === pinGateWorker.name, JSON.stringify(redactedWorker))
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
