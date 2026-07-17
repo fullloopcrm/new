@@ -2,8 +2,17 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { pick } from '@/lib/validate'
+import { pick, omit } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+
+// clients.pin is a plaintext client-portal login PIN (POST /api/client/login
+// checks it directly). Neither dashboard/clients/[id]/page.tsx nor
+// client-drawer.tsx read `.pin` — unlike team_members.pin, which
+// admin/broadcast-guidelines deliberately texts to crew on request, there is
+// no admin feature that needs a client's PIN back. Same class as the
+// tenant_members.pin_hash fix (select('*') drifted from the narrow-select
+// invariant its own sibling POST /api/client/login already follows).
+const NEVER_RETURNED_CLIENT_FIELDS = ['pin']
 
 export async function GET(
   _request: Request,
@@ -26,7 +35,7 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ client: data })
+    return NextResponse.json({ client: omit(data, NEVER_RETURNED_CLIENT_FIELDS) })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
@@ -75,7 +84,7 @@ export async function PUT(
 
     await audit({ tenantId, action: 'client.updated', entityType: 'client', entityId: id, details: { fields: Object.keys(fields) } })
 
-    return NextResponse.json({ client: data })
+    return NextResponse.json({ client: omit(data, NEVER_RETURNED_CLIENT_FIELDS) })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

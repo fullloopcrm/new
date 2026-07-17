@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
+import { omit } from '@/lib/validate'
 import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
@@ -137,7 +138,14 @@ export async function POST(request: Request) {
     if (!client) return NextResponse.json({ error: 'Could not resolve account' }, { status: 500 })
     if (client.do_not_service) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
 
-    const response = NextResponse.json({ client, do_not_service: false })
+    // client came from a select('*')/insert().select() on clients — the
+    // sibling client/login route already deliberately narrows its own
+    // SELECT to `id, do_not_service` to avoid this exact thing (clients.pin
+    // is the plaintext client-portal login PIN); this route drifted from
+    // that invariant by returning the row wholesale. Redact before
+    // returning — the session cookie below is what re-authenticates future
+    // requests, not this field.
+    const response = NextResponse.json({ client: omit(client, ['pin']), do_not_service: false })
     const opts = clientSessionCookieOptions()
     response.cookies.set(opts.name, createClientSession(client.id, tenant.id), {
       httpOnly: opts.httpOnly,

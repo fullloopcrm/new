@@ -100,3 +100,18 @@ export function pick<T extends Record<string, unknown>>(body: unknown, fields: s
   }
   return result as Partial<T>
 }
+
+// Strip fields before a row goes back to the browser — the redaction-list
+// counterpart to pick()'s allowlist. For never-return-this columns (raw
+// credential material) on a row that otherwise ships wholesale to the
+// client, e.g. `clients.pin`/`team_members.pin` (plaintext portal-login
+// PINs). Same shape as settings/route.ts's NEVER_RETURNED_FIELDS loop, made
+// reusable for the same pattern recurring across the client/admin API.
+export function omit<T extends Record<string, unknown>>(row: T | null | undefined, fields: string[]): T | null | undefined {
+  if (!row || typeof row !== 'object') return row
+  const result = { ...row } as Record<string, unknown>
+  for (const field of fields) {
+    delete result[field]
+  }
+  return result as T
+}

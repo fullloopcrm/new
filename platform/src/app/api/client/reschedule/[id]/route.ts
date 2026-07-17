@@ -9,6 +9,7 @@ import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { omit } from '@/lib/validate'
 
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -161,5 +162,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
   })()
 
-  return NextResponse.json(updated)
+  // The read-back above embeds clients(*)/team_members(*) wholesale for the
+  // async notification fan-out (needs .name/.phone/.sms_consent), but this
+  // response goes to the CLIENT'S browser — team_members.pin is the crew
+  // member's own portal-login PIN, not the client's, and clients.pin is a
+  // plaintext credential too. Redact both before returning; the fan-out
+  // closure above already captured the un-redacted `updated`, so it's
+  // unaffected.
+  return NextResponse.json({
+    ...updated,
+    clients: updated.clients ? omit(updated.clients, ['pin']) : updated.clients,
+    team_members: updated.team_members ? omit(updated.team_members, ['pin']) : updated.team_members,
+  })
 }
