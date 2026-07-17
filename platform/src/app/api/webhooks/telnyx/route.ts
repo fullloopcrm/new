@@ -184,11 +184,22 @@ export async function POST(request: Request) {
         .single()
 
       if (member) {
+        // Persist the opt-out on the row that payment-processor.ts,
+        // notify-team.ts, and notify-team-member.ts actually check
+        // (`sms_consent !== false`) before sending. This used to only fire
+        // an admin notification -- the outbound confirmation below told the
+        // member "you have been unsubscribed" while every future shift
+        // assignment/payment SMS kept going out to them regardless.
+        await supabaseAdmin
+          .from('team_members')
+          .update({ sms_consent: false })
+          .eq('id', member.id)
+
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'sms_opt_out',
           title: `SMS Opt-Out: ${member.name} (Team)`,
-          message: `Team member ${member.name} (${from}) replied STOP.`,
+          message: `Team member ${member.name} (${from}) replied STOP and has been unsubscribed from SMS.`,
           channel: 'in_app',
           metadata: { team_member_id: member.id, phone: from },
           status: 'sent',
@@ -232,6 +243,33 @@ export async function POST(request: Request) {
           message: `${client.name} (${from}) replied START and has been re-subscribed to SMS.`,
           channel: 'in_app',
           metadata: { client_id: client.id, phone: from },
+          status: 'sent',
+        })
+      }
+
+      // Mirror the STOP handler above, which does check team members --
+      // this branch previously only ever looked at clients, so a team
+      // member who'd opted back out and in again stayed opted out forever.
+      const { data: member } = await supabaseAdmin
+        .from('team_members')
+        .select('id, name')
+        .eq('tenant_id', tenantId)
+        .eq('phone', from)
+        .single()
+
+      if (member) {
+        await supabaseAdmin
+          .from('team_members')
+          .update({ sms_consent: true })
+          .eq('id', member.id)
+
+        await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'sms_opt_in',
+          title: `SMS Re-subscribed: ${member.name} (Team)`,
+          message: `Team member ${member.name} (${from}) replied START and has been re-subscribed to SMS.`,
+          channel: 'in_app',
+          metadata: { team_member_id: member.id, phone: from },
           status: 'sent',
         })
       }
