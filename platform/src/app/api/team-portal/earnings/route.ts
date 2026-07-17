@@ -37,17 +37,33 @@ export async function GET(request: NextRequest) {
       ? b.team_member_pay / 100
       : hours * (b.pay_rate || hourlyRate)
 
+  // bookings.start_time is stored naive-ET (no tz, literally what was typed
+  // in). The old `new Date().getFullYear()/getMonth()/getDate()` read the
+  // SERVER's local calendar (UTC on Vercel), a full day ahead of ET for
+  // ~4-5h every evening -- during that window a field worker opening their
+  // earnings screen at 7-11pm ET saw $0 "today's potential earnings" despite
+  // real jobs still ahead, and the Mon-Sun week window (built off the same
+  // wrong day, including the server-local getDay() weekday) was shifted too.
+  // Same pattern already established this session (cron/schedule-monitor,
+  // team-portal/jobs, team-portal/crew/schedule).
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ymd = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
   const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+  const nowET = now.toLocaleString('sv-SE', { timeZone: 'America/New_York' }).replace(' ', 'T')
+  const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const todayObj = new Date(Date.UTC(ty, tm - 1, td))
+  const tomorrowObj = new Date(Date.UTC(ty, tm - 1, td + 1))
+  const todayStart = `${ymd(todayObj)}T00:00:00`
+  const todayEnd = `${ymd(tomorrowObj)}T00:00:00`
 
   // Today's potential earnings (scheduled hours for today)
   const { data: todayJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, start_time, end_time, status, pay_rate, team_member_pay')
     .eq('team_member_id', auth.id)
-    .gte('start_time', todayStart.toISOString())
-    .lt('start_time', todayEnd.toISOString())
+    .gte('start_time', todayStart)
+    .lt('start_time', todayEnd)
     .neq('status', 'cancelled')
 
   let todayPotentialHours = 0
@@ -60,21 +76,23 @@ export async function GET(request: NextRequest) {
     todayPotentialPay += jobPay(job, hours)
   }
 
-  // Weekly earnings (Mon-Sun)
-  const dayOfWeek = now.getDay()
+  // Weekly earnings (Mon-Sun). `todayObj` was built purely from the ET
+  // calendar y/m/d via Date.UTC, so its getUTCDay() reflects the true ET
+  // weekday with no server-tz dependency (unlike the old now.getDay()).
+  const dayOfWeek = todayObj.getUTCDay()
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  const weekStart = new Date(todayStart)
-  weekStart.setDate(weekStart.getDate() + mondayOffset)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 7)
+  const weekStartObj = new Date(Date.UTC(ty, tm - 1, td + mondayOffset))
+  const weekEndObj = new Date(Date.UTC(ty, tm - 1, td + mondayOffset + 7))
+  const weekStart = `${ymd(weekStartObj)}T00:00:00`
+  const weekEnd = `${ymd(weekEndObj)}T00:00:00`
 
   const { data: weekJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', weekStart.toISOString())
-    .lt('start_time', weekEnd.toISOString())
+    .gte('start_time', weekStart)
+    .lt('start_time', weekEnd)
     .order('start_time', { ascending: false })
 
   let weeklyPay = 0
@@ -94,16 +112,18 @@ export async function GET(request: NextRequest) {
   })
 
   // Monthly earnings
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const monthStartObj = new Date(Date.UTC(ty, tm - 1, 1))
+  const monthEndObj = new Date(Date.UTC(ty, tm, 0))
+  const monthStart = `${ymd(monthStartObj)}T00:00:00`
+  const monthEnd = `${ymd(monthEndObj)}T23:59:59`
 
   const { data: monthJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', monthStart.toISOString())
-    .lte('start_time', monthEnd.toISOString())
+    .gte('start_time', monthStart)
+    .lte('start_time', monthEnd)
     .order('start_time', { ascending: false })
 
   let monthlyPay = 0
@@ -123,15 +143,15 @@ export async function GET(request: NextRequest) {
   })
 
   // Year-to-date earnings
-  const yearStart = new Date(now.getFullYear(), 0, 1)
+  const yearStart = `${ty}-01-01T00:00:00`
 
   const { data: yearJobs } = await tenantDb(auth.tid)
     .from('bookings')
     .select('id, service_type, start_time, pay_rate, team_member_pay, check_in_time, check_out_time, status')
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', yearStart.toISOString())
-    .lte('start_time', now.toISOString())
+    .gte('start_time', yearStart)
+    .lte('start_time', nowET)
     .order('start_time', { ascending: false })
 
   let yearlyPay = 0
