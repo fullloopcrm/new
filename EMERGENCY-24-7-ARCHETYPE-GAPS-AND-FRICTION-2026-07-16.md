@@ -6521,3 +6521,97 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (144) New fresh-ground surface — `jobs.status = 'cancelled'` fully declared and fully wired at the data layer, never written by any UI call site
+
+Same shape as (140)/(142), same table (`jobs`) items (142)/(143) already
+touched at the payments layer, one level up. `jobs`'s `CHECK` constraint
+(`2026_07_02_jobs_projects.sql`, extended by `2026_07_05_jobs_unscheduled_status.sql`)
+declares five values — `unscheduled`, `scheduled`, `in_progress`,
+`completed`, `cancelled` — and `PATCH /api/jobs/[id]`'s own `VALID_STATUS`
+array already accepts all five. `cancelled` isn't just accepted, it's
+actively special-cased: (143) already wired `voidPaymentsForCancellation()`
+to fire on it, and that exact code path already has full backend test
+coverage (`route.payment-void.test.ts`, written for (143)). Both job-status
+badge maps (`dashboard/jobs/page.tsx`'s list view and
+`dashboard/jobs/[id]/page.tsx`'s detail view) already carry a dedicated
+slate badge for `cancelled` — the same "UI was built, data never arrives"
+signal as (134)'s `reopened` and (136)'s prospect `cancelled`. But grepping
+every `setJobStatus`/PATCH call site on the job detail page found exactly
+two buttons: "Start job" (→ `in_progress`) and "Mark complete" (→
+`completed`). A job that gets scrapped — client cancels, quote falls
+through, duplicate entry — had no way to leave the pipeline short of
+sitting `scheduled`/`in_progress` forever with live "Mark paid" buttons
+still showing on its payment plan, or a raw DB edit.
+
+**Fixed** — added a "Cancel job" button next to "Mark complete" on
+`/dashboard/jobs/[id]`, shown for any job not already `completed`/
+`cancelled`, reusing `setJobStatus('cancelled')` against the same
+already-tested PATCH endpoint. Unlike (140)'s and (142)'s cancel/void
+buttons, this one gated behind a `confirm()` prompt naming the real side
+effect ("Any pending or invoiced payments will be voided") — the existing
+(143) trigger it activates isn't a no-op status flip, it mutates the
+payment plan, so a bare button felt too quiet for what it does (matching
+the routes page's own `confirm()`-gated cancel from (140)'s sibling
+surface, not a new pattern). Also added the missing `unscheduled` entry to
+the detail page's own `JOB_STATUS_STYLE` map — the list page already had
+it, the detail page's copy of the same map didn't, so a job in that state
+rendered an unstyled fallback badge on its own page. No backend change:
+the writer and its side effects were already correct and already tested,
+the gap was purely the missing button.
+
+No new backend tests needed — (143)'s `route.payment-void.test.ts` already
+locks in `PATCH status:'cancelled'`'s full behavior (status persists,
+pending/invoiced payments void, paid ones don't, `payment_voided` events
+log). `tsc --noEmit` clean, full suite 437/437 files, 2091/2091 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+## (145) Continuing (144)'s surface — `jobs.status = 'unscheduled'` had a natural exit trigger that already existed and already fired an identically-named event, but never wrote the status field itself
+
+While tracing `jobs.status`'s full lifecycle for (144), checked the other
+end: `createJobFromQuote` (`lib/jobs.ts`) stamps a sold job `unscheduled`
+only when it has zero sessions at creation ("a sold job with no date
+shouldn't look booked" — correct, deliberate). The question is what moves
+it out of that state once a real date gets attached. `POST
+/api/jobs/[id]/sessions` — the only route that ever adds a session to a
+job — already logs a `job_events` row with `event_type: 'scheduled'` the
+moment a session is created, but the handler's own `job` select
+(`id, client_id, title`) never even fetched `status`, so there was no way
+it could have been checking or writing it. Net effect: a sold-but-dateless
+job, once given its first real visit through the normal "Add visit" flow
+on the job detail page, kept showing the Jobs board's orange `unscheduled`
+badge — the exact "needs scheduling" signal an operator scans that board
+for — on a job that, by the operator's own action one screen ago, no
+longer needed it. Same declared-status-no-write-path root cause as every
+item in this doc, but the inverted direction from (144): here the natural
+trigger already exists AND already logs an event of the very name the
+status field is missing, it just never propagated to the row itself —
+closest sibling is (143), where job cancellation already drove the
+identical payment-release machinery for three other events before this
+session added the fourth.
+
+**Fixed** — added `status` to the sessions route's existing job select, and
+after the booking insert succeeds, `if (job.status === 'unscheduled')`
+flips it to `scheduled` in the same request, tenant-scoped
+(`.eq('tenant_id', tenantId).eq('id', id)`, matching every other write in
+this route). Guarded on the literal `'unscheduled'` check rather than
+"always set scheduled" so a session added to an `in_progress` job (a
+second visit on multi-day work) or — defensively — a `cancelled`/
+`completed` job (shouldn't be reachable via the UI today, but the route
+has no server-side guard against it either) doesn't get silently reopened
+or overwritten by this change.
+
+3 new tests (`route.first-session.test.ts` — this route had zero prior
+test coverage of any kind, same starting point as (132)'s
+cleaner-applications route and (136)'s prospects route): first session on
+an `unscheduled` job flips status to `scheduled`; a second session on an
+already-`scheduled` job leaves status untouched; a session added to a
+`cancelled` job does not reopen it. `tsc --noEmit` clean, full suite
+437/437 files, 2091/2091 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
