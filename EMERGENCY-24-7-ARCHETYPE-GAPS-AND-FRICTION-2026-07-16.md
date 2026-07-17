@@ -315,6 +315,61 @@ logic against the real files in a standalone `node -e` run before
 committing — same "read the source" methodology as P11.8-21, worktree
 still has no `.env.local`/Supabase env for a live render check).
 
+## (9) New today — the actual payment receipt never reaches the client at all; the one template that would show a breakdown is dead code for client delivery
+
+Fresh ground, extending the (3)/(5)/(7)/(8) price-transparency trilogy past
+the *booking* stage to the *payment* stage — the moment of financial truth,
+after the emergency-rate-inflated card charge has already gone through.
+Traced every real caller of `notify({ type: 'payment_received', ... })`:
+`src/lib/payment-processor.ts:361`, `src/app/api/webhooks/stripe/route.ts`
+(in-app insert only, doesn't even call `notify()`), `src/app/api/admin/
+payments/confirm-match/route.ts` (in-app insert only), `src/app/api/email/
+monitor/route.ts` (in-app insert only), and `src/app/api/cron/reminders/
+route.ts:309` (a "Payment Due Soon" *reminder*, misusing the same type
+constant). **Every single one either passes `recipientType: 'admin'`
+explicitly or omits it, and `notify()`'s own default is `recipientType =
+'admin'`** (`src/lib/notify.ts:78`). Zero call sites anywhere in the
+codebase pass `recipientType: 'client'` for this type. Net effect:
+`paymentReceiptEmail()` (`src/lib/email-templates.ts:336`) — the one
+template in the whole codebase with an actual line-item table (Service /
+Amount / Date / Method) — is wired into `notify()`'s switch but is **dead
+code for client delivery**; it only ever lands in the tenant's own admin
+inbox, addressed to the business, not the customer who paid.
+
+What the client actually gets instead, verified by reading the real
+send calls directly: a bare, unformatted SMS — `payment-processor.ts:335`
+(`"Payment confirmed — $X received via {method}. Thank you, {name}!"`),
+`email/monitor/route.ts:112` (`"Got your {method} payment of $X — thank
+you!"`) — a flat dollar total with **zero line-item breakdown, zero mention
+of an emergency/after-hours premium**, sent via direct `sendSMS()` calls
+that bypass `notify()`/`paymentReceiptEmail()` entirely. Two compounding
+gaps on top of the "no breakdown" pattern already established in (3)/(5):
+- `payment-processor.ts:328` gates this client SMS on `clientRecord?.phone`
+  only — no `sms_consent` check (the sibling team-member SMS four lines up,
+  `:309`, does check `sms_consent !== false`). Whether that's intentional
+  (payment confirmations may be considered transactional, consent-exempt)
+  or an oversight wasn't chased further here — flagging, not asserting a bug.
+- If a client has no phone on file at all, they receive **no confirmation
+  of any kind** for a payment that already left their card — no SMS (no
+  phone to send to), no email (the only email-capable template,
+  `paymentReceiptEmail`, never targets them per above).
+
+Combined with (3)/(5)/(7)/(8): for the emergency/24-7 archetype specifically
+(routine emergency-rate premium of 2-2.5x per item 2's presets), a customer
+who accepted an urgent job with no price shown at booking (P11.19/20) now
+also gets no itemized receipt explaining the final charge — the first and
+only number they see is a bare total in a text message, with no paper trail
+to reference if they dispute it. Not fixed — this is two separable
+product/eng calls: (a) should `paymentReceiptEmail` actually reach the
+client — needs a `recipientType: 'client'` + `recipientId` wired into at
+least the two real payment-confirmation call sites (`payment-processor.ts`,
+`webhooks/stripe/route.ts`), and (b) should the emergency premium be called
+out as its own line item once it does. Verified by reading
+`notify.ts`, `payment-processor.ts`, `webhooks/stripe/route.ts`,
+`email-templates.ts`, `confirm-match/route.ts`, `email/monitor/route.ts`,
+and `cron/reminders/route.ts` directly (worktree still has no
+`.env.local`/Supabase env for a live send, same constraint as P11.8-22).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
