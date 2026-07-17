@@ -10,9 +10,23 @@ export async function GET() {
   try {
     const { tenantId } = tenant
 
+    // bookings.start_time/payment_date are stored naive-ET (no tz, literally
+    // what was typed in). `now.toISOString()` is a true-UTC reading, and the
+    // old `new Date().getFullYear()/getMonth()/getDate()` calls read the
+    // SERVER's local calendar (UTC on Vercel) -- both run a full day/hours
+    // ahead of ET for ~4-5h every evening, silently dropping tonight's jobs
+    // from "this week" and misplacing the month boundary. Format "now" as a
+    // naive ET wall-clock string, and compute month/week edges off the ET
+    // calendar day so they match what's actually stored.
+    const pad = (n: number) => String(n).padStart(2, '0')
     const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-    const weekEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 7).toISOString()
+    const nowET = now.toLocaleString('sv-SE', { timeZone: 'America/New_York' }).replace(' ', 'T')
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    const [ty, tm, td] = todayStr.split('-').map(Number)
+    const monthStartObj = new Date(Date.UTC(ty, tm - 1, 1))
+    const monthStart = `${monthStartObj.getUTCFullYear()}-${pad(monthStartObj.getUTCMonth() + 1)}-${pad(monthStartObj.getUTCDate())}T00:00:00`
+    const weekEndObj = new Date(Date.UTC(ty, tm - 1, td + 7))
+    const weekEnd = `${weekEndObj.getUTCFullYear()}-${pad(weekEndObj.getUTCMonth() + 1)}-${pad(weekEndObj.getUTCDate())}T00:00:00`
 
     const [
       { count: upcoming },
@@ -23,7 +37,7 @@ export async function GET() {
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId).in('status', ['scheduled', 'confirmed']),
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
-        .eq('tenant_id', tenantId).gte('start_time', now.toISOString()).lt('start_time', weekEnd),
+        .eq('tenant_id', tenantId).gte('start_time', nowET).lt('start_time', weekEnd),
       supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStart),
       supabaseAdmin.from('bookings').select('price')
