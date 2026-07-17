@@ -3797,6 +3797,31 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-46. GET /api/admin/businesses/[id]/site-export — tenants.domain FALLBACK PROBE, OTHER direction of 5a-45's resolver contract (fresh ground this round: this route resolved the tenant's live public domain — tenant_id -> domain, the FORWARD direction — by querying tenant_domains ONLY, no tenants.domain fallback. 5a-44/5a-45 both probed the domain -> tenant_id direction (a host resolving to the right tenant); this is the first archetype-depth probe of the reverse lookup a tenant_id-keyed admin feature depends on. requireAdmin() gates the actual route handler behind a cookie-based admin session this harness doesn't hold, so — same as 5a-38/5a-39's redaction probes mirroring GET /api/admin/businesses/[id] exactly without invoking it — this exercises the route's own resolution query inline against the REAL live schema rather than importing the handler.) ----
+    {
+      const { data: beforeDomainFwd } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+
+      const legacyFwdDomain = `legacy-export-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyFwdErr } = await supabase.from('tenants').update({ domain: legacyFwdDomain }).eq('id', tenant.id)
+      add('site-export domain-fallback probe: tenants.domain seeded, this tenant\'s tenant_domains rows deactivated', !legacyFwdErr, legacyFwdErr?.message)
+
+      // Mirrors route.ts's own query pattern exactly (tenant_domains active
+      // rows first, then tenants.domain fallback) rather than invoking the
+      // requireAdmin()-gated handler.
+      const { data: fwdDomains } = await supabase.from('tenant_domains').select('domain, is_primary').eq('tenant_id', tenant.id).eq('active', true)
+      let fwdPrimary = (fwdDomains || []).find((d) => d.is_primary)?.domain || (fwdDomains || [])[0]?.domain
+      if (!fwdPrimary) {
+        const { data: fwdTenant } = await supabase.from('tenants').select('domain').eq('id', tenant.id).maybeSingle()
+        fwdPrimary = fwdTenant?.domain || undefined
+      }
+      add('site-export domain-fallback probe: resolves this tenant\'s OWN tenants.domain when tenant_domains has nothing active (live schema, not a mock)', fwdPrimary === legacyFwdDomain, `${fwdPrimary} vs ${legacyFwdDomain}`)
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenants').update({ domain: beforeDomainFwd?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
