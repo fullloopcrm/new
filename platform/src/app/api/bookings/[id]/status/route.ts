@@ -104,6 +104,29 @@ export async function PATCH(
       }
     }
 
+    // `booking_completed` has been a declared NotificationType since this
+    // codebase's beginning, with a real color-badge entry on the admin's own
+    // /dashboard/notifications feed — but this is the only route that ever
+    // transitions a booking to 'completed', and it never called notify() for
+    // it. Same "declared type, real UI, never fired" shape as items
+    // (63)/(66)/(67)'s quote-lifecycle gaps in the sales-hub archetype.
+    if (status === 'completed') {
+      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      try {
+        await notify({
+          tenantId,
+          type: 'booking_completed',
+          title: 'Job Completed',
+          message: `The ${bookingDate} job has been marked completed.`,
+          channel: 'email',
+          recipientType: 'admin',
+          bookingId: id,
+        })
+      } catch (notifyErr) {
+        console.error('Completion notify error (non-blocking):', notifyErr)
+      }
+    }
+
     return NextResponse.json({ booking: data })
   } catch (e) {
     if (e instanceof AuthError) {
