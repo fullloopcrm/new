@@ -86,13 +86,21 @@ export async function POST(request: Request, { params }: Params) {
       metadata: { from: existing.stage, to, value_cents: existing.value_cents, ...(to === 'lost' && lostReason ? { lost_reason: lostReason } : {}) },
     })
 
-    // Manually closing to SOLD spins up the Job from the deal's proposal (if any,
-    // and not already converted) so it can be scheduled. Idempotent + best-effort.
+    // Manually closing to SOLD spins up fulfillment from the deal's proposal
+    // (if any, and not already converted) so it can be scheduled. Idempotent +
+    // best-effort. Routing mirrors quotes/public/[token]/accept/route.ts's
+    // no-deposit close path (recurring_type → recurring series, fulfillment_type
+    // 'booking' → Booking, else → Job) -- this route used to always call
+    // convertSaleToJob regardless, so an admin manually dragging a recurring-
+    // service deal to Sold on the kanban board got a one-off Job instead of a
+    // recurring_schedules series (no ongoing visits ever auto-generated). Same
+    // gap as the Stripe quote-deposit webhook, just triggered by the manual
+    // close instead of a deposit payment.
     if (to === 'sold') {
       try {
         const { data: q } = await supabaseAdmin
           .from('quotes')
-          .select('id')
+          .select('id, recurring_type, fulfillment_type')
           .eq('tenant_id', tenantId)
           .eq('deal_id', id)
           .is('converted_job_id', null)
@@ -100,11 +108,19 @@ export async function POST(request: Request, { params }: Params) {
           .limit(1)
           .maybeSingle()
         if (q) {
-          const { convertSaleToJob } = await import('@/lib/jobs')
-          await convertSaleToJob(tenantId, { type: 'quote', quoteId: q.id }, {})
+          if (q.recurring_type) {
+            const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+            await createRecurringSeriesFromQuote(tenantId, q.id)
+          } else if (q.fulfillment_type === 'booking') {
+            const { createBookingFromQuote } = await import('@/lib/sale-to-booking')
+            await createBookingFromQuote(tenantId, q.id)
+          } else {
+            const { convertSaleToJob } = await import('@/lib/jobs')
+            await convertSaleToJob(tenantId, { type: 'quote', quoteId: q.id }, {})
+          }
         }
       } catch (jobErr) {
-        console.warn('job creation on manual sold failed', jobErr)
+        console.warn('fulfillment creation on manual sold failed', jobErr)
       }
     }
 

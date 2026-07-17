@@ -256,7 +256,7 @@ export async function POST(request: Request) {
         const quoteId = session.metadata.quote_id
         const { data: q } = await supabaseAdmin
           .from('quotes')
-          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number')
+          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number, recurring_type, fulfillment_type')
           .eq('id', quoteId).eq('tenant_id', tenantId).maybeSingle()
         if (!q) return NextResponse.json({ received: true, quote_not_found: true })
         if (q.deposit_paid_at) return NextResponse.json({ received: true, idempotent: true })
@@ -294,14 +294,37 @@ export async function POST(request: Request) {
             ])
           }
         }
-        try { const { convertSaleToJob } = await import('@/lib/jobs'); await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {}) } catch (e) { console.warn('[stripe] deposit convert-to-job failed', e) }
+        // Fulfillment routing mirrors the no-deposit close path in
+        // quotes/public/[token]/accept/route.ts, which this branch had drifted
+        // from: that route picks recurring/booking/job by quote.recurring_type
+        // + fulfillment_type, but this one unconditionally called
+        // convertSaleToJob regardless -- a recurring-service quote that
+        // required a deposit got a single one-off Job on deposit payment
+        // instead of a recurring_schedules series (no ongoing visits ever
+        // auto-generated), and a fulfillment_type:'booking' quote got a Job
+        // instead of a Booking. Each helper is separately idempotent
+        // (converted_schedule_id / converted_booking_id / job claim), so this
+        // is safe even if a retried webhook delivery reaches here twice.
+        try {
+          if (q.recurring_type) {
+            const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+            await createRecurringSeriesFromQuote(tenantId, quoteId)
+          } else if (q.fulfillment_type === 'booking') {
+            const { createBookingFromQuote } = await import('@/lib/sale-to-booking')
+            await createBookingFromQuote(tenantId, quoteId)
+          } else {
+            const { convertSaleToJob } = await import('@/lib/jobs')
+            await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {})
+          }
+        } catch (e) { console.warn('[stripe] deposit sale conversion failed', e) }
         try {
           const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+          const createdWhat = q.recurring_type ? 'recurring series' : q.fulfillment_type === 'booking' ? 'booking' : 'job'
           await ownerAlert({
             tenantId, subject: `Deposit paid — ${q.quote_number}`, kicker: 'Deposit paid',
             heading: `${q.quote_number} — deposit in, it's sold`,
-            bodyHtml: `<p style="margin:0">Deposit <strong>$${(amt / 100).toFixed(2)}</strong> received. Closed to Sold — job created, ready to schedule.</p>`,
-            sms: `Deposit $${(amt / 100).toFixed(0)} paid on ${q.quote_number}. SOLD — schedule the job.`,
+            bodyHtml: `<p style="margin:0">Deposit <strong>$${(amt / 100).toFixed(2)}</strong> received. Closed to Sold — ${createdWhat} created, ready to schedule.</p>`,
+            sms: `Deposit $${(amt / 100).toFixed(0)} paid on ${q.quote_number}. SOLD — ${createdWhat} created.`,
           })
         } catch (e) { console.warn('[stripe] deposit owner alert failed', e) }
         return NextResponse.json({ received: true, quote_deposit_paid: true })

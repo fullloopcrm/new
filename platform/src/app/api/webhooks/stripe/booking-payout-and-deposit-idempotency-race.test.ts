@@ -49,6 +49,8 @@ const sendSMS = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)))
 const smsAdmins = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)))
 const nmSmsAdmins = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)))
 const convertSaleToJob = vi.hoisted(() => vi.fn(() => Promise.resolve({ job_id: 'job_1', already_converted: false })))
+const createRecurringSeriesFromQuote = vi.hoisted(() => vi.fn(() => Promise.resolve({ schedule_id: 'sched_1', bookings_created: 6, already_converted: false })))
+const createBookingFromQuote = vi.hoisted(() => vi.fn(() => Promise.resolve({ booking_id: 'book_1', already_converted: false })))
 const ownerAlert = vi.hoisted(() => vi.fn(() => Promise.resolve(undefined)))
 
 /**
@@ -106,6 +108,8 @@ vi.mock('@/lib/sms', () => ({ sendSMS }))
 vi.mock('@/lib/admin-contacts', () => ({ smsAdmins }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ smsAdmins: nmSmsAdmins }))
 vi.mock('@/lib/jobs', () => ({ convertSaleToJob }))
+vi.mock('@/lib/sale-to-recurring', () => ({ createRecurringSeriesFromQuote }))
+vi.mock('@/lib/sale-to-booking', () => ({ createBookingFromQuote }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert }))
 vi.mock('stripe', () => ({
   default: class {
@@ -136,7 +140,7 @@ beforeEach(() => {
   raceCtl.forceDepositClaimLoss = false
   stripeCtl.current = null
   stripeCtl.transfersCreate = vi.fn(() => Promise.resolve({ id: 'tr_1' }))
-  for (const fn of [postPaymentRevenue, postPayoutToLedger, postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent, sendSMS, smsAdmins, nmSmsAdmins, convertSaleToJob, ownerAlert]) fn.mockClear()
+  for (const fn of [postPaymentRevenue, postPayoutToLedger, postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent, sendSMS, smsAdmins, nmSmsAdmins, convertSaleToJob, createRecurringSeriesFromQuote, createBookingFromQuote, ownerAlert]) fn.mockClear()
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
   process.env.STRIPE_WEBHOOK_SECRET = 'whsec_test_x'
   vi.spyOn(console, 'error').mockImplementation(() => {})
@@ -234,6 +238,34 @@ describe('quote-deposit race: a losing UPDATE must not double-advance the deal o
     expect(h.store.deal_activities).toHaveLength(2)
     expect(ownerAlert).toHaveBeenCalledTimes(1)
     expect(convertSaleToJob).toHaveBeenCalledTimes(1)
+    expect(createRecurringSeriesFromQuote).not.toHaveBeenCalled()
+    expect(createBookingFromQuote).not.toHaveBeenCalled()
+  })
+
+  it('recurring-service quote: deposit payment creates the recurring series, not a one-off job', async () => {
+    h.store.quotes[0].recurring_type = 'weekly'
+    stripeCtl.current = depositSessionEvent('cs_dep_recurring')
+
+    const res = await post()
+
+    expect(res.status).toBe(200)
+    expect(createRecurringSeriesFromQuote).toHaveBeenCalledTimes(1)
+    expect(createRecurringSeriesFromQuote).toHaveBeenCalledWith(TENANT, 'q_1')
+    expect(convertSaleToJob).not.toHaveBeenCalled()
+    expect(createBookingFromQuote).not.toHaveBeenCalled()
+  })
+
+  it("booking-fulfillment quote: deposit payment creates a Booking, not a one-off job", async () => {
+    h.store.quotes[0].fulfillment_type = 'booking'
+    stripeCtl.current = depositSessionEvent('cs_dep_booking')
+
+    const res = await post()
+
+    expect(res.status).toBe(200)
+    expect(createBookingFromQuote).toHaveBeenCalledTimes(1)
+    expect(createBookingFromQuote).toHaveBeenCalledWith(TENANT, 'q_1')
+    expect(convertSaleToJob).not.toHaveBeenCalled()
+    expect(createRecurringSeriesFromQuote).not.toHaveBeenCalled()
   })
 
   it('losing delivery (CAS UPDATE matches 0 rows) returns idempotent and fires ZERO side effects', async () => {
