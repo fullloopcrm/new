@@ -310,7 +310,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .select('*, clients(name, phone, address, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
       .eq('id', claim.booking.id)
       .eq('tenant_id', tenantId)
       .single()
@@ -337,8 +337,11 @@ export async function POST(request: Request) {
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
       const memberName = data.team_members?.name?.split(' ')[0] || 'Your pro'
 
-      // Client confirmation email
-      if (data.clients?.phone || true) {
+      // Client confirmation email — do_not_service is the codebase-wide
+      // "NEVER contact" flag, same invariant every other client fan-out
+      // enforces; this notify() call fired unconditionally (the `|| true`
+      // made the phone check a no-op).
+      if (!data.clients?.do_not_service) {
         await notify({
           tenantId,
           type: 'booking_confirmed',
@@ -352,8 +355,11 @@ export async function POST(request: Request) {
         })
       }
 
-      // Client confirmation SMS
-      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      // Client confirmation SMS — sms_consent (STOP compliance) / do_not_service,
+      // same invariant every other client SMS fan-out enforces (payment-processor.ts,
+      // client/book, client/reschedule) — this route sent unconditionally on
+      // phone presence.
+      if (data.clients?.phone && data.clients?.sms_consent !== false && !data.clients?.do_not_service && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),

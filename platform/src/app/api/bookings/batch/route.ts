@@ -166,7 +166,7 @@ export async function POST(request: Request) {
   const first = (data || [])[0]
   if (first && first.status !== 'pending') {
     try {
-      const client = first.clients as { name?: string; email?: string | null; phone?: string | null } | null
+      const client = first.clients as { name?: string; email?: string | null; phone?: string | null; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
       const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null } | null
 
       const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
@@ -196,8 +196,10 @@ export async function POST(request: Request) {
         .single()
       const bizName = (tenantRow?.name as string) || 'Your service team'
 
-      // Client SMS confirmation
-      if (client?.phone && telnyxApiKey && telnyxPhone) {
+      // Client SMS confirmation — sms_consent (STOP compliance) / do_not_service,
+      // same invariant every other client SMS fan-out enforces — this route sent
+      // unconditionally on phone presence.
+      if (client?.phone && client.sms_consent !== false && !client.do_not_service && telnyxApiKey && telnyxPhone) {
         sendSMS({
           to: client.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first),
@@ -216,8 +218,9 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] cleaner SMS error:', err))
       }
 
-      // Client email confirmation
-      if (client?.email && resendKey && fromEmail) {
+      // Client email confirmation — do_not_service blocks; this route sent
+      // unconditionally on email presence.
+      if (client?.email && !client.do_not_service && resendKey && fromEmail) {
         sendEmail({
           to: client.email,
           subject: `Booking confirmed for ${bookingDate}`,

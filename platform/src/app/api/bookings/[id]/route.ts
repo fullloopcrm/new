@@ -142,7 +142,7 @@ export async function PUT(
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, address, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
       .single()
 
     if (error) {
@@ -165,9 +165,11 @@ export async function PUT(
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
       const timeChanged = fields.start_time && fields.start_time !== oldBooking?.start_time
 
-      // Booking confirmed (status changed to scheduled)
+      // Booking confirmed (status changed to scheduled) — do_not_service /
+      // sms_consent, same invariant every other client fan-out enforces;
+      // both sends fired unconditionally before this fix.
       if (statusChanged && fields.status === 'scheduled') {
-        if (data.client_id) {
+        if (data.client_id && !data.clients?.do_not_service) {
           await notify({
             tenantId,
             type: 'booking_confirmed',
@@ -180,7 +182,7 @@ export async function PUT(
             metadata: { clientName: data.clients?.name, serviceName: data.service_type },
           })
         }
-        if (data.clients?.phone && hasSMS) {
+        if (data.clients?.phone && data.clients?.sms_consent !== false && !data.clients?.do_not_service && hasSMS) {
           sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -201,7 +203,7 @@ export async function PUT(
       }
 
       // Rescheduled
-      if (timeChanged && data.clients?.phone && hasSMS) {
+      if (timeChanged && data.clients?.phone && data.clients?.sms_consent !== false && !data.clients?.do_not_service && hasSMS) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
@@ -238,7 +240,7 @@ export async function DELETE(
     // Get booking details before deleting for notifications
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -264,8 +266,9 @@ export async function DELETE(
         const bizName = tenantData?.name || 'Your Business'
         const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
 
-        // Client cancellation email
-        if (booking.client_id) {
+        // Client cancellation email — do_not_service blocks; both sends
+        // fired unconditionally before this fix.
+        if (booking.client_id && !booking.clients?.do_not_service) {
           const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
           await notify({
             tenantId,
@@ -281,7 +284,7 @@ export async function DELETE(
         }
 
         // Client cancellation SMS
-        if (booking.clients?.phone && hasSMS) {
+        if (booking.clients?.phone && booking.clients?.sms_consent !== false && !booking.clients?.do_not_service && hasSMS) {
           sendSMS({
             to: booking.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),
