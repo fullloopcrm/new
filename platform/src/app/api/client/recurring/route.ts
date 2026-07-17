@@ -5,6 +5,7 @@ import { sendClientEmail, sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { confirmationEmailFor } from '@/lib/messaging/client-email'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { verifyPortalToken } from '../../portal/auth/token'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -82,6 +83,22 @@ export async function POST(request: Request) {
     const validIds = new Set((validMembers || []).map((m) => m.id as string))
     if (requestedMemberIds.some((id) => !validIds.has(id))) {
       return NextResponse.json({ error: 'Invalid cleaner selection' }, { status: 400 })
+    }
+
+    // HR termination never touches team_members.status/active (deliberate —
+    // see hr.ts's own doc comment), so tenant-ownership alone lets this route
+    // hand a fired employee a brand-new STANDING recurring series: this writes
+    // recurring_schedules.team_member_id, 6 weeks of real bookings.team_member_id
+    // (status='scheduled'), booking_team_members rows, and (below)
+    // clients.preferred_team_member_id directly via supabaseAdmin — none of
+    // which go through POST /api/bookings, PUT /api/bookings/[id]/team, or
+    // PUT /api/client/preferred-cleaner, so none of those routes' own
+    // terminated-crew guards ever run. Same root cause and blast radius as the
+    // generate-recurring cron gap (closed 8131f28a): a raw insert bypassing
+    // every guarded route.
+    const terminatedIds = await getTerminatedTeamMemberIds(tenantId, requestedMemberIds)
+    if (terminatedIds.length > 0) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
     }
   }
 

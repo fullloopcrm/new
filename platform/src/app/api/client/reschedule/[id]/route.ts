@@ -8,6 +8,7 @@ import { smsJobRescheduled } from '@/lib/sms-templates'
 import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
@@ -54,6 +55,17 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .eq('tenant_id', tenant.id)
       .maybeSingle()
     if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+
+    // HR termination never touches team_members.status/active (deliberate —
+    // see hr.ts's own doc comment), so tenant-ownership alone isn't enough: a
+    // client rescheduling their own booking could reassign it straight to a
+    // fired employee. This raw supabaseAdmin update also bypasses PUT
+    // /api/bookings/[id]'s own terminated-crew guard entirely, since that
+    // guard only runs on that specific route, not this one.
+    const [terminatedId] = await getTerminatedTeamMemberIds(tenant.id, [body.team_member_id])
+    if (terminatedId) {
+      return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+    }
   }
 
   const tz = tenant.timezone || 'America/New_York'
