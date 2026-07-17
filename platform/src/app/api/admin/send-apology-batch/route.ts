@@ -35,7 +35,7 @@ export async function POST(request: NextRequest) {
 
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, name, phone, do_not_service, sms_opt_in')
+      .select('id, name, phone, do_not_service, sms_consent, sms_marketing_opt_out')
       .eq('tenant_id', tenantId)
       .in('id', clientIds)
 
@@ -53,7 +53,10 @@ export async function POST(request: NextRequest) {
     for (const c of clients) {
       // DNS = never contact
       if (c.do_not_service) { skippedDns++; continue }
-      if (c.sms_opt_in === false) { skippedOptOut++; continue }
+      // sms_marketing_opt_out (unsubscribe link) and sms_consent (STOP reply) are
+      // the two live opt-out writers, same pair campaigns/send checks -- the legacy
+      // schema.sql sms_opt_in column this used to read is never written by either.
+      if (c.sms_marketing_opt_out || c.sms_consent === false) { skippedOptOut++; continue }
       if (!c.phone) { skippedNoPhone++; continue }
 
       const text = (message || `Hi ${c.name?.split(' ')[0] || 'there'} — we owe you an apology. Your next booking is ${creditPct}% off, on us. 😊 — ${tenantRow?.name || ''}`).trim()
