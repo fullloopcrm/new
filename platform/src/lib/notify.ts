@@ -8,6 +8,7 @@ import {
   bookingReminderEmail,
   bookingConfirmationEmail,
   bookingReceivedEmail,
+  jobBroadcastEmail,
   followUpEmail,
   dailySummaryEmail,
   dailyOpsRecapEmail,
@@ -70,6 +71,7 @@ export type NotificationType =
   | 'error'
   | 'referral_lead'
   | 'cleaner_application'
+  | 'job_broadcast'
 
 export async function notify({
   tenantId,
@@ -176,6 +178,18 @@ export async function notify({
         dateTime: message,
         timeUntil: (metadata?.timeUntil as string) || 'soon',
         address: metadata?.address as string | undefined,
+      })
+      break
+    case 'job_broadcast':
+      htmlBody = jobBroadcastEmail({
+        ...templateData,
+        payRate: (metadata?.payRate as number) || 0,
+        jobDate: (metadata?.jobDate as string) || '',
+        jobTime: (metadata?.jobTime as string) || '',
+        endTime: metadata?.endTime as string | undefined,
+        address: metadata?.address as string | undefined,
+        serviceType: metadata?.serviceType as string | undefined,
+        notes: metadata?.notes as string | undefined,
       })
       break
     case 'follow_up':

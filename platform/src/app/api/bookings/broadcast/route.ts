@@ -5,7 +5,6 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
-import { escapeHtml } from '@/lib/escape-html'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -98,37 +97,25 @@ export async function POST(request: Request) {
 
     // Email broadcast
     if (member.email) {
-      const color = tenantConfig.primary_color || '#dc2626'
-      const broadcastHtml = `
-        <div style="font-family: sans-serif; max-width: 500px;">
-          <div style="background: ${color}; color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">
-            <h1 style="margin: 0; font-size: 24px;">URGENT JOB AVAILABLE</h1>
-            <p style="margin: 5px 0 0 0; opacity: 0.9;">First to claim gets it!</p>
-          </div>
-          <div style="background: #fef2f2; padding: 20px; border: 2px solid #fecaca;">
-            <p style="font-size: 28px; font-weight: bold; color: #16a34a; margin: 0 0 10px 0;">$${payRate}/hr</p>
-            <p style="margin: 5px 0;"><strong>Date:</strong> ${jobDate}</p>
-            <p style="margin: 5px 0;"><strong>Time:</strong> ${jobTime}${endTime ? ` - ${endTime}` : ''}</p>
-            <p style="margin: 5px 0;"><strong>Location:</strong> ${escapeHtml(client?.address) || 'TBD'}</p>
-            ${booking.service_type ? `<p style="margin: 5px 0;"><strong>Service:</strong> ${escapeHtml(booking.service_type)}</p>` : ''}
-            ${booking.notes ? `<p style="margin: 10px 0; padding: 10px; background: #fef9c3; border-radius: 6px;"><strong>Notes:</strong> ${escapeHtml(booking.notes)}</p>` : ''}
-          </div>
-          <div style="padding: 20px; text-align: center;">
-            <p style="color: #666; font-size: 14px;">Log in to your team portal to claim this job.</p>
-          </div>
-        </div>
-      `
-
       try {
         await notify({
           tenantId,
-          type: 'booking_reminder',
+          type: 'job_broadcast',
           title: `Urgent: $${payRate}/hr Job Available`,
-          message: broadcastHtml,
+          message: `Urgent job available ${jobDate} ${jobTime}${endTime ? ` - ${endTime}` : ''} at $${payRate}/hr. First to claim gets it — log in to your team portal to claim.`,
           channel: 'email',
           recipientType: 'team_member',
           recipientId: member.id,
           bookingId: booking_id,
+          metadata: {
+            payRate,
+            jobDate,
+            jobTime,
+            endTime: endTime || undefined,
+            address: client?.address,
+            serviceType: booking.service_type || undefined,
+            notes: booking.notes || undefined,
+          },
         })
         emailSent = true
       } catch { /* skip */ }

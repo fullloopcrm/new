@@ -70,6 +70,51 @@ export function bookingReminderEmail(data: TemplateData & {
   `, data)
 }
 
+export function jobBroadcastEmail(data: TemplateData & {
+  payRate: number
+  jobDate: string
+  jobTime: string
+  endTime?: string
+  address?: string
+  serviceType?: string
+  notes?: string
+}): string {
+  return baseTemplate(`
+    <h2 style="color:#b91c1c;font-size:20px;margin:0 0 4px;">🚨 Urgent Job Available</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
+      First to claim gets it — log in to your team portal to grab this one.
+    </p>
+    <table width="100%" style="background:#fef2f2;border:1px solid #fecaca;border-radius:8px;padding:16px;margin-bottom:24px;">
+    <tr><td style="padding:8px 16px;">
+      <p style="color:#16a34a;font-size:24px;font-weight:700;margin:0;">$${escapeHtml(String(data.payRate))}/hr</p>
+    </td></tr>
+    <tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Date</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.jobDate)}</p>
+    </td></tr>
+    <tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Time</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.jobTime)}${data.endTime ? ` - ${escapeHtml(data.endTime)}` : ''}</p>
+    </td></tr>
+    ${data.address ? `<tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Location</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.address)}</p>
+    </td></tr>` : ''}
+    ${data.serviceType ? `<tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Service</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.serviceType)}</p>
+    </td></tr>` : ''}
+    ${data.notes ? `<tr><td style="padding:8px 16px;">
+      <p style="color:#6b7280;font-size:12px;margin:0;text-transform:uppercase;">Notes</p>
+      <p style="color:#111827;font-size:14px;font-weight:600;margin:4px 0 0;">${escapeHtml(data.notes)}</p>
+    </td></tr>` : ''}
+    </table>
+    <p style="color:#9ca3af;font-size:12px;margin:0;">
+      Log in to your team portal to claim this job.
+    </p>
+  `, data)
+}
+
 export function followUpEmail(data: TemplateData & {
   clientName: string
   serviceName: string
