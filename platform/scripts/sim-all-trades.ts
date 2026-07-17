@@ -1276,6 +1276,69 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('schedule: crew assigned to every session', true)
     }
 
+    // ============ 5.0c SELF-SERVE CLAIM + CHECKIN/CHECKOUT (real routes, first-ever archetype coverage) ============
+    // Every session above got assigned DIRECTLY via a raw `.update({team_member_id})`
+    // — the crew's own actual self-serve path (POST /api/team-portal/jobs/claim,
+    // /checkin, /checkout) had never been driven by this harness for a project-
+    // archetype tenant (flagged as an open gap alongside login coverage, closed
+    // above, in the prior gap/fluidity round). checkin hard-blocks any booking
+    // dated in the future (`Cannot check in to a future booking`, checked in ET)
+    // and every real session in this archetype is scheduled days/weeks out by
+    // design — backdating the whole project timeline isn't a small change, so
+    // this exercises the 3 routes end-to-end against a small standalone TODAY-
+    // dated probe booking on the same job instead (a same-day punch-list/
+    // walkthrough visit is a real event these trades have too), not the
+    // multi-week session plan itself.
+    if (worker?.id && portalLoginBody?.token) {
+      const probeStart = new Date(); probeStart.setHours(6, 0, 0, 0)
+      const probeEnd = new Date(probeStart.getTime() + 2 * 3600 * 1000)
+      const { data: probeBooking, error: probeErr } = await supabase.from('bookings').insert({
+        tenant_id: tenant.id, client_id: job?.client_id || null, job_id: jobRes.job_id,
+        team_member_id: null, start_time: probeStart.toISOString(), end_time: probeEnd.toISOString(),
+        status: 'scheduled', service_type: 'same-day walkthrough (claim/checkin/checkout probe)',
+      }).select('id').single()
+      add('claim-probe: standalone same-day booking created, unclaimed', !!probeBooking && !probeErr, probeErr?.message)
+
+      if (probeBooking) {
+        const { POST: claimPOST } = await import('../src/app/api/team-portal/jobs/claim/route')
+        const claimRes = await claimPOST(new Request('http://sim.local/api/team-portal/jobs/claim', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${portalLoginBody.token}`, 'x-forwarded-for': `10.93.${idx}.1` },
+          body: JSON.stringify({ booking_id: probeBooking.id }),
+        }))
+        const claimBody = await claimRes.json()
+        add('claim: crew self-claims the open booking via the real route (not an admin assignment)', claimRes.status === 200 && claimBody?.booking?.team_member_id === worker.id, JSON.stringify({ status: claimRes.status, body: claimBody }))
+
+        const { POST: checkinPOST } = await import('../src/app/api/team-portal/checkin/route')
+        const checkinRes = await checkinPOST(new Request('http://sim.local/api/team-portal/checkin', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${portalLoginBody.token}` },
+          body: JSON.stringify({ booking_id: probeBooking.id }),
+        }))
+        const checkinBody = await checkinRes.json()
+        add('checkin: crew checks in via the real route (today-dated booking, not future-blocked)', checkinRes.status === 200 && !!checkinBody?.booking?.check_in_time && checkinBody?.booking?.status === 'in_progress', JSON.stringify({ status: checkinRes.status, body: checkinBody }))
+
+        const { POST: checkoutPOST } = await import('../src/app/api/team-portal/checkout/route')
+        const checkoutRes = await checkoutPOST(new Request('http://sim.local/api/team-portal/checkout', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${portalLoginBody.token}` },
+          body: JSON.stringify({ booking_id: probeBooking.id }),
+        }))
+        const checkoutBody = await checkoutRes.json()
+        add('checkout: crew checks out via the real route, booking completes with hours/pay computed', checkoutRes.status === 200 && !!checkoutBody?.booking?.check_out_time && checkoutBody?.booking?.status === 'completed', JSON.stringify({ status: checkoutRes.status, body: checkoutBody }))
+
+        // The 2nd claim attempt on an already-claimed (now completed) booking must
+        // be rejected, not silently re-granted — the real first-writer-wins guard
+        // claim_job_atomic's own `team_member_id IS NULL` filter gives.
+        const reclaimRes = await claimPOST(new Request('http://sim.local/api/team-portal/jobs/claim', {
+          method: 'POST',
+          headers: { 'content-type': 'application/json', authorization: `Bearer ${portalLoginBody.token}`, 'x-forwarded-for': `10.93.${idx}.1` },
+          body: JSON.stringify({ booking_id: probeBooking.id }),
+        }))
+        add('claim: re-claiming an already-claimed booking is rejected, not silently re-granted', reclaimRes.status === 409, `status=${reclaimRes.status}`)
+      }
+    }
+
     // ================= 5a. WEATHER DELAY + SESSION COMPLETION (real per-session mechanics) =================
     // PATCH /api/jobs/[id]/sessions/[sessionId] (src/app/api/jobs/[id]/sessions/[sessionId]/route.ts)
     // is a real, live route every one of these trades uses daily — reschedule a
