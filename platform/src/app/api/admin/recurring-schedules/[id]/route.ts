@@ -6,6 +6,15 @@ import { requirePermission } from '@/lib/require-permission'
 // client comms suppressed (see ../route.ts header). Cancelling a series cancels
 // its future bookings but sends NO client notifications.
 
+// Sibling routes (POST here, PUT /api/schedules/[id]) already guard
+// recurring_type against this exact allowlist -- this PUT wrote body.recurring_type
+// and body.status straight through with no check, so a bad recurring_type silently
+// zeroes out cron/generate-recurring's date math (nextOccurrenceDates' switch falls
+// through every case) and a bad status drops the schedule out of both the cron's
+// status:'active' filter and the paused-resume sweep, with no error surfaced.
+const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
+const VALID_STATUSES = ['active', 'paused', 'cancelled']
+
 export async function GET(_request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error } = await requirePermission('schedules.view')
   if (error) return error
@@ -49,6 +58,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (teamMemberId) {
     const { data: owned } = await db.from('team_members').select('id').eq('id', teamMemberId).maybeSingle()
     if (!owned) return NextResponse.json({ error: 'Invalid team_members' }, { status: 400 })
+  }
+
+  if (body.recurring_type !== undefined && !VALID_RECURRING_TYPES.includes(body.recurring_type)) {
+    return NextResponse.json({ error: `recurring_type must be one of: ${VALID_RECURRING_TYPES.join(', ')}` }, { status: 400 })
+  }
+  if (body.status !== undefined && !VALID_STATUSES.includes(body.status)) {
+    return NextResponse.json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` }, { status: 400 })
   }
 
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }
