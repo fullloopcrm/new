@@ -332,10 +332,16 @@ export default function SettingsPage() {
 
   async function saveTenant() {
     setSaving(true)
+    // Never resend selena_config here -- this tab never edits it, but `form` was
+    // seeded from the full tenant row at page load and never refreshed after a
+    // saveSelenaConfig() call, so including it would silently overwrite the live
+    // selena_config (role/portal permission overrides, SELENA persona, etc.) back
+    // to its page-load snapshot on every unrelated general-tab save.
+    const { selena_config: _staleSelenaConfig, ...tenantFields } = form
     const res = await fetch('/api/settings', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(form),
+      body: JSON.stringify(tenantFields),
     })
     if (res.ok) {
       const { tenant: updated } = await res.json()
