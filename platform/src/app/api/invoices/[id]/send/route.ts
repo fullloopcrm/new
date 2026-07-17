@@ -9,6 +9,7 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { logInvoiceEvent, formatInvoiceCents } from '@/lib/invoice'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -39,8 +40,7 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant config missing' }, { status: 500 })
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
+    const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant.domain, slug: tenant.slug })
     const invoiceUrl = `${baseUrl}/invoice/${invoice.public_token}`
 
     const toEmail = body.to_email || invoice.contact_email

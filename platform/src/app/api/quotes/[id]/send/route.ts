@@ -10,6 +10,7 @@ import { sendEmail } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -46,8 +47,7 @@ export async function POST(request: Request, { params }: Params) {
       logoUrl: tenant.logo_url, primaryColor: tenant.primary_color,
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const baseUrl = tenant.domain ? `https://${tenant.domain}` : appUrl
+    const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant.domain, slug: tenant.slug })
     const quoteUrl = `${baseUrl}/quote/${quote.public_token}`
 
     const toEmail = body.to_email || quote.contact_email

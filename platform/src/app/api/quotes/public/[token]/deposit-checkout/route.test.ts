@@ -82,4 +82,31 @@ describe('quotes/public/[token]/deposit-checkout POST', () => {
     expect(res.status).toBe(400)
     expect(created).toHaveLength(0)
   })
+
+  // BUG-CLASS PROBE (resolver-precedence, 5th mirror this session): mirrors the
+  // sibling invoices/public/[token]/checkout fix — return URL now routed through
+  // tenantSiteUrl() (tenant_domains PRIMARY first, then tenants.domain, then
+  // slug subdomain) instead of `tenant.domain ? ... : appUrl`.
+  it('domain-fallback: tenants.domain is null but tenant_domains has an active PRIMARY row — success/cancel URLs use it, not the platform app URL', async () => {
+    h.seed.quotes[0].tenants.domain = null
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'custom.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('tok-a')
+    expect(res.status).toBe(200)
+    expect(created[0].success_url).toBe('https://custom.example.com/quote/tok-a?deposit=paid')
+    expect(created[0].cancel_url).toBe('https://custom.example.com/quote/tok-a?deposit=cancelled')
+  })
+
+  it('wrong-tenant probe: tenant B\'s tenant_domains row never leaks into tenant A\'s checkout URL', async () => {
+    h.seed.quotes[0].tenants.domain = null
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: 'tid-b', domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('tok-a')
+    expect(res.status).toBe(200)
+    expect(created[0].success_url).toContain('acme-real.example.com')
+    expect(created[0].success_url).not.toContain('other-tenant.example.com')
+  })
 })

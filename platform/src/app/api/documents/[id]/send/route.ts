@@ -10,6 +10,7 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { DOCUMENTS_BUCKET, isEditableStatus, logDocEvent, sha256Hex } from '@/lib/documents'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -71,12 +72,11 @@ export async function POST(_request: Request, { params }: Params) {
     // Look up tenant for sending
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+      .select('name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
       .eq('id', tenantId)
       .single()
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
-    const baseUrl = tenant?.domain ? `https://${tenant.domain}` : appUrl
+    const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant?.domain ?? null, slug: tenant?.slug ?? null })
     const telnyxKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
     const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
     const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
