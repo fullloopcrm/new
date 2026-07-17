@@ -136,6 +136,23 @@ describe('PUT /api/schedules/:id', () => {
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')).toBeDefined()
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-B1')?.notes).toBeUndefined()
   })
+
+  it("rejects a recurring_type that generateRecurringDates doesn't recognize (the dashboard/schedules/[id] edit form used to send the invalid literal 'monthly')", async () => {
+    const res = await PUT(putReq({ recurring_type: 'monthly' }), params('sched-A1'))
+    const json = await res.json()
+
+    expect(res.status).toBe(400)
+    expect(json.error).toMatch(/recurring_type must be one of/)
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.recurring_type).toBe('weekly')
+  })
+
+  it('accepts every real RecurringType value (monthly_date, monthly_weekday, triweekly, daily, custom)', async () => {
+    for (const t of ['daily', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']) {
+      const res = await PUT(putReq({ recurring_type: t }), params('sched-A1'))
+      expect(res.status).toBe(200)
+      expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.recurring_type).toBe(t)
+    }
+  })
 })
 
 describe('DELETE /api/schedules/:id', () => {

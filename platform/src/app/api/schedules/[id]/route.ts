@@ -5,6 +5,12 @@ import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
 
+// Keep in sync with RecurringType in @/lib/recurring — generateRecurringDates'
+// switch silently produces zero dates for anything outside this set, so an
+// unvalidated recurring_type here doesn't error, it just quietly stops
+// cron/generate-recurring from ever topping up bookings again.
+const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
+
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -57,6 +63,9 @@ export async function PUT(
 
     if (fields.invoice_consolidation !== undefined && !['per_visit', 'monthly'].includes(fields.invoice_consolidation as string)) {
       return NextResponse.json({ error: 'invoice_consolidation must be per_visit or monthly' }, { status: 400 })
+    }
+    if (fields.recurring_type !== undefined && !VALID_RECURRING_TYPES.includes(fields.recurring_type as string)) {
+      return NextResponse.json({ error: `recurring_type must be one of: ${VALID_RECURRING_TYPES.join(', ')}` }, { status: 400 })
     }
 
     const { data, error } = await db

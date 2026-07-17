@@ -144,8 +144,10 @@ export default function ScheduleDetailPage() {
               <select value={editForm.recurring_type} onChange={e => setEditForm({...editForm, recurring_type: e.target.value})}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm">
                 <option value="weekly">Weekly</option>
-                <option value="biweekly">Biweekly</option>
-                <option value="monthly">Monthly</option>
+                <option value="biweekly">Every 2 Weeks</option>
+                <option value="triweekly">Every 3 Weeks</option>
+                <option value="monthly_date">Monthly (same date)</option>
+                <option value="monthly_weekday">Monthly (same weekday)</option>
               </select>
             </div>
             <div>
