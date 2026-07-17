@@ -1569,6 +1569,87 @@ regressions (one pre-existing, unrelated tenant-scope guard warning on
 `fixture/route.ts`, not touched, same precedent as items
 17/23/24/26/27/28/29/30/31/32/33/34/35/36).
 
+## (38) New today, archetype depth — the hourly confirmation cron's "team hasn't confirmed after 3 tries" admin alert was is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36) — NOW FIXED
+
+`GET /api/cron/confirmations` (runs hourly; resends a team-member
+job-confirmation SMS every ~55 min for the next 48h of `scheduled` jobs, and
+after 3+ unanswered attempts fires a `team_no_confirm_alert` admin in-app
+notification) never fetched `bookings.is_emergency` in its unconfirmed-jobs
+query, so a same-day emergency job whose assigned tech has ignored three
+confirmation texts in a row produced the byte-identical "No Confirmation:
+{name}" admin alert as a routine job three weeks out going unconfirmed —
+exactly the scenario (an emergency assignment silently going unacknowledged)
+where the owner most needs a same-day escalation signal, not a routine
+follow-up. Verified via `grep -rl is_emergency src/app/api/cron/` (same
+method as items 34/36) that this route was one of the remaining cron files
+that had not yet picked up the field.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the `unconfirmedJobs` select
+and the shared `BookingUnconfirmed` type (`src/lib/types.ts`), and escalated
+the `team_no_confirm_alert` insert's `title` (`'🚨 Urgent No Confirmation:
+{name}'`) and `message` (`'🚨 EMERGENCY — '` prefix) when true, reusing the
+exact convention items (20)/(32)/(34) already established — no copy/product
+call needed. Deliberately left the underlying hourly team-confirm SMS body
+itself unescalated (out of scope — that's a wording/product call on whether
+the confirm-request text itself should read differently for an emergency
+job, distinct from the admin-alert-blindness pattern this doc tracks).
+Zero test files exist under any `src/app/api/cron/*` route in this repo
+(same precedent as items 18/20/22/32/34/35/36) — relies on `tsc --noEmit` +
+full-suite verification. `tsc --noEmit` clean, full suite 355/355 files,
+1810/1810 tests, zero regressions (one pre-existing, unrelated tenant-scope
+guard warning on `fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37).
+
+## (39) New today, fresh ground outside the archetype — the nightly "Unpaid Team" admin alert silently stops counting a booking once bulk payroll runs, even though the team member was never actually marked paid — NOW FIXED
+
+Found while tracing the codebase's two separate "team got paid" mechanisms
+against each other. `POST /api/finance/payroll` (the bulk payroll-run
+endpoint) does exactly one thing to `bookings` rows: `UPDATE bookings SET
+status = 'paid' WHERE tenant_id=... AND team_member_id=... AND
+status='completed'` (`src/app/api/finance/payroll/route.ts:99-104`) — it
+never touches the separate `team_paid`/`team_paid_at` columns at all. Those
+columns are the codebase's own canonical, more granular "is this team
+member actually paid out" tracker — confirmed by reading
+`src/app/api/bookings/closeout/route.ts`'s own comment (`"Fully closed" =
+payment_status is paid AND team_paid is true`) and its `needsCloseout` query,
+which deliberately includes `status IN ('completed','in_progress','paid')`
+specifically so a bulk-payroll'd (`status='paid'`) booking still shows up as
+needing closeout until `team_paid` is manually confirmed true (e.g. via the
+BookingsAdmin.tsx closeout checkbox or `PATCH /api/bookings/[id]/payment`).
+`GET /api/cron/reminders`'s own 8am "Unpaid Team" admin alert section,
+however, queried `.eq('status', 'completed').or('team_paid.is.null,
+team_paid.eq.false')` — completed-only, missing the `'paid'` status entirely.
+Net effect: the instant a bulk payroll run fires for a team member, every
+one of their completed bookings flips to `status='paid'` and permanently
+drops out of this alert's count — even on a booking where `team_paid` was
+never actually set true and the dashboard's own "Needs Closeout" queue (the
+canonical source of truth per closeout.ts above) still correctly lists it
+as outstanding. The one recurring nag alert built specifically to remind the
+owner "you still owe your team money on old jobs" loses visibility on
+exactly the records closeout.ts still flags as unresolved, right at the
+moment a real payroll run happens — the scenario this alert exists for.
+
+**Fixed** (`p1-w3`) — widened the query to `.in('status', ['completed',
+'paid'])`, matching the same two relevant statuses closeout.ts's own
+`needsCloseout` query already uses for this exact team_paid check (left out
+`in_progress` deliberately — this section's own `end_time < 2 days ago`
+filter already excludes any job that could plausibly still be in progress,
+so adding it would be a no-op, not a correctness fix). Did not touch the
+alert's pre-existing lack of per-booking dedup (it re-fires the same count
+every 8am until `team_paid` flips true) — a separate, likely-intentional
+nagging-pattern design choice, not part of this undercounting bug. Zero test
+files exist under any `src/app/api/cron/*` route in this repo (same
+precedent as items 18/20/22/32/34/35/36/38) — relies on `tsc --noEmit` +
+full-suite verification, plus the same "read the real schema/every writer of
+the field before concluding" methodology items (6)/(27)/(35) used (confirmed
+via `grep -rn team_paid src/` that `closeout/route.ts` and
+`bookings/[id]/payment/route.ts` are the only real writers/readers of the
+canonical team_paid contract, and that payroll/route.ts never touches it).
+`tsc --noEmit` clean, full suite 355/355 files, 1810/1810 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
