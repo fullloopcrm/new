@@ -64,8 +64,11 @@ export async function POST(request: Request) {
 
     if (v.team_member_id) {
       const { data: memberRow } = await supabaseAdmin
-        .from('team_members').select('id').eq('id', v.team_member_id as string).eq('tenant_id', tenantId).single()
+        .from('team_members').select('id, status').eq('id', v.team_member_id as string).eq('tenant_id', tenantId).single()
       if (!memberRow) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      if (memberRow.status === 'inactive') {
+        return NextResponse.json({ error: 'Cannot assign an inactive team member' }, { status: 400 })
+      }
     }
 
     // Create schedule

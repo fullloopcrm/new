@@ -70,7 +70,7 @@ export async function POST(request: Request, { params }: Params) {
     ]
     if (explicit.length) {
       const { data: valid } = await supabaseAdmin
-        .from('team_members').select('id').eq('tenant_id', tenantId).in('id', explicit)
+        .from('team_members').select('id').eq('tenant_id', tenantId).neq('status', 'inactive').in('id', explicit)
       for (const m of valid || []) assignees.add(m.id)
     }
     const assigneeList = [...assignees]

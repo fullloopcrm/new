@@ -35,6 +35,7 @@ vi.mock('@/lib/supabase', () => {
     const chain: Record<string, unknown> = {
       select: () => chain,
       eq: () => chain,
+      neq: () => chain,
       in: () => chain,
       insert: (rows: Record<string, unknown> | Record<string, unknown>[]) => {
         const list = Array.isArray(rows) ? rows : [rows]

@@ -73,12 +73,15 @@ export async function PUT(
     if (fields.team_member_id) {
       const { data: ownedMember } = await supabaseAdmin
         .from('team_members')
-        .select('id')
+        .select('id, status')
         .eq('tenant_id', tenantId)
         .eq('id', fields.team_member_id)
         .single()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
+      }
+      if (ownedMember.status === 'inactive') {
+        return NextResponse.json({ error: 'Cannot assign an inactive team member' }, { status: 400 })
       }
     }
 
