@@ -47,7 +47,7 @@ function timeAgo(date: string) {
   return `${Math.floor(diffDays / 30)} months ago`
 }
 
-export default function ReviewsList() {
+export default function ReviewsList({ businessName }: { businessName: string }) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [avgRating, setAvgRating] = useState(5.0)
@@ -76,7 +76,7 @@ export default function ReviewsList() {
             <span className="text-white text-lg font-bold">M</span>
           </div>
           <div>
-            <span className="text-gray-900 font-semibold text-lg">Your Business Reviews</span>
+            <span className="text-gray-900 font-semibold text-lg">{businessName} Reviews</span>
             <p className="text-gray-400 text-xs">Verified Client Reviews</p>
           </div>
         </div>

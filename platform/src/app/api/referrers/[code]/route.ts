@@ -42,7 +42,7 @@ export async function GET(
   // identical to "tenant deleted" (404) instead of a server error (500).
   const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
-    .select('name, slug, domain, primary_color')
+    .select('name, slug, domain, primary_color, email, owner_email')
     .eq('id', referrer.tenant_id)
     .maybeSingle()
 
@@ -109,6 +109,10 @@ export async function GET(
       name: tenant.name,
       slug: tenant.slug,
       primary_color: tenant.primary_color || '#0d9488',
+      // Same precedence as the shared template's contact.email
+      // (site/template/_config/load.ts) — the referrer portal is the one
+      // other surface that shows a tenant support contact to the public.
+      email: tenant.email || tenant.owner_email || null,
     },
     share_url: shareUrl,
     stats: {

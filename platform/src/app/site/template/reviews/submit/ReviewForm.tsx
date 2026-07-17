@@ -18,7 +18,7 @@ const SERVICE_TYPES = [
 
 type UploadedMedia = { url: string; type: 'image' | 'video' }
 
-export default function ReviewForm() {
+export default function ReviewForm({ businessName }: { businessName: string }) {
   const [rating, setRating] = useState(0)
   const [hoverRating, setHoverRating] = useState(0)
   const [name, setName] = useState('')
@@ -191,7 +191,7 @@ export default function ReviewForm() {
             <span className="text-white text-lg font-bold">M</span>
           </div>
           <div>
-            <h2 className="text-gray-900 font-semibold text-lg">Your Business</h2>
+            <h2 className="text-gray-900 font-semibold text-lg">{businessName}</h2>
             <p className="text-gray-400 text-sm">Verified Business &middot; NYC Since 2018</p>
           </div>
         </div>
@@ -407,7 +407,7 @@ export default function ReviewForm() {
         </button>
 
         <p className="text-xs text-gray-400 text-center">
-          By submitting, you confirm this review is based on a real experience with Your Business.
+          By submitting, you confirm this review is based on a real experience with {businessName}.
         </p>
       </div>
     </form>

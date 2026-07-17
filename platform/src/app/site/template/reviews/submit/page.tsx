@@ -59,7 +59,7 @@ export default async function ReviewSubmitPage() {
           { name: 'Reviews', href: '/reviews' },
           { name: 'Leave a Review', href: '/reviews/submit' },
         ]} />
-        <ReviewForm />
+        <ReviewForm businessName={biz.name} />
       </div>
     </>
   )

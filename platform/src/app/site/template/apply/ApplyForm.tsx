@@ -5,7 +5,7 @@ import { validateEmail } from '@/lib/validate-email'
 import { SERVICE_ZONES } from '@/lib/service-zones'
 import { validateUsPhone, phoneReasonText } from '@/lib/nycmaid/phone-validator'
 
-export default function ApplyForm({ businessName }: { businessName: string }) {
+export default function ApplyForm({ businessName, phone }: { businessName: string; phone: string }) {
   const [form, setForm] = useState({
     name: '',
     preferred_language: 'en',
@@ -131,7 +131,7 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
             <h2 className="text-2xl font-bold text-[var(--brand)] mb-2">Application Received! / ¡Solicitud Recibida!</h2>
             <p className="text-gray-600">Thanks, {form.name.split(' ')[0]}. We&apos;ll review your application and reach out soon.</p>
             <p className="text-gray-600 mt-2">Gracias, {form.name.split(' ')[0]}. Revisaremos su solicitud y nos comunicaremos pronto.</p>
-            <p className="text-gray-500 text-sm mt-4">Questions? / ¿Preguntas? (555) 555-5555</p>
+            <p className="text-gray-500 text-sm mt-4">Questions? / ¿Preguntas? {phone}</p>
           </div>
         </div>
       </div>
@@ -460,7 +460,7 @@ export default function ApplyForm({ businessName }: { businessName: string }) {
           </button>
 
           <p className="text-xs text-gray-400 text-center">
-            Questions? / ¿Preguntas? (555) 555-5555
+            Questions? / ¿Preguntas? {phone}
           </p>
         </form>
       </div>

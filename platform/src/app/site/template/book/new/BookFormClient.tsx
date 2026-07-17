@@ -27,12 +27,12 @@ function trackBookingEvent(action: string, sessionId: string, extra: Record<stri
 
 const TIME_SLOTS = ['8:00 AM', '9:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '1:00 PM', '2:00 PM', '3:00 PM', '4:00 PM'] as const
 
-function BookFormContent({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
+function BookFormContent({ services, businessName, phone, phoneDigits }: { services: ServiceOption[]; businessName: string; phone: string; phoneDigits: string }) {
   // Vertical-specific options come from tenant config, not hardcoded here.
   const standardValue = services.find(s => !s.emergency)?.value ?? services[0]?.value ?? 'Standard Service'
   const emergencyValue = services.find(s => s.emergency)?.value ?? 'Same-Day Emergency'
 
-  useEffect(() => { document.title = 'Book a Service | Your Business' }, [])
+  useEffect(() => { document.title = `Book a Service | ${businessName}` }, [businessName])
   const searchParams = useSearchParams()
   const refCode = searchParams.get('ref') || ''
   const srcDomain = searchParams.get('src') || ''
@@ -212,7 +212,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
       .then((data: { slots?: { time: string; available: boolean }[]; message?: string; sameDay?: boolean } | null) => {
         if (!data) return
         setDaySlots(data.slots || [])
-        setDayMessage(data.message || (data.sameDay ? 'Same-day bookings need a quick call to confirm — (555) 555-5555.' : ''))
+        setDayMessage(data.message || (data.sameDay ? `Same-day bookings need a quick call to confirm — ${phone}.` : ''))
         // If the currently-picked time isn't actually open, shift to the first
         // open one so the client never sits on a full slot.
         const open = (data.slots || []).filter(s => s.available).map(s => s.time)
@@ -337,7 +337,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
       setShowRecap(false)
       setDone(true)
     } catch (err) {
-      setError('Network error. Please try again or text (555) 555-5555.')
+      setError(`Network error. Please try again or text ${phone}.`)
       setSubmitting(false)
       setShowRecap(false)
     }
@@ -356,7 +356,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
             <div className="bg-[rgb(var(--accent-rgb)/0.3)] border border-[var(--accent)] rounded-lg p-4 mb-6">
               <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] tracking-widest uppercase mb-1">Your PIN</p>
               <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-widest">{pin}</p>
-              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] mt-2">Save this — log in at <Link href="/book" className="underline">example.com/book</Link></p>
+              <p className="text-xs text-[rgb(var(--brand-rgb)/0.6)] mt-2">Save this — log in at <Link href="/book" className="underline">{typeof window !== 'undefined' ? window.location.host : ''}/book</Link></p>
             </div>
           )}
           <Link href="/" className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)]">Back home</Link>
@@ -371,7 +371,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
     <div className="min-h-screen bg-gradient-to-b from-[var(--brand)] to-[var(--brand-alt)] py-10 md:py-16 px-4">
       <div className="max-w-2xl mx-auto">
         <div className="text-center mb-8">
-          <div className="inline-block bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">Your Business Self-Booking System</div>
+          <div className="inline-block bg-[var(--accent)] text-[var(--brand)] text-xs font-bold tracking-widest uppercase px-3 py-1 rounded-full mb-4">{businessName} Self-Booking System</div>
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-white tracking-wide mb-3">You&rsquo;re one of the smart ones.</h1>
           <p className="text-blue-200/60 text-sm">Self-bookers save <span className="text-[var(--accent)] font-semibold">$10</span> off the final bill. Skip the call, fill it out below, you&rsquo;re booked.</p>
         </div>
@@ -607,7 +607,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
                           <p className="text-[11px] text-red-500 mt-1">
                             {(!form.name.trim() || !form.phone.trim())
                               ? 'Add your name and phone above first.'
-                              : 'Could not add you — please call (555) 555-5555.'}
+                              : `Could not add you — please call ${phone}.`}
                           </p>
                         )}
                       </div>
@@ -732,7 +732,7 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
           </button>
 
           <p className="text-center text-xs text-gray-400 mt-3">
-            No payment now &middot; You&apos;ll review &amp; confirm the recap on the next step &middot; Or text us at <a href="sms:5555555555" className="text-[var(--brand)] underline">(555) 555-5555</a>
+            No payment now &middot; You&apos;ll review &amp; confirm the recap on the next step &middot; Or text us at <a href={`sms:${phoneDigits}`} className="text-[var(--brand)] underline">{phone}</a>
           </p>
         </form>
       </div>
@@ -795,10 +795,10 @@ function BookFormContent({ services, businessName }: { services: ServiceOption[]
   )
 }
 
-export default function BookFormClient({ services, businessName }: { services: ServiceOption[]; businessName: string }) {
+export default function BookFormClient({ services, businessName, phone, phoneDigits }: { services: ServiceOption[]; businessName: string; phone: string; phoneDigits: string }) {
   return (
     <Suspense fallback={<div className="min-h-screen bg-[var(--brand)] flex items-center justify-center text-white">Loading…</div>}>
-      <BookFormContent services={services} businessName={businessName} />
+      <BookFormContent services={services} businessName={businessName} phone={phone} phoneDigits={phoneDigits} />
     </Suspense>
   )
 }

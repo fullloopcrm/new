@@ -62,7 +62,7 @@ export default async function ReviewsPage() {
 
         <div className="max-w-7xl mx-auto px-4 py-12">
           <Breadcrumbs items={[{ name: 'Reviews', href: '/reviews' }]} />
-          <ReviewsList />
+          <ReviewsList businessName={config.identity.name} />
           <div className="text-center mt-12 mb-8">
             <p className="text-gray-500 mb-4">Had a great experience? We&apos;d love to hear from you.</p>
             <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand-alt)] transition-colors">
@@ -111,7 +111,7 @@ export default async function ReviewsPage() {
       </section>
 
       <div className="max-w-4xl mx-auto px-6 py-12">
-        <ReviewsList />
+        <ReviewsList businessName={config.identity.name} />
       </div>
 
       <article className="max-w-3xl mx-auto px-6 pb-16 md:pb-24">

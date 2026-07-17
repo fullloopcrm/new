@@ -23,5 +23,12 @@ export default async function BookNewPage() {
     redirect('/book/standard')
   }
 
-  return <BookFormClient services={config.services} businessName={config.identity.legalName ?? config.identity.name} />
+  return (
+    <BookFormClient
+      services={config.services}
+      businessName={config.identity.legalName ?? config.identity.name}
+      phone={config.contact.phone}
+      phoneDigits={config.contact.phoneDigits}
+    />
+  )
 }

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 
 interface Referrer { id: string; name: string; email: string; ref_code: string; commission_rate: number; total_earned: number; total_paid: number }
+interface ReferralTenant { name: string; email: string | null }
 interface Commission { id: string; client_name: string; amount: number; status: string; paid_via: string | null; created_at: string }
 interface LinkStats { clicks: number; uniqueVisitors: number; bookClicks: number; thisWeek: number; thisMonth: number }
 interface Activity { action: string; device: string; page: string; time: string }
@@ -16,10 +17,17 @@ type Step = 'login' | 'otp' | 'dashboard'
 const AUTH_STORAGE_KEY = 'referrer_auth'
 
 export default function ReferrerPortalPage() {
-  useEffect(() => { document.title = 'Referral Program | Your Business' }, [])
-
   const [step, setStep] = useState<Step>('login')
   const [referrer, setReferrer] = useState<Referrer | null>(null)
+  // This route is the SHARED /site/template tree, rendered for every
+  // non-bespoke tenant (see platform/CLAUDE.md's global-code rule) — unlike
+  // its bespoke siblings (e.g. site/referral/page.tsx, hardcoded "The NYC
+  // Maid" for the one tenant that file ever renders), this page has no
+  // single real business to hardcode. It previously showed the literal
+  // placeholder strings "Your Business" / "hi@example.com" to every real
+  // referrer of every template tenant. Resolved from GET /api/referrers/[code]
+  // (same tenant name/email precedence as the template's own contact.email).
+  const [tenant, setTenant] = useState<ReferralTenant | null>(null)
   const [commissions, setCommissions] = useState<Commission[]>([])
   const [linkStats] = useState<LinkStats>({ clicks: 0, uniqueVisitors: 0, bookClicks: 0, thisWeek: 0, thisMonth: 0 })
   const [recentActivity] = useState<Activity[]>([])
@@ -55,6 +63,12 @@ export default function ReferrerPortalPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
+  // Neutral until the tenant loads (no placeholder business name flashes),
+  // then reflects the real tenant once resolved.
+  useEffect(() => {
+    document.title = tenant?.name ? `Referral Program | ${tenant.name}` : 'Referral Program'
+  }, [tenant?.name])
+
   const loadDashboard = async (refCode: string, token: string) => {
     setLoading(true)
     setError('')
@@ -85,6 +99,9 @@ export default function ReferrerPortalPage() {
         total_paid: data.referrer.total_paid,
       })
       setCommissions(Array.isArray(data.commissions) ? data.commissions : [])
+      if (data.tenant?.name) {
+        setTenant({ name: data.tenant.name, email: data.tenant.email ?? null })
+      }
       setStep('dashboard')
     } catch {
       localStorage.removeItem(AUTH_STORAGE_KEY)
@@ -233,7 +250,7 @@ export default function ReferrerPortalPage() {
     <div className="min-h-screen bg-gray-50">
       <header className="bg-[var(--brand)] text-white py-4 px-6">
         <div className="max-w-4xl mx-auto flex justify-between items-center">
-          <div><h1 className="text-xl font-bold">Your Business</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
+          <div><h1 className="text-xl font-bold">{tenant?.name || 'Referral Portal'}</h1><p className="text-gray-400 text-sm">Referral Portal</p></div>
           <div className="text-right"><p className="font-medium">{referrer?.name}</p><p className="text-gray-400 text-sm">{referrer?.ref_code}</p></div>
         </div>
       </header>
@@ -296,7 +313,7 @@ export default function ReferrerPortalPage() {
             </div>
           )}
         </div>
-        <div className="mt-8 text-center text-sm text-gray-500"><p>Questions? hi@example.com</p></div>
+        <div className="mt-8 text-center text-sm text-gray-500"><p>{tenant?.email ? `Questions? ${tenant.email}` : 'Questions? Contact the business directly.'}</p></div>
       </main>
     </div>
   )

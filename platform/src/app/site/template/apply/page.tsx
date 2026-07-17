@@ -8,5 +8,10 @@ import ApplyForm from './ApplyForm'
  */
 export default async function ApplyPage() {
   const config = await getSiteConfig()
-  return <ApplyForm businessName={config.identity.legalName ?? config.identity.name} />
+  return (
+    <ApplyForm
+      businessName={config.identity.legalName ?? config.identity.name}
+      phone={config.contact.phone}
+    />
+  )
 }
