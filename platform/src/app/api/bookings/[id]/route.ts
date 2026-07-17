@@ -109,7 +109,7 @@ export async function PUT(
       .from('bookings')
       .update(fields)
       .eq('id', id)
-      .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+      .select('*, clients(name, phone, address, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, pin)')
       .single()
 
     if (error) {
@@ -146,7 +146,7 @@ export async function PUT(
             metadata: { clientName: data.clients?.name, serviceName: data.service_type },
           })
         }
-        if (data.clients?.phone && hasSMS) {
+        if (data.clients?.phone && data.clients?.sms_consent !== false && hasSMS) {
           sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -167,7 +167,7 @@ export async function PUT(
       }
 
       // Rescheduled
-      if (timeChanged && data.clients?.phone && hasSMS) {
+      if (timeChanged && data.clients?.phone && data.clients?.sms_consent !== false && hasSMS) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
@@ -208,9 +208,9 @@ export async function DELETE(
     // result to the shape actually selected (see client/bookings for the same gap).
     const { data: booking } = (await db
       .from('bookings')
-      .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null } | null } | null }
+      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; sms_consent?: boolean | null } | null } | null }
 
     const { error } = await db
       .from('bookings')
@@ -249,7 +249,7 @@ export async function DELETE(
         }
 
         // Client cancellation SMS
-        if (booking.clients?.phone && hasSMS) {
+        if (booking.clients?.phone && booking.clients?.sms_consent !== false && hasSMS) {
           sendSMS({
             to: booking.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),

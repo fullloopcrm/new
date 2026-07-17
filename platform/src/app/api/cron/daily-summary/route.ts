@@ -54,6 +54,15 @@ export async function GET(request: Request) {
       .lt('start_time', tomorrow.toISOString())
       .not('status', 'eq', 'cancelled')
 
+    const { count: emergencyJobsToday } = await supabaseAdmin
+      .from('bookings')
+      .select('id', { count: 'exact', head: true })
+      .eq('tenant_id', tenantId)
+      .eq('is_emergency', true)
+      .gte('start_time', today.toISOString())
+      .lt('start_time', tomorrow.toISOString())
+      .not('status', 'eq', 'cancelled')
+
     const { data: paidBookings } = await supabaseAdmin
       .from('bookings')
       .select('price')
@@ -77,7 +86,7 @@ export async function GET(request: Request) {
 
     const message = [
       `Good morning from ${tenant.name}!`,
-      `Today's jobs: ${todaysJobs || 0}`,
+      `Today's jobs: ${todaysJobs || 0}${emergencyJobsToday ? ` (🚨 ${emergencyJobsToday} emergency)` : ''}`,
       `This week: ${weekJobs || 0} jobs`,
       `Yesterday's revenue: $${(yesterdayRevenue / 100).toFixed(2)}`,
     ].join('\n')
@@ -89,7 +98,7 @@ export async function GET(request: Request) {
       message,
       channel: 'email',
       recipientType: 'admin',
-      metadata: { todaysJobs: todaysJobs || 0, yesterdayRevenue: `$${(yesterdayRevenue / 100).toFixed(2)}`, upcomingSchedules: weekJobs || 0 },
+      metadata: { todaysJobs: todaysJobs || 0, emergencyJobsToday: emergencyJobsToday || 0, yesterdayRevenue: `$${(yesterdayRevenue / 100).toFixed(2)}`, upcomingSchedules: weekJobs || 0 },
     })
     totalSent++
 

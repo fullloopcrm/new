@@ -268,7 +268,7 @@ export async function POST(request: Request) {
     const { data, error } = await db
       .from('bookings')
       .insert({ ...validated, status: newStatus })
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone, pin), client_properties(*)')
+      .select('*, clients(name, phone, address, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, pin), client_properties(*)')
       .single()
 
     if (error) {
@@ -308,7 +308,7 @@ export async function POST(request: Request) {
       }
 
       // Client confirmation SMS
-      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      if (data.clients?.phone && data.clients?.sms_consent !== false && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
