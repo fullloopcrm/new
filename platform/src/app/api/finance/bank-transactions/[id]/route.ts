@@ -34,6 +34,16 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ ok: true })
     }
 
+    // Same guard match/route.ts already has for re-matching: a transaction
+    // matched to an invoice/booking (or already posted) has its revenue
+    // accounted for via that payment's own journal entry — categorizing it
+    // again here would post a SECOND entry for the same money (this route has
+    // no idea the money was already recognized elsewhere), double-counting
+    // revenue instead of erroring like the sibling route does.
+    if (txn.status === 'matched' || txn.status === 'posted') {
+      return NextResponse.json({ error: `Already ${txn.status}` }, { status: 400 })
+    }
+
     if (!body.coa_id) return NextResponse.json({ error: 'coa_id required' }, { status: 400 })
 
     // Confirm coa_id belongs to this tenant — the FK alone doesn't scope tenancy.

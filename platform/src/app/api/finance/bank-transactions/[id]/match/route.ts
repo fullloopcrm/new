@@ -1,7 +1,11 @@
 /**
  * Match a bank transaction to an invoice / booking / expense.
  * - Inflow → invoice: inserts a payments row with invoice_id;
- *   DB trigger marks the invoice paid automatically.
+ *   DB trigger marks the invoice paid automatically. Also posts revenue to
+ *   the GL in real time (see fresh-ground fix below) — an invoice-only
+ *   payment has no other path there.
+ * - Inflow → booking: inserts a payments row + flips payment_status; also
+ *   posts revenue in real time instead of waiting on the daily backfill.
  * - Outflow → expense: links the expense; bank_txn status=matched.
  * - Either way the bank transaction transitions to 'matched' + becomes
  *   unavailable to other matches.
@@ -13,6 +17,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postJournalEntry } from '@/lib/ledger'
+import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { escapePostgrestFilterValue } from '@/lib/postgrest-or-filter'
 
 type Params = { params: Promise<{ id: string }> }
@@ -92,7 +97,7 @@ export async function POST(request: Request, { params }: Params) {
       }
 
       // Insert payment; DB trigger updates invoice.amount_paid_cents + status.
-      const { error: pErr } = await supabaseAdmin.from('payments').insert({
+      const { data: invPayment, error: pErr } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         invoice_id: inv.id,
         booking_id: inv.booking_id,
@@ -101,8 +106,21 @@ export async function POST(request: Request, { params }: Params) {
         method: 'bank_match',
         status: 'succeeded',
         received_at: txn.txn_date,
-      })
+      }).select('id').single()
       if (pErr) throw pErr
+
+      // Post revenue to the GL like every other money-in path (mark-paid,
+      // Stripe webhook, payment-processor.ts) — an invoice-only payment (no
+      // booking_id) has no other route to the ledger: the daily finance-post
+      // cron only backfills from bookings.payment_status, never from a bare
+      // payments row. Without this call, a bank match to an invoice would
+      // mark the invoice paid but the revenue would never reach the books.
+      // Best-effort — never fail the match on a ledger-posting hiccup.
+      if (invPayment?.id) {
+        await postPaymentRevenue({ tenantId, paymentId: invPayment.id as string }).catch((e) =>
+          console.error('[bank-txn match] postPaymentRevenue failed for invoice payment', invPayment.id, e),
+        )
+      }
 
       updates.matched_invoice_id = inv.id
       updates.status = 'matched'
@@ -119,7 +137,7 @@ export async function POST(request: Request, { params }: Params) {
       }
 
       // Insert payment tied to booking (no invoice). Bumps booking payment status.
-      await supabaseAdmin.from('payments').insert({
+      const { data: bookingPayment } = await supabaseAdmin.from('payments').insert({
         tenant_id: tenantId,
         booking_id: b.id,
         client_id: b.client_id,
@@ -127,12 +145,23 @@ export async function POST(request: Request, { params }: Params) {
         method: 'bank_match',
         status: 'succeeded',
         received_at: txn.txn_date,
-      })
+      }).select('id').single()
       await supabaseAdmin
         .from('bookings')
         .update({ payment_status: 'paid', payment_method: 'bank_match', payment_date: txn.txn_date })
         .eq('id', b.id)
         .eq('tenant_id', tenantId)
+
+      // Post revenue now instead of leaving it to the once-daily finance-post
+      // cron's bookings.payment_status backfill — matches every other real-time
+      // money-in path. Idempotent (source='booking'), so if the cron also
+      // catches this booking before this call lands, one of the two 23505s
+      // harmlessly per postPaymentRevenue's own unique-index guard.
+      if (bookingPayment?.id) {
+        await postPaymentRevenue({ tenantId, paymentId: bookingPayment.id as string }).catch((e) =>
+          console.error('[bank-txn match] postPaymentRevenue failed for booking payment', bookingPayment.id, e),
+        )
+      }
 
       updates.matched_booking_id = b.id
       updates.status = 'matched'

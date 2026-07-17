@@ -15,6 +15,8 @@ type Txn = {
   suggested_coa_id: string | null
   suggested_confidence: number | null
   memo: string | null
+  matched_invoice_id: string | null
+  matched_booking_id: string | null
   bank_accounts: BankAccount | null
   chart_of_accounts: { id: string; code: string; name: string } | null
 }
@@ -148,10 +150,10 @@ export default function BankTransactionsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {txns.map(t => (
-                <tr key={t.id} className={`hover:bg-slate-50 ${t.status === 'posted' ? 'text-slate-500' : ''}`}>
+                <tr key={t.id} className={`hover:bg-slate-50 ${t.status === 'posted' || t.status === 'matched' ? 'text-slate-500' : ''}`}>
                   <td className="px-4 py-3 text-xs">{t.txn_date}</td>
                   <td className="px-4 py-3">
-                    <p className={`${t.status === 'posted' ? 'text-slate-500' : 'text-slate-900'} font-medium`}>{t.description}</p>
+                    <p className={`${t.status === 'posted' || t.status === 'matched' ? 'text-slate-500' : 'text-slate-900'} font-medium`}>{t.description}</p>
                     {t.memo && <p className="text-xs text-slate-400">{t.memo}</p>}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
@@ -163,6 +165,10 @@ export default function BankTransactionsPage() {
                   <td className="px-4 py-3">
                     {t.status === 'posted' ? (
                       <span className="text-xs text-slate-500">{t.chart_of_accounts?.code} · {t.chart_of_accounts?.name}</span>
+                    ) : t.status === 'matched' ? (
+                      <span className="text-xs text-slate-500">
+                        Matched → {t.matched_invoice_id ? 'Invoice' : t.matched_booking_id ? 'Booking' : 'Expense'}
+                      </span>
                     ) : (
                       <div className="space-y-1">
                         {t.suggested_coa_id && (
@@ -211,7 +217,7 @@ export default function BankTransactionsPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        {txns.filter(t => t.status === 'pending').length} to review · {txns.filter(t => t.status === 'posted').length} posted · {txns.filter(t => t.status === 'ignored').length} ignored
+        {txns.filter(t => t.status === 'pending').length} to review · {txns.filter(t => t.status === 'posted').length} posted · {txns.filter(t => t.status === 'matched').length} matched · {txns.filter(t => t.status === 'ignored').length} ignored
       </p>
       {/* Bulk toolbar placeholder (not wired yet) */}
       <input type="hidden" value={bulkCoa} onChange={e => setBulkCoa(e.target.value)} />
