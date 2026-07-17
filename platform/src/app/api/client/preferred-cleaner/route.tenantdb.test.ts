@@ -79,7 +79,7 @@ describe('GET /api/client/preferred-cleaner — tenantDb scoping', () => {
 describe('PUT /api/client/preferred-cleaner — tenantDb scoping', () => {
   it('rejects a team member that belongs to a different tenant', async () => {
     DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, preferred_team_member_id: null })
-    DB.team_members.push({ id: 'tm-evil', tenant_id: TENANT_B, active: true })
+    DB.team_members.push({ id: 'tm-evil', tenant_id: TENANT_B, status: 'active' })
     const res = await PUT(new Request('https://x', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -91,7 +91,7 @@ describe('PUT /api/client/preferred-cleaner — tenantDb scoping', () => {
 
   it('accepts a team member that belongs to the caller tenant', async () => {
     DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, preferred_team_member_id: null })
-    DB.team_members.push({ id: 'tm-good', tenant_id: TENANT_A, active: true })
+    DB.team_members.push({ id: 'tm-good', tenant_id: TENANT_A, status: 'active' })
     const res = await PUT(new Request('https://x', {
       method: 'PUT',
       headers: { 'content-type': 'application/json' },
@@ -99,5 +99,17 @@ describe('PUT /api/client/preferred-cleaner — tenantDb scoping', () => {
     }))
     expect(res.status).toBe(200)
     expect(DB.clients[0].preferred_team_member_id).toBe('tm-good')
+  })
+
+  it('rejects an inactive team member (real schema has no `active` column, only `status`)', async () => {
+    DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, preferred_team_member_id: null })
+    DB.team_members.push({ id: 'tm-gone', tenant_id: TENANT_A, status: 'inactive' })
+    const res = await PUT(new Request('https://x', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ client_id: 'c-1', preferred_cleaner_id: 'tm-gone' }),
+    }))
+    expect(res.status).toBe(400)
+    expect(DB.clients[0].preferred_team_member_id).toBeNull()
   })
 })

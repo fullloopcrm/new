@@ -63,7 +63,7 @@ describe('GET /api/cron/hr-document-reminders — duplicate-send guard', () => {
       { id: TENANT_ID, name: 'Acme', slug: 'acme', telnyx_api_key: 'key', telnyx_phone: '+15551234567', resend_api_key: 'rkey', email_from: null },
     ])
     fake._seed('team_members', [
-      { id: MEMBER_ID, tenant_id: TENANT_ID, name: 'Jane Cleaner', email: 'jane@example.com', phone: '+15559998888', active: true, sms_consent: true, notification_preferences: {} },
+      { id: MEMBER_ID, tenant_id: TENANT_ID, name: 'Jane Cleaner', email: 'jane@example.com', phone: '+15559998888', status: 'active', sms_consent: true, notification_preferences: {} },
     ])
     fake._seed('hr_documents', [
       { id: DOC_ID, tenant_id: TENANT_ID, team_member_id: MEMBER_ID, doc_type: 'cdl', label: 'CDL', status: 'approved', expires_on: daysFromNowIso(7) },
@@ -101,7 +101,7 @@ describe('GET /api/cron/hr-document-reminders — duplicate-send guard', () => {
   })
 
   it('skips a document belonging to an inactive team member', async () => {
-    fake._all('team_members')[0].active = false
+    fake._all('team_members')[0].status = 'inactive'
     const res = await GET(req())
     const json = await res.json()
     expect(json.reminded).toBe(0)

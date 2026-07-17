@@ -56,7 +56,7 @@ interface Booking {
 }
 
 interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_cleaner_id?: string | null }
-interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; max_jobs_per_day?: number }
+interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; status?: string; max_jobs_per_day?: number }
 interface Referrer { id: string; name: string; ref_code: string; active: boolean }
 interface SmartScore {
   id: string
@@ -2306,7 +2306,7 @@ function BookingsPage() {
                   <button type="button" onClick={() => setForm({ ...form, cleaner_id: '' })} className={`w-full flex items-center px-3 py-1.5 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium' : 'border-gray-200 hover:border-gray-300'} text-[#1E2A4A]`}>Unassigned</button>
                 )}
                 {cleaners
-                  .filter(c => c.active !== false)
+                  .filter(c => c.status !== 'inactive')
                   .slice()
                   .sort((a, b) => {
                     const sa = smartScores[a.id]
@@ -2635,7 +2635,7 @@ function BookingsPage() {
                     )}
                     <div className="space-y-1">
                       {cleaners
-                        .filter(c => c.active !== false)
+                        .filter(c => c.status !== 'inactive')
                         .slice()
                         .sort((a, b) => {
                           const sa = smartScores[a.id]

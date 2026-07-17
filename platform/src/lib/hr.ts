@@ -180,7 +180,7 @@ interface RawMemberRow {
   email: string | null
   phone: string | null
   role: string | null
-  active: boolean | null
+  status: string | null
   stripe_account_id: string | null
   stripe_ready_at: string | null
   hr_employee_profiles: Array<{
@@ -200,10 +200,14 @@ interface RawMemberRow {
  * Connect status into one flat record for the People hub.
  */
 export async function listEmployees(tenantId: string): Promise<HrEmployee[]> {
+  // team_members has no `active` boolean column -- only `status` ('active' |
+  // 'inactive' | 'suspended', see schema.sql). Selecting a nonexistent column
+  // makes PostgREST error the whole query (including the joined profiles),
+  // so this 500'd every call to the People hub roster.
   const { data, error } = await supabaseAdmin
     .from('team_members')
     .select(`
-      id, name, email, phone, role, active, stripe_account_id, stripe_ready_at,
+      id, name, email, phone, role, status, stripe_account_id, stripe_ready_at,
       hr_employee_profiles ( id, employment_type, hr_status, hire_date, title, comp_type, pay_rate_cents, pay_period )
     `)
     .eq('tenant_id', tenantId)
@@ -220,7 +224,7 @@ export async function listEmployees(tenantId: string): Promise<HrEmployee[]> {
       email: m.email,
       phone: m.phone,
       role: m.role,
-      active: m.active !== false,
+      active: m.status !== 'inactive',
       profile_id: p?.id ?? null,
       employment_type: p?.employment_type ?? 'contractor_1099',
       hr_status: p?.hr_status ?? 'active',

@@ -67,12 +67,16 @@ export async function PUT(request: Request) {
   if (auth instanceof NextResponse) return auth
 
   if (body.preferred_cleaner_id) {
+    // team_members has no `active` boolean column -- only `status` ('active' |
+    // 'inactive' | 'suspended', see schema.sql). Selecting a nonexistent column
+    // makes PostgREST error the query, so `data` was always null here and this
+    // rejected every single preferred-cleaner selection, valid or not.
     const { data: member } = await tenantDb(tenant.id)
       .from('team_members')
-      .select('id, active')
+      .select('id, status')
       .eq('id', body.preferred_cleaner_id)
       .single()
-    if (!member || member.active === false) {
+    if (!member || member.status !== 'active') {
       return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
     }
   }

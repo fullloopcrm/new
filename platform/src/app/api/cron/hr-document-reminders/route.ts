@@ -64,13 +64,16 @@ export async function GET(request: Request) {
   }
 
   // Skip terminated/inactive team members — no point nudging about a former
-  // employee's expiring license.
+  // employee's expiring license. team_members has no `active` boolean column
+  // (only `status`, see schema.sql) — selecting a nonexistent column made
+  // PostgREST error the query in production, so `members` was always empty
+  // and this filtered out EVERY document, silencing the whole cron.
   const memberIds = [...new Set(docs.map((d) => d.team_member_id as string))]
   const { data: members } = await supabaseAdmin
     .from('team_members')
-    .select('id, active')
+    .select('id, status')
     .in('id', memberIds)
-  const activeMembers = new Set((members || []).filter((m) => m.active !== false).map((m) => m.id as string))
+  const activeMembers = new Set((members || []).filter((m) => m.status !== 'inactive').map((m) => m.id as string))
   const candidates = docs.filter((d) => activeMembers.has(d.team_member_id as string))
 
   let reminded = 0
