@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { buildTrailingMonthKeys } from '@/lib/finance/trailing-month-keys'
+import { etToday, addCalendarDays, etDayBoundaryUTC, formatNaiveET } from '@/lib/recurring'
 
 export async function GET(request: NextRequest) {
   try {
@@ -12,18 +13,25 @@ export async function GET(request: NextRequest) {
     const { tenantId } = _authTenant
     const period = request.nextUrl.searchParams.get('period') || 'month'
 
-    const now = new Date()
+    // bookings.payment_date is a true-UTC TIMESTAMPTZ, and dateFrom also feeds
+    // ledgerProfitAndLoss()'s own date range below -- "today"/"this week"/
+    // "this month"/"YTD" mean the ET calendar day, but building the boundary
+    // via server-local getters reads UTC on Vercel instead, silently shifting
+    // both the booking-count query and the P&L window by the ET/UTC gap (see
+    // lib/recurring's etDayBoundaryUTC header). Distinct call site from the
+    // shared lib/finance report defaults fixed earlier this session -- this
+    // route computes its own dateFrom independently.
+    const today = etToday()
     let dateFrom: Date
 
     if (period === 'today') {
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+      dateFrom = etDayBoundaryUTC(today)
     } else if (period === 'week') {
-      dateFrom = new Date(now)
-      dateFrom.setDate(dateFrom.getDate() - 7)
+      dateFrom = etDayBoundaryUTC(addCalendarDays(today, -7))
     } else if (period === 'month') {
-      dateFrom = new Date(now.getFullYear(), now.getMonth(), 1)
+      dateFrom = etDayBoundaryUTC({ ...today, day: 1 })
     } else {
-      dateFrom = new Date(now.getFullYear(), 0, 1) // YTD
+      dateFrom = etDayBoundaryUTC({ year: today.year, month: 0, day: 1 }) // YTD
     }
 
     const { data: bookings } = await supabaseAdmin
@@ -34,7 +42,10 @@ export async function GET(request: NextRequest) {
       .gte('payment_date', dateFrom.toISOString())
 
     // Revenue total from the LEDGER (source of truth); booking count stays live.
-    const nowIso = new Date().toISOString().slice(0, 10)
+    // ledgerProfitAndLoss expects ET calendar-day strings (matches entry_date's
+    // ET convention fixed elsewhere this session) -- `new Date().toISOString()`
+    // reads the UTC calendar day instead, same bug as dateFrom above.
+    const nowIso = formatNaiveET(today).slice(0, 10)
     const pnl = await ledgerProfitAndLoss(tenantId, dateFrom.toISOString().slice(0, 10), nowIso)
     const totalRevenue = pnl.revenue_cents
 

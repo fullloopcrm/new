@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { buildTrailingMonthKeys } from '@/lib/finance/trailing-month-keys'
+import { etToday, addCalendarDays, etDayBoundaryUTC } from '@/lib/recurring'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -11,18 +12,22 @@ export async function GET(request: NextRequest) {
   const tenantId = url.searchParams.get('tenant_id')
   const period = url.searchParams.get('period') || 'month'
 
-  const now = new Date()
+  // bookings.payment_date is a true-UTC TIMESTAMPTZ; "today"/"this week"/
+  // "this month"/"this year" mean the ET calendar day. Building the boundary
+  // via server-local getters reads UTC on Vercel instead, silently shifting
+  // every period's start by the ET/UTC gap (see lib/recurring's
+  // etDayBoundaryUTC header).
+  const today = etToday()
   let dateFrom: Date
 
   if (period === 'today') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    dateFrom = etDayBoundaryUTC(today)
   } else if (period === 'week') {
-    dateFrom = new Date(now)
-    dateFrom.setDate(dateFrom.getDate() - 7)
+    dateFrom = etDayBoundaryUTC(addCalendarDays(today, -7))
   } else if (period === 'month') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1)
+    dateFrom = etDayBoundaryUTC({ ...today, day: 1 })
   } else {
-    dateFrom = new Date(now.getFullYear(), 0, 1)
+    dateFrom = etDayBoundaryUTC({ year: today.year, month: 0, day: 1 })
   }
 
   let query = supabaseAdmin

@@ -333,6 +333,20 @@ export function formatNaiveET(date: CalendarDate, hour = 0, minute = 0, second =
 }
 
 /**
+ * Real UTC instant for ET midnight of a CalendarDate (defaults to today) --
+ * the TIMESTAMPTZ-column counterpart of formatNaiveET()'s naive-column
+ * convention. Day/week/month/year boundaries built against real UTC columns
+ * (created_at, payment_date, etc.) with `new Date(now.getFullYear(),
+ * now.getMonth(), now.getDate())` read the SERVER's local calendar (UTC on
+ * Vercel), the same day-boundary bug etToday() fixes for naive-ET columns --
+ * use this instead wherever a cutoff needs to compare against a genuine UTC
+ * instant rather than a naive-ET string.
+ */
+export function etDayBoundaryUTC(date: CalendarDate = etToday()): Date {
+  return parseNaiveET(formatNaiveET(date))
+}
+
+/**
  * ET wall-clock hour (0-23) for a given instant -- DST-aware via Intl, unlike
  * `Date.getHours()` which reads the SERVER's local hour (UTC on Vercel).
  * Cron gates written as `now.getHours() === 8` intending "8am ET" were

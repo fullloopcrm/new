@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { etToday, addCalendarDays, calendarDayOfWeek, etDayBoundaryUTC } from '@/lib/recurring'
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -37,13 +38,18 @@ export async function GET() {
     created_at: v.created_at,
   }))
 
-  // Dashboard — visitor counts by time period
-  const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const dayOfWeek = now.getDay() || 7
-  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek + 1).getTime()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-  const startOfYear = new Date(now.getFullYear(), 0, 1).getTime()
+  // Dashboard — visitor counts by time period. website_visits.created_at is a
+  // true-UTC TIMESTAMPTZ, but "today"/"this week" etc. mean the ET calendar
+  // day to whoever's reading this dashboard -- boundaries built via
+  // `new Date(now.getFullYear(), now.getMonth(), now.getDate())` read the
+  // SERVER's local calendar (UTC on Vercel) instead, silently shifting every
+  // cutoff by the ET/UTC gap (see lib/recurring's etDayBoundaryUTC header).
+  const etTodayDate = etToday()
+  const startOfToday = etDayBoundaryUTC(etTodayDate).getTime()
+  const dayOfWeek = calendarDayOfWeek(etTodayDate) || 7
+  const startOfWeek = etDayBoundaryUTC(addCalendarDays(etTodayDate, -dayOfWeek + 1)).getTime()
+  const startOfMonth = etDayBoundaryUTC({ ...etTodayDate, day: 1 }).getTime()
+  const startOfYear = etDayBoundaryUTC({ year: etTodayDate.year, month: 0, day: 1 }).getTime()
 
   let today = 0, thisWeek = 0, thisMonth = 0, thisYear = 0
   for (const v of pageViews) {

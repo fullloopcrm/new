@@ -14,6 +14,7 @@ import {
   formatNaiveET,
   etHour,
   etMinuteOfDay,
+  etDayBoundaryUTC,
   type RecurringType,
 } from './recurring'
 
@@ -539,6 +540,53 @@ describe('etToday / addCalendarDays / calendarDayOfWeek / formatNaiveET — day-
       timeZone: 'America/New_York', hour: '2-digit', hour12: false,
     }).formatToParts(midnightET).find(p => p.type === 'hour')?.value
     expect(hour === '00' || hour === '24').toBe(true)
+  })
+})
+
+describe('etDayBoundaryUTC — TIMESTAMPTZ-column counterpart of etToday/formatNaiveET', () => {
+  // admin/bookings, admin/leads, admin/websites, admin/finance, and
+  // finance/revenue's "today"/"this week"/"this month"/"this year" dashboard
+  // stats built the boundary via `new Date(now.getFullYear(), now.getMonth(),
+  // now.getDate())` against real-UTC TIMESTAMPTZ columns (created_at,
+  // payment_date) -- the SERVER's local (UTC on Vercel) calendar, not ET.
+  // This is that class's fix for TIMESTAMPTZ columns, as opposed to
+  // etToday()/formatNaiveET's naive-ET-string columns.
+
+  it('defaults to today when called with no argument', () => {
+    expect(etDayBoundaryUTC().getTime()).toBe(parseNaiveET(formatNaiveET(etToday())).getTime())
+  })
+
+  it('is exactly the real UTC instant of ET midnight, EDT (summer, UTC-4)', () => {
+    // 2026-07-17 America/New_York is EDT (UTC-4) -- ET midnight is 04:00 UTC.
+    expect(etDayBoundaryUTC({ year: 2026, month: 6, day: 17 }).toISOString()).toBe('2026-07-17T04:00:00.000Z')
+  })
+
+  it('is exactly the real UTC instant of ET midnight, EST (winter, UTC-5)', () => {
+    // 2026-01-17 America/New_York is EST (UTC-5) -- ET midnight is 05:00 UTC.
+    expect(etDayBoundaryUTC({ year: 2026, month: 0, day: 17 }).toISOString()).toBe('2026-01-17T05:00:00.000Z')
+  })
+
+  it('composes with addCalendarDays for a "week ago" boundary and stays on the correct real day', () => {
+    const weekAgo = etDayBoundaryUTC(addCalendarDays({ year: 2026, month: 6, day: 17 }, -7))
+    expect(weekAgo.toISOString()).toBe('2026-07-10T04:00:00.000Z')
+  })
+
+  it('composes with a { ...today, day: 1 } override for a month-start boundary spanning a DST change', () => {
+    // Nov 1 2026 America/New_York is still EDT (DST doesn't end until Nov 1
+    // 2am local) -- the month-start boundary for a "day: 17" CalendarDate
+    // overridden to day 1 must still resolve against day 1's own real offset.
+    expect(etDayBoundaryUTC({ year: 2026, month: 10, day: 1 }).toISOString()).toBe('2026-11-01T04:00:00.000Z')
+  })
+
+  it('a UTC-calendar boundary would be silently wrong on the last evening of the month (the bug this fixes)', () => {
+    // 2026-07-31 21:00 ET (EDT) == 2026-08-01 01:00 UTC already. The old
+    // `new Date(now.getFullYear(), now.getMonth(), 1)` server-local-getter
+    // approach, run on a UTC server at that instant, would build August 1st
+    // as "month start" -- one full month ahead of the real ET month.
+    const realEtMonthStart = etDayBoundaryUTC({ year: 2026, month: 6, day: 1 })
+    const buggyUtcMonthStart = new Date(Date.UTC(2026, 7, 1)) // what getFullYear()/getMonth() would've read
+    expect(realEtMonthStart.getTime()).not.toBe(buggyUtcMonthStart.getTime())
+    expect(realEtMonthStart.toISOString()).toBe('2026-07-01T04:00:00.000Z')
   })
 })
 

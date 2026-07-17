@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -36,10 +37,14 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  // Summary stats
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
+  // Summary stats — bookings.start_time is a naive-ET TIMESTAMP (see
+  // lib/recurring's nowNaiveET header), not a true-UTC instant. Boundaries
+  // built via `new Date(now.getFullYear(), now.getMonth(), now.getDate())`
+  // read the SERVER's local calendar (UTC on Vercel) instead of ET, silently
+  // shifting "today"/"this week" by the ET/UTC gap.
+  const today = etToday()
+  const todayStart = formatNaiveET(today)
+  const weekStart = formatNaiveET(addCalendarDays(today, -7))
 
   let statsQuery = supabaseAdmin
     .from('bookings')

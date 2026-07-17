@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etToday, etDayBoundaryUTC } from '@/lib/recurring'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -57,8 +58,12 @@ export async function GET(request: NextRequest) {
 
   const allVisits = visits || []
   const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  // website_visits.created_at is a true-UTC TIMESTAMPTZ; "today"/"this month"
+  // mean the ET calendar day. Building the boundary via server-local getters
+  // reads UTC on Vercel instead (see lib/recurring's etDayBoundaryUTC header).
+  const today = etToday()
+  const todayStart = etDayBoundaryUTC(today).getTime()
+  const monthStart = etDayBoundaryUTC({ ...today, day: 1 }).getTime()
   const sevenDaysAgo = now.getTime() - 7 * 24 * 60 * 60 * 1000
 
   const pageViews = allVisits.filter(v => v.action === 'visit' || !v.action)
