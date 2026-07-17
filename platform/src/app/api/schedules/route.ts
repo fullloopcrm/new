@@ -156,13 +156,30 @@ export async function POST(request: Request) {
       }
     })
 
+    // The batch insert's error was previously discarded entirely -- the DB's
+    // trg_block_booking_overlap trigger (015_booking_overlap_trigger.sql)
+    // raises on ANY row in a multi-row INSERT that overlaps an existing
+    // booking for that team member, which aborts the WHOLE statement (a
+    // single-statement INSERT is atomic), not just the conflicting row. That
+    // silently threw away every generated booking while this route still
+    // returned 201 with `bookingsCreated: bookings.length` -- the INTENDED
+    // count, not the actual one -- so the admin saw "success, N bookings
+    // created" for a schedule that in truth had zero bookings behind it,
+    // with no indication anything failed. Sibling route POST
+    // /api/admin/recurring-schedules already checks this same insert's error;
+    // matching that convention here instead of swallowing it.
+    let bookingsCreated = 0
     if (bookings.length > 0) {
-      await db.from('bookings').insert(bookings)
+      const { data: inserted, error: bookingsErr } = await db.from('bookings').insert(bookings).select('id')
+      if (bookingsErr) {
+        return NextResponse.json({ error: bookingsErr.message, schedule }, { status: 500 })
+      }
+      bookingsCreated = inserted?.length || 0
     }
 
-    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })
+    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated } })
 
-    return NextResponse.json({ schedule, bookingsCreated: bookings.length }, { status: 201 })
+    return NextResponse.json({ schedule, bookingsCreated }, { status: 201 })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
