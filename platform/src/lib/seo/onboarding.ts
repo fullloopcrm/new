@@ -70,5 +70,22 @@ export async function backfillUntrackedDomains(): Promise<SeoOnboardResult[]> {
     const res = await registerSeoProperty(r.tenant_id as string | null, domain, 'backfill')
     if (res) out.push(res)
   }
+
+  // Fallback: tenant_domains registration is best-effort (activate-tenant.ts's
+  // upsert is try/catch, "never blocks" activation), so a tenant live only via
+  // legacy tenants.domain would never get a seo_property registered at all —
+  // not "unlinked", genuinely untracked, permanently invisible to seomgr and
+  // to Selena's handleSeoStatus(). Same coverage gap already fixed in
+  // backlinks.ts/health.ts, and in this same file's sibling linkTenant() in
+  // ingest.ts; matches tenant.ts's tenant_domains-first / tenants.domain-
+  // fallback precedence.
+  const { data: legacy } = await supabaseAdmin.from('tenants').select('id,domain').not('domain', 'is', null)
+  for (const t of legacy ?? []) {
+    const domain = normalizeDomain(String(t.domain ?? ''))
+    if (!domain || tracked.has(domain) || seen.has(domain)) continue
+    seen.add(domain)
+    const res = await registerSeoProperty(t.id as string | null, domain, 'backfill')
+    if (res) out.push(res)
+  }
   return out
 }

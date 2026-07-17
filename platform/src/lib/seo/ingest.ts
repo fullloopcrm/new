@@ -26,14 +26,29 @@ function propertyToDomain(property: string): string {
   }
 }
 
-async function linkTenant(domain: string): Promise<string | null> {
+export async function linkTenant(domain: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('tenant_domains')
     .select('tenant_id')
     .eq('domain', domain)
     .limit(1)
     .maybeSingle()
-  return data?.tenant_id ?? null
+  if (data?.tenant_id) return data.tenant_id
+
+  // Fallback: tenant_domains registration is best-effort (activate-tenant.ts's
+  // upsert is try/catch, "never blocks" activation), so a tenant live only via
+  // legacy tenants.domain would otherwise link to NO tenant here — every one of
+  // that tenant's GSC properties silently ingests with tenant_id: null forever
+  // (Selena's handleSeoStatus() filters seo_properties by tenant_id, so the
+  // owner would see "no property linked" despite metrics actually flowing).
+  // Same coverage gap already fixed in backlinks.ts/health.ts; matches
+  // tenant.ts's tenant_domains-first / tenants.domain-fallback precedence.
+  const { data: legacy } = await supabaseAdmin
+    .from('tenants')
+    .select('id')
+    .eq('domain', domain)
+    .maybeSingle()
+  return legacy?.id ?? null
 }
 
 async function upsertProperty(site: GscSite): Promise<void> {
