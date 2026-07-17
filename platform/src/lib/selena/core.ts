@@ -1560,9 +1560,25 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
     if (!scheduleId) return JSON.stringify({ error: 'No active recurring schedule found' })
 
     if (action === 'pause') {
-      const pauseUntil = input.pause_until as string
+      const pauseUntil = input.pause_until as string | undefined
       await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
-      return JSON.stringify({ success: true, message: `Recurring paused${pauseUntil ? ` until ${pauseUntil}` : ''}` })
+
+      // Mirror /api/schedules/[id]/pause: pausing the series must also cancel
+      // the bookings that already exist inside the pause window, or the
+      // cleaner still shows up (and the client still gets billed) despite
+      // Selena confirming the schedule is paused. No upper bound on the
+      // query when pause_until is omitted (indefinite pause) -- every
+      // upcoming visit on the series is cancelled.
+      let bookingQuery = supabaseAdmin.from('bookings').update({ status: 'cancelled' })
+        .eq('tenant_id', tid).eq('schedule_id', scheduleId)
+        .in('status', ['scheduled', 'pending', 'confirmed'])
+        .gte('start_time', new Date().toISOString())
+      if (pauseUntil) bookingQuery = bookingQuery.lte('start_time', `${pauseUntil}T23:59:59`)
+      const { data: cancelled } = await bookingQuery.select('id')
+      const cancelledCount = cancelled?.length || 0
+
+      await notify({ type: 'schedule_paused', title: 'Schedule Paused via SMS', message: `Client paused recurring schedule${pauseUntil ? ` until ${pauseUntil}` : ''} via SMS (${cancelledCount} upcoming visit${cancelledCount === 1 ? '' : 's'} cancelled).` }).catch(() => {})
+      return JSON.stringify({ success: true, message: `Recurring paused${pauseUntil ? ` until ${pauseUntil}` : ''}${cancelledCount ? `. ${cancelledCount} upcoming visit${cancelledCount === 1 ? '' : 's'} cancelled.` : ''}` })
     }
     if (action === 'resume') {
       await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
@@ -1570,8 +1586,20 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
     }
     if (action === 'cancel') {
       await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
-      await notify({ type: 'recurring_cancelled', title: 'Recurring Cancelled', message: `Client cancelled recurring schedule via SMS` }).catch(() => {})
-      return JSON.stringify({ success: true, message: 'Recurring schedule cancelled' })
+
+      // Same gap as pause above: cancelling the series never touched the
+      // already-generated future booking rows, so the cleaner kept showing
+      // up to every remaining visit despite Selena telling the client the
+      // schedule was cancelled.
+      const { data: cancelled } = await supabaseAdmin.from('bookings').update({ status: 'cancelled' })
+        .eq('tenant_id', tid).eq('schedule_id', scheduleId)
+        .in('status', ['scheduled', 'pending', 'confirmed'])
+        .gte('start_time', new Date().toISOString())
+        .select('id')
+      const cancelledCount = cancelled?.length || 0
+
+      await notify({ type: 'recurring_cancelled', title: 'Recurring Cancelled', message: `Client cancelled recurring schedule via SMS (${cancelledCount} upcoming visit${cancelledCount === 1 ? '' : 's'} cancelled).` }).catch(() => {})
+      return JSON.stringify({ success: true, message: `Recurring schedule cancelled${cancelledCount ? `. ${cancelledCount} upcoming visit${cancelledCount === 1 ? '' : 's'} cancelled.` : ''}` })
     }
     return JSON.stringify({ error: `Unknown action: ${action}` })
   } catch (err) {
