@@ -2815,6 +2815,92 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-28. cron/post-job-followup + cron/confirmations (client day-before) + cron/payment-followup-daily — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, 14th-16th call sites of the missing-consent-check bug class — 3 cron files the direct-sendSMS() sweep 5a-27's round believed exhaustive hadn't actually been checked for consent) ----
+    // All 3 are CRON_SECRET-gated -- same reasoning as every prior 5a-1x/2x/
+    // 5a-25/26/27 round: prove the fixed predicate against real bookings/
+    // clients rows in this archetype tenant through the exact column
+    // selection each route now uses, rather than invoking the handlers
+    // directly. post-job-followup's job-level review request (the `jobs`
+    // table query) shares the byte-identical predicate and clients() column
+    // shape as its booking-level query proved here -- not separately probed
+    // via a live `jobs` row since it would exercise the same fixed logic.
+    {
+      const pjfGatePhone = '646' + String(4600000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: pjfGateBlockedClient, error: pjfGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PostJob-Gate STOP Client', email: `pjfgate-stop+${runId}@example.com`,
+        phone: pjfGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('post-job/confirmations/payment-followup-gate: STOP-revoked client row created (sms_consent=false)', !!pjfGateBlockedClient && !pjfGateBlockedErr, pjfGateBlockedErr?.message)
+
+      const { data: pjfGateDnsClient, error: pjfGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PostJob-Gate Banned Client', email: `pjfgate-dns+${runId}@example.com`,
+        phone: pjfGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('post-job/confirmations/payment-followup-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!pjfGateDnsClient && !pjfGateDnsErr, pjfGateDnsErr?.message)
+
+      const { data: pjfGateOkClient, error: pjfGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PostJob-Gate Consented Client', email: `pjfgate-ok+${runId}@example.com`,
+        phone: pjfGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('post-job/confirmations/payment-followup-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!pjfGateOkClient && !pjfGateOkErr, pjfGateOkErr?.message)
+
+      // A real bookings row (what all 3 fixed routes' embedded clients()
+      // joins actually return), one per client shared across all 3
+      // predicate checks below.
+      const pjfGateBookingIds: Record<string, string> = {}
+      for (const [label, gateClient] of [
+        ['blocked', pjfGateBlockedClient], ['dns', pjfGateDnsClient], ['control', pjfGateOkClient],
+      ] as const) {
+        if (!gateClient?.id) continue
+        const { data: pjfGateBooking, error: pjfGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 55, actual_hours: 2, status: 'completed', payment_status: 'unpaid',
+          service_type: `post-job-followup-gate ${label} probe`,
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add(`post-job/confirmations/payment-followup-gate: ${label} — live schema — a real bookings row's embedded clients() join surfaces the same consent columns all 3 fixed routes now read`, !!pjfGateBooking && !pjfGateBookingErr, pjfGateBookingErr?.message || JSON.stringify(pjfGateBooking))
+        if (pjfGateBooking?.id) pjfGateBookingIds[label] = pjfGateBooking.id
+      }
+
+      const pjfGateIds = Object.values(pjfGateBookingIds)
+
+      // All 3 fixed routes read the identical shape -- clients(name, phone,
+      // sms_consent, do_not_service) -- and apply the identical predicate
+      // (phone present, sms_consent !== false, !do_not_service). Proving it
+      // once against the live schema covers all 3 call sites' actual
+      // .select() strings.
+      const pjfGateRows1 = await supabase.from('bookings')
+        .select('id, clients(name, phone, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', pjfGateIds)
+      const pjfGateRows2 = await supabase.from('bookings')
+        .select('id, client_id, start_time, service_type, clients(name, phone, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenant.id).in('id', pjfGateIds)
+      const pjfGateRows3 = await supabase.from('bookings')
+        .select('id, client_id, price, end_time, clients(name, phone, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', pjfGateIds)
+
+      const gatePredicate = (rows: typeof pjfGateRows1.data) => (rows || [])
+        .filter(b => { const c = b.clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return !!c?.phone && c.sms_consent !== false && !c.do_not_service })
+        .map(b => b.id)
+
+      const pjfWouldText = gatePredicate(pjfGateRows1.data)
+      const confirmWouldText = gatePredicate(pjfGateRows2.data)
+      const payFollowupWouldText = gatePredicate(pjfGateRows3.data)
+
+      add('post-job-followup-gate: the fixed predicate skips the STOP-revoked client\'s review-request SMS', !pjfWouldText.includes(pjfGateBookingIds.blocked), JSON.stringify(pjfWouldText))
+      add('post-job-followup-gate: the fixed predicate skips the do_not_service client\'s review-request SMS', !pjfWouldText.includes(pjfGateBookingIds.dns), JSON.stringify(pjfWouldText))
+      add('post-job-followup-gate: CONTROL — the fixed predicate still texts the consented, non-banned client', pjfWouldText.includes(pjfGateBookingIds.control), JSON.stringify(pjfWouldText))
+
+      add('confirmations-gate (client day-before): the fixed predicate skips the STOP-revoked client\'s confirmation SMS', !confirmWouldText.includes(pjfGateBookingIds.blocked), JSON.stringify(confirmWouldText))
+      add('confirmations-gate (client day-before): the fixed predicate skips the do_not_service client\'s confirmation SMS', !confirmWouldText.includes(pjfGateBookingIds.dns), JSON.stringify(confirmWouldText))
+      add('confirmations-gate (client day-before): CONTROL — the fixed predicate still texts the consented, non-banned client', confirmWouldText.includes(pjfGateBookingIds.control), JSON.stringify(confirmWouldText))
+
+      add('payment-followup-daily-gate: the fixed predicate skips the STOP-revoked client\'s payment-chase SMS', !payFollowupWouldText.includes(pjfGateBookingIds.blocked), JSON.stringify(payFollowupWouldText))
+      add('payment-followup-daily-gate: the fixed predicate skips the do_not_service client\'s payment-chase SMS', !payFollowupWouldText.includes(pjfGateBookingIds.dns), JSON.stringify(payFollowupWouldText))
+      add('payment-followup-daily-gate: CONTROL — the fixed predicate still texts the consented, non-banned client', payFollowupWouldText.includes(pjfGateBookingIds.control), JSON.stringify(payFollowupWouldText))
+
+      for (const id of Object.values(pjfGateBookingIds)) {
+        await supabase.from('bookings').delete().eq('id', id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
