@@ -75,21 +75,48 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
 
+  // Re-check the same status set on each write, not just the read above.
+  // Without this, a booking that transitions out of scheduled/pending/
+  // confirmed (a team member checking in, or check-out auto-completing it)
+  // in the gap between the SELECT and this loop's write still gets
+  // unconditionally skip-deleted / moved / reassigned — losing an
+  // already-started booking's record (skip) or silently reassigning/moving
+  // a job that's actively in progress (move/reassign). Only rows that still
+  // match get touched; a race loser is left alone and not counted as applied.
+  const APPLICABLE_STATUSES = ['scheduled', 'pending', 'confirmed']
   let applied = 0
   for (const b of existing || []) {
     if (type === 'skip') {
-      await supabaseAdmin.from('bookings').delete().eq('id', b.id).eq('tenant_id', tenantId)
-      applied++
+      const { data: deleted } = await supabaseAdmin
+        .from('bookings')
+        .delete()
+        .eq('id', b.id)
+        .eq('tenant_id', tenantId)
+        .in('status', APPLICABLE_STATUSES)
+        .select('id')
+      if (deleted && deleted.length > 0) applied++
     } else if (type === 'move' && new_start_time) {
       const [mh, mm] = new_start_time.split(':').map(Number)
       const startISO = `${occurrence_date}T${String(mh).padStart(2, '0')}:${String(mm).padStart(2, '0')}:00`
       const endTotal = (mh || 0) * 60 + (mm || 0) + (Number(schedule.duration_hours) || 3) * 60
       const endISO = `${occurrence_date}T${String(Math.floor(endTotal / 60) % 24).padStart(2, '0')}:${String(endTotal % 60).padStart(2, '0')}:00`
-      await supabaseAdmin.from('bookings').update({ start_time: startISO, end_time: endISO }).eq('id', b.id).eq('tenant_id', tenantId)
-      applied++
+      const { data: moved } = await supabaseAdmin
+        .from('bookings')
+        .update({ start_time: startISO, end_time: endISO })
+        .eq('id', b.id)
+        .eq('tenant_id', tenantId)
+        .in('status', APPLICABLE_STATUSES)
+        .select('id')
+      if (moved && moved.length > 0) applied++
     } else if (type === 'reassign') {
-      await supabaseAdmin.from('bookings').update({ team_member_id: new_team_member_id }).eq('id', b.id).eq('tenant_id', tenantId)
-      applied++
+      const { data: reassigned } = await supabaseAdmin
+        .from('bookings')
+        .update({ team_member_id: new_team_member_id })
+        .eq('id', b.id)
+        .eq('tenant_id', tenantId)
+        .in('status', APPLICABLE_STATUSES)
+        .select('id')
+      if (reassigned && reassigned.length > 0) applied++
     }
   }
 
