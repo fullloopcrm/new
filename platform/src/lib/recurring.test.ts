@@ -80,10 +80,22 @@ describe('generateRecurringDates — counts per type', () => {
     expect(dates.map(ymd)).toEqual(['2026-01-05', '2026-01-26', '2026-02-16'])
   })
 
-  it('custom returns exactly the start date', () => {
+  it('custom returns exactly the start date when no interval is known (unchanged default)', () => {
     const dates = generateRecurringDates({ recurringType: 'custom', startDate: start, weeksToGenerate: 4 })
     expect(dates).toHaveLength(1)
     expect(ymd(dates[0])).toBe('2026-01-05')
+  })
+
+  it('custom steps by customIntervalDays when provided (recurring_schedules.custom_interval_days)', () => {
+    const dates = generateRecurringDates({ recurringType: 'custom', startDate: start, weeksToGenerate: 3, customIntervalDays: 10 })
+    expect(dates).toHaveLength(3)
+    for (let i = 1; i < dates.length; i++) expect(dayGap(dates[i - 1], dates[i])).toBe(10)
+    expect(dates.map(ymd)).toEqual(['2026-01-05', '2026-01-15', '2026-01-25'])
+  })
+
+  it('custom with customIntervalDays: 0 or negative falls back to the single-anchor-only behavior, not a guess', () => {
+    expect(generateRecurringDates({ recurringType: 'custom', startDate: start, weeksToGenerate: 4, customIntervalDays: 0 })).toHaveLength(1)
+    expect(generateRecurringDates({ recurringType: 'custom', startDate: start, weeksToGenerate: 4, customIntervalDays: -5 })).toHaveLength(1)
   })
 
   it('defaults weeksToGenerate to 4 when omitted', () => {
@@ -446,6 +458,25 @@ describe('nextOccurrenceDates — cron refill anchoring (regression)', () => {
   it('defaults count to 4 when omitted', () => {
     const dates = nextOccurrenceDates({ recurringType: 'weekly', lastOccurrence: noon(2026, 0, 5) })
     expect(dates).toHaveLength(4)
+  })
+
+  // Regression: recurring_schedules.custom_interval_days (2026-07-17). Before
+  // this, a 'custom' schedule's refill ALWAYS returned zero dates -- the
+  // 'custom' case in generateRecurringDates only ever echoed its own anchor,
+  // and nextOccurrenceDates slices that single echoed element off, leaving
+  // nothing. Passing the stored interval through fixes the refill for every
+  // custom-interval series, not just the initial creation batch.
+  it('custom: refills at the stored custom_interval_days cadence, unlike before when this always returned zero dates', () => {
+    const last = noon(2026, 0, 5)
+    const dates = nextOccurrenceDates({ recurringType: 'custom', lastOccurrence: last, count: 3, customIntervalDays: 10 })
+    expect(dates).toHaveLength(3)
+    expect(dayGap(last, dates[0])).toBe(10)
+    expect(dates.map(ymd)).toEqual(['2026-01-15', '2026-01-25', '2026-02-04'])
+  })
+
+  it('custom: still returns zero dates when no interval is stored (unrecoverable / never captured)', () => {
+    const dates = nextOccurrenceDates({ recurringType: 'custom', lastOccurrence: noon(2026, 0, 5), count: 3 })
+    expect(dates).toHaveLength(0)
   })
 })
 

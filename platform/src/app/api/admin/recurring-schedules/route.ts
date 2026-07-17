@@ -175,6 +175,27 @@ export async function POST(request: Request) {
   sixWeeksOut.setDate(sixWeeksOut.getDate() + 42)
   const nextGenerateAfter = lastInitialDate || sixWeeksOut.toISOString().split('T')[0]
 
+  // Only recurring_type 'custom' has an interval to capture -- every other
+  // type's cadence is implied by the type itself (generateRecurringDates'
+  // switch already knows how to step a 'weekly'/'monthly_date'/etc series).
+  // 'custom' has NOWHERE ELSE this is ever persisted: the initial batch above
+  // works off the frontend's own pre-computed `dates`, but cron/generate-
+  // recurring's refill has no client in the loop and needs a stored interval
+  // to invent more dates itself -- without this, custom-interval schedules
+  // silently stop generating bookings forever once the initial batch runs
+  // out (see 2026_07_17_recurring_schedules_custom_interval.sql). Derive it
+  // from the actual gap between the first two computed dates, the same
+  // ground truth used to create the bookings themselves.
+  let customIntervalDays: number | null = null
+  if (recurring_type === 'custom') {
+    if (typeof body.custom_interval_days === 'number' && body.custom_interval_days > 0) {
+      customIntervalDays = Math.round(body.custom_interval_days)
+    } else if (dates.length >= 2) {
+      const gapMs = new Date(dates[1] + 'T12:00:00').getTime() - new Date(dates[0] + 'T12:00:00').getTime()
+      customIntervalDays = Math.round(gapMs / 86_400_000)
+    }
+  }
+
   const { data: schedule, error: scheduleErr } = await db
     .from('recurring_schedules')
     .insert({
@@ -182,6 +203,7 @@ export async function POST(request: Request) {
       property_id: property_id || null,
       team_member_id: teamMemberId,
       recurring_type,
+      custom_interval_days: customIntervalDays,
       day_of_week: resolvedDayOfWeek,
       preferred_time: preferred_time || null,
       duration_hours: hours,

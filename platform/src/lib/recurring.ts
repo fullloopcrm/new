@@ -14,11 +14,14 @@ export function generateRecurringDates({
   startDate,
   dayOfWeek,
   weeksToGenerate = 4,
+  customIntervalDays,
 }: {
   recurringType: RecurringType
   startDate: Date
   dayOfWeek?: number // 0=Sun, 1=Mon, ...
   weeksToGenerate?: number
+  /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
+  customIntervalDays?: number | null
 }): Date[] {
   const dates: Date[] = []
   const current = new Date(startDate)
@@ -131,8 +134,23 @@ export function generateRecurringDates({
     }
 
     case 'custom':
-      // Custom handled by caller
-      dates.push(new Date(current))
+      // recurring_schedules.custom_interval_days (2026_07_17) is the only
+      // place this cadence is ever persisted -- BookingsAdmin's own
+      // interval-aware generator (_recurring.ts) computes the INITIAL
+      // batch's dates client-side and POSTs them directly, so this switch
+      // never needed to know the interval until a REFILL (cron/generate-
+      // recurring, via nextOccurrenceDates) has to invent more dates itself
+      // with no client in the loop. Without a known interval there is
+      // nothing to step by -- emit only the anchor, same as before, rather
+      // than guessing a cadence.
+      if (customIntervalDays && customIntervalDays > 0) {
+        for (let i = 0; i < weeksToGenerate; i++) {
+          dates.push(new Date(current))
+          current.setDate(current.getDate() + customIntervalDays)
+        }
+      } else {
+        dates.push(new Date(current))
+      }
       break
   }
 
@@ -162,17 +180,21 @@ export function nextOccurrenceDates({
   lastOccurrence,
   dayOfWeek,
   count = 4,
+  customIntervalDays,
 }: {
   recurringType: RecurringType
   lastOccurrence: Date
   dayOfWeek?: number
   count?: number
+  /** Only read for recurringType 'custom' (recurring_schedules.custom_interval_days). */
+  customIntervalDays?: number | null
 }): Date[] {
   return generateRecurringDates({
     recurringType,
     startDate: lastOccurrence,
     dayOfWeek,
     weeksToGenerate: count + 1,
+    customIntervalDays,
   }).slice(1)
 }
 

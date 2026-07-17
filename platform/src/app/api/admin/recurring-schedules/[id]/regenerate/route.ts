@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
@@ -112,6 +112,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // 1. Update the rule.
   const rulePatch: Record<string, unknown> = { updated_at: new Date().toISOString(), next_generate_after: lastDate }
   if (recurring_type !== undefined) rulePatch.recurring_type = recurring_type
+  // Re-derive custom_interval_days whenever this edit's effective type is
+  // 'custom' -- same reasoning as POST ../route.ts: cron/generate-recurring's
+  // refill has no client in the loop and needs this stored to invent more
+  // dates. An edit that changes the cadence (e.g. every-2-weeks -> every-3-
+  // weeks) but doesn't refresh this would leave cron refilling at the STALE
+  // interval forever, silently drifting from what the admin just set.
+  const effRecurringType = recurring_type !== undefined ? recurring_type : schedule.recurring_type
+  if (effRecurringType === 'custom' && dates.length >= 2) {
+    const gapMs = new Date(dates[1] + 'T12:00:00').getTime() - new Date(dates[0] + 'T12:00:00').getTime()
+    rulePatch.custom_interval_days = Math.round(gapMs / 86_400_000)
+  }
   if (day_of_week !== undefined) rulePatch.day_of_week = day_of_week
   if (preferred_time !== undefined) rulePatch.preferred_time = preferred_time
   if (duration_hours !== undefined) rulePatch.duration_hours = hours

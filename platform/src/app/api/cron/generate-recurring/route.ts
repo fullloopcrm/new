@@ -87,9 +87,29 @@ export async function GET(request: Request) {
       lastOccurrence: anchor,
       dayOfWeek: schedule.day_of_week ?? undefined,
       count: 4,
+      customIntervalDays: schedule.custom_interval_days ?? undefined,
     }).filter((d) => d <= fourWeeksOut)
 
-    if (dates.length === 0) continue
+    if (dates.length === 0) {
+      // A 'custom' schedule with no custom_interval_days can NEVER produce a
+      // refill date (generateRecurringDates' 'custom' case only echoes its
+      // anchor with nothing to step by) -- unlike every other type, where an
+      // empty result here just means "not due yet", this one means "will
+      // never generate again until an admin sets an interval." Surface it
+      // instead of silently going quiet forever (2026_07_17_recurring_
+      // schedules_custom_interval.sql + its backfill recover this for most
+      // existing schedules; this covers the rest and any future gap).
+      if (schedule.recurring_type === 'custom' && !schedule.custom_interval_days) {
+        await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+          type: 'recurring_generation_conflict',
+          title: 'cron:generate-recurring cannot refill a custom schedule',
+          message: `schedule ${schedule.id}: recurring_type is 'custom' with no custom_interval_days set — this series will never auto-generate more bookings until an admin sets an interval`,
+          channel: 'system',
+          recipient_type: 'admin',
+        }).then(() => {}, () => {})
+      }
+      continue
+    }
 
     // Get service type name
     let serviceType = null

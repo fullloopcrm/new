@@ -175,6 +175,35 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — rule update', (
     expect(sched.pay_rate).toBe(20)
     expect(sched.hourly_rate).toBe(40)
   })
+
+  // custom_interval_days (2026-07-17): cron/generate-recurring's refill has
+  // no client in the loop and needs this stored to invent more dates for a
+  // 'custom' schedule (generateRecurringDates' 'custom' case). An edit that
+  // changes the cadence but doesn't refresh this would leave cron refilling
+  // at the STALE interval forever.
+  it('derives custom_interval_days from the gap between the supplied dates when switching a schedule to custom', async () => {
+    await POST(postReq({ ...baseBody, recurring_type: 'custom', dates: ['2026-08-15', '2026-08-25'] }), params('sched-A1'))
+
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    expect(sched.recurring_type).toBe('custom')
+    expect(sched.custom_interval_days).toBe(10)
+  })
+
+  it('re-derives custom_interval_days on a later edit of an already-custom schedule, using the new dates', async () => {
+    await POST(postReq({ ...baseBody, recurring_type: 'custom', dates: ['2026-08-15', '2026-08-25'] }), params('sched-A1'))
+    await POST(postReq({ ...baseBody, dates: ['2026-09-01', '2026-09-22'] }), params('sched-A1')) // recurring_type omitted -- stays 'custom'; new 21-day cadence
+
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    expect(sched.recurring_type).toBe('custom')
+    expect(sched.custom_interval_days).toBe(21)
+  })
+
+  it('never sets custom_interval_days for a non-custom recurring_type', async () => {
+    await POST(postReq({ ...baseBody, recurring_type: 'weekly' }), params('sched-A1'))
+
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    expect(sched.custom_interval_days).toBeUndefined()
+  })
 })
 
 describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regeneration', () => {
