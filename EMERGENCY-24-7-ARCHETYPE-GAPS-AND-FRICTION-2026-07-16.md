@@ -5244,3 +5244,97 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (117) Archetype depth — item (115)'s own flagged-but-deferred follow-up: raw UTC-implicit `notify()`/SMS text built directly in 15 route/cron files, bypassing the sms-templates module entirely — NOW FIXED
+
+Item (115) fixed all 13 date/time-touching functions in `sms-templates.ts` to
+render in the tenant's own timezone instead of raw server-default UTC, and
+explicitly flagged one thing it deliberately left unchased: "several of
+these same routes compute a raw, UTC-implicit `date`/`time` locally for
+their `notify()` call's title/message — a related but distinct bug on the
+in-app notification/admin-email side rather than the client/team SMS side
+this item scoped to... worth its own pass." Ran that pass.
+
+A repo-wide sweep of every `toLocaleDateString`/`toLocaleTimeString` call
+with no `timeZone` option found 28 files. Filtered out the cosmetic/
+internal-admin-only ones (chart month-bucketing in `admin/finance` and
+`finance/revenue`, relative "in Xd" widgets in `clients/enriched` and
+`clients/[id]/activity`, invoice/quote due-dates which are date-only with
+no time component, `webhooks/telnyx`'s internal audit-note timestamps which
+stamp "now", not a booking's `start_time`) and fixed the 15 files building
+real client/team/admin-facing text straight from a booking's `start_time`,
+bypassing the templates item (115) already fixed:
+
+`bookings/route.ts` (POST create — confirmation email + team job-assignment
+message), `bookings/[id]/route.ts` (PUT update notify + DELETE cancellation
+notify), `bookings/[id]/status/route.ts` (cancel/complete notify — this
+route never fetched the tenant row at all until now), `bookings/[id]/team/
+route.ts` (team reassignment), `bookings/batch/route.ts` (batch-create
+confirmation — this one had gone one step further than "missing," with
+`timeZone: 'America/New_York'` **hardcoded**, item (70)'s exact original bug
+class, not just item (115)'s "missing entirely" one), `bookings/broadcast/
+route.ts` (cleaner job-opportunity broadcast SMS), `portal/bookings/[id]/
+route.ts` (client self-reschedule/cancel notify — also never fetched the
+tenant row before now), `team-portal/running-late/route.ts`, `team-portal/
+jobs/reassign/route.ts`, `team-portal/video-upload/route.ts` (both upload
+flows' admin notify), `routes/[id]/publish/route.ts` (route-date is a bare
+DATE column — fixed with the noon-anchor convention `cron/schedule-monitor`
+and `portal/collect` already use for date-only columns, not a timezone
+thread), `cron/confirmations/route.ts` (team confirm-request + client
+day-before confirm SMS), `cron/late-check-in/route.ts`, `cron/daily-summary/
+route.ts` (admin 3-day lookahead email + recurring-expiration alert), and
+`cron/reminders/route.ts` — by far the largest, with 9 separate call sites
+across the day-based reminder email, the 2-hour client/team SMS reminders,
+the NYC Maid route-with-travel-times team text, the pending-bookings alert,
+and the admin daily-ops-recap/nightly-digest emails.
+
+**Fixed** — added `timezone` to every tenant `.select()` that was missing
+it (several already selected it for other reasons, per item (70)'s earlier
+pass, but left it unused at these particular call sites — those were a
+one-line `timeZone: tz` addition), added a net-new tenant-timezone fetch to
+the three routes that had no tenant query at all (`bookings/[id]/status`,
+`portal/bookings/[id]`, `team-portal/video-upload`), corrected the one
+hardcoded-ET instance in `bookings/batch/route.ts` to read the real tenant
+value, and fixed the date-only `route_date` column with a noon anchor
+instead of a timezone (a bare DATE has no zone to render in — the bug there
+is midnight-boundary drift, not wrong-zone display). All fall back to
+`America/New_York` when a tenant has no `timezone` set, same default
+`formatInTz`/`sms-templates.ts` already use — no existing caller's behavior
+gets worse, only better, from UTC (or hardcoded ET) to the tenant's real
+zone.
+
+Noticed, not fixed — a different, riskier layer of the same archetype worth
+its own pass and product sign-off before touching: several of these same
+crons gate entire code sections on `now.getHours() === N` (`cron/
+confirmations`' day-before client confirmation at hour 13, `cron/reminders`'
+day-based/thank-you/pending/recap/digest sections at hours 8/14/20/21) or
+compute a "today"/"tomorrow" query window via `new Date(now); setHours(0,0,0,0)`
+(`cron/late-check-in`, `cron/daily-summary`, `cron/reminders`) — both read
+the SERVER's local hour/midnight, not the tenant's. Unlike this item's
+display-only bugs, these are scheduling-gate bugs: a Pacific tenant's
+"day-before confirmation at 1pm" or "8am day-based reminder" never actually
+fires at their own local 1pm/8am, and a "today"/"tomorrow" window can
+mis-bucket bookings within several hours of a tenant's own local midnight.
+Changing *when* a cron's logic executes (vs. how it renders) is a real
+behavior change or shape questions I don't want to make. Also noticed:
+`bookings/batch-update/route.ts:108` reconstructs a Date from `start_time`'s
+raw Y/M/D/H/M string components rather than parsing it as an instant —
+a different mechanism that may already sidestep this exact bug depending on
+how `start_time` is actually stored; needs its own investigation before
+touching, left alone here.
+
+3 new test files, mutation-verified (`git apply -R` each production fix,
+RED for the expected reason each time — the Pacific-zone assertion failed
+against whatever zone the fix no longer applied — `git apply` restored,
+GREEN): `bookings/route.timezone.test.ts` (client confirmation email +
+team job-assignment message), `bookings/[id]/status/route.timezone.test.ts`
+(cancel + complete notify — this file's tenant-fetch is entirely new code),
+`cron/reminders/route.timezone.test.ts` (2-hour client + team SMS, the
+cron's largest and most complex fix). `tsc --noEmit` clean, full suite
+416/416 files, 2010/2010 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
