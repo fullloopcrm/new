@@ -93,7 +93,7 @@ export async function POST(request: Request) {
   const first = (data || [])[0]
   if (first && first.status !== 'pending') {
     try {
-      const client = first.clients as { name?: string; email?: string | null; phone?: string | null } | null
+      const client = first.clients as { name?: string; email?: string | null; phone?: string | null; sms_consent?: boolean | null } | null
       const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null } | null
 
       const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
@@ -123,8 +123,12 @@ export async function POST(request: Request) {
         .single()
       const bizName = (tenantRow?.name as string) || 'Your service team'
 
-      // Client SMS confirmation
-      if (client?.phone && telnyxApiKey && telnyxPhone) {
+      // Client SMS confirmation. sms_consent===false means the client texted
+      // STOP (TCPA opt-out, webhooks/telnyx sets this tenant-wide) -- this
+      // route calls sendSMS() directly rather than going through notify(),
+      // so it needs its own gate (same class as notify.ts's dispatcher-level
+      // fix and bookings/route.ts's single-create sibling).
+      if (client?.phone && client?.sms_consent !== false && telnyxApiKey && telnyxPhone) {
         sendSMS({
           to: client.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation(first),

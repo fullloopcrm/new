@@ -25,7 +25,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .from('recurring_schedules')
       .update({ status: 'paused', paused_until, updated_at: new Date().toISOString() })
       .eq('id', id)
-      .select('*, clients(name, phone, email)')
+      .select('*, clients(name, phone, email, sms_consent)')
       .single()
 
     if (error || !schedule) {
@@ -44,7 +44,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .lte('start_time', pauseEnd)
       .select('id')
 
-    const client = schedule.clients as unknown as { name?: string; phone?: string; email?: string } | null
+    const client = schedule.clients as unknown as { name?: string; phone?: string; email?: string; sms_consent?: boolean | null } | null
     const cancelledCount = cancelled?.length || 0
 
     await db.from('notifications').insert({
@@ -54,7 +54,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       channel: 'in_app',
     })
 
-    if (cancelledCount > 0 && client?.phone) {
+    // sms_consent===false means the client texted STOP (TCPA opt-out,
+    // webhooks/telnyx sets this tenant-wide) -- this route calls sendSMS()
+    // directly rather than going through notify(), so it needs its own gate
+    // (same class as notify.ts's dispatcher-level fix).
+    if (cancelledCount > 0 && client?.phone && client?.sms_consent !== false) {
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
         .select('name, telnyx_api_key, telnyx_phone')
