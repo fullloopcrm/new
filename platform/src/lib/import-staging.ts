@@ -230,28 +230,53 @@ export async function getBatchReview(batchId: string): Promise<BatchReview | nul
 
 /** Commit accepted rows to live tables, recording target_id per row for undo. */
 export async function commitBatch(batchId: string): Promise<{ committed: number }> {
-  const { data: batch } = await supabaseAdmin.from('import_batches').select('*').eq('id', batchId).single()
-  if (!batch) throw new Error('batch not found')
-  if (batch.status !== 'staged') throw new Error(`batch is ${batch.status}, not staged`)
-
-  // Only 'new' (clients) / 'matched' (schedules) rows are written; the rest are held for review.
-  const { data: rows } = await supabaseAdmin
-    .from('import_rows').select('*').eq('batch_id', batchId).in('match_status', ['new', 'matched'])
-
-  let committed = 0
-  for (const r of rows || []) {
-    const table = r.target_table as string
-    const payload = { ...(r.mapped as Record<string, unknown>), tenant_id: batch.tenant_id }
-    const { data: ins, error } = await supabaseAdmin.from(table).insert(payload).select('id').single()
-    if (error || !ins) continue // leave uncommitted; row keeps target_id null
-    await supabaseAdmin.from('import_rows').update({ target_id: ins.id }).eq('id', r.id)
-    committed++
-  }
-
-  await supabaseAdmin.from('import_batches')
-    .update({ status: 'committed', committed_rows: committed, committed_at: new Date().toISOString() })
+  // Claim the staged→committed transition atomically, before touching any
+  // row. A plain read-then-branch here (the old shape) lets two concurrent
+  // commits — a double-click on "Commit Import", or a retried request on a
+  // large/slow batch — both read status:'staged' and both loop through
+  // inserting every accepted row, since the status flip used to happen only
+  // at the very end. Unlike most double-submit bugs in this app there's no
+  // DB unique constraint backstop here (clients has none on tenant/email or
+  // tenant/phone) and dedup only runs once, at stage time — so a race
+  // duplicates the tenant's entire imported client/booking list, not just
+  // one row.
+  const { data: batch } = await supabaseAdmin
+    .from('import_batches')
+    .update({ status: 'committed', committed_at: new Date().toISOString() })
     .eq('id', batchId)
-  return { committed }
+    .eq('status', 'staged')
+    .select()
+    .maybeSingle()
+  if (!batch) throw new Error('batch not found or not staged')
+
+  try {
+    // Only 'new' (clients) / 'matched' (schedules) rows are written; the rest are held for review.
+    const { data: rows } = await supabaseAdmin
+      .from('import_rows').select('*').eq('batch_id', batchId).in('match_status', ['new', 'matched'])
+
+    let committed = 0
+    for (const r of rows || []) {
+      const table = r.target_table as string
+      const payload = { ...(r.mapped as Record<string, unknown>), tenant_id: batch.tenant_id }
+      const { data: ins, error } = await supabaseAdmin.from(table).insert(payload).select('id').single()
+      if (error || !ins) continue // leave uncommitted; row keeps target_id null
+      await supabaseAdmin.from('import_rows').update({ target_id: ins.id }).eq('id', r.id)
+      committed++
+    }
+
+    await supabaseAdmin.from('import_batches')
+      .update({ committed_rows: committed })
+      .eq('id', batchId)
+    return { committed }
+  } catch (e) {
+    // Release the claim so a genuinely failed commit (not a per-row skip,
+    // already handled above) can be retried instead of leaving the batch
+    // stuck 'committed' with nothing actually written.
+    await supabaseAdmin.from('import_batches')
+      .update({ status: 'staged', committed_at: null })
+      .eq('id', batchId)
+    throw e
+  }
 }
 
 /** Undo a committed batch — delete every row it wrote, by recorded target_id. */
