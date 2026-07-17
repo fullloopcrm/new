@@ -4,7 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
-import { nowNaiveET } from '@/lib/recurring'
+import { nowNaiveET, etHour, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -153,22 +153,25 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
+      // CLIENT DAY-BEFORE CONFIRMATION — 1pm ET the day before
       // ============================================
-      if (now.getHours() === 13 && clientConfirmOn) {
-        const tomorrowStart = new Date(now)
-        tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-        tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart)
-        tomorrowEnd.setHours(23, 59, 59, 999)
+      // now.getHours() reads the SERVER's local hour (UTC on Vercel), not
+      // ET -- this gate was firing at 1pm UTC (8-9am ET) instead of 1pm ET.
+      // See recurring.ts's etHour() header. start_time is naive-ET, so the
+      // window itself must also be built in the ET calendar, not the old
+      // UTC-based tomorrowStart/tomorrowEnd -- same day-boundary bug already
+      // fixed on the main dashboard (975d7db8).
+      if (etHour(now) === 13 && clientConfirmOn) {
+        const tomorrowStartET = formatNaiveET(addCalendarDays(etToday(), 1))
+        const tomorrowEndET = formatNaiveET(addCalendarDays(etToday(), 1), 23, 59, 59)
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStartET)
+          .lte('start_time', tomorrowEndET)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingTomorrowConfirm[]>()
 

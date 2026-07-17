@@ -12,6 +12,7 @@ import {
   addCalendarDays,
   calendarDayOfWeek,
   formatNaiveET,
+  etHour,
   type RecurringType,
 } from './recurring'
 
@@ -537,5 +538,31 @@ describe('etToday / addCalendarDays / calendarDayOfWeek / formatNaiveET — day-
       timeZone: 'America/New_York', hour: '2-digit', hour12: false,
     }).formatToParts(midnightET).find(p => p.type === 'hour')?.value
     expect(hour === '00' || hour === '24').toBe(true)
+  })
+})
+
+describe('etHour — hour-gate counterpart of etToday', () => {
+  // Cron gates like `now.getHours() === 8` intending "8am ET" actually read
+  // the SERVER's local hour (UTC on Vercel), silently firing at 8am UTC
+  // (3-4am ET) instead. etHour() reads the true ET wall-clock hour instead.
+
+  it('reads the ET hour, not the UTC hour, across the DST gap (EDT, UTC-4)', () => {
+    // 17:00 UTC on a July date = 1pm EDT.
+    expect(etHour(new Date('2026-07-17T17:00:00.000Z'))).toBe(13)
+  })
+
+  it('reads the ET hour, not the UTC hour, in EST (UTC-5)', () => {
+    // 18:00 UTC on a January date = 1pm EST.
+    expect(etHour(new Date('2026-01-17T18:00:00.000Z'))).toBe(13)
+  })
+
+  it('rolls to the correct ET calendar hour across a UTC midnight (UTC day already tomorrow, ET still today)', () => {
+    // 2am UTC on the 17th = 10pm EDT on the 16th.
+    expect(etHour(new Date('2026-07-17T02:00:00.000Z'))).toBe(22)
+  })
+
+  it('returns 0, not 24, for ET midnight', () => {
+    // 4am UTC on the 17th = midnight EDT on the 17th.
+    expect(etHour(new Date('2026-07-17T04:00:00.000Z'))).toBe(0)
   })
 })

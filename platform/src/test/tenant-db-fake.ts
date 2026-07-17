@@ -21,6 +21,9 @@
  *
  * `select(cols, { count: 'exact' })` (without `head`) now also returns a row
  * count alongside `data`, matching PostgREST's combined data+count response.
+ *
+ * `.returns<T>()` is inert (matches the real client -- a compile-time-only
+ * type assertion with no runtime effect).
  */
 
 export interface FakeStoreHandle {
@@ -172,6 +175,10 @@ export function makeTenantDbFake(h: FakeStoreHandle) {
         lt: (col: string, val: unknown) => { state.lts.push({ col, val }); return chain },
         order: () => chain,
         limit: () => chain,
+        // `.returns<T>()` is a pure compile-time type assertion in the real
+        // supabase-js client (no runtime behavior) -- same inert treatment
+        // as supabase-fake.ts's own `.returns()`.
+        returns: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single')),
         maybeSingle: () => Promise.resolve(runQuery(h, state, 'maybeSingle')),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>

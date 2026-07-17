@@ -324,6 +324,19 @@ export function formatNaiveET(date: CalendarDate, hour = 0, minute = 0, second =
   return `${date.year}-${pad(date.month + 1)}-${pad(date.day)}T${pad(hour)}:${pad(minute)}:${pad(second)}`
 }
 
+/**
+ * ET wall-clock hour (0-23) for a given instant -- DST-aware via Intl, unlike
+ * `Date.getHours()` which reads the SERVER's local hour (UTC on Vercel).
+ * Cron gates written as `now.getHours() === 8` intending "8am ET" were
+ * actually firing whenever it was 8am UTC (3am EDT / 4am EST) -- the
+ * hour-gate counterpart of the day-boundary bug etToday() fixes.
+ */
+export function etHour(date: Date): number {
+  const hourStr = date.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false, hour: '2-digit' })
+  const hour = Number(hourStr)
+  return hour === 24 ? 0 : hour
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string
