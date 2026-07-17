@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+      .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
       .eq('id', tenantId)
       .single()
     if (!tenant) {
@@ -130,17 +130,23 @@ export async function POST(request: Request) {
     }
 
     // Deliver via the tenant's own SMS (preferred) or email (fallback).
+    // telnyx_phone is the newer dedicated column; sms_number predates it and
+    // is still independently writable via the admin settings API, so a
+    // tenant configured only on the legacy column must still be able to send.
+    const smsFromNumber = tenant.telnyx_phone || tenant.sms_number
     let delivered = false
-    if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    let deliveredVia: 'sms' | 'email' | null = null
+    if (member.phone && tenant.telnyx_api_key && smsFromNumber) {
       try {
         const { sendSMS } = await import('@/lib/sms')
         await sendSMS({
           to: member.phone,
           body: `Your ${tenant.name} PIN reset code is: ${code}`,
           telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxPhone: smsFromNumber,
         })
         delivered = true
+        deliveredVia = 'sms'
       } catch (e) {
         console.error('[pin-reset] SMS send failed:', e)
       }
@@ -155,6 +161,7 @@ export async function POST(request: Request) {
           resendApiKey: tenant.resend_api_key,
         })
         delivered = true
+        deliveredVia = 'email'
       } catch (e) {
         console.error('[pin-reset] Email send failed:', e)
       }
@@ -167,7 +174,7 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ sent: true, via: member.phone && tenant.telnyx_api_key ? 'sms' : 'email' })
+    return NextResponse.json({ sent: true, via: deliveredVia })
   }
 
   // ---- Step 2: verify the code and set the new PIN ----
