@@ -3099,6 +3099,45 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-32. client/notes (per-tenant client-dashboard "notes for the cleaner") — WRONG COLUMN (fresh ground, third instance of this session's field-wiring bug class, a sibling of 5a-30's portal/notes fix in a DIFFERENT route the prior sweep didn't check: the per-tenant client dashboards — wash-and-fold-hoboken/nyc, the-florida-maid, generic site/book/dashboard — vs portal/notes' modern /portal app) ----
+    // client/notes/route.ts used to read/write clients.notes instead of
+    // clients.special_instructions, same wrong-column shape as 5a-30's
+    // portal/notes bug, in a route 5a-30's own sweep never checked (different
+    // path, different auth module — client-auth.ts vs verifyPortalToken — but
+    // the identical clients.notes/clients.special_instructions confusion).
+    // The client-dashboard textarea (placeholder "Door codes, pet info,
+    // special instructions...") never reached the cleaner, and the client
+    // could read/overwrite the admin's private notes. Now fixed to target
+    // special_instructions. This probe proves the same two facts 5a-30 proved,
+    // against a real clients row, for THIS route's exact select/update shape.
+    {
+      const clientNotesGatePhone = '646' + String(4700000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+      const { data: cnGateClient, error: cnGateClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Client-Notes Field-Wiring Gate Client', email: `cngate+${runId}@example.com`,
+        phone: clientNotesGatePhone, status: 'active',
+        notes: `OPERATOR-PRIVATE ${runId} — do not surface to client`,
+        special_instructions: `Gate code ${runId} — cleaner-facing`,
+      }).select('id, notes, special_instructions').single()
+      add('client-notes-gate: client row created with distinct notes vs special_instructions values', !!cnGateClient && !cnGateClientErr, cnGateClientErr?.message)
+
+      if (cnGateClient?.id) {
+        // client/notes' fixed GET select shape.
+        const clientNotesRow = await supabase.from('clients').select('special_instructions').eq('id', cnGateClient.id).eq('tenant_id', tenant.id).single()
+        add('client-notes-gate: client/notes\' fixed select returns the special_instructions value', clientNotesRow.data?.special_instructions === cnGateClient.special_instructions, JSON.stringify(clientNotesRow.data))
+        add('client-notes-gate: client/notes\' fixed select never returns the operator-private notes value', clientNotesRow.data?.special_instructions !== cnGateClient.notes, JSON.stringify(clientNotesRow.data))
+
+        // client/notes' fixed PUT update shape — a real client-submitted edit.
+        const { error: cnUpdateErr } = await supabase.from('clients').update({ special_instructions: `New gate code ${runId}` }).eq('id', cnGateClient.id).eq('tenant_id', tenant.id)
+        add('client-notes-gate: PUT update() call succeeds', !cnUpdateErr, cnUpdateErr?.message)
+
+        const { data: cnAfter } = await supabase.from('clients').select('notes, special_instructions').eq('id', cnGateClient.id).eq('tenant_id', tenant.id).single()
+        add('client-notes-gate: PUT writes special_instructions, not notes', cnAfter?.special_instructions === `New gate code ${runId}`, JSON.stringify(cnAfter))
+        add('client-notes-gate: PUT never mutates the admin-private notes field', cnAfter?.notes === cnGateClient.notes, JSON.stringify(cnAfter))
+
+        await supabase.from('clients').delete().eq('id', cnGateClient.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
