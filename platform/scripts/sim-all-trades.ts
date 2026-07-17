@@ -2254,6 +2254,90 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('sms-consent-gate: live schema — CONTROL client sms_consent reads back true', okAfter?.sms_consent === true, JSON.stringify(okAfter))
     }
 
+    // ---- 5a-19. client/book + client/reschedule — do_not_service EMAIL/PHONE-MATCH BYPASS + sms_consent NEVER CHECKED (fresh ground, dedicated audit round of the 5 same-pattern call sites 5a-18's NOTICED flagged rather than a blind sweep) ----
+    // Two gaps found and fixed in these two routes, both worse than the
+    // usual "missed the client SMS consent check" shape:
+    //
+    // client/book/route.ts: `do_not_service` was checked ONLY for the
+    // caller-supplied body.client_id path. The same public form also lets a
+    // caller identify by body.email/body.phone alone, which matches an
+    // EXISTING client and never checked do_not_service at all -- a client
+    // the business explicitly banned could bypass the ban entirely by
+    // submitting the form with just their known email/phone, creating a
+    // REAL booking (not just a stray text). Fixed: the matched-client path
+    // now re-checks do_not_service before any booking work runs. That
+    // route's booking-received confirmation SMS also never checked
+    // sms_consent at all (fixed alongside it).
+    //
+    // client/reschedule/[id]/route.ts: do_not_service is already covered
+    // upstream (protectClientAPI blocks a do_not_service client's session
+    // entirely), but sms_consent -- a separate, still-authenticated axis --
+    // was never checked on the reschedule-confirmation SMS. Fixed.
+    //
+    // Both fixes are inline route-handler logic (not extracted lib
+    // functions), so -- same constraint every other guard-function probe in
+    // this archetype block already documents -- they can't be called
+    // directly here without full request/cookie/header context this harness
+    // doesn't have; the mutation-tested vitest suites
+    // (route.dns-and-consent.test.ts, route.sms-consent-guard.test.ts) own
+    // proving the gate logic itself. What this DOES prove against the real
+    // live schema: a do_not_service client and an sms_consent-revoked
+    // client both exist with the exact column names/values both fixes'
+    // WHERE-clause/gate-condition reads assume, tied to a client_id/
+    // tenant_id pair shaped exactly like the ones create_booking_atomic and
+    // bookings.select('*, clients(*)') return in production.
+    {
+      const bypassPhone = '646' + String(4000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+      const { data: dnsMatchClient, error: dnsMatchErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'DNS Email/Phone-Match Client', email: `dnsmatch+${runId}@example.com`,
+        phone: bypassPhone, status: 'active', do_not_service: true,
+      }).select('id, tenant_id, do_not_service').single()
+      add('dns-bypass-guard: banned (do_not_service=true) client created for the email/phone-match probe', !!dnsMatchClient && !dnsMatchErr, dnsMatchErr?.message)
+
+      // Live schema/data probe mirroring client/book's fixed matched-client
+      // do_not_service re-check: `.select('do_not_service').eq('id', clientId).eq('tenant_id', tenant.id).maybeSingle()`.
+      const { data: dnsReadBack } = await supabase.from('clients')
+        .select('do_not_service').eq('id', dnsMatchClient?.id || '').eq('tenant_id', tenant.id).maybeSingle()
+      add('dns-bypass-guard: live schema — the exact query the fix runs reads do_not_service=true back for this client', dnsReadBack?.do_not_service === true, JSON.stringify(dnsReadBack))
+
+      // CONTROL: an ordinary, non-banned client resolves the same query to false/no block.
+      const { data: dnsControlClient } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'DNS-Match CONTROL Client', email: `dnsmatch-ok+${runId}@example.com`,
+        phone: bypassPhone + '1', status: 'active', do_not_service: false,
+      }).select('id').single()
+      const { data: dnsControlReadBack } = await supabase.from('clients')
+        .select('do_not_service').eq('id', dnsControlClient?.id || '').eq('tenant_id', tenant.id).maybeSingle()
+      add('dns-bypass-guard: live schema — CONTROL client reads do_not_service=false (would not be blocked)', dnsControlReadBack?.do_not_service === false, JSON.stringify(dnsControlReadBack))
+
+      // reschedule sms_consent gate: a real booking + STOP-revoked client,
+      // shaped like bookings.select('*, clients(*)') returns in production
+      // (updated.clients.sms_consent is what the fix's gate reads).
+      const { data: rescheduleGateClient, error: rescheduleGateErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Reschedule SMS-Gate Client', email: `reschedgate+${runId}@example.com`,
+        phone: bypassPhone + '2', status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent').single()
+      add('reschedule-sms-consent-gate: STOP-revoked client created (sms_consent=false)', !!rescheduleGateClient && !rescheduleGateErr, rescheduleGateErr?.message)
+
+      if (rescheduleGateClient?.id) {
+        const { data: rescheduleBooking } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: rescheduleGateClient.id, team_member_id: worker.id,
+          start_time: projectDaysFromNow(3, 10), end_time: projectDaysFromNow(3, 12),
+          status: 'confirmed', service_type: 'reschedule sms-consent-gate probe',
+        }).select('id').single()
+
+        if (rescheduleBooking?.id) {
+          // Live schema probe mirroring the exact embedded-join shape the
+          // fixed route reads (`updated.clients?.sms_consent !== false`):
+          // bookings joined to clients via the same FK the route's own
+          // .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)') uses.
+          const { data: bookingWithClient } = await supabase.from('bookings')
+            .select('id, clients(sms_consent, phone)').eq('id', rescheduleBooking.id).eq('tenant_id', tenant.id).single()
+          const joinedClient = bookingWithClient?.clients as unknown as { sms_consent?: boolean; phone?: string } | null
+          add('reschedule-sms-consent-gate: live schema — bookings→clients join reads sms_consent=false back exactly as the fix\'s gate condition evaluates it', joinedClient?.sms_consent === false, JSON.stringify(joinedClient))
+        }
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
