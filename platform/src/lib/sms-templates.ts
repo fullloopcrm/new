@@ -126,11 +126,12 @@ export function smsLateCheckInTeam(bizName: string, booking: { start_time: strin
   return `${bizName}: You're late for your ${time} job (${clientName}). Please check in ASAP.${link}\n---\n${bizName}: Estas tarde para tu trabajo de las ${time} (${clientName}). Registrate ahora.${link}${STOP_TEXT}`
 }
 
-export function smsLateCheckInAdmin(bizName: string, booking: { start_time: string; clients?: { name: string } | null; team_members?: { name?: string | null } | null }): string {
+export function smsLateCheckInAdmin(bizName: string, booking: { start_time: string; clients?: { name: string } | null; team_members?: { name?: string | null } | null; is_emergency?: boolean | null }): string {
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const memberName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Late check-in — ${memberName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  return `${bizName}: ${prefix}Late check-in — ${memberName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
 }
 
 export function smsLateCheckOutTeam(bizName: string, booking: { clients?: { name: string } | null }, portalUrl?: string): string {
@@ -139,10 +140,11 @@ export function smsLateCheckOutTeam(bizName: string, booking: { clients?: { name
   return `${bizName}: Please check out for your ${clientName} job. 15-min alert was sent 30+ min ago.${link}\n---\n${bizName}: Por favor registrate de salida para tu trabajo con ${clientName}. Salir ahora.${link}${STOP_TEXT}`
 }
 
-export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { name: string } | null; team_members?: { name?: string | null } | null }): string {
+export function smsLateCheckOutAdmin(bizName: string, booking: { clients?: { name: string } | null; team_members?: { name?: string | null } | null; is_emergency?: boolean | null }): string {
   const memberName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  return `${bizName}: ${prefix}Late check-out — ${memberName} hasn't checked out for ${clientName}. 30+ min since 15-min alert.`
 }
 
 export function smsRunningLateClient(bizName: string, memberName: string, eta?: number): string {

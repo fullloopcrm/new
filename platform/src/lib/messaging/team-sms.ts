@@ -83,7 +83,8 @@ export function lateCheckInAdmin(brand: TenantBrand, booking: TeamBookingLike): 
   const time = etTime(booking.start_time)
   const cleanerName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `${brand.name}: Late check-in — ${cleanerName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  return `${brand.name}: ${prefix}Late check-in — ${cleanerName} hasn't checked in for ${time} job (${clientName}). 10+ min overdue.`
 }
 
 export function lateCheckOutCleaner(brand: TenantBrand, booking: TeamBookingLike): string {
@@ -96,5 +97,6 @@ export function lateCheckOutCleaner(brand: TenantBrand, booking: TeamBookingLike
 export function lateCheckOutAdmin(brand: TenantBrand, booking: TeamBookingLike): string {
   const cleanerName = booking.team_members?.name || 'Unassigned'
   const clientName = booking.clients?.name || 'Client'
-  return `${brand.name}: Late check-out — ${cleanerName} hasn't checked out for ${clientName}. 30+ min since 30-min alert.`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  return `${brand.name}: ${prefix}Late check-out — ${cleanerName} hasn't checked out for ${clientName}. 30+ min since 30-min alert.`
 }

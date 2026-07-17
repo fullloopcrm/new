@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, hourly_rate, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+        .select('id, start_time, hourly_rate, team_member_id, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -68,6 +68,10 @@ export async function GET(request: Request) {
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
         const templates = teamSmsTemplates(tenant)
+        // Same admin-blindness class as items (20)/(24)/(26)/(29)/(30): a
+        // same-day emergency job running late to check-in is a different
+        // severity of problem than a routine one, but the alert was identical.
+        const isEmergency = !!(booking as any).is_emergency
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -93,7 +97,7 @@ export async function GET(request: Request) {
         // Push to admins
         sendPushToTenantAdmins(
           tenantId,
-          'Late Check-In',
+          isEmergency ? '🚨 Urgent Late Check-In' : 'Late Check-In',
           `${memberName} — ${clientName} at ${time}`,
           '/dashboard/bookings'
         ).catch(() => {})
@@ -102,8 +106,8 @@ export async function GET(request: Request) {
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'late_check_in',
-          title: 'Late Check-In',
-          message: `${memberName} hasn't checked in for ${clientName} (${time})`,
+          title: isEmergency ? '🚨 Urgent Late Check-In' : 'Late Check-In',
+          message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${memberName} hasn't checked in for ${clientName} (${time})`,
           booking_id: booking.id,
           channel: 'sms',
           status: 'sent',
@@ -117,7 +121,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, hourly_rate, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+        .select('id, start_time, hourly_rate, team_member_id, fifteen_min_alert_time, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -140,6 +144,7 @@ export async function GET(request: Request) {
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
         const templates = teamSmsTemplates(tenant)
+        const isEmergency = !!(booking as any).is_emergency
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -165,7 +170,7 @@ export async function GET(request: Request) {
         // Push to admins
         sendPushToTenantAdmins(
           tenantId,
-          'Late Check-Out',
+          isEmergency ? '🚨 Urgent Late Check-Out' : 'Late Check-Out',
           `${memberName} — ${clientName} still on site`,
           '/dashboard/bookings'
         ).catch(() => {})
@@ -174,8 +179,8 @@ export async function GET(request: Request) {
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'late_check_out',
-          title: 'Late Check-Out',
-          message: `${memberName} hasn't checked out for ${clientName} — 30+ min since 15-min alert`,
+          title: isEmergency ? '🚨 Urgent Late Check-Out' : 'Late Check-Out',
+          message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${memberName} hasn't checked out for ${clientName} — 30+ min since 15-min alert`,
           booking_id: booking.id,
           channel: 'sms',
           status: 'sent',
