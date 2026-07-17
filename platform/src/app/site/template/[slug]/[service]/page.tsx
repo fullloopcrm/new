@@ -11,6 +11,7 @@ import { SERVICES, getService } from '@/app/site/template/_lib/seo/services'
 import { neighborhoodServiceContent, neighborhoodFAQs, serviceFAQs, commonServiceFAQs } from '@/app/site/template/_lib/seo/content'
 import { neighborhoodServicePageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -48,15 +49,16 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!neighborhood || !service) return {}
 
   const area = getArea(neighborhood.area)!
-  const url = `https://www.example.com/${slug}/${serviceSlug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | Your Business`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (555) 555-5555`
+  const brand = toBrand(await getSiteConfig())
+  const url = `${brand.url}/${slug}/${serviceSlug}`
+  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | ${brand.name}`
+  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${brand.phone}`
 
   return {
     title: { absolute: title },
     description,
     alternates: { canonical: url },
-    openGraph: { title, description, url, type: 'website', siteName: 'Your Business', locale: 'en_US' },
+    openGraph: { title, description, url, type: 'website', siteName: brand.siteName, locale: 'en_US' },
     twitter: { card: 'summary_large_image', title, description },
     other: { 'geo.region': `US-${area.state}`, 'geo.placename': neighborhood.name, 'geo.position': `${neighborhood.lat};${neighborhood.lng}`, 'ICBM': `${neighborhood.lat}, ${neighborhood.lng}` },
   }
