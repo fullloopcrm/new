@@ -2392,6 +2392,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-21. lastNMonths() — MONTHLY REVENUE/SIGNUP TREND ANCHOR-DAY OVERFLOW (fresh ground, fourth call site of the setMonth/setUTCMonth day-clamping bug class, this time a single-hop overflow rather than a chained/permanent-drift one) ----
+    // finance/revenue, admin/finance, and admin/analytics all built their
+    // "last N months" trend buckets with `const d = new Date(); d.setMonth(d.getMonth()
+    // - i)` inside a loop — mutating a real "today" (which can be day 29/30/31) IN
+    // PLACE for every i, instead of anchoring at day 1 first. When "now" has day >=
+    // 29, subtracting i months from certain i values overflows into a short target
+    // month (Jul 31 minus 10 months = Sep 31 -> rolls to Oct 1), producing the SAME
+    // label for two different intended months while a third month's label never
+    // appears in the map at all. The revenue routes then bucket real paid-booking
+    // rows by `if (key in monthMap) monthMap[key] += ...` — a booking paid in the
+    // silently-dropped month has no matching key, so its revenue vanishes from the
+    // monthly trend response (verified live: a Jul-31 anchor drops 5 of 12 months).
+    // Fixed by extracting a shared, unit-tested `lastNMonths()` (src/lib/dates.ts,
+    // exported — unlike advanceCursor() above, callable directly here) that anchors
+    // each month at day 1 before subtracting, then rewiring all 3 call sites onto it.
+    // Proves two things against the real schema: (1) the pure function itself is
+    // collision-free for a real day-31 "now", and (2) a REAL bookings row's
+    // payment_date, read back through the exact column the finance routes select,
+    // lands inside a bucket the fix's monthMap actually contains — not silently
+    // dropped the way it would have been under the old per-site inline loop.
+    {
+      const { lastNMonths } = await import('../src/lib/dates')
+      const simulatedNow = new Date(2026, 6, 31) // Jul 31 — a 31-day month, the exact overflow trigger
+      const trendMonths = lastNMonths(12, simulatedNow)
+      const trendLabels = trendMonths.map(m => m.label)
+      add('lastNMonths: 12 distinct month labels for a day-31 "now" (old inline loop collapsed to 7)', new Set(trendLabels).size === 12, trendLabels.join(', '))
+
+      const droppedMonthPaymentDate = '2025-09-15' // Sep 2025 — one of the 5 months the old bug dropped entirely for this anchor
+      const { data: overflowProbeBooking, error: overflowProbeErr } = await supabase.from('bookings').insert({
+        tenant_id: tenant.id, client_id: job?.client_id || null, job_id: jobRes.job_id,
+        team_member_id: null, start_time: new Date(droppedMonthPaymentDate).toISOString(), end_time: new Date(droppedMonthPaymentDate).toISOString(),
+        status: 'completed', service_type: 'lastNMonths anchor-overflow probe',
+        price: 4800 + idx, payment_status: 'paid', payment_date: droppedMonthPaymentDate,
+      }).select('id, price, payment_date').single()
+      add('anchor-overflow-probe: paid booking created dated inside the old bug\'s dropped month (Sep 2025)', !!overflowProbeBooking && !overflowProbeErr, overflowProbeErr?.message)
+
+      // Mirror the exact real-route bucketing sequence: build monthMap from the
+      // fixed lastNMonths(), read the booking's real payment_date column back, key
+      // it the same way the routes do, and confirm the key exists in the map (i.e.
+      // this booking's revenue would NOT be silently dropped from the trend).
+      const overflowMonthMap: Record<string, number> = {}
+      for (const { label } of trendMonths) overflowMonthMap[label] = 0
+      const { data: overflowReadBack } = await supabase.from('bookings')
+        .select('price, payment_date').eq('id', overflowProbeBooking?.id || '').eq('tenant_id', tenant.id).maybeSingle()
+      const overflowKey = overflowReadBack?.payment_date ? new Date(overflowReadBack.payment_date as string).toLocaleDateString('en-US', { month: 'short', year: '2-digit' }) : null
+      add('anchor-overflow-probe: live schema — real payment_date column keyed the same way the routes bucket it', overflowKey === 'Sep 25', `payment_date=${overflowReadBack?.payment_date}, key=${overflowKey}`)
+      add('anchor-overflow-probe: the booking\'s month key exists in the fixed monthMap (old bug: key absent, revenue silently dropped)', overflowKey !== null && overflowKey in overflowMonthMap, JSON.stringify(Object.keys(overflowMonthMap)))
+
+      // Cleanup: this probe booking has no job-visible side effects to unwind
+      // beyond the row itself; delete it so it never counts toward this
+      // tenant's real revenue totals outside this harness's own read.
+      if (overflowProbeBooking?.id) await supabase.from('bookings').delete().eq('id', overflowProbeBooking.id).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
