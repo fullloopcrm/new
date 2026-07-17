@@ -18,20 +18,22 @@
  * read tenant.telnyx_phone directly can adopt it instead of re-deriving it
  * (or missing it).
  *
- * Platform fallback: when a tenant hasn't configured its own Telnyx
- * sub-account, this falls back to the platform's shared TELNYX_API_KEY/
- * TELNYX_PHONE — the SAME tenant-first-then-platform precedence already
- * established for every sibling credential resolver (email.ts's
- * defaultResend, stripe.ts's getStripe(), comhub-voice-config.ts's
- * resolveTenantVoiceConfig(), and bookings/batch/route.ts's own inline
- * `tRow?.telnyx_api_key || process.env.TELNYX_API_KEY`). Before this, the
- * shared resolver used by notify.ts/notify-team.ts/admin-contacts.ts/
- * payment-processor.ts/comms-prefs.ts silently treated SMS as unavailable
- * for every tenant without its own Telnyx account, even though the platform
- * account could already send for them (as bookings/batch already proved).
- * Pass `{ platformFallback: false }` for a caller that must use the
- * tenant's OWN number or not send at all (lib/jefe/actions.ts's
- * notifyTenantOwner(), which documents exactly that contract).
+ * Platform fallback (opt-in, default OFF): `bookings/batch/route.ts` is the
+ * one existing caller that falls back to the platform's shared
+ * TELNYX_API_KEY/TELNYX_PHONE when a tenant has no Telnyx of its own —
+ * mirroring email/Stripe/voice's tenant-first-then-platform pattern. Every
+ * OTHER caller (~40 call sites, including every caller of this function)
+ * deliberately treats "tenant has no Telnyx config" as "skip SMS for this
+ * tenant" instead. This is NOT a settled precedent to widen: whether texting
+ * a tenant's customers from the shared platform number is even compliant
+ * without that tenant's own 10DLC carrier registration on file is an open,
+ * gated question — see JEFF-MORNING-QUEUE.md's "15:17 2026-07-17 ·
+ * Compliance question — shared-platform-Telnyx-number fallback" entry,
+ * still awaiting Jeff's answer as of this writing. Until that lands,
+ * `platformFallback` defaults to false so every caller of this function
+ * keeps the current skip-if-unconfigured behavior; pass
+ * `{ platformFallback: true }` only once that compliance question is
+ * resolved in favor of the shared-fallback direction.
  */
 export interface TenantSmsFields {
   telnyx_api_key?: string | null
@@ -61,7 +63,7 @@ export function resolveTenantSmsCredentials(
   tenant: TenantSmsFields | null | undefined,
   opts: ResolveSmsCredentialsOptions = {},
 ): TenantSmsCredentials {
-  const { platformFallback = true } = opts
+  const { platformFallback = false } = opts
   return {
     apiKey: tenant?.telnyx_api_key || (platformFallback ? platformTelnyxApiKey() : null),
     phone: tenant?.telnyx_phone || tenant?.sms_number || (platformFallback ? platformTelnyxPhone() : null),
