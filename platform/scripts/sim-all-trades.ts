@@ -1069,6 +1069,53 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: customer-facing booking-received SMS discloses the emergency/same-day rate (not just that the request was received)',
         smsSigHasPriceField || smsRenderedMentionsPrice,
         `smsBookingReceived's signature (sms-templates.ts: (bizName: string, booking: {${smsBookingReceivedSig.split('booking: {')[1] || ''}) has no price/rate field — only is_emergency, which P11.14 already wired into the urgency wording. Calling it live with is_emergency:true: "${emSmsUrgentPriced}" — confirms zero $/price/rate/surcharge/premium/fee wording regardless of input. Same root cause and same fix shape as P11.19 (email), but for the channel a customer is more likely to actually read first.`)
+
+      // P11.21 the team-facing mirror of P11.19/P11.20: even when a tech IS
+      // directly assigned to an emergency job (the normal working dispatch
+      // path — distinct from P11.18's broken unassigned-job case), nothing
+      // in the job-assignment SMS or anywhere in the team-portal surface
+      // ever signals urgency or the tech's own pay premium. PUT
+      // /api/bookings/[id]/route.ts fires teamSmsTemplates(...).jobAssignment
+      // on team_member_id change, passing {start_time, hourly_rate, clients,
+      // team_members} — no is_emergency, no pay_rate. Neither template
+      // implementation's signature accepts either field: team-sms.ts's
+      // jobAssignment() only uses hourly_rate for a $49 "labor only, bring no
+      // supplies" convention; sms-templates.ts's smsJobAssignment() (all
+      // ~23 non-cleaning trade tenants — this archetype) doesn't even type
+      // hourly_rate. Grepped the whole team-portal API surface for
+      // is_emergency: zero matches — even the self-claim open-jobs listing
+      // (P11.13's pull-model fallback, GET /api/team-portal/jobs?available=
+      // true) never SELECTs is_emergency from bookings, so a tech browsing
+      // open jobs has no way to see which are urgent either. Calls both
+      // live template functions directly (not mocked) to confirm the actual
+      // rendered copy.
+      const teamSmsSrc = readFileSync(resolve(process.cwd(), 'src/lib/messaging/team-sms.ts'), 'utf8')
+      const genericSmsSrc = readFileSync(resolve(process.cwd(), 'src/lib/sms-templates.ts'), 'utf8')
+      const teamPortalApiFiles = [
+        'src/app/api/team-portal/jobs/route.ts',
+        'src/app/api/team-portal/jobs/claim/route.ts',
+      ]
+      const teamPortalMentionsEmergency = teamPortalApiFiles.some((f) => {
+        try { return /is_emergency/.test(readFileSync(resolve(process.cwd(), f), 'utf8')) } catch { return false }
+      })
+      const cleaningJobAssignmentSig = (teamSmsSrc.split('export function jobAssignment(')[1] || '').split('): string {')[0]
+      const genericJobAssignmentSig = (genericSmsSrc.split('export function smsJobAssignment(')[1] || '').split('): string {')[0]
+      const eitherSigHasEmergencyOrPayRate = /is_emergency|pay_rate/.test(cleaningJobAssignmentSig + genericJobAssignmentSig)
+      const { jobAssignment: cleaningJobAssignment } = await import('../src/lib/messaging/team-sms')
+      const { smsJobAssignment: genericJobAssignment } = await import('../src/lib/sms-templates')
+      // Client/tech names deliberately contain none of the urgency words the
+      // regex below checks for — "Emergency Customer" would self-match and
+      // produce a false pass regardless of what the template actually renders.
+      const emergencyBookingLike = {
+        start_time: `${today}T18:00:00.000Z`, hourly_rate: 175,
+        clients: { name: 'Jane Doe' }, team_members: { name: 'Sam Tech', pin: '1234' },
+      }
+      const renderedCleaningSms = cleaningJobAssignment({ name: t.category, site: 'https://example.com' } as any, emergencyBookingLike as any)
+      const renderedGenericSms = genericJobAssignment(t.category, emergencyBookingLike as any)
+      const eitherRenderedMentionsUrgency = /urgent|emergency|priority|rush/i.test(renderedCleaningSms + renderedGenericSms)
+      add('emergency: a tech directly assigned to an emergency job is told the job is urgent and/or their pay premium, via SMS or the team-portal',
+        eitherSigHasEmergencyOrPayRate || teamPortalMentionsEmergency || eitherRenderedMentionsUrgency,
+        `Neither jobAssignment() signature (team-sms.ts: ${cleaningJobAssignmentSig.replace(/\s+/g, ' ').trim()}; sms-templates.ts smsJobAssignment: ${genericJobAssignmentSig.replace(/\s+/g, ' ').trim()}) carries is_emergency or pay_rate. Called both live with an emergency-shaped booking: cleaning-brand SMS = "${renderedCleaningSms}"; trade-industry SMS = "${renderedGenericSms}" — neither mentions urgency, priority, or a rate. Grepped team-portal's API surface for is_emergency: found=${teamPortalMentionsEmergency} (would need to be true for any tech-facing surface to know a job is urgent). PUT /api/bookings/[id]/route.ts fires this same jobAssignment on every team_member_id change, emergency or not — so a tech assigned to a same-day burst-pipe job gets byte-identical copy to one assigned to a routine job 3 weeks out.`)
     }
 
   } catch (err) {
