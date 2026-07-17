@@ -127,15 +127,26 @@ export async function POST(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('sales.edit')
     if (_authError) return _authError
     const { tenantId } = _authTenant
-    const { client_id, action, current_count } = await request.json()
+    const { client_id, action } = await request.json()
     if (!client_id) return NextResponse.json({ error: 'client_id is required' }, { status: 400 })
 
     if (action === 'touch') {
+      // Read the count fresh server-side rather than trusting a client-
+      // supplied `current_count` -- the caller's value can be stale by an
+      // entire user-think-time window (they loaded the list, read it, then
+      // clicked "touch" later), not just a race, so trusting it silently
+      // drops any outreach touches that happened in between.
+      const { data: current } = await supabaseAdmin
+        .from('clients')
+        .select('outreach_count')
+        .eq('id', client_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
       await supabaseAdmin
         .from('clients')
         .update({
           last_outreach_at: new Date().toISOString(),
-          outreach_count: (current_count || 0) + 1,
+          outreach_count: (current?.outreach_count || 0) + 1,
           outreach_status: 'active',
         })
         .eq('id', client_id)
