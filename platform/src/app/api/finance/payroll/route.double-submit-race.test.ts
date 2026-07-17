@@ -30,9 +30,9 @@ vi.mock('@/lib/tenant-query', () => ({
 const { postPayrollToLedger } = vi.hoisted(() => ({ postPayrollToLedger: vi.fn(async () => ({ ok: true })) }))
 vi.mock('@/lib/finance/post-labor', () => ({ postPayrollToLedger }))
 
-const bookings: Record<string, { id: string; tenant_id: string; team_member_id: string; status: string }> = {
-  'bk-1': { id: 'bk-1', tenant_id: 'tenant-1', team_member_id: 'tm-1', status: 'completed' },
-  'bk-2': { id: 'bk-2', tenant_id: 'tenant-1', team_member_id: 'tm-1', status: 'completed' },
+const bookings: Record<string, { id: string; tenant_id: string; team_member_id: string; status: string; team_member_pay: number }> = {
+  'bk-1': { id: 'bk-1', tenant_id: 'tenant-1', team_member_id: 'tm-1', status: 'completed', team_member_pay: 5000 },
+  'bk-2': { id: 'bk-2', tenant_id: 'tenant-1', team_member_id: 'tm-1', status: 'completed', team_member_pay: 5000 },
 }
 
 let payrollInsertCalls: Array<Record<string, unknown>> = []
@@ -54,13 +54,24 @@ vi.mock('@/lib/supabase', () => {
               )
               const claimed = matches.map((b) => {
                 b.status = payload.status as string
-                return { id: b.id }
+                return { id: b.id, check_in_time: null, check_out_time: null, pay_rate: null, team_member_pay: b.team_member_pay }
               })
               return Promise.resolve({ data: claimed, error: null })
             },
           }
           return chain
         },
+      }
+    }
+    if (table === 'team_members') {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { pay_rate: 20 }, error: null }),
+            }),
+          }),
+        }),
       }
     }
     if (table === 'payroll_payments') {

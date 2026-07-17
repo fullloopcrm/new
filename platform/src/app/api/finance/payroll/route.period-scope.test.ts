@@ -70,13 +70,24 @@ vi.mock('@/lib/supabase', () => {
               })
               const claimed = matches.map((b) => {
                 b.status = payload.status as string
-                return { id: b.id }
+                return { id: b.id, check_in_time: null, check_out_time: null, pay_rate: null, team_member_pay: 5000 }
               })
               return Promise.resolve({ data: claimed, error: null })
             },
           }
           return chain
         },
+      }
+    }
+    if (table === 'team_members') {
+      return {
+        select: () => ({
+          eq: () => ({
+            eq: () => ({
+              maybeSingle: async () => ({ data: { pay_rate: 20 }, error: null }),
+            }),
+          }),
+        }),
       }
     }
     if (table === 'payroll_payments') {

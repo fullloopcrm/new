@@ -70,7 +70,7 @@ export async function POST(request: Request) {
 
   try {
     const { tenantId } = tenant
-    const { team_member_id, amount, method, period_start, period_end } = await request.json()
+    const { team_member_id, method, period_start, period_end } = await request.json()
 
     // `amount` here is the team member's pending_pay from GET above — the sum
     // of completed-but-unpaid bookings. The old code inserted payroll_payments
@@ -101,7 +101,8 @@ export async function POST(request: Request) {
       .eq('status', 'completed')
     if (period_start) bookingsQuery = bookingsQuery.gte('start_time', period_start)
     if (period_end) bookingsQuery = bookingsQuery.lte('start_time', period_end)
-    const { data: claimedBookings, error: claimErr } = await bookingsQuery.select('id')
+    const { data: claimedBookings, error: claimErr } = await bookingsQuery
+      .select('id, check_in_time, check_out_time, pay_rate, team_member_pay')
     if (claimErr) {
       return NextResponse.json({ error: claimErr.message }, { status: 500 })
     }
@@ -112,12 +113,45 @@ export async function POST(request: Request) {
       )
     }
 
+    // The paid amount is always computed here from the bookings this call
+    // actually claimed — never trusted from the request body. The old code
+    // inserted whatever `amount` the caller sent (the frontend's own copy of
+    // GET's pending_pay, computed client-side) straight into
+    // payroll_payments with no server-side check that it matched the
+    // bookings being flipped to paid, and that row is what
+    // postPayrollToLedger posts to the ledger verbatim — anyone with
+    // finance.payroll could submit an arbitrary amount and have it land in
+    // the books. Mirrors GET's own flat-team_member_pay-wins-over-hours×rate
+    // formula (falling back to the team member's own pay_rate, same as GET)
+    // so the amount actually paid always matches what GET displayed as
+    // pending for these exact bookings.
+    const { data: memberRow } = await supabaseAdmin
+      .from('team_members')
+      .select('pay_rate')
+      .eq('tenant_id', tenantId)
+      .eq('id', team_member_id)
+      .maybeSingle()
+    const memberPayRate = Number(memberRow?.pay_rate) || 0
+
+    let amountCents = 0
+    for (const b of claimedBookings as Array<Record<string, unknown>>) {
+      const checkIn = b.check_in_time as string | null
+      const checkOut = b.check_out_time as string | null
+      const hours = (checkIn && checkOut)
+        ? (new Date(checkOut).getTime() - new Date(checkIn).getTime()) / 3600000
+        : 0
+      const flatPayCents = Number(b.team_member_pay) || 0
+      amountCents += flatPayCents > 0
+        ? flatPayCents
+        : Math.round(hours * (Number(b.pay_rate) || memberPayRate) * 100)
+    }
+
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
         tenant_id: tenantId,
         team_member_id,
-        amount: Math.round(amount * 100),
+        amount: amountCents,
         method,
         period_start,
         period_end,
