@@ -278,6 +278,43 @@ the pay rate) before touching the templates, verified by reading
 (worktree still has no `.env.local`/Supabase env for a live call, same
 constraint as P11.8-20).
 
+## (8) New today — the operator's own admin UI never visually flags an emergency booking either
+
+Third and final leg of items (7)'s "who ever finds out this job is
+urgent" question, this time for the person actually running the
+schedule. `GET /api/bookings` selects `'*'` (`route.ts:43`), so
+`is_emergency` is already present on every booking object every
+dashboard surface already receives — checked whether anything renders
+it. Scanned the primary Bookings admin page (`BookingsAdmin.tsx`) plus
+every Calendar view (`CalendarBoard`, `KanbanView`, `ProjectsView`,
+`TimelineView`, `CalendarShell`), Schedules, and the Map view for a
+read of an *existing* booking's `is_emergency` — as opposed to the
+create-dialog's own `createForm.is_emergency` local state, which is
+just the one-time toggle at creation time, not a standing marker on
+the saved booking. Zero matches anywhere outside that create-form
+state. The only place the flag has any visible effect at all is the
+create dialog's own red "🚨 Broadcasts to all team - first to claim
+gets it" banner — which disappears the instant the booking is saved.
+Net effect, combined with (3)/(5)/(7): **no surface in this codebase —
+customer confirmation, tech assignment, tech self-claim pool, or the
+operator's own Bookings/Calendar/Schedules/Map views — ever visually
+distinguishes an emergency job from a routine one once it exists as a
+booking row.** Concrete impact: an owner or dispatcher scanning
+today's schedule to triage or re-prioritize (the exact workflow this
+archetype exists for) has to open each booking individually to find
+out which ones are same-day emergencies — there's no color, badge, or
+icon to scan for. Not fixed — this one doesn't need a product/copy
+call the way (3)/(5)/(7) do (no wording decision required, just a
+visual marker), so it's the most mechanically straightforward of the
+four to close: add an `is_emergency` badge/highlight to the shared
+booking-card renderer(s) in the files above. Formalized today as
+`P11.22` in `scripts/sim-all-trades.ts` (verified by reading all 11
+source files directly and confirming `GET /api/bookings`'s `select('*')`
+already exposes the field; sanity-checked the exact regex/select-star
+logic against the real files in a standalone `node -e` run before
+committing — same "read the source" methodology as P11.8-21, worktree
+still has no `.env.local`/Supabase env for a live render check).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
