@@ -187,7 +187,14 @@ export async function POST(request: Request) {
     .insert(rows)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
-  if (bookErr) return NextResponse.json({ error: bookErr.message, schedule }, { status: 500 })
+  if (bookErr) {
+    // Roll back the schedule so a retry doesn't leave this orphaned 'active'
+    // row (zero bookings) behind -- same failure mode already fixed on
+    // admin/recurring-schedules, sale-to-recurring.ts, and the plain
+    // schedules route (5b173982 / this pass).
+    await tenantDb(tenantId).from('recurring_schedules').delete().eq('id', schedule.id)
+    return NextResponse.json({ error: bookErr.message }, { status: 500 })
+  }
 
   // booking_team_members rows (lead + extras)
   if (bookings && bookings.length > 0 && (cleaner_id || extras.length > 0)) {

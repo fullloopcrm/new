@@ -133,13 +133,27 @@ export async function POST(request: Request) {
       }
     })
 
+    let bookingsCreated = 0
     if (bookings.length > 0) {
-      await supabaseAdmin.from('bookings').insert(bookings)  // tenant-scope-ok: insert bookings carry tenant_id (built above)
+      const { data: insertedBookings, error: batchError } = await supabaseAdmin
+        .from('bookings')  // tenant-scope-ok: insert bookings carry tenant_id (built above)
+        .insert(bookings)
+        .select('id')
+      if (batchError) {
+        // Roll back the schedule so a retry doesn't leave this orphaned
+        // 'active' row (zero bookings) behind -- e.g. fn_block_booking_overlap
+        // rejecting the whole statement on one occurrence. Same failure mode
+        // already fixed on admin/recurring-schedules and sale-to-recurring.ts
+        // (5b173982); this sibling route was missed by that pass.
+        await supabaseAdmin.from('recurring_schedules').delete().eq('id', schedule.id)
+        return NextResponse.json({ error: batchError.message }, { status: 500 })
+      }
+      bookingsCreated = insertedBookings?.length || 0
     }
 
-    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated: bookings.length } })
+    await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated } })
 
-    return NextResponse.json({ schedule, bookingsCreated: bookings.length }, { status: 201 })
+    return NextResponse.json({ schedule, bookingsCreated }, { status: 201 })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
