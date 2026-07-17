@@ -2027,6 +2027,34 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           if (helper?.id) {
             add('cron-confirmations/late-check-in-guard: CONTROL — the active helper\'s booking is NOT caught, still gets confirm-request/late-check-in texts', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
           }
+
+          // ---- 5a-15. CLIENT/RESCHEDULE — STALE PRE-EXISTING ASSIGNMENT NOTIFY GUARD (fresh ground, genuinely NEW trigger class: a client-initiated write reading a pre-termination assignment, not a cron and not an admin-triggered NEW-assignment write) ----
+          // 5a-13/5a-14 closed the automated-cron half of the stale-assignment
+          // class; that round's own NOTICED flagged it as exhausted and called
+          // for a genuinely new trigger next -- a non-cron background job, a
+          // webhook, or a UI surface reading team_member_id directly. Found
+          // one: PUT /api/client/reschedule/[id] already guarded a
+          // CALLER-SUPPLIED team_member_id (a NEW assignment in the same
+          // request) against getTerminatedTeamMemberIds, but when a client
+          // just moves the date/time and never touches the assignment at all
+          // -- the overwhelmingly common case -- the booking's EXISTING
+          // team_member_id was read straight off the updated row and handed
+          // to notifyTeamMember() with zero hr_status check. A client
+          // rescheduling their own booking would still trigger a "Job
+          // Rescheduled" push/SMS/email to a worker who no longer works
+          // there. Fixed: the existing team_member_id now also runs through
+          // getTerminatedTeamMemberIds right before the notify call,
+          // independent of whether the request body supplied one.
+          //
+          // Same underlying precondition as 5a-13/14 (a real future booking
+          // still pointing at the already-terminated worker), so this reuses
+          // reminderTerminatedIds rather than reseeding -- the guard the fix
+          // now calls is the identical getTerminatedTeamMemberIds([team_member_id])
+          // shape, just triggered from a client PUT instead of a cron GET.
+          add('client-reschedule-notify-guard: the terminated worker\'s stale-assigned booking is caught by the guard the fix now applies before notifying on a date-only reschedule', reminderTerminatedIds.includes(worker.id), JSON.stringify(reminderTerminatedIds))
+          if (helper?.id) {
+            add('client-reschedule-notify-guard: CONTROL — the active helper\'s booking is NOT caught, still gets notified on a date-only reschedule', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
+          }
         }
       }
     }
