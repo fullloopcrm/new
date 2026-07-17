@@ -11,6 +11,7 @@ import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { notify } from '@/lib/nycmaid/notify'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -1081,7 +1082,7 @@ async function handleApproveRefund(input: { booking_id: string; amount_dollars: 
   return JSON.stringify({ ok: true, status: 'refund_approved_pending_processing', amount: input.amount_dollars })
 }
 
-async function handleMarkPaymentReceived(input: { booking_id: string; amount_dollars: number; method: string }, tid: string): Promise<string> {
+export async function handleMarkPaymentReceived(input: { booking_id: string; amount_dollars: number; method: string }, tid: string): Promise<string> {
   const cents = Math.round(input.amount_dollars * 100)
   const { data: booking } = await supabaseAdmin
     .from('bookings')
@@ -1091,15 +1092,32 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
     .maybeSingle()
   if (!booking) return JSON.stringify({ error: 'booking not found' })
 
-  await supabaseAdmin.from('payments').insert({
-    tenant_id: tid,
-    booking_id: input.booking_id,
-    client_id: booking.client_id,
-    amount: cents,
-    method: input.method,
-    status: 'received',
-  })
+  // amount_cents (not `amount`) and status 'completed' (not 'received') match the
+  // payments table schema and postPaymentRevenue's REVENUE_STATUSES — the prior
+  // values silently failed the insert (unknown column) and would have failed to
+  // post revenue even if the insert had succeeded.
+  const { data: payment, error: pErr } = await supabaseAdmin
+    .from('payments')
+    .insert({
+      tenant_id: tid,
+      booking_id: input.booking_id,
+      client_id: booking.client_id,
+      amount_cents: cents,
+      method: input.method,
+      status: 'completed',
+    })
+    .select('id')
+    .single()
+  if (pErr) return JSON.stringify({ error: pErr.message })
+
   await supabaseAdmin.from('bookings').update({ payment_status: 'paid', payment_received_at: new Date().toISOString() }).eq('id', input.booking_id).eq('tenant_id', tid)
+
+  // Post revenue to the GL now, like every other money-in path (record-payment,
+  // confirm-match, mark-paid, Stripe webhook). Best-effort — never fail the
+  // payment record on a ledger hiccup.
+  await postPaymentRevenue({ tenantId: tid, paymentId: payment.id }).catch((e) =>
+    console.error('[handleMarkPaymentReceived] postPaymentRevenue failed for payment', payment.id, e),
+  )
 
   return JSON.stringify({ ok: true, booking_id: input.booking_id, amount: input.amount_dollars, method: input.method })
 }

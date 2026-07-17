@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 
 export async function POST(req: Request) {
   try {
@@ -74,7 +75,7 @@ export async function POST(req: Request) {
       .eq('tenant_id', tenantId)
 
     // 2. Insert payment row
-    await supabaseAdmin.from('payments').insert({
+    const { data: paymentRow } = await supabaseAdmin.from('payments').insert({
       tenant_id: tenantId,
       booking_id: bookingId,
       client_id: booking.client_id,
@@ -83,7 +84,21 @@ export async function POST(req: Request) {
       method: unmatched.method,
       status,
       payment_sender_name: unmatched.sender_name,
-    })
+    }).select('id').single()
+
+    // Post revenue now instead of leaving it to the once-daily finance-post
+    // cron's bookings.payment_status backfill — matches the real-time
+    // convention every other money-in path follows (mark-paid, Stripe
+    // webhook, payment-processor.ts, the bank-txn match route). Idempotent
+    // by booking (postPaymentRevenue keys booking-linked payments on
+    // booking_id), so if the cron also catches this booking first, this
+    // call's insert just 23505s harmlessly. Best-effort — never fail the
+    // match on a ledger hiccup.
+    if (paymentRow?.id) {
+      await postPaymentRevenue({ tenantId, paymentId: paymentRow.id }).catch((e) =>
+        console.error('[confirm-match] postPaymentRevenue failed for payment', paymentRow.id, e),
+      )
+    }
 
     // 3. Update booking
     await supabaseAdmin

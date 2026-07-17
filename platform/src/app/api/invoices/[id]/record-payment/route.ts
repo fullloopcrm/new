@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { logInvoiceEvent } from '@/lib/invoice'
+import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -61,6 +62,20 @@ export async function POST(request: Request, { params }: Params) {
       .select('id')
       .single()
     if (pErr) throw pErr
+
+    // Post revenue to the GL now, like every other money-in path (mark-paid,
+    // Stripe webhook, payment-processor.ts, the bank-txn match route) —
+    // there is no other route there. An invoice with no linked booking has
+    // no fallback at all: the daily finance-post cron only backfills from
+    // bookings.payment_status, never from a bare payments row, so without
+    // this call a manually-recorded Zelle/Venmo/cash/check payment would
+    // mark the invoice paid while the revenue never reached the books.
+    // Best-effort — never fail the payment record on a ledger hiccup.
+    if (payment?.id) {
+      await postPaymentRevenue({ tenantId, paymentId: payment.id }).catch((e) =>
+        console.error('[record-payment] postPaymentRevenue failed for payment', payment.id, e),
+      )
+    }
 
     // Re-fetch invoice for updated status after trigger
     const { data: updated } = await supabaseAdmin
