@@ -7252,3 +7252,100 @@ zero regressions) only; not visually exercised in a browser this round
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (160) New fresh-ground surface, new bug class (declared-idempotent admin control that isn't idempotent, distinct from every enum/race/destructive-op thread this session) — the territory-claim admin tool could create a claim but never transition or correct one
+
+`territory_claims_one_per_combo` (`2026_07_07_territory_system.sql`) is a
+`UNIQUE INDEX ON territory_claims (territory_id, category_id)` — "at most
+one active claim per combo, its absence means AVAILABLE" by design, the
+mechanism that makes double-selling a franchise territory for the same
+trade physically impossible at the DB layer. `claimTerritory()`
+(`lib/territories/data.ts`), the only write path behind `POST
+/api/admin/territories`, was a plain `INSERT` every time, no matter what.
+
+The admin UI (`TerritoryClient.tsx`) offers "Mark Claimed" and "Mark
+Pending" on any selected territory unconditionally — the buttons don't
+disable or change behavior based on the territory's current status shown
+right above them — plus a tenant-assignment dropdown that's visible
+regardless of state. But a plain `INSERT` against a combo that already has
+a row *always* collides with the unique index. So the only claim lifecycle
+transition that ever worked was available -> (pending|claimed) — the very
+first claim. Approving a pending application to claimed (the actual
+franchise-sales workflow: an operator applies, admin reviews, admin
+approves), downgrading a claim back to pending, or reassigning the tenant
+on an existing claim all hit the identical 23505 conflict and surfaced
+"This territory is already claimed for that category" — a confusing,
+wrong error, since the admin was managing the exact claim on their screen,
+not creating a competing one. The only workaround was Release (hard
+delete) then re-Claim (fresh insert) as two separate manual actions not
+documented anywhere in the UI, and undocumented because nothing about the
+UI suggests it's required — worse, that workaround briefly makes the
+territory truly, structurally AVAILABLE (no row at all) for the gap
+between the two requests, the exact double-sell race the unique index
+exists to prevent.
+
+**Fixed** — `claimTerritory()` now looks up an existing (territory_id,
+category_id) row first (`.select('id')...maybeSingle()`) and `UPDATE`s it
+in place — status, tenant_id, claimed_at/pending_since (recomputed for the
+new status, so a pending->claimed transition correctly clears
+`pending_since` and sets `claimed_at`, and vice versa on a downgrade), and
+notes. Only a genuinely new combo — no existing row — goes through
+`INSERT`, where the unique index still does its job: two different admins
+racing to create competing claims on a still-available territory still
+conflict instead of one silently overwriting the other.
+
+New test file `data.claim-transition.test.ts` (5 tests): pending->claimed
+approval no longer conflicts and correctly recomputes the timestamp pair;
+claimed->pending downgrade same; reassigning the tenant on an existing
+claim updates in place instead of duplicating the row; a genuinely
+competing claim on a different combo still returns `conflict: true`
+(insert path still protected); `releaseTerritory` still deletes cleanly.
+Mutation-verified — reverted the `data.ts` diff via `git apply -R` on a
+diff-patch (`git stash` disabled in this worker worktree, shared `.git`
+dir across all workers), reran the 5 tests: 3 failed for the right reason
+(`expected false to be true` — the plain-INSERT version can't transition
+an existing claim), 2 passed incidentally (the first-claim and
+release-only cases don't exercise the transition path), reapplied and
+confirmed all 5 GREEN. `tsc --noEmit` clean.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (161) Continuing (160)'s surface — my own fix in (160) turned a cosmetic UI gap into a live data-loss risk, same shape as (153)'s relationship to (152)
+
+`TerritoryClient.tsx`'s `onCountyClick` handler reset `assignTenant` to
+`''` on every territory selection, unconditionally — including when the
+selected territory already had a tenant claimed. Before (160), this was
+harmless: any "Mark Claimed"/"Mark Pending" click on an already-claimed
+territory always failed with the INSERT conflict, so an empty
+`assignTenant` never actually reached the database. (160)'s fix made that
+same click succeed via `UPDATE` — which meant an admin selecting an
+already-claimed territory to, say, correct its status or just re-confirm
+it, then clicking "Mark Claimed" without deliberately re-picking the
+tenant from the dropdown (nothing in the UI prompts them to), would now
+silently overwrite `tenant_id` to `null` on a real, live claim — a paying
+franchise partner's territory license getting silently unassigned. The
+claims-list fetch (`getClaimsForCategory`) already returned `tenant_id`
+alongside `tenant_name` in the API response; the client only ever read
+`tenant_name` for display and threw `tenant_id` away.
+
+**Fixed** — `loadClaims` now also captures `tenant_id` per territory into
+a new `tenantIdByTerritory` map, and `onCountyClick` pre-populates
+`assignTenant` from it (falling back to `''` only for a genuinely
+available territory) instead of always clearing it. Selecting an
+already-claimed territory now shows its real assigned tenant pre-selected
+in the dropdown, so submitting without touching it is a no-op reassignment
+instead of a silent null-out.
+
+No new tests — this is client-state wiring onto (160)'s already-tested
+`claimTerritory` update path, not new business logic, and the existing
+test suite has no route/component-level coverage for this admin page to
+extend (first-ever test coverage for the territory surface was added in
+(160)). Verified with `tsc --noEmit` (clean) and the full suite (451/451
+files, 2141/2141 tests, zero regressions — same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report has
+flagged) only; not visually exercised in a browser this round
+(non-interactive worker session, no dev server driven this round).
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
