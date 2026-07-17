@@ -27,6 +27,7 @@ import {
   journalEntryExists,
   type JournalLineInput,
 } from '../ledger'
+import { nowNaiveET } from '../recurring'
 
 // Payout statuses that mean money actually moved.
 const PAID_PAYOUT_STATUSES = ['transferred', 'paid', 'succeeded', 'completed']
@@ -82,7 +83,7 @@ async function postLabor(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo,
     source,
     source_id: sourceId,

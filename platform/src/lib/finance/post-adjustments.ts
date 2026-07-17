@@ -17,6 +17,7 @@ import {
   journalEntryExists,
   type JournalLineInput,
 } from '../ledger'
+import { nowNaiveET } from '../recurring'
 
 export interface PostAdjResult {
   posted: boolean
@@ -55,7 +56,7 @@ export async function postDepositToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: opts.memo || 'Customer deposit',
     source: 'deposit',
     source_id: sourceId,
@@ -85,7 +86,7 @@ export async function postRefundToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: opts.memo || 'Refund',
     source: 'refund',
     source_id: sourceId,
@@ -115,7 +116,7 @@ export async function postChargebackToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: opts.memo || 'Chargeback',
     source: 'chargeback',
     source_id: sourceId,
@@ -152,7 +153,7 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: 'Referral commission',
     source: 'commission',
     source_id: commissionId,
@@ -189,7 +190,7 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: 'Referral commission paid',
     source: 'commission_paid',
     source_id: commissionId,

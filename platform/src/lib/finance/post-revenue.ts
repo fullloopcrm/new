@@ -21,6 +21,7 @@ import {
   journalEntryExists,
   type JournalLineInput,
 } from '../ledger'
+import { nowNaiveET } from '../recurring'
 
 // Statuses that represent money actually received (full or partial).
 const REVENUE_STATUSES = ['completed', 'succeeded', 'partial']
@@ -83,7 +84,7 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
   const bookingRef = payment.booking_id ? ` · booking ${String(payment.booking_id).slice(0, 8)}` : ''
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
-    entry_date: new Date().toISOString().slice(0, 10),
+    entry_date: nowNaiveET().slice(0, 10),
     memo: `Payment ${payment.method || ''}${bookingRef}`.trim(),
     source,
     source_id: sourceId,
