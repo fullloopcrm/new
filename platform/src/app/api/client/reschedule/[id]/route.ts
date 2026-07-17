@@ -139,7 +139,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     if (updated.clients?.phone && updated.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       await sendSMS({
         to: updated.clients.phone,
-        body: clientSmsTemplates(tenant).reschedule(updated),
+        body: (await clientSmsTemplates(tenant)).reschedule(updated),
         telnyxApiKey: tenant.telnyx_api_key,
         telnyxPhone: tenant.telnyx_phone,
       }).catch(() => {})

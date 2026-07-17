@@ -440,7 +440,7 @@ export async function POST(request: Request) {
         if (data.clients?.phone && data.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           await sendSMS({
             to: data.clients.phone,
-            body: clientSmsTemplates(tenant).bookingReceived(data),
+            body: (await clientSmsTemplates(tenant)).bookingReceived(data),
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           })

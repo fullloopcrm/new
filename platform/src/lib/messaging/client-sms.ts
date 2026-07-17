@@ -18,6 +18,7 @@ import { supabaseAdmin } from '../supabase'
 // gets the maid-brand copy, in its OWN brand. Keeps the platform even — a new
 // cleaning tenant works with zero code change.
 type TenantLike = {
+  id?: string | null
   slug?: string | null
   industry?: string | null
   name?: string | null
@@ -49,7 +50,11 @@ export function isCleaningTenant(tenant: TenantLike): boolean {
 }
 
 // Brand fields the resolver needs; selected when a route only has a tenant id.
-const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id'
+// `id` is required here (not just BOOKING_COLUMNS' other fields) so
+// tenantBrand() can resolve tenant_domains — without it the tenant_domains
+// fallback silently never fires for every clientSmsTemplatesFor() caller
+// (crons, booking routes), the majority of this file's call sites.
+const BRAND_COLUMNS = 'id, slug, industry, name, phone, website_url, domain, domain_name, google_place_id'
 
 /**
  * Load a tenant's brand row by id and return its client SMS templates. Use from
@@ -66,9 +71,9 @@ export async function clientSmsTemplatesFor(tenantId: string): Promise<ClientSms
   return clientSmsTemplates((data as TenantLike) || {})
 }
 
-export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
+export async function clientSmsTemplates(tenant: TenantLike): Promise<ClientSmsTemplates> {
   if (isCleaningTenant(tenant)) {
-    const brand = tenantBrand(tenant)
+    const brand = await tenantBrand(tenant)
     return {
       bookingReceived: b => cleaning.bookingReceived(brand, b),
       bookingConfirmed: b => cleaning.bookingConfirmed(brand, b),
@@ -91,6 +96,7 @@ export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
   // (bookingConfirmed / confirmationReminder) is cleaning-specific; for neutral
   // tenants we fall back to the standard confirmation copy.
   const name = tenant.name || 'Your service'
+  const brand = await tenantBrand(tenant)
   return {
     bookingReceived: b => generic.smsBookingReceived(name, b),
     bookingConfirmed: b => generic.smsBookingConfirmation(name, b),
@@ -100,7 +106,7 @@ export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
     cancellation: (b, portalUrl) => generic.smsCancellation(name, b, portalUrl),
     reschedule: (b, portalUrl) => generic.smsReschedule(name, b, portalUrl),
     thankYou: n => generic.smsThankYou(name, n),
-    ratingQ1: () => cleaning.ratingQ1(tenantBrand(tenant)),
+    ratingQ1: () => cleaning.ratingQ1(brand),
     bookingConfirmationES: b => generic.smsBookingConfirmationES(name, b),
     reminderES: (b, tf) => generic.smsReminderES(name, b, tf),
     cancellationES: b => generic.smsCancellationES(name, b),
