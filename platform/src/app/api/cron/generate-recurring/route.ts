@@ -50,12 +50,27 @@ export async function GET(request: Request) {
     // Find the latest booking for this schedule
     const { data: latest } = await supabaseAdmin
       .from('bookings')
-      .select('start_time')
+      .select('start_time, price')
       .eq('schedule_id', schedule.id)
       .order('start_time', { ascending: false })
       .limit(1)
 
     const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date()
+    // recurring_schedules has no `price` column (it only ever lived per-booking
+    // -- same fact already documented in ../[id]/regenerate/route.ts). This loop
+    // never set price at all, so every occurrence THIS cron generates (i.e.
+    // every visit beyond a schedule's initial creation batch -- the bulk of a
+    // recurring series' lifetime) landed with price:NULL. Hourly bookings
+    // self-heal at team-portal/checkout (which recomputes price from
+    // hourly_rate regardless of the starting value), but until then -- and
+    // permanently for any occurrence that's auto-completed without a real
+    // checkout, or whose pricing_model isn't hourly -- that NULL is real:
+    // finance/cash-flow's near-term forecast (`if (!price) continue`) silently
+    // drops every one of these upcoming visits, and generate-monthly-invoices
+    // permanently excludes them from a commercial client's rollup statement.
+    // Falls back to the series' own most recent booking's price, same
+    // convention as the regenerate route's fallbackPrice.
+    const fallbackPrice = latest?.[0]?.price ?? 0
     const fourWeeksOut = new Date()
     fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
 
@@ -212,6 +227,7 @@ export async function GET(request: Request) {
         start_time: occ.toISOString(),
         end_time: endTime.toISOString(),
         status: 'scheduled',
+        price: fallbackPrice,
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
         notes: unassignedNote
