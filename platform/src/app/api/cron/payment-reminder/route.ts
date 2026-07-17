@@ -54,7 +54,7 @@ export async function GET(request: Request) {
       // Bookings where alert fired 15-60 min ago and still unpaid.
       const { data: pending } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, payment_reminder_sent_at, fifteen_min_alert_time, clients(name, phone, sms_consent)')
+        .select('id, start_time, payment_reminder_sent_at, fifteen_min_alert_time, is_emergency, clients(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .neq('payment_status', 'paid')
         .not('fifteen_min_alert_time', 'is', null)
@@ -89,6 +89,7 @@ export async function GET(request: Request) {
           }
         } else {
           // Escalate to admin past 30 min
+          const isEmergency = (b as { is_emergency?: boolean | null }).is_emergency === true
           const adminPhone = tenant.owner_phone || tenant.phone
           if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
             await sendSMS({
@@ -102,8 +103,8 @@ export async function GET(request: Request) {
               tenant_id: tenantId,
               type: 'payment_overdue',
               priority: 'high',
-              title: `Overdue payment — ${client.name || 'client'}`,
-              description: `Booking ${b.id} unpaid ${minsSinceAlert} min past 15-min alert.`,
+              title: isEmergency ? `🚨 Urgent — Overdue payment — ${client.name || 'client'}` : `Overdue payment — ${client.name || 'client'}`,
+              description: `${isEmergency ? '🚨 EMERGENCY — ' : ''}Booking ${b.id} unpaid ${minsSinceAlert} min past 15-min alert.`,
               related_type: 'booking',
               related_id: b.id,
             })

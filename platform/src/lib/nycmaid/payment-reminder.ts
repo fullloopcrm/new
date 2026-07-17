@@ -57,7 +57,7 @@ export async function runNycMaidPaymentReminder(
   // ── STAGE 2: admin escalation at +60 min ──
   const { data: stale } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, price, clients(name, phone)')
+    .select('id, client_id, price, is_emergency, clients(name, phone)')
     .eq('tenant_id', tenantId)
     .not('fifteen_min_alert_time', 'is', null)
     .lte('fifteen_min_alert_time', sixtyMinAgo)
@@ -65,6 +65,7 @@ export async function runNycMaidPaymentReminder(
     .is('payment_method', null)
 
   const flaggedNames: string[] = []
+  let anyEmergency = false
   for (const booking of stale || []) {
     // Dedup: one payment_overdue task per booking.
     const { count } = await supabaseAdmin
@@ -78,6 +79,8 @@ export async function runNycMaidPaymentReminder(
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
     if (!client) continue
     const expected = booking.price ? (Number(booking.price) / 100).toFixed(0) : '—'
+    const isEmergency = (booking as { is_emergency?: boolean | null }).is_emergency === true
+    if (isEmergency) anyEmergency = true
 
     await supabaseAdmin
       .from('admin_tasks')
@@ -85,14 +88,16 @@ export async function runNycMaidPaymentReminder(
         tenant_id: tenantId,
         type: 'payment_overdue',
         priority: 'high',
-        title: `${client.name || 'Client'} — $${expected} payment overdue 60+ min`,
-        description: `30-min alert fired 60+ min ago. Client has not paid or claimed payment. Phone: ${client.phone || 'none'}. Admin to contact manually.`,
+        title: isEmergency
+          ? `🚨 Urgent — ${client.name || 'Client'} — $${expected} payment overdue 60+ min`
+          : `${client.name || 'Client'} — $${expected} payment overdue 60+ min`,
+        description: `${isEmergency ? '🚨 EMERGENCY — ' : ''}30-min alert fired 60+ min ago. Client has not paid or claimed payment. Phone: ${client.phone || 'none'}. Admin to contact manually.`,
         booking_id: booking.id,
         client_id: booking.client_id,
       })
       .then(() => {}, () => {})
 
-    flaggedNames.push(`${client.name || 'Client'} ($${expected})`)
+    flaggedNames.push(`${isEmergency ? '🚨 ' : ''}${client.name || 'Client'} ($${expected})`)
   }
 
   if (flaggedNames.length) {
@@ -100,7 +105,9 @@ export async function runNycMaidPaymentReminder(
     await notify({
       tenantId,
       type: 'follow_up',
-      title: `${flaggedNames.length} overdue payment(s) — admin action required`,
+      title: anyEmergency
+        ? `🚨 ${flaggedNames.length} overdue payment(s) — admin action required`
+        : `${flaggedNames.length} overdue payment(s) — admin action required`,
       message: flaggedNames.join('\n'),
     }).catch(() => {})
   }
