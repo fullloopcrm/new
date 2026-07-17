@@ -4081,6 +4081,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-53. site-readiness.ts resolveOrigin() — tenant_id -> domain REVERSE-LOOKUP PROBE, fourth mirror-gap instance (fresh ground this round: same bug class as 5a-49/5a-51/5a-52 -- resolveOrigin() (site-readiness.ts), the resolver checkSiteReadiness() uses to pick the origin its real HTTP content/SEO audits fetch, read tenant.domain/domain_name ONLY and never consulted tenant_domains. LIVE today (admin/businesses/[id]/readiness): a tenant whose custom domain lives only in tenant_domains (added via admin/websites, which never touches tenants.domain/domain_name) fell through to the `<slug>.fullloopcrm.com` platform subdomain -- the readiness audit fetched and reported content/SEO signals for the wrong origin, and the UI's "Serving from ..." detail string named the platform subdomain instead of the tenant's real domain. Fixed by resolving via getPrimaryTenantDomain() first, same precedence as tenantSiteUrl()/tenantBrand()/getAgentConfig() (tenant_domains PRIMARY row, then tenants.domain/domain_name, then the slug-subdomain fallback). resolveOrigin() is now async and exported. 7 new vitest cases (site-readiness.test.ts new file) incl. a BUG-CLASS PROBE and a wrong-tenant probe prove this against a mocked supabaseAdmin; this probe proves the same precedence against the REAL live schema.) ----
+    {
+      const { resolveOrigin } = await import('../src/lib/site-readiness')
+      const { data: beforeDomainReadiness } = await supabase.from('tenants').select('domain, domain_name').eq('id', tenant.id).single()
+
+      // Case 1: no active tenant_domains rows, no tenants.domain -- must fall
+      // back to tenants.domain_name (the legacy column resolveOrigin also reads).
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const legacyReadinessDomain = `legacy-readiness-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyReadinessErr } = await supabase.from('tenants').update({ domain: null, domain_name: legacyReadinessDomain }).eq('id', tenant.id)
+      add('resolveOrigin domain-fallback probe: tenants.domain_name seeded, tenants.domain cleared, this tenant\'s tenant_domains rows deactivated', !legacyReadinessErr, legacyReadinessErr?.message)
+
+      const originNoTd = await resolveOrigin({ id: tenant.id, slug: tenant.slug, domain: null, domain_name: legacyReadinessDomain })
+      add('resolveOrigin domain-fallback probe: resolves to tenants.domain_name when tenant_domains has nothing active (live schema, not a mock)', originNoTd === `https://${legacyReadinessDomain}`, originNoTd ?? undefined)
+
+      // Case 2: an active PRIMARY tenant_domains row now exists too -- must WIN
+      // over the legacy tenants.domain_name column, same precedence as tenantBrand/tenantSiteUrl.
+      const primaryReadinessDomain = `primary-readiness-${tenant.id.slice(0, 8)}.example.com`
+      const { error: primaryReadinessErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: primaryReadinessDomain, active: true, is_primary: true, notes: 'sim-all-trades resolveOrigin probe',
+      })
+      add('resolveOrigin probe: an active PRIMARY tenant_domains row seeded alongside the legacy tenants.domain_name row', !primaryReadinessErr, primaryReadinessErr?.message)
+
+      const originWithTd = await resolveOrigin({ id: tenant.id, slug: tenant.slug, domain: null, domain_name: legacyReadinessDomain })
+      add('resolveOrigin domain-fallback probe: the tenant_domains PRIMARY row wins over tenants.domain_name (live schema, not a mock)', originWithTd === `https://${primaryReadinessDomain}`, originWithTd ?? undefined)
+
+      // WRONG-TENANT PROBE: a second real tenant's tenant_domains PRIMARY row
+      // must never leak into THIS tenant's readiness origin.
+      const foreignSlugReadiness = slugify('readiness-origin-probe', randomUUID())
+      const { data: foreignTenantReadiness, error: foreignTenantReadinessErr } = await supabase.from('tenants').insert({
+        name: 'Readiness Origin Probe Co', slug: foreignSlugReadiness, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('resolveOrigin wrong-tenant probe: a real SECOND tenant row created to own a conflicting-looking domain', !!foreignTenantReadiness && !foreignTenantReadinessErr, foreignTenantReadinessErr?.message)
+
+      if (foreignTenantReadiness?.id) {
+        const foreignReadinessDomain = `foreign-readiness-${foreignTenantReadiness.id.slice(0, 8)}.example.com`
+        const { error: foreignTdReadinessErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantReadiness.id, domain: foreignReadinessDomain, active: true, is_primary: true, notes: 'sim-all-trades resolveOrigin wrong-tenant probe',
+        })
+        add('resolveOrigin wrong-tenant probe: the SECOND tenant\'s own active PRIMARY tenant_domains row seeded', !foreignTdReadinessErr, foreignTdReadinessErr?.message)
+
+        const originStillOwn = await resolveOrigin({ id: tenant.id, slug: tenant.slug, domain: null, domain_name: legacyReadinessDomain })
+        add('resolveOrigin wrong-tenant probe: THIS tenant\'s resolution still returns its own domain, never the second tenant\'s (live schema, real conflicting rows -- not a mock)', originStillOwn === `https://${primaryReadinessDomain}`, originStillOwn === `https://${foreignReadinessDomain}` ? 'LEAKED foreign domain' : 'clean')
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantReadiness.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantReadiness.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', primaryReadinessDomain)
+      await supabase.from('tenants').update({ domain: beforeDomainReadiness?.domain ?? null, domain_name: beforeDomainReadiness?.domain_name ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
