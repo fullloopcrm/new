@@ -6706,3 +6706,84 @@ on `src/app/api/fixture/route.ts`, not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (148) New fresh-ground surface — `documents.status = 'expired'` fully declared at every layer, never written by any code path
+
+`documents` (migration 031, the multi-party e-sign module) declares
+`expires_at` as a real, PATCH-assignable column and its `status` `CHECK`
+includes `'expired'` as one of eight states. `lib/documents.ts`'s own state-
+machine comment lists it, `isTerminalStatus()` already treats it as terminal,
+`document_activity.event_type`'s declared union already includes `'expired'`
+as a value, and the owner-facing document list at
+`/dashboard/sales/documents` already has a prepared `STATUS_COLORS.expired`
+badge waiting to render it — the exact same "every layer built except the
+write" shape as (140)'s dispatch-route cancel button and (144)'s job-
+cancelled badge. A repo-wide grep for a `status`/`'expired'` write against
+`documents` turns up nothing: not a cron, not the send route, not any of the
+public signer routes. A document sent with a 2-week expiration and never
+signed just sits at `'sent'`/`'viewed'` forever — indistinguishable in the
+dashboard from one still genuinely awaiting a signature next week, next
+month, or next year.
+
+The sibling table for the identical "declared expiry column, no lazy-expire
+check" shape already exists and is fully built: `quotes.valid_until` +
+`quotes/public/[token]/route.ts`'s own on-read check (`if (quote.valid_until
+&& quote.status === 'sent') { ... < new Date() }`), the one place in the
+codebase that transitions a quote to `'expired'`. `documents.expires_at` was
+clearly meant to follow the same lazy-expire-on-visit pattern — it even has
+the same shape of column — but the check was never added to the analogous
+public signer-view route. Downstream, the gap runs deeper than quotes' did:
+`documents/public/[token]/sign/route.ts` already gates signing on
+`isTerminalStatus(doc.status)` (comment: "finish signing a document staff
+already voided... canSignerAct only checks signer status/order, not the
+document's own status") — so the enforcement was already built and waiting
+for a transition that never happened.
+
+**Fixed** — added the same on-read expiry check to
+`documents/public/[token]/route.ts` (the public signer-view GET, visited
+every time a signer opens their link), mirroring `quotes`' check exactly:
+if `expires_at` has passed and the document is still in one of the states
+actually awaiting signer action (`sent`, `viewed`, `in_progress` — narrower
+than `!isTerminalStatus()` so a `draft` never sent isn't relabeled
+`'expired'` by a stray link visit), flip `status` to `'expired'` and log the
+already-declared `document_activity` `'expired'` event. One-shot: the block
+only runs while status is still awaiting action, so an already-`'expired'`
+document doesn't re-enter it on a later visit, and it runs before the
+existing `sent`→`viewed` bump so the two updates can't race.
+
+## (149) Continuing (148)'s surface — the terminal-outcome owner-notification pair (148) exposed was missing one member: `'document_expired'` wasn't even a declared `NotificationType` yet
+
+Wiring (148)'s transition surfaced the next gap one layer out: `documents`'
+other two terminal outcomes, `document_declined` and `document_completed`,
+both already fire `notify()` + `ownerAlert()` — mirroring `quotes`' own
+accept/decline pair, with an explicit comment on the decline route noting
+"no document lifecycle event... ever notified the tenant admin" until that
+fix landed. Expiry is the third terminal outcome and the odd one out: unlike
+`quote_expired` (a `NotificationType` declared in `notify.ts` "since
+forever" per that fix's own comment, just never fired), `document_expired`
+was not declared at all — one layer further back than the quotes gap this
+doc's own (63)/(65)/quote_expired items already fixed. A document dying
+unsigned past its deadline had strictly less owner visibility than a quote
+doing the identical thing.
+
+**Fixed** — added `'document_expired'` to `notify.ts`'s `NotificationType`
+union, and wired both `notify()` and `ownerAlert()` calls into (148)'s same
+expiry block, matching `document_declined`/`document_completed`'s existing
+shape (admin-recipient email `notify()` + an `ownerAlert()` push/SMS pair)
+and `quote_expired`'s copy tone ("passed its expiration date without being
+completed").
+
+3 new tests (`route.expired-notify.test.ts`): an expiring `'sent'` document
+fires the status transition, the `'expired'` activity event, `notify()`
+with `type: 'document_expired'`, and `ownerAlert()` — and confirms the
+unrelated pre-existing `sent`→`viewed` update does *not* also fire once
+status has moved to `'expired'`; an already-terminal (`voided`) document
+past its `expires_at` does not re-fire or transition; a document with
+`expires_at` still in the future does not fire. `tsc --noEmit` clean, full
+suite 441/441 files, 2101/2101 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
