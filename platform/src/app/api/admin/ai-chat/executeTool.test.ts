@@ -117,3 +117,28 @@ describe("executeTool('update_bookings') — booking_team_members lead sync", ()
     expect(leadRows[0].team_member_id).toBe('tm-old')
   })
 })
+
+describe("executeTool('create_booking') — booking_team_members lead sync", () => {
+  it('creates a booking_team_members lead row when team_member_id is provided', async () => {
+    h.store.team_members = [{ id: 'tm-1', tenant_id: 'tenant-A', name: 'Sam Staff' }]
+    const result = await executeTool('tenant-A', 'create_booking', {
+      client_id: 'client-A1', start_time: '2026-08-05T09:00:00', team_member_id: 'tm-1', confirmed: true,
+    })
+    const parsed = JSON.parse(result)
+    expect(parsed.success).toBe(true)
+
+    const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === parsed.booking_id && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe('tm-1')
+    expect(leadRows[0].tenant_id).toBe('tenant-A')
+  })
+
+  it('creates no booking_team_members row when no team_member_id is provided', async () => {
+    const result = await executeTool('tenant-A', 'create_booking', {
+      client_id: 'client-A1', start_time: '2026-08-05T09:00:00', confirmed: true,
+    })
+    const parsed = JSON.parse(result)
+    expect(parsed.success).toBe(true)
+    expect(h.store.booking_team_members.length).toBe(0)
+  })
+})

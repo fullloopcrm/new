@@ -376,7 +376,21 @@ export async function executeTool(
         .insert(bookingData)
         .select('id')
         .single()
-      return JSON.stringify(error ? { error: error.message } : { success: true, booking_id: data.id })
+      if (error) return JSON.stringify({ error: error.message })
+
+      // GET /api/bookings/:id/team and closeout-summary source the lead from
+      // booking_team_members, not bookings.team_member_id -- a booking
+      // created here with a team_member_id never got a booking_team_members
+      // row, showing as unassigned in the admin Team panel and closeout
+      // payout attribution. Same booking_team_members-sync gap fixed at
+      // every other bookings.team_member_id write site this session.
+      if (bookingData.team_member_id) {
+        await db.from('booking_team_members').upsert(
+          { booking_id: data.id, team_member_id: bookingData.team_member_id, is_lead: true, position: 1 },
+          { onConflict: 'booking_id,team_member_id' }
+        )
+      }
+      return JSON.stringify({ success: true, booking_id: data.id })
     }
 
     case 'get_revenue_stats': {
