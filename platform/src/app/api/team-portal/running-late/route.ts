@@ -50,13 +50,31 @@ export async function POST(request: Request) {
     const lastAlertedAt = booking.running_late_at ? new Date(booking.running_late_at as string) : null
     const withinCooldown = !!lastAlertedAt && Date.now() - lastAlertedAt.getTime() < RUNNING_LATE_COOLDOWN_MS
 
-    // Record on booking (ETA refresh happens even inside the cooldown)
-    await tenantDb(tenantId).from('bookings').update({
-      running_late_at: withinCooldown ? booking.running_late_at : new Date().toISOString(),
-      running_late_eta: eta || null,
-    }).eq('id', bookingId)
-
     if (withinCooldown) {
+      // ETA refresh only — no new lateness event, no re-notify.
+      await tenantDb(tenantId).from('bookings').update({ running_late_eta: eta || null }).eq('id', bookingId)
+      return NextResponse.json({ success: true, alreadyReported: true })
+    }
+
+    // Atomic claim on the "new lateness event" write. The cooldown check above
+    // reads a plain SELECT snapshot; a member double-tapping "Running Late" on
+    // a spotty connection (or a client-side retry after a timeout) fires two
+    // near-simultaneous requests that both read the same pre-alert
+    // running_late_at and both fall through. Without a conditional WHERE here,
+    // both would notify admin + SMS the real client twice for one lateness
+    // event. Only the request that actually flips the row proceeds to notify;
+    // the loser just refreshes the ETA and reports as already-handled.
+    const cutoffIso = new Date(Date.now() - RUNNING_LATE_COOLDOWN_MS).toISOString()
+    const { data: claimed } = await tenantDb(tenantId)
+      .from('bookings')
+      .update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null })
+      .eq('id', bookingId)
+      .or(`running_late_at.is.null,running_late_at.lt.${cutoffIso}`)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) {
+      await tenantDb(tenantId).from('bookings').update({ running_late_eta: eta || null }).eq('id', bookingId)
       return NextResponse.json({ success: true, alreadyReported: true })
     }
 

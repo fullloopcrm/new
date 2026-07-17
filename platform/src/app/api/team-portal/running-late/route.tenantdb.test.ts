@@ -22,10 +22,32 @@ const DB: Record<string, Row[]> = {}
 
 function updateChain(rows: Row[], values: Row) {
   const filters: Array<(r: Row) => boolean> = []
+  const orFilters: Array<(r: Row) => boolean> = []
   const uc: Record<string, unknown> = {
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return uc },
+    // Minimal parser for the `col.is.null,col.lt.<iso>` shape this route's
+    // atomic claim uses — enough to prove the mutation is conditional, not a
+    // full PostgREST-or implementation.
+    or: (expr: string) => {
+      const conds = expr.split(',').map((part) => {
+        const [col, op, val] = part.split('.')
+        return (r: Row) => {
+          if (op === 'is' && val === 'null') return r[col] == null
+          if (op === 'lt') return r[col] != null && String(r[col]) < val
+          return false
+        }
+      })
+      orFilters.push((r) => conds.some((c) => c(r)))
+      return uc
+    },
+    select: () => uc,
+    maybeSingle: async () => {
+      const matches = rows.filter((r) => filters.every((f) => f(r)) && orFilters.every((f) => f(r)))
+      matches.forEach((r) => Object.assign(r, values))
+      return { data: matches[0] ?? null, error: null }
+    },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => {
-      rows.filter((r) => filters.every((f) => f(r))).forEach((r) => Object.assign(r, values))
+      rows.filter((r) => filters.every((f) => f(r)) && orFilters.every((f) => f(r))).forEach((r) => Object.assign(r, values))
       resolve({ data: null, error: null })
     },
   }
