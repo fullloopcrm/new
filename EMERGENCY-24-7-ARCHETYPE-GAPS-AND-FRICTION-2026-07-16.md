@@ -5493,3 +5493,133 @@ pre-existing, unrelated `tenant-scope` guard warning on
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (121) Archetype depth — `cron/no-show-check`'s own 🚨 EMERGENCY alert was UTC-implicit, missed by every prior timezone sweep because it queries across all tenants in one shot — NOW FIXED
+
+Items (70)/(115)/(117)/(119) closed 17 UTC-implicit date/time renders across
+routes and per-tenant crons. `cron/no-show-check/route.ts` — the 15-minute
+job that auto-flips a stale scheduled/confirmed/pending booking to
+`no_show` and fires an admin alert — was never caught by any of those
+sweeps because it's structurally different from every other cron in this
+codebase: it queries `bookings` across ALL tenants in a single call rather
+than looping `for (const tenant of tenants)`, so it never had a `tenant.
+timezone` in scope to begin with; the alert message rendered
+`new Date(b.start_time).toLocaleString()` with zero options at all — no
+`timeZone`, defaulting to the server's runtime zone (UTC on Vercel).
+
+Most archetype-relevant instance found yet: this is the literal moment a
+tech no-showed and the system already flags it `${isEmergency ? '🚨
+EMERGENCY — ' : ''}` for `is_emergency`-flagged bookings — an admin reading
+this alert to scramble a replacement sees a clock time hours off from their
+own tenant's local time, for the one class of alert this whole doc's
+archetype is built around.
+
+**Fixed** — after fetching candidates, collect the distinct `tenant_id`s
+and fetch a `{id, timezone}` map in one extra query (candidates already
+span tenants, so there's no single "the" tenant row to select alongside
+them the way per-tenant crons do), then render each alert's `when` with
+`timeZone: tzByTenant.get(b.tenant_id) || 'America/New_York'` — same
+documented default every other fix in this doc uses.
+
+1 new test file, mutation-verified (`git apply -R` the fix, RED for the
+expected reason — the alert showed the UTC reading, "8/10/2026, 1:00:00 AM"
+instead of the Pacific "Aug 9"/"10:00 PM" — `git apply` restored, GREEN).
+`tsc --noEmit` clean, full suite 421/421 files, 2020/2020 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (122) Fresh ground, new bug class (declared action silently doesn't happen, distinct from every notify/timezone/destructive-column thread this session) — `DELETE /api/bookings/[id]` ignored all three intent query params BookingsAdmin sends it and hard-deleted every booking regardless — NOW FIXED
+
+BookingsAdmin.tsx sends this route three distinct signals depending on
+which button fired the request — `?cancel_series=true` ("Cancel All
+Future" on a recurring booking, with a comment calling it "precise
+server-side series cancellation"), `?hard_delete=true` (only ever sent for
+a booking whose status is already `'cancelled'`, confirm dialog: "Permanently
+delete this cancelled booking"), or no param at all (the plain "Cancel"
+button, shown for every non-cancelled status — including `completed`/
+`paid`). The route read none of them. It unconditionally ran
+`db.from('bookings').delete().eq('id', id)` no matter which button sent
+the request, collapsing three different declared intents into one
+undifferentiated hard delete:
+
+1. **Series cancel silently no-op'd.** Clicking "Cancel All Future" hard-
+   deleted only the single clicked booking. The `recurring_schedules` row
+   kept `status:'active'` and the generator kept refilling the series;
+   every other future occurrence stayed fully scheduled. The UI reports
+   success and the admin believes the whole series is cancelled — nothing
+   about the series actually changed. The already-correct version of this
+   exact operation exists one route over (`DELETE /api/admin/
+   recurring-schedules/[id]`, which properly flips the schedule to
+   `cancelled` and cancels its future bookings) — BookingsAdmin's own
+   comment describes calling that logic, but the endpoint it actually hits
+   never runs it.
+2. **Routine "Cancel" permanently erased financial history.** The plain
+   "Cancel" (X icon) button is shown for `scheduled`/`confirmed`/
+   `in_progress`/**`completed`** bookings alike, with a confirm dialog that
+   just says "Cancel booking for X?" — no permanence warning. Because the
+   backend hard-deleted regardless, clicking it on a completed/paid job
+   erased that row entirely, taking its `finance/revenue`,
+   `finance/payroll-prep`, `finance/tax-export`, and `finance/
+   cleaner-income` history with it — same "destructive op on a record with
+   financial significance" shape as item (118), just the whole row instead
+   of one column, and reachable via what the UI presents as a routine,
+   reversible-sounding action.
+3. **The UI's own two-step flow was structurally dead.** The "Permanently
+   delete" button only renders for `status === 'cancelled'` rows — but
+   since plain "Cancel" already hard-deleted the row on step one, no row
+   ever survived to reach `'cancelled'` status and show that button. The
+   frontend was built for a soft-cancel-then-hard-delete flow the backend
+   never implemented.
+4. **`skip_email=true` silently ignored.** The legacy batch-cancel fallback
+   sends the first booking in a series without this param (wants the
+   email) and the rest of the series with it (wants it suppressed) — the
+   backend fires the client cancellation email/SMS for all of them either
+   way.
+
+**Fixed** — the route now branches on the three params before touching the
+row: `cancel_series=true` with a `schedule_id` present delegates to the
+same status-flip logic `recurring-schedules/[id]`'s DELETE already uses
+(schedule → `cancelled`, its future `scheduled`/`pending` bookings →
+`cancelled`, same "no client notification for a bulk series action"
+convention that route's own header comment documents — already-completed
+bookings on the schedule keep their `team_member_id`/history intact,
+untouched). `hard_delete=true` now requires the booking to already be
+`status:'cancelled'` server-side (400 otherwise) before running the real
+`.delete()` — no longer trusting the query param alone the way item (118)'s
+notes flagged as an open question for the sibling `/api/team/[id]` DELETE.
+The default (no params) now soft-cancels via `.update({status:'cancelled'})`
+instead of deleting — preserves the row (and any finance-report history it
+carries) and is what actually lets the UI's two-step Cancel → Delete flow
+function for the first time. `skip_email=true` now gates the notification
+block.
+
+Two pre-existing cross-tenant isolation tests asserted the OLD hard-delete-
+always behavior (`route.isolation.test.ts`, `cross-tenant-routes-booking-
+detail.test.ts`) and one asserted the old false-positive 200-on-a-0-row-
+scoped-delete status for a cross-tenant DELETE attempt
+(`cross-tenant-routes.test.ts` — now correctly 404, matching the sibling
+GET's existing 404 for the same cross-tenant target); updated all three to
+assert the corrected behavior. The actual security invariant every one of
+them proves — tenant B's row is never touched by tenant A's request — is
+unchanged and still passes.
+
+1 new test file (6 cases: default soft-cancel preserves the row,
+`skip_email` suppresses the notify, `hard_delete` rejected on a
+non-cancelled booking, `hard_delete` accepted on an already-cancelled one,
+`cancel_series` cancels the schedule + future bookings while leaving a
+past/completed booking and a different schedule's booking untouched,
+`cancel_series` sends no client notification), mutation-verified (`git
+apply -R` the fix, all 6 RED for the expected reason — the schedule stayed
+`active`, hard_delete succeeded on a non-cancelled booking, skip_email/
+cancel_series were no-ops — `git apply` restored, GREEN). `tsc --noEmit`
+clean, full suite 422/422 files, 2025/2025 tests, zero regressions (same
+pre-existing, unrelated `tenant-scope` guard warning on `src/app/api/
+fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
