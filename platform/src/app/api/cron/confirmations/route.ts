@@ -5,6 +5,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -25,12 +26,13 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
-    if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (!smsCreds.apiKey || !smsCreds.phone) continue
     const tenantId = tenant.id
     // Client day-before confirmation is gated by the confirmation_reminder SMS
     // toggle. Team confirm-requests are operational and stay ungated.
@@ -112,8 +114,8 @@ export async function GET(request: Request) {
           await sendSMS({
             to: member.phone,
             body: smsBody,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
           sent++
         } catch (smsErr) {
@@ -218,8 +220,8 @@ export async function GET(request: Request) {
             await sendSMS({
               to: client.phone,
               body: smsBody,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey,
+              telnyxPhone: smsCreds.phone,
             })
             sent++
           } catch (smsErr) {

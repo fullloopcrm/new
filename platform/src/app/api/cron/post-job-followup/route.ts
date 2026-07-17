@@ -4,6 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300
 
@@ -22,7 +23,7 @@ export async function GET(request: Request) {
   // Get all active tenants — include domain + slug for review link.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, domain, slug')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, domain, slug')
     .eq('status', 'active')
     .limit(1000)
 
@@ -31,7 +32,8 @@ export async function GET(request: Request) {
       const settings = await getSettings(tenant.id)
       if (!settings.chatbot_enabled) continue
       if (!settings.review_followup_enabled) continue
-      if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+      const smsCreds = resolveTenantSmsCredentials(tenant)
+      if (!smsCreds.apiKey || !smsCreds.phone) continue
 
       // tenant_domains FIRST, tenants.domain FALLBACK, slug subdomain LAST —
       // same precedence as tenantSiteUrl()'s every other caller. Previously
@@ -93,8 +95,8 @@ export async function GET(request: Request) {
           await sendSMS({
             to: client.phone,
             body: `Hi ${firstName}! How did everything go? We'd love to hear your feedback — takes 30 sec:\n${reviewUrl}\nReply STOP to opt out.`,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
 
           // Mark booking notes with [FOLLOWUP_SENT]
@@ -144,8 +146,8 @@ export async function GET(request: Request) {
           await sendSMS({
             to: jc.phone,
             body: `Hi ${jFirst}! How did everything go? We'd love your feedback — takes 30 sec:\n${jobReviewUrl}\nReply STOP to opt out.`,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
           await supabaseAdmin.from('job_events').insert({
             tenant_id: tenant.id, job_id: job.id, event_type: 'review_requested', detail: {},

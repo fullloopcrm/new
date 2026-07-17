@@ -10,6 +10,7 @@ import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300
 
@@ -30,6 +31,7 @@ interface TenantRow {
   name: string
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  sms_number: string | null
   selena_config: Record<string, unknown> | null
 }
 
@@ -47,14 +49,15 @@ export async function GET(request: Request) {
   // Active tenants with SMS configured.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, selena_config')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, selena_config')
     .eq('status', 'active')
 
   let totalSent = 0
   const perTenant: Record<string, number> = {}
 
   for (const tenant of (tenants as TenantRow[] | null) || []) {
-    if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (!smsCreds.apiKey || !smsCreds.phone) continue
 
     const aiName = (tenant.selena_config?.ai_name as string | undefined) || 'Selena'
     const sentForTenant = await processTenant(tenant, moments, aiName)
@@ -71,6 +74,11 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
   // Gated by the retention (win-back) SMS toggle. Off → skip this tenant.
   const prefs = await getCommPrefs(tenant.id)
   if (prefs.comms.retention?.sms === false) return 0
+
+  // GET()'s caller-side gate already confirmed smsCreds is complete for this
+  // tenant before calling processTenant() — re-resolving here (not passing
+  // it as a param) keeps this function self-contained/independently testable.
+  const smsCreds = resolveTenantSmsCredentials(tenant)
 
   // 1. Eligible clients: have phone, opted in, not DNS, active.
   const { data: rawClients } = await supabaseAdmin
@@ -134,8 +142,8 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
         await sendSMS({
           to: c.phone!,
           body: message,
-          telnyxApiKey: tenant.telnyx_api_key!,
-          telnyxPhone: tenant.telnyx_phone!,
+          telnyxApiKey: smsCreds.apiKey!,
+          telnyxPhone: smsCreds.phone!,
         })
 
         // Log the send (unique constraint dedups within (tenant, client, moment)).

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300
 
@@ -21,7 +22,7 @@ export async function GET(request: Request) {
   // Get all active tenants
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number')
     .eq('status', 'active')
     .limit(1000)
 
@@ -31,7 +32,8 @@ export async function GET(request: Request) {
   const thirtyDaysAgoNotif = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   for (const tenant of tenants || []) {
-    if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (!smsCreds.apiKey || !smsCreds.phone) continue
 
     try {
       // Find active clients with SMS consent
@@ -103,8 +105,8 @@ export async function GET(request: Request) {
           await sendSMS({
             to: client.phone,
             body: `Hey ${firstName}! It's been a while \u2014 need help? We'd love to assist \u{1F60A}\nReply STOP to opt out.`,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
 
           // Log the retention notification
