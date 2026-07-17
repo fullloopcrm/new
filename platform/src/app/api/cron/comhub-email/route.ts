@@ -179,7 +179,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
         const text = parsed.text || (typeof parsed.html === 'string' ? parsed.html.replace(/<[^>]+>/g, ' ').slice(0, 8000) : '')
         const sentAt = parsed.date ? parsed.date.toISOString() : new Date().toISOString()
 
-        await supabaseAdmin.from('comhub_messages').insert({
+        const { error: inboundInsertErr } = await supabaseAdmin.from('comhub_messages').insert({
           tenant_id: tenantId,
           thread_id: threadId,
           contact_id: contactId,
@@ -193,6 +193,15 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
           external_id: messageId,
           sent_at: sentAt,
         })
+        // Duplicate external_id -- a concurrent invocation of this endpoint
+        // (overlapping 2-minute cron fires; IMAP connect + AI reply latency can
+        // easily outrun that cadence) already claimed and is processing this
+        // exact message. The select-based dup check above only catches the
+        // sequential case; this DB-level guard (migration
+        // 2026_07_17_unique_comhub_messages_external_id.sql) catches the
+        // concurrent one -- treat as an idempotent no-op so we don't send a
+        // second Yinez auto-reply to the same customer for the same email.
+        if (inboundInsertErr?.code === '23505') { skipped++; continue }
 
         // ── Yinez auto-reply ─────────────────────────────────────────────────
         try {

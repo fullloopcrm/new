@@ -1,0 +1,44 @@
+-- 2026_07_17_unique_comhub_messages_external_id.sql
+-- FILE ONLY -- do NOT execute here. Leader runs after Jeff approves.
+--
+-- WHY: cron/comhub-email's pollAccount() dedups an inbound IMAP message by
+-- Message-ID with a plain select-then-insert on comhub_messages
+-- (tenant_id, external_id, channel) -- no DB constraint behind it. Same
+-- TOCTOU class as 2026_07_16_unique_payments_raw_email_id.sql. This cron
+-- fires every 2 minutes (vercel.json) with maxDuration=60s and no run-lock;
+-- IMAP connect + per-message Yinez AI-reply latency can easily make one
+-- invocation still be mid-poll when the next one starts. Two concurrent
+-- invocations can both fetch the SAME new message before either's insert
+-- lands, both pass the select-based dup check, and both send a Yinez
+-- auto-reply to the same customer for the same email -- the email-channel
+-- equivalent of the '4/29 SMS-blast lesson' cron/rating-prompt already
+-- guards against.
+--
+-- comhub_messages has no tracked CREATE TABLE migration (dashboard-created,
+-- same non-issue pattern as partner_requests/jefe_tasks noted in prior
+-- rounds) -- table-absence-from-migrations alone is not being treated as
+-- signal here; the app code already reads/writes tenant_id/external_id/
+-- channel on this table today, so the columns are known live.
+--
+-- Partial unique index (not a full UNIQUE constraint), same shape as 065/
+-- 066/067/2026_07_16_unique_payments_raw_email_id.sql: outbound (direction
+-- 'auto'/'out') rows and any pre-existing rows with a null external_id must
+-- never conflict with each other.
+--
+-- route.ts is updated in the same commit to catch 23505 on the inbound
+-- insert and treat it as an idempotent no-op (skip the Yinez auto-reply the
+-- winning invocation already sent) -- but that catch is inert until this
+-- index actually exists in prod. Migration + JS fix must land together.
+--
+-- RISK (flagged, not resolved here -- no DB read access from this
+-- worktree): if this race has already produced duplicate
+-- (tenant_id, external_id, channel) rows in prod, this CREATE UNIQUE INDEX
+-- will fail until those duplicates are deleted first. Leader should check
+-- for existing duplicates before applying:
+--   SELECT tenant_id, external_id, channel, count(*) FROM comhub_messages
+--     WHERE external_id IS NOT NULL
+--     GROUP BY 1,2,3 HAVING count(*) > 1;
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_comhub_messages_tenant_external_channel_unique
+  ON comhub_messages(tenant_id, external_id, channel)
+  WHERE external_id IS NOT NULL;
