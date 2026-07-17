@@ -162,7 +162,7 @@ export async function backfillRevenueFromBookings(
     if (scanned >= limit) break
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, price, team_member_pay, tip_amount, payment_date, start_time, entity_id')
+      .select('id, price, team_member_pay, tip_amount, payment_status, partial_payment_cents, payment_date, start_time, entity_id')
       .eq('tenant_id', tenantId)
       .in('payment_status', ['paid', 'partial'])
       .gt('price', 0)
@@ -179,12 +179,25 @@ export async function backfillRevenueFromBookings(
       const date = String((b.payment_date as string) || (b.start_time as string) || new Date().toISOString()).slice(0, 10)
       const entityId = (b.entity_id as string) || null
 
-      if (price > 0 && !(await journalEntryExists(tenantId, 'booking', id))) {
+      // A 'partial' booking has only collected partial_payment_cents from
+      // the client -- the same signal ar-aging/cash-flow/summary/tax-export/
+      // dashboard already key off. Posting the full price+tip here put money
+      // that was never actually received into Undeposited Funds and Service
+      // Revenue, permanently overstating both in the ledger. Tip isn't
+      // split out for a partial payment since which portion (if any) of a
+      // partial amount is tip vs. service is unknown.
+      const isPartial = b.payment_status === 'partial'
+      const receivedCents = isPartial
+        ? Math.max(0, Math.round(Number(b.partial_payment_cents) || 0))
+        : price + tip
+      const revenueCents = isPartial ? receivedCents : price
+
+      if (revenueCents > 0 && !(await journalEntryExists(tenantId, 'booking', id))) {
         const lines: JournalLineInput[] = [
-          { coa_id: undeposited, debit_cents: price + tip, memo: 'Booking revenue' },
-          { coa_id: revenueAcct, credit_cents: price, memo: 'Service revenue' },
+          { coa_id: undeposited, debit_cents: receivedCents, memo: 'Booking revenue' },
+          { coa_id: revenueAcct, credit_cents: revenueCents, memo: 'Service revenue' },
         ]
-        if (tip > 0 && tipsAcct) lines.push({ coa_id: tipsAcct, credit_cents: tip, memo: 'Tip' })
+        if (!isPartial && tip > 0 && tipsAcct) lines.push({ coa_id: tipsAcct, credit_cents: tip, memo: 'Tip' })
         await postJournalEntry({ tenant_id: tenantId, entity_id: entityId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
         revenuePosted++
       }
