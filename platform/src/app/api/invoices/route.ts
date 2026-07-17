@@ -6,6 +6,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { entityIdFromUrl, getDefaultEntityId, verifyEntityId } from '@/lib/entity'
+import { nowNaiveET, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 import {
   normalizeLineItems,
   computeTotals,
@@ -39,7 +40,10 @@ export async function GET(request: Request) {
     if (bookingId) q = q.eq('booking_id', bookingId)
     if (entityId) q = q.eq('entity_id', entityId)
     if (overdueOnly) {
-      const today = new Date().toISOString().slice(0, 10)
+      // due_date is a DATE column (calendar day, ET business terms) -- compare
+      // against ET's "today", not the server's UTC calendar day, or an invoice
+      // due today reads as overdue up to ~4-5h early every evening ET.
+      const today = nowNaiveET().slice(0, 10)
       q = q.lt('due_date', today).not('status', 'in', '(paid,void,refunded)')
     }
 
@@ -140,9 +144,16 @@ export async function POST(request: Request) {
     const explicitInvoiceNumber = Boolean(body.invoice_number)
     let invoice_number = body.invoice_number || (await generateInvoiceNumber(tenantId))
     let public_token = generateInvoicePublicToken()
+    // due_days is a whole-calendar-day offset in ET business terms ("net 30").
+    // Adding milliseconds to Date.now() and reading back the UTC calendar date
+    // pushes the result a day late whenever the invoice is created in the
+    // evening ET window (UTC already reads tomorrow) -- anchor on ET's actual
+    // calendar "today" instead.
     const due_date =
       body.due_date ||
-      (body.due_days ? new Date(Date.now() + Number(body.due_days) * 86400000).toISOString().slice(0, 10) : null)
+      (body.due_days
+        ? formatNaiveET(addCalendarDays(etToday(), Number(body.due_days))).slice(0, 10)
+        : null)
     // client_id/booking_id/quote_id/entity_id are cross-table FKs — confirm each
     // belongs to this tenant before writing it, or a caller could attach the
     // invoice to another tenant's client/booking/quote/entity and exfiltrate its
