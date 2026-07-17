@@ -1213,19 +1213,83 @@ async function handleCreateDeal(input: { client_id: string; value_dollars?: numb
   return JSON.stringify({ ok: true, deal_id: data.id })
 }
 
-async function handleUpdateDeal(input: { deal_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
+export async function handleUpdateDeal(input: { deal_id: string; fields: Record<string, unknown> }, tid: string): Promise<string> {
   const allowed = ['stage', 'value_dollars', 'follow_up_at', 'follow_up_note', 'notes']
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) {
     if (k === 'value_dollars' && typeof v === 'number') {
-      update.value = Math.round(v * 100)
+      // deals' dollar-value column is value_cents, not value -- writing
+      // "value" always errored (no such column), so every AI-driven
+      // deal-value update via this tool has failed since the tool's
+      // beginning; the human pipeline routes (deals/route.ts) have always
+      // used value_cents correctly.
+      update.value_cents = Math.round(v * 100)
     } else if (allowed.includes(k)) {
       update[k] = v
     }
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
+
+  // Moving to 'sold' through this tool used to be a raw column flip with
+  // none of POST /api/deals/[id]/stage's close-to-Sold side effects: no
+  // probability=100, no closed_at (which sales-won-tab.tsx's default
+  // this-month filter reads, falling back to a stale last_activity_at when
+  // null), no stage_change activity log, and -- the same fulfillment-routing
+  // gap items (87)/(92) fixed on the Stripe webhook and the manual Kanban
+  // close -- no recurring_schedules series / Booking / Job created at all.
+  // A deal Selena closed to Sold looked sold in the pipeline but nothing
+  // ever got scheduled. Mirror the human close path's side effects here too.
+  let fromStage: string | undefined
+  const closingToSold = update.stage === 'sold'
+  if (typeof update.stage === 'string') {
+    const { data: existing } = await supabaseAdmin
+      .from('deals').select('stage').eq('id', input.deal_id).eq('tenant_id', tid).maybeSingle()
+    fromStage = existing?.stage
+    if (closingToSold && fromStage && fromStage !== 'sold') {
+      update.probability = 100
+      update.closed_at = new Date().toISOString()
+    }
+  }
+
   const { error } = await supabaseAdmin.from('deals').update(update).eq('id', input.deal_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
+
+  if (typeof update.stage === 'string' && fromStage && fromStage !== update.stage) {
+    await supabaseAdmin.from('deal_activities').insert({
+      tenant_id: tid, deal_id: input.deal_id, type: 'stage_change',
+      description: `Moved from ${fromStage} to ${update.stage}`,
+      metadata: { from: fromStage, to: update.stage },
+    })
+  }
+
+  if (closingToSold && fromStage && fromStage !== 'sold') {
+    try {
+      const { data: q } = await supabaseAdmin
+        .from('quotes')
+        .select('id, recurring_type, fulfillment_type')
+        .eq('tenant_id', tid)
+        .eq('deal_id', input.deal_id)
+        .is('converted_job_id', null)
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (q) {
+        if (q.recurring_type) {
+          const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+          await createRecurringSeriesFromQuote(tid, q.id)
+        } else if (q.fulfillment_type === 'booking') {
+          const { createBookingFromQuote } = await import('@/lib/sale-to-booking')
+          await createBookingFromQuote(tid, q.id)
+        } else {
+          const { convertSaleToJob } = await import('@/lib/jobs')
+          await convertSaleToJob(tid, { type: 'quote', quoteId: q.id }, {})
+        }
+      }
+    } catch (e) {
+      console.warn('fulfillment creation on AI-bot sold failed', e)
+    }
+  }
+
   return JSON.stringify({ ok: true, deal_id: input.deal_id, updated_fields: Object.keys(update) })
 }
 

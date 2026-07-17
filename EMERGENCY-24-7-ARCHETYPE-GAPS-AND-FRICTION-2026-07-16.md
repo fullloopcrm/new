@@ -3995,3 +3995,92 @@ restored, GREEN). `tsc --noEmit` clean, full suite 388/388 files,
 1909/1909 tests, zero regressions (same pre-existing, unrelated
 `tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
 touched here).
+
+## (92) New today, archetype depth — item (87)'s fulfillment-routing gap repeats on the manual Kanban close: `POST /api/deals/[id]/stage` always created a Job for a deal's sold quote regardless of `recurring_type`/`fulfillment_type` — NOW FIXED
+
+Item (87) established that a sold quote must route 3 ways on close —
+`recurring_type` set → `createRecurringSeriesFromQuote`, `fulfillment_type
+=== 'booking'` → `createBookingFromQuote`, else → `convertSaleToJob` (Job
+board) — and fixed the Stripe quote-deposit webhook, the one call site that
+previously always defaulted to the Job board. Swept every other place a
+deal can close to Sold looking for the same shape and found a third: the
+sales pipeline's own Kanban board. `dashboard/sales/pipeline/page.tsx`'s
+`moveToStage()` drags a deal card to the Sold column with **no** conversion-
+type prompt — it's the generic "close this deal" action, same automatic-
+close category as the deposit webhook, not an explicit "Convert to
+Booking"/"Convert to Job" button click (those two, `/api/quotes/[id]/convert`
+and `/convert-to-job`, are deliberate single-purpose admin actions and
+correctly always create their one named thing — not in scope here). The
+backing route, `POST /api/deals/[id]/stage`, looked up the deal's latest
+unconverted quote and unconditionally called `convertSaleToJob` with zero
+reference to `recurring_type`/`fulfillment_type` — its own `.select('id')`
+didn't even fetch those columns. Net effect: dragging a deal with a
+recurring or booking-type quote to Sold on the Kanban board created a one-
+off Job board card instead of the recurring schedule series or the single
+Booking the identical quote would have gotten via the accept path or the
+(87)-fixed webhook.
+
+**Fixed** (`p1-w3`) — the sold-transition lookup now also selects
+`recurring_type, fulfillment_type`, and the call site runs the same 3-way
+branch as the accept path, the (87) webhook fix, and (below) item (93):
+`recurring_type` truthy → `createRecurringSeriesFromQuote`, `fulfillment_type
+=== 'booking'` → `createBookingFromQuote`, else → `convertSaleToJob`
+(unchanged default). 3 new tests
+(`route.fulfillment-routing.test.ts`, mirroring (87)'s own test file): a
+recurring quote creates a `recurring_schedules` row and zero Jobs, a
+booking-type quote creates one `bookings` row and zero Jobs, and the plain-
+project control case still creates exactly one Job. Mutation-verified (`git
+apply -R` the fix, both non-control tests RED — 0 recurring
+schedules/bookings instead of 1, reproducing the exact pre-fix symptom —
+`git apply` restored, GREEN). `tsc --noEmit` clean.
+
+## (93) New today, fresh ground — Selena's `update_deal` tool had two bugs: `value_dollars` wrote to a column that doesn't exist, and closing a deal to Sold bypassed every one of the human close path's side effects, including — a second (87)/(92) repeat — fulfillment creation entirely
+
+Investigating (92) raised the question of whether the AI bot has its own
+path to close a deal, since the pipeline Kanban isn't every admin's way of
+running sales — Selena's `update_deal` tool (`agent.ts`'s live `TOOLS` array,
+passed to every `messages.create()` call across all channels/tenants) lets
+an owner ask "mark this deal sold" in chat. `handleUpdateDeal` in
+`selena/tools.ts` turned out to have two independent bugs:
+
+1. `value_dollars` (e.g. "the deal is worth $500") wrote
+   `update.value = Math.round(v * 100)` — but `deals`' dollar column is
+   `value_cents` (confirmed via migration 029's own comment: "Existing deals
+   table already has stage/value_cents/probability/..." and `deals/route.ts`'s
+   correct usage). `value` isn't a column on this table at all, so every
+   AI-driven deal-value update via this tool has errored since the tool's
+   beginning — a silent no-op from the owner's perspective (Selena just
+   reports the tool failed and moves on), not a wrong-value bug but a
+   never-worked one.
+2. Setting `fields.stage` to `'sold'` was a raw, unconditional
+   `.update(update)` on the `deals` row — none of `POST
+   /api/deals/[id]/stage`'s close-to-Sold side effects ran: no
+   `probability: 100`, no `closed_at` (which `sales-won-tab.tsx`'s default
+   "this month" filter reads, falling back to a stale `last_activity_at`/
+   `created_at` when null — a deal Selena closed could silently miss the
+   Won tab's own default view), no `stage_change` activity-log entry, and —
+   the exact fulfillment-routing gap items (87)/(92) just closed on two
+   other call sites — no `recurring_schedules` series, `Booking`, or `Job`
+   created at all. A deal an owner asked Selena to close looked sold in the
+   pipeline but nothing downstream ever happened.
+
+**Fixed** (`p1-w3`) — `value_dollars` now writes `value_cents`. Closing to
+`'sold'` (detected by reading the deal's current stage before the update)
+now sets `probability: 100` + `closed_at`, logs a `stage_change`
+`deal_activities` row, and runs the identical 3-way fulfillment branch
+(92)/(87)/the accept path use, against the deal's latest unconverted quote.
+A same-stage no-op (already `'sold'`) intentionally does none of this, same
+idempotency guard the other two close paths rely on. 7 new tests
+(`tools.update-deal.test.ts`, `handleUpdateDeal` exported for direct testing
+same as `handleProcessStripeRefund`): the column fix, probability/closed_at,
+the activity log, all three fulfillment branches, and the already-sold no-op
+control case. Mutation-verified in two passes: (a) full `git apply -R` of
+the fix confirmed all 6 non-control-case tests RED for import-shape reasons
+too, so (b) a surgical revert that kept the `export` but restored the exact
+pre-fix function body — 6/7 RED for the right reason (wrong/missing values:
+20000 instead of 50000 cents, 80 instead of 100 probability, 0 instead of 1
+activity/schedule/booking/job rows), 1/7 (the no-op control) correctly
+stayed GREEN since that path is unchanged — restored, GREEN. `tsc --noEmit`
+clean, full suite (both items) 390/390 files, 1919/1919 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
