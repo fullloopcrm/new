@@ -6,7 +6,7 @@
  * P11.16/17-class) and PUT /api/client/reschedule/[id]'s becomesEmergency
  * (item 11, same session). Fixed to match both.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.mock('@/lib/supabase', async () => {
@@ -70,5 +70,24 @@ describe('Yinez handleRescheduleBooking — same-day landing forces $89/hr + is_
     const booking = fake._store.get('bookings')?.find((b) => b.id === BOOKING)
     expect(booking?.is_emergency).toBe(false)
     expect(booking?.hourly_rate).toBe(69) // unchanged — not overwritten
+  })
+
+  // Same America/New_York-vs-server-default fix as handleCreateBooking's
+  // own todayStr check — see core.create-booking-emergency-rate.test.ts.
+  describe('day-boundary is computed in America/New_York, not the server default', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('a reschedule to "today" (ET) is still flagged emergency even though UTC has already rolled to the next calendar date', async () => {
+      // 10:30pm EDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      seed()
+      const out = JSON.parse(await handleRescheduleBooking({ booking_id: BOOKING, new_date: '2026-07-17', new_time: '10:45 PM' }, CONVO))
+      expect(out.success).toBe(true)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === BOOKING)
+      expect(booking?.is_emergency).toBe(true)
+      expect(booking?.hourly_rate).toBe(89)
+    })
   })
 })

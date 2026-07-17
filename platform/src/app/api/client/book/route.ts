@@ -288,7 +288,13 @@ export async function POST(request: Request) {
       // owner's configured selena_config.emergency_rate never reached this
       // route at all, so a same-day self-book through the public marketing
       // site was always billed the flat/configured rate no matter what.
-      const todayStr = new Date().toLocaleDateString('en-CA')
+      // `bookingDate` is a naive tenant-local calendar date (never
+      // timezone-converted, see startTime construction above) — "today"
+      // must be computed in the tenant's own timezone to match, the same
+      // fix as this branch's own NYC-Maid sibling three lines above
+      // (`todayET`), not the server's default (UTC), which silently missed
+      // same-day emergencies for several hours every evening.
+      const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: (tenant as { timezone?: string | null }).timezone || 'America/New_York' })
       bkIsEmergency = bookingDate === todayStr
       const selenaConfig = (tenant as { selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }).selena_config
       if (bkIsEmergency && selenaConfig?.emergency_available && selenaConfig.emergency_rate) {

@@ -43,14 +43,30 @@ export async function POST(request: Request) {
   // Enforce tenant scheduling rules (allow_same_day, min_days_ahead).
   // start_time is a client-provided ISO string; reject if missing or unparseable.
   const settings = await getSettings(auth.tid)
+  const { data: tenantRow } = await supabaseAdmin
+    .from('tenants')
+    .select('selena_config, timezone')
+    .eq('id', auth.tid)
+    .maybeSingle<{ selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null; timezone?: string | null }>()
+  const tz = tenantRow?.timezone || 'America/New_York'
   const requestedStart = body.start_time ? new Date(body.start_time) : null
   if (!requestedStart || isNaN(requestedStart.getTime())) {
     return NextResponse.json({ error: 'Invalid start_time' }, { status: 400 })
   }
   const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const startOfRequested = new Date(requestedStart.getFullYear(), requestedStart.getMonth(), requestedStart.getDate())
-  const daysAhead = Math.round((startOfRequested.getTime() - startOfToday.getTime()) / 86_400_000)
+  // "Day" boundaries must use the tenant's own timezone, not the server
+  // runtime's default (UTC on Vercel) — `getFullYear/Month/Date()` on a raw
+  // Date object reads the server's local calendar day, which silently
+  // disagreed with the tenant's actual local day for several hours every
+  // evening (worse the further west the tenant is), miscategorizing
+  // next-day bookings as same-day/emergency or vice versa.
+  const toTzMidnight = (d: Date) => {
+    const [y, m, day] = d.toLocaleDateString('en-CA', { timeZone: tz }).split('-').map(Number)
+    return Date.UTC(y, m - 1, day)
+  }
+  const startOfToday = toTzMidnight(now)
+  const startOfRequested = toTzMidnight(requestedStart)
+  const daysAhead = Math.round((startOfRequested - startOfToday) / 86_400_000)
   if (daysAhead < 0) {
     return NextResponse.json({ error: 'Cannot book in the past' }, { status: 400 })
   }
@@ -93,12 +109,7 @@ export async function POST(request: Request) {
   // regardless of the tenant's configured selena_config.emergency_rate.
   const isEmergency = daysAhead === 0
   if (isEmergency && durationHours != null) {
-    const { data: t } = await supabaseAdmin
-      .from('tenants')
-      .select('selena_config')
-      .eq('id', auth.tid)
-      .maybeSingle<{ selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }>()
-    const selenaConfig = t?.selena_config
+    const selenaConfig = tenantRow?.selena_config
     if (selenaConfig?.emergency_available && selenaConfig.emergency_rate) {
       hourlyRate = selenaConfig.emergency_rate
       price = selenaConfig.emergency_rate * durationHours * 100

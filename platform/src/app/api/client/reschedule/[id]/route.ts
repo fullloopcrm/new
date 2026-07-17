@@ -76,7 +76,15 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // actually changing the date (body.start_time present); a team-member-only
   // reassignment must not touch pricing.
   let emergencyOverride: { hourly_rate: number; price: number } | null = null
-  const becomesEmergency = body.start_time ? body.start_time.split('T')[0] === new Date().toLocaleDateString('en-CA') : null
+  // `tz` (above) is the tenant's actual configured timezone — comparing raw
+  // UTC calendar-date substrings (the old `.split('T')[0]` vs. the server's
+  // default-zone "today") silently missed same-day emergencies during the
+  // multi-hour evening window before local midnight, when UTC has already
+  // rolled to the next calendar day. Same root cause fixed in the AI/SMS
+  // bot's create/reschedule tools (selena/core.ts, selena-legacy.ts).
+  const becomesEmergency = body.start_time
+    ? new Date(body.start_time).toLocaleDateString('en-CA', { timeZone: tz }) === new Date().toLocaleDateString('en-CA', { timeZone: tz })
+    : null
   if (becomesEmergency) {
     const selenaConfig = (tenant as { selena_config?: { emergency_available?: boolean; emergency_rate?: number } | null }).selena_config
     if (selenaConfig?.emergency_available && selenaConfig.emergency_rate) {

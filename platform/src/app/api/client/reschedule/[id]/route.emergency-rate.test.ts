@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 /**
@@ -97,5 +97,42 @@ describe('client reschedule PUT — rescheduling to today applies the configured
     expect(body.is_emergency).toBe(false)
     expect(body.hourly_rate).toBe(75)
     expect(body.price).toBe(15000)
+  })
+
+  // "Today" must be computed in the tenant's OWN timezone (the `tz` local
+  // already used for oldDate/oldTime two lines above the fix), not the
+  // server runtime's default (UTC on Vercel). A Pacific tenant's local
+  // evening rolls into the next UTC calendar day hours before local
+  // midnight — comparing raw UTC calendar-date substrings silently missed
+  // same-day emergencies during that window.
+  describe('day-boundary is computed in the tenant timezone, not the server default', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('rescheduling a Pacific tenant booking to tomorrow morning is NOT flagged emergency, even though UTC has already rolled to that calendar date', async () => {
+      // 7:30pm PDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      currentTenant.timezone = 'America/Los_Angeles'
+      const res = await PUT(putReq({ start_time: '2026-07-18T08:00:00-07:00', end_time: '2026-07-18T10:00:00-07:00' }), paramsFor('bk-1'))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.is_emergency).toBe(false)
+      expect(body.hourly_rate).toBe(75)
+      expect(body.price).toBe(15000)
+    })
+
+    it('rescheduling a Pacific tenant booking to later the same evening IS flagged emergency at that same real moment', async () => {
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      currentTenant.timezone = 'America/Los_Angeles'
+      const res = await PUT(putReq({ start_time: '2026-07-17T21:00:00-07:00', end_time: '2026-07-17T23:00:00-07:00' }), paramsFor('bk-1'))
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.is_emergency).toBe(true)
+      expect(body.hourly_rate).toBe(130)
+    })
   })
 })

@@ -7,7 +7,7 @@
  * tenant's configured emergency rate. Fixed to read selena_config off the
  * same `tenants(...)` join already used for reschedule_notice_days.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.mock('@/lib/supabase', async () => {
@@ -36,7 +36,7 @@ function farFutureIso(daysOut: number): string {
   return new Date(Date.now() + daysOut * 24 * 60 * 60 * 1000).toISOString()
 }
 
-function seed(selenaConfig?: { emergency_available?: boolean; emergency_rate?: number }) {
+function seed(selenaConfig?: { emergency_available?: boolean; emergency_rate?: number }, timezone?: string) {
   fake._store.clear()
   fake._seed('sms_conversations', [{ id: CONVO, tenant_id: TENANT, client_id: CLIENT }])
   fake._seed('bookings', [{
@@ -45,7 +45,7 @@ function seed(selenaConfig?: { emergency_available?: boolean; emergency_rate?: n
     hourly_rate: 69, price: 69 * 2 * 100, is_emergency: false,
     // The fake ignores column projection and returns whatever the row has —
     // embedding `tenants` here stands in for the real `tenants(...)` join.
-    tenants: { reschedule_notice_days: 2, selena_config: selenaConfig },
+    tenants: { reschedule_notice_days: 2, selena_config: selenaConfig, timezone },
   }])
 }
 
@@ -80,5 +80,39 @@ describe('legacy Selena handleRescheduleBooking — same-day landing applies con
     const booking = fake._store.get('bookings')?.find((b) => b.id === BOOKING)
     expect(booking?.is_emergency).toBe(false)
     expect(booking?.hourly_rate).toBe(69)
+  })
+
+  // "Today" must be computed in the tenant's own timezone (read off the same
+  // `tenants(...)` join as reschedule_notice_days/selena_config), not the
+  // server runtime's default (UTC on Vercel). `new_date` is LLM-resolved
+  // against a tenant-timezone-anchored calendar, so comparing it to a
+  // UTC-default "today" silently missed same-day emergencies during the
+  // multi-hour evening window before local midnight.
+  describe('day-boundary is computed in the tenant timezone, not the server default', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('a Pacific tenant reschedule to tomorrow morning is NOT flagged emergency, even though UTC has already rolled to that calendar date', async () => {
+      // 7:30pm PDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      seed({ emergency_available: true, emergency_rate: 95 }, 'America/Los_Angeles')
+      const out = JSON.parse(await handleRescheduleBooking(TENANT, { booking_id: BOOKING, new_date: '2026-07-18', new_time: '8:00 AM' }, CONVO))
+      expect(out.success).toBe(true)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === BOOKING)
+      expect(booking?.is_emergency).toBe(false)
+      expect(booking?.hourly_rate).toBe(69)
+    })
+
+    it('a Pacific tenant reschedule to later the same evening IS flagged emergency at that same real moment', async () => {
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      seed({ emergency_available: true, emergency_rate: 95 }, 'America/Los_Angeles')
+      const out = JSON.parse(await handleRescheduleBooking(TENANT, { booking_id: BOOKING, new_date: '2026-07-17', new_time: '9:00 PM' }, CONVO))
+      expect(out.success).toBe(true)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === BOOKING)
+      expect(booking?.is_emergency).toBe(true)
+      expect(booking?.hourly_rate).toBe(95)
+    })
   })
 })

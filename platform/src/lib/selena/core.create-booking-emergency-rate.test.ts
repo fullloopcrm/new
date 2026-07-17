@@ -12,7 +12,7 @@
  * trusted from the LLM. A same-day booking is forced to $89/hr regardless of
  * what the LLM supplied, and is_emergency is set on every same-day booking.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.mock('@/lib/supabase', async () => {
@@ -79,5 +79,30 @@ describe('Yinez handleCreateBooking — server-side $89 emergency rate + is_emer
     expect(booking?.hourly_rate).toBe(69)
     expect(booking?.price).toBe(69 * 2 * 100)
     expect(booking?.is_emergency).toBe(false)
+  })
+
+  // "Today" must be computed in the same America/New_York zone this file's
+  // buildCalendarContext already uses to give the LLM its "today"/14-day
+  // calendar (the source of `date`) — comparing against the server's
+  // default (UTC) zone silently missed same-day emergencies during the
+  // multi-hour evening window before ET midnight, when UTC has already
+  // rolled to the next calendar day.
+  describe('day-boundary is computed in America/New_York, not the server default', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('a booking for "today" (ET) is still flagged emergency even though UTC has already rolled to the next calendar date', async () => {
+      // 10:30pm EDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      seed()
+      const input = { date: '2026-07-17', time: '10:45 PM', service_type: 'deep', hourly_rate: 59, estimated_hours: 2 }
+
+      const raw = await handleCreateBooking(input, CONVO, freshResult())
+      const parsed = JSON.parse(raw)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === parsed.bookingId)
+      expect(booking?.is_emergency).toBe(true)
+      expect(booking?.hourly_rate).toBe(89)
+    })
   })
 })

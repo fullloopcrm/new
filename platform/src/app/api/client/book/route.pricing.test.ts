@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * client/book — client-controlled pricing on a PUBLIC, unauthenticated endpoint.
@@ -30,9 +30,10 @@ const holder = vi.hoisted(() => ({
   bookings: new Map<string, Record<string, unknown>>(),
   serviceTypeRate: null as number | null,
   selenaConfig: null as { emergency_available?: boolean; emergency_rate?: number } | null,
+  timezone: null as string | null,
 }))
 
-vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ ...TENANT, selena_config: holder.selenaConfig }) }))
+vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => ({ ...TENANT, selena_config: holder.selenaConfig, timezone: holder.timezone }) }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 10 }) }))
 vi.mock('@/lib/smart-schedule', () => ({ scoreTeamForBooking: async () => [] }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
@@ -142,6 +143,7 @@ beforeEach(() => {
   holder.bookings.clear()
   holder.serviceTypeRate = null
   holder.selenaConfig = null
+  holder.timezone = null
   nycMaidFlag.current = false
 })
 
@@ -230,6 +232,39 @@ describe('generic tenant — a same-day booking applies the configured emergency
     expect(res.status).toBe(200)
     expect(holder.rpcCalls[0].p_hourly_rate).toBe(75)
     expect(holder.rpcCalls[0].p_is_emergency).toBe(false)
+  })
+
+  // "Today" must be computed in the tenant's own timezone, not the server
+  // runtime's default (UTC on Vercel). `bookingDate` is a naive, never-
+  // converted local calendar date (see startTime construction in route.ts),
+  // so a Pacific tenant's local evening rolling into the next UTC calendar
+  // day silently miscategorized next-day bookings as same-day/emergency,
+  // or vice versa. This is the highest-traffic entry point sharing this bug
+  // — the public marketing site's own booking form.
+  describe('day-boundary is computed in the tenant timezone, not the server default', () => {
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('a Pacific tenant booking tomorrow morning is NOT flagged emergency, even though UTC has already rolled to that calendar date', async () => {
+      // 7:30pm PDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      holder.timezone = 'America/Los_Angeles'
+      holder.selenaConfig = { emergency_available: true, emergency_rate: 120 }
+      const res = await bookReq({ start_time: '2026-07-18T08:00:00', end_time: '2026-07-18T10:00:00', hourly_rate: 75, estimated_hours: 2 })
+      expect(res.status).toBe(200)
+      expect(holder.rpcCalls[0].p_is_emergency).toBe(false)
+      expect(holder.rpcCalls[0].p_hourly_rate).toBe(75)
+    })
+
+    it('a Pacific tenant booking later the same evening IS flagged emergency at that same real moment', async () => {
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      holder.timezone = 'America/Los_Angeles'
+      holder.selenaConfig = { emergency_available: true, emergency_rate: 120 }
+      const res = await bookReq({ start_time: '2026-07-17T21:00:00', end_time: '2026-07-17T23:00:00', hourly_rate: 75, estimated_hours: 2 })
+      expect(res.status).toBe(200)
+      expect(holder.rpcCalls[0].p_is_emergency).toBe(true)
+      expect(holder.rpcCalls[0].p_hourly_rate).toBe(120)
+    })
   })
 })
 

@@ -143,6 +143,35 @@ async function getSelenaConfig(tenantId: string): Promise<SelenaConfig> {
   }
 }
 
+// Tenants span 4 US timezone bands (auto-derived from ZIP at creation, see
+// lib/timezone.ts's zipToTimezone) but every "today"/"is this same-day"
+// computation in this file previously used the server runtime's default
+// timezone (UTC on Vercel) instead — silently wrong for every non-Eastern
+// tenant, and wrong for Eastern tenants too during the multi-hour evening
+// window before local midnight when UTC has already rolled to the next
+// calendar day. Same cache shape as getSelenaConfig, separate map since
+// timezone is a raw tenants column, not part of the selena_config JSON blob.
+const timezoneCache = new Map<string, { data: string; time: number }>()
+
+async function getTenantTimezone(tenantId: string): Promise<string> {
+  const now = Date.now()
+  const cached = timezoneCache.get(tenantId)
+  if (cached && now - cached.time < CONFIG_CACHE_TTL) return cached.data
+
+  try {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('timezone')
+      .eq('id', tenantId)
+      .single()
+    const timezone = tenant?.timezone || 'America/New_York'
+    timezoneCache.set(tenantId, { data: timezone, time: now })
+    return timezone
+  } catch {
+    return 'America/New_York'
+  }
+}
+
 // ─── Types ──────────────────────────────────────────────────────────────────
 
 export interface BookingChecklist {
@@ -616,13 +645,13 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
   return { hours, minutes }
 }
 
-function buildCalendarContext(): string {
+function buildCalendarContext(timezone: string): string {
   const now = new Date()
-  const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const fullDate = now.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
   const days: string[] = []
   for (let i = 0; i < 14; i++) {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000)
-    days.push(`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} = ${d.toLocaleDateString('en-CA')}`)
+    days.push(`${d.toLocaleDateString('en-US', { timeZone: timezone, weekday: 'long', month: 'short', day: 'numeric' })} = ${d.toLocaleDateString('en-CA', { timeZone: timezone })}`)
   }
   return `\n\nToday is ${fullDate}.\nCALENDAR:\n${days.join('\n')}\nUse this to resolve "this Wednesday" etc.`
 }
@@ -784,7 +813,12 @@ export async function handleCreateBooking(tenantId: string, input: Record<string
     // model that forgets/miscalculates the configured rate can't underbill —
     // closes P11.16 (price) and P11.17 (is_emergency flag) together, the
     // fourth surface in the emergency-rate trilogy (P11.7/P11.8/P11.15).
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    // `date` was resolved by the LLM against buildCalendarContext's
+    // tenant-timezone-anchored calendar, so "today" here must use the same
+    // tenant timezone — comparing against the server's default (UTC) zone
+    // silently missed same-day emergencies for several hours every evening.
+    const tenantTimezone = await getTenantTimezone(tenantId)
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tenantTimezone })
     const isEmergency = date === todayStr
     const llmRate = input.hourly_rate as number
     const hourlyRate = isEmergency && config.emergency_available && config.emergency_rate
@@ -1015,7 +1049,7 @@ export async function askSelena(
 
     // 3. Build system prompt
     const systemPromptBase = await buildSystemPrompt(tenantId, config)
-    const calendar = buildCalendarContext()
+    const calendar = buildCalendarContext(await getTenantTimezone(tenantId))
     const checklistPrompt = buildChecklistPrompt(checklist, nextStep, config)
 
     let clientContext = ''

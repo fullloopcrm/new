@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 /**
@@ -80,5 +80,45 @@ describe('portal self-book — a same-day booking applies the configured emergen
     expect(body.booking.hourly_rate).toBe(75)
     expect(body.booking.price).toBe(75 * 2 * 100)
     expect(body.booking.is_emergency).toBe(false)
+  })
+
+  // "Today" must be computed in the TENANT's own timezone, not the server
+  // runtime's default (UTC on Vercel). A Pacific tenant's local evening
+  // rolls into the next UTC calendar day hours before local midnight — the
+  // old getFullYear/getMonth/getDate()-based day-boundary comparison used
+  // the server's UTC day for both "now" and the requested start, so a
+  // tomorrow-morning booking made on a Pacific evening was incorrectly
+  // flagged same-day/emergency (both sides had already rolled to the same
+  // UTC date even though they're different Pacific calendar days).
+  describe('day-boundary is computed in the tenant timezone, not the server default', () => {
+    beforeEach(() => {
+      vi.useFakeTimers()
+    })
+    afterEach(() => {
+      vi.useRealTimers()
+    })
+
+    it('a Pacific tenant booking tomorrow morning is NOT flagged emergency, even though UTC has already rolled to that calendar date', async () => {
+      // 7:30pm PDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      fake._seed('tenants', [{ id: TENANT_ID, timezone: 'America/Los_Angeles', selena_config: { emergency_available: true, emergency_rate: 130 } }])
+      // 8am PDT July 18 -- genuinely "tomorrow" for a Pacific customer.
+      const res = await POST(req({ start_time: '2026-07-18T08:00:00-07:00', service_type_id: SVC_ID }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.booking.is_emergency).toBe(false)
+      expect(body.booking.hourly_rate).toBe(75)
+    })
+
+    it('a Pacific tenant booking later the same evening IS still flagged emergency at that same real moment', async () => {
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      fake._seed('tenants', [{ id: TENANT_ID, timezone: 'America/Los_Angeles', selena_config: { emergency_available: true, emergency_rate: 130 } }])
+      // 9pm PDT July 17 -- later the same Pacific calendar day as "now".
+      const res = await POST(req({ start_time: '2026-07-17T21:00:00-07:00', service_type_id: SVC_ID }))
+      expect(res.status).toBe(201)
+      const body = await res.json()
+      expect(body.booking.is_emergency).toBe(true)
+      expect(body.booking.hourly_rate).toBe(130)
+    })
   })
 })

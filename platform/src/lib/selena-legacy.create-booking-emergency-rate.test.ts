@@ -14,7 +14,7 @@
  * overrides whatever hourly_rate the LLM supplied. is_emergency is set on
  * every same-day booking regardless of whether a rate is configured.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.mock('@/lib/supabase', async () => {
@@ -93,5 +93,56 @@ describe('handleCreateBooking — server-side emergency_rate + is_emergency enfo
     const booking = fake._store.get('bookings')?.find((b) => b.id === parsed.bookingId)
     expect(booking?.price).toBe(50 * 2 * 100)
     expect(booking?.is_emergency).toBe(false)
+  })
+
+  // "Today" must be computed in the tenant's own timezone (tenants.timezone),
+  // not the server runtime's default (UTC on Vercel) — `date` is LLM-resolved
+  // against a tenant-timezone-anchored calendar (buildCalendarContext), so
+  // comparing it to a UTC-default "today" silently missed same-day
+  // emergencies during the multi-hour evening window before local midnight.
+  // Distinct tenant id from the rest of this file to avoid colliding with
+  // getTenantTimezone's own 60s cache keyed by tenant id.
+  describe('day-boundary is computed in the tenant timezone, not the server default', () => {
+    const PACIFIC_TENANT = 'tenant-pacific'
+
+    beforeEach(() => { vi.useFakeTimers() })
+    afterEach(() => { vi.useRealTimers() })
+
+    it('a Pacific tenant booking for tomorrow morning is NOT flagged emergency, even though UTC has already rolled to that calendar date', async () => {
+      // 7:30pm PDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      fake._store.clear()
+      fake._seed('sms_conversations', [
+        { id: CONVO, tenant_id: PACIFIC_TENANT, client_id: CLIENT, phone: '5551234567', booking_checklist: EMPTY_CHECKLIST },
+      ])
+      fake._seed('tenants', [{ id: PACIFIC_TENANT, timezone: 'America/Los_Angeles' }])
+      const config: SelenaConfig = { emergency_available: true, emergency_rate: 95 }
+      const input = { date: '2026-07-18', time: '8:00 AM', service_type: 'Standard Clean', hourly_rate: 50, estimated_hours: 2 }
+
+      const raw = await handleCreateBooking(PACIFIC_TENANT, input, CONVO, freshResult(), config)
+      const parsed = JSON.parse(raw)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === parsed.bookingId)
+      expect(booking?.is_emergency).toBe(false)
+      expect(booking?.price).toBe(50 * 2 * 100)
+    })
+
+    it('a Pacific tenant booking for later the same evening IS flagged emergency at that same real moment', async () => {
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      fake._store.clear()
+      fake._seed('sms_conversations', [
+        { id: CONVO, tenant_id: PACIFIC_TENANT, client_id: CLIENT, phone: '5551234567', booking_checklist: EMPTY_CHECKLIST },
+      ])
+      fake._seed('tenants', [{ id: PACIFIC_TENANT, timezone: 'America/Los_Angeles' }])
+      const config: SelenaConfig = { emergency_available: true, emergency_rate: 95 }
+      const input = { date: '2026-07-17', time: '9:00 PM', service_type: 'Standard Clean', hourly_rate: 50, estimated_hours: 2 }
+
+      const raw = await handleCreateBooking(PACIFIC_TENANT, input, CONVO, freshResult(), config)
+      const parsed = JSON.parse(raw)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === parsed.bookingId)
+      expect(booking?.is_emergency).toBe(true)
+      expect(booking?.price).toBe(95 * 2 * 100)
+    })
   })
 })

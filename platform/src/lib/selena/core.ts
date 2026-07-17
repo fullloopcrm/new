@@ -1099,7 +1099,13 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     // set is_emergency, the same gap selena-legacy.ts's handleCreateBooking
     // had before its P11.16/17 fix, just on the platform's most-used AI
     // booking assistant instead of the legacy one.
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    // `date` was resolved by the LLM against buildCalendarContext's
+    // America/New_York-anchored calendar (L1940-1949 below) — "today" here
+    // must use the same zone, matching every other date computation in this
+    // file, or same-day emergencies were silently missed during the evening
+    // hours ET already but UTC (the server's default zone) hadn't rolled
+    // over yet.
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     const isEmergency = date === todayStr
     const llmRate = input.hourly_rate as number
     const hourlyRate = isEmergency ? 89 : llmRate
@@ -1520,7 +1526,10 @@ export async function handleRescheduleBooking(input: Record<string, unknown>, co
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    // Same tenant-timezone fix as handleCreateBooking above: `input.new_date`
+    // is LLM-resolved against the America/New_York-anchored calendar context,
+    // so "today" must be computed in that same zone, not the server's default.
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     const isEmergency = input.new_date === todayStr
     await supabaseAdmin.from('bookings').update({
       start_time: newStart, end_time: newEnd,

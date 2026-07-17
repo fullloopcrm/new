@@ -413,13 +413,13 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
 
     const bookingId = input.booking_id as string
     const { data: booking } = await supabaseAdmin
-      .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days, selena_config)')
+      .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days, selena_config, timezone)')
       .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be rescheduled.' })
     }
-    const tenantRow = booking.tenants as unknown as { reschedule_notice_days?: number; selena_config?: { emergency_available?: boolean; emergency_rate?: number } } | null
+    const tenantRow = booking.tenants as unknown as { reschedule_notice_days?: number; selena_config?: { emergency_available?: boolean; emergency_rate?: number }; timezone?: string } | null
     const noticeDays = tenantRow?.reschedule_notice_days || 2
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < noticeDays) {
@@ -429,7 +429,13 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${((parsed.hours + 2) % 24).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    // `input.new_date` comes from the LLM resolving against the tenant-
+    // timezone-anchored calendar context (selena-legacy.ts buildCalendarContext);
+    // "today" here must use the same tenant timezone, not the server's default
+    // (UTC), or same-day reschedules silently miss the emergency flag/rate for
+    // several hours every evening — same root cause as handleCreateBooking's
+    // P11.16/17 fix and core.ts's own two same-day checks.
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: tenantRow?.timezone || 'America/New_York' })
     const isEmergency = input.new_date === todayStr
     const emergencyRate = tenantRow?.selena_config?.emergency_available ? tenantRow.selena_config.emergency_rate : undefined
     await supabaseAdmin.from('bookings').update({
