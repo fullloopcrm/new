@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
     const { data: due, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, cleaner_id, start_time, clients(name), cleaners(name)')
+      .select('id, client_id, team_member_id, start_time, clients(name), team_members(name)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .not('check_out_time', 'is', null)
