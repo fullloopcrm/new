@@ -17,6 +17,7 @@ interface Booking {
   service_type: string | null
   team_member_id: string | null
   clients: { name: string } | null
+  is_emergency?: boolean
 }
 
 const DAY_START_MIN = 6 * 60   // 6 AM
@@ -195,10 +196,11 @@ export default function TimelineView() {
                         draggable
                         onDragStart={() => setDragId(b.id)}
                         onDragEnd={() => setDragId(null)}
-                        className={`absolute top-1.5 flex h-9 cursor-grab items-center overflow-hidden rounded px-1.5 text-white active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
+                        className={`absolute top-1.5 flex h-9 cursor-grab items-center gap-1 overflow-hidden rounded px-1.5 text-white active:cursor-grabbing ${b.is_emergency ? 'ring-2 ring-red-500' : ''} ${dragId === b.id ? 'opacity-40' : ''}`}
                         style={{ left: `${left}%`, width: `${Math.max(2, width)}%`, background: bg }}
-                        title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'} — drag to move`}
+                        title={`${b.is_emergency ? '🚨 URGENT — ' : ''}${b.clients?.name || 'Client'} · ${b.service_type || 'Job'} — drag to move`}
                       >
+                        {b.is_emergency && <span className="flex-shrink-0 text-[10px]">🚨</span>}
                         <span className="cal-chip-sm truncate text-[10px] font-medium">{b.clients?.name || 'Client'}</span>
                       </div>
                     )

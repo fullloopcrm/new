@@ -27,6 +27,7 @@ interface Booking {
   hourly_rate?: number
   recurring_type?: string | null
   schedule_id?: string | null
+  is_emergency?: boolean
 }
 
 interface BookingEvent {
@@ -169,6 +170,7 @@ export default function CalendarBoard() {
     if (selectedStatuses.length > 0) filtered = filtered.filter(b => selectedStatuses.includes(b.status))
 
     const events: BookingEvent[] = filtered.map((b) => {
+      const urgentPrefix = b.is_emergency ? '\uD83D\uDEA8 ' : ''
       const prefix = b.status === 'pending' ? '\u23F3 ' : b.status === 'in_progress' ? '\u25B6\uFE0F ' : ''
       const bg = b.status === 'pending' ? '#dc2626' : memberColors[b.team_member_id] || '#0d9488'
       const clientName = (b.clients?.name || 'Client').split(' ')[0]
@@ -179,7 +181,7 @@ export default function CalendarBoard() {
       const timeStr = m > 0 ? `${hr}:${String(m).padStart(2, '0')}${ampm}` : `${hr}${ampm}`
       return {
         id: b.id,
-        title: `${timeStr} ${prefix}${clientName}`,
+        title: `${timeStr} ${urgentPrefix}${prefix}${clientName}`,
         start: b.start_time,
         end: b.end_time,
         backgroundColor: bg,
@@ -635,6 +637,9 @@ export default function CalendarBoard() {
                 panelBooking.status === 'completed' ? 'bg-slate-100 text-slate-700' :
                 'bg-slate-100 text-slate-500'
               }`}>{panelBooking.status.replace('_', ' ').replace(/\b\w/g, c => c.toUpperCase())}</span>
+              {panelBooking.is_emergency && (
+                <span className="px-2 py-1 rounded-full text-xs font-bold bg-red-600 text-white">🚨 URGENT</span>
+              )}
               {panelBooking.recurring_type && (
                 <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{panelBooking.recurring_type}</span>
               )}

@@ -28,6 +28,7 @@ interface Booking {
   service_type: string
   price: number
   status: string
+  is_emergency?: boolean
   payment_status: string
   payment_method: string | null
   notes: string | null
@@ -1437,7 +1438,10 @@ function BookingsPage() {
               {bookings.filter(b => b.status === 'pending').map((b) => (
                 <div key={b.id} onClick={() => openEdit(b)} className="flex items-center justify-between bg-white/80 backdrop-blur-sm border border-red-200/40 rounded-xl p-3.5 cursor-pointer hover:bg-white hover:shadow-sm transition-all">
                   <div>
-                    <p className="text-[#1E2A4A] font-semibold text-sm">{b.clients?.name || '-'}</p>
+                    <p className="text-[#1E2A4A] font-semibold text-sm flex items-center gap-1.5">
+                      {b.is_emergency && <span title="Emergency / same-day booking" className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white">🚨 URGENT</span>}
+                      {b.clients?.name || '-'}
+                    </p>
                     <p className="text-gray-500 text-xs mt-0.5">{formatDate(b.start_time)} · {b.service_type}</p>
                     <p className="text-gray-400 text-xs mt-0.5">{b.clients?.address || ''}</p>
                     {b.suggested_team_member_id && (() => {
@@ -1734,7 +1738,10 @@ function BookingsPage() {
                   >
                     <td className="px-4 py-3.5">
                       <div>
-                        <p className={'text-sm font-medium ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>{b.clients?.name || '-'}</p>
+                        <p className={'text-sm font-medium flex items-center gap-1.5 ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>
+                          {b.is_emergency && <span title="Emergency / same-day booking" className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white">🚨 URGENT</span>}
+                          {b.clients?.name || '-'}
+                        </p>
                         <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{b.clients?.address || ''}</p>
                       </div>
                     </td>

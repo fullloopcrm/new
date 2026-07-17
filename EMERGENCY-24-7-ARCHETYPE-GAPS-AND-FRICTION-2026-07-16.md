@@ -278,7 +278,7 @@ the pay rate) before touching the templates, verified by reading
 (worktree still has no `.env.local`/Supabase env for a live call, same
 constraint as P11.8-20).
 
-## (8) New today — the operator's own admin UI never visually flags an emergency booking either
+## (8) New today — the operator's own admin UI never visually flags an emergency booking either — NOW FIXED
 
 Third and final leg of items (7)'s "who ever finds out this job is
 urgent" question, this time for the person actually running the
@@ -314,6 +314,33 @@ already exposes the field; sanity-checked the exact regex/select-star
 logic against the real files in a standalone `node -e` run before
 committing — same "read the source" methodology as P11.8-21, worktree
 still has no `.env.local`/Supabase env for a live render check).
+
+**Update, later this session — FIXED (`p1-w3`).** Added an `is_emergency`
+🚨 badge/highlight to every read surface identified above that renders an
+*existing* booking (the create-form's own toggle already had one and was
+untouched): `BookingsAdmin.tsx`'s main table row (client-name cell) and its
+"Pending Approval" panel, `CalendarBoard.tsx`'s FullCalendar event title
+prefix + the side-panel status row, `KanbanView.tsx`'s card (badge chip +
+a red ring on the card itself so it reads at a glance without opening it),
+and `TimelineView.tsx`'s per-day dispatch block (icon + red ring + updated
+hover title) — the last of these is explicitly "the daily driver for slot
+trades," i.e. the exact triage view item (8) describes an owner/dispatcher
+scanning. `ProjectsView.tsx` and the Map view were left untouched: Projects
+structurally only ever shows `duration_class in (multiday, project)` jobs,
+which this archetype's same-day emergency bookings can't be by definition,
+and Map's badge would need a second marker icon/shape (not just a color
+swap, since marker color already encodes `status`) — flagging Map as the
+one still-open surface rather than rushing a marker change un-verified.
+Added `is_emergency?: boolean` to each component's local `Booking`
+interface (all four already receive it — `GET /api/bookings` selects `'*'`,
+confirmed in the original finding above — this was purely a type+render
+gap, no API change needed). `tsc --noEmit` clean. No dedicated render-test
+harness exists for any of these four files (same as `BookingsAdmin.tsx`'s
+precedent elsewhere in this doc — 2700+/760/169/215-line client pages with
+no render-test setup in this repo), so verification is type-level plus
+direct re-read of each diff against its surrounding JSX; full existing
+suite re-run clean at 328/328 files, 1743/1743 tests, zero regressions
+(expected — none of these four files had prior test coverage to regress).
 
 ## (9) New today — the actual payment receipt never reaches the client at all; the one template that would show a breakdown is dead code for client delivery
 

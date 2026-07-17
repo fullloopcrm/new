@@ -21,6 +21,7 @@ interface Booking {
   team_member_id: string | null
   clients: { name: string } | null
   team_members: { name: string } | null
+  is_emergency?: boolean
 }
 
 const COLUMNS: { key: string; label: string; accent: string }[] = [
@@ -137,11 +138,14 @@ export default function KanbanView() {
                   draggable
                   onDragStart={() => setDragId(b.id)}
                   onDragEnd={() => setDragId(null)}
-                  className={`cursor-grab rounded-lg border border-slate-200 bg-white p-2.5 text-left shadow-sm transition-opacity active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
+                  className={`cursor-grab rounded-lg border bg-white p-2.5 text-left shadow-sm transition-opacity active:cursor-grabbing ${b.is_emergency ? 'border-red-300 ring-1 ring-red-200' : 'border-slate-200'} ${dragId === b.id ? 'opacity-40' : ''}`}
                   style={{ borderLeftWidth: '3px', borderLeftColor: colorForMember(memberColors, b.team_member_id) }}
                 >
                   <div className="flex items-center justify-between gap-2">
-                    <span className="cal-chip-md truncate text-sm font-medium text-slate-900">{b.clients?.name || 'Client'}</span>
+                    <span className="cal-chip-md truncate text-sm font-medium text-slate-900 flex items-center gap-1">
+                      {b.is_emergency && <span title="Emergency / same-day booking" className="flex-shrink-0 rounded-full px-1.5 py-0.5 text-[9px] font-bold bg-red-600 text-white">🚨</span>}
+                      {b.clients?.name || 'Client'}
+                    </span>
                     {b.duration_class && b.duration_class !== 'slot' && (
                       <span className={`flex-shrink-0 rounded px-1.5 py-0.5 text-[9px] font-semibold uppercase ${CLASS_BADGE[b.duration_class] || CLASS_BADGE.slot}`}>{b.duration_class}</span>
                     )}
