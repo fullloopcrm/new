@@ -2090,3 +2090,40 @@ full suite 358/358 files, 1815/1815 tests, zero regressions (same
 pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`).
 Worktree still has no `.env.local`/Supabase env for a live send, same
 constraint as every other item in this doc.
+
+## (50) New today, fresh ground — the *other* emergency-dispatch broadcast
+(`find-cleaner`) texted opted-out team members unconditionally, same as
+item (48) — NOW FIXED
+
+Item (10) documented a second, dormant broadcast mechanism sitting alongside
+`bookings/broadcast`: `/api/admin/find-cleaner/{preview,send}`, an
+admin-initiated "pick a date/time/zone, mass-text eligible team members"
+dispatch tool — not yet live in prod (migration 008's tables are unapplied),
+but real, RBAC-gated, tested code that item (48)'s sms_consent sweep never
+reached because that sweep was scoped to *send sites*, and `find-cleaner`
+wasn't in the five call sites found at the time (its `send/route.ts` uses the
+same plain `sendSMS()` from `src/lib/sms.ts`, which has no built-in consent
+check — same root cause as every other item-48 site). Confirmed directly:
+neither `preview/route.ts`'s eligibility query nor `send/route.ts`'s
+recipient query selected `sms_consent` at all, and neither's filter
+(`c.phone` / `TEST_MODE` substring only) excluded an opted-out member — an
+opted-out team member would show up "eligible" in preview and get texted by
+send, identical to the pre-fix `bookings/broadcast` symptom.
+
+**Fixed** (`p1-w3`) — added `sms_consent` to both routes' `team_members`
+`.select()` and both routes' filtering: `preview/route.ts` now adds an
+`'Opted out of SMS'` entry to `reasons_excluded` (visible to the admin before
+they hit send, matching this route's existing UX of surfacing *why* a member
+is excluded rather than silently dropping them); `send/route.ts` now drops
+`sms_consent === false` members from `recipients` before the broadcast fires,
+same `!== false` default-opt-in convention as every other item-48 site. 3 new
+tests (`route.consent.test.ts`: opted-out is blocked, consented is sent,
+null/unset defaults to sent), mutation-verified via saved patch (`git diff` →
+`/tmp/w3-find-cleaner-send.patch` → `git apply -R` → confirmed the opt-out
+test fails reproducing the exact pre-fix symptom, RED — opted-out member
+still texted → `git apply` restored, GREEN). `tsc --noEmit` clean, full suite
+359/359 files, 1818/1818 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, noted since item 17).
+Worktree still has no `.env.local`/Supabase env and this feature's own
+migration 008 is unapplied to prod either way, same constraint as every other
+item in this doc — file-only fix, no DB migration run.
