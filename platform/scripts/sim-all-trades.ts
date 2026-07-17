@@ -3623,6 +3623,56 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-42. bookings/[id], bookings/batch, bookings/broadcast, routes/[id]/publish, admin/find-cleaner/send, cron/reminders — team_members.sms_consent NEVER CHECKED before texting the CREW member (fresh ground, sibling of 5a-33's crew-side consent-gate fix but on the SEND paths rather than the settings route: 5a-33 made team_members.sms_consent a real, crew-editable column, but 6 separate operational-dispatch sends — job (re)assignment on 2 booking-update paths, a job-availability broadcast, an urgent-job broadcast, a published route text, and an hourly 2hr-reminder cron — all texted the assigned/candidate crew member on phone presence alone, same missing-check shape client-side sends already guard against everywhere in this codebase) ----
+    // A crew member who revoked SMS consent via their own team-portal/
+    // preferences settings (5a-33) kept getting real texts on every one of
+    // these 6 paths regardless — the setting had zero effect on the send
+    // side. Fixed all 6 to also gate on `sms_consent !== false` (bookings/
+    // broadcast's SMS leg specifically; its email leg is intentionally left
+    // ungated, a separate consent surface). This probe proves the exact new
+    // join-select shape 4 of those fixes added
+    // (`team_members!bookings_team_member_id_fkey(name, phone, sms_consent)`
+    // via bookings/[id] and cron/reminders, and the equivalent flat selects
+    // in bookings/broadcast, routes/[id]/publish, and admin/find-cleaner/send)
+    // actually resolves sms_consent against the live schema, not a mock.
+    {
+      const teamGatePhone = '917' + String(5300000 + idx * 137 + (Date.now() % 1000)).slice(-7)
+      const { data: teamGateBlocked, error: teamGateBlockedErr } = await supabase.from('team_members').insert({
+        tenant_id: tenant.id, name: 'Send-Gate Blocked Crew', phone: teamGatePhone, sms_consent: false,
+      }).select('id').single()
+      add('team-send-gate: STOP-revoked crew member created (sms_consent=false)', !!teamGateBlocked && !teamGateBlockedErr, teamGateBlockedErr?.message)
+
+      const { data: teamGateOk, error: teamGateOkErr } = await supabase.from('team_members').insert({
+        tenant_id: tenant.id, name: 'Send-Gate Consented Crew', phone: teamGatePhone + '1', sms_consent: true,
+      }).select('id').single()
+      add('team-send-gate: consented CONTROL crew member created (sms_consent=true)', !!teamGateOk && !teamGateOkErr, teamGateOkErr?.message)
+
+      for (const [label, gateMember] of [['BLOCKED', teamGateBlocked], ['CONTROL', teamGateOk]] as const) {
+        if (!gateMember?.id) continue
+        const { data: gateAssignBooking, error: gateAssignErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, team_member_id: gateMember.id,
+          start_time: '2026-09-01T14:00:00', end_time: '2026-09-01T16:00:00', status: 'confirmed',
+          service_type: `team-send-gate ${label} probe`,
+        }).select('id').single()
+        add(`team-send-gate: ${label} — booking assigned to the crew member`, !!gateAssignBooking && !gateAssignErr, gateAssignErr?.message)
+
+        if (gateAssignBooking?.id) {
+          // Exact join-select shape added to bookings/[id]'s PUT re-read and
+          // cron/reminders' 2hr-reminder query.
+          const { data: joined, error: joinedErr } = await supabase.from('bookings')
+            .select('id, team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
+            .eq('id', gateAssignBooking.id).eq('tenant_id', tenant.id).single()
+          const joinedMember = joined?.team_members as unknown as { sms_consent: boolean } | null
+          add(`team-send-gate: ${label} — the bookings_team_member_id_fkey join resolves sms_consent against the live schema`, !joinedErr && joinedMember?.sms_consent === (label === 'CONTROL'), JSON.stringify(joined) + (joinedErr?.message || ''))
+
+          await supabase.from('bookings').delete().eq('id', gateAssignBooking.id).eq('tenant_id', tenant.id)
+        }
+      }
+
+      if (teamGateBlocked?.id) await supabase.from('team_members').delete().eq('id', teamGateBlocked.id).eq('tenant_id', tenant.id)
+      if (teamGateOk?.id) await supabase.from('team_members').delete().eq('id', teamGateOk.id).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
