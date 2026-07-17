@@ -53,7 +53,7 @@ beforeEach(() => {
     { id: 'client-A', tenant_id: TENANT_A, name: 'Tenant A Client', phone: '2125550001' },
     { id: 'client-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Client', phone: '2125550002' },
   ])
-  fake._seed('cleaners', [
+  fake._seed('team_members', [
     { id: 'cleaner-A', tenant_id: TENANT_A, name: 'Tenant A Cleaner', phone: '2125550003' },
     { id: 'cleaner-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Cleaner', phone: '2125550004' },
   ])
@@ -101,14 +101,14 @@ describe('create_manual_booking (Yinez owner tool) — FK ownership', () => {
     const rows = fake._store.get('bookings') || []
     expect(rows.length).toBe(1)
     expect(rows[0].client_id).toBe('client-A')
-    expect(rows[0].suggested_cleaner_id).toBe('cleaner-A')
+    expect(rows[0].suggested_team_member_id).toBe('cleaner-A')
   })
 })
 
 describe('assign_cleaner_to_booking (Yinez owner tool) — FK ownership', () => {
   beforeEach(() => {
     fake._seed('bookings', [
-      { id: 'booking-1', tenant_id: TENANT_A, client_id: 'client-A', cleaner_id: null, status: 'pending' },
+      { id: 'booking-1', tenant_id: TENANT_A, client_id: 'client-A', team_member_id: null, status: 'pending', start_time: '2026-08-01T10:00:00-04:00' },
     ])
   })
 
@@ -120,7 +120,7 @@ describe('assign_cleaner_to_booking (Yinez owner tool) — FK ownership', () => 
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!
-    expect(booking.cleaner_id).toBeNull()
+    expect(booking.team_member_id).toBeNull()
     expect(booking.status).toBe('pending')
   })
 
@@ -132,7 +132,7 @@ describe('assign_cleaner_to_booking (Yinez owner tool) — FK ownership', () => 
     )
     expect(JSON.parse(out).ok).toBe(true)
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!
-    expect(booking.cleaner_id).toBe('cleaner-A')
+    expect(booking.team_member_id).toBe('cleaner-A')
     expect(booking.status).toBe('scheduled')
   })
 })

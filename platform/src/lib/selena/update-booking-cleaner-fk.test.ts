@@ -46,12 +46,12 @@ beforeEach(() => {
     { id: TENANT_A, owner_phone: OWNER_PHONE },
     { id: TENANT_B, owner_phone: '4155558888' },
   ])
-  fake._seed('cleaners', [
+  fake._seed('team_members', [
     { id: 'cleaner-A', tenant_id: TENANT_A, name: 'Tenant A Cleaner', phone: '2125550003' },
     { id: 'cleaner-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Cleaner', phone: '2125550004' },
   ])
   fake._seed('bookings', [
-    { id: 'booking-1', tenant_id: TENANT_A, client_id: 'client-A', cleaner_id: null, status: 'pending', notes: null },
+    { id: 'booking-1', tenant_id: TENANT_A, client_id: 'client-A', team_member_id: null, status: 'pending', notes: null },
   ])
 })
 
@@ -64,7 +64,7 @@ describe('update_booking (Yinez owner tool) — cleaner_id FK ownership', () => 
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!
-    expect(booking.cleaner_id).toBeNull()
+    expect(booking.team_member_id).toBeNull()
     expect(booking.status).toBe('pending')
   })
 
@@ -76,7 +76,7 @@ describe('update_booking (Yinez owner tool) — cleaner_id FK ownership', () => 
     )
     expect(JSON.parse(out).ok).toBe(true)
     const booking = fake._store.get('bookings')!.find((b) => b.id === 'booking-1')!
-    expect(booking.cleaner_id).toBe('cleaner-A')
+    expect(booking.team_member_id).toBe('cleaner-A')
     expect(booking.status).toBe('scheduled')
   })
 

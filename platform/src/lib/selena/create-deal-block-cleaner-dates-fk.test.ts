@@ -2,15 +2,17 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
  * handleCreateDeal + handleBlockCleanerDates (Yinez engine's owner-only AI
- * tools, tools.ts) inserted `deals.client_id` / `cleaner_blocks.cleaner_id`
- * straight from the model's tool-call input with NO tenant-ownership check
- * -- same FK-injection class already closed on handleCreateManualBooking,
- * handleAssignCleaner, and handleUpdateBooking in this same file.
- * handleListDeals joins clients(name, phone) straight off deals.client_id,
- * so a foreign client_id here would leak another tenant's client PII into
- * this tenant's own deal pipeline. cleaner_blocks has no read path anywhere
- * in the codebase today, so that half is defense-in-depth rather than a
- * demonstrated live leak.
+ * tools, tools.ts) inserted `deals.client_id` / a team member's blocked
+ * dates straight from the model's tool-call input with NO tenant-ownership
+ * check -- same FK-injection class already closed on
+ * handleCreateManualBooking, handleAssignCleaner, and handleUpdateBooking
+ * in this same file. handleListDeals joins clients(name, phone) straight
+ * off deals.client_id, so a foreign client_id here would leak another
+ * tenant's client PII into this tenant's own deal pipeline.
+ * block_cleaner_dates writes to the real team_members.unavailable_dates
+ * array (no cleaner_blocks table exists in the schema) -- the ownership
+ * check comes for free from that update's own .eq('tenant_id', ...) scoping,
+ * verified here the same way as the sibling tools.
  */
 
 vi.mock('@/lib/supabase', async () => {
@@ -50,9 +52,9 @@ beforeEach(() => {
     { id: 'client-A', tenant_id: TENANT_A, name: 'Tenant A Client', phone: '2125550001' },
     { id: 'client-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Client', phone: '2125550002' },
   ])
-  fake._seed('cleaners', [
-    { id: 'cleaner-A', tenant_id: TENANT_A, name: 'Tenant A Cleaner', phone: '2125550003' },
-    { id: 'cleaner-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Cleaner', phone: '2125550004' },
+  fake._seed('team_members', [
+    { id: 'cleaner-A', tenant_id: TENANT_A, name: 'Tenant A Cleaner', phone: '2125550003', unavailable_dates: [] },
+    { id: 'cleaner-B-victim', tenant_id: TENANT_B, name: 'Tenant B Victim Cleaner', phone: '2125550004', unavailable_dates: [] },
   ])
 })
 
@@ -81,14 +83,15 @@ describe('create_deal (Yinez owner tool) — client_id FK ownership', () => {
 })
 
 describe('block_cleaner_dates (Yinez owner tool) — cleaner_id FK ownership', () => {
-  it('rejects a foreign (Tenant B) cleaner_id and inserts no block', async () => {
+  it('rejects a foreign (Tenant B) cleaner_id and writes no unavailable_dates', async () => {
     const out = await runTool(
       'block_cleaner_dates',
       { cleaner_id: 'cleaner-B-victim', from_date: '2026-08-01', to_date: '2026-08-05' },
       'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).error).toBe('cleaner not found')
-    expect((fake._store.get('cleaner_blocks') || []).length).toBe(0)
+    const victim = fake._all('team_members').find((m) => m.id === 'cleaner-B-victim')
+    expect(victim?.unavailable_dates).toEqual([])
   })
 
   it('CONTROL: accepts a same-tenant cleaner_id', async () => {
@@ -98,8 +101,9 @@ describe('block_cleaner_dates (Yinez owner tool) — cleaner_id FK ownership', (
       'convo-1', OWNER_PHONE, emptyResult(), TENANT_A, true,
     )
     expect(JSON.parse(out).ok).toBe(true)
-    const rows = fake._store.get('cleaner_blocks') || []
-    expect(rows.length).toBe(1)
-    expect(rows[0].cleaner_id).toBe('cleaner-A')
+    const member = fake._all('team_members').find((m) => m.id === 'cleaner-A')
+    expect(member?.unavailable_dates).toEqual([
+      '2026-08-01', '2026-08-02', '2026-08-03', '2026-08-04', '2026-08-05',
+    ])
   })
 })

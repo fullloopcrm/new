@@ -23,8 +23,8 @@ vi.mock('@/lib/supabase', async () => {
 const LEAKED_NAME = 'Sarah J'
 const LEAKED_ADDRESS = '123 Victim St, Apt 4B'
 
-vi.mock('@/lib/nycmaid/smart-schedule', () => ({
-  scoreCleanersForBooking: async () => [
+vi.mock('@/lib/smart-schedule', () => ({
+  scoreTeamForBooking: async () => [
     {
       id: 'cleaner-1',
       name: 'Maria',
