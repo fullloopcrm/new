@@ -115,7 +115,7 @@ export async function POST(req: NextRequest) {
 
       await notify({
         tenantId: auth.tid,
-        type: 'check_in',
+        type: 'video_uploaded',
         title: `New ${videoLabel} Video Uploaded`,
         message: `${teamMemberName} uploaded ${videoLabel.toLowerCase()} video for ${clientName}'s ${booking.service_type || 'job'} on ${jobDate}`,
         bookingId: booking_id,
@@ -191,7 +191,7 @@ export async function POST(req: NextRequest) {
 
     await notify({
       tenantId: auth.tid,
-      type: 'check_in',
+      type: 'video_uploaded',
       title: `New ${videoLabel} Video Uploaded`,
       message: `${teamMemberName} uploaded ${videoLabel.toLowerCase()} video for ${clientName}'s ${booking.service_type || 'job'} on ${jobDate}`,
       bookingId,
