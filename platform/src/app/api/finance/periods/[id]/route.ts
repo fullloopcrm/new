@@ -18,11 +18,18 @@ export async function PATCH(request: Request, { params }: Params) {
     if (body.status === 'locked') {
       updates.status = 'locked'
       updates.locked_at = now
-      updates.locked_by = body.actor_id || null
+      // locked_by/reopened_by are intentionally NOT set here. They're UUID
+      // columns but the caller's userId can be 'admin' (PIN admin) or a
+      // Clerk id — neither fits UUID (same constraint as hr_notes.author_id,
+      // see hr/[id]/notes/route.ts) — and this route previously trusted a
+      // caller-supplied body.actor_id for them, which any finance.expenses
+      // holder could forge to plant a false attribution on a compliance
+      // control. Real attribution comes from the audit_row_changes trigger
+      // (035_close_audit.sql) once accounting_periods is added to its
+      // tracked-table list — see 2026_07_17_accounting_periods_audit_trigger_PROPOSED.sql.
     } else if (body.status === 'reopened' || body.status === 'open') {
       updates.status = 'open'
       updates.reopened_at = now
-      updates.reopened_by = body.actor_id || null
       updates.reopened_reason = body.reopened_reason || null
     } else if (body.status === 'in_review') {
       updates.status = 'in_review'
