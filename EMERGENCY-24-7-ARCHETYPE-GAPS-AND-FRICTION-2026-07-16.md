@@ -3106,3 +3106,86 @@ after the fix; existing 5 same-day/business-hours tests unaffected. `tsc
 --noEmit` clean, full suite 375/375 files, 1877/1877 tests, zero regressions
 (same pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
 not touched, noted since item 17).
+
+## (73) New today, archetype depth — 3 per-tenant clone `availability.ts` files missed items (70)/(71)/(72)'s timezone fix, same day-boundary bug shape — NOW FIXED
+
+Stepped sideways from item (72)'s global availability engine to check
+whether the *per-tenant clone* AI-bot family (items 70/71) had an
+equivalent standalone availability file with the same gap. It did.
+`nyc-mobile-salon`, `wash-and-fold-hoboken`, and `wash-and-fold-nyc` each
+have their own standalone `_lib/availability.ts` `checkAvailability()`
+(imported directly by that tenant's own `selena.ts` AI bot for its
+`handleCheckAvailability` tool) — distinct from the per-tenant `selena.ts`
+files item (71) fixed and distinct from the global `src/lib/availability.ts`
+item (72) fixed; item (71)'s own audit of these 3 tenants' `selena.ts` files
+never opened this sibling file. Same bug shape as (70)-(72): the same-day
+gate compared `date` against `new Date().toLocaleDateString('en-CA')` with
+no `timeZone` option, defaulting to the server runtime's zone instead of
+America/New_York. Worst case: during the evening window before ET midnight
+(UTC already rolled to the next day), a genuinely same-day request would
+not be flagged `sameDay`, skipping the "requires confirmation" gate for
+exactly the emergency-call window it exists to catch.
+
+**Fixed** (`p1-w3`) — one-line change in each of the 3 files, hardcoding
+`'America/New_York'` (matching item (71)'s own precedent for these exact 3
+single-location Eastern-time tenants). 6 new tests (2 per file),
+mutation-verified with `vi.stubEnv('TZ', 'UTC')` per item (71)'s methodology
+note — all confirmed RED under the original code with the stub, GREEN after
+the fix. `tsc --noEmit` clean, full suite 378/378 files, 1883/1883 tests,
+zero regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
+
+## (74) New today, fresh ground — the customer-facing same-day booking date picker computed "today" in UTC instead of the browser's own local zone, silently blocking same-day selection every evening — NOW FIXED
+
+Client-side mirror of the server-side timezone archetype items (70)-(73)
+just closed, found while checking whether the customer-facing booking form
+itself (as opposed to the server-side pricing/gating logic already fixed)
+had the same class of bug. `<input type="date" min={isSameDay ? new
+Date().toISOString().split('T')[0] : minDate}>` — the same-day service
+type's date-picker floor — computed "today" via `.toISOString()`, which is
+always UTC by spec, instead of the browser's own local date. Since every
+continental US timezone is behind UTC, any customer trying to book a
+genuine same-day emergency in the evening (from ~7-8pm ET onward, earlier
+further west) hits a `min` attribute already set to tomorrow (UTC) while it
+is still today in their own browser — the native date-picker UI blocks
+them from selecting today at all, for exactly the "same-day emergency"
+service type this control exists to support. Arguably more severe than
+items (70)-(73): those misclassified/mispriced an already-submitted
+booking; this one prevents the booking from being submitted at all.
+
+Found in the 3 real customer-facing "book new appointment" forms: the
+GLOBAL shared template (`src/app/site/template/book/new/BookFormClient.tsx`,
+rendered by `template/book/new/page.tsx` — used by all non-cloned trade
+tenants) and 2 standalone single-tenant clones with the identical inline
+JSX (`nycmaid/book/new/page.tsx`, `the-florida-maid/book-now/page.tsx`).
+
+**Fixed** (`p1-w3`) — replaced `new Date().toISOString().split('T')[0]`
+with `new Date().toLocaleDateString('en-CA')` in all 3 files. No hardcoded
+IANA zone is needed or correct here (unlike items 70-73's server-side fix,
+which needed the *tenant's* configured zone since one server serves every
+tenant) — client-side, `toLocaleDateString` with no `timeZone` option
+resolves to the host environment's own zone (ECMA-402 default), which on a
+customer's device already IS their local zone, no lookup required.
+Verified by a standalone `node -e` divergence check (JS spec-based:
+`toISOString` is always UTC, `toLocaleDateString` with no `timeZone` option
+is always host-local — the same mechanism item (71)'s methodology note
+already documented, just exploited in the opposite direction here since
+this is client not server code): at `2026-07-18T02:30:00Z` (10:30pm EDT
+July 17), `toISOString().split('T')[0]` returns `2026-07-18` (tomorrow,
+wrong) while `toLocaleDateString('en-CA')` returns `2026-07-17` (today,
+correct). No render-test harness exists for any of these 3 files
+(confirmed no prior test coverage, matching this doc's established
+precedent for other client-page fixes with no harness), so verification is
+source-level plus the standalone divergence check above, not a
+rendered/clicked E2E test. `tsc --noEmit` clean, full suite 378/378 files,
+1883/1883 tests, zero regressions (unaffected — none of these 3 files had
+prior test coverage to regress).
+
+Left as noted-but-not-fixed, same files, out of scope for this pass: the
+non-same-day `minDate` ("24 hours from now") uses the same
+`.toISOString()`-based UTC arithmetic — a softer, duration-based lead-time
+floor rather than a same-day calendar-date comparison, so an off-by-a-
+partial-day error there shifts the *routine* minimum-notice floor by at
+most a few hours rather than hard-blocking the archetype's core same-day
+flow. Different severity, same underlying pattern — flagging for a future
+pass rather than bundling an unrelated-severity fix into this one.
