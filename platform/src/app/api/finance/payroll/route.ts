@@ -83,13 +83,25 @@ export async function POST(request: Request) {
     // recording the same pay a second time. Claim the bookings FIRST — only
     // the request that actually flips completed bookings to paid gets to
     // record the payment.
-    const { data: claimedBookings, error: claimErr } = await supabaseAdmin
+    //
+    // Also scope the claim to the period being paid when the caller supplies
+    // one: without it, this blind-flips EVERY completed booking for the team
+    // member regardless of period_start/period_end, so paying one small
+    // period silently marks unrelated, never-actually-paid bookings from
+    // other periods as settled too — they drop out of payroll-prep's
+    // status='completed' gross-pay window for good even though the crew was
+    // never paid for that work. Mirrors payroll-prep's own from/to windowing
+    // (gte/lte on start_time). No-period calls keep the prior blanket
+    // behavior, same as the existing no-period dedup gap.
+    let bookingsQuery = supabaseAdmin
       .from('bookings')
       .update({ status: 'paid' })
       .eq('tenant_id', tenantId)
       .eq('team_member_id', team_member_id)
       .eq('status', 'completed')
-      .select('id')
+    if (period_start) bookingsQuery = bookingsQuery.gte('start_time', period_start)
+    if (period_end) bookingsQuery = bookingsQuery.lte('start_time', period_end)
+    const { data: claimedBookings, error: claimErr } = await bookingsQuery.select('id')
     if (claimErr) {
       return NextResponse.json({ error: claimErr.message }, { status: 500 })
     }
