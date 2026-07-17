@@ -1811,6 +1811,33 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
             add('regenerate: CONTROL — corrected pattern-change regenerates the series onto the active helper, every new booking stamped correctly', !regenInsErr && (regenInserted || []).length === 2 && (regenInserted || []).every(r => r.team_member_id === helper.id), regenInsErr?.message || JSON.stringify(regenInserted))
           }
         }
+
+        // ---- 5a-9. FIND-CLEANER BROADCAST — TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+        // POST /api/admin/find-cleaner/preview + POST .../send are the "we're
+        // short a body for tomorrow" mass-SMS-broadcast flow — an ops admin
+        // picks from an "eligible" roster and texts them "Available for a paid
+        // shift?" Before this round, preview's eligibility query only checked
+        // team_members.status:'active', and send had no HR-status check at
+        // all — team_members.status never reflects HR termination (the same
+        // deliberate split behind every other guard in this archetype block),
+        // so a just-terminated crew member showed up "eligible" and could
+        // actually receive the SMS. Fixed this round: preview now
+        // cross-references getTerminatedTeamMemberIds and excludes with
+        // reason "No longer employed"; send re-checks the same set at actual
+        // SMS-send time (cleaner_ids is client-supplied, so preview's picker
+        // alone isn't a real gate). requirePermission needs headers()/
+        // cookies() this harness doesn't have, so this drives the same guard
+        // function both fixed routes now call, same reasoning as 5a-4/5a-6/
+        // 5a-7/5a-8 above.
+        if (helper?.id) {
+          const findCleanerCandidateIds = [worker.id, helper.id]
+          const findCleanerTerminatedIds = await getTerminatedTeamMemberIds(tenant.id, findCleanerCandidateIds)
+          add('find-cleaner: the terminated worker is in the set preview would exclude ("No longer employed") and send would drop from recipients', findCleanerTerminatedIds.includes(worker.id), JSON.stringify(findCleanerTerminatedIds))
+          add('find-cleaner: CONTROL — the active helper is NOT in that set, stays eligible/messageable', !findCleanerTerminatedIds.includes(helper.id), JSON.stringify(findCleanerTerminatedIds))
+
+          const findCleanerEligibleAfterGuard = findCleanerCandidateIds.filter(id => !findCleanerTerminatedIds.includes(id))
+          add('find-cleaner: a picker built from this guard keeps exactly the active helper, never the terminated worker', findCleanerEligibleAfterGuard.length === 1 && findCleanerEligibleAfterGuard[0] === helper.id, JSON.stringify(findCleanerEligibleAfterGuard))
+        }
       }
     }
 
