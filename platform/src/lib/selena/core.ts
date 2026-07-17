@@ -1119,7 +1119,20 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     // this module's own reads already tolerate both `null` and the legacy
     // 'one_time' string (`=== 'one_time' || !recurring_type`), so this is
     // backward-compatible with rows written before this fix.
-    const recurringType = (input.recurring_type as string) || null
+    // Also normalize an explicit 'one_time' input, not just a missing one:
+    // agent.ts's own create_booking tool description tells the model to pass
+    // "recurring_type (one_time/weekly/biweekly/monthly)" for a non-recurring
+    // booking, so `|| null` alone (falsy-only) let the model re-write the
+    // exact sentinel this fix removes by sending the literal string. Same
+    // description also offers bare 'monthly' as the cadence example --
+    // RecurringType (lib/recurring.ts) has no bare 'monthly', only
+    // monthly_date/monthly_weekday (the same normalization client/book,
+    // portal/bookings, and the CSV import routes already apply to their own
+    // bare-'monthly' form inputs) -- so it's normalized here too, keeping
+    // formatRecurringLabel's customer-facing "Schedule: Monthly" instead of
+    // the unformatted raw-value fallback "Schedule: monthly".
+    const rawRecurringType = input.recurring_type === 'one_time' ? null : (input.recurring_type as string) || null
+    const recurringType = rawRecurringType === 'monthly' ? 'monthly_date' : rawRecurringType
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })

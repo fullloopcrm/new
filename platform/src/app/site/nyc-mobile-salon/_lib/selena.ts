@@ -668,8 +668,13 @@ async function handleCreateBooking(input: Record<string, unknown>, conversationI
     // stored 'one_time' and got told the recurring cancellation policy
     // (7-day notice) instead of the correct one-time policy. null is the
     // real "not recurring" convention every other writer in the codebase
-    // uses.
-    const recurringType = (input.recurring_type as string) || null
+    // uses. Also normalize an explicit 'one_time' input (not just a missing
+    // one) and bare 'monthly' (RecurringType has no bare 'monthly', only
+    // monthly_date/monthly_weekday) -- same defense-in-depth core.ts's own
+    // sibling handler applies, since an LLM isn't bound by this tool's
+    // input_schema the way a form's <select> is.
+    const rawRecurringType = input.recurring_type === 'one_time' ? null : (input.recurring_type as string) || null
+    const recurringType = rawRecurringType === 'monthly' ? 'monthly_date' : rawRecurringType
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
