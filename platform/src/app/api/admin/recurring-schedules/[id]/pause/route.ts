@@ -34,7 +34,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .from('bookings')
     .update({ status: 'cancelled', cancelled_reason: 'schedule_paused' })
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', now)
     .lte('start_time', pauseEnd)
     .select('id')

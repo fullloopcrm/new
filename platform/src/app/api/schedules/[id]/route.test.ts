@@ -61,6 +61,7 @@ beforeEach(() => {
       { id: 'book-future', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: FUTURE },
       { id: 'book-past', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: PAST },
       { id: 'book-completed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'completed', start_time: FUTURE },
+      { id: 'book-pending', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'pending', start_time: FUTURE },
       { id: 'book-B1', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: FUTURE },
     ],
   }
@@ -94,7 +95,7 @@ describe('GET /api/schedules/:id', () => {
     expect(res.status).toBe(200)
     expect(json.schedule.id).toBe('sched-A1')
     const ids = json.bookings.map((b: { id: string }) => b.id)
-    expect(ids.sort()).toEqual(['book-completed', 'book-future', 'book-past'])
+    expect(ids.sort()).toEqual(['book-completed', 'book-future', 'book-past', 'book-pending'])
   })
 })
 
@@ -145,6 +146,13 @@ describe('DELETE /api/schedules/:id', () => {
     expect(h.store.bookings.find((b) => b.id === 'book-future')?.status).toBe('cancelled')
     expect(h.store.bookings.find((b) => b.id === 'book-past')?.status).toBe('scheduled')
     expect(h.store.bookings.find((b) => b.id === 'book-completed')?.status).toBe('completed')
+  })
+
+  it('also cancels future pending bookings (unassigned occurrences of a new/no-cleaner-yet series)', async () => {
+    const res = await DELETE(new Request('http://x'), params('sched-A1'))
+
+    expect(res.status).toBe(200)
+    expect(h.store.bookings.find((b) => b.id === 'book-pending')?.status).toBe('cancelled')
   })
 
   it('marks the schedule cancelled and logs a schedule.deleted audit event', async () => {

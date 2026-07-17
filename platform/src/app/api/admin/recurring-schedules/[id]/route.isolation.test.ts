@@ -40,6 +40,7 @@ beforeEach(() => {
     ],
     bookings: [
       { id: 'book-A1', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
+      { id: 'book-A2-confirmed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'confirmed', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
       { id: 'book-B1', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
       { id: 'book-X1', tenant_id: 'tenant-B', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2099-01-01T10:00:00', team_member_id: 'tm-old' },
     ],
@@ -83,6 +84,13 @@ describe('PUT /api/admin/recurring-schedules/:id — tenant isolation', () => {
     expect(bookX?.team_member_id).toBe('tm-old')
   })
 
+  it("reassigning the schedule also reassigns an already-confirmed future booking, not just scheduled/pending ones", async () => {
+    const res = await PUT(putReq({ team_member_id: 'tm-new' }), params('sched-A1'))
+    expect(res.status).toBe(200)
+    const bookConfirmed = h.store.bookings.find((b) => b.id === 'book-A2-confirmed')
+    expect(bookConfirmed?.team_member_id).toBe('tm-new')
+  })
+
   it("rejects a team_member_id belonging to another tenant instead of writing it (FK injection)", async () => {
     const res = await PUT(putReq({ team_member_id: 'tm-other' }), params('sched-A1'))
     expect(res.status).toBe(400)
@@ -103,7 +111,7 @@ describe('DELETE /api/admin/recurring-schedules/:id — tenant isolation', () =>
     const res = await DELETE(new Request('http://x', { method: 'DELETE' }), params('sched-A1'))
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.bookings_cancelled).toBe(1)
+    expect(json.bookings_cancelled).toBe(2)
     const bookX = h.store.bookings.find((b) => b.id === 'book-X1')
     expect(bookX?.status).toBe('scheduled')
   })

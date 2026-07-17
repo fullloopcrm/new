@@ -98,7 +98,7 @@ export async function DELETE(
       .update({ status: 'cancelled' })
       .eq('schedule_id', id)
       .gte('start_time', new Date().toISOString())
-      .in('status', ['scheduled', 'confirmed'])
+      .in('status', ['scheduled', 'pending', 'confirmed'])
 
     // Cancel the schedule
     const { error } = await db

@@ -67,7 +67,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .from('bookings')
     .select('id, start_time')
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
 
@@ -82,19 +82,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   for (const b of existing || []) {
     if (type === 'skip') {
       const { data: deleted } = await db.from('bookings').delete()
-        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .eq('id', b.id).in('status', ['scheduled', 'pending', 'confirmed'])
         .select('id').maybeSingle()
       if (deleted) applied++
     } else if (type === 'move' && new_start_time) {
       const [mh, mm] = new_start_time.split(':').map(Number)
       const { startISO, endISO } = computeNaiveVisitWindow(occurrence_date, mh || 0, mm || 0, Number(schedule.duration_hours) || 3)
       const { data: moved } = await db.from('bookings').update({ start_time: startISO, end_time: endISO })
-        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .eq('id', b.id).in('status', ['scheduled', 'pending', 'confirmed'])
         .select('id').maybeSingle()
       if (moved) applied++
     } else if (type === 'reassign') {
       const { data: reassigned } = await db.from('bookings').update({ team_member_id: new_team_member_id })
-        .eq('id', b.id).in('status', ['scheduled', 'pending'])
+        .eq('id', b.id).in('status', ['scheduled', 'pending', 'confirmed'])
         .select('id').maybeSingle()
       if (reassigned) applied++
     }

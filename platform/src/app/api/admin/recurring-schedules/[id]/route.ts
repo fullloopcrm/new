@@ -84,7 +84,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .from('bookings')
       .update({ team_member_id: teamMemberId || null })
       .eq('schedule_id', id)
-      .in('status', ['scheduled', 'pending'])
+      .in('status', ['scheduled', 'pending', 'confirmed'])
       .gte('start_time', new Date().toISOString())
   }
 
@@ -110,7 +110,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .from('bookings')
     .update({ status: 'cancelled' })
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', new Date().toISOString())
     .select('id')
 
