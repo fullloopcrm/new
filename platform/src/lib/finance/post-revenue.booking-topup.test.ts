@@ -51,10 +51,14 @@ vi.mock('@/lib/ledger', () => ({
 }))
 
 const PAYMENTS: Record<string, Record<string, unknown>> = {}
+// bookings/invoices are only queried to resolve entity_id (unrelated to this
+// file's topup behavior); every seeded booking_id here resolves to no entity.
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
-      if (table !== 'payments') throw new Error(`unexpected table ${table}`)
+      if (table !== 'payments' && table !== 'bookings' && table !== 'invoices') {
+        throw new Error(`unexpected table ${table}`)
+      }
       let idFilter: string | undefined
       const c: Record<string, unknown> = {
         select: () => c,
@@ -62,7 +66,10 @@ vi.mock('@/lib/supabase', () => ({
           if (col === 'id') idFilter = val as string
           return c
         },
-        maybeSingle: async () => ({ data: idFilter ? PAYMENTS[idFilter] || null : null, error: null }),
+        maybeSingle: async () => {
+          if (table === 'bookings' || table === 'invoices') return { data: { entity_id: null }, error: null }
+          return { data: idFilter ? PAYMENTS[idFilter] || null : null, error: null }
+        },
       }
       return c
     },

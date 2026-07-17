@@ -18,7 +18,7 @@ export async function POST(request: Request) {
 
     const { data: txns } = await supabaseAdmin
       .from('bank_transactions')
-      .select('id, txn_date, description, amount_cents, suggested_coa_id, suggested_confidence, bank_account_id')
+      .select('id, txn_date, description, amount_cents, suggested_coa_id, suggested_confidence, bank_account_id, entity_id')
       .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .not('suggested_coa_id', 'is', null)
@@ -67,6 +67,7 @@ export async function POST(request: Request) {
       try {
         const entryId = await postJournalEntry({
           tenant_id: tenantId,
+          entity_id: t.entity_id || null,
           entry_date: t.txn_date,
           memo: t.description,
           source: 'bank_txn',

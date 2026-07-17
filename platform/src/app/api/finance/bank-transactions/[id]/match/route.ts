@@ -54,7 +54,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: txn } = await supabaseAdmin
       .from('bank_transactions')
-      .select('id, tenant_id, txn_date, description, amount_cents, status, bank_account_id, bank_accounts(coa_id)')
+      .select('id, tenant_id, txn_date, description, amount_cents, status, bank_account_id, entity_id, bank_accounts(coa_id)')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
@@ -181,6 +181,7 @@ export async function POST(request: Request, { params }: Params) {
           if (coaMatch) {
             const entryId = await postJournalEntry({
               tenant_id: tenantId,
+              entity_id: txn.entity_id || null,
               entry_date: txn.txn_date,
               memo: `${txn.description} (matched to expense ${ex.id})`,
               source: 'bank_txn',

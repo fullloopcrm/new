@@ -40,7 +40,7 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
 
   const { data: payment } = await supabaseAdmin
     .from('payments')
-    .select('id, amount_cents, tip_cents, status, method, booking_id')
+    .select('id, amount_cents, tip_cents, status, method, booking_id, invoice_id')
     .eq('tenant_id', tenantId)
     .eq('id', paymentId)
     .maybeSingle()
@@ -77,6 +77,27 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
   const serviceRevenue = amount - tip
   if (serviceRevenue < 0) return { posted: false, reason: 'tip_exceeds_amount' }
 
+  // Resolve which entity this payment's revenue belongs to. bookings.entity_id
+  // and invoices.entity_id are both populated (034/039); payments.entity_id
+  // itself is not currently set anywhere, so derive from whichever the
+  // payment is linked to rather than trusting the column on this row.
+  let entityId: string | null = null
+  if (bookingId) {
+    const { data: booking } = await supabaseAdmin
+      .from('bookings')
+      .select('entity_id')
+      .eq('id', bookingId)
+      .maybeSingle()
+    entityId = (booking?.entity_id as string) || null
+  } else if (payment.invoice_id) {
+    const { data: invoice } = await supabaseAdmin
+      .from('invoices')
+      .select('entity_id')
+      .eq('id', payment.invoice_id as string)
+      .maybeSingle()
+    entityId = (invoice?.entity_id as string) || null
+  }
+
   await ensureChartAccounts(tenantId)
   const [undeposited, revenueAcct, tipsAcct] = await Promise.all([
     getAccountIdByCode(tenantId, '1050'),
@@ -96,6 +117,7 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
   const bookingRef = payment.booking_id ? ` · booking ${String(payment.booking_id).slice(0, 8)}` : ''
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
+    entity_id: entityId,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: `Payment ${payment.method || ''}${bookingRef}`.trim(),
     source,
@@ -140,7 +162,7 @@ export async function backfillRevenueFromBookings(
     if (scanned >= limit) break
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, price, team_member_pay, tip_amount, payment_date, start_time')
+      .select('id, price, team_member_pay, tip_amount, payment_date, start_time, entity_id')
       .eq('tenant_id', tenantId)
       .in('payment_status', ['paid', 'partial'])
       .gt('price', 0)
@@ -155,6 +177,7 @@ export async function backfillRevenueFromBookings(
       const price = Math.round(Number(b.price) || 0)
       const tip = Math.max(0, Math.round(Number(b.tip_amount) || 0))
       const date = String((b.payment_date as string) || (b.start_time as string) || new Date().toISOString()).slice(0, 10)
+      const entityId = (b.entity_id as string) || null
 
       if (price > 0 && !(await journalEntryExists(tenantId, 'booking', id))) {
         const lines: JournalLineInput[] = [
@@ -162,7 +185,7 @@ export async function backfillRevenueFromBookings(
           { coa_id: revenueAcct, credit_cents: price, memo: 'Service revenue' },
         ]
         if (tip > 0 && tipsAcct) lines.push({ coa_id: tipsAcct, credit_cents: tip, memo: 'Tip' })
-        await postJournalEntry({ tenant_id: tenantId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
+        await postJournalEntry({ tenant_id: tenantId, entity_id: entityId, entry_date: date, memo: `Booking ${id.slice(0, 8)}`, source: 'booking', source_id: id, lines })
         revenuePosted++
       }
 
@@ -170,6 +193,7 @@ export async function backfillRevenueFromBookings(
       if (pay > 0 && contractorAcct && transitAcct && !(await journalEntryExists(tenantId, 'booking_cogs', id))) {
         await postJournalEntry({
           tenant_id: tenantId,
+          entity_id: entityId,
           entry_date: date,
           memo: `Booking labor ${id.slice(0, 8)}`,
           source: 'booking_cogs',
