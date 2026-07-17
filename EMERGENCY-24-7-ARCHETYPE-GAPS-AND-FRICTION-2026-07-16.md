@@ -2913,3 +2913,107 @@ the admin feed shows "review requested" the way it shows every other
 lifecycle event, with no new customer-facing send; (c) leave as-is and
 narrow the declared type / strip the dead email template as cleanup.
 Left open pending a call.
+
+## (70) New today, archetype depth — every "same-day = emergency" determination in the codebase compared calendar dates in the wrong timezone, silently missing or misfiring the emergency flag/rate for hours every evening — NOW FIXED
+
+Items (63)/(66)/(67)/(68)'s sweep exhausted "declared NotificationType, zero
+call sites" as a bug shape (the two remaining candidates, `escalation`/
+`expense_added`/`payroll_paid`, have no shipped UI to wire either, and
+`review_request` (69) is a flagged product call) — so this pass stepped back
+from *wiring* is_emergency downstream (items 3-58's whole thread) and asked
+whether the flag is even computed correctly in the first place. It isn't,
+almost everywhere.
+
+`tenants.timezone` (`supabase/schema.sql:17`, default `'America/New_York'`)
+is a real, populated column — auto-derived from ZIP at tenant creation
+(`zipToTimezone()`, `src/lib/timezone.ts`, spanning all 4 continental US
+bands: ET/CT/MT/PT) — but `grep -rn "\.timezone\b" src/lib` outside that one
+file returns zero hits. Every "is this booking today" check in the codebase
+instead either (a) used the server runtime's default timezone (UTC on
+Vercel) via `new Date().toLocaleDateString('en-CA')`/`getFullYear()` with no
+`timeZone` option, or (b) hardcoded `America/New_York` in one single-tenant
+file while leaving a sibling check in the exact same file at the server
+default — an internal inconsistency, not just an unverified assumption.
+Confirmed 6 real call sites, all now fixed:
+
+- `src/lib/selena/core.ts` (Yinez, the platform's highest-volume AI/SMS
+  booking assistant, single-tenant/hardcoded-ET) — `handleCreateBooking`
+  and `handleRescheduleBooking` both compared the LLM's date argument
+  (resolved against `buildCalendarContext()`'s explicit
+  `timeZone: 'America/New_York'` 14-day calendar, confirmed by reading
+  every other date computation in this file) against a `todayStr` computed
+  with **no** `timeZone` option — an inconsistency within the same file,
+  not a judgment call.
+- `src/lib/selena-legacy.ts` + `src/lib/selena-legacy-handlers.ts` (the
+  multi-tenant bot serving ~23 non-cleaning trade tenants across all 4 US
+  zones) — `buildCalendarContext()` and `handleCreateBooking`/
+  `handleRescheduleBooking`'s `todayStr` all used the server default with
+  no tenant-timezone awareness at all — worse than core.ts's bug for any
+  non-Eastern tenant, since the UTC-vs-local mismatch window is nearly
+  twice as wide for Pacific tenants as for Eastern ones.
+- `src/app/api/client/reschedule/[id]/route.ts` — the human-facing
+  reschedule endpoint had `tz` (the tenant's real configured timezone)
+  sitting in a local variable two lines above the buggy comparison, already
+  used for the SMS/email date display two lines up, and simply didn't use
+  it for the emergency check.
+- `src/app/api/portal/bookings/route.ts` (item 12's file) and
+  `src/app/api/client/book/route.ts` (the public marketing site's own
+  booking form — the highest-traffic entry point, and the file every other
+  fixed route's comments cite as "same server-side determination as... the
+  generic-tenant branch of POST /api/client/book") — both had zero
+  tenant-timezone awareness in this specific comparison; `client/book.ts`'s
+  own NYC-Maid branch three lines above already does this correctly
+  (`timeZone: 'America/New_York'`), making the generic-tenant branch's
+  omission an internal inconsistency there too, not a fresh design question.
+
+Net effect, worst case: a customer contacting an Eastern-time tenant's AI/
+SMS bot between roughly 8pm and midnight ET to report a genuine emergency
+("today", by any human definition) got the LLM's correctly-ET-resolved
+`date` compared against a UTC-default `todayStr` that had already rolled to
+tomorrow — `isEmergency` came back **false**, silently skipping the $89/hr
+same-day rate and the `is_emergency` flag on exactly the bookings items
+(4)/(7)/(8)/(20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38)/(40)/(42)/(43)/(45)
+all depend on to route urgency to a tech/dispatcher/customer at all — the
+worst possible time for this to fail, since after-hours no-heat/burst-pipe
+calls concentrate in exactly that window. The reverse direction (a
+next-day booking miscategorized as same-day) also occurs, for Pacific
+tenants especially, on the human-facing portal/reschedule/public-book
+routes.
+
+**Fixed** (`p1-w3`) — every one of the 6 call sites above now resolves
+"today" through the tenant's own configured timezone (core.ts, being
+genuinely single-tenant, correctly keeps its file-wide `America/New_York`
+convention rather than adding a per-tenant DB lookup it doesn't need).
+selena-legacy.ts gained a small `getTenantTimezone()` cache (mirroring
+`getSelenaConfig()`'s existing shape) since the multi-tenant bot has no
+other reason to touch the `tenants` row at that call site; the other 4
+routes reused a `tenant.timezone`/`tenants(...)` value already in scope or
+one query away, adding zero new round-trips beyond what portal/bookings.ts
+already made (merged into its existing `selena_config` fetch instead of a
+second query). 12 new tests across 6 files, all following the same
+mutation-verified shape: a Pacific/Eastern tenant's real evening moment
+(fake system time straddling the UTC/local midnight boundary) proves a
+tomorrow-morning booking is correctly NOT flagged emergency and a
+same-evening booking correctly IS, at the identical real-world instant.
+Mutation-verified per site (temporarily reverted to the original
+no-timeZone/hardcoded-ET code, ran the new tests, restored, confirmed
+green) — 11 of the 12 new tests went RED under the original code; the one
+exception (`portal/bookings`'s "later the same evening IS emergency" case)
+happened to still pass under the old bug for that specific scenario since
+its pre-fix code used real `Date` getters rather than a raw string split,
+so it's kept as a same-direction regression guard rather than a
+mutation-proof, alongside the 11 that do prove the fix. `tsc --noEmit` clean,
+full suite 375/375 files, 1872/1872 tests, zero regressions (same
+pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, noted since item 17).
+
+Not chased further in this pass, flagging for awareness: `src/lib/
+timezone.ts`'s own `formatInTz(iso, timezone)` helper — built specifically
+to render a timestamp in a tenant's configured zone, with the identical
+"falls back to ET" convention this fix now uses everywhere — has zero
+callers anywhere in the codebase (`grep -rln formatInTz src` outside its
+own file: no hits). Same "built, never wired" shape as `reviewRequestEmail`
+(69), `find-cleaner` (10), and `video_uploaded` before item (65) — worth a
+separate pass to find where booking-time displays are still using raw/
+UTC-implicit formatting instead of this already-correct utility, but out of
+scope for this timezone-*computation* fix specifically.
