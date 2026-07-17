@@ -22,6 +22,15 @@ describe('recurringDiscountPct', () => {
     expect(recurringDiscountPct('monthly')).toBe(0.1)
   })
 
+  it('"1st Mon" / "3rd Fri" (BookingsAdmin.tsx\'s own monthly_day display-string convention) → 10%', () => {
+    // BookingsAdmin.tsx (dashboard/bookings/_recurring.ts's getRecurringDisplayName) stores
+    // this human label directly as recurring_type instead of an enum key -- same monthly
+    // tier as monthly_date/monthly_weekday, just a different string shape reaching here.
+    expect(recurringDiscountPct('1st Mon')).toBe(0.1)
+    expect(recurringDiscountPct('3rd Fri')).toBe(0.1)
+    expect(recurringDiscountPct('2nd Tue')).toBe(0.1)
+  })
+
   it('monthly_date / monthly_weekday (the real RecurringType enum values, lib/recurring.ts) → 10%', () => {
     // bare 'monthly' never actually reaches this function from a real schedule row anymore --
     // every enum-validated write path (admin/recurring-schedules, dashboard/schedules,

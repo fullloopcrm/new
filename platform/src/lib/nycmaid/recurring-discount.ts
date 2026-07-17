@@ -10,7 +10,12 @@
 // which are monthly_date/monthly_weekday, never bare 'monthly'.
 
 export function recurringDiscountPct(recurringType: string | null | undefined): number {
-  switch ((recurringType || '').toLowerCase().replace(/[\s_]/g, '-')) {
+  const normalized = (recurringType || '').toLowerCase().replace(/[\s_]/g, '-')
+  // "1st-mon" / "3rd-fri" -- BookingsAdmin.tsx's own monthly_day display-string convention
+  // (dashboard/bookings/_recurring.ts's getRecurringDisplayName, stored verbatim as
+  // recurring_type instead of an enum key). Same monthly tier as monthly_date/monthly_weekday.
+  if (/^\d(st|nd|rd|th)-/.test(normalized)) return 0.10
+  switch (normalized) {
     case 'weekly':
       return 0.20
     case 'biweekly':
