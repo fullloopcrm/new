@@ -21,7 +21,13 @@ export async function GET(
     { count: team_members },
   ] = await Promise.all([
     supabaseAdmin.from('tenants').select('*').eq('id', id).single(),
-    supabaseAdmin.from('tenant_members').select('*').eq('tenant_id', id),
+    // Explicit column list, NOT select('*') — this is returned wholesale to
+    // the browser as `members` below, and tenant_members carries pin_hash
+    // (the tenant admin's live login-PIN hash). Sibling routes that surface
+    // PIN state (admin/businesses/[id]/users, admin/users) deliberately never
+    // return the raw hash, only derived has_pin/pin_set_at/last_login — this
+    // list matches that invariant instead of leaking it via select('*').
+    supabaseAdmin.from('tenant_members').select('id, tenant_id, clerk_user_id, role, name, email, phone, created_at').eq('tenant_id', id),
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
     supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
