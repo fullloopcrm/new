@@ -24,7 +24,25 @@ export async function PATCH(
     if (team_pay !== undefined) update.team_pay = team_pay
     if (team_paid !== undefined) {
       update.team_paid = team_paid
-      if (team_paid) update.team_paid_at = new Date().toISOString()
+      // Mirror onto team_member_paid/team_member_paid_at — the fields
+      // GET /api/finance/payroll actually filters "already settled
+      // out-of-band" bookings on (its own comment: "otherwise... a normal
+      // payroll run below double-pays the team member"). This route's
+      // team_paid/team_pay pair (migration 009) predates that field and was
+      // never wired to it, so clicking this page's "Mark Team Paid" button —
+      // which tells the admin the job is "Fully closed out" — left the
+      // booking fully eligible to be claimed and paid again by a real
+      // payroll run or /api/admin/bookings/[id]/cleaner-payout, which is
+      // exactly the double-pay this second flag was supposed to prevent.
+      // Only mirrors forward (false -> true). Unsetting team_paid never
+      // clears team_member_paid back down — that flag may reflect a real,
+      // separately-recorded payout (cleaner-payout's team_member_payouts
+      // row), which this generic toggle has no business undoing.
+      if (team_paid) {
+        update.team_paid_at = new Date().toISOString()
+        update.team_member_paid = true
+        update.team_member_paid_at = update.team_paid_at as string
+      }
     }
     if (payment_status === 'paid') {
       update.payment_date = new Date().toISOString()
