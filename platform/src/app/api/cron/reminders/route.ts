@@ -406,7 +406,7 @@ export async function GET(request: Request) {
           .from('bookings')
           .select('id')
           .eq('tenant_id', tenantId)
-          .eq('status', 'completed')
+          .in('status', ['completed', 'paid'])
           .lt('end_time', twoDaysAgo.toISOString())
           .or('team_paid.is.null,team_paid.eq.false')
           .limit(500) // Don't process more than 500 per tenant per run
