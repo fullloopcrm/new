@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toSlug } from '@/lib/tenant-site'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import { TENANT_SEO, type UrlSpec } from '@/lib/seo/tenant-seo'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
@@ -33,9 +34,18 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
 
-  // Prefer custom domain, then website_url, then platform subdomain.
-  const baseUrl = tenant.domain
-    ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`
+  // Prefer custom domain (tenant_domains FIRST, tenants.domain fallback --
+  // same precedence as tenantSiteUrl()/resolveOrigin()'s other callers),
+  // then website_url, then platform subdomain. Previously read tenant.domain
+  // only, so a tenant reached via a custom domain that lives only in
+  // tenant_domains (the normal state -- admin/websites writes tenant_domains
+  // only, never tenants.domain) had every sitemap URL emitted for the wrong
+  // host, even though the request that fetched this sitemap arrived on the
+  // correct custom domain via middleware's tenant_domains-based routing.
+  const primaryDomain = await getPrimaryTenantDomain(tenant.id)
+  const domain = primaryDomain || tenant.domain
+  const baseUrl = domain
+    ? `https://${domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}`
     : tenant.website_url || `https://${tenant.slug}.homeservicesbusinesscrm.com`
 
   // If this tenant is registered in the shared SEO engine, its descriptor owns
