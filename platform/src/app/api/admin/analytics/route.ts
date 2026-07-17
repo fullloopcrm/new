@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -23,9 +24,18 @@ export async function GET(request: NextRequest) {
   if (tenantId) teamQuery = teamQuery.eq('tenant_id', tenantId)
   const { data: team } = await teamQuery
 
+  // bookings.created_at and clients.created_at are both TIMESTAMPTZ (aware)
+  // -- the old `new Date().getFullYear()/getMonth()` read the SERVER's
+  // local calendar (UTC on Vercel), a full day ahead of ET for ~4-5h every
+  // evening, misplacing "this month"/"last month" boundaries during that
+  // window. Fixed with true-UTC instants of ET-calendar month boundaries
+  // (an aware column needs a real UTC instant, unlike bookings.start_time's
+  // naive-ET string columns fixed elsewhere this session).
   const now = new Date()
-  const thisMonthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const lastMonthStart = new Date(now.getFullYear(), now.getMonth() - 1, 1).toISOString()
+  const { y: ty, m: tm } = etYMD(now)
+  const thisMonthStart = etMidnightUtc(ty, tm, 1).toISOString()
+  const lastMonthObj = new Date(Date.UTC(ty, tm - 2, 1))
+  const lastMonthStart = etMidnightUtc(lastMonthObj.getUTCFullYear(), lastMonthObj.getUTCMonth() + 1, 1).toISOString()
 
   const allBookings = bookings || []
   const allClients = clients || []
