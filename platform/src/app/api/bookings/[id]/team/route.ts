@@ -17,6 +17,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
 import { smsJobAssignment } from '@/lib/sms-templates'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Booking = {
   id: string
@@ -74,6 +75,14 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     const validIds = new Set((validMembers || []).map((m) => m.id))
     if (requestedIds.some((mid) => !validIds.has(mid))) {
       return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+    }
+    // Same guard as POST /api/bookings, PUT /api/bookings/[id], and the
+    // job-session routes (86b797ad) -- multi-tech is a second, separate
+    // assignment surface that must not let a let-go team member back onto a
+    // job as lead or extra.
+    const terminatedIds = await getTerminatedTeamMemberIds(ctx.tenantId, requestedIds)
+    if (terminatedIds.length > 0) {
+      return NextResponse.json({ error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` }, { status: 400 })
     }
   }
 

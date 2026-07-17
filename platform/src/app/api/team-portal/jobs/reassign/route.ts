@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
 import { sendPushToTeamMember } from '@/lib/push'
 import { audit } from '@/lib/audit'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // A lead/manager reassigns a job to another field member. Guardrails:
 //   - requires jobs.reassign
@@ -41,6 +42,17 @@ export async function POST(request: Request) {
     .eq('tenant_id', auth.tid)
     .single()
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
+
+  // scopedMemberIds() filters team_members.status for managers and pulls raw
+  // crew_members rows for leads -- neither reflects hr_status. Terminating a
+  // worker (PATCH /api/dashboard/hr/[id]) only ever writes hr_employee_profiles,
+  // never team_members.status, so a let-go crew member stays "in scope" and
+  // reassignable here with zero warning, same class as the job-session guard
+  // (86b797ad) and this round's crew_id/booking-route fixes.
+  const terminatedIds = await getTerminatedTeamMemberIds(auth.tid, [to_member_id])
+  if (terminatedIds.length > 0) {
+    return NextResponse.json({ error: 'That team member is no longer active and cannot be assigned.' }, { status: 400 })
+  }
 
   const { data, error } = await supabaseAdmin
     .from('bookings')

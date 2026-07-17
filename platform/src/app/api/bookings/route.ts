@@ -14,6 +14,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -146,6 +147,14 @@ export async function POST(request: Request) {
         .maybeSingle()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      // The job-session (project-lane) routes gate this same assignment on
+      // hr_status='terminated' (86b797ad) -- this, the PRIMARY booking-create
+      // path every non-project tenant uses, never did. A let-go team member
+      // could be assigned to a brand-new booking with zero warning.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [validated.team_member_id as string])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
       }
     }
 

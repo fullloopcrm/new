@@ -9,6 +9,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { audit } from '@/lib/audit'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export async function GET(
   _request: Request,
@@ -76,6 +77,13 @@ export async function PUT(
         .maybeSingle()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      // Same guard as POST /api/bookings and the job-session routes
+      // (86b797ad) -- a let-go team member must not be silently reassigned
+      // onto a booking, new or existing.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [fields.team_member_id as string])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
       }
     }
     if (fields.service_type_id) {

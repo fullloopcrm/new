@@ -137,6 +137,17 @@ vi.mock('@/lib/supabase', () => ({
       }
       if (table === 'tenants') return chainOf({ data: { name: 'Biz', telnyx_api_key: null, telnyx_phone: null }, error: null })
       if (table === 'bookings') return bookingsSelectByIdBuilder()
+      // getTerminatedTeamMemberIds (the terminated-crew guard shared with the
+      // job-session routes) — no terminated members in this race-only harness.
+      if (table === 'hr_employee_profiles') {
+        const chain: Record<string, unknown> = {
+          select: () => chain,
+          eq: () => chain,
+          in: () => chain,
+          then: (resolve: (v: unknown) => unknown) => Promise.resolve({ data: [], error: null }).then(resolve),
+        }
+        return chain
+      }
       throw new Error(`unexpected table: ${table}`)
     },
     // Models migrations/2026_07_13_admin_booking_atomic.sql: one indivisible
