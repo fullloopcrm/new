@@ -781,6 +781,97 @@ the request if `notify()` throws. `tsc --noEmit` clean, full suite
 unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`
 predates this session's diff — not touched here).
 
+## (18) New today, archetype depth — the no-show cron could silently orphan an unassigned same-day emergency booking out of the tech self-claim pool forever — NOW FIXED
+
+Fresh ground within the archetype, and a genuinely severe compounding
+consequence on top of the already-documented P11.12/13/18 chain (a same-day
+booking can land with `team_member_id` null, and the only pull-model
+fallback for that is the tech self-claim pool). Traced what else in the
+codebase touches a booking sitting unassigned past its start time and found
+`cron/no-show-check/route.ts` (runs every 15 min): its candidate query
+selected any booking with `status in ('scheduled','confirmed','pending')`,
+`check_in_time IS NULL`, and `start_time` more than 45 minutes in the past —
+**with no `team_member_id IS NOT NULL` filter**. Confirmed
+`POST /api/bookings`'s default status (`settings.default_booking_status ||
+'scheduled'`, or `'confirmed'` under auto-confirm) lands squarely inside
+that status set, so an unassigned same-day emergency booking (P11.12's
+established gap) is a live candidate here too. 45 minutes after its
+`start_time`, this cron flips it to `status='no_show'` — but "no show"
+literally means someone who was supposed to show up didn't; nobody was ever
+assigned, so this mislabels a dispatch failure as a client/tech attendance
+failure. Worse than mislabeling: `GET /api/team-portal/jobs?available=true`
+(the self-claim pool, `route.ts:45`) queries
+`.is('team_member_id', null).in('status', ['scheduled', 'confirmed'])` —
+once the cron flips status to `no_show`, the booking silently vanishes from
+every tech's open-jobs screen with **no path back**. Net effect: the one
+fallback dispatch mechanism this archetype's whole notification chain
+(items 4/12/13/18) relies on has a 45-minute self-destruct timer buried in
+an unrelated cron job — an urgent, unassigned, same-day emergency job that
+no tech happens to claim within 45 minutes doesn't just stay stuck, it
+becomes permanently unclaimable, with an admin notification worded like a
+routine no-show ("team member unassigned did not check in") rather than a
+dispatch-failure alert. Verified by reading `cron/no-show-check/route.ts`,
+`team-portal/jobs/route.ts`, and `POST /api/bookings`'s status-default logic
+directly (worktree still has no `.env.local`/Supabase env for a live run).
+
+**Fixed** (`p1-w3`) — added `.not('team_member_id', 'is', null)` to the
+no-show-check cron's candidate query. This needed no product/wording
+decision (unlike most open items in this doc): "no show" is a category
+error for a job nobody was ever dispatched to, and the unassigned case is
+already surfaced separately, if imperfectly, by `schedule-monitor`'s own
+`type: 'unassigned'` warning (item 4's finding) — this fix just stops the
+no-show cron from destroying the self-claim pool's only path to recovering
+one. No dedicated test added: this repo has zero test files under any
+`src/app/api/cron/*` route (checked directly, no precedent to follow), same
+as every other DB-writing cron route in this codebase. `tsc --noEmit`
+clean, full suite 334/334 files, 1767/1767 tests, zero regressions
+(unaffected — no existing test touches this route).
+
+## (19) New today, fresh ground outside the archetype — the client-SMS opt-out batch tool checks a column the STOP-reply webhook never writes to — NOW FIXED
+
+Not archetype-specific — a codebase-wide compliance gap found while auditing
+how SMS consent actually flows end to end, since `clients` turns out to
+carry two separate boolean consent columns: `sms_opt_in` (original schema,
+`supabase/schema.sql:107`, default `true`) and `sms_consent` (added later by
+two overlapping migrations, `src/lib/migrations/007_missing_tables.sql:206`
+and `013_full_parity.sql:16`, also default `true`). Traced the real
+STOP/START opt-out pipeline (`webhooks/telnyx/route.ts:148-248`, the
+industry-standard SMS compliance flow) and confirmed it reads/writes
+`clients.sms_consent` exclusively — a client texting STOP gets
+`sms_consent: false` and a confirmation text. Grepped every other
+client-SMS-consent check in the codebase (`campaigns/[id]/send/route.ts`,
+`campaigns/send/route.ts`, `cron/outreach/route.ts`, `cron/retention/route.ts`,
+`selena/tools.ts`'s broadcast helper) and all five correctly gate on
+`sms_consent !== false` — matching the webhook. `sms_opt_in`, by contrast,
+is written **nowhere** in the codebase after its `true` default (confirmed
+via a full-repo grep for any `.update(...)`/`.insert(...)` touching it — zero
+hits outside its own column definition); the only place it's read at all is
+a read-only display on the admin client detail page and, until this fix,
+`admin/send-apology-batch/route.ts:56`'s `if (c.sms_opt_in === false) { ...
+skip }` guard — the one call site in the whole app whose explicit job is to
+respect an opt-out. Net effect: a client who explicitly texts STOP — the
+one action a customer takes that's supposed to universally silence SMS from
+a business — could still receive this batch tool's apology-credit SMS,
+because the check it runs against was structurally incapable of ever being
+`false`. A real TCPA-exposure gap (STOP compliance is federally mandated,
+not just good UX), not a hypothetical: verified the STOP handler's write
+target and this route's read target are two different, non-syncing columns
+by reading both files directly, not by inference.
+
+**Fixed** (`p1-w3`) — `send-apology-batch/route.ts` now selects and checks
+`sms_consent` instead of `sms_opt_in`, matching the convention already
+established at the five sibling call sites above; no wording/product
+decision needed, this corrects a wrong-column bug to the codebase's own
+existing pattern. 1 new test (`route.consent.test.ts`): seeds a client with
+`sms_consent: false` (STOP-reply shape) alongside `sms_consent: true` and
+`sms_consent: null` (never-opted-out) clients, asserts the opted-out client
+is skipped (`skipped_opt_out: 1`) and never appears in the SMS send list
+while the other two do. Did not touch the separate, still-live question of
+whether `sms_opt_in` itself is now genuinely dead code worth removing from
+the schema/UI — flagging, not deciding, since that's a data-model cleanup
+call outside this fix's scope. `tsc --noEmit` clean, full suite 335/335
+files, 1768/1768 tests, zero regressions.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
