@@ -25,6 +25,7 @@ vi.mock('@/app/site/template/_config/load', () => ({
     geo: { placename: 'New York', region: 'US-NY', lat: 40.7, lng: -74 },
     theme: { primary: '#000', primaryAlt: '#111' },
     industry: 'cleaning',
+    reviewUrl: '/reviews/submit',
   }),
 }))
 

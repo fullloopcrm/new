@@ -500,7 +500,7 @@ export default async function EmergencyCleaningPage() {
         </section>
       </div>
 
-      <CTABlock title="Emergency? Call Now — We're Here 24/7" phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+      <CTABlock title="Emergency? Call Now — We're Here 24/7" phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
     </>
   )
 }

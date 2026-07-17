@@ -229,7 +229,7 @@ export default async function AreasIndexPage() {
         </section>
       </div>
 
-      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
     </>
   )
 }

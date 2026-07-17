@@ -256,7 +256,7 @@ export default async function SlugPage({ params }: Props) {
           </div>
         </section>
 
-        <CTABlock title={`Book Your ${area.name} Cleaning Today`} subtitle={`Text us — serving every ${area.name} neighborhood at the same flat hourly rate.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+        <CTABlock title={`Book Your ${area.name} Cleaning Today`} subtitle={`Text us — serving every ${area.name} neighborhood at the same flat hourly rate.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
       </>
     )
   }
@@ -539,7 +539,7 @@ export default async function SlugPage({ params }: Props) {
         )}
 
         <FAQSection faqs={faqs} title={`${neighborhood.name} Cleaning — Frequently Asked Questions`} columns={2} />
-        <CTABlock title={`Book Your ${neighborhood.name} Cleaning Today`} subtitle={`Text us — same rates, same quality across all of ${neighborhoodArea.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+        <CTABlock title={`Book Your ${neighborhood.name} Cleaning Today`} subtitle={`Text us — same rates, same quality across all of ${neighborhoodArea.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
       </>
     )
   }

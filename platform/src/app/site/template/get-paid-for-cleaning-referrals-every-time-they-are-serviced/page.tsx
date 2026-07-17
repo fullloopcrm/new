@@ -178,7 +178,7 @@ export default async function ReferralPage() {
       </div>
 
       <FAQSection faqs={referralFAQs} title="Referral Program FAQ" />
-      <CTABlock title="Start Earning Today" subtitle="Sign up in 30 seconds and start sharing your referral link." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+      <CTABlock title="Start Earning Today" subtitle="Sign up in 30 seconds and start sharing your referral link." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
     </>
   )
 }

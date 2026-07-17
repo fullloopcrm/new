@@ -85,6 +85,13 @@ export interface SiteConfig {
   rating: number
   /** Review count label, e.g. "50+" */
   reviewCount: string
+  /**
+   * "Write a Review" destination. Built from the tenant's real
+   * google_place_id (or its stored selena_config.google_review_link) when
+   * configured; otherwise the neutral internal /reviews/submit path — never
+   * another tenant's real Google listing.
+   */
+  reviewUrl: string
   /** Bookable service options for /book/new — vertical-specific, config-driven */
   services: ServiceOption[]
   /**

@@ -47,7 +47,7 @@ function timeAgo(date: string) {
   return `${Math.floor(diffDays / 30)} months ago`
 }
 
-export default function ReviewsList({ businessName }: { businessName: string }) {
+export default function ReviewsList({ businessName, reviewUrl }: { businessName: string; reviewUrl: string }) {
   const [reviews, setReviews] = useState<Review[]>([])
   const [totalCount, setTotalCount] = useState(0)
   const [avgRating, setAvgRating] = useState(5.0)
@@ -86,7 +86,7 @@ export default function ReviewsList({ businessName }: { businessName: string }) 
             <span className="text-yellow-400 text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
             <span className="text-gray-400 text-sm">({totalCount})</span>
           </div>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
+          <Link href={reviewUrl} className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
             Write a Review
           </Link>
         </div>

@@ -556,7 +556,7 @@ export default async function HomePage() {
                   <span className="text-yellow-400 text-base sm:text-lg">&#9733;&#9733;&#9733;&#9733;&#9733;</span>
                   <span className="text-gray-400 text-xs sm:text-sm">(50+)</span>
                 </div>
-                <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
+                <Link href={siteConfig.reviewUrl} className="hidden sm:inline-block bg-[var(--brand)] text-white px-4 py-2 rounded-full text-sm font-medium hover:bg-[var(--brand-alt)] transition-colors">
                   Write a Review
                 </Link>
               </div>
@@ -1065,7 +1065,7 @@ export default async function HomePage() {
       {/* FAQ */}
       <FAQSection faqs={faqs} title="NYC House Cleaning Service — Frequently Asked Questions &amp; Answers" columns={2} />
 
-      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by thousands of New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey." phone={siteConfig.contact.phone} phoneDigits={siteConfig.contact.phoneDigits} />
+      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by thousands of New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey." phone={siteConfig.contact.phone} phoneDigits={siteConfig.contact.phoneDigits} reviewUrl={siteConfig.reviewUrl} />
     </>
   )
 }

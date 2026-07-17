@@ -31,6 +31,7 @@ vi.mock('@/app/site/template/_config/load', () => ({
     geo: { placename: 'New York', region: 'US-NY', lat: 40.7, lng: -74 },
     theme: { primary: '#000', primaryAlt: '#111' },
     industry: 'cleaning',
+    reviewUrl: '/reviews/submit',
   }),
 }))
 
@@ -113,6 +114,16 @@ describe('site/template homepage — full render, no literal placeholder leaks',
 
     expect(screen.getAllByText(new RegExp(siteConfigName)).length).toBeGreaterThan(0)
     expect(screen.getAllByText(new RegExp(siteConfigPhone.replace(/[()]/g, '\\$&'))).length).toBeGreaterThan(0)
+
+    // Both the reviews-widget and CTABlock "Write a Review" links must use
+    // the resolved per-tenant reviewUrl, never nycmaid's own hardcoded
+    // Google listing.
+    const writeReviewLinks = screen.getAllByRole('link', { name: /write a review/i })
+    expect(writeReviewLinks.length).toBeGreaterThan(0)
+    for (const link of writeReviewLinks) {
+      expect(link.getAttribute('href')).toBe('/reviews/submit')
+      expect(link.getAttribute('href')).not.toContain('g.page')
+    }
   })
 
   it('wrong-tenant probe: rendering for tenant B never shows tenant A\'s name', async () => {

@@ -517,7 +517,7 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       <FAQSection faqs={faqs} title={`${service.name} — Frequently Asked Questions`} columns={2} />
-      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — trusted by thousands of New Yorkers." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — trusted by thousands of New Yorkers." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
     </>
   )
 }

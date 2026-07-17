@@ -39,6 +39,9 @@ export const siteConfig: SiteConfig = {
   agent: { name: 'Assistant' },
   rating: 5.0,
   reviewCount: '50+',
+  // Neutral default: our own review-collection page, never a real business's
+  // Google listing.
+  reviewUrl: '/reviews/submit',
   // Neutral default service options. Per-tenant config overrides these with the
   // tenant's real, vertical-specific offerings (cleaning, towing, pest, etc.).
   services: [

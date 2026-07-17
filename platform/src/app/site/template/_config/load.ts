@@ -108,6 +108,19 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   const reviewStats = await loadReviewStats(tenantId)
   const hasReviews = reviewStats.count !== ''
 
+  // Same precedence as messaging/brand.ts's tenantBrand() and
+  // /api/reviews/request: a real google_place_id builds the canonical
+  // write-review URL; a stored raw selena_config.google_review_link (for
+  // tenants using a g.page short link instead of a place id) is the next
+  // fallback; otherwise the neutral internal /reviews/submit page. Never a
+  // hardcoded real business's listing (was CTABlock.tsx's bug).
+  const placeId = str(tenant, 'google_place_id')
+  const rawReviewLink =
+    selena && typeof selena['google_review_link'] === 'string' ? selena['google_review_link'].trim() : ''
+  const reviewUrl = placeId
+    ? `https://search.google.com/local/writereview?placeid=${placeId}`
+    : rawReviewLink || defaultConfig.reviewUrl
+
   return {
     identity: {
       name,
@@ -140,6 +153,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     // the existing default so their live sites don't regress.
     rating: hasReviews ? reviewStats.rating : isCleaningTenant ? defaultConfig.rating : 0,
     reviewCount: hasReviews ? reviewStats.count : isCleaningTenant ? defaultConfig.reviewCount : '',
+    reviewUrl,
     services: (await loadServices(tenantId)) ?? defaultConfig.services,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'

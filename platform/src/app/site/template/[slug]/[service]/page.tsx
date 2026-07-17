@@ -366,7 +366,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       )}
 
       <FAQSection faqs={faqs} title={`${service.name} in ${neighborhood.name} — Frequently Asked Questions`} columns={2} />
-      <CTABlock title={`Book ${service.name} in ${neighborhood.name}`} subtitle={`Text us — flat hourly rates across all of ${area.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
+      <CTABlock title={`Book ${service.name} in ${neighborhood.name}`} subtitle={`Text us — flat hourly rates across all of ${area.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} reviewUrl={config.reviewUrl} />
     </>
   )
 }

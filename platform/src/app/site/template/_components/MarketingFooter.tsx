@@ -71,7 +71,7 @@ export default function MarketingFooter({ config }: { config: SiteConfig }) {
           </Link>
           {isCleaning && (<>
           <span className="text-white/20 hidden sm:inline">|</span>
-          <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
+          <Link href={config.reviewUrl} className="text-[var(--accent)] text-sm font-semibold hover:text-white transition-colors">Write a Review</Link>
           </>)}
         </div>
         ) : <div className="mb-12" />}

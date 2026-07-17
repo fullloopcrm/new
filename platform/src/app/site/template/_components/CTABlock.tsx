@@ -5,9 +5,10 @@ interface CTABlockProps {
   subtitle?: string
   phone: string
   phoneDigits: string
+  reviewUrl: string
 }
 
-export default function CTABlock({ title, subtitle, phone, phoneDigits }: CTABlockProps) {
+export default function CTABlock({ title, subtitle, phone, phoneDigits, reviewUrl }: CTABlockProps) {
   return (
     <section className="bg-[var(--accent)] py-20">
       <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -24,7 +25,7 @@ export default function CTABlock({ title, subtitle, phone, phoneDigits }: CTABlo
               <span className="text-[rgb(var(--brand-rgb)/0.7)] text-sm font-medium">5.0 from 50+ verified reviews</span>
             </Link>
             <span className="text-[rgb(var(--brand-rgb)/0.3)]">|</span>
-            <Link href="https://g.page/r/CSX9IqciUG9SEAE/review" className="text-[var(--brand)] text-sm font-semibold underline underline-offset-2 hover:opacity-80">Write a Review</Link>
+            <Link href={reviewUrl} className="text-[var(--brand)] text-sm font-semibold underline underline-offset-2 hover:opacity-80">Write a Review</Link>
           </div>
         </div>
         <div className="flex flex-col sm:flex-row items-center gap-3 flex-shrink-0">
