@@ -41,6 +41,7 @@ function toLocalInput(iso: string | null) {
 }
 
 const JOB_STATUS_STYLE: Record<string, string> = {
+  unscheduled: 'bg-orange-50 text-orange-700 ring-1 ring-orange-200',
   scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-green-50 text-green-600', cancelled: 'bg-slate-100 text-slate-500',
 }
@@ -174,6 +175,11 @@ export default function JobDetailPage() {
   const setJobStatus = (status: string) => act(`job-${status}`, () =>
     fetch(`/api/jobs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }))
 
+  const cancelJob = () => {
+    if (!confirm('Cancel this job? Any pending or invoiced payments will be voided.')) return
+    setJobStatus('cancelled')
+  }
+
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
 
@@ -248,6 +254,7 @@ export default function JobDetailPage() {
       <div className="flex flex-wrap gap-2 mb-6">
         {job.status === 'scheduled' && <button onClick={() => setJobStatus('in_progress')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">Start job</button>}
         {job.status !== 'completed' && job.status !== 'cancelled' && <button onClick={() => setJobStatus('completed')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Mark complete</button>}
+        {job.status !== 'completed' && job.status !== 'cancelled' && <button onClick={cancelJob} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">{busy === 'job-cancelled' ? 'Cancelling…' : 'Cancel job'}</button>}
       </div>
 
       {/* Payment plan */}

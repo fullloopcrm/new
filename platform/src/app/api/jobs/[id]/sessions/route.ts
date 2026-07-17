@@ -35,7 +35,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: job, error: jErr } = await supabaseAdmin
       .from('jobs')
-      .select('id, client_id, title')
+      .select('id, client_id, title, status')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
@@ -98,6 +98,13 @@ export async function POST(request: Request, { params }: Params) {
       await supabaseAdmin.from('booking_assignees').insert(
         assigneeList.map((mid) => ({ booking_id: booking.id, team_member_id: mid })),
       )
+    }
+
+    // A sold-but-unscheduled job (no date yet) becomes 'scheduled' the moment it
+    // gets its first real session — the same moment this route already logs a
+    // 'scheduled' job event for, just never wrote to jobs.status itself.
+    if (job.status === 'unscheduled') {
+      await supabaseAdmin.from('jobs').update({ status: 'scheduled' }).eq('tenant_id', tenantId).eq('id', id)
     }
 
     await logJobEvent({
