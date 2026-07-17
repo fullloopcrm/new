@@ -314,6 +314,41 @@ export async function POST(request: Request) {
       propertyId = property?.id || null
     }
 
+    // A client picking their crew (the "Choose your team" step — LEAD/EXTRA
+    // labels, YOUR PICK badge) must stay inside their own tenant's active
+    // roster — same gate /api/client/recurring and reschedule already
+    // enforce. Without this, cleaner_id/extra_cleaner_ids were read from
+    // client input with no ownership check ever wired up at all: the booking
+    // insert below hardcoded team_member_id to NULL unconditionally, so a
+    // client's explicit pick was always silently discarded in favor of
+    // manual admin assignment.
+    const bkCleanerId = typeof body.cleaner_id === 'string' && body.cleaner_id ? body.cleaner_id : null
+    const bkExtraCleanerIds: string[] = Array.isArray(body.extra_cleaner_ids)
+      ? body.extra_cleaner_ids.filter((x: unknown): x is string => typeof x === 'string' && x.length > 0 && x !== bkCleanerId)
+      : []
+    if (bkCleanerId) {
+      const { data: leadMember } = await supabaseAdmin
+        .from('team_members')
+        .select('id, active')
+        .eq('id', bkCleanerId)
+        .eq('tenant_id', tenant.id)
+        .single()
+      if (!leadMember || leadMember.active === false) {
+        return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+      }
+    }
+    if (bkExtraCleanerIds.length > 0) {
+      const { data: extraMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id, active')
+        .in('id', bkExtraCleanerIds)
+        .eq('tenant_id', tenant.id)
+      const validIds = new Set((extraMembers || []).filter((m) => m.active !== false).map((m) => m.id))
+      if (bkExtraCleanerIds.some((id) => !validIds.has(id))) {
+        return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+      }
+    }
+
     // Atomic create: the same-date duplicate check and the INSERT run inside
     // one supabaseAdmin.rpc('create_booking_atomic', ...) call — one DB
     // function (migrations/2026_07_13_client_book_dedupe_atomic.sql) that
@@ -334,6 +369,7 @@ export async function POST(request: Request) {
       p_hourly_rate: bkHourlyRate,
       p_team_size: bkTeamSize,
       p_is_emergency: bkIsEmergency,
+      p_team_member_id: bkCleanerId,
       p_max_hours: bkMaxHours,
       p_notes: bkNotes,
       p_recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined) || null,
@@ -360,6 +396,21 @@ export async function POST(request: Request) {
       .eq('tenant_id', tenant.id)
       .single()
     if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+
+    // booking_team_members rows (lead + extras) — same sync every other
+    // client-facing write site performs (recurring, reschedule) once a
+    // team_member_id is actually attached to a booking.
+    if (bkCleanerId || bkExtraCleanerIds.length > 0) {
+      const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+      if (bkCleanerId) teamRows.push({ tenant_id: tenant.id, booking_id: data.id, team_member_id: bkCleanerId, is_lead: true, position: 1 })
+      bkExtraCleanerIds.forEach((cid, i) => {
+        teamRows.push({ tenant_id: tenant.id, booking_id: data.id, team_member_id: cid, is_lead: false, position: i + 2 })
+      })
+      const { error: teamErr } = await supabaseAdmin
+        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
+        .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+      if (teamErr) console.error('client book booking_team_members insert failed:', teamErr.message)
+    }
 
     // Render admin/client emails + SMS with this booking's property address
     // (property ?? client.address) instead of the client's default address.
