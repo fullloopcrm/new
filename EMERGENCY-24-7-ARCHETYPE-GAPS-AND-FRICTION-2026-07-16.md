@@ -872,6 +872,70 @@ the schema/UI — flagging, not deciding, since that's a data-model cleanup
 call outside this fix's scope. `tsc --noEmit` clean, full suite 335/335
 files, 1768/1768 tests, zero regressions.
 
+## (20) New today, archetype depth — schedule-monitor's unassigned-booking check treated a same-day emergency exactly like a routine gap three weeks out — NOW FIXED
+
+Direct continuation of item (4)/P11.18's finding that `cron/schedule-monitor`
+is the one proactive sweep that catches an unassigned booking at all, but
+only writes it to `schedule_issues` at `severity: 'warning'` — the same tier
+as `over_max_jobs`/`tight_buffer`, well below `'critical'` (already used for
+`day_off`/`time_conflict`/`no_car`/`duplicate_client`, all real operational
+risks). Checked whether the cron's bookings query even reads `is_emergency`
+at all — `route.ts:44`'s `select(...)` didn't. Net effect: an unassigned
+same-day burst-pipe emergency and an unassigned booking sitting three weeks
+out produced byte-identical dashboard signal — same severity label, same
+position in the "Fix now" group, nothing for an owner scanning
+`ScheduleIssues.tsx`'s counts to distinguish urgency by.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the bookings `select()` and,
+in the `unassigned` check specifically, escalate to `severity: 'critical'`
+plus a `"🚨 EMERGENCY — "` message prefix when true (routine unassigned
+bookings unchanged at `'warning'`, no wording prefix). This needed no
+product/copy call, same class as item (8)'s fix: severity is an existing
+three-tier enum already used to encode real operational risk, and the 🚨
+prefix reuses the visual convention item (8)/(16) already established
+everywhere else in the app rather than inventing new wording. Does **not**
+close item (4)'s still-open finding — this only fixes the *owner's* pull
+dashboard prioritization; there is still no push/SMS to any tech when a job
+lands unassigned. Verified via a standalone `node -e` sanity check of the
+exact severity/message logic (emergency → critical + prefix, routine/no-flag
+→ warning + no prefix, same "read the source, call the real logic"
+methodology as every other item in this doc — worktree still has no
+`.env.local`/Supabase env for a live cron run). `tsc --noEmit` clean, full
+suite 335/335 files, 1768/1768 tests, zero regressions (no test added — this
+repo has zero test files under any `src/app/api/cron/*` route, confirmed
+directly, same precedent item (18) already established for this exact
+file's sibling no-show-check cron).
+
+## (21) New today, fresh ground outside the archetype — the client payment-confirmation SMS was the one client-SMS call site that didn't check sms_consent — NOW FIXED
+
+Found while re-checking item (9)'s flagged-not-asserted observation that
+`payment-processor.ts`'s client confirmation SMS (`:335-345`) has no
+`sms_consent` gate, unlike the sibling team-member SMS four lines above it
+(`:309`) which does. Item (19) (this same session, `send-apology-batch`)
+already established the definitive codebase-wide convention while fixing
+its own wrong-column TCPA bug: every real client-SMS call site —
+`campaigns/[id]/send`, `campaigns/send`, `cron/outreach`, `cron/retention`,
+`selena/tools`'s broadcast helper, and now this file's own team-member
+branch — gates on `sms_consent !== false`, matching what the STOP-reply
+webhook (`webhooks/telnyx/route.ts`) actually writes. The client payment SMS
+was the one exception: a client who explicitly texted STOP could still
+receive this specific SMS, because the query selecting `clientRecord` never
+fetched `sms_consent` in the first place.
+
+**Fixed** (`p1-w3`) — added `sms_consent` to the `clients` select and gated
+the send on `clientRecord.sms_consent !== false`, same convention as every
+sibling call site. No wording/product decision needed, same shape as item
+(19)'s fix: this corrects an inconsistency to the codebase's own
+already-established pattern rather than opening the "are payment
+confirmations consent-exempt" question item (9) originally flagged — the
+codebase has already answered that question the same way for every other
+client SMS, so this makes the one outlier consistent rather than deciding
+policy fresh. `tsc --noEmit` clean, full suite 335/335 files, 1768/1768
+tests, zero regressions (no dedicated test existed for this function before
+or after — `payment-processor.test.ts` exists but doesn't cover this code
+path, confirmed by grepping for `sms_consent`/`clientRecord` in it before
+concluding no test was at risk).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
