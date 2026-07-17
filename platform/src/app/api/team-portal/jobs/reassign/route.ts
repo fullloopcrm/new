@@ -64,7 +64,7 @@ export async function POST(request: Request) {
   // refill, the regenerate route, and the admin exception reassign path.
   await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
   await supabaseAdmin.from('booking_team_members').upsert(
-    { booking_id: booking_id, team_member_id: to_member_id, is_lead: true, position: 1 },
+    { tenant_id: auth.tid, booking_id: booking_id, team_member_id: to_member_id, is_lead: true, position: 1 },
     { onConflict: 'booking_id,team_member_id' }
   )
 

@@ -73,6 +73,10 @@ describe('POST /api/team-portal/jobs/reassign — booking_team_members lead sync
     const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-1' && r.is_lead)
     expect(leadRows.length).toBe(1)
     expect(leadRows[0].team_member_id).toBe(NEW_LEAD)
+    // booking_team_members.tenant_id is NOT NULL with no default — an upsert
+    // that omits it passes this in-memory fake (which doesn't enforce NOT
+    // NULL) but throws a constraint violation against the real DB.
+    expect(leadRows[0].tenant_id).toBe(TENANT_A)
     expect(h.store.booking_team_members.find((r) => r.team_member_id === OLD_LEAD)).toBeUndefined()
   })
 })

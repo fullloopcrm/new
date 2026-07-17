@@ -97,12 +97,30 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // Reassign future bookings if the team member changed. No notification sent
   // (admin-only flow); the new assignee sees it in their portal.
   if (teamMemberId !== undefined) {
-    await db
+    const { data: reassigned } = await db
       .from('bookings')
       .update({ team_member_id: teamMemberId || null })
       .eq('schedule_id', id)
       .in('status', ['scheduled', 'pending', 'confirmed'])
       .gte('start_time', nowNaiveET())
+      .select('id')
+
+    // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+    // from booking_team_members, not bookings.team_member_id -- this bulk
+    // reassign touched every future booking on the schedule but never
+    // touched booking_team_members, leaving every one of those bookings'
+    // lead rows stale. Same booking_team_members-sync gap already fixed
+    // across every other team_member_id write site this session.
+    const newLead = teamMemberId || null
+    for (const row of reassigned || []) {
+      await db.from('booking_team_members').delete().eq('booking_id', row.id).eq('is_lead', true)
+      if (newLead) {
+        await db.from('booking_team_members').upsert(
+          { tenant_id: tenantId, booking_id: row.id, team_member_id: newLead, is_lead: true, position: 1 },
+          { onConflict: 'booking_id,team_member_id' }
+        )
+      }
+    }
   }
 
   return NextResponse.json(data)

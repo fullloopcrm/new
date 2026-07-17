@@ -65,6 +65,30 @@ export async function PUT(request: Request) {
           .eq('tenant_id', tenantId)
           .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
           .single()
+
+        // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+        // from booking_team_members, not bookings.team_member_id -- falling
+        // back to the latter only when no booking_team_members rows exist at
+        // all, never true for these bookings (every series occurrence is
+        // created with a lead row). This route is the "apply to all future
+        // occurrences" series edit's batch path -- it updates
+        // bookings.team_member_id on every future booking, but
+        // BookingsAdmin.tsx's own booking_team_members sync call
+        // (PUT /api/bookings/:id/team) only runs for the ONE booking being
+        // edited, leaving every OTHER future booking's lead row stale. Same
+        // booking_team_members-sync gap already fixed across every other
+        // team_member_id write site this session.
+        if (!error && 'team_member_id' in u.data) {
+          const newLead = u.data.team_member_id as string | null
+          await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', u.id).eq('is_lead', true)
+          if (newLead) {
+            await supabaseAdmin.from('booking_team_members').upsert(
+              { tenant_id: tenantId, booking_id: u.id, team_member_id: newLead, is_lead: true, position: 1 },
+              { onConflict: 'booking_id,team_member_id' }
+            )
+          }
+        }
+
         return { id: u.id, data, error }
       })
     )

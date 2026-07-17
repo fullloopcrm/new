@@ -25,6 +25,14 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not your job to release' }, { status: 403 })
 
+  // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+  // from booking_team_members, not bookings.team_member_id -- releasing a
+  // job nulled the latter but left the stale lead row (still pointing at
+  // the member who just released it) behind. Same booking_team_members-sync
+  // gap already fixed across every other team_member_id write site this
+  // session.
+  await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
+
   await audit({
     tenantId: auth.tid,
     action: 'booking.updated',

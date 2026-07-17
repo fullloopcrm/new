@@ -110,7 +110,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         // per-occurrence exception path.
         await db.from('booking_team_members').delete().eq('booking_id', b.id).eq('is_lead', true)
         await db.from('booking_team_members').upsert(
-          { booking_id: b.id, team_member_id: new_team_member_id, is_lead: true, position: 1 },
+          { tenant_id: tenantId, booking_id: b.id, team_member_id: new_team_member_id, is_lead: true, position: 1 },
           { onConflict: 'booking_id,team_member_id' }
         )
       }

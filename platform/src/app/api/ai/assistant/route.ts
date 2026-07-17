@@ -225,6 +225,24 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
       const results = await Promise.all(
         ids.map(async (id) => {
           const { error } = await supabaseAdmin.from('bookings').update(updates).eq('id', id).eq('tenant_id', tenantId)
+          // GET /api/bookings/:id/team and closeout-summary both source the
+          // LEAD from booking_team_members, not bookings.team_member_id --
+          // this tool lets Selena reassign a booking's team member via
+          // natural language, but wrote straight to bookings.team_member_id
+          // with no sync, leaving the admin Team panel and payout
+          // attribution pointed at the OLD member. Same
+          // booking_team_members-sync gap already fixed across every other
+          // team_member_id write site this session.
+          if (!error && 'team_member_id' in updates) {
+            const newLead = updates.team_member_id as string | null
+            await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', id).eq('is_lead', true)
+            if (newLead) {
+              await supabaseAdmin.from('booking_team_members').upsert(
+                { tenant_id: tenantId, booking_id: id, team_member_id: newLead, is_lead: true, position: 1 },
+                { onConflict: 'booking_id,team_member_id' }
+              )
+            }
+          }
           return { id, error: error?.message }
         })
       )

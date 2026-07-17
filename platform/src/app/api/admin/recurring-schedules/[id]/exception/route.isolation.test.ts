@@ -102,6 +102,10 @@ describe('POST /api/admin/recurring-schedules/:id/exception — tenant isolation
     const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-A1' && r.is_lead)
     expect(leadRows.length).toBe(1)
     expect(leadRows[0].team_member_id).toBe('tm-A9')
+    // booking_team_members.tenant_id is NOT NULL with no default — an upsert
+    // that omits it passes this in-memory fake (which doesn't enforce NOT
+    // NULL) but throws a constraint violation against the real DB.
+    expect(leadRows[0].tenant_id).toBe('tenant-A')
     expect(h.store.booking_team_members.find((r) => r.team_member_id === 'tm-old')).toBeUndefined()
   })
 

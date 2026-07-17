@@ -120,6 +120,15 @@ export async function POST(request: Request) {
   }
   for (const [bookingId, fields] of Object.entries(bookingUpdates)) {
     await db.from('bookings').update(fields).eq('id', bookingId)
+    // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+    // from booking_team_members, not bookings.team_member_id -- the
+    // 'day_off' fix nulls the latter to unassign, but left the stale lead
+    // row behind, so the admin Team panel kept showing the unavailable
+    // member as still assigned. Same booking_team_members-sync gap already
+    // fixed across every other team_member_id write site this session.
+    if ('team_member_id' in fields) {
+      await db.from('booking_team_members').delete().eq('booking_id', bookingId).eq('is_lead', true)
+    }
   }
 
   await db

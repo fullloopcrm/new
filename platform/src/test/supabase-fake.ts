@@ -23,7 +23,7 @@
  *
  * Supported query surface (superset; unused bits are inert for a given test):
  *   from(table)
- *     .select(cols?, { head }) .insert(payload) .update(payload) .delete()
+ *     .select(cols?, { head }) .insert(payload) .update(payload) .delete() .upsert(payload, { onConflict })
  *     .eq(col, val) .gte(col, val) .lt(col, val) .is(col, null|bool) .in(col, vals) .not() .order() .limit() .returns<T>()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *
@@ -57,7 +57,7 @@ export interface SupabaseFakeOptions {
 
 type State = {
   table: string
-  op: 'select' | 'insert' | 'update' | 'delete'
+  op: 'select' | 'insert' | 'update' | 'delete' | 'upsert'
   eqs: Record<string, unknown>
   neqs: Record<string, unknown>
   gtes: Array<{ col: string; val: unknown }>
@@ -71,6 +71,8 @@ type State = {
   /** `.select()` was chained — same as PostgREST's `Prefer: return=representation`.
    *  Only then does `.update()` hand back the affected row(s) instead of null. */
   returning: boolean
+  /** `.upsert(payload, { onConflict })` — comma-joined conflict target columns. */
+  onConflict?: string
 }
 
 function matches(r: Record<string, unknown>, s: State): boolean {
@@ -109,6 +111,29 @@ function runQuery(
     // write's outcome in the response) silently corrupts the store's actual
     // row out from under a concurrent request.
     const out = opts.detachReads ? inserted.map((r) => ({ ...r })) : inserted
+    if (terminal === 'many') return { data: out, error: null }
+    return { data: out[0] ?? null, error: null }
+  }
+
+  if (state.op === 'upsert') {
+    const payload = Array.isArray(state.payload) ? state.payload : [state.payload]
+    const conflictCols = (state.onConflict || 'id').split(',')
+    const upserted = payload.map((p: Record<string, unknown>) => {
+      const existing = rows.find((r) => conflictCols.every((c) => r[c] === p[c]))
+      if (existing) {
+        Object.assign(existing, p)
+        return existing
+      }
+      const row: Record<string, unknown> = { ...(opts.insertDefaults ?? {}), ...(p as object) }
+      if (row.id == null) {
+        h.seq += 1
+        row.id = `${state.table}-${h.seq}`
+      }
+      rows.push(row)
+      opts.afterInsert?.(row, state.table)
+      return row
+    })
+    const out = opts.detachReads ? upserted.map((r) => ({ ...r })) : upserted
     if (terminal === 'many') return { data: out, error: null }
     return { data: out[0] ?? null, error: null }
   }
@@ -163,6 +188,9 @@ export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions =
         insert: (payload: unknown) => { state.op = 'insert'; state.payload = payload; return chain },
         update: (payload: unknown) => { state.op = 'update'; state.payload = payload; return chain },
         delete: () => { state.op = 'delete'; return chain },
+        upsert: (payload: unknown, o?: { onConflict?: string }) => {
+          state.op = 'upsert'; state.payload = payload; state.onConflict = o?.onConflict; return chain
+        },
         eq: (col: string, val: unknown) => { state.eqs[col] = val; return chain },
         neq: (col: string, val: unknown) => { state.neqs[col] = val; return chain },
         gte: (col: string, val: unknown) => { state.gtes.push({ col, val }); return chain },
