@@ -160,6 +160,46 @@ describe('POST /api/admin/websites — routing_mode/type on insert', () => {
   })
 })
 
+describe('POST /api/admin/websites — domain normalization', () => {
+  it('lowercases a mixed-case domain before storing it', async () => {
+    h.store.tenants.push({ id: 'tenant-norm1', name: 'Norm Co', slug: 'norm-co' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-norm1', domain: 'Example.COM' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain.domain).toBe('example.com')
+  })
+
+  it('strips a protocol and trailing path before storing', async () => {
+    h.store.tenants.push({ id: 'tenant-norm2', name: 'Norm Co 2', slug: 'norm-co-2' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-norm2', domain: 'https://example2.com/some/path' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain.domain).toBe('example2.com')
+  })
+
+  it('strips a leading www. before storing, matching the resolver\'s www-stripped lookup', async () => {
+    h.store.tenants.push({ id: 'tenant-norm3', name: 'Norm Co 3', slug: 'norm-co-3' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-norm3', domain: 'www.example3.com' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain.domain).toBe('example3.com')
+  })
+
+  it('rejects a domain that normalizes to empty', async () => {
+    h.store.tenants.push({ id: 'tenant-norm4', name: 'Norm Co 4', slug: 'norm-co-4' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-norm4', domain: '   ' }))
+
+    expect(res.status).toBe(400)
+  })
+})
+
 describe('POST /api/admin/websites — at most one is_primary per tenant', () => {
   it('clears the existing primary when a second is_primary domain is added for the same tenant', async () => {
     h.store.tenants.push({ id: 'tenant-multi', name: 'Multi Domain Co', slug: 'multi-domain-co' })

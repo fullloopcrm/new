@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etToday, etDayBoundaryUTC } from '@/lib/recurring'
+import { normalizeDomain } from '@/lib/seo/onboarding'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -171,10 +172,23 @@ export async function POST(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const { tenant_id, domain, is_primary } = await request.json()
+  const { tenant_id, domain: rawDomain, is_primary } = await request.json()
 
-  if (!tenant_id || !domain) {
+  if (!tenant_id || !rawDomain) {
     return NextResponse.json({ error: 'tenant_id and domain are required' }, { status: 400 })
+  }
+
+  // Every other tenant_domains write path (activate-tenant.ts's carryHost/
+  // customHost) normalizes a domain before storing it: lowercased, protocol/
+  // path/www stripped. This route inserted whatever the admin typed verbatim.
+  // getTenantByDomain() does an exact `.eq('domain', ...)` match against a
+  // lowercased, www-stripped incoming hostname, so an admin-entered
+  // "Example.com", "https://example.com/", or "www.example.com" silently
+  // created a row real traffic could never match — it "added" successfully
+  // (201) but was dead on arrival for routing.
+  const domain = normalizeDomain(String(rawDomain))
+  if (!domain) {
+    return NextResponse.json({ error: 'domain is invalid after normalization' }, { status: 400 })
   }
 
   const { data: tenantRow } = await supabaseAdmin

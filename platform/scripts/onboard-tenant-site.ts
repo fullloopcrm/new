@@ -38,6 +38,7 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
+import { normalizeDomain } from '@/lib/seo/onboarding'
 
 // ---------------------------------------------------------------- args
 type Args = {
@@ -68,11 +69,22 @@ function parseArgs(argv: string[]): Args {
   const seedAppRaw = typeof args['seed-app'] === 'string'
     ? String(args['seed-app'])
     : 'clients,apply,feedback,referral,login'
+  // Same domain-normalization gap fixed for POST /api/admin/websites: this
+  // script writes the raw --domain string to tenants.domain/domain_name AND
+  // tenant_domains.domain, both of which the resolver (tenant-lookup.ts)
+  // matches with an exact `.eq('domain', ...)` against a lowercased,
+  // www-stripped incoming hostname. A --domain passed with a protocol,
+  // trailing slash, mixed case, or leading www. (all shown as valid-looking
+  // in the script's own --dry-run echo) would provision a tenant whose site
+  // real traffic can never route to.
+  const domain = normalizeDomain(String(args.domain))
+  if (!domain) throw new Error(`--domain "${args.domain}" is invalid after normalization`)
+
   return {
     source: path.resolve(String(args.source)),
     slug: String(args.slug),
     name: String(args.name),
-    domain: String(args.domain),
+    domain,
     industry: typeof args.industry === 'string' ? args.industry : 'cleaning',
     phone: typeof args.phone === 'string' ? args.phone : undefined,
     seedApp: seedAppRaw.split(',').map((s) => s.trim()).filter(Boolean),
