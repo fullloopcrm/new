@@ -19,6 +19,7 @@ function updateChain(rows: Row[], values: Row) {
   const filters: Array<(r: Row) => boolean> = []
   const uc: Record<string, unknown> = {
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return uc },
+    in: (col: string, vals: unknown[]) => { filters.push((r) => vals.includes(r[col])); return uc },
     select: () => uc,
     maybeSingle: async () => {
       const matched = rows.filter((r) => filters.every((f) => f(r)))
@@ -77,5 +78,37 @@ describe('POST /api/team-portal/jobs/release — tenantDb scoping', () => {
     expect(bookingA.status).toBe('scheduled')
     expect(bookingB.team_member_id).toBe(MEMBER_ID)
     expect(bookingB.status).toBe('confirmed')
+  })
+
+  it('REJECTS (403) releasing a booking already checked into in_progress — mutation-verified', async () => {
+    DB.bookings = [
+      { id: BOOKING_ID, tenant_id: TENANT_A, team_member_id: MEMBER_ID, status: 'in_progress', check_in_time: '2026-07-16T10:00:00Z' },
+    ]
+    const token = createToken(MEMBER_ID, TENANT_A, 25, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/jobs/release', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    const booking = DB.bookings[0]
+    expect(booking.team_member_id).toBe(MEMBER_ID)
+    expect(booking.status).toBe('in_progress')
+  })
+
+  it('REJECTS (403) releasing an already-completed booking', async () => {
+    DB.bookings = [
+      { id: BOOKING_ID, tenant_id: TENANT_A, team_member_id: MEMBER_ID, status: 'completed', team_member_pay: 15000, team_member_paid: true },
+    ]
+    const token = createToken(MEMBER_ID, TENANT_A, 25, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/jobs/release', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(403)
+    expect(DB.bookings[0].status).toBe('completed')
   })
 })

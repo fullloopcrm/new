@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   // Fetch the booking (tenant-scoped) so we know who currently holds it.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, team_member_id, start_time, clients(name)')
+    .select('id, team_member_id, status, start_time, clients(name)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -36,6 +36,27 @@ export async function POST(request: Request) {
   // could hijack jobs already assigned to (or intended for) another crew.
   if (booking.team_member_id && !scope.includes(booking.team_member_id)) {
     return NextResponse.json({ error: 'That job is not in your crew' }, { status: 403 })
+  }
+
+  // Reassign only makes sense pre-check-in. Once a job has moved past
+  // scheduled/confirmed (in_progress = already checked in, completed/paid =
+  // already finished and settled), the update below clears check-in/out and
+  // actual_hours but has no idea the row also carries a real
+  // team_member_pay/team_member_paid/payment_status from that prior session —
+  // it doesn't touch those fields. Reassigning a completed job to a new
+  // member would leave `team_member_paid:true` stamped on the row under the
+  // NEW member's id: payroll's pending-pay filter excludes anything already
+  // marked paid, so the new member could do the (re-checked-in) job for real
+  // and payroll would silently treat it as already settled — unpaid labor
+  // with no obvious signal. Mirrors the state machine PATCH /bookings/[id]/
+  // status already enforces (completed can only advance to paid, never back
+  // into the active pipeline) and the terminal-cancel guard already applied
+  // to the general booking PUT route for the identical reason.
+  if (!['scheduled', 'confirmed'].includes(booking.status as string)) {
+    return NextResponse.json(
+      { error: `Cannot reassign — booking is ${booking.status}` },
+      { status: 400 }
+    )
   }
 
   const previous = booking.team_member_id
@@ -64,11 +85,18 @@ export async function POST(request: Request) {
     })
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
+    .in('status', ['scheduled', 'confirmed'])
     .select()
     .maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'Reassign failed' }, { status: 500 })
+  if (!data) {
+    // The pre-check above passed, but a concurrent check-in/checkout/status
+    // change landed between the SELECT and this UPDATE (TOCTOU) — the
+    // conditional WHERE means this call lost the race rather than clobbering
+    // a job that just started or finished.
+    return NextResponse.json({ error: 'Reassign failed — booking state changed' }, { status: 409 })
+  }
 
   await audit({
     tenantId: auth.tid,

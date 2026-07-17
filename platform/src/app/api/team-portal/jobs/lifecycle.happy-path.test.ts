@@ -58,6 +58,7 @@ vi.mock('@/lib/supabase', () => {
       select: () => c,
       update: (p: Row) => { kind = 'update'; payload = p; return c },
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
+      in: () => c, // status guard on reassign/release UPDATEs — this stateful mock always transitions from a pre-check-in state, so it's a pass-through here
       is: (col: string) => { isNullCol = col; return c },
       not: () => c,
       gte: () => c,
@@ -67,7 +68,7 @@ vi.mock('@/lib/supabase', () => {
         if (table === 'bookings') {
           // reassign's current-holder fetch
           return {
-            data: { id: eqs.id, team_member_id: jobAssignee, start_time: '2026-08-20T14:00:00Z', clients: { name: 'Client' } },
+            data: { id: eqs.id, team_member_id: jobAssignee, status: 'confirmed', start_time: '2026-08-20T14:00:00Z', clients: { name: 'Client' } },
             error: null,
           }
         }

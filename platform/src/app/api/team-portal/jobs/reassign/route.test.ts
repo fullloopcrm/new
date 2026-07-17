@@ -26,6 +26,7 @@ let scope: string[] = [ACTOR, TARGET, PREV_MEMBER]
 let bookingResult: unknown = {
   id: BOOKING,
   team_member_id: PREV_MEMBER,
+  status: 'confirmed',
   start_time: '2026-01-01T10:00:00Z',
   clients: { name: 'Alice Client' },
 }
@@ -66,6 +67,7 @@ vi.mock('@/lib/supabase', () => {
         return c
       },
       eq: () => c,
+      in: () => c,
       maybeSingle: async () => ({ data: updateResult, error: updateError }),
       single: async () => {
         if (table === 'bookings') return { data: bookingResult, error: null }
@@ -86,6 +88,7 @@ beforeEach(() => {
   bookingResult = {
     id: BOOKING,
     team_member_id: PREV_MEMBER,
+    status: 'confirmed',
     start_time: '2026-01-01T10:00:00Z',
     clients: { name: 'Alice Client' },
   }
@@ -195,6 +198,33 @@ describe('team-portal/jobs/reassign', () => {
     updateError = { message: 'db error' }
     const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
     expect(res.status).toBe(500)
+    expect(auditCalls).toHaveLength(0)
+  })
+
+  it('REJECTS (400) reassigning a completed booking — mutation-verified', async () => {
+    bookingResult = { ...(bookingResult as object), status: 'completed' }
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(400)
+    expect(auditCalls).toHaveLength(0)
+    expect(pushCalls).toHaveLength(0)
+  })
+
+  it('REJECTS (400) reassigning a paid booking', async () => {
+    bookingResult = { ...(bookingResult as object), status: 'paid' }
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(400)
+  })
+
+  it('REJECTS (400) reassigning an in_progress (already checked-in) booking', async () => {
+    bookingResult = { ...(bookingResult as object), status: 'in_progress' }
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(400)
+  })
+
+  it('REJECTS (409) when the booking flips out of scheduled/confirmed between the SELECT and the UPDATE (TOCTOU)', async () => {
+    updateResult = null // conditional WHERE on the UPDATE found nothing to update
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(409)
     expect(auditCalls).toHaveLength(0)
   })
 })
