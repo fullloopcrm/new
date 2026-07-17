@@ -15,7 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team'
+import { notifyTeamMember, formatDeliveryReport } from '@/lib/notify-team-member'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
 
 type Booking = {
@@ -159,12 +159,13 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
             })
           : `New team job assigned for ${clientName} on ${bookingDate}.`,
         skipEmail: true,
+        isEmergency: !!bookingFull?.is_emergency,
       })
 
       await db.from('notifications').insert({
         type: 'team_member_notified',
         title: 'Team Member Notified',
-        message: `${report.teamMemberName}: ${formatDeliveryReport(report)}`,
+        message: formatDeliveryReport(report),
         booking_id: id,
       })
     } catch (notifyErr) {

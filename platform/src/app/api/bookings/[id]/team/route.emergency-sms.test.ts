@@ -36,11 +36,11 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 
-const notifyCalls: Array<{ title: string; smsMessage?: string }> = []
-vi.mock('@/lib/notify-team', () => ({
-  notifyTeamMember: async (opts: { title: string; smsMessage?: string }) => {
-    notifyCalls.push({ title: opts.title, smsMessage: opts.smsMessage })
-    return { teamMemberName: 'Extra Tech', email: false, sms: true, inApp: true, quietHours: false }
+const notifyCalls: Array<{ title: string; smsMessage?: string; isEmergency?: boolean }> = []
+vi.mock('@/lib/notify-team-member', () => ({
+  notifyTeamMember: async (opts: { title: string; smsMessage?: string; isEmergency?: boolean }) => {
+    notifyCalls.push({ title: opts.title, smsMessage: opts.smsMessage, isEmergency: opts.isEmergency })
+    return { memberName: 'Extra Tech', push: true, email: false, sms: true, inApp: true, quietHours: false }
   },
   formatDeliveryReport: () => 'sent',
 }))
@@ -99,6 +99,7 @@ describe('bookings/[id]/team PUT — extras SMS/push now carry emergency status 
     expect(notifyCalls[0].smsMessage).toContain('URGENT —')
     expect(notifyCalls[0].smsMessage).toContain('Pay: $130/hr')
     expect(notifyCalls[0].title).toBe('🚨 Added to Emergency Team Job')
+    expect(notifyCalls[0].isEmergency).toBe(true)
   })
 
   it('an extra added to a ROUTINE job gets a plain SMS/push, no urgency wording (control)', async () => {
@@ -114,5 +115,6 @@ describe('bookings/[id]/team PUT — extras SMS/push now carry emergency status 
     expect(notifyCalls[0].smsMessage).not.toContain('URGENT')
     expect(notifyCalls[0].smsMessage).not.toContain('Pay: $130/hr')
     expect(notifyCalls[0].title).toBe('Added to Team Job')
+    expect(notifyCalls[0].isEmergency).toBe(false)
   })
 })
