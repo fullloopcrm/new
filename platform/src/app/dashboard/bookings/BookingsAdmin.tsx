@@ -238,7 +238,7 @@ function BookingsPage() {
   const [closeOutSaving, setCloseOutSaving] = useState<string | null>(null)
   const [closeOutExpanded, setCloseOutExpanded] = useState<Set<string>>(new Set())
   const [showWaitlist, setShowWaitlist] = useState(false)
-  const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null }>>([])
+  const [waitlistEntries, setWaitlistEntries] = useState<Array<{ id: string; name: string | null; phone: string; service_type: string | null; preferred_date: string | null; preferred_time: string | null; created_at: string; client_id: string | null; source: string }>>([])
   const [waitlistLoading, setWaitlistLoading] = useState(false)
 
   const [clientSearch, setClientSearch] = useState('')
@@ -455,6 +455,23 @@ function BookingsPage() {
       if (res.ok) setWaitlistEntries(await res.json())
     } catch {}
     setWaitlistLoading(false)
+  }
+
+  // Waitlist entry the create-booking modal was opened from, so a completed
+  // booking can mark it 'booked' (see waitlist/[id]/route.ts) instead of
+  // leaving it 'open' forever. Only set for dedicated-table entries — legacy
+  // sms_conversations-sourced ones have no row in the `waitlist` table to PATCH.
+  const [pendingWaitlistBooking, setPendingWaitlistBooking] = useState<typeof waitlistEntries[number] | null>(null)
+
+  const closeCreateModal = () => {
+    // Cancelled/dismissed without completing the booking — restore the entry
+    // that was optimistically hidden when "Book Now" was clicked.
+    if (pendingWaitlistBooking) {
+      setWaitlistEntries((prev) => (prev.some((e) => e.id === pendingWaitlistBooking.id) ? prev : [...prev, pendingWaitlistBooking]))
+      setPendingWaitlistBooking(null)
+    }
+    setShowCreateModal(false)
+    setShowClientDropdown(false)
   }
 
   const getCleanerAvailability = (cleaner: Cleaner, dateStr: string, timeStr?: string, durationHours?: number): { available: boolean; reason?: string; dayBookings?: Array<{ time: string; client: string; hours: number }> } => {
@@ -1098,6 +1115,14 @@ function BookingsPage() {
         }
       }
     }
+    if (pendingWaitlistBooking) {
+      fetch(`/api/waitlist/${pendingWaitlistBooking.id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status: 'booked' }),
+      }).catch(() => {})
+      setPendingWaitlistBooking(null)
+    }
     setShowCreateModal(false); loadBookings(); setSaving(false)
   }
 
@@ -1516,6 +1541,10 @@ function BookingsPage() {
                             if (entry.name) setClientSearch(entry.name + ' - ' + entry.phone)
                             setShowClientDropdown(false)
                             setShowCreateModal(true)
+                            if (entry.source !== 'sms') {
+                              setPendingWaitlistBooking(entry)
+                              setWaitlistEntries((prev) => prev.filter((e) => e.id !== entry.id))
+                            }
                           }}
                           className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-purple-50 border border-purple-200 text-purple-700 hover:bg-purple-100 transition-all"
                         >
@@ -2471,7 +2500,7 @@ function BookingsPage() {
       )}
 
       {showCreateModal && (
-        <SidePanel open={showCreateModal} onClose={() => { setShowCreateModal(false); setShowClientDropdown(false) }} title="Create Booking" width="max-w-lg">
+        <SidePanel open={showCreateModal} onClose={closeCreateModal} title="Create Booking" width="max-w-lg">
             <form onSubmit={handleCreate}>
               <div className="space-y-4">
                 <div className="relative">
@@ -2880,7 +2909,7 @@ function BookingsPage() {
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => { setShowCreateModal(false); setShowClientDropdown(false) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">Cancel</button>
+                <button type="button" onClick={closeCreateModal} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">Cancel</button>
                 <button type="submit" disabled={saving || !createForm.client_id} className="flex-1 px-4 py-2 bg-[#1E2A4A] text-white rounded-lg disabled:bg-gray-300">
                   {saving ? 'Creating...' : recurringDates.length > 1 ? 'Create Schedule' : 'Create'}
                 </button>
