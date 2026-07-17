@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { addCalendarDays, calendarDayOfWeek, etToday, generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { addCalendarDays, calendarDayOfWeek, etToday, generateRecurringDates, nowNaiveET, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -103,10 +103,20 @@ export async function POST(request: Request) {
         anchor = addCalendarDays(anchor, 1)
       }
     }
-    const now = new Date()
+    // When no preferred_time is given, fall back to the current ET wall-clock
+    // hour/minute (nowNaiveET()), not `new Date().getUTCHours()/getUTCMinutes()`
+    // -- those read the true UTC instant's clock digits, which this route then
+    // fed straight into Date.UTC() as if they were ET wall-clock digits (the
+    // same "impersonate UTC to encode ET" trick anchor/startDate below use
+    // correctly). That silently skewed every schedule created without an
+    // explicit preferred_time by the ET/UTC gap (4h EDT / 5h EST) -- e.g. a
+    // schedule created at 2pm ET (18:00 UTC) got every one of its first 4
+    // weeks of bookings stamped 18:00, not 14:00. The sibling admin route
+    // (POST /api/admin/recurring-schedules) never had this bug -- it defaults
+    // a missing preferred_time to a fixed '09:00' instead of reading any clock.
     const [hh, mm] = v.preferred_time
       ? (v.preferred_time as string).split(':').map((n) => parseInt(n, 10))
-      : [now.getUTCHours(), now.getUTCMinutes()]
+      : nowNaiveET().slice(11, 16).split(':').map((n) => parseInt(n, 10))
     const startDate = new Date(Date.UTC(anchor.year, anchor.month, anchor.day, hh, mm, 0, 0))
 
     const dates = generateRecurringDates({
