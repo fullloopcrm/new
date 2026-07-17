@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -10,18 +11,25 @@ export async function GET(request: NextRequest) {
   const tenantId = url.searchParams.get('tenant_id')
   const period = url.searchParams.get('period') || 'month'
 
+  // bookings.payment_date is TIMESTAMPTZ (aware) -- the old
+  // `new Date().getFullYear()/getMonth()/getDate()` read the SERVER's local
+  // calendar (UTC on Vercel), a full day ahead of ET for ~4-5h every
+  // evening, misplacing the period boundary during that window. Fixed with
+  // the true-UTC-instant of ET midnight (unlike bookings.start_time's
+  // naive-ET string columns fixed elsewhere this session).
   const now = new Date()
+  const { y: ty, m: tm, d: td } = etYMD(now)
   let dateFrom: Date
 
   if (period === 'today') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+    dateFrom = etMidnightUtc(ty, tm, td)
   } else if (period === 'week') {
-    dateFrom = new Date(now)
-    dateFrom.setDate(dateFrom.getDate() - 7)
+    const weekAgoObj = new Date(Date.UTC(ty, tm - 1, td - 7))
+    dateFrom = etMidnightUtc(weekAgoObj.getUTCFullYear(), weekAgoObj.getUTCMonth() + 1, weekAgoObj.getUTCDate())
   } else if (period === 'month') {
-    dateFrom = new Date(now.getFullYear(), now.getMonth(), 1)
+    dateFrom = etMidnightUtc(ty, tm, 1)
   } else {
-    dateFrom = new Date(now.getFullYear(), 0, 1)
+    dateFrom = etMidnightUtc(ty, 1, 1)
   }
 
   let query = supabaseAdmin
@@ -66,9 +74,11 @@ export async function GET(request: NextRequest) {
     }))
     .sort((a, b) => b.revenue - a.revenue)
 
-  // Monthly trend (last 12 months)
-  const twelveMonthsAgo = new Date()
-  twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 12)
+  // Monthly trend (last 12 months). Same TIMESTAMPTZ-boundary fix as
+  // above for the query; bucket labels and per-payment bucketing both now
+  // key off the ET calendar month instead of the server-local one.
+  const twelveMonthsAgoObj = new Date(Date.UTC(ty, tm - 1 - 12, 1))
+  const twelveMonthsAgo = etMidnightUtc(twelveMonthsAgoObj.getUTCFullYear(), twelveMonthsAgoObj.getUTCMonth() + 1, 1)
 
   let monthlyQuery = supabaseAdmin
     .from('bookings')
@@ -82,14 +92,13 @@ export async function GET(request: NextRequest) {
 
   const monthMap: Record<string, number> = {}
   for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+    const labelDate = new Date(Date.UTC(ty, tm - 1 - i, 1))
+    const key = labelDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'UTC' })
     monthMap[key] = 0
   }
   for (const b of monthlyBookings || []) {
     if (b.payment_date) {
-      const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
+      const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit', timeZone: 'America/New_York' })
       if (key in monthMap) monthMap[key] += (b.price || 0) / 100
     }
   }
