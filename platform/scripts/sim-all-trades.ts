@@ -1444,6 +1444,38 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }))
       add('crew-termination: the terminated worker can no longer log in with their old PIN (real route)', terminatedLogin.status === 401, `status=${terminatedLogin.status}`)
 
+      // PIN-login rejection alone doesn't prove the worker is locked out — their
+      // EXISTING token (minted pre-termination in 5.0a, up to 24h life, still
+      // cryptographically valid) is the real risk. Fresh-ground find this round:
+      // checkin/checkout (the two routes where a fired worker actually gets
+      // PAID) call verifyToken() directly, bypassing requirePortalPermission's
+      // instant-revocation check entirely -- termination via the HR page did
+      // NOT block them from checking in/out on their old token, even after
+      // 2b96769b's fix (which only touched requirePortalPermission + the login
+      // route, neither of which checkin/checkout go through). Fixed by baking
+      // the same member-status/hr_status check into verifyToken() itself so
+      // every direct caller is covered, not just requirePortalPermission's ~14
+      // routes. First time the archetype harness drives checkin with a
+      // pre-termination token against a real project-archetype tenant.
+      if (portalLoginBody?.token) {
+        const staleTokenProbeStart = new Date(); staleTokenProbeStart.setHours(6, 0, 0, 0)
+        const staleTokenProbeEnd = new Date(staleTokenProbeStart.getTime() + 2 * 3600 * 1000)
+        const { data: staleTokenBooking } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: job?.client_id || null, job_id: jobRes.job_id,
+          team_member_id: worker.id, start_time: staleTokenProbeStart.toISOString(), end_time: staleTokenProbeEnd.toISOString(),
+          status: 'scheduled', service_type: 'stale-token post-termination checkin probe',
+        }).select('id').single()
+        if (staleTokenBooking) {
+          const { POST: staleCheckinPOST } = await import('../src/app/api/team-portal/checkin/route')
+          const staleCheckinRes = await staleCheckinPOST(new Request('http://sim.local/api/team-portal/checkin', {
+            method: 'POST',
+            headers: { 'content-type': 'application/json', authorization: `Bearer ${portalLoginBody.token}` },
+            body: JSON.stringify({ booking_id: staleTokenBooking.id }),
+          }))
+          add('crew-termination: the terminated worker cannot check in with their still-unexpired PRE-termination token (real checkin route)', staleCheckinRes.status === 401, `status=${staleCheckinRes.status}`)
+        }
+      }
+
       // The real-world resolution: hire a replacement and put THEM on what's left.
       const { provisionApprovedApplicant: provisionReplacement } = await import('../src/lib/team-provisioning')
       const replacementPhone = '704' + String(4000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
