@@ -6004,3 +6004,23 @@ bug, not part of this round's scope.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (131) Continuing (130)'s surface — the other two lifecycle states `PATCH /api/waitlist/[id]` now supports had no UI trigger either, so a stale entry the admin doesn't want to book still couldn't be cleared
+
+(130) wired `'booked'`. `'contacted'`/`'expired'` were left reachable only
+by hand-crafting the PATCH call — no button fired either, so an entry the
+admin decides NOT to book (wrong number, already handled by phone, gave up
+waiting) still had no way to leave the panel short of a DB edit. Same root
+cause as (130), the remaining half of it.
+
+**Fixed** — added a "Dismiss" action next to "Book Now"/"Text" on each
+dedicated-table waitlist card (hidden for `source:'sms'` entries, same
+caveat as (130) — no `waitlist` table row to PATCH for those), firing the
+same `PATCH /api/waitlist/[id]` with `status:'expired'` and optimistically
+removing the card. No new backend code — reuses (130)'s already-tested
+route and status validation, so no new tests added; `tsc --noEmit` clean,
+full suite 428/428 files, 2055/2055 tests, zero regressions.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
