@@ -5,6 +5,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -43,11 +44,20 @@ export async function POST(request: Request) {
   }
 
   // Get all active team members
-  const { data: members } = await supabaseAdmin
+  const { data: activeMembers } = await supabaseAdmin
     .from('team_members')
     .select('id, name, phone, email')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
+
+  // HR termination never touches team_members.status (only
+  // hr_employee_profiles.hr_status), so a fired worker stays "active" here
+  // forever unless something else changes it -- same class as the
+  // find-cleaner broadcast fix. This route has no preview step at all, it
+  // sends directly, so skipping the check would text/email a fired worker
+  // an "URGENT JOB AVAILABLE $X/hr" offer outright.
+  const terminatedIds = new Set(await getTerminatedTeamMemberIds(tenantId, (activeMembers || []).map((m) => m.id as string)))
+  const members = (activeMembers || []).filter((m) => !terminatedIds.has(m.id as string))
 
   if (!members || members.length === 0) {
     return NextResponse.json({ error: 'No active team members' }, { status: 400 })

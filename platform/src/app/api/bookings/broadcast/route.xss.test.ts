@@ -60,6 +60,9 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'team_members') {
         return { select: () => ({ eq: () => ({ eq: async () => ({ data: [{ id: 'tm-1', name: 'Alex', phone: null, email: 'alex@example.com' }], error: null }) }) }) }
       }
+      if (table === 'hr_employee_profiles') {
+        return { select: () => ({ eq: () => ({ eq: () => ({ in: async () => ({ data: [], error: null }) }) }) }) }
+      }
       if (table === 'notifications') {
         return { insert: async () => ({ error: null }) }
       }
