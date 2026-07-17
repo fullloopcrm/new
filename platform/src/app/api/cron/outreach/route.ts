@@ -10,6 +10,7 @@ import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 300
 
@@ -82,13 +83,16 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
   const clients = (rawClients as ClientRow[] | null) || []
   if (clients.length === 0) return 0
 
-  // 2. Exclude clients with upcoming/active bookings.
-  const nowIso = new Date().toISOString()
+  // 2. Exclude clients with upcoming/active bookings. bookings.start_time is
+  // naive-ET TIMESTAMP (no tz) -- a real-UTC `now` bound runs ahead of true
+  // ET-now by the EST/EDT offset, so any booking scheduled within that
+  // offset window read as NOT upcoming, letting an already-booked client
+  // through to receive outreach SMS.
   const { data: scheduled } = await supabaseAdmin
     .from('bookings')
     .select('client_id')
     .eq('tenant_id', tenant.id)
-    .gte('start_time', nowIso)
+    .gte('start_time', toNaiveET(new Date()))
     .in('status', ['scheduled', 'confirmed', 'pending', 'in_progress'])
   const scheduledIds = new Set(((scheduled as Array<{ client_id: string }> | null) || []).map(b => b.client_id))
 
