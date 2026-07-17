@@ -1108,7 +1108,18 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     const date = input.date as string, time = input.time as string
     const serviceType = input.service_type as string, hourlyRate = input.hourly_rate as number
     const estimatedHours = (input.estimated_hours as number) || 2
-    const recurringType = (input.recurring_type as string) || 'one_time'
+    // 'one_time' was previously used as a truthy sentinel for "not recurring"
+    // here, but every OTHER reader of bookings.recurring_type across the
+    // platform (email/sms isRecurring checks, formatRecurringLabel,
+    // dashboard displays) treats any non-null value as recurring -- a plain
+    // one-time SMS booking stored 'one_time' and then got told the recurring
+    // cancellation policy (7-day notice) instead of the correct one-time
+    // policy in smsBookingConfirmation/smsReminder. null is the real
+    // "not recurring" convention every other writer in the codebase uses;
+    // this module's own reads already tolerate both `null` and the legacy
+    // 'one_time' string (`=== 'one_time' || !recurring_type`), so this is
+    // backward-compatible with rows written before this fix.
+    const recurringType = (input.recurring_type as string) || null
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
@@ -2472,7 +2483,9 @@ export async function askSelena(
           service_type: checklist.service_type,
           hourly_rate: checklist.rate,
           estimated_hours: est,
-          recurring_type: 'one_time',
+          // omitted: this auto-fire path is always a plain one-time booking;
+          // handleCreateBooking's `(input.recurring_type as string) || null`
+          // already defaults to null (not recurring) when unset.
         }, conversationId, result)
 
         // Only confirm to client if booking actually hit the DB.

@@ -660,7 +660,15 @@ async function handleCreateBooking(input: Record<string, unknown>, conversationI
     const serviceType = input.service_type as string
     const hourlyRate = input.hourly_rate as number
     const estimatedHours = (input.estimated_hours as number) || 2
-    const recurringType = (input.recurring_type as string) || 'one_time'
+    // 'one_time' was previously used as a truthy sentinel for "not recurring"
+    // here, but every OTHER reader of bookings.recurring_type in this same
+    // directory (email-templates.ts / sms-templates.ts isRecurring checks)
+    // treats any non-null value as recurring -- a plain one-time SMS booking
+    // stored 'one_time' and got told the recurring cancellation policy
+    // (7-day notice) instead of the correct one-time policy. null is the
+    // real "not recurring" convention every other writer in the codebase
+    // uses.
+    const recurringType = (input.recurring_type as string) || null
 
     const parsed = parseTime(time)
     if (!parsed) return JSON.stringify({ error: 'Invalid time format' })
