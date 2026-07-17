@@ -18,9 +18,11 @@ const h = vi.hoisted(() => ({
   store: {} as Record<string, Array<Record<string, unknown>>>,
   requireAdmin: vi.fn(),
   registerCustomDomain: vi.fn(),
+  removeDomain: vi.fn(),
 })) as unknown as FakeStoreHandle & {
   requireAdmin: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
   registerCustomDomain: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
+  removeDomain: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
 }
 
 vi.mock('@/lib/supabase', () => {
@@ -30,13 +32,15 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/lib/require-admin', () => ({ requireAdmin: (...a: unknown[]) => h.requireAdmin(...a) }))
 vi.mock('@/lib/vercel-domains', () => ({
   registerCustomDomain: (...a: unknown[]) => h.registerCustomDomain(...a),
+  removeDomain: (...a: unknown[]) => h.removeDomain(...a),
 }))
 
-import { GET, POST } from './route'
+import { GET, POST, DELETE } from './route'
 
 const getReq = (qs = '') => new NextRequest(`http://x/api/admin/websites${qs}`)
 const postReq = (body: unknown) =>
   new NextRequest('http://x/api/admin/websites', { method: 'POST', body: JSON.stringify(body) })
+const deleteReq = (qs = '') => new NextRequest(`http://x/api/admin/websites${qs}`, { method: 'DELETE' })
 
 beforeEach(() => {
   h.seq = 0
@@ -45,6 +49,10 @@ beforeEach(() => {
   h.registerCustomDomain.mockReset()
   h.registerCustomDomain.mockImplementation(async (...args: unknown[]) => ({
     ok: true, domain: args[0] as string, status: 'created', verified: false, records: [],
+  }))
+  h.removeDomain.mockReset()
+  h.removeDomain.mockImplementation(async (...args: unknown[]) => ({
+    ok: true, name: args[0] as string, status: 'removed',
   }))
   h.store = {
     tenants: [
@@ -297,5 +305,89 @@ describe('POST /api/admin/websites — at most one is_primary per tenant', () =>
 
     const xRow = h.store.tenant_domains.find((d) => d.id === 'dom-x')
     expect(xRow?.is_primary).toBe(true)
+  })
+})
+
+describe('DELETE /api/admin/websites — remove a domain', () => {
+  it('returns the admin-gate error unchanged', async () => {
+    h.requireAdmin.mockResolvedValueOnce(new Response(JSON.stringify({ error: 'Forbidden' }), { status: 403 }))
+
+    const res = await DELETE(deleteReq('?id=dom-1'))
+
+    expect(res.status).toBe(403)
+  })
+
+  it('requires an id', async () => {
+    const res = await DELETE(deleteReq())
+
+    expect(res.status).toBe(400)
+  })
+
+  it('404s for an id that does not exist', async () => {
+    const res = await DELETE(deleteReq('?id=nope'))
+
+    expect(res.status).toBe(404)
+  })
+
+  it('deletes the row and detaches apex + www from Vercel', async () => {
+    h.store.tenants.push({ id: 'tenant-del', name: 'Delete Co', slug: 'delete-co' })
+    h.store.tenant_domains.push({
+      id: 'dom-del', tenant_id: 'tenant-del', domain: 'gone.com',
+      is_primary: false, type: 'generic', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+
+    const res = await DELETE(deleteReq('?id=dom-del'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(h.store.tenant_domains.find((d) => d.id === 'dom-del')).toBeUndefined()
+    expect(h.removeDomain).toHaveBeenCalledWith('gone.com')
+    expect(h.removeDomain).toHaveBeenCalledWith('www.gone.com')
+  })
+
+  it('normalizes an already-www-prefixed stored domain before detaching (no double www.)', async () => {
+    h.store.tenants.push({ id: 'tenant-del2', name: 'Delete Co 2', slug: 'delete-co-2' })
+    h.store.tenant_domains.push({
+      id: 'dom-del2', tenant_id: 'tenant-del2', domain: 'www.legacy.com',
+      is_primary: false, type: 'generic', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+
+    const res = await DELETE(deleteReq('?id=dom-del2'))
+    expect(res.status).toBe(200)
+
+    expect(h.removeDomain).toHaveBeenCalledWith('legacy.com')
+    expect(h.removeDomain).toHaveBeenCalledWith('www.legacy.com')
+    expect(h.removeDomain).not.toHaveBeenCalledWith('www.www.legacy.com')
+  })
+
+  it('still deletes the row and reports success even when Vercel detach errors (best-effort, never blocks)', async () => {
+    h.store.tenants.push({ id: 'tenant-del3', name: 'Delete Co 3', slug: 'delete-co-3' })
+    h.store.tenant_domains.push({
+      id: 'dom-del3', tenant_id: 'tenant-del3', domain: 'flaky.com',
+      is_primary: false, type: 'generic', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+    h.removeDomain.mockResolvedValue({ ok: false, name: 'flaky.com', status: 'error', detail: '500 unknown' })
+
+    const res = await DELETE(deleteReq('?id=dom-del3'))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.success).toBe(true)
+    expect(h.store.tenant_domains.find((d) => d.id === 'dom-del3')).toBeUndefined()
+  })
+
+  it('does not affect other tenant_domains rows', async () => {
+    h.store.tenants.push({ id: 'tenant-del4', name: 'Delete Co 4', slug: 'delete-co-4' })
+    h.store.tenant_domains.push(
+      { id: 'dom-keep', tenant_id: 'tenant-del4', domain: 'keep.com', is_primary: true, type: 'primary', active: true, created_at: '2026-07-01T00:00:00.000Z' },
+      { id: 'dom-del4', tenant_id: 'tenant-del4', domain: 'remove.com', is_primary: false, type: 'generic', active: true, created_at: '2026-07-01T00:00:00.000Z' },
+    )
+
+    const res = await DELETE(deleteReq('?id=dom-del4'))
+    expect(res.status).toBe(200)
+
+    expect(h.store.tenant_domains.find((d) => d.id === 'dom-keep')).toBeDefined()
+    expect(h.store.tenant_domains.find((d) => d.id === 'dom-del4')).toBeUndefined()
   })
 })

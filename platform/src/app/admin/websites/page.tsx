@@ -36,6 +36,7 @@ export default function AdminWebsitesPage() {
   const [newDomain, setNewDomain] = useState('')
   const [newTenantId, setNewTenantId] = useState('')
   const [saving, setSaving] = useState(false)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   useEffect(() => { fetchData() }, [])
 
@@ -86,6 +87,23 @@ export default function AdminWebsitesPage() {
       console.error('Failed to add domain:', err)
     }
     setSaving(false)
+  }
+
+  const removeDomainRow = async (site: Website) => {
+    if (!confirm(`Remove ${site.domain}? This detaches it from Vercel and it will stop routing to ${site.tenant_name} immediately.`)) return
+    setRemovingId(site.id)
+    try {
+      const res = await fetch(`/api/admin/websites?id=${encodeURIComponent(site.id)}`, { method: 'DELETE' })
+      if (res.ok) {
+        fetchData()
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to remove domain')
+      }
+    } catch (err) {
+      console.error('Failed to remove domain:', err)
+    }
+    setRemovingId(null)
   }
 
   const filteredWebsites = websites.filter(site => {
@@ -236,6 +254,7 @@ export default function AdminWebsitesPage() {
                     <th className="px-5 py-3.5 text-right">Visits (30d)</th>
                     <th className="px-5 py-3.5 text-right">Total</th>
                     <th className="px-5 py-3.5">Added</th>
+                    <th className="px-5 py-3.5" />
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -267,6 +286,15 @@ export default function AdminWebsitesPage() {
                       <td className="px-5 py-3.5 text-right text-sm text-gray-500">{formatNumber(site.visits_total || 0)}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-400">
                         {new Date(site.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="px-5 py-3.5 text-right">
+                        <button
+                          onClick={() => removeDomainRow(site)}
+                          disabled={removingId === site.id}
+                          className="text-xs font-medium text-red-500 hover:text-red-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                        >
+                          {removingId === site.id ? 'Removing...' : 'Remove'}
+                        </button>
                       </td>
                     </tr>
                   ))}

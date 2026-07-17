@@ -3,7 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etToday, etDayBoundaryUTC } from '@/lib/recurring'
 import { normalizeDomain } from '@/lib/seo/onboarding'
-import { registerCustomDomain } from '@/lib/vercel-domains'
+import { registerCustomDomain, removeDomain } from '@/lib/vercel-domains'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -249,4 +249,54 @@ export async function POST(request: NextRequest) {
   const vercel = await registerCustomDomain(domain)
 
   return NextResponse.json({ domain: data, vercel }, { status: 201 })
+}
+
+// This route's POST is the only tenant_domains write path an admin can trigger
+// outside full tenant deletion (activate-tenant.ts's domain_routing step is
+// activation-only), but until now nothing could remove a row it added — no
+// DELETE handler here, no UI action on the admin page. A mistyped domain, a
+// stale alias, or a tenant that switched off a custom domain had no fix short
+// of manual DB surgery or deleting the entire tenant (which destroys every
+// other table's data via cascade, not just the domain). Mirrors
+// admin/businesses/[id]'s DELETE: capture the domain before removing the row,
+// detach apex + www from Vercel best-effort after (registerCustomDomain adds
+// both on POST; removeDomain never throws, matching that route's contract), so
+// a removed domain also stops being routable/certified instead of staying
+// silently attached to the Vercel project after its DB row is gone.
+export async function DELETE(request: NextRequest) {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
+  const id = request.nextUrl.searchParams.get('id')
+  if (!id) {
+    return NextResponse.json({ error: 'id is required' }, { status: 400 })
+  }
+
+  const { data: row } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('domain')
+    .eq('id', id)
+    .single()
+
+  if (!row) {
+    return NextResponse.json({ error: 'domain not found' }, { status: 404 })
+  }
+
+  const { error } = await supabaseAdmin
+    .from('tenant_domains')
+    .delete()
+    .eq('id', id)
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const domain = row.domain as string
+  const apex = domain.replace(/^www\./, '')
+  const [apexResult, wwwResult] = await Promise.all([
+    removeDomain(apex),
+    removeDomain(`www.${apex}`),
+  ])
+
+  return NextResponse.json({ success: true, vercel: [apexResult, wwwResult] })
 }
