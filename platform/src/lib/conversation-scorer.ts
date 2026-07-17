@@ -46,11 +46,26 @@ export async function scoreConversation(tenantId: string, conversationId: string
   // reading or scoring another tenant's transcript.
   const { data: convo } = await supabaseAdmin
     .from('sms_conversations')
-    .select('outcome, booking_checklist, name, created_at, completed_at, updated_at')
+    .select('outcome, booking_checklist, name, created_at, completed_at, updated_at, expired, booking_id')
     .eq('id', conversationId)
     .eq('tenant_id', tenantId)
     .single()
   if (!convo) return { score: 0, issues: ['No data'], strengths: [] }
+
+  // `sms_conversations.outcome` is only ever 'booked' | 'waitlisted' | 'escalated'
+  // (never 'recurring_set') -- the real recurring signal lives on the linked
+  // booking's `recurring_type`. Same declared-value-never-written shape as the
+  // escalation gap fixed alongside this file (item 111).
+  let isRecurringBooking = false
+  if (convo.booking_id) {
+    const { data: booking } = await supabaseAdmin
+      .from('bookings')
+      .select('recurring_type')
+      .eq('id', convo.booking_id)
+      .eq('tenant_id', tenantId)
+      .single()
+    isRecurringBooking = !!booking?.recurring_type && booking.recurring_type !== 'one_time'
+  }
 
   const { data: messages } = await supabaseAdmin
     .from('sms_conversation_messages')
@@ -74,7 +89,7 @@ export async function scoreConversation(tenantId: string, conversationId: string
     issues.push('Asked name as first question')
   }
 
-  if (/recurring|weekly|biweekly|bi-weekly|how often|monthly/i.test(allSelena) && convo.outcome !== 'recurring_set') {
+  if (/recurring|weekly|biweekly|bi-weekly|how often|monthly/i.test(allSelena) && !isRecurringBooking) {
     score -= 10
     issues.push('Mentioned recurring/frequency on a one-time booking')
   }
@@ -131,7 +146,10 @@ export async function scoreConversation(tenantId: string, conversationId: string
     issues.push(`Too many messages (${messages.length}) to complete booking`)
   }
 
-  if (convo.outcome === 'abandoned') {
+  // 'abandoned' is never written to `outcome` either (same gap) -- `expired`
+  // is the real, live signal (webhook timeout + admin manual reset), same
+  // fallback item 111 confirmed metrics.ts already relies on.
+  if (convo.expired) {
     score -= 5
     issues.push('Conversation abandoned')
   }
