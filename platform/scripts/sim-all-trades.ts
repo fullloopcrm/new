@@ -4028,6 +4028,59 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-52. messaging/brand.ts tenantBrand() — tenant_id -> domain REVERSE-LOOKUP PROBE, third mirror-gap instance (fresh ground this round: same bug class as 5a-49/5a-51 -- tenantBrand() (messaging/brand.ts), the resolver that builds every client-facing SMS's site/bookUrl strings, read website_url/tenants.domain ONLY and never consulted tenant_domains at all. Unlike 5a-51's SELENA-agent instance this one is LIVE TODAY, not a Q4-gated landmine: clientSmsTemplates()/clientSmsTemplatesFor() (client-sms.ts) feed every booking-received/confirmed/cancelled/rescheduled/rebook SMS and the rating-prompt cron for every cleaning-industry tenant (client/book, client/reschedule, bookings routes, cron/confirmation-reminder, cron/reminders, cron/rating-prompt). A tenant whose custom domain lives only in tenant_domains (added via admin/websites, which never touches tenants.domain or website_url) got an empty `site` -- silently dropping the SMS "tap to confirm" link (sms-cleaning.ts's bookingReceived) -- and the literal string "the booking link we sent you" instead of a real URL in every other cleaning SMS. Fixed by resolving via getPrimaryTenantDomain() first, same precedence as getAgentConfig()/buildBrandOverride() (tenant_domains PRIMARY row, then tenants.domain/domain_name, then website_url-derived). tenantBrand() is now async; clientSmsTemplates()/clientSmsTemplatesFor() and both direct sync call sites (client/book, client/reschedule) updated to await it. 13 new vitest cases (brand.test.ts new file, client-sms.test.ts new file) incl. an SMS-body-level bug-class probe and wrong-tenant probes prove this against a mocked supabaseAdmin; this probe proves the same precedence against the REAL live schema.) ----
+    {
+      const { tenantBrand } = await import('../src/lib/messaging/brand')
+      const { data: beforeDomainSms } = await supabase.from('tenants').select('domain, website_url').eq('id', tenant.id).single()
+
+      // Case 1: no active tenant_domains rows, no website_url -- must fall back to tenants.domain.
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const legacySmsDomain = `legacy-sms-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacySmsErr } = await supabase.from('tenants').update({ domain: legacySmsDomain, website_url: null }).eq('id', tenant.id)
+      add('tenantBrand domain-fallback probe: tenants.domain seeded, website_url cleared, this tenant\'s tenant_domains rows deactivated', !legacySmsErr, legacySmsErr?.message)
+
+      const brandNoTd = await tenantBrand({ id: tenant.id, domain: legacySmsDomain, website_url: null })
+      add('tenantBrand domain-fallback probe: resolves to tenants.domain when tenant_domains has nothing active (live schema, not a mock)', brandNoTd.site === legacySmsDomain && brandNoTd.bookUrl === `${legacySmsDomain}/book`, brandNoTd.site)
+
+      // Case 2: an active PRIMARY tenant_domains row now exists too -- must WIN
+      // over the legacy tenants.domain column, same precedence as getTenantByDomain/tenantSiteUrl.
+      const primarySmsDomain = `primary-sms-${tenant.id.slice(0, 8)}.example.com`
+      const { error: primarySmsErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: primarySmsDomain, active: true, is_primary: true, notes: 'sim-all-trades tenantBrand probe',
+      })
+      add('tenantBrand probe: an active PRIMARY tenant_domains row seeded alongside the legacy tenants.domain row', !primarySmsErr, primarySmsErr?.message)
+
+      const brandWithTd = await tenantBrand({ id: tenant.id, domain: legacySmsDomain, website_url: null })
+      add('tenantBrand domain-fallback probe: the tenant_domains PRIMARY row wins over tenants.domain (live schema, not a mock)', brandWithTd.site === primarySmsDomain && brandWithTd.bookUrl === `${primarySmsDomain}/book`, brandWithTd.site)
+
+      // WRONG-TENANT PROBE: a second real tenant's tenant_domains PRIMARY row
+      // must never leak into THIS tenant's SMS brand.
+      const foreignSlugSms = slugify('sms-brand-probe', randomUUID())
+      const { data: foreignTenantSms, error: foreignTenantSmsErr } = await supabase.from('tenants').insert({
+        name: 'SMS Brand Probe Co', slug: foreignSlugSms, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('tenantBrand wrong-tenant probe: a real SECOND tenant row created to own a conflicting-looking domain', !!foreignTenantSms && !foreignTenantSmsErr, foreignTenantSmsErr?.message)
+
+      if (foreignTenantSms?.id) {
+        const foreignSmsDomain = `foreign-sms-${foreignTenantSms.id.slice(0, 8)}.example.com`
+        const { error: foreignTdSmsErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantSms.id, domain: foreignSmsDomain, active: true, is_primary: true, notes: 'sim-all-trades tenantBrand wrong-tenant probe',
+        })
+        add('tenantBrand wrong-tenant probe: the SECOND tenant\'s own active PRIMARY tenant_domains row seeded', !foreignTdSmsErr, foreignTdSmsErr?.message)
+
+        const brandStillOwn = await tenantBrand({ id: tenant.id, domain: legacySmsDomain, website_url: null })
+        add('tenantBrand wrong-tenant probe: THIS tenant\'s resolution still returns its own domain, never the second tenant\'s (live schema, real conflicting rows -- not a mock)', brandStillOwn.site === primarySmsDomain, brandStillOwn.site === foreignSmsDomain ? 'LEAKED foreign domain' : 'clean')
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantSms.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantSms.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', primarySmsDomain)
+      await supabase.from('tenants').update({ domain: beforeDomainSms?.domain ?? null, website_url: beforeDomainSms?.website_url ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
