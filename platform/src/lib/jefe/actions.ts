@@ -178,7 +178,7 @@ export async function createTask(title: string, detail?: string, tenantIdentifie
   }
   const { data, error } = await supabaseAdmin
     .from('jefe_tasks')
-    .insert({ title, detail: detail || null, tenant_id })
+    .insert({ title, detail: detail || null, tenant_id, status: 'open' })
     .select('id')
     .limit(1)
   if (error) return { ok: false, error: error.message }
