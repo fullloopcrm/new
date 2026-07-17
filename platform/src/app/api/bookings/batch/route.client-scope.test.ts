@@ -110,4 +110,23 @@ describe('POST /api/bookings/batch — client_id/team_member_id tenant scoping',
     expect(res.status).toBe(200)
     expect(store.bookings.length).toBe(1)
   })
+
+  // Regression: the only caller of this route (BookingsAdmin.tsx's "New
+  // Booking" modal) sends the assignee as `cleaner_id`, not `team_member_id`.
+  // A prior column-rename cleanup (c6c40cd1) collapsed the
+  // `b.team_member_id || b.cleaner_id` fallback into `b.team_member_id ||
+  // b.team_member_id`, so every booking created through that modal saved
+  // with team_member_id = null regardless of which cleaner was picked.
+  it('maps cleaner_id (the field the create modal actually sends) onto team_member_id', async () => {
+    const res = await BATCH_CREATE(jsonReq({ bookings: [{ client_id: OWN_CLIENT, cleaner_id: OWN_MEMBER, start_time: '2026-08-01T10:00:00Z', status: 'pending' }] }))
+    expect(res.status).toBe(200)
+    expect(store.bookings.length).toBe(1)
+    expect(store.bookings[0].team_member_id).toBe(OWN_MEMBER)
+  })
+
+  it('rejects a cleaner_id belonging to another tenant (same guard as team_member_id)', async () => {
+    const res = await BATCH_CREATE(jsonReq({ bookings: [{ client_id: OWN_CLIENT, cleaner_id: FOREIGN_MEMBER, start_time: '2026-08-01T10:00:00Z' }] }))
+    expect(res.status).toBe(404)
+    expect(store.bookings.length).toBe(0)
+  })
 })

@@ -33,8 +33,16 @@ export async function POST(request: Request) {
   // belongs to this tenant before insert — the response joins clients(*)/
   // team_members(*) (full rows, incl. pin/pay_rate), so a foreign id would
   // otherwise leak another tenant's client or staff PII in bulk.
+  //
+  // The only caller of this route (BookingsAdmin.tsx's "New Booking" modal,
+  // non-emergency/non-recurring path) sends the assignee as `cleaner_id`, not
+  // `team_member_id` -- a prior column-name cleanup (c6c40cd1) collapsed the
+  // `b.team_member_id || b.cleaner_id` fallback into `b.team_member_id ||
+  // b.team_member_id`, silently dropping every cleaner assignment made through
+  // that modal. Both keys are checked here so the ownership guard below covers
+  // whichever one the caller actually used.
   const candidateClientIds = Array.from(new Set(bookingInputs.map(b => b.client_id).filter((v): v is string => typeof v === 'string')))
-  const candidateMemberIds = Array.from(new Set(bookingInputs.map(b => b.team_member_id).filter((v): v is string => typeof v === 'string')))
+  const candidateMemberIds = Array.from(new Set(bookingInputs.map(b => (b.team_member_id ?? b.cleaner_id)).filter((v): v is string => typeof v === 'string')))
   if (candidateClientIds.length > 0) {
     const { data: ownedClients } = await supabaseAdmin.from('clients').select('id').eq('tenant_id', tenantId).in('id', candidateClientIds)
     const ownedIds = new Set((ownedClients || []).map(r => r.id))
@@ -57,7 +65,7 @@ export async function POST(request: Request) {
     return {
       tenant_id: tenantId,
       client_id: b.client_id,
-      team_member_id: b.team_member_id || b.team_member_id || null,
+      team_member_id: b.team_member_id || b.cleaner_id || null,
       start_time: b.start_time,
       end_time: b.end_time,
       service_type: b.service_type,
