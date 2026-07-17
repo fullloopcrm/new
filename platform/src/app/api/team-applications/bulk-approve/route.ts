@@ -33,19 +33,32 @@ export async function POST() {
     }
 
     // Flip them all to approved first (single UPDATE), then provision+email each.
+    // Re-check `status: 'pending'` in the UPDATE's own WHERE clause -- closes
+    // the race window between the SELECT above and this UPDATE: a row that a
+    // concurrent single-approve (PUT /api/team-applications) already flipped
+    // to 'approved' in that window won't match here, and `.select('id')'`
+    // returns only the ids THIS call actually transitioned.
     const ids = pending.map((p) => p.id)
-    const { error: updErr } = await supabaseAdmin
+    const { data: updated, error: updErr } = await supabaseAdmin
       .from('team_applications')
       .update({ status: 'approved' })
       .in('id', ids)
       .eq('tenant_id', tenant.tenantId)
+      .eq('status', 'pending')
+      .select('id')
 
     if (updErr) return NextResponse.json({ error: updErr.message }, { status: 500 })
+
+    // Only provision applicants this call actually transitioned -- a row
+    // claimed by a concurrent single-approve must not be re-provisioned/
+    // re-emailed here.
+    const updatedIds = new Set((updated || []).map((r) => r.id))
+    const toProvision = pending.filter((p) => updatedIds.has(p.id))
 
     // Provision + email each applicant. Best-effort, isolated per applicant.
     const failures: Array<{ id: string; name: string | null; error: string }> = []
     let provisioned = 0
-    for (const app of pending) {
+    for (const app of toProvision) {
       try {
         await provisionApprovedApplicant(tenant.tenantId, app as ApprovedApplication)
         provisioned++
@@ -55,7 +68,7 @@ export async function POST() {
     }
 
     return NextResponse.json({
-      approved: pending.length,
+      approved: toProvision.length,
       provisioned,
       failures,
     })

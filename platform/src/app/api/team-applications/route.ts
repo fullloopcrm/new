@@ -143,19 +143,41 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'ID and status required' }, { status: 400 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // Atomic claim on approval: a double-click or retried PUT for an
+    // already-approved application must not re-run provisioning, which
+    // re-sends the applicant their "you're approved" PIN email every time
+    // (same double-fire class as the campaign-send / rating-prompt-cron /
+    // bookings-PUT-notify fixes this session). `.neq('status', 'approved')`
+    // means only the request that actually flips the row INTO 'approved'
+    // gets it back and provisions; a later call for the same id finds no
+    // matching row and skips provisioning.
+    let query = supabaseAdmin
       .from('team_applications')
       .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenant.tenantId)
-      .select()
-      .single()
+    if (status === 'approved') query = query.neq('status', 'approved')
+    const { data, error } = await query.select().maybeSingle()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    if (!data) {
+      // Either the application doesn't exist, or (for an 'approved' request)
+      // it was already approved by an earlier call. Return the current row
+      // with no re-provisioning.
+      const { data: current } = await supabaseAdmin
+        .from('team_applications')
+        .select()
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .maybeSingle()
+      if (!current) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      return NextResponse.json({ application: current })
+    }
+
     // On approval, provision the applicant as a team member (PIN + portal) and
     // email them. Best-effort: a failure here must never undo the status update.
-    if (status === 'approved' && data) {
+    if (status === 'approved') {
       try {
         await provisionApprovedApplicant(tenant.tenantId, data as ApprovedApplication)
       } catch (provErr) {

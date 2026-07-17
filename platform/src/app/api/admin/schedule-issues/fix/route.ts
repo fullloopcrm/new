@@ -67,6 +67,19 @@ async function buildFixPlan(issue: IssueRow, tenantId: string): Promise<FixPlan>
   }
 
   if (issue.type === 'day_off') {
+    // Guard against a stale issue: the booking may have been reassigned to a
+    // different (available) team member, or moved to a terminal status,
+    // since the cron flagged it. Applying the unassign+revert-to-pending
+    // mutation in either case would destroy a since-completed job record or
+    // undo a manual fix that already solved the problem.
+    const actionableStatuses = ['scheduled', 'pending', 'confirmed']
+    if (!actionableStatuses.includes(booking.status) || booking.team_member_id !== issue.team_member_id) {
+      return {
+        description: `This issue no longer applies -- the booking's status or assignment has changed since it was flagged. Marking resolved with no data change.`,
+        changes: [],
+        acknowledgeOnly: true,
+      }
+    }
     return {
       description: `Unassign team member from this booking and flip status back to pending so admin can reassign.`,
       changes: [
