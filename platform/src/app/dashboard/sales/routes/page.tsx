@@ -138,6 +138,22 @@ export default function RoutesPage() {
     setBusy('')
   }
 
+  async function setStatus(id: string, status: 'cancelled' | 'completed', confirmMsg: string) {
+    if (!confirm(confirmMsg)) return
+    setBusy(`${status}-${id}`); setErr(''); setMsg('')
+    try {
+      const res = await fetch(`/api/routes/${id}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      })
+      if (!res.ok) throw new Error((await res.json()).error || 'Failed')
+      load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed')
+    }
+    setBusy('')
+  }
+
   return (
     <div>
       <div className="mb-6 flex items-start justify-between flex-wrap gap-3">
@@ -212,6 +228,24 @@ export default function RoutesPage() {
                         className="px-3 py-1.5 text-xs font-medium rounded bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
                       >
                         {busy === `pub-${r.id}` ? 'Sending…' : r.published_at ? 'Re-send SMS' : 'Send to team'}
+                      </button>
+                    )}
+                    {(r.status === 'published' || r.status === 'started') && (
+                      <button
+                        onClick={() => setStatus(r.id, 'completed', 'Mark this route complete?')}
+                        disabled={!!busy}
+                        className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50"
+                      >
+                        {busy === `completed-${r.id}` ? 'Completing…' : 'Mark Complete'}
+                      </button>
+                    )}
+                    {r.status !== 'cancelled' && r.status !== 'completed' && (
+                      <button
+                        onClick={() => setStatus(r.id, 'cancelled', 'Cancel this route? The team member will not be notified automatically.')}
+                        disabled={!!busy}
+                        className="px-3 py-1.5 text-xs font-medium rounded bg-white border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50"
+                      >
+                        {busy === `cancelled-${r.id}` ? 'Cancelling…' : 'Cancel'}
                       </button>
                     )}
                     <button
