@@ -131,7 +131,14 @@ export default function QuoteDetailPage() {
     const res = await fetch(`/api/quotes/${id}/convert`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({}) })
     const data = await res.json()
     if (!res.ok) throw new Error(data.error || 'Convert failed')
-    router.push(`/dashboard/bookings?highlight=${data.booking_id}`)
+    // Recurring quotes route to a recurring_schedules series instead of a
+    // single booking (see the route's recurring_type branch) — no
+    // booking_id to highlight, go to the schedule instead.
+    if (data.schedule_id) {
+      router.push(`/dashboard/schedules/${data.schedule_id}`)
+    } else {
+      router.push(`/dashboard/bookings?highlight=${data.booking_id}`)
+    }
   })
 
   // Project conversion: build a payment plan (default deposit/final split), then

@@ -27,6 +27,31 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (qErr || !quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
+    // recurring_type quotes must become a recurring_schedules series, not a
+    // one-off Booking -- same fulfillment-routing gap already fixed on the
+    // Stripe deposit webhook and the manual deal-stage-change close (webhooks/
+    // stripe/route.ts, deals/[id]/stage/route.ts). This route -- the staff
+    // "Convert to Booking" button -- was the only fulfillment entry point
+    // never checking recurring_type: a customer who signed up for a weekly
+    // service via a quote got ONE booking and no ongoing series ever
+    // generated. createRecurringSeriesFromQuote does its own idempotency
+    // check (quotes.converted_schedule_id) and atomic claim, so it's safe to
+    // delegate before this route's own converted_booking_id/claim logic
+    // below, which only ever applies to the non-recurring path.
+    if (quote.recurring_type) {
+      try {
+        const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+        const result = await createRecurringSeriesFromQuote(tenantId, id)
+        return NextResponse.json({
+          schedule_id: result.schedule_id,
+          bookings_created: result.bookings_created,
+          already_converted: result.already_converted,
+        })
+      } catch (err) {
+        return NextResponse.json({ error: err instanceof Error ? err.message : 'Failed' }, { status: 500 })
+      }
+    }
+
     // Idempotent — return existing conversion
     if (quote.converted_booking_id) {
       return NextResponse.json({ booking_id: quote.converted_booking_id, already_converted: true })
