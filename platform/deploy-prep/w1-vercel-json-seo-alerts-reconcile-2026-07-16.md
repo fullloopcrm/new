@@ -62,3 +62,7 @@ I only diffed w1 against w2/w3/w4/w5/w6 (all 6 P1 worktrees that exist as of now
 ## Re-verify 23:56
 
 Unchanged since 23:35 (bef21b8b): w1 solo on seo-alerts+seo-index-cliff, w2+w5 share gdpr-purge, w4 solo on seo-health+hr-document-reminders, w3/w6 stale. No consolidation activity across any branch.
+
+## Re-verify 00:12 (2026-07-17)
+
+Re-verified live against current HEADs — p1-w1 `633f3bf2`, p1-w2 `1e1d2716`, p1-w3 `89955b55`, p1-w4 `7236556f`, p1-w5 `399cc29b` (unchanged, still Jul-13 18:23 — stale), p1-w6 `d956237a` (unchanged, still Jul-13 18:56 — stale). Re-diffed all 6 `vercel.json` crons arrays via `git show <branch>:platform/vercel.json`: everything from the 23:56 check is unchanged for the tracked gap items — `seo-alerts` still entry-only on w1/code-only on w2, `seo-index-cliff` still entry+code solo on w1, `seo-health` + `hr-document-reminders` still entry+code solo on w4, `gdpr-purge` still two competing implementations at their original schedules (w2 `0 9 * * *`, w5 `30 5 * * *`), w3/w6 still baseline. One addition on w1 since the last full listing, not a gap: `generate-monthly-invoices` (this session's own monthly-invoice-consolidation feature, first committed ~23:xx) is now a third w1-solo cron entry, alongside seo-alerts/seo-index-cliff — expected, self-consistent with the code it ships (`src/app/api/cron/generate-monthly-invoices/route.ts` exists only on w1), not cross-branch drift. No consolidation/merge activity detected on any branch per current LEADER-CHANNEL contents.
