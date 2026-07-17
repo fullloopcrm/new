@@ -131,8 +131,19 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       booking_id: id,
     }).catch(() => {})
 
-    // 4. Team member (if assigned)
-    if (updated.team_member_id) {
+    // 4. Team member (if assigned) — the assignment itself may predate this
+    // request entirely (client only moved the date/time, didn't touch
+    // team_member_id): a booking can already be stale-assigned to a
+    // terminated worker (same root cause as the cron stale-assignment guards
+    // — HR termination never clears bookings.team_member_id), and without
+    // this check a client-initiated reschedule would still text/email/push
+    // "Job Rescheduled" to someone who no longer works here. The
+    // caller-supplied-id check above only covers a NEW assignment in this
+    // same request; this covers the pre-existing one.
+    const [staleTerminatedId] = updated.team_member_id
+      ? await getTerminatedTeamMemberIds(tenant.id, [updated.team_member_id])
+      : []
+    if (updated.team_member_id && !staleTerminatedId) {
       await notifyTeamMember({
         tenantId: tenant.id,
         teamMemberId: updated.team_member_id,
