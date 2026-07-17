@@ -4,6 +4,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../auth/token'
 import { getSettings } from '@/lib/settings'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
+import { sendEmail } from '@/lib/email'
+import { sendSMS } from '@/lib/sms'
+import { notify } from '@/lib/notify'
+import { bookingReceivedEmail } from '@/lib/messaging/client-email'
+import { clientSmsTemplates } from '@/lib/messaging/client-sms'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -127,6 +132,63 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Notify — until now this route had ZERO notification wiring (unlike its
+  // sibling POST /api/client/book, the public widget, which fires an admin
+  // alert + client email/SMS confirmation). A same-day/emergency booking made
+  // by a returning client through their own portal — the exact path that just
+  // gained same-day pricing above — landed in the DB and told no one: not the
+  // owner/dispatcher, not the client. Mirrors client/book's core notify+email
+  // +SMS block; admin-only extras specific to the public widget (referral
+  // credit, attribution, smart-schedule suggestion) are a different feature
+  // and out of scope here.
+  try {
+    const { data: client } = await db
+      .from('clients')
+      .select('name, phone, email')
+      .eq('id', auth.id)
+      .single<{ name: string | null; phone: string | null; email: string | null }>()
+
+    await notify({
+      tenantId: auth.tid,
+      type: 'new_booking',
+      title: 'New Booking Request',
+      message: `New booking from ${client?.name || 'Unknown'} • via Client Portal`,
+      bookingId: data.id,
+    })
+
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('*')
+      .eq('id', auth.tid)
+      .single()
+
+    if (tenant) {
+      const bookingWithClient = { ...data, clients: client }
+
+      if (client?.email && tenant.resend_api_key) {
+        const { subject, html } = bookingReceivedEmail(tenant, bookingWithClient)
+        await sendEmail({
+          to: client.email,
+          subject,
+          html,
+          resendApiKey: tenant.resend_api_key,
+          from: tenant.email_from || undefined,
+        })
+      }
+
+      if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        await sendSMS({
+          to: client.phone,
+          body: clientSmsTemplates(tenant).bookingReceived(bookingWithClient),
+          telnyxApiKey: tenant.telnyx_api_key,
+          telnyxPhone: tenant.telnyx_phone,
+        })
+      }
+    }
+  } catch (notifyError) {
+    console.error('Portal booking notify error:', notifyError)
   }
 
   return NextResponse.json({ booking: data }, { status: 201 })
