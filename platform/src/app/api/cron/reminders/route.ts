@@ -64,7 +64,7 @@ export async function GET(request: Request) {
 
           const { data: bookings } = await supabaseAdmin
             .from('bookings')
-            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
+            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
             .gte('start_time', targetStart)
@@ -85,6 +85,11 @@ export async function GET(request: Request) {
 
             const client = booking.clients
             const clientName = client?.name?.split(' ')[0] || 'there'
+            // sms_consent is the blanket STOP/START opt-out flag (webhooks/telnyx's
+            // STOP handler sets it false tenant-wide) -- the client SMS reminders
+            // below called sendSMS() directly, bypassing notify()'s central consent
+            // gate, same bug class already fixed on payment-reminder/post-job-followup.
+            const clientOptedOut = client?.sms_consent === false
 
             // Client email reminder
             if (client?.email) {
@@ -101,8 +106,8 @@ export async function GET(request: Request) {
               })
             }
 
-            // Client SMS reminder (gated by the booking_reminder SMS toggle)
-            if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Client SMS reminder (gated by the booking_reminder SMS toggle + sms_consent)
+            if (reminderSmsOn && !clientOptedOut && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {
@@ -201,7 +206,7 @@ export async function GET(request: Request) {
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .gte('start_time', hourWindowStart.toISOString())
@@ -223,9 +228,10 @@ export async function GET(request: Request) {
         const client = booking.clients
         const member = booking.team_members
         const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
+        const clientOptedOut = client?.sms_consent === false
 
-        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
-        if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle + sms_consent)
+        if (reminderSmsOn && !clientOptedOut && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
             await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
