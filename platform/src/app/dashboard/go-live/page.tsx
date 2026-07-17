@@ -8,6 +8,7 @@ type Task = {
   status: string
   notes: string | null
   completed_at: string | null
+  blocked_reason: string | null
 }
 
 type Readiness = {
@@ -54,13 +55,13 @@ export default function GoLivePage() {
 
   useEffect(() => { load() }, [load])
 
-  async function setStatus(task: Task, status: string) {
+  async function setStatus(task: Task, status: string, blockedReason?: string) {
     setBusy(task.id); setErr('')
     try {
       const res = await fetch('/api/dashboard/onboarding', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ task_id: task.id, status }),
+        body: JSON.stringify({ task_id: task.id, status, blocked_reason: blockedReason }),
       })
       const d = await res.json()
       if (!res.ok) throw new Error(d.error || 'Update failed')
@@ -70,6 +71,11 @@ export default function GoLivePage() {
       setErr(e instanceof Error ? e.message : 'Failed')
     }
     setBusy('')
+  }
+
+  async function blockTask(task: Task) {
+    const reason = prompt('What\'s blocking this step?') || ''
+    await setStatus(task, 'blocked', reason)
   }
 
   async function goLive() {
@@ -108,10 +114,20 @@ export default function GoLivePage() {
             <button
               onClick={() => setStatus(t, STATUS_CYCLE[t.status] || 'completed')}
               disabled={busy === t.id}
+              title={t.status === 'blocked' && t.blocked_reason ? t.blocked_reason : undefined}
               className={`shrink-0 text-[11px] px-2 py-1 rounded font-medium ${STATUS_STYLE[t.status] || 'bg-slate-100'}`}>
               {busy === t.id ? '…' : t.status}
             </button>
-            <span className="flex-1 text-sm text-slate-700">{t.notes || t.task_type}</span>
+            <span className="flex-1 text-sm text-slate-700">
+              {t.notes || t.task_type}
+              {t.status === 'blocked' && t.blocked_reason && (
+                <span className="block text-xs text-red-500">{t.blocked_reason}</span>
+              )}
+            </span>
+            {t.status !== 'skipped' && t.status !== 'completed' && t.status !== 'blocked' && (
+              <button onClick={() => blockTask(t)} disabled={busy === t.id}
+                className="text-[11px] text-slate-400 hover:text-slate-600">block</button>
+            )}
             {t.status !== 'skipped' && t.status !== 'completed' && (
               <button onClick={() => setStatus(t, 'skipped')} disabled={busy === t.id}
                 className="text-[11px] text-slate-400 hover:text-slate-600">skip</button>
