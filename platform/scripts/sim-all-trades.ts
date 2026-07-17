@@ -2901,6 +2901,103 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-29. client/confirm/[token] (one-tap terms-accepted SMS) + email/monitor (IMAP-parsed Zelle/Venmo payment thank-you SMS) — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, 17th-18th call sites of the missing-consent-check bug class, found via this round's leader-requested repo-wide sendSMS/sendEmail-vs-consent-gate cross-check) ----
+    // client/confirm/[token] is unusual among this session's finds: it called
+    // `sendSMS(..., { skipConsent: true })` -- an explicit bypass, not just an
+    // omitted check -- and the join it now reads (`clients(name, phone,
+    // sms_consent, do_not_service)`) is proven identical to 5a-28's already.
+    // email/monitor's matchPaymentToBooking() has 3 independent match
+    // branches with 3 DISTINCT select shapes (two bookings-joins that omit
+    // `name`, and one direct `clients` table select with no booking join at
+    // all) -- none previously proven against the live schema in this file.
+    // Both are CRON/token-gated -- same reasoning as every prior round: prove
+    // the fixed predicate against real bookings/clients rows through each
+    // route's exact column selection, rather than invoking the handlers
+    // directly.
+    {
+      const cemGatePhone = '646' + String(4700000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: cemGateBlockedClient, error: cemGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'ConfirmEmail-Gate STOP Client', email: `cemgate-stop+${runId}@example.com`,
+        phone: cemGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('confirm-token/email-monitor-gate: STOP-revoked client row created (sms_consent=false)', !!cemGateBlockedClient && !cemGateBlockedErr, cemGateBlockedErr?.message)
+
+      const { data: cemGateDnsClient, error: cemGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'ConfirmEmail-Gate Banned Client', email: `cemgate-dns+${runId}@example.com`,
+        phone: cemGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('confirm-token/email-monitor-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!cemGateDnsClient && !cemGateDnsErr, cemGateDnsErr?.message)
+
+      const { data: cemGateOkClient, error: cemGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'ConfirmEmail-Gate Consented Client', email: `cemgate-ok+${runId}@example.com`,
+        phone: cemGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('confirm-token/email-monitor-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!cemGateOkClient && !cemGateOkErr, cemGateOkErr?.message)
+
+      const cemGateBookingIds: Record<string, string> = {}
+      for (const [label, gateClient] of [
+        ['blocked', cemGateBlockedClient], ['dns', cemGateDnsClient], ['control', cemGateOkClient],
+      ] as const) {
+        if (!gateClient?.id) continue
+        const { data: cemGateBooking, error: cemGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 55, actual_hours: 2, status: 'pending', payment_status: 'unpaid',
+          service_type: `confirm-token/email-monitor-gate ${label} probe`,
+          client_confirm_token: `${runId}-${label}-tok`,
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add(`confirm-token/email-monitor-gate: ${label} — live schema — a real bookings row's embedded clients() join surfaces the same consent columns both fixed routes now read`, !!cemGateBooking && !cemGateBookingErr, cemGateBookingErr?.message || JSON.stringify(cemGateBooking))
+        if (cemGateBooking?.id) cemGateBookingIds[label] = cemGateBooking.id
+      }
+
+      const cemGateIds = Object.values(cemGateBookingIds)
+
+      // client/confirm/[token]'s exact join shape (includes name, matches
+      // 5a-28's already-proven shape).
+      const confirmTokenRows = await supabase.from('bookings')
+        .select('id, tenant_id, start_time, status, client_terms_accepted_at, client_id, clients(name, phone, sms_consent, do_not_service)')
+        .eq('tenant_id', tenant.id).in('id', cemGateIds)
+
+      // email/monitor branch 1 & 3's exact join shape — omits `name`, never
+      // proven before this round.
+      const emailMonitorJoinRows = await supabase.from('bookings')
+        .select('id, client_id, clients(phone, sms_consent, do_not_service)')
+        .eq('tenant_id', tenant.id).in('id', cemGateIds)
+
+      // email/monitor branch 2's exact shape — a direct `clients` table
+      // select with NO booking join, never proven before this round.
+      const emailMonitorDirectClientRows = await supabase.from('clients')
+        .select('id, phone, sms_consent, do_not_service')
+        .eq('tenant_id', tenant.id).in('id', [cemGateBlockedClient?.id, cemGateDnsClient?.id, cemGateOkClient?.id].filter(Boolean))
+
+      const cemGatePredicate = (rows: { id: string; clients: unknown }[] | null) => (rows || [])
+        .filter(b => { const c = b.clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return !!c?.phone && c.sms_consent !== false && !c.do_not_service })
+        .map(b => b.id)
+      const cemGateDirectPredicate = (rows: typeof emailMonitorDirectClientRows.data) => (rows || [])
+        .filter(c => !!c.phone && c.sms_consent !== false && !c.do_not_service)
+        .map(c => c.id)
+
+      const confirmTokenWouldText = cemGatePredicate(confirmTokenRows.data)
+      const emailMonitorJoinWouldText = cemGatePredicate(emailMonitorJoinRows.data)
+      const emailMonitorDirectWouldText = cemGateDirectPredicate(emailMonitorDirectClientRows.data)
+
+      add('confirm-token-gate: the fixed predicate skips the STOP-revoked client\'s terms-accepted SMS', !confirmTokenWouldText.includes(cemGateBookingIds.blocked), JSON.stringify(confirmTokenWouldText))
+      add('confirm-token-gate: the fixed predicate skips the do_not_service client\'s terms-accepted SMS', !confirmTokenWouldText.includes(cemGateBookingIds.dns), JSON.stringify(confirmTokenWouldText))
+      add('confirm-token-gate: CONTROL — the fixed predicate still texts the consented, non-banned client', confirmTokenWouldText.includes(cemGateBookingIds.control), JSON.stringify(confirmTokenWouldText))
+
+      add('email-monitor-join-gate (branches 1+3): the fixed predicate skips the STOP-revoked client\'s payment thank-you SMS', !emailMonitorJoinWouldText.includes(cemGateBookingIds.blocked), JSON.stringify(emailMonitorJoinWouldText))
+      add('email-monitor-join-gate (branches 1+3): the fixed predicate skips the do_not_service client\'s payment thank-you SMS', !emailMonitorJoinWouldText.includes(cemGateBookingIds.dns), JSON.stringify(emailMonitorJoinWouldText))
+      add('email-monitor-join-gate (branches 1+3): CONTROL — the fixed predicate still texts the consented, non-banned client', emailMonitorJoinWouldText.includes(cemGateBookingIds.control), JSON.stringify(emailMonitorJoinWouldText))
+
+      add('email-monitor-direct-client-gate (branch 2): the fixed predicate skips the STOP-revoked client (no booking join at all)', !emailMonitorDirectWouldText.includes(cemGateBlockedClient?.id), JSON.stringify(emailMonitorDirectWouldText))
+      add('email-monitor-direct-client-gate (branch 2): the fixed predicate skips the do_not_service client (no booking join at all)', !emailMonitorDirectWouldText.includes(cemGateDnsClient?.id), JSON.stringify(emailMonitorDirectWouldText))
+      add('email-monitor-direct-client-gate (branch 2): CONTROL — the fixed predicate still texts the consented, non-banned client', emailMonitorDirectWouldText.includes(cemGateOkClient?.id), JSON.stringify(emailMonitorDirectWouldText))
+
+      for (const id of Object.values(cemGateBookingIds)) {
+        await supabase.from('bookings').delete().eq('id', id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
