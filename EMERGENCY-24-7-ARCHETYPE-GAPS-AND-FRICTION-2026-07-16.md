@@ -2649,3 +2649,80 @@ patch (`git diff` → `git apply -R` → the "emails the referrer" assertion
 failed reproducing the exact pre-fix symptom, RED → `git apply` restored,
 GREEN). `tsc --noEmit` clean, full suite 369/369 files, 1846/1846 tests,
 zero regressions.
+
+## (62) New today, archetype depth — `jobs/reassign` was the only team-member push in the codebase still bypassing `notifyTeamMember()`, the channel items (53)/(54)/(56)/(58)/(60) already established — NOW FIXED
+
+Grepped every call site of `sendPushToTeamMember()` (the raw push primitive)
+and `notifyTeamMember()` (the quiet-hours/per-type-prefs/SMS/email/in-app
+wrapper around it) across the codebase. Every team-member-facing
+notification route now goes through the wrapper — except one:
+`POST /api/team-portal/jobs/reassign` called `sendPushToTeamMember()`
+directly for both the incoming and outgoing tech, the exact shape of gap
+item (60) fixed at a different call site. Net effect, worse than item (60)
+in one respect: no in-app notification row for either side of a
+reassignment, no SMS/email fallback for a push-less or push-declined tech,
+no item (48) SMS-consent gate, and — the inverse of the usual quiet-hours
+bug — a **routine** reassignment always pushed regardless of the hour,
+since this call site had no quiet-hours check of any kind to bypass.
+Confirmed via `grep -rln sendPushToTeamMember src/` (only this route and
+the primitives themselves) vs `grep -rln notifyTeamMember\(` (only
+`bookings/[id]/team/route.ts` and `client/reschedule/[id]/route.ts`, both
+already migrated).
+
+**Fixed** (`p1-w3`) — switched both notifications (to the incoming member:
+type `job_assignment`, matching item (60)'s own convention; to the outgoing
+member: type `job_cancelled`, the closest existing semantic fit for
+"you no longer have this job") to `notifyTeamMember()`, wiring a real
+`smsMessage` for each via the already-existing `teamSmsTemplates(...)
+.jobAssignment()` resolver (incoming side) and `smsJobCancelled()` (outgoing
+side) — both templates already `is_emergency`/`pay_rate`-aware from items
+(7)/(26). `skipEmail: true` on both, matching item (60)'s team/route.ts
+precedent for this event class. 1 existing test file updated
+(`route.emergency-push.test.ts`, previously mocked `sendPushToTeamMember`
+directly) to mock `notifyTeamMember` instead and assert `isEmergency`,
+`type`, and the actual rendered `smsMessage` content (URGENT + pay line on
+the emergency case, absent on the routine control) flow through correctly.
+Mutation-verified via saved patch (`git diff` → `git apply -R` → both
+assertions on call count dropped to 0, reproducing the exact pre-fix
+symptom — the route no longer called the mocked module at all, RED →
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 369/369
+files, 1846/1846 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
+item 17).
+
+## (63) New today, fresh ground outside the archetype — `quote_viewed` has been a declared notification type since this codebase's beginning and no call site has ever fired it — NOW FIXED
+
+`notify.ts`'s own `NotificationType` union declares `'quote_viewed'`
+alongside `quote_sent`/`quote_accepted`/`quote_declined`/`quote_expired` —
+but `grep -rn quote_viewed src/` turns up exactly one hit: the union
+declaration itself. The event it should represent is very much tracked:
+`GET /api/quotes/public/[token]` (the public, token-authenticated proposal
+view) already bumps `view_count`/`last_viewed_at`, sets `first_viewed_at`
+on the first open, flips `status` from `sent` to `viewed`, and inserts a
+`quote_events` row with `event_type: 'viewed'` — every piece of bookkeeping
+a real feature needs, just never wired to a `notify()` call or an
+`ownerAlert()`. Compare the two sibling terminal events on the same public
+token surface: both `POST .../accept` and `POST .../decline` fire `notify()`
+(populates the admin's in-app notifications list) *and* `ownerAlert()`
+(branded email + SMS to every tenant admin) the moment the customer acts.
+A customer opening a $-value proposal for the first time — arguably the
+single most actionable "call them now, they're looking at it" signal in
+the entire sales-hub pipeline — produced total silence on every channel.
+Confirmed by reading both sibling routes end to end and grepping
+`quote_viewed` across the whole tracked source tree.
+
+**Fixed** (`p1-w3`) — added the identical `notify()` + `ownerAlert()` pair
+the accept/decline routes already use, gated on `isFirstView` (the same
+`!quote.first_viewed_at` condition the route already computes to decide
+whether to set `first_viewed_at` at all) so a proposal reopened many times
+doesn't re-notify on every refresh — unlike accept/decline, which are
+one-shot terminal events and never needed this guard. 2 new tests
+(`route.viewed-notify.test.ts`): a first view fires both `notify()` (type
+`quote_viewed`, `recipientType: 'admin'`) and `ownerAlert()` exactly once;
+a second view (`first_viewed_at` already set) fires neither. Mutation-
+verified via saved patch (`git diff` → `git apply -R` → the first-view
+assertion dropped to 0 calls, reproducing the exact pre-fix symptom, RED →
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 370/370
+files, 1848/1848 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
+item 17).
