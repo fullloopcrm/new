@@ -40,7 +40,7 @@ export async function GET() {
       supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
       supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
       supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
-      supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, team_member_paid, status').eq('tenant_id', tenantId).in('status', ['completed', 'paid']).or('payment_status.neq.paid,team_member_paid.neq.true'),
+      supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, partial_payment_cents, team_member_paid, status').eq('tenant_id', tenantId).in('status', ['completed', 'paid']).or('payment_status.neq.paid,team_member_paid.neq.true'),
       supabaseAdmin.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
     ])
 
@@ -70,7 +70,15 @@ export async function GET() {
     const yearLabor = sum(yearBookings, 'team_member_pay')
     const yearLaborPaid = sumPaidLabor(yearBookings)
 
-    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => s + (b.price || 0), 0)
+    // A 'partial' booking already collected partial_payment_cents from the
+    // client -- only the remainder is still pending. Without this, the
+    // dashboard's headline "pending client payments" figure double-counted
+    // money that had already come in, same class of bug as ar-aging/cash-flow.
+    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => {
+      const price = b.price || 0
+      const received = b.payment_status === 'partial' ? Math.max(0, Number(b.partial_payment_cents) || 0) : 0
+      return s + Math.max(0, price - received)
+    }, 0)
     // Same status='paid'-means-settled guard as sumPaidLabor above: a
     // bulk-paid booking (status='paid') must not count toward cleaner
     // pending pay just because team_member_paid was never set.
