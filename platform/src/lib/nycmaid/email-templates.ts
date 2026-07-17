@@ -110,7 +110,7 @@ const noteBox = (content: string, type: 'info' | 'warning' | 'success' = 'info')
 export function clientBookingReceivedEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
-  const clientName = booking.clients?.name?.split(' ')[0] || 'there'
+  const clientName = escapeHtml(booking.clients?.name?.split(' ')[0] || 'there')
   const rate = booking.hourly_rate || 69
 
   const content = `
@@ -225,8 +225,8 @@ export function clientConfirmationEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = booking.cleaners?.name || 'Your cleaner'
-  const cleanerFirst = (booking.cleaners?.name || 'Your cleaner').split(' ')[0]
-  const clientName = booking.clients?.name?.split(' ')[0] || 'there'
+  const cleanerFirst = escapeHtml((booking.cleaners?.name || 'Your cleaner').split(' ')[0])
+  const clientName = escapeHtml(booking.clients?.name?.split(' ')[0] || 'there')
   const hourlyRate = booking.hourly_rate || 69
   const isRecurring = booking.recurring_type ? true : false
 
