@@ -53,6 +53,21 @@ export async function POST(request: Request) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Reassign failed' }, { status: 500 })
 
+  // GET /api/bookings/:id/team and closeout-summary both source the LEAD from
+  // booking_team_members, not bookings.team_member_id — falling back to the
+  // latter only when no booking_team_members rows exist at all, never true
+  // here (every job reachable from the field portal was created with a lead
+  // row). Updating only bookings.team_member_id above left that lead row
+  // stale, so the admin Team panel and closeout payout attribution kept
+  // showing the OLD member after a field reassign — same
+  // booking_team_members-sync gap already fixed for cron/generate-recurring's
+  // refill, the regenerate route, and the admin exception reassign path.
+  await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
+  await supabaseAdmin.from('booking_team_members').upsert(
+    { booking_id: booking_id, team_member_id: to_member_id, is_lead: true, position: 1 },
+    { onConflict: 'booking_id,team_member_id' }
+  )
+
   await audit({
     tenantId: auth.tid,
     action: 'booking.updated',
