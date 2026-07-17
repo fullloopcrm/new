@@ -9,9 +9,9 @@
 // overwritten, not the rows themselves.
 //
 // PII field list below is grounded in the columns visible in this repo's own
-// migration history (clients, invoices, client_sms_messages) — not a live
-// schema introspection. Verify against the production schema before relying
-// on it for full compliance coverage.
+// migration history (clients, invoices, client_sms_messages, client_contacts)
+// — not a live schema introspection. Verify against the production schema
+// before relying on it for full compliance coverage.
 
 import { supabaseAdmin } from './supabase'
 import { tenantDb } from './tenant-db'
@@ -132,6 +132,7 @@ export async function cancelDeletion({
 
 const REDACTED_NAME = 'Deleted User'
 const REDACTED_MESSAGE = '[deleted — GDPR request]'
+const REDACTED_EMAIL = 'deleted@example.invalid'
 
 async function purgeOne(tenantId: string, clientId: string, requestId: string): Promise<void> {
   const db = tenantDb(tenantId)
@@ -166,6 +167,27 @@ async function purgeOne(tenantId: string, clientId: string, requestId: string): 
     .update({ message: REDACTED_MESSAGE })
     .eq('client_id', clientId)
   if (smsErr) throw new Error(`sms anonymize: ${smsErr.message}`)
+
+  // client_contacts is the actual fan-out source for every outbound client
+  // SMS/email send (getClientContacts() in nycmaid/client-contacts.ts) — left
+  // untouched, a purged client's secondary contacts would keep their real
+  // name/phone/email AND keep receiving messages forever. `email` gets a
+  // placeholder rather than null because contact_has_channel CHECK requires
+  // phone_e164 OR email non-null; receives_sms/receives_email are forced off
+  // so the channel gate excludes the contact regardless of field content.
+  const { error: contactsErr } = await db
+    .from('client_contacts')
+    .update({
+      name: REDACTED_NAME,
+      phone_e164: null,
+      email: REDACTED_EMAIL,
+      receives_sms: false,
+      receives_email: false,
+      sms_opted_out_at: completedAt,
+      email_opted_out_at: completedAt,
+    })
+    .eq('client_id', clientId)
+  if (contactsErr) throw new Error(`contacts anonymize: ${contactsErr.message}`)
 
   const { error: invoiceErr } = await db
     .from('invoices')
