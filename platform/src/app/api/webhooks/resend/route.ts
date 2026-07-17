@@ -65,7 +65,7 @@ export async function POST(request: Request) {
     // Look up campaign recipient by resend_email_id
     const { data: recipient } = await supabaseAdmin
       .from('campaign_recipients')
-      .select('id, campaign_id, status')
+      .select('id, campaign_id, status, client_id, tenant_id')
       .eq('resend_email_id', emailId)
       .single()
 
@@ -92,6 +92,32 @@ export async function POST(request: Request) {
         .from('campaign_recipients')
         .update({ status: 'bounced' })
         .eq('id', recipient.id)
+    } else if (type === 'email.complained') {
+      // Resend's spam-complaint event — nothing in the codebase ever handled this
+      // (unlike SMS's STOP-keyword path and the /api/unsubscribe link, both of
+      // which set email/sms_marketing_opt_out). A recipient marking a campaign
+      // email as spam kept receiving every future campaign until someone noticed
+      // the sender reputation/deliverability damage manually. Mirror
+      // /api/unsubscribe/route.ts's opt-out write so a complaint has the same
+      // effect as clicking unsubscribe.
+      await supabaseAdmin
+        .from('campaign_recipients')
+        .update({ status: 'complained' })
+        .eq('id', recipient.id)
+      await supabaseAdmin
+        .from('clients')
+        .update({ email_marketing_opt_out: true, email_marketing_opted_out_at: now })
+        .eq('id', recipient.client_id)
+        .eq('tenant_id', recipient.tenant_id)
+      await supabaseAdmin
+        .from('marketing_opt_out_log')
+        .insert({
+          client_id: recipient.client_id,
+          tenant_id: recipient.tenant_id,
+          channel: 'email',
+          method: 'spam_complaint',
+        })
+        .then(() => {}, () => {})
     } else {
       return NextResponse.json({ ok: true })
     }
