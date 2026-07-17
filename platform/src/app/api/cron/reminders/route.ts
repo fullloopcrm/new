@@ -431,7 +431,7 @@ export async function GET(request: Request) {
       if (now.getHours() === 8 || now.getHours() === 14) {
         const { data: pendingBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, start_time, clients(name)')
+          .select('id, start_time, is_emergency, clients(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['pending', 'scheduled'])
           .is('team_member_id', null)
@@ -440,16 +440,23 @@ export async function GET(request: Request) {
           .returns<BookingPending[]>()
 
         if (pendingBookings && pendingBookings.length > 0) {
-          const details = pendingBookings.slice(0, 5).map(b => {
+          const emergencyCount = pendingBookings.filter(b => b.is_emergency).length
+          // Sort emergency-first so a same-day emergency job never gets pushed
+          // out of the top-5 detail preview by a longer queue of routine ones.
+          const sorted = [...pendingBookings].sort((a, b) => (b.is_emergency ? 1 : 0) - (a.is_emergency ? 1 : 0))
+          const details = sorted.slice(0, 5).map(b => {
             const clientName = b.clients?.name || 'Unknown'
             const date = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-            return `${clientName} - ${date}`
+            return `${b.is_emergency ? '🚨 ' : ''}${clientName} - ${date}`
           }).join(', ')
+          const title = emergencyCount > 0
+            ? `🚨 ${emergencyCount} Emergency + ${pendingBookings.length} Unassigned Booking${pendingBookings.length !== 1 ? 's' : ''}`
+            : `${pendingBookings.length} Unassigned Booking${pendingBookings.length !== 1 ? 's' : ''}`
 
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenantId,
             type: 'pending_reminder',
-            title: 'Unassigned Bookings',
+            title: emergencyCount > 0 ? '🚨 Unassigned Bookings (Emergency)' : 'Unassigned Bookings',
             message: `${pendingBookings.length} booking${pendingBookings.length !== 1 ? 's' : ''} need team assignment: ${details}`,
             channel: 'in_app',
             status: 'sent',
@@ -459,7 +466,7 @@ export async function GET(request: Request) {
           await notify({
             tenantId,
             type: 'booking_reminder',
-            title: `${pendingBookings.length} Unassigned Booking${pendingBookings.length !== 1 ? 's' : ''}`,
+            title,
             message: `${pendingBookings.length} booking${pendingBookings.length !== 1 ? 's' : ''} still need team assignment. Review and assign in the dashboard.`,
             channel: 'email',
             recipientType: 'admin',

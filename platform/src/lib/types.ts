@@ -99,6 +99,7 @@ export interface BookingWithThankYou {
 export interface BookingPending {
   id: string
   start_time: string
+  is_emergency?: boolean | null
   clients: ClientName
 }
 
