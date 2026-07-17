@@ -24,8 +24,11 @@ function from(table: string) {
       eqs[col] = val
       return chain
     },
-    // getPrimaryTenantDomain() ends on a bare .eq() chain — no .single() —
-    // so the chain itself must be a thenable.
+    // getPrimaryTenantDomain() now chains .order() before its bare .eq()
+    // terminal — a no-op pass-through here since resolveTenantDomains
+    // controls the returned data directly; the chain itself stays the
+    // thenable that resolves it.
+    order: () => chain,
     then: (onFulfilled: (v: { data: unknown; error?: unknown }) => unknown) =>
       Promise.resolve(table === 'tenant_domains' ? resolveTenantDomains(eqs) : { data: null }).then(onFulfilled),
   }

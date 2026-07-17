@@ -91,6 +91,29 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'domain is required' }, { status: 400 })
   }
 
+  // Demote this tenant's existing primary (if any) BEFORE inserting a new
+  // one flagged is_primary — the table has no DB constraint stopping two
+  // active is_primary=true rows from coexisting per tenant, and until now
+  // nothing in the app enforced it either. Every "primary domain" resolver
+  // (getPrimaryTenantDomain in domains.ts — which feeds tenantSiteUrl(),
+  // tenantBrand(), the SELENA agent's brand override, and resolveOrigin();
+  // plus referrers/[code], site-export, cron/tenant-health) picks whichever
+  // row an unordered query happens to return first, so a second live primary
+  // makes which domain "wins" for invoice/quote/document send links and SMS
+  // branding non-deterministic instead of just wrong. Same demote-before-set
+  // pattern already used for client_contacts.is_primary / client_properties.is_primary.
+  if (is_primary) {
+    const { error: demoteError } = await supabaseAdmin
+      .from('tenant_domains')
+      .update({ is_primary: false })
+      .eq('tenant_id', tenant_id)
+      .eq('is_primary', true)
+
+    if (demoteError) {
+      return NextResponse.json({ error: demoteError.message }, { status: 500 })
+    }
+  }
+
   const { data, error } = await supabaseAdmin
     .from('tenant_domains')
     .insert({ tenant_id, domain: cleanDomain, is_primary: is_primary || false })

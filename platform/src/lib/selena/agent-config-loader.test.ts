@@ -25,10 +25,15 @@ function from(table: string) {
       eqs[col] = val
       return chain
     },
-    order: () => Promise.resolve({ data: serviceRows, error: null }),
+    // service_types (getSettings) resolves immediately via .order(). Now that
+    // getPrimaryTenantDomain() ALSO chains .order() before its bare .eq()
+    // terminal, this must stay table-aware: tenant_domains falls through to
+    // the thenable chain (resolveTenantDomains) instead of short-circuiting
+    // with serviceRows.
+    order: () => (table === 'tenant_domains' ? chain : Promise.resolve({ data: serviceRows, error: null })),
     single: async () => ({ data: table === 'tenants' ? tenantRow : null, error: null }),
-    // getPrimaryTenantDomain() (tenant_domains) ends on a bare .eq() — no
-    // .single()/.order() — so the chain itself must be a thenable.
+    // getPrimaryTenantDomain() (tenant_domains) ends on a bare .eq()/.order()
+    // — no .single() — so the chain itself must be a thenable.
     then: (onFulfilled: (v: { data: unknown; error?: unknown }) => unknown) =>
       Promise.resolve(table === 'tenant_domains' ? resolveTenantDomains(eqs) : { data: null }).then(onFulfilled),
   }

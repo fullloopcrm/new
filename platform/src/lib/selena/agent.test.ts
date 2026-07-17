@@ -31,7 +31,9 @@ function from(table: string) {
     },
     single: async () => ({ data: table === 'tenants' ? tenantRow : null, error: null }),
     // getPrimaryTenantDomain() (tenant_domains) ends on a bare .eq() chain —
-    // no .single() — so the chain itself must be a thenable.
+    // no .single(). It now also chains .order() first — a no-op pass-through
+    // here since resolveTenantDomains controls the returned data directly.
+    order: () => chain,
     then: (onFulfilled: (v: { data: unknown; error?: unknown }) => unknown) =>
       Promise.resolve(table === 'tenant_domains' ? resolveTenantDomains(eqs) : { data: null }).then(onFulfilled),
   }

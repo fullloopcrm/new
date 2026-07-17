@@ -42,19 +42,30 @@ export async function getOwnedDomainSet(tenantId: string): Promise<Set<string>> 
 // precedent). Returns null when the tenant has no tenant_domains rows at all
 // — callers combine this with the tenants.domain fallback, same precedence
 // as the request-time resolver.
+//
+// Ordered by created_at ascending — nothing else here disambiguates when
+// MORE THAN ONE row is flagged is_primary for the same tenant. Postgres gives
+// no ordering guarantee on an unordered select, so `.find()` on an unordered
+// result would pick a different "primary" from request to request. The write
+// path (admin/websites POST) now demotes any existing primary before setting
+// a new one, so this shouldn't recur going forward — this ordering is
+// defense-in-depth for any row that predates that fix (or slips past it),
+// making the OLDEST is_primary row consistently win instead of an arbitrary
+// one.
 export async function getPrimaryTenantDomain(tenantId: string): Promise<string | null> {
   const { data, error } = await supabaseAdmin
     .from('tenant_domains')
-    .select('domain, is_primary')
+    .select('domain, is_primary, created_at')
     .eq('tenant_id', tenantId)
     .eq('active', true)
+    .order('created_at', { ascending: true })
 
   if (error) {
     console.error(`PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
     throw new Error(`PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
   }
 
-  const rows = (data || []) as Array<{ domain: string; is_primary: boolean }>
+  const rows = (data || []) as Array<{ domain: string; is_primary: boolean; created_at: string }>
   return rows.find(d => d.is_primary)?.domain || rows[0]?.domain || null
 }
 

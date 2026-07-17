@@ -12,6 +12,7 @@ import { describe, it, expect, vi } from 'vitest'
 
 type Eqs = Record<string, unknown>
 let resolve: (table: string, eqs: Eqs) => { data: unknown; error?: unknown }
+let lastOrder: { col: string; ascending?: boolean } | undefined
 
 function builder(table: string) {
   const eqs: Eqs = {}
@@ -25,7 +26,10 @@ function builder(table: string) {
       eqs[col] = val
       return chain
     },
-    order: () => chain,
+    order: (col: string, opts?: { ascending?: boolean }) => {
+      lastOrder = { col, ascending: opts?.ascending }
+      return chain
+    },
     limit: () => chain,
     single: async () => resolve(table, eqs),
     maybeSingle: async () => resolve(table, eqs),
@@ -156,6 +160,24 @@ describe('getPrimaryTenantDomain', () => {
   it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning null', async () => {
     resolve = () => ({ data: null, error: { message: 'connection timeout' } })
     await expect(getPrimaryTenantDomain('t-1')).rejects.toThrow(/PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR/)
+  })
+
+  it('MULTI-PRIMARY DETERMINISM PROBE: orders by created_at ascending so the OLDEST is_primary row consistently wins when the write-path invariant (single primary per tenant) is somehow violated', async () => {
+    lastOrder = undefined
+    // Simulates what the DB returns once the query's ORDER BY created_at asc
+    // is applied for real — two is_primary=true rows for the same tenant
+    // (the admin/websites POST bug this round: adding a second primary never
+    // demoted the first). The OLDER row (seeded first here, matching
+    // ascending created_at) must win, not whichever the array happens to list
+    // last or whichever an unordered DB scan would have returned.
+    resolve = () => ({
+      data: [
+        { domain: 'older-primary.acme.com', is_primary: true, created_at: '2026-01-01T00:00:00Z' },
+        { domain: 'newer-primary.acme.com', is_primary: true, created_at: '2026-06-01T00:00:00Z' },
+      ],
+    })
+    expect(await getPrimaryTenantDomain('t-1')).toBe('older-primary.acme.com')
+    expect(lastOrder).toEqual({ col: 'created_at', ascending: true })
   })
 })
 

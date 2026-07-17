@@ -84,3 +84,65 @@ describe('POST /api/admin/websites — domain normalization probe', () => {
     expect(insertedDomains()).toEqual(['existing.com'])
   })
 })
+
+/**
+ * POST /api/admin/websites — single-active-primary invariant probe.
+ *
+ * BUG (fixed here): setting `is_primary: true` on a NEW domain never demoted
+ * the tenant's existing primary, so two active is_primary=true rows could
+ * coexist for one tenant. Every "primary domain" resolver
+ * (getPrimaryTenantDomain in domains.ts — which feeds tenantSiteUrl(),
+ * tenantBrand(), the SELENA agent's brand override, and resolveOrigin(); plus
+ * referrers/[code], site-export, cron/tenant-health) picks whichever row an
+ * unordered query happens to return first, so a second live primary makes
+ * which domain "wins" for invoice/quote/document send links and SMS branding
+ * non-deterministic instead of just wrong.
+ */
+describe('POST /api/admin/websites — single-active-primary invariant probe', () => {
+  function seedWithExistingPrimaries() {
+    return {
+      tenant_domains: [
+        { id: 'td-a-old', tenant_id: TENANT_A, domain: 'old-primary-a.com', active: true, is_primary: true },
+        { id: 'td-b-primary', tenant_id: TENANT_B, domain: 'existing.com', active: true, is_primary: true },
+      ] as Record<string, unknown>[],
+    }
+  }
+
+  let h2: Harness
+  beforeEach(() => {
+    h2 = createTenantDbHarness(seedWithExistingPrimaries())
+    holder.from = h2.from
+  })
+
+  function rowsFor(tenantId: string) {
+    return (h2.seed.tenant_domains as Record<string, unknown>[]).filter((r) => r.tenant_id === tenantId)
+  }
+
+  it('DEMOTE-BEFORE-INSERT PROBE: marking a new domain primary demotes the tenant\'s existing primary instead of letting two coexist', async () => {
+    const res = await post({ tenant_id: TENANT_A, domain: 'new-primary-a.com', is_primary: true })
+    expect(res.status).toBe(201)
+
+    const a = rowsFor(TENANT_A)
+    const primaries = a.filter((r) => r.is_primary === true)
+    expect(primaries).toHaveLength(1)
+    expect(primaries[0].domain).toBe('new-primary-a.com')
+    expect(a.find((r) => r.domain === 'old-primary-a.com')?.is_primary).toBe(false)
+  })
+
+  it('WRONG-TENANT PROBE: demoting the caller\'s tenant never touches another tenant\'s primary row', async () => {
+    const res = await post({ tenant_id: TENANT_A, domain: 'new-primary-a.com', is_primary: true })
+    expect(res.status).toBe(201)
+
+    const b = rowsFor(TENANT_B)
+    expect(b.find((r) => r.domain === 'existing.com')?.is_primary).toBe(true)
+  })
+
+  it('adding a NON-primary domain does not touch the existing primary', async () => {
+    const res = await post({ tenant_id: TENANT_A, domain: 'alias-a.com', is_primary: false })
+    expect(res.status).toBe(201)
+
+    const a = rowsFor(TENANT_A)
+    expect(a.find((r) => r.domain === 'old-primary-a.com')?.is_primary).toBe(true)
+    expect(a.find((r) => r.domain === 'alias-a.com')?.is_primary).toBe(false)
+  })
+})
