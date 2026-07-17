@@ -121,6 +121,47 @@ export async function POST(request: NextRequest) {
     .single()
 
   if (error) {
+    // tenant_domains.domain is UNIQUE at the DB level (migrations/
+    // 043_tenant_domains.sql) — the only real reason this insert 23505s is a
+    // domain already claimed by SOME tenant (possibly this one, re-adding).
+    // Previously surfaced the raw Postgres message ("duplicate key value
+    // violates unique constraint...") straight to the admin's alert() —
+    // technically correct but tells them nothing actionable. Same pattern
+    // already used for comhub_threads.slug's 23505 in
+    // admin/comhub/channels/route.ts.
+    if (error.code === '23505') {
+      const { data: existing } = await supabaseAdmin
+        .from('tenant_domains')
+        .select('tenant_id')
+        .eq('domain', cleanDomain)
+        .maybeSingle()
+
+      if (existing?.tenant_id === tenant_id) {
+        return NextResponse.json(
+          { error: `${cleanDomain} is already registered to this tenant.` },
+          { status: 409 },
+        )
+      }
+
+      let ownerName: string | null = null
+      if (existing?.tenant_id) {
+        const { data: ownerTenant } = await supabaseAdmin
+          .from('tenants')
+          .select('name')
+          .eq('id', existing.tenant_id)
+          .maybeSingle()
+        ownerName = ownerTenant?.name ?? null
+      }
+
+      return NextResponse.json(
+        {
+          error: ownerName
+            ? `${cleanDomain} is already registered to ${ownerName}. Remove it there first, or reassign it, before adding it here.`
+            : `${cleanDomain} is already registered to another tenant.`,
+        },
+        { status: 409 },
+      )
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
