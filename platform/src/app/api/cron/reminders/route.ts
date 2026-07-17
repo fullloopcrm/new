@@ -433,7 +433,7 @@ export async function GET(request: Request) {
           .from('bookings')
           .select('id, start_time, clients(name)')
           .eq('tenant_id', tenantId)
-          .in('status', ['pending', 'scheduled'])
+          .in('status', ['pending', 'scheduled', 'confirmed'])
           .is('team_member_id', null)
           .order('start_time', { ascending: true })
           .limit(500) // Don't process more than 500 per tenant per run
