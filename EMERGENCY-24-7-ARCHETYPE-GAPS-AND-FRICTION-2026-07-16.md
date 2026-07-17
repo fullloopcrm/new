@@ -2298,3 +2298,89 @@ needs Jeff's per-migration go per the standing rule):
 constraint, supporting indexes), deliberately leaves `NOT NULL` tightening
 and the `role` CHECK constraint as documented PRE-run manual checks rather
 than guessing at current live state or an existing constraint's name.
+
+## (54) New today, archetype depth — the emergency dispatch broadcast never used the push channel item (53) just wired up — NOW FIXED
+
+Direct continuation of item (53): with `notify()`'s `channel:'push'` now a
+real, working delivery path for `recipientType:'team_member'`, re-checked
+whether the one mechanism in the app that pages the *entire* active roster
+for a same-day emergency — `POST /api/bookings/broadcast`, this session's
+own item (48)/(49)/(50) subject — actually uses it. It didn't: the route's
+per-member loop only ever sent sms and email, so a tech with push enabled
+but no phone on file, or with SMS consent revoked, got zero notification of
+an available urgent job through this route, and a push-only tech got
+nothing at all. Confirmed by reading the full per-member loop directly — no
+`channel:'push'` call anywhere in the file.
+
+**Fixed** (`p1-w3`) — added push as a third per-member broadcast leg using
+the exact `notify({channel:'push', recipientType:'team_member', ...})`
+convention item (53) itself established; no new design needed, same
+"activation, not invention" shape as item (53)'s own fix. `reports`/`sentTo`
+now include push, so a push-only delivery (no phone/email on file) still
+counts as reached. 3 new tests (`route.push-channel.test.ts`): push
+dispatched per member with the right `recipientType`/`type`, each member's
+own push outcome reported independently (not a blanket true), and a
+push-only delivery counts toward `sentTo`. Mutation-verified via saved
+patch: reverted the fix, confirmed all 3 new tests fail reproducing the
+exact pre-fix symptom (RED — zero push calls, no `push` field), reapplied
+(GREEN). `tsc --noEmit` clean, full suite 362/362 files, 1828/1828 tests,
+zero regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
+
+## (55) New today, fresh ground outside the archetype — the campaign email delivered/opened/bounced tracking pipeline has been dead code since inception; three columns it depends on don't exist. Migration prepared, not applied
+
+With both prior archetype-depth threads and this session's `sms_consent`
+fresh-ground thread re-confirmed exhausted, and item (53)/(54) closing the
+push-channel gap, this pass asked a parallel question on the email side of
+the same notification layer: does the campaign email feedback loop
+(delivered/opened/bounced) actually work? Traced `webhooks/resend/route.ts`
+end to end: on `email.delivered`/`email.opened`/`email.bounced`, it looks up
+`campaign_recipients` by `.eq('resend_email_id', emailId)` and, on match,
+writes `delivered_at`/`opened_at` alongside the status update — then
+recounts the campaign's aggregate `delivered_count`/`opened_count`/
+`failed_count` from the table. Grepped `resend_email_id` across the whole
+codebase (`grep -rn resend_email_id src`): the only *write* site is
+`inbound_emails` (a different table entirely, for received mail, not
+outbound tracking) — nothing ever writes `resend_email_id` onto a
+`campaign_recipients` row. Confirmed via every tracked migration that has
+ever touched `campaign_recipients`
+(`008_missing_tables_and_columns.sql`'s original `CREATE TABLE`,
+`010_nycmaid_parity_columns_2.sql`'s later `sent_at` add — the only two
+migrations that reference this table at all): the table has never had a
+`resend_email_id`, `delivered_at`, or `opened_at` column. All three are
+referenced only by this one webhook and don't exist anywhere in the schema
+history. Net effect: `.eq('resend_email_id', ...)` either errors (column
+doesn't exist) or matches zero rows every time, so the webhook silently
+does nothing on every delivered/opened/bounced event it's ever received —
+caught by the route's own outer `try/catch` (`return { ok: true }` on any
+error) — and a campaign's delivered/opened/bounced counts have never
+reflected real Resend delivery outcomes, only the sender's own local
+try/catch result (`sent` vs `failed`) at the moment of the send call itself.
+Worktree has no `.env.local`/Supabase env to confirm the live
+`information_schema` directly, so — same discipline as item (53)'s
+schema-drift flag — this is strong static evidence, not asserted as 100%
+confirmed live fact.
+
+Even fixing the schema wouldn't fully close the loop on its own: traced
+`campaigns/send/route.ts` (the actual per-recipient-tracking send path that
+populates `campaign_recipients`) and `notify.ts`'s email branch — `sendEmail()`
+already returns Resend's response `data` (which carries the new email's
+`id`), but `notify()` never captures or returns it, so even the *caller*
+currently has no way to persist a `resend_email_id` at send time. Two
+separable pieces: (a) the schema needs the three columns, (b) the send path
+needs to capture and store the id `sendEmail()` already gives back. Not
+fixed — (a) is real prod DDL needing Jeff's per-migration approval per the
+standing rule, and doing (b) before (a) is live would mean writing to a
+column that doesn't yet exist (silent no-op at best, error at worst, in
+prod), so the application-code half is deliberately deferred until the
+migration is applied rather than half-wiring it now. Migration prepared,
+not applied: `src/lib/migrations/064_campaign_recipients_resend_tracking_columns.sql`
+— additive-only (`ADD COLUMN IF NOT EXISTS` for all three columns, a
+partial index on `resend_email_id` for the webhook's lookup query). Verified
+by reading `webhooks/resend/route.ts`, `campaigns/send/route.ts`,
+`campaigns/[id]/send/route.ts` (the sibling send route — also never touches
+`campaign_recipients` at all, a separate, already-known-to-this-doc code
+path, not the one this finding is about), `notify.ts`'s email branch, and
+`email.ts`'s `sendEmail()` return value directly, plus every tracked
+migration referencing `campaign_recipients` by name
+(`grep -rln campaign_recipients src/lib/migrations`).
