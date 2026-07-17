@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { lastNMonths } from '@/lib/dates'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -81,12 +82,7 @@ export async function GET(request: NextRequest) {
   const { data: monthlyBookings } = await monthlyQuery
 
   const monthMap: Record<string, number> = {}
-  for (let i = 11; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-    monthMap[key] = 0
-  }
+  for (const { label } of lastNMonths(12)) monthMap[label] = 0
   for (const b of monthlyBookings || []) {
     if (b.payment_date) {
       const key = new Date(b.payment_date).toLocaleDateString('en-US', { month: 'short', year: '2-digit' })

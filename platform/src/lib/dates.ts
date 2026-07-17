@@ -50,3 +50,23 @@ export function minutesSince(ts: string): number {
   if (!start) return 0
   return Math.max(0, (Date.now() - start.getTime()) / (1000 * 60))
 }
+
+/**
+ * Last `n` calendar months ending with `now`'s month, oldest first.
+ * Anchors each month at day 1 BEFORE subtracting `i` — never chain
+ * `d.setMonth(d.getMonth() - i)` off a day-29/30/31 "now": e.g. May 31
+ * minus 3 months overflows Feb into early March, silently colliding
+ * two different months onto the same label/bucket.
+ */
+export function lastNMonths(n: number, now: Date = new Date()): { year: number; month: number; label: string }[] {
+  const months: { year: number; month: number; label: string }[] = []
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    months.push({
+      year: d.getFullYear(),
+      month: d.getMonth(),
+      label: d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' }),
+    })
+  }
+  return months
+}
