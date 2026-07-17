@@ -11,7 +11,7 @@
  * trusted from the LLM. A same-day booking is forced to $100/hr regardless of
  * what the LLM supplied, and is_emergency is set on every same-day booking.
  */
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 vi.mock('@/app/site/wash-and-fold-nyc/_lib/supabase', async () => {
@@ -75,5 +75,36 @@ describe('wash-and-fold-nyc handleCreateBooking — server-side $100 emergency r
     expect(booking?.hourly_rate).toBe(59)
     expect(booking?.price).toBe(59 * 2 * 100)
     expect(booking?.is_emergency).toBe(false)
+  })
+
+  // "Today" must be computed in the same America/New_York zone this file's
+  // buildCalendarContext already uses to give the LLM its "today"/14-day
+  // calendar (the source of `date`) — comparing against the server's
+  // default (UTC) zone silently missed same-day emergencies during the
+  // multi-hour evening window before ET midnight, when UTC has already
+  // rolled to the next calendar day. Same bug shape as item (70)'s
+  // src/lib/selena/core.ts fix; this standalone per-tenant clone had it too.
+  // TZ is explicitly stubbed to UTC (Vercel's actual runtime default) rather
+  // than relying on the dev machine's own local zone: this sandbox's local
+  // TZ is already America/New_York, which made the equivalent pre-fix
+  // core.ts code pass this exact scenario too (verified directly) — a
+  // false-negative for mutation testing that this stub closes.
+  describe('day-boundary is computed in America/New_York, not the server default', () => {
+    beforeEach(() => { vi.useFakeTimers(); vi.stubEnv('TZ', 'UTC') })
+    afterEach(() => { vi.useRealTimers(); vi.unstubAllEnvs() })
+
+    it('a booking for "today" (ET) is still flagged emergency even though UTC has already rolled to the next calendar date', async () => {
+      // 10:30pm EDT on July 17 = 2026-07-18T02:30:00Z -- UTC day is already July 18.
+      vi.setSystemTime(new Date('2026-07-18T02:30:00.000Z'))
+      seed()
+      const input = { date: '2026-07-17', time: '10:45 PM', service_type: 'deep', hourly_rate: 49, estimated_hours: 2 }
+
+      const raw = await handleCreateBooking(input, CONVO, freshResult())
+      const parsed = JSON.parse(raw)
+
+      const booking = fake._store.get('bookings')?.find((b) => b.id === parsed.bookingId)
+      expect(booking?.is_emergency).toBe(true)
+      expect(booking?.hourly_rate).toBe(100)
+    })
   })
 })

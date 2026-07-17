@@ -650,8 +650,12 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     // handleCheckAvailability already tells the AI for a same-day slot.
     // Determined server-side from the booking date, not trusted from the
     // LLM, so a model that forgets/misreads the rate can't underbill — same
-    // fix as selena-legacy.ts's handleCreateBooking (P11.16/17).
-    const todayStr = new Date().toLocaleDateString('en-CA')
+    // fix as selena-legacy.ts's handleCreateBooking (P11.16/17). Resolved in
+    // America/New_York (this file's single-tenant zone, same convention
+    // buildCalendarContext() below already uses) — not the server default,
+    // which silently missed same-day emergencies during the evening window
+    // before ET midnight (item 70's fix, same bug shape, this clone missed).
+    const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
     const isEmergency = date === todayStr
     const llmRate = input.hourly_rate as number
     const hourlyRate = isEmergency ? 100 : llmRate
