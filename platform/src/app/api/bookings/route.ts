@@ -257,6 +257,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
+    // GET /api/bookings/:id/team and closeout-summary source the lead from
+    // booking_team_members, not bookings.team_member_id -- this route (the
+    // main one-off booking creation endpoint) stamped team_member_id on the
+    // new booking but never created the matching lead row, so a booking
+    // created here with a real assignee showed as unassigned in the admin
+    // Team panel and closeout payout attribution from the moment it was
+    // created. Same booking_team_members-sync gap fixed at every other
+    // bookings.team_member_id write site this session.
+    if (validated.team_member_id) {
+      await db.from('booking_team_members').upsert(
+        { booking_id: data.id, team_member_id: validated.team_member_id, is_lead: true, position: 1 },
+        { onConflict: 'booking_id,team_member_id' }
+      )
+    }
+
     // Render this booking under its property's address (multi-address clients),
     // falling back to the client's legacy address when no property is set.
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])

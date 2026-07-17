@@ -90,6 +90,23 @@ export async function POST(request: Request) {
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+  // GET /api/bookings/:id/team and closeout-summary source the lead from
+  // booking_team_members, not bookings.team_member_id -- this route (used
+  // by BookingsAdmin.tsx to expand a recurring schedule into bookings)
+  // stamped team_member_id on every row but never created the matching lead
+  // row, so every batch-created booking with a real assignee showed as
+  // unassigned in the admin Team panel and closeout payout attribution. Same
+  // booking_team_members-sync gap fixed at every other bookings.team_member_id
+  // write site this session.
+  const teamRows = (data || [])
+    .filter((b) => b.team_member_id)
+    .map((b) => ({
+      tenant_id: tenantId, booking_id: b.id, team_member_id: b.team_member_id, is_lead: true, position: 1,
+    }))
+  if (teamRows.length > 0) {
+    await supabaseAdmin.from('booking_team_members').upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+  }
+
   const first = (data || [])[0]
   if (first && first.status !== 'pending') {
     try {

@@ -64,6 +64,19 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Job already taken' }, { status: 409 })
   }
 
+  // GET /api/bookings/:id/team and closeout-summary both source the lead
+  // from booking_team_members, not bookings.team_member_id -- claiming an
+  // open job set the latter but never created the matching lead row, so a
+  // self-claimed job showed as unassigned in the admin Team panel and
+  // closeout payout attribution despite having a real assignee. Same
+  // booking_team_members-sync gap fixed at every other team_member_id write
+  // site this session, including this route's own release sibling (which
+  // deletes this same row on the way out).
+  await supabaseAdmin.from('booking_team_members').upsert(
+    { tenant_id: auth.tid, booking_id: booking_id, team_member_id: auth.id, is_lead: true, position: 1 },
+    { onConflict: 'booking_id,team_member_id' }
+  )
+
   await audit({
     tenantId: auth.tid,
     action: 'booking.updated',
