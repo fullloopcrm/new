@@ -12,6 +12,7 @@ import { getAgentConfig } from './agent-config-loader'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { logAnthropicUsage } from '@/lib/ai-usage'
 import { getPersona, applyPersonaToConfig, renderPersonaExtras } from './persona-file'
+import { notify } from '@/lib/notify'
 
 export type Channel = 'sms' | 'web' | 'email' | 'telegram'
 
@@ -416,6 +417,10 @@ export async function askSelena(channel: Channel, message: string, conversationI
 
 async function askSelenaCore(channel: Channel, message: string, conversationId: string, phone?: string, ctx?: YinezContext, phoneVerified?: boolean): Promise<YinezResult> {
   const result: YinezResult = { text: '', toolsCalled: [] }
+  // Hoisted above the try so the catch block can still tenant-scope the
+  // selena_error notification even when the failure happens after tenant
+  // resolution succeeded (the common case — the LLM call, a tool, etc).
+  let tenantId: string | undefined
 
   try {
     const lookupPhone = phone || null
@@ -427,7 +432,7 @@ async function askSelenaCore(channel: Channel, message: string, conversationId: 
     // Resolve tenant for this conversation. v1: derive from sms_conversations.tenant_id;
     // fall back to current tenant (nycmaid) if the conversation row hasn't been
     // tagged yet. Phase 3.2: every downstream tool query gains .eq('tenant_id', tenantId).
-    const tenantId = await resolveTenantForConversation(conversationId)
+    tenantId = await resolveTenantForConversation(conversationId)
 
     // Resolve the Anthropic client for THIS tenant (their key if set, platform
     // key otherwise). Replaces the old global singleton so each tenant bills
@@ -540,7 +545,30 @@ When you flubbed on another channel → flag it here unprompted next check-in.`
     console.error('[Yinez:main]', err)
     // Surface error to admin (notify is best-effort), return empty so the
     // caller can decide what to do — never a canned dead-end.
-    void err
+    //
+    // This comment described the intent since this function's beginning, but
+    // no notify() call ever backed it — every per-tenant clone's own Selena
+    // (site/*/_lib/selena.ts) fires a 'selena_error' notification on catch;
+    // this global agent (the one every non-cloned tenant actually runs on)
+    // never did. The admin monitoring dashboard's own 24h selena_error count
+    // (api/admin/monitoring/status) has been silently blind to every crash
+    // here as a result — it only ever reflected the 3 clones' errors.
+    if (!tenantId) {
+      try {
+        tenantId = await resolveTenantForConversation(conversationId)
+      } catch {
+        tenantId = undefined
+      }
+    }
+    if (tenantId) {
+      const message = err instanceof Error ? err.message : String(err)
+      await notify({
+        tenantId,
+        type: 'selena_error',
+        title: `Selena Error — ${channel}`,
+        message: `${message}\nConversation: ${conversationId}`,
+      }).catch(() => {})
+    }
     result.text = ''
     return result
   }
