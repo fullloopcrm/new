@@ -5703,3 +5703,54 @@ warning on `src/app/api/fixture/route.ts`, not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (125) Fresh ground, same destructive-op-no-server-guard thread (items 118/122/123/124), new endpoint on the consumer self-service surface — `PUT /api/client/reschedule/[id]` enforced none of its own callers' eligibility rules — NOW FIXED
+
+Item (124) closed this gap on `PUT /api/portal/bookings/[id]`. This route is
+a sibling on the OTHER client-facing surface — the four consumer sites'
+own booking dashboards (`site/book`, `wash-and-fold-hoboken`,
+`wash-and-fold-nyc`, `the-florida-maid`), all four of which ship an
+identical `canReschedule()`: one-time (non-`recurring_type`) bookings can
+never be rescheduled, and recurring ones need 7+ days notice. Every one of
+the four computes this purely to decide whether the "Reschedule"
+button/page renders — none of it reached the route itself, and the route
+never checked booking `status` either (item 124's exact gap, independently
+present here since this is a different file). A client hitting this route
+directly could reschedule a one-time booking the UI says can never move,
+jump the 7-day staffing-notice window, or silently move a
+`completed`/`cancelled` booking's date forward — since the route never
+touches `status`, a rescheduled-but-still-`cancelled` row stays invisible
+to admin (bookings queries filter `.neq('status','cancelled')`) while the
+client believes the reschedule succeeded.
+
+**Fixed** — ported the exact `RESCHEDULABLE_STATUSES` set from item (124)'s
+thread plus this route's own four callers' `recurring_type`/7-day-notice
+rule, checked against the booking's current `status`/`start_time` before
+any write, only when the request is actually changing `start_time`/
+`end_time` (a team-member-only reassignment is unaffected, matching the UI
+which never gates that).
+
+6 new tests (reject one-time, reject inside-7-days, allow 7+-days-out
+recurring, reject completed, reject cancelled, team-member-only
+reassignment bypasses the gate), plus updated 5 pre-existing test files'
+booking fixtures to carry `status`/`recurring_type` so they keep exercising
+their own (unrelated) behavior under the new gate. Mutation-verified
+(`git diff+apply -R` the fix, 4 of 6 RED for the expected reason — one-time,
+inside-notice-window, completed, and cancelled bookings all accepted the
+reschedule at 200 instead of rejecting at 400 — `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 425/425 files, 2046/2046 tests,
+zero regressions (same pre-existing, unrelated `tenant-scope` guard warning
+on `src/app/api/fixture/route.ts`, not touched here).
+
+Noticed, not fixed (out of scope this round — flagging for a future pass):
+this same route destructures `body.team_member_id`, but all four consumer
+UI callers POST `cleaner_id` in the request body instead — meaning a
+client's cleaner selection during reschedule is silently dropped on every
+live call site, and the booking keeps its old `team_member_id` regardless
+of which cleaner the UI showed as available for the new slot. Separate bug
+class (silent feature no-op, not a safety/guard gap) — worth its own
+investigation.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
