@@ -119,15 +119,37 @@ export async function POST(request: Request) {
     return NextResponse.json({ preview: plan, applied: false })
   }
 
-  const bookingUpdates: Record<string, Record<string, unknown>> = {}
+  // buildFixPlan's staleness guard only reads the booking BEFORE this point --
+  // a concurrent check-in/checkout/reassignment landing in the gap between
+  // that read and the write below would still let this plan apply blindly.
+  // Guard each write with the exact values buildFixPlan read (optimistic
+  // lock: only apply if nothing has changed since), mirroring the
+  // atomic-recheck pattern used on client/reschedule and the exception route.
+  const bookingUpdates: Record<string, { set: Record<string, unknown>; guard: Record<string, unknown> }> = {}
   for (const ch of plan.changes) {
     if (ch.table !== 'bookings') continue
-    if (!bookingUpdates[ch.id]) bookingUpdates[ch.id] = {}
-    bookingUpdates[ch.id][ch.field] = ch.to
+    if (!bookingUpdates[ch.id]) bookingUpdates[ch.id] = { set: {}, guard: {} }
+    bookingUpdates[ch.id].set[ch.field] = ch.to
+    bookingUpdates[ch.id].guard[ch.field] = ch.from
   }
-  for (const [bookingId, fields] of Object.entries(bookingUpdates)) {
-    await supabaseAdmin.from('bookings').update(fields).eq('id', bookingId).eq('tenant_id', tenantId)
+
+  let raced = false
+  for (const [bookingId, { set, guard }] of Object.entries(bookingUpdates)) {
+    let query = supabaseAdmin.from('bookings').update(set).eq('id', bookingId).eq('tenant_id', tenantId)
+    for (const [field, fromValue] of Object.entries(guard)) {
+      query = fromValue === null ? query.is(field, null) : query.eq(field, fromValue as string | number | boolean)
+    }
+    const { data: updatedRows } = await query.select('id')
+    if (!updatedRows || updatedRows.length === 0) raced = true
   }
+
+  const finalPlan: FixPlan = raced
+    ? {
+        description: 'This issue no longer applies -- the booking changed state while the fix was being applied. Marking resolved with no data change.',
+        changes: [],
+        acknowledgeOnly: true,
+      }
+    : plan
 
   await supabaseAdmin
     .from('schedule_issues')
@@ -135,10 +157,10 @@ export async function POST(request: Request) {
       status: 'resolved',
       resolved_at: new Date().toISOString(),
       resolved_by: 'admin',
-      resolution_note: plan.description,
+      resolution_note: finalPlan.description,
     })
     .eq('id', id)
     .eq('tenant_id', tenantId)
 
-  return NextResponse.json({ preview: plan, applied: true })
+  return NextResponse.json({ preview: finalPlan, applied: !raced })
 }
