@@ -80,11 +80,12 @@ export async function POST(request: Request) {
   const payRate = booking.pay_rate || 40
   const client = booking.clients as unknown as { name: string; address: string } | null
 
-  const reports: { name: string; sms: boolean; email: boolean }[] = []
+  const reports: { name: string; sms: boolean; email: boolean; push: boolean }[] = []
 
   for (const member of members) {
     let smsSent = false
     let emailSent = false
+    let pushSent = false
 
     // SMS broadcast
     if (member.phone && member.sms_consent !== false && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
@@ -121,13 +122,29 @@ export async function POST(request: Request) {
       } catch { /* skip */ }
     }
 
-    reports.push({ name: member.name, sms: smsSent, email: emailSent })
+    // Push broadcast — gracefully no-ops (no throw) when the recipient has
+    // no push subscription on file, same convention as the sms/email legs above.
+    try {
+      const result = await notify({
+        tenantId,
+        type: 'job_broadcast',
+        title: `Urgent: $${payRate}/hr Job Available`,
+        message: `Urgent job available ${jobDate} ${jobTime}${endTime ? ` - ${endTime}` : ''} at $${payRate}/hr. First to claim gets it — log in to your team portal to claim.`,
+        channel: 'push',
+        recipientType: 'team_member',
+        recipientId: member.id,
+        bookingId: booking_id,
+      })
+      pushSent = result.success === true
+    } catch { /* skip */ }
+
+    reports.push({ name: member.name, sms: smsSent, email: emailSent, push: pushSent })
   }
 
-  const sentCount = reports.filter(r => r.sms || r.email).length
+  const sentCount = reports.filter(r => r.sms || r.email || r.push).length
 
   // Admin notification with delivery summary
-  const summary = reports.map(r => `${r.name}: sms ${r.sms ? '✓' : '✗'} email ${r.email ? '✓' : '✗'}`).join(', ')
+  const summary = reports.map(r => `${r.name}: sms ${r.sms ? '✓' : '✗'} email ${r.email ? '✓' : '✗'} push ${r.push ? '✓' : '✗'}`).join(', ')
   await db.from('notifications').insert({
     type: 'job_broadcast',
     title: 'Job Broadcast Sent',

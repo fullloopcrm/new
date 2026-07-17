@@ -57,7 +57,7 @@ describe('bookings/broadcast POST — tenantDb isolation', () => {
     const res = await POST(postReq(A_BOOKING))
     const body = await res.json()
     expect(res.status).toBe(200)
-    expect(body.reports).toEqual([{ name: 'A Worker', sms: true, email: true }])
+    expect(body.reports).toEqual([{ name: 'A Worker', sms: true, email: true, push: false }])
   })
 
   it("admin A CANNOT broadcast on tenant B's booking by guessing its id — 404, no cross-tenant read", async () => {
