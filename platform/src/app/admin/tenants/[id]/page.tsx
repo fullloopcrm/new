@@ -27,8 +27,8 @@ type TenantDetail = {
   team_size: string
   timezone: string
   created_at: string
-  resend_api_key: string | null
-  telnyx_api_key: string | null
+  has_resend_api_key: boolean
+  has_telnyx_api_key: boolean
   telnyx_phone: string | null
   stripe_account_id: string | null
   setup_dismissed: boolean
@@ -140,8 +140,8 @@ export default function TenantDetailPage() {
   if (!tenant) return <p className="text-slate-500">Loading...</p>
 
   const integrations = [
-    { label: 'Email (Resend)', connected: !!tenant.resend_api_key },
-    { label: 'SMS (Telnyx)', connected: !!(tenant.telnyx_api_key && tenant.telnyx_phone) },
+    { label: 'Email (Resend)', connected: !!tenant.has_resend_api_key },
+    { label: 'SMS (Telnyx)', connected: !!(tenant.has_telnyx_api_key && tenant.telnyx_phone) },
     { label: 'Payments (Stripe)', connected: !!tenant.stripe_account_id },
   ]
 

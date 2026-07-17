@@ -3,6 +3,17 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { isKnownTenantStatus } from '@/lib/tenant-status'
+import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+import { omit } from '@/lib/validate'
+
+// This route's only consumer, admin/tenants/[id]/page.tsx, is a READ-ONLY
+// tenant summary view — grepped, it never prefills these into an editable
+// input (unlike admin/businesses/[id]/page.tsx's edit form, where several of
+// these are legitimately read back raw). It only ever truthy-checks
+// resend_api_key/telnyx_api_key for a connected badge, so every vendor secret
+// plus the Google OAuth token pair can be redacted here with zero UX
+// regression, replacing the two checked fields with explicit booleans.
+const NEVER_RETURNED_TENANT_FIELDS = [...ENCRYPTED_TENANT_FIELDS, 'google_tokens'] as const
 
 export async function GET(
   _request: Request,
@@ -46,8 +57,14 @@ export async function GET(
 
   const revenue = (revenueData || []).reduce((sum, b) => sum + (b.final_price || 0), 0)
 
+  const safeTenant = {
+    ...omit(tenant, [...NEVER_RETURNED_TENANT_FIELDS]),
+    has_resend_api_key: !!tenant.resend_api_key,
+    has_telnyx_api_key: !!tenant.telnyx_api_key,
+  }
+
   return NextResponse.json({
-    tenant,
+    tenant: safeTenant,
     members,
     stats: {
       clients: clients || 0,

@@ -47,7 +47,7 @@ type Business = {
   telegram_bot_token: string | null
   telegram_chat_id: string | null
   google_place_id: string | null
-  google_tokens: { access_token?: string; refresh_token?: string; expires_at?: number } | null
+  google_oauth_connected: boolean
   google_business: { account_name?: string; location_name?: string; location_title?: string } | null
   stripe_account_id: string | null
   stripe_api_key: string | null
@@ -871,7 +871,7 @@ export default function BusinessDetailPage() {
               <input value={googlePlaceId} onChange={(e) => setGooglePlaceId(e.target.value)}
                 placeholder="ChIJxxxxxxxxx" className="w-full border border-slate-300 rounded-lg px-3 py-2 text-sm mt-1 font-mono" />
             </div>
-            {biz.google_tokens?.refresh_token && (
+            {biz.google_oauth_connected && (
               <p className="text-xs text-green-600 mt-2">Google OAuth connected</p>
             )}
             {biz.google_business?.location_title && (

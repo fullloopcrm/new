@@ -5,10 +5,26 @@ import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { PRICING } from '@/lib/billing-pricing'
+import { omit } from '@/lib/validate'
 
 // Vendor API-key fields that must be encrypted at rest — shared single source
 // of truth so write paths can't drift (see secret-crypto.ts).
 const ENCRYPTED_FIELDS = ENCRYPTED_TENANT_FIELDS
+
+// Fields with zero read-back consumers on admin/businesses/[id]/page.tsx (and
+// its sibling wizard/selena-persona pages) — grepped, confirmed neither reads
+// these back raw. Unlike the ENCRYPTED_FIELDS above (which this page
+// legitimately prefills into editable inputs so an admin can view/rotate an
+// existing key — stripping those would blank the field and risk wiping the
+// stored key on next save, the same trap /api/settings/route.ts's own
+// NEVER_RETURNED_FIELDS comment documents avoiding), these two carry zero
+// legitimate read-back use: `google_tokens` is a live Google OAuth
+// access/refresh-token pair (long-lived account access to the tenant's real
+// Google Business Profile) that the one consumer (line ~874) only ever
+// truthy-checks for a "connected" badge — replaced below with an explicit
+// boolean instead. `telegram_webhook_secret` has no consumer anywhere in
+// src/app/admin/**.
+const NEVER_RETURNED_BUSINESS_FIELDS = ['google_tokens', 'telegram_webhook_secret'] as const
 
 export async function GET(
   _request: Request,
@@ -183,8 +199,16 @@ export async function GET(
   const completedCount = allItems.filter(Boolean).length
   const totalCount = allItems.length
 
+  // Redact only the response copy — `checklist` above already derived every
+  // boolean it needs from the full `business` object, so this can't blank a
+  // checklist item the way redacting `business` itself before that block would.
+  const safeBusiness = {
+    ...omit(business, [...NEVER_RETURNED_BUSINESS_FIELDS]),
+    google_oauth_connected: !!business.google_tokens?.refresh_token,
+  }
+
   return NextResponse.json({
-    business,
+    business: safeBusiness,
     members,
     invites,
     stats: {
