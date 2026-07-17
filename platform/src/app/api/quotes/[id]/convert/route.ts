@@ -68,15 +68,22 @@ export async function POST(request: Request, { params }: Params) {
     // booking row itself was already created (see the catch below).
     let bookingId: string | undefined
     try {
-      // Resolve or create client
+      // Resolve or create client. The clients POST route always normalizes
+      // email to lowercase/trimmed before storing (validate.ts), but
+      // quote.contact_email is raw, unnormalized user input -- comparing it
+      // as-is against the normalized column means any case difference
+      // ("John@Example.com" vs the stored "john@example.com") misses the
+      // existing client and creates a duplicate, splitting that person's
+      // booking/quote/payment history across two client records.
       let clientId = quote.client_id as string | null
       if (!clientId) {
-        const existing = quote.contact_email
+        const normalizedEmail = quote.contact_email ? String(quote.contact_email).trim().toLowerCase() : null
+        const existing = normalizedEmail
           ? await supabaseAdmin
               .from('clients')
               .select('id')
               .eq('tenant_id', tenantId)
-              .eq('email', quote.contact_email)
+              .eq('email', normalizedEmail)
               .maybeSingle()
           : { data: null }
         if (existing.data?.id) {
@@ -87,7 +94,7 @@ export async function POST(request: Request, { params }: Params) {
             .insert({
               tenant_id: tenantId,
               name: quote.contact_name || quote.title || 'Quote Client',
-              email: quote.contact_email || null,
+              email: normalizedEmail,
               phone: quote.contact_phone || null,
               address: quote.service_address || null,
               source: 'quote',

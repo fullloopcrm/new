@@ -104,14 +104,19 @@ async function createSeriesAfterClaim(
   let scheduleId: string | undefined
   try {
     // Resolve or create the client (identical to createJobFromQuote).
+    // quote.contact_email is raw user input; clients.email is always stored
+    // lowercase/trimmed (validate.ts on the clients POST route). Normalize
+    // before comparing/inserting or a case difference misses the existing
+    // client and creates a duplicate, splitting that person's history.
     let clientId = quote.client_id as string | null
     if (!clientId) {
-      const existing = quote.contact_email
+      const normalizedEmail = quote.contact_email ? String(quote.contact_email).trim().toLowerCase() : null
+      const existing = normalizedEmail
         ? await supabaseAdmin
             .from('clients')
             .select('id')
             .eq('tenant_id', tenantId)
-            .eq('email', quote.contact_email)
+            .eq('email', normalizedEmail)
             .maybeSingle()
         : { data: null }
       if (existing.data?.id) {
@@ -122,7 +127,7 @@ async function createSeriesAfterClaim(
           .insert({
             tenant_id: tenantId,
             name: quote.contact_name || quote.title || 'Quote Client',
-            email: quote.contact_email || null,
+            email: normalizedEmail,
             phone: quote.contact_phone || null,
             address: quote.service_address || null,
             source: 'quote',
