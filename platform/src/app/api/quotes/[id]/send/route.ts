@@ -146,6 +146,31 @@ export async function POST(request: Request, { params }: Params) {
         .eq('tenant_id', tenantId)
     }
 
+    // Archetype depth (same declared-type-never-fired class as this quote's
+    // own sibling lifecycle events — viewed/accepted/declined/expired all
+    // call BOTH notify() + ownerAlert(); this route only ever called
+    // ownerAlert()). ownerAlert() is email+SMS ONLY — it does not insert a
+    // `notifications` row, so it never shows up in the admin's in-app
+    // notifications feed at /dashboard/notifications. Every other step of a
+    // proposal's lifecycle appears there except its own first step: "sent"
+    // is silently absent from a deal's in-app activity trail. notify.ts's
+    // own NotificationType union has declared 'quote_sent' for exactly this
+    // since notify.ts's beginning; no call site ever used it.
+    try {
+      const { notify } = await import('@/lib/notify')
+      await notify({
+        tenantId,
+        type: 'quote_sent',
+        title: `Quote ${quote.quote_number} sent`,
+        message: `Sent to ${quote.contact_name || 'the customer'} via ${sentVia} — ${formatCents(quote.total_cents)}`,
+        channel: 'email',
+        recipientType: 'admin',
+        metadata: { quote_id: quote.id, href: `/admin/sales-hub/quotes/${quote.id}` },
+      })
+    } catch (e) {
+      console.warn('notify quote_sent failed', e)
+    }
+
     const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
     await ownerAlert({
       tenantId,
