@@ -120,7 +120,7 @@ function hasConflict(
  * Returns all slots, with preferred pockets (8am, 12pm, 4pm) first.
  */
 export async function checkAvailability(date: string, durationHours: number = 2): Promise<AvailabilityResult> {
-  const today = new Date().toLocaleDateString('en-CA')
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   if (date === today) {
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }
