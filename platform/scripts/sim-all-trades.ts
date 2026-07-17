@@ -38,6 +38,10 @@ process.env.RESEND_API_KEY = 'placeholder'
 // harness only ever mints and verifies its own tokens within the same run,
 // never against a real deployed instance.
 if (!process.env.TEAM_PORTAL_SECRET) process.env.TEAM_PORTAL_SECRET = randomBytes(32).toString('hex')
+// Client-portal token.ts (src/app/api/portal/auth/token.ts) has the same
+// refuse-to-fall-back requirement for the SAME reason, gating createToken/
+// verifyPortalToken used by the client/recurring archetype probe below.
+if (!process.env.PORTAL_SECRET) process.env.PORTAL_SECRET = randomBytes(32).toString('hex')
 const supabase = createClient(url, key, { auth: { persistSession: false } })
 
 const OWNER = { name: 'Jeff Tucker', email: 'fullloopcrm@gmail.com', phone: '+12122029220' }
@@ -1581,6 +1585,55 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
             JSON.stringify(teamRowsAfter))
           const leadRow = (teamRowsAfter || []).find(r => r.is_lead)
           add('multi-tech: exactly one row flagged is_lead, and it is the replacement (not the helper)', leadRow?.team_member_id === replacement.id, JSON.stringify(leadRow))
+
+          // ---- 5a-5. CLIENT-INITIATED RECURRING BOOKING — TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+          // client/recurring (src/app/api/client/recurring/route.ts) is the
+          // client-portal self-service surface for starting a brand-new
+          // recurring series — never exercised anywhere in this harness
+          // before this. Before the fix on this branch it validated
+          // cleaner_id/extra_cleaner_ids for tenant ownership only, never HR
+          // termination, so a client could hand a fired employee a brand-new
+          // STANDING weekly series: this route raw-inserts
+          // recurring_schedules.team_member_id, 6 weeks of real
+          // bookings.team_member_id (status='scheduled'), booking_team_members
+          // rows, AND clients.preferred_team_member_id directly via
+          // supabaseAdmin — none of which go through POST /api/bookings, PUT
+          // /api/bookings/[id]/team, or PUT /api/client/preferred-cleaner, so
+          // none of those routes' own terminated-crew guards ever ran. Same
+          // root cause and blast radius as the generate-recurring cron gap
+          // (closed 8131f28a): a raw insert bypassing every guarded route.
+          // Driving the REAL route here (not a mirror, unlike the
+          // requirePermission-gated admin routes above) — client/recurring
+          // authenticates off a portal Bearer token read straight from the
+          // raw Request, no next/headers dependency, so it's directly
+          // callable from this script with a genuine minted client-portal
+          // token, against the terminated worker set up in 5a-2 and this
+          // scenario's own client (already past the repeat-client gate via
+          // the completed weather-delay session, 5a-1).
+          const { createToken: createPortalToken } = await import('../src/app/api/portal/auth/token')
+          const { POST: clientRecurringPOST } = await import('../src/app/api/client/recurring/route')
+          const clientToken = createPortalToken(job?.client_id || '', tenant.id)
+          const recurringBlockedRes = await clientRecurringPOST(new Request('http://sim.local/api/client/recurring', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${clientToken}`, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              frequency: 'weekly', start_date: projectDaysFromNow(28, 9).slice(0, 10), time: '09:00', hours: 2,
+              service_type: 'Recurring maintenance visit', cleaner_id: worker.id,
+            }),
+          }))
+          add('client-recurring: a client cannot start a new recurring series with the just-terminated crew member (real route, real portal token)', recurringBlockedRes.status === 400, `status=${recurringBlockedRes.status}`)
+          const { count: leakedScheduleCount } = await supabase.from('recurring_schedules').select('id', { count: 'exact', head: true }).eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+          add('client-recurring: no recurring_schedules row was created for the terminated worker', (leakedScheduleCount || 0) === 0, `count=${leakedScheduleCount}`)
+
+          const recurringOkRes = await clientRecurringPOST(new Request('http://sim.local/api/client/recurring', {
+            method: 'POST',
+            headers: { authorization: `Bearer ${clientToken}`, 'content-type': 'application/json' },
+            body: JSON.stringify({
+              frequency: 'weekly', start_date: projectDaysFromNow(35, 9).slice(0, 10), time: '09:00', hours: 2,
+              service_type: 'Recurring maintenance visit', cleaner_id: replacement.id,
+            }),
+          }))
+          add('client-recurring: CONTROL — the same client CAN start a recurring series with the active replacement crew member', recurringOkRes.status === 200, `status=${recurringOkRes.status}`)
         }
       }
     }
