@@ -82,6 +82,7 @@ beforeEach(() => {
     ],
     bookings: [
       { id: 'book-old-future', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-08-10T09:00:00' },
+      { id: 'book-old-confirmed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'confirmed', start_time: '2026-08-12T09:00:00' },
       { id: 'book-old-past', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-01-01T09:00:00' },
       { id: 'book-old-completed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'completed', start_time: '2026-08-11T09:00:00' },
       { id: 'book-other-tenant', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2026-08-10T09:00:00' },
@@ -111,7 +112,7 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — permission gate
     const res = await POST(postReq(baseBody), params('sched-A1'))
 
     expect(res.status).toBe(403)
-    expect(h.store.bookings.length).toBe(4)
+    expect(h.store.bookings.length).toBe(5)
   })
 })
 
@@ -232,13 +233,14 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(sched.team_member_id).toBeUndefined()
   })
 
-  it('removes old scheduled/pending bookings from the cutoff forward, never touching completed history or past bookings', async () => {
+  it('removes old scheduled/pending/confirmed bookings from the cutoff forward, never touching completed history or past bookings', async () => {
     const res = await POST(postReq(baseBody), params('sched-A1'))
     const json = await res.json()
 
-    expect(json.bookings_removed).toBe(1)
+    expect(json.bookings_removed).toBe(2)
     const ids = h.store.bookings.map((b) => b.id)
     expect(ids).not.toContain('book-old-future')
+    expect(ids).not.toContain('book-old-confirmed')
     expect(ids).toContain('book-old-past')
     expect(ids).toContain('book-old-completed')
   })

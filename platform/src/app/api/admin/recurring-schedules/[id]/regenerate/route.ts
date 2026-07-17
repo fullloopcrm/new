@@ -109,16 +109,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (notes !== undefined) rulePatch.notes = notes
   await db.from('recurring_schedules').update(rulePatch).eq('id', id)
 
-  // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
-  // the cutoff forward. Completed/paid/cancelled rows are never touched. We
-  // delete these by id AFTER the new insert succeeds, so a failed insert leaves
-  // the existing series fully intact (no destructive window).
+  // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending/
+  // confirmed) from the cutoff forward. Completed/paid/cancelled rows are
+  // never touched. We delete these by id AFTER the new insert succeeds, so a
+  // failed insert leaves the existing series fully intact (no destructive
+  // window).
   const cutoff = from_date || new Date().toISOString()
   const { data: oldRows } = await db
     .from('bookings')
     .select('id')
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', cutoff)
   const oldIds = (oldRows || []).map((r: { id: string }) => r.id)
 
