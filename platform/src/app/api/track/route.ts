@@ -254,6 +254,14 @@ async function handlePatch(request: Request, body?: Record<string, unknown>) {
 }
 
 export async function PATCH(request: Request) {
+  // Same per-IP cap as POST — the `_method: 'PATCH'` override path (used by
+  // every real caller) is protected by this check in POST() before it ever
+  // reaches handlePatch(); the raw HTTP-verb entrypoint must not skip it.
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`track:${ip}`, 240, 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Rate limit' }, { status: 429, headers: corsHeaders })
+  }
   return handlePatch(request)
 }
 
