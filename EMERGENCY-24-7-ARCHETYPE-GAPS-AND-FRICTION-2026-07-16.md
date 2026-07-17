@@ -3722,15 +3722,29 @@ zero regressions (one pre-existing, unrelated `tenant-scope` guard warning on
 `src/app/api/fixture/route.ts` predates this session's diff, same note item
 (17) already made — not touched here).
 
-**Not fixed, flagged** — while implementing this, noticed the `memberChanged`
-boolean requires `fields.team_member_id` to be truthy, so it's `false`
-(never fires, not even the pre-existing "new assignment" branch) when an
-admin explicitly **unassigns** a booking by setting `team_member_id: null`
+**Update, later this session — the explicit-unassign gap flagged below is now
+FIXED too (`p1-w3`), closing item (86) completely.** The gap left open above:
+`memberChanged` requires `fields.team_member_id` to be truthy, so it's
+`false` (never fires, not even the pre-existing "new assignment" branch) when
+an admin explicitly **unassigns** a booking by setting `team_member_id: null`
 (confirmed `pick()`, `src/lib/validate.ts:94`, keeps explicit `null` values —
 only `undefined` is dropped — so this is a reachable state, not a
-theoretical one). An outright unassignment (as opposed to a reassignment to
-someone else) would leave the outgoing tech just as uninformed as before this
-fix. Left alone rather than folded in here: the `memberChanged` boolean is
-used elsewhere in this same block's control flow and reshaping it to also
-cover the null case needs its own careful trace of what else keys off it, not
-a one-line addition alongside an already-verified fix.
+theoretical one). An outright unassignment left the outgoing tech just as
+uninformed as before item (86)'s fix. Resolved without touching
+`memberChanged` itself (per the concern below about its other call sites):
+added a separate `explicitlyUnassigned = 'team_member_id' in fields &&
+fields.team_member_id === null` boolean and OR'd it into the existing
+removal-SMS condition — `memberChanged` and `explicitlyUnassigned` are
+mutually exclusive (the former requires a truthy new id, the latter requires
+exactly `null`), so the removal message branches cleanly between "reassigned
+to another team member" and "unassigned from you" with no risk of picking the
+wrong wording. The pre-existing "Team member assigned/reassigned" SMS block
+needed no change — it's already gated on `data.team_members?.phone`, which is
+naturally absent when the update set `team_member_id` to `null` (no join
+match), so it silently no-ops for the unassign case exactly as it should. 1
+new test (`route.reassign-notify.test.ts`): explicit unassign fires the
+removal SMS with "unassigned" wording and sends nothing to a (nonexistent)
+new assignee. `tsc --noEmit` clean, full suite 381/381 files, 1896/1896
+tests, zero regressions (one pre-existing, unrelated `tenant-scope` guard
+warning on `src/app/api/fixture/route.ts` predates this session's diff, same
+note item (17)/(86) already made — not touched here).

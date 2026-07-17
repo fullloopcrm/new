@@ -166,20 +166,31 @@ export async function PUT(
         }).catch(err => console.error('Assignment SMS error:', err))
       }
 
-      // Reassigned AWAY from a previous tech — the block above only ever
-      // reaches the new assignee. A tech who still thinks the job is theirs
-      // gets no signal it's gone; same "silently vanished" risk item (17)
-      // already fixed for outright cancellation, here for reassignment.
-      if (memberChanged && oldBooking?.team_member_id && hasSMS) {
+      // Reassigned AWAY from a previous tech, OR explicitly unassigned
+      // outright (team_member_id: null) — the block above only ever reaches
+      // a NEW assignee, so either case leaves the outgoing tech with no
+      // signal the job left their plate; same "silently vanished" risk item
+      // (17) already fixed for outright cancellation. `'team_member_id' in
+      // fields` distinguishes an explicit null (pick() keeps it, see
+      // src/lib/validate.ts) from the field simply not being sent (pick()
+      // drops undefined) — memberChanged alone is false for the null case
+      // since it requires fields.team_member_id to be truthy, which is why
+      // this was missed before: an explicit unassign silently matched
+      // neither "reassigned" nor "unchanged".
+      const explicitlyUnassigned = 'team_member_id' in fields && fields.team_member_id === null
+      if ((memberChanged || explicitlyUnassigned) && oldBooking?.team_member_id && hasSMS) {
         const { data: oldMember } = (await db
           .from('team_members')
           .select('phone')
           .eq('id', oldBooking.team_member_id)
           .single()) as { data: { phone: string | null } | null }
         if (oldMember?.phone) {
+          const removalBody = explicitlyUnassigned
+            ? `${tenantData?.name || 'Job'}: Your ${date} ${time} job has been unassigned from you.`
+            : `${tenantData?.name || 'Job'}: Your ${date} ${time} job has been reassigned to another team member.`
           sendSMS({
             to: oldMember.phone,
-            body: `${tenantData?.name || 'Job'}: Your ${date} ${time} job has been reassigned to another team member.`,
+            body: removalBody,
             telnyxApiKey: tenantData!.telnyx_api_key,
             telnyxPhone: tenantData!.telnyx_phone,
           }).catch(err => console.error('Reassignment-removal SMS error:', err))

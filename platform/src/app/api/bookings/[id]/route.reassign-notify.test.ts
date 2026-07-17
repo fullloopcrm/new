@@ -152,4 +152,17 @@ describe('PUT /api/bookings/[id] — reassignment notifies the outgoing tech', (
     await flush()
     expect(holder.smsCalls.length).toBe(0)
   })
+
+  it('SMS the outgoing tech an "unassigned" notice on an explicit unassign (team_member_id: null)', async () => {
+    holder.oldTeamMemberId = OLD_TECH_ID
+    const res = await putReq({ team_member_id: null, force: true })
+    expect(res.status).toBe(200)
+    await flush()
+    const recipients = holder.smsCalls.map((c) => c.to)
+    expect(recipients).toContain(OLD_TECH_ROW.phone)
+    const removalMsg = holder.smsCalls.find((c) => c.to === OLD_TECH_ROW.phone)
+    expect(String(removalMsg?.body)).toMatch(/unassigned/i)
+    // No incoming-assignment SMS to send — there is no new assignee.
+    expect(recipients).not.toContain(NEW_TECH_FIXTURE.phone)
+  })
 })
