@@ -6787,3 +6787,99 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (150) New fresh-ground surface — `hr_documents.status = 'expired'` fully declared, and the page's own UI already fakes it client-side because the write never happened
+
+`hr_documents` (migration 053, the HR foundation) declares `expires_on` as a
+real, PATCH-assignable date column and its `status` `CHECK` includes
+`'expired'` as one of five states — the identical shape to (148)'s
+`documents.status`. A repo-wide grep for a `status`/`'expired'` write against
+`hr_documents` turns up nothing: not a cron, not a page load, only the
+manual admin dropdown at `dashboard/hr/[id]/page.tsx` that lets an operator
+pick `'expired'` by hand. Worse than (148): that same page's own `DocRow`
+component already *knows* the write never happens — it computes `expired`/
+`expiring soon` badges entirely client-side by comparing `doc.expires_on` to
+`Date.now()`, completely bypassing `doc.status`, because trusting the real
+column would show a stale `'approved'` on a license that lapsed months ago.
+The UI quietly worked around its own backend's unwritten transition instead
+of the transition ever getting fixed.
+
+The sibling shape is (148) itself, one migration model apart: a declared
+expiry column + terminal status value, fixed there with an on-read lazy-
+expire check on the route the relevant page hits every visit
+(`documents/public/[token]/route.ts`). `dashboard/hr/[id]/route.ts`'s own
+`GET` — hit every time an operator opens an employee's HR detail — is the
+exact analog for `hr_documents`.
+
+**Fixed** — added the same on-read expiry check to `GET
+/api/dashboard/hr/[id]`: for any of that employee's documents still open to
+renewal (`pending`, `submitted`, `approved` — narrower than "not expired" so
+an already-`'rejected'` doc isn't relabeled by an unrelated expiry date)
+whose `expires_on` has passed, flip `status` to `'expired'`, persist it
+scoped by `id` **and** `tenant_id` (the codebase's IDOR route guard —
+`src/lib/idor-route-guard.ts` — flags any by-id write missing the sibling
+tenant scope, and correctly caught the first draft of this fix missing it),
+and reflect the flip in the same response so the page's real data matches
+what its client-side badge was already faking.
+
+4 new tests (`route.expire.test.ts`): an `'approved'` document past its
+`expires_on` flips to `'expired'` and persists; a `'rejected'` document past
+its `expires_on` is left alone; a document with `expires_on` still in the
+future is untouched; a document with no `expires_on` set is untouched.
+`tsc --noEmit` clean, full suite 443/443 files, 2110/2110 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+## (151) Continuing (150)'s surface — the milestone reminder engine `lib/hr.ts` scaffolded and its own comment flagged as "(future)" had never been built at all
+
+Wiring (150)'s transition surfaced a layer further back than (149)'s gap:
+`lib/hr.ts` already exports `HR_REMINDER_MILESTONES` (`expiry_30d`,
+`expiry_14d`, `expiry_7d`, `expiry_1d`, `missing`) with a comment reading
+"Ordered expiry-reminder milestones for the (future) auto-nudge engine" —
+an explicit admission it was never built. The HR foundation migration
+(053) went further and pre-built the table for it,
+`hr_document_reminders`, with a `UNIQUE(document_id, milestone)` constraint
+whose own migration comment says it exists to make "the auto-nudge engine
+idempotent by construction: it sends a given milestone nudge only when no
+row for it exists yet." A repo-wide grep for `hr_document_reminders` or any
+`HR_REMINDER_MILESTONES` value outside `lib/hr.ts` itself returns nothing —
+the idempotency table has zero rows, ever, in any environment. Even with
+(150) fixed, an operator who doesn't happen to open that specific
+employee's HR page before a license lapses gets no warning at all — the
+exact proactive-nudge gap `hr_document_reminders` was purpose-built to
+close.
+
+**Fixed** — added `src/app/api/cron/hr-document-expiry/route.ts`, a daily
+cron (`vercel.json`, `0 6 * * *`, matching `generate-recurring`'s cadence)
+mirroring `cron/no-show-check`'s shape: for every active tenant's documents
+still open to renewal ((150)'s same status scoping), find the tightest
+unfired milestone for documents inside a 30/14/7/1-day expiry window, claim
+it by inserting into `hr_document_reminders` first (the UNIQUE constraint
+means a losing concurrent insert just skips the send instead of double-
+firing), then `notify()` + `ownerAlert()` the tenant admin — the same
+admin-alert pairing (149) added for `document_expired`. Added
+`'hr_document_expiring'` to `notify.ts`'s `NotificationType` union, since
+(like `document_expired` before (149)) it did not exist yet either. Left
+`HR_REMINDER_MILESTONES`' fifth value, `'missing'` (a required document
+that was never submitted at all), out of scope: `hr_document_reminders.
+document_id` is `NOT NULL REFERENCES hr_documents(id)`, so there is no row
+to hang a `'missing'` reminder off without a schema change — a DDL change
+this file-only round doesn't make, prepared as a note here for whoever
+picks up that thread rather than as a migration file nobody asked for yet.
+Already-past-due documents are explicitly skipped by this cron (`daysUntil
+< 0` continues) — that transition stays owned by (150)'s on-visit check, so
+the two fixes don't race or double-write the same document.
+
+5 new tests (`cron/hr-document-expiry/route.test.ts`): a document expiring
+in 5 days fires the `expiry_7d` milestone (tightest window it qualifies
+for) and claims the reminder row; a second run for the same document does
+not re-fire; a document expiring outside every window (90 days) does not
+fire; a document already past due does not fire (owned by (150) instead);
+a `'rejected'` document inside a milestone window does not fire. `tsc
+--noEmit` clean, full suite 443/443 files, 2110/2110 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
