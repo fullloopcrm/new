@@ -18,6 +18,14 @@ const TEAM_MEMBERS = [
   { id: 'tm-active', tenant_id: 'T', status: 'active' },
   { id: 'tm-inactive', tenant_id: 'T', status: 'inactive' },
 ]
+const CREW = {
+  id: 'crew-1',
+  tenant_id: 'T',
+  crew_members: [
+    { team_member_id: 'tm-active', team_members: { status: 'active' } },
+    { team_member_id: 'tm-inactive', team_members: { status: 'inactive' } },
+  ],
+}
 
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: 'T' }, error: null }),
@@ -50,6 +58,11 @@ vi.mock('@/lib/supabase', () => {
       },
       maybeSingle: async () => {
         if (table === 'jobs') return { data: { id: 'job-1', client_id: 'c1', title: 'Test Job' }, error: null }
+        if (table === 'crews') {
+          return eqs.id === CREW.id && eqs.tenant_id === CREW.tenant_id
+            ? { data: CREW, error: null }
+            : { data: null, error: null }
+        }
         return { data: null, error: null }
       },
       single: async () => {
@@ -106,6 +119,13 @@ describe('POST /api/jobs/[id]/sessions — excludes inactive team members from t
 
   it('drops an inactive id from a mixed assignee_ids list but keeps the active one', async () => {
     const res = await POST(req({ start_time: '2026-08-01T10:00:00', assignee_ids: ['tm-active', 'tm-inactive'] }), params)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.assignees).toEqual(['tm-active'])
+  })
+
+  it('excludes a terminated member still listed in a saved crew from the assignee set', async () => {
+    const res = await POST(req({ start_time: '2026-08-01T10:00:00', crew_id: 'crew-1' }), params)
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.assignees).toEqual(['tm-active'])

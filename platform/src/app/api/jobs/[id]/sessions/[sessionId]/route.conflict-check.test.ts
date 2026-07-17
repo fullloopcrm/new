@@ -52,6 +52,7 @@ vi.mock('@/lib/supabase', () => {
         eqs[col] = val
         return chain
       },
+      neq: () => chain,
       in: (_col: string, vals: string[]) => {
         inIds = vals
         return chain

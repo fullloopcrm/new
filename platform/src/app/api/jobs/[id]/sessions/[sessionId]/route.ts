@@ -110,13 +110,17 @@ export async function PATCH(request: Request, { params }: Params) {
       if (body.crew_id) {
         const { data: crew } = await supabaseAdmin
           .from('crews')
-          .select('id, crew_members(team_member_id)')
+          .select('id, crew_members(team_member_id, team_members(status))')
           .eq('id', body.crew_id)
           .eq('tenant_id', tenantId)
           .maybeSingle()
         if (crew) {
           crewId = crew.id
-          for (const m of (crew.crew_members || []) as { team_member_id: string }[]) assignees.add(m.team_member_id)
+          type CrewMemberRow = { team_member_id: string; team_members: { status: string | null } | { status: string | null }[] | null }
+          for (const m of (crew.crew_members || []) as CrewMemberRow[]) {
+            const tm = Array.isArray(m.team_members) ? m.team_members[0] : m.team_members
+            if (tm?.status !== 'inactive') assignees.add(m.team_member_id)
+          }
         }
       }
       const explicit = [
@@ -125,7 +129,7 @@ export async function PATCH(request: Request, { params }: Params) {
       ]
       if (explicit.length) {
         const { data: valid } = await supabaseAdmin
-          .from('team_members').select('id').eq('tenant_id', tenantId).in('id', explicit)
+          .from('team_members').select('id').eq('tenant_id', tenantId).neq('status', 'inactive').in('id', explicit)
         for (const m of valid || []) assignees.add(m.id)
       }
       assigneeList = [...assignees]
