@@ -79,7 +79,7 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id, client_id, price, end_time, clients(name, phone)')
       .eq('tenant_id', tenant.id)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .gt('price', 0)
       .gte('end_time', recencyFloor)
       .not('payment_status', 'in', '("paid","partial")')
