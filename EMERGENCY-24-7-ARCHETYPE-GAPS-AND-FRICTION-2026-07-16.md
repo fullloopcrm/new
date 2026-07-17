@@ -3238,3 +3238,112 @@ dashboard-sent body now succeeds, a cross-tenant `referrer_client_id` is
 rejected 404, a missing one 400s pre-DB), mutation-verified (saved patch,
 revert → RED "expected 400" on all 3 → restore → GREEN). `tsc --noEmit`
 clean, full suite 378/378 files, 1886/1886 tests, zero regressions.
+
+## (77) Fresh ground — team photo upload, display, and PIN-login all read/wrote the nonexistent `team_members.avatar_url` column instead of the real `photo_url` column — NOW FIXED
+
+Same "wrong column name" bug shape as item (76), a different table.
+Applying that item's own methodology (diff frontend body vs. backend
+schema, then confirm against the real DDL) to `team_members`: zero
+migration file anywhere in the repo ever creates or adds `avatar_url`
+(checked every `.sql` file, not just tracked migrations). `photo_url` is
+the real column (`013_full_parity.sql`), already read correctly by `GET
+/api/team`'s select-list and the main admin team list page
+(`dashboard/team/page.tsx`). A second, parallel set of files used
+`avatar_url` instead, the identical legacy-naming-drift shape item (6)
+found on `BookingsAdmin.tsx`'s `cleaner_id`/`team_member_id` split:
+`GET`/`POST /api/team-portal/auth` (the team-portal PIN-login route)
+selected and returned `avatar_url`; `PUT /api/team/[id]`'s `pick()`
+allowlist and `POST /api/team`'s `validate()` both accepted `avatar_url`;
+`cleaners/upload/route.ts` wrote `avatar_url` as a second, redundant
+column on every photo upload alongside the correct `photo_url`; and the
+team-portal self-service page (`team/page.tsx`), its shared auth type
+(`team/layout.tsx`), and the admin dashboard's per-member edit page
+(`dashboard/team/[id]/page.tsx`) all read/wrote `avatar_url` on both the
+upload flow and the display.
+
+Concrete impact, worst case first: `team-portal/auth/route.ts`'s login
+query destructures only `data` from `tenantDb(...).select('id, ...,
+avatar_url, ...)` with no `error` check — against real PostgREST, an
+unknown column in a `select()` fails the whole query, so `data` would be
+`null` regardless of whether the PIN itself was correct, and the route's
+existing `if (!member) return { error: 'Invalid PIN' }, 401` branch would
+mask that failure as a wrong-PIN rejection for every team-portal login
+attempt, at every tenant. Separately, and independently of whether the
+login SELECT itself fails: every attempt to save a team member's own
+profile photo (`team/page.tsx`'s self-service upload, and the admin
+dashboard's per-member photo upload) sends `{ avatar_url: ... }` to `PUT
+/api/team/[id]`, whose `.update(fields)` call **does** check `error` and
+would 500 with a clear PostgREST "unknown column" message — but
+`team/page.tsx`'s own upload handler never checked `fetch(...)`'s
+response status before optimistically writing the (never-actually-saved)
+URL into `localStorage` and reloading, so the failure was invisible to
+the team member; a fresh login (re-fetching from the server, which never
+had the write persist) would silently drop the photo again. The one
+existing coverage for this table, `team-portal/auth/route.isolation.test.ts`
++ `route.rate-limit.test.ts`, seeds the plain-JS-object fake Supabase
+mock with `avatar_url: null` — same test-blind-spot as item (76): the
+mock accepts any field name and cannot reproduce PostgREST's real
+unknown-column rejection, so it never caught this.
+
+**Fixed** (`p1-w3`) — renamed `avatar_url` → `photo_url` end-to-end
+(matching item (6)'s own precedent of renaming to the real column
+throughout rather than adding a translation shim at the API boundary):
+`team-portal/auth/route.ts`'s select + internal type + response field,
+`POST /api/team`'s `validate()` field, `PUT /api/team/[id]`'s `pick()`
+allowlist, `cleaners/upload/route.ts`'s redundant second write (dropped;
+`photo_url` alone is correct and sufficient), and every client-side read/
+write across `team/layout.tsx`'s shared auth type, `team/page.tsx`'s
+self-upload handler and its two display sites, and
+`dashboard/team/[id]/page.tsx`'s local type, form state, upload handler,
+and its three display sites. Also added the missing `if (saveRes.ok)`
+check on `team/page.tsx`'s self-upload PUT while touching that exact
+line for the rename — the dashboard admin edit page's equivalent handler
+already had this check, only the team-portal self-service one was
+missing it, and leaving it out would have meant the rename alone still
+couldn't prove a future save failure to the user. Updated the two
+existing isolation/rate-limit test seeds to `photo_url` to match the real
+column (no new tests added: per item (76)'s own established limitation,
+the fake mock can't reproduce a real unknown-column rejection either way,
+so a new mock-backed test wouldn't add real coverage for this specific
+bug class — verification here is the same "confirm against every `.sql`
+file directly" method item (76) used, plus the sibling `GET /api/team`
+select-list and `dashboard/team/page.tsx` already correctly using
+`photo_url` as corroborating, independent evidence). `tsc --noEmit`
+clean, full suite 378/378 files, 1886/1886 tests, zero regressions
+(landed in the same commit as item (78) below, `d3b6f232`).
+
+## (78) New today, archetype depth — `generate-recurring`'s pause/resume date check was the one line left computing "today" in UTC in a file that gets every other date right — NOW FIXED
+
+Continuation of the items (70)-(73) day-boundary/timezone archetype
+thread after re-checking whether any of that sweep's fixed files still
+had an internal inconsistency of their own, the same shape item (71)'s
+methodology note flagged for `core.ts` (one line in a file using
+`America/New_York` correctly elsewhere left on the server-default zone).
+`src/app/api/cron/generate-recurring/route.ts` (the weekly cron that
+both generates recurring bookings 4 weeks out and auto-resumes
+`NYCMAID_TENANT_ID`'s paused schedules) gets every other date computation
+in the file right — `worksScheduledDay`/`slotWithinHours`/`memberCanTake`/
+the exception-map lookup all key on `d.toLocaleDateString('en-CA', {
+timeZone: 'America/New_York' })` — but its pause-resume check, `const
+todayStr = new Date().toISOString().split('T')[0]`, compared against
+`paused_until` using the server-default (UTC on Vercel) calendar date
+instead. `NYCMAID_TENANT_ID` is a single, hardcoded Eastern-time tenant
+(the same single-tenant convention `selena/core.ts` already uses), so
+during the evening window before ET midnight (UTC already rolled to the
+next day), a schedule paused "until tomorrow" could auto-resume a full
+day early — or, in the other direction, resume a day late depending on
+exactly when in the UTC day the weekly cron happens to run relative to
+the ET boundary. Lower severity than items (70)-(73) (this only shifts a
+recurring-schedule's pause/resume timing by up to a day, not a same-day
+emergency's price/dispatch flag), but the identical bug shape, found by
+checking a file this thread had already touched rather than a fresh one.
+
+**Fixed** (`p1-w3`) — changed `todayStr` to
+`d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })`,
+matching every other date computation already in this same file. No
+test added: this repo has zero test files under any `src/app/api/cron/*`
+route (same precedent item (18) already established, re-confirmed
+directly for this file), so there's no existing harness to extend.
+`tsc --noEmit` clean, full suite 378/378 files, 1886/1886 tests, zero
+regressions (unaffected — no existing test touches this route). Landed
+in the same commit as item (77) above, `d3b6f232`.
