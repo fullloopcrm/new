@@ -12,6 +12,7 @@ import BookingNotes from '@/components/BookingNotes'
 import { formatPhone } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
+import { computeEditedSpan } from '@/lib/booking-edit-span'
 
 export default function BookingsPageWrapper() {
   return (
@@ -827,8 +828,9 @@ function BookingsPage() {
     setSaving(true)
     setShowUpdateChoice(false)
 
-    const newStartStr = buildNaiveTime(form.start_date, form.start_time)
-    const newEndStr = buildNaiveTime(form.start_date, form.start_time, form.hours)
+    const { start_time: newStartStr, end_time: newEndStr } = editingBooking
+      ? computeEditedSpan(editingBooking.start_time, editingBooking.end_time, form.start_date, form.start_time, form.hours)
+      : { start_time: buildNaiveTime(form.start_date, form.start_time), end_time: buildNaiveTime(form.start_date, form.start_time, form.hours) }
     const recurringType = form.repeat_enabled ? getRecurringDisplayName(form.repeat_type, form.start_date) : null
 
     const updateData = {
