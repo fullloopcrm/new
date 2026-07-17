@@ -1885,3 +1885,75 @@ tests, zero regressions (one pre-existing, unrelated tenant-scope guard warning 
   person paid their own rate going forward. Worth Jeff's call on whether
   reassign should preserve the existing per-job rate (matching claim's new
   behavior) or keep overwriting it; not auto-fixed.
+
+## (47) New today, fresh ground — `post-job-followup`'s dedup markers are written AFTER the customer SMS, not before, so a mid-run crash/timeout can duplicate the review-request text
+
+Archetype-depth sweep this session first tried to extend the `is_emergency`-
+blind class (items 20/24/26/29/30/32/34/36/38/40/42/43/45) further: checked
+every cron route under `src/app/api/cron/*` (`grep -l is_emergency`) against
+every route that touches `bookings` and fires an admin- or client-facing
+message. Result: **no further instances found** — the remaining
+booking-touching crons without the field are either purely client-facing
+with no admin-urgency angle (`confirmation-reminder`, already
+dedup-guarded via `sms_logs`), fire *after* the job is already over
+(`follow-up`, `payment-followup-daily`, `rating-prompt`, `post-job-followup`
+— emergency status is moot once service is complete), or are
+platform-level/non-booking (`comms-monitor`, `release-due-payments`, SEO
+crons). Also re-swept every `admin_tasks` writer in the repo
+(`grep -rln admin_tasks src/app src/lib`) for the item (44)/(46) class of
+missing-idempotency-guard bug — all remaining unguarded call sites
+(`payment-processor.ts`, `selena-legacy-handlers.ts`,
+`webhooks/stripe/route.ts`, `team-portal/15min-alert/route.ts`) are one-shot,
+event-triggered inserts (checkout, Stripe webhook, AI-bot tool call, a
+team-member tapping a button) rather than a minute/interval cron re-scanning
+the same window, so they don't have the repeated-reprocessing shape that
+made items (44)/(46) real bugs. Both archetype threads are now believed
+exhausted as of this sweep.
+
+Fresh ground turned up on a different axis while confirming that null
+result: `post-job-followup/route.ts` (runs `*/30 * * * *` per `vercel.json`,
+confirmed) has the *identical* shape of race items (44)/(46) fixed, just one
+step removed. Both of its two loops — the per-`booking` review SMS and the
+per-`job` review SMS a few lines below — send the customer text **first**,
+then write the dedup marker (`[FOLLOWUP_SENT]` appended to `bookings.notes`
+for the booking leg; a `job_events` row with `event_type:'review_requested'`
+for the jobs leg) only *after* the send succeeds. The candidate query window
+for both loops is `[now - delay - 1hr, now - delay]` — a full hour wide
+against a 30-minute cadence — so any booking/job that hasn't yet gotten its
+marker written stays a live candidate across at least two consecutive ticks,
+not just one. Confirmed via direct read that neither loop has any other
+guard (no `sms_logs` check — that table is only ever written by the
+nycmaid-specific `src/lib/nycmaid/sms.ts` sender; this route calls the
+plain, non-logging `src/lib/sms.ts` `sendSMS()` instead, so the
+`confirmation-reminder`/`payment-followup-daily` siblings' `sms_logs`-based
+dedup pattern isn't available here without switching senders). Net effect:
+if the function times out (`maxDuration = 300`, and the handler loops
+sequentially over every active tenant plus up to 500 bookings + 200 jobs
+each) or crashes anywhere between a successful `sendSMS()` call and its
+follow-up marker write, the next tick 30 minutes later finds the same
+booking/job still un-marked and texts the customer the identical "How did
+everything go?" review request a second time.
+
+Not fixed, and deliberately not reordered to "write the marker, then send"
+the way items (44)/(46) moved their guard check earlier — that reorder
+closes this exact race for items (44)/(46) for free because the entity
+being duplicated there *is* the guard row itself (an `admin_tasks`/
+`unmatched_payments` insert with no other side effect in front of it). Here
+the customer-facing send is the side effect and the marker is a separate,
+later write, so reordering trades one failure mode for a different one:
+mark-then-send would mean any ordinary `sendSMS()` failure (bad number,
+carrier reject, Telnyx outage) permanently and silently skips that
+booking/job's review request forever, since the marker would already be
+committed before the send was attempted or confirmed. Today's bug risks an
+occasional duplicate "did everything go ok" text (low stakes, "Reply STOP"
+present, self-limiting); the reorder would risk silently losing review
+requests on any transient send failure (no customer harm, but a quiet
+business-metric regression). Genuine trade-off between two failure modes,
+not a mechanical no-decision fix like (44)/(46) — flagging for Jeff's call
+on which failure mode is preferable, rather than picking one unilaterally.
+Verified by reading `post-job-followup/route.ts` in full (both loops),
+`vercel.json`'s schedule entry, and `src/lib/sms.ts` /
+`src/lib/nycmaid/sms.ts` / `src/lib/nycmaid/client-contacts.ts` directly to
+confirm the plain `sendSMS()` this route calls has no `sms_logs` write path
+(worktree still has no `.env.local`/Supabase env for a live run, same
+constraint as every other item in this doc). No code changed for this item.
