@@ -39,6 +39,7 @@ import path from 'node:path'
 import { spawn } from 'node:child_process'
 import { createClient } from '@supabase/supabase-js'
 import { normalizeDomain } from '@/lib/seo/onboarding'
+import { registerCustomDomain } from '@/lib/vercel-domains'
 
 // ---------------------------------------------------------------- args
 type Args = {
@@ -435,6 +436,20 @@ async function provisionTenant(args: Args) {
     )
   if (dErr) console.warn(`tenant_domains warn: ${dErr.message}`)
   else console.log(`tenant_domains OK: ${args.domain}`)
+
+  // Same gap as admin/websites' POST route (fixed alongside this): a
+  // tenant_domains row alone doesn't make the domain live. This script
+  // bypasses activate-tenant.ts entirely (see comment above), so its
+  // registerCustomDomain call — the only thing that actually attaches
+  // apex+www to the Vercel project so it can route/get a cert — never runs
+  // for a script-onboarded tenant either, unless done separately here.
+  // Never throws (see vercel-domains.ts contract); a failure/skip must not
+  // abort provisioning, just gets logged so the operator can finish it
+  // manually (same class as the BESPOKE_SITE_TENANTS manual step noted above).
+  const vercel = await registerCustomDomain(args.domain)
+  if (vercel.status === 'error') console.warn(`Vercel domain registration FAILED for ${args.domain}: ${vercel.detail}`)
+  else if (vercel.status === 'skipped') console.warn(`Vercel domain registration skipped for ${args.domain}: ${vercel.detail}`)
+  else console.log(`Vercel domain registration OK: ${args.domain} (${vercel.status})`)
 }
 
 // ---------------------------------------------------------------- typecheck
