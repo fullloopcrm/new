@@ -2450,3 +2450,57 @@ files, 1832/1832 tests, zero regressions (same pre-existing unrelated
 tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
 item 17). Worktree still has no `.env.local`/Supabase env for a live push
 send, same constraint as every other item in this doc.
+
+## (57) New today, fresh ground outside the archetype — campaign SMS delivery/failed tracking has the identical dead-column gap item (55) found on the email side, and it isn't covered by item (55)'s own migration 064
+
+Direct continuation of item (55)'s pattern, one channel over: with the
+Resend/email side of `campaign_recipients` delivery tracking confirmed dead
+code (migration 064, unapplied), checked whether the Telnyx/SMS side of the
+identical feature actually works. It doesn't, for the identical reason.
+`webhooks/telnyx/route.ts`'s `message.sent`/`message.delivered`/
+`message.failed` handler (`:41-93`) looks up
+`campaign_recipients` by `.eq('telnyx_message_id', msgId)` and, on match,
+writes `status`/`delivered_at` then recounts the campaign's
+`delivered_count`/`failed_count`. Grepped every tracked migration that has
+ever touched `campaign_recipients`
+(`008_missing_tables_and_columns.sql`'s original `CREATE TABLE`,
+`010_nycmaid_parity_columns_2.sql`'s `sent_at` add, and item (55)'s own
+`064_campaign_recipients_resend_tracking_columns.sql` which only adds
+`resend_email_id`/`delivered_at`/`opened_at`): **`telnyx_message_id` has
+never been a column on this table, in any tracked migration.** The
+identically-named column does exist, but on a different table entirely —
+`sms_logs` (`migrations/2026_05_19_remaining_tables.sql:93`), the general
+SMS log, not campaign tracking. Confirmed the send side has the matching
+gap `notify()`'s email branch had before this pass: `sendSMS()`
+(`src/lib/sms.ts:47`) already `return res.json()`s Telnyx's raw response,
+which carries the new message's id — this codebase already knows how to
+capture and store that exact value under the name `telnyx_message_id` at a
+different call site (`src/lib/nycmaid/sms.ts:172`, on `sms_logs`) — but
+`notify.ts`'s SMS branch (`:319-326`) calls `await sendSMS(...)` and
+discards the return value entirely (`sent = true`), and
+`campaigns/send/route.ts`'s SMS send loop (`:184-215`) never captures
+anything from the `notify()` call to store on the recipient row either. Net
+effect: identical to item (55) but for SMS — a campaign's
+`delivered_count`/`failed_count` for the SMS channel has never reflected
+real Telnyx delivery outcomes, only the sender's own local try/catch result
+at send time, and every Telnyx delivery-status webhook Telnyx has ever sent
+for a campaign SMS has silently done nothing (`.eq('telnyx_message_id',
+msgId)` either errors or matches zero rows, caught by whatever
+try/catch wraps this handler). Worktree has no `.env.local`/Supabase env to
+confirm live `information_schema` directly, same discipline as items
+(53)/(55).
+
+Not fixed — same two separable pieces item (55) identified, on the other
+channel: (a) real prod DDL needing Jeff's per-migration approval, and (b)
+capturing/storing the Telnyx message id at send time, deliberately deferred
+until (a) is live in prod (writing to a column that doesn't yet exist would
+silently no-op at best, error at worst). Migration prepared, not applied:
+`src/lib/migrations/065_campaign_recipients_telnyx_tracking_column.sql` —
+additive-only (`ADD COLUMN IF NOT EXISTS telnyx_message_id`, a partial index
+matching migration 064's own `resend_email_id` index shape). Verified by
+reading `webhooks/telnyx/route.ts`'s delivery-tracking block,
+`campaigns/send/route.ts`'s SMS send loop, `notify.ts`'s SMS branch,
+`sms.ts`'s `sendSMS()` return value, and `nycmaid/sms.ts`'s existing
+`telnyx_message_id` capture pattern directly, plus every tracked migration
+referencing `campaign_recipients` by name
+(`grep -rln campaign_recipients src/lib/migrations migrations`).
