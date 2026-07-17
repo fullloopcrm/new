@@ -35,6 +35,18 @@ export async function eligibleForAutoVerify(): Promise<Eligible[]> {
   const norm = (d: string) => d.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
   const activeDomains = new Set((active.data ?? []).map((r) => norm(String(r.domain))))
 
+  // Fallback: tenant_domains registration is best-effort (activate-tenant.ts's
+  // upsert is try/catch, "never blocks" activation), so a tenant live only via
+  // legacy tenants.domain has zero active tenant_domains rows and was missing
+  // from the allowlist above -- any of that tenant's awaiting_grant
+  // seo_properties could NEVER auto-verify, silently and permanently, even
+  // with SEOMGR_AUTOVERIFY_ENABLED on. Same coverage-gap class already fixed
+  // this session in ingest.ts/onboarding.ts/backlinks.ts/health.ts; matches
+  // tenant.ts's tenant_domains-first / tenants.domain-fallback precedence
+  // (tenant_domains already in the set above, this only fills gaps).
+  const legacy = await supabaseAdmin.from('tenants').select('domain').not('domain', 'is', null)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
+  for (const r of legacy.data ?? []) activeDomains.add(norm(String(r.domain)))
+
   return (props.data ?? [])
     .filter((p) => {
       const awaiting = (p.meta as { gsc_status?: string } | null)?.gsc_status === 'awaiting_grant'
