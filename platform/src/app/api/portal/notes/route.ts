@@ -9,14 +9,23 @@ export async function GET(request: NextRequest) {
   const auth = await verifyPortalToken(token)
   if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
 
+  // Backed by clients.special_instructions — the column team/page.tsx and
+  // team-portal/jobs actually read as the client's standing "notes for the
+  // cleaner" (door codes, parking, etc). clients.notes is a DIFFERENT column:
+  // the operator-only field admin edits via the dashboard client form. This
+  // route used to read/write .notes, which meant (a) whatever the client typed
+  // here never reached the cleaner — nothing selects clients.notes for a job —
+  // and (b) the client could read and silently overwrite the admin's private
+  // notes, since GET returned that column's live contents pre-filled into this
+  // exact textarea.
   const { data } = await supabaseAdmin
     .from('clients')
-    .select('notes')
+    .select('special_instructions')
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
     .single()
 
-  return NextResponse.json({ notes: data?.notes || '' })
+  return NextResponse.json({ notes: data?.special_instructions || '' })
 }
 
 export async function PUT(request: NextRequest) {
@@ -33,7 +42,7 @@ export async function PUT(request: NextRequest) {
 
   await supabaseAdmin
     .from('clients')
-    .update({ notes })
+    .update({ special_instructions: notes })
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
 
