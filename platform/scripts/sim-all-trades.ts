@@ -1838,6 +1838,33 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           const findCleanerEligibleAfterGuard = findCleanerCandidateIds.filter(id => !findCleanerTerminatedIds.includes(id))
           add('find-cleaner: a picker built from this guard keeps exactly the active helper, never the terminated worker', findCleanerEligibleAfterGuard.length === 1 && findCleanerEligibleAfterGuard[0] === helper.id, JSON.stringify(findCleanerEligibleAfterGuard))
         }
+
+        // ---- 5a-10. BOOKINGS BROADCAST — TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+        // POST /api/bookings/broadcast is BookingsAdmin.tsx's "URGENT JOB
+        // AVAILABLE, first to claim gets it" mass SMS/email — a DIFFERENT
+        // route from the find-cleaner picker above, no shared code path.
+        // Before this round it queried team_members.status:'active' with NO
+        // hr_status check at all, and unlike find-cleaner it has no
+        // preview/confirm step — it sends straight to every row the query
+        // returns. Same deliberate status/hr_status split as every guard in
+        // this archetype block: HR termination never touches
+        // team_members.status, so the just-terminated worker (5a-2) would
+        // have stayed "active" and received the paid-shift solicitation
+        // directly. Fixed this round: cross-reference
+        // getTerminatedTeamMemberIds against the active-status roster and
+        // drop terminated ids before the send loop. requirePermission needs
+        // headers()/cookies() this harness doesn't have, so this drives the
+        // same guard function the fixed route now calls, same reasoning as
+        // 5a-4/5a-6/5a-7/5a-8/5a-9 above.
+        if (helper?.id) {
+          const broadcastCandidateIds = [worker.id, helper.id]
+          const broadcastTerminatedIds = await getTerminatedTeamMemberIds(tenant.id, broadcastCandidateIds)
+          add('bookings-broadcast: the terminated worker is in the set the route drops from its "active" roster before sending', broadcastTerminatedIds.includes(worker.id), JSON.stringify(broadcastTerminatedIds))
+          add('bookings-broadcast: CONTROL — the active helper is NOT in that set, still receives the broadcast', !broadcastTerminatedIds.includes(helper.id), JSON.stringify(broadcastTerminatedIds))
+
+          const broadcastRecipientsAfterGuard = broadcastCandidateIds.filter(id => !broadcastTerminatedIds.includes(id))
+          add('bookings-broadcast: filtering the active-status roster through this guard leaves exactly the active helper, never the terminated worker', broadcastRecipientsAfterGuard.length === 1 && broadcastRecipientsAfterGuard[0] === helper.id, JSON.stringify(broadcastRecipientsAfterGuard))
+        }
       }
     }
 
