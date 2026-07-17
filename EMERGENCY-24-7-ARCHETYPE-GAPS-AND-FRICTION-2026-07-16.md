@@ -2726,3 +2726,68 @@ assertion dropped to 0 calls, reproducing the exact pre-fix symptom, RED →
 files, 1848/1848 tests, zero regressions (same pre-existing unrelated
 tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
 item 17).
+
+## (64) New today, archetype depth — `POST /api/bookings`' team-member assignment was the last live call site sending a raw SMS instead of routing through `notifyTeamMember()` — NOW FIXED
+
+Every other team-member-facing event (job add, reassign, reschedule)
+already goes through `notifyTeamMember()` — items (53)/(54)/(56)/(58)/(60)/
+(62) established it as the one true channel (push + in-app + quiet-hours +
+per-type prefs + SMS-consent gate). The booking-creation route itself, the
+single most fundamental team-member notification (a brand-new job
+assignment), never migrated: it sent a raw `sendSMS()` with no push leg at
+all, no in-app notification row, no quiet-hours check, and — unlike the
+client SMS block two lines above it — no `sms_consent` gate, the item (48)
+sweep never reached because this call site predates it. A push-only tech
+(no phone on file, or SMS-consent revoked) got zero notice of being
+assigned to a brand-new job, including an emergency one. Confirmed via
+`grep -rln sendPushToTeamMember\|notifyTeamMember\( src/` across every
+team-member-facing route (only this one still bypassed the wrapper) plus a
+direct read of the route's notification block.
+
+**Fixed** (`p1-w3`) — switched to `notifyTeamMember()`, matching item
+(60)/(62)'s convention: type `job_assignment`, 🚨-prefixed title when
+`is_emergency`, `skipEmail: true`, `isEmergency` mirroring the booking's own
+flag so push isn't suppressed during quiet hours for a genuine emergency
+assignment. 3 new tests (`route.team-notify.test.ts`): routine assignment,
+emergency assignment (title + `isEmergency` asserted), and
+no-team-member-assigned (no phantom call). Mutation-verified via saved
+patch (`git diff` → `git apply -R` → all 3 assertions failed reproducing
+the exact pre-fix symptom — zero `notifyTeamMember` calls, RED → `git
+apply` restored, GREEN). `tsc --noEmit` clean, full suite 372/372 files,
+1852/1852 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
+item 17).
+
+## (65) New today, fresh ground outside the archetype — video-upload notifications fired with type `check_in` instead of the dedicated type `video_uploaded` that already exists — NOW FIXED
+
+`notify.ts`'s `NotificationType` union has declared `'video_uploaded'`
+since this codebase's beginning, and 3 tenant `AdminSidebar.tsx` components
+(nyc-mobile-salon, wash-and-fold-hoboken, wash-and-fold-nyc) plus the global
+`/dashboard/notifications` page already carry real UI treatment for it (🎥
+"Video Uploaded" icon/title, violet color) — the same "declared type, real
+UI, never actually fired" shape as item (63)'s `quote_viewed`. But the one
+route that should fire it, `team-portal/video-upload/route.ts` (both the
+signed-URL/JSON flow and the legacy formdata flow), called `notify()` with
+`type: 'check_in'` instead — worse than item (63), since `check_in` already
+has its own distinct, actively-used meaning in those same sidebars ("▶️ Job
+Started"), so every video-upload notification landed in the admin feed
+actively mislabeled as a job-start event rather than merely falling back to
+a generic icon. Confirmed by grepping every `NotificationType` literal's
+usage count across `src/` (`video_uploaded` had zero `notify()` call sites;
+`check_in` appeared at both video-upload call sites instead) and reading
+all 3 `AdminSidebar.tsx` type-to-icon maps plus the global notifications
+page's color map.
+
+**Fixed** (`p1-w3`) — both `notify()` calls in
+`team-portal/video-upload/route.ts` now use `type: 'video_uploaded'`. 1 new
+test (`route.notify-type.test.ts`) on the signed-URL flow, the primary path
+per the route's own comment; the legacy formdata flow received the
+byte-identical one-line fix but isn't separately exercised — constructing a
+real multipart body with a binary file part hits an unrelated undici/jsdom
+webidl incompatibility in this test environment, unrelated to the route.
+Mutation-verified via saved patch (`git diff` → `git apply -R` → the type
+assertion failed reproducing the exact pre-fix symptom (`'check_in'`
+received instead of `'video_uploaded'`), RED → `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 372/372 files, 1852/1852 tests,
+zero regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
