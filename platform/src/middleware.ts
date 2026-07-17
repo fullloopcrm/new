@@ -114,6 +114,17 @@ const isPublicRoute = createRouteMatcher([
                              // admin_token cookie) 307'd to /sign-in before the
                              // route's own portal-auth check ever ran, same H-01
                              // shape as the /api/push gap above.
+  '/api/push/subscribe',    // Push-subscription registration; same self-gated
+                             // shape as /api/uploads directly above. The
+                             // admin-impersonation bypass list below already
+                             // covers this path's role:'admin' branch, but
+                             // team_member/client callers (app/team/page.tsx,
+                             // app/portal/page.tsx's global <PushPrompt>,
+                             // exercised on the main host) authenticate via
+                             // getPortalAuth()/protectClientAPI() inside the
+                             // route, not an admin_token cookie — without this
+                             // entry they 307'd to /sign-in before that
+                             // in-route auth check ever ran, same H-01 shape.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/referrals/track(.*)', // Referral click tracking

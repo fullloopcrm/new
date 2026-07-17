@@ -85,4 +85,22 @@ describe('middleware.ts public-route list — /api/uploads stays covered (H-01 c
         'team-portal photo upload requests on the main host will fall through to the /sign-in redirect.',
     ).toBe(true)
   })
+
+  it('covers /api/push/subscribe (team_member/client push registration, self-gated via getPortalAuth/protectClientAPI)', () => {
+    const src = middlewareSource()
+    // app/team/page.tsx and app/portal/page.tsx both render the global
+    // <PushPrompt> on the main host (they're isPublicRoute pages, not tenant
+    // subdomains) with role team_member/client. Those roles authenticate via
+    // getPortalAuth()/protectClientAPI() inside the route, not the
+    // admin_token cookie the admin-impersonation bypass list below checks —
+    // that bypass list already covers role:'admin', but team_member/client
+    // callers have no admin_token cookie at all. Without this entry in
+    // isPublicRoute, those requests 307 to /sign-in before the route's own
+    // in-route auth check ever runs, same H-01 shape as /api/uploads above.
+    expect(
+      src.includes(`'/api/push/subscribe'`),
+      "middleware.ts isPublicRoute list no longer covers '/api/push/subscribe' — " +
+        'team_member/client push-registration requests on the main host will fall through to the /sign-in redirect.',
+    ).toBe(true)
+  })
 })
