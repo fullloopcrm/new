@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -37,13 +38,25 @@ export async function GET() {
     created_at: v.created_at,
   }))
 
-  // Dashboard — visitor counts by time period
+  // Dashboard — visitor counts by time period. website_visits.created_at is
+  // TIMESTAMPTZ (aware) -- the old `new Date().getFullYear()/getMonth()/
+  // getDate()/getDay()` read the SERVER's local calendar (UTC on Vercel), a
+  // full day ahead of ET for ~4-5h every evening, misplacing every boundary
+  // below during that window. Fixed with true-UTC instants of ET-calendar
+  // boundaries (an aware column needs a real UTC instant, unlike
+  // bookings.start_time's naive-ET string columns fixed elsewhere this
+  // session). Week still starts Monday, matching the original math --
+  // todayObj's getUTCDay() reflects the true ET weekday (built purely from
+  // ET y/m/d via Date.UTC), unlike a server-local getDay() would.
   const now = new Date()
-  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const dayOfWeek = now.getDay() || 7
-  const startOfWeek = new Date(now.getFullYear(), now.getMonth(), now.getDate() - dayOfWeek + 1).getTime()
-  const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
-  const startOfYear = new Date(now.getFullYear(), 0, 1).getTime()
+  const { y: ty, m: tm, d: td } = etYMD(now)
+  const todayObj = new Date(Date.UTC(ty, tm - 1, td))
+  const mondayOffset = todayObj.getUTCDay() === 0 ? 6 : todayObj.getUTCDay() - 1
+  const startOfToday = etMidnightUtc(ty, tm, td).getTime()
+  const startOfWeekObj = new Date(Date.UTC(ty, tm - 1, td - mondayOffset))
+  const startOfWeek = etMidnightUtc(startOfWeekObj.getUTCFullYear(), startOfWeekObj.getUTCMonth() + 1, startOfWeekObj.getUTCDate()).getTime()
+  const startOfMonth = etMidnightUtc(ty, tm, 1).getTime()
+  const startOfYear = etMidnightUtc(ty, 1, 1).getTime()
 
   let today = 0, thisWeek = 0, thisMonth = 0, thisYear = 0
   for (const v of pageViews) {
