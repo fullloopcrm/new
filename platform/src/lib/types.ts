@@ -108,6 +108,7 @@ export interface BookingUnconfirmed {
   start_time: string
   end_time: string
   team_member_id: string | null
+  is_emergency?: boolean | null
   clients: ClientNameAddress
   team_members: TeamMemberNamePhone
 }

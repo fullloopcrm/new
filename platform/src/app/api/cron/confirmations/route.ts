@@ -43,7 +43,7 @@ export async function GET(request: Request) {
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, end_time, team_member_id, is_emergency, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
@@ -136,11 +136,12 @@ export async function GET(request: Request) {
             .limit(1)
 
           if (!adminAlerted || adminAlerted.length === 0) {
+            const isEmergency = booking.is_emergency === true
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'team_no_confirm_alert',
-              title: `No Confirmation: ${member.name}`,
-              message: `${member.name} has not confirmed their ${date} job for ${client?.name || 'client'} after ${attemptCount} attempts.`,
+              title: isEmergency ? `🚨 Urgent No Confirmation: ${member.name}` : `No Confirmation: ${member.name}`,
+              message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${member.name} has not confirmed their ${date} job for ${client?.name || 'client'} after ${attemptCount} attempts.`,
               booking_id: booking.id,
               channel: 'in_app',
               status: 'sent',
