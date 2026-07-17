@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('clients.view')
@@ -11,7 +12,15 @@ export async function GET() {
     const { tenantId } = tenant
 
     const now = new Date()
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
+    // clients.created_at is TIMESTAMPTZ (aware) -- the old
+    // `new Date().getFullYear()/getMonth()` read the SERVER's local calendar
+    // (UTC on Vercel), a full day ahead of ET for ~4-5h every evening,
+    // pushing "new this month" boundary to the wrong ET calendar month
+    // during that window. Fixed with the true-UTC-instant of ET midnight
+    // (not the naive-ET string used for bookings.start_time -- that's a
+    // different, naive TIMESTAMP column type).
+    const { y: ty, m: tm } = etYMD(now)
+    const monthStart = etMidnightUtc(ty, tm, 1).toISOString()
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 86400000).toISOString()
 
     const [
