@@ -117,11 +117,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const cutoff = from_date || new Date().toISOString()
   const { data: oldRows } = await db
     .from('bookings')
-    .select('id')
+    .select('id, price')
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', cutoff)
   const oldIds = (oldRows || []).map((r: { id: string }) => r.id)
+
+  // recurring_schedules has no `price` column to fall back to the way
+  // effPayRate/effHourlyRate do above -- price only ever lived per-booking.
+  // `price: price || 0` used to apply unconditionally, so a caller that
+  // edits the pattern (day/time/member) without resending price (nothing
+  // today forces it) silently zeroed every regenerated booking's price --
+  // the same "edit without resending zeroes the field" bug already fixed
+  // for pay_rate/hourly_rate in this exact route, just missed for price.
+  // Falls back to the price already on the series' own future bookings
+  // (the ones this call is about to retire) when the caller omits it.
+  const fallbackPrice = oldRows?.[0]?.price ?? 0
 
   // 3. Insert the new pattern.
   const { h, m } = parseTime(preferred_time)
@@ -138,7 +149,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       start_time: startISO,
       end_time: endISO,
       service_type: service_type || 'Standard Cleaning',
-      price: price || 0,
+      price: price !== undefined ? (Number(price) || 0) : fallbackPrice,
       hourly_rate: effHourlyRate,
       pay_rate: effPayRate,
       notes: notes || null,

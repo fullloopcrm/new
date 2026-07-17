@@ -81,8 +81,8 @@ beforeEach(() => {
       { id: 'sched-B1', tenant_id: 'tenant-B', client_id: 'client-B1', property_id: null, pay_rate: 15, hourly_rate: 35 },
     ],
     bookings: [
-      { id: 'book-old-future', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-08-10T09:00:00' },
-      { id: 'book-old-confirmed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'confirmed', start_time: '2026-08-12T09:00:00' },
+      { id: 'book-old-future', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-08-10T09:00:00', price: 12000 },
+      { id: 'book-old-confirmed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'confirmed', start_time: '2026-08-12T09:00:00', price: 12000 },
       { id: 'book-old-past', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'scheduled', start_time: '2026-01-01T09:00:00' },
       { id: 'book-old-completed', tenant_id: 'tenant-A', schedule_id: 'sched-A1', status: 'completed', start_time: '2026-08-11T09:00:00' },
       { id: 'book-other-tenant', tenant_id: 'tenant-B', schedule_id: 'sched-B1', status: 'scheduled', start_time: '2026-08-10T09:00:00' },
@@ -193,6 +193,21 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(row.team_member_id).toBe('tm-1')
     expect(row.service_type).toBe('Deep Clean')
     expect(row.price).toBe(15000)
+  })
+
+  it('falls back to the series’ existing price when the caller omits price entirely, instead of zeroing it', async () => {
+    // fixture's old future/confirmed bookings for sched-A1 are both priced at 12000
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'] }), params('sched-A1'))
+
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')!
+    expect(row.price).toBe(12000)
+  })
+
+  it('honors an explicit price: 0 (real, deliberate comp visit) rather than treating it as omitted', async () => {
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'], price: 0 }), params('sched-A1'))
+
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')!
+    expect(row.price).toBe(0)
   })
 
   it('persists an explicit team_member_id: null unassign onto the schedule rule, not just the new bookings', async () => {
