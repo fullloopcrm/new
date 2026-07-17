@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { generateRecurringDates } from './_recurring'
+import { generateRecurringDates, buildSeriesUpdateData } from './_recurring'
 
 /**
  * BookingsAdmin.tsx's client-side date generator -- drives BOTH the "next 4
@@ -77,5 +77,46 @@ describe('generateRecurringDates — monthly_date (Nth day-of-month), month-end 
   it('honors an on_date end bound without excluding the anchor', () => {
     const dates = generateRecurringDates('2026-01-31', true, 'monthly_date', 'on_date', 0, '2026-04-01', 1)
     expect(dates).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
+  })
+})
+
+describe('buildSeriesUpdateData — "apply to all future occurrences" batch payload', () => {
+  it('writes the lead assignee under bookings\' real team_member_id column, not the nycmaid-era cleaner_id alias', () => {
+    // bookings has never had a `cleaner_id` column (only legacy per-tenant
+    // site booking tables ported in from nycmaid do). PUT /api/bookings/
+    // batch-update spreads this object straight into `.update()` with no
+    // field allowlist -- a `cleaner_id` key here 400s every row in the batch
+    // with an unknown-column error, silently breaking the entire "apply to
+    // all future" edit (price/notes/hours/lead reassignment all skipped via
+    // the caller's early `if (!res.ok) return`) whenever the recurring
+    // pattern itself wasn't also changed.
+    const data = buildSeriesUpdateData({
+      startTime: '2026-08-01T09:00:00',
+      endTime: '2026-08-01T12:00:00',
+      teamMemberId: 'tm-123',
+      price: 20000,
+      hourlyRate: 69,
+      serviceType: 'Standard Cleaning',
+      notes: null,
+      recurringType: 'Weekly',
+    })
+
+    expect(data.team_member_id).toBe('tm-123')
+    expect(data).not.toHaveProperty('cleaner_id')
+  })
+
+  it('passes through an explicit unassign (null) rather than dropping the key', () => {
+    const data = buildSeriesUpdateData({
+      startTime: '2026-08-01T09:00:00',
+      endTime: '2026-08-01T12:00:00',
+      teamMemberId: null,
+      price: 20000,
+      hourlyRate: 69,
+      serviceType: 'Standard Cleaning',
+      notes: null,
+      recurringType: 'Weekly',
+    })
+
+    expect(data).toHaveProperty('team_member_id', null)
   })
 })

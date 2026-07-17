@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from 'react'
 import { buildMemberColors, colorForMember, type ColorableMember } from '../calendar/_colors'
 import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
+import { buildSeriesUpdateData } from './_recurring'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
@@ -917,16 +918,16 @@ function BookingsPage() {
         // every future booking completed/paid too.
         const batchUpdates = futureBookings.map(booking => ({
           id: booking.id,
-          data: {
-            start_time: shiftNaive(booking.start_time, deltaMinutes),
-            end_time: shiftNaive(booking.start_time, deltaMinutes + durationMinutes),
-            cleaner_id: form.cleaner_id || null,
+          data: buildSeriesUpdateData({
+            startTime: shiftNaive(booking.start_time, deltaMinutes),
+            endTime: shiftNaive(booking.start_time, deltaMinutes + durationMinutes),
+            teamMemberId: form.cleaner_id || null,
             price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
-            hourly_rate: form.hourly_rate,
-            service_type: form.service_type,
+            hourlyRate: form.hourly_rate,
+            serviceType: form.service_type,
             notes: form.notes || null,
-            recurring_type: recurringType,
-          }
+            recurringType: recurringType,
+          })
         }))
 
         const res = await fetch('/api/bookings/batch-update', {
