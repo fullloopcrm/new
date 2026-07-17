@@ -7,6 +7,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission, overridesFor } from '@/lib/require-permission'
 import { hasPermission } from '@/lib/rbac'
+import { nowNaiveET, etToday, addCalendarDays, calendarDayOfWeek, formatNaiveET } from '@/lib/recurring'
 
 interface BookingRow {
   price: number | null
@@ -24,18 +25,32 @@ export async function GET() {
     // finance.view rather than blocking the whole endpoint.
     const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
 
+    // start_time/end_time are naive-ET (computeNaiveVisitWindow's documented
+    // convention). These boundaries used to be built from `new Date(
+    // now.getFullYear(), now.getMonth(), now.getDate())` -- the SERVER's
+    // local (UTC on Vercel) calendar, not ET -- silently shifting every
+    // today/week/month/year cutoff by the ET/UTC gap (4h EDT / 5h EST), the
+    // day-boundary counterpart of the naive-ET/true-UTC instant-cutoff bug
+    // fixed elsewhere this session (see recurring.ts's nowNaiveET header).
+    const today = etToday()
+    const startOfDayET = formatNaiveET(today)
+    const endOfDayET = formatNaiveET(addCalendarDays(today, 1))
+    const startOfWeek = addCalendarDays(today, -calendarDayOfWeek(today))
+    const endOfWeek = addCalendarDays(startOfWeek, 7)
+    const startOfWeekET = formatNaiveET(startOfWeek)
+    const endOfWeekET = formatNaiveET(endOfWeek)
+    const startOfMonthET = formatNaiveET({ ...today, day: 1 })
+    // Day 0 of next month = last day of this month.
+    const endOfMonthET = formatNaiveET(addCalendarDays({ year: today.year, month: today.month + 1, day: 1 }, -1), 23, 59, 59)
+    const fourteenDaysOutET = formatNaiveET(addCalendarDays(today, 15)) // endOfDay + 14 days
+    const thirtyDaysAgoET = nowNaiveET(-30 * 24 * 60 * 60 * 1000)
+    const startOfYearET = formatNaiveET({ year: today.year, month: 0, day: 1 })
+    const endOfYearET = formatNaiveET({ year: today.year, month: 11, day: 31 }, 23, 59, 59)
+
+    // clients.created_at is a genuine timestamptz (`DEFAULT NOW()`), unlike
+    // start_time/end_time -- keep a true-UTC month-start boundary for it.
     const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
-    const startOfWeek = new Date(startOfDay)
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-    const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-    const fourteenDaysOut = new Date(endOfDay.getTime() + 14 * 24 * 60 * 60 * 1000)
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+    const startOfMonthUTC = new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
 
     const liveStatuses = ['confirmed', 'scheduled', 'in_progress']
 
@@ -48,33 +63,33 @@ export async function GET() {
       db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDayET)
+        .lt('start_time', endOfDayET)
         .in('status', [...liveStatuses, 'completed'])
         .order('start_time'),
       db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDayET)
+        .lt('start_time', endOfDayET)
         .in('status', [...liveStatuses, 'completed']),
       db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .gte('start_time', startOfWeek.toISOString())
-        .lt('start_time', endOfWeek.toISOString())
+        .gte('start_time', startOfWeekET)
+        .lt('start_time', endOfWeekET)
         .in('status', [...liveStatuses, 'completed']),
       db
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
-        .gte('start_time', startOfMonth.toISOString())
-        .lte('start_time', endOfMonth.toISOString())
+        .gte('start_time', startOfMonthET)
+        .lte('start_time', endOfMonthET)
         .in('status', [...liveStatuses, 'completed']),
       db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .gte('start_time', startOfYear.toISOString())
-        .lte('start_time', endOfYear.toISOString())
+        .gte('start_time', startOfYearET)
+        .lte('start_time', endOfYearET)
         .order('start_time'),
       db
         .from('bookings')
@@ -84,8 +99,8 @@ export async function GET() {
       db
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', fourteenDaysOut.toISOString())
+        .gte('start_time', startOfDayET)
+        .lt('start_time', fourteenDaysOutET)
         .in('status', liveStatuses)
         .order('start_time'),
       db
@@ -94,37 +109,37 @@ export async function GET() {
       db
         .from('clients')
         .select('*')
-        .gte('created_at', startOfMonth.toISOString()),
+        .gte('created_at', startOfMonthUTC),
       db
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .eq('status', 'completed')
-        .gte('start_time', thirtyDaysAgo.toISOString()),
+        .gte('start_time', thirtyDaysAgoET),
       db
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .in('status', liveStatuses)
-        .gte('start_time', startOfDay.toISOString())
-        .lte('start_time', endOfYear.toISOString()),
+        .gte('start_time', startOfDayET)
+        .lte('start_time', endOfYearET),
       db
         .from('bookings')
         .select('price')
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDayET)
+        .lt('start_time', endOfDayET)
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
       db
         .from('bookings')
         .select('price')
-        .gte('start_time', startOfWeek.toISOString())
-        .lt('start_time', endOfWeek.toISOString())
+        .gte('start_time', startOfWeekET)
+        .lt('start_time', endOfWeekET)
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
       db
         .from('bookings')
         .select('price')
-        .gte('start_time', startOfMonth.toISOString())
-        .lte('start_time', endOfMonth.toISOString())
+        .gte('start_time', startOfMonthET)
+        .lte('start_time', endOfMonthET)
         .eq('status', 'completed')
         .eq('payment_status', 'paid'),
       db
