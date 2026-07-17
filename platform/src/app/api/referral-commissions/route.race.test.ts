@@ -116,3 +116,47 @@ describe('referral-commissions PUT — referrer total_paid race closed', () => {
     expect(ref.total_paid).toBe(500 + 700)
   })
 })
+
+describe('referral-commissions PUT — SAME-commission double mark-paid no longer double-counts', () => {
+  /**
+   * BUG (fixed here): marking a commission 'paid' unconditionally called
+   * increment_referrer_paid whenever the request body said status:'paid' --
+   * with no check on the commission's CURRENT status first. The atomic RPC
+   * above only closes the lost-update race between DIFFERENT commissions; it
+   * does nothing to stop the SAME commission being marked paid twice (a
+   * double-click, or a client retry after a slow/dropped response) from
+   * incrementing total_paid twice for money that was only ever disbursed
+   * once. postCommissionPayment's own idempotency protects the real ledger
+   * entry, but the referrer's total_paid stat -- which operators reconcile
+   * against actual disbursements -- would silently drift high.
+   */
+  it('double-clicking mark-paid on the SAME commission increments total_paid exactly once', async () => {
+    h.seed.referral_commissions.push(
+      { id: 'comm-3', tenant_id: TENANT, referrer_id: REF, commission_cents: 900, status: 'pending' },
+    )
+
+    const [r1, r2] = await Promise.all([put('comm-3', 'paid'), put('comm-3', 'paid')])
+    expect(r1.status).toBe(200)
+    expect(r2.status).toBe(200)
+
+    const ref = h.seed.referrers.find((r) => r.id === REF)!
+    expect(ref.total_paid).toBe(900)
+
+    const commission = h.seed.referral_commissions.find((c) => c.id === 'comm-3')!
+    expect(commission.status).toBe('paid')
+  })
+
+  it('a sequential retry after the first call already succeeded is a no-op on total_paid', async () => {
+    h.seed.referral_commissions.push(
+      { id: 'comm-4', tenant_id: TENANT, referrer_id: REF, commission_cents: 300, status: 'pending' },
+    )
+
+    const first = await put('comm-4', 'paid')
+    expect(first.status).toBe(200)
+    const second = await put('comm-4', 'paid')
+    expect(second.status).toBe(200)
+
+    const ref = h.seed.referrers.find((r) => r.id === REF)!
+    expect(ref.total_paid).toBe(300)
+  })
+})

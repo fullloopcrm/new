@@ -172,44 +172,59 @@ export async function PUT(request: Request) {
     const { id, status, paid_via } = await request.json()
     if (!id) return NextResponse.json({ error: 'id required' }, { status: 400 })
 
-    const updates: Record<string, unknown> = { status }
-
     if (status === 'paid') {
-      updates.paid_at = new Date().toISOString()
-      updates.paid_via = paid_via || 'zelle'
-
-      const { data: commission } = await supabaseAdmin
+      // CAS: `.neq('status', 'paid')` makes this update a no-op (0 rows) if
+      // the commission was already marked paid. Without it, a double-click
+      // or retry hitting this route twice for the same commission called
+      // increment_referrer_paid a second time -- the RPC in
+      // migrations/2026_07_13_referrer_ledger_atomic.sql fixes the LOST-UPDATE
+      // race between two DIFFERENT commissions for the same referrer, but
+      // does nothing to stop the SAME commission's payout being counted
+      // twice, silently inflating referrer.total_paid on the dashboard even
+      // though postCommissionPayment's own idempotency (journalEntryExists)
+      // already protects the real ledger entry from posting twice.
+      const { data: claimed, error: claimErr } = await supabaseAdmin
         .from('referral_commissions')
-        .select('referrer_id, commission_cents')
+        .update({ status: 'paid', paid_at: new Date().toISOString(), paid_via: paid_via || 'zelle' })
         .eq('id', id)
         .eq('tenant_id', tenantId)
-        .single()
-      if (commission) {
+        .neq('status', 'paid')
+        .select('id, referrer_id, commission_cents')
+        .maybeSingle()
+      if (claimErr) throw claimErr
+
+      if (claimed) {
         // Atomic increment (migrations/2026_07_13_referrer_ledger_atomic.sql) —
         // a read-then-write here would lose an increment if two commissions
         // for the same referrer are marked paid around the same time.
         await supabaseAdmin.rpc('increment_referrer_paid', {
           p_tenant_id: tenantId,
-          p_referrer_id: commission.referrer_id,
-          p_amount_cents: commission.commission_cents as number,
+          p_referrer_id: claimed.referrer_id,
+          p_amount_cents: claimed.commission_cents as number,
         })
+        // Marking paid clears the payable against cash in the ledger.
+        postCommissionPayment({ tenantId, commissionId: claimed.id })
+          .catch(err => console.error('[ref-comm] payment post failed:', err))
       }
+
+      const { data, error } = await supabaseAdmin
+        .from('referral_commissions')
+        .select()
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .single()
+      if (error) throw error
+      return NextResponse.json(data)
     }
 
     const { data, error } = await supabaseAdmin
       .from('referral_commissions')
-      .update(updates)
+      .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .select()
       .single()
     if (error) throw error
-
-    // Marking paid clears the payable against cash in the ledger.
-    if (status === 'paid' && data?.id) {
-      postCommissionPayment({ tenantId, commissionId: data.id })
-        .catch(err => console.error('[ref-comm] payment post failed:', err))
-    }
 
     return NextResponse.json(data)
   } catch (err) {
