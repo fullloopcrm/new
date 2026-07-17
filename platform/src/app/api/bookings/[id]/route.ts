@@ -120,7 +120,7 @@ export async function PUT(
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, timezone')
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)

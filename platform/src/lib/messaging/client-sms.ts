@@ -26,6 +26,7 @@ type TenantLike = {
   domain?: string | null
   domain_name?: string | null
   google_place_id?: string | null
+  timezone?: string | null
 }
 
 export type ClientSmsTemplates = {
@@ -49,7 +50,7 @@ export function isCleaningTenant(tenant: TenantLike): boolean {
 }
 
 // Brand fields the resolver needs; selected when a route only has a tenant id.
-const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id'
+const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id, timezone'
 
 /**
  * Load a tenant's brand row by id and return its client SMS templates. Use from
@@ -91,19 +92,22 @@ export function clientSmsTemplates(tenant: TenantLike): ClientSmsTemplates {
   // (bookingConfirmed / confirmationReminder) is cleaning-specific; for neutral
   // tenants we fall back to the standard confirmation copy.
   const name = tenant.name || 'Your service'
+  // Item (115): thread the tenant's real timezone through so these dates/
+  // times render in the tenant's own zone instead of the server default.
+  const tz = tenant.timezone
   return {
-    bookingReceived: b => generic.smsBookingReceived(name, b),
-    bookingConfirmed: b => generic.smsBookingConfirmation(name, b),
-    confirmationReminder: b => generic.smsBookingConfirmation(name, b),
-    bookingConfirmation: (b, portalUrl) => generic.smsBookingConfirmation(name, b, portalUrl),
-    reminder: (b, tf) => generic.smsReminder(name, b, tf),
-    cancellation: (b, portalUrl) => generic.smsCancellation(name, b, portalUrl),
-    reschedule: (b, portalUrl) => generic.smsReschedule(name, b, portalUrl),
+    bookingReceived: b => generic.smsBookingReceived(name, b, tz),
+    bookingConfirmed: b => generic.smsBookingConfirmation(name, b, undefined, tz),
+    confirmationReminder: b => generic.smsBookingConfirmation(name, b, undefined, tz),
+    bookingConfirmation: (b, portalUrl) => generic.smsBookingConfirmation(name, b, portalUrl, tz),
+    reminder: (b, tf) => generic.smsReminder(name, b, tf, tz),
+    cancellation: (b, portalUrl) => generic.smsCancellation(name, b, portalUrl, tz),
+    reschedule: (b, portalUrl) => generic.smsReschedule(name, b, portalUrl, tz),
     thankYou: n => generic.smsThankYou(name, n),
     ratingQ1: () => cleaning.ratingQ1(tenantBrand(tenant)),
-    bookingConfirmationES: b => generic.smsBookingConfirmationES(name, b),
-    reminderES: (b, tf) => generic.smsReminderES(name, b, tf),
-    cancellationES: b => generic.smsCancellationES(name, b),
-    rescheduleES: b => generic.smsRescheduleES(name, b),
+    bookingConfirmationES: b => generic.smsBookingConfirmationES(name, b, tz),
+    reminderES: (b, tf) => generic.smsReminderES(name, b, tf, tz),
+    cancellationES: b => generic.smsCancellationES(name, b, tz),
+    rescheduleES: b => generic.smsRescheduleES(name, b, tz),
   }
 }

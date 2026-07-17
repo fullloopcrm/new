@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
     .eq('status', 'active')
     .limit(1000)
 

@@ -123,7 +123,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   // Tenant context for notifications (telnyx + push)
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, timezone')
     .eq('id', ctx.tenantId)
     .single()
 

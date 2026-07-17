@@ -22,6 +22,7 @@ type TenantLike = {
   domain?: string | null
   domain_name?: string | null
   google_place_id?: string | null
+  timezone?: string | null
 }
 
 export type TeamSmsTemplates = {
@@ -33,7 +34,7 @@ export type TeamSmsTemplates = {
   lateCheckOutAdmin(booking: TeamBookingLike): string
 }
 
-const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id'
+const BRAND_COLUMNS = 'slug, industry, name, phone, website_url, domain, domain_name, google_place_id, timezone'
 
 /**
  * Load a tenant's brand row by id and return its team SMS templates. Use from
@@ -64,11 +65,14 @@ export function teamSmsTemplates(tenant: TenantLike): TeamSmsTemplates {
   // Neutral shared templates, bound to this tenant's display name. Output is
   // identical to the pre-resolver behavior for the ~23 non-cleaning tenants.
   const name = tenant.name || 'Your Business'
+  // Item (115): thread the tenant's real timezone through so these dates/
+  // times render in the tenant's own zone instead of the server default.
+  const tz = tenant.timezone
   return {
-    jobAssignment: b => generic.smsJobAssignment(name, b as any),
+    jobAssignment: b => generic.smsJobAssignment(name, b as any, undefined, tz),
     dailySummary: (memberName, count) => generic.smsDailySummary(name, memberName, count),
-    lateCheckInCleaner: b => generic.smsLateCheckInTeam(name, b as any),
-    lateCheckInAdmin: b => generic.smsLateCheckInAdmin(name, b as any),
+    lateCheckInCleaner: b => generic.smsLateCheckInTeam(name, b as any, undefined, tz),
+    lateCheckInAdmin: b => generic.smsLateCheckInAdmin(name, b as any, tz),
     lateCheckOutCleaner: b => generic.smsLateCheckOutTeam(name, b as any),
     lateCheckOutAdmin: b => generic.smsLateCheckOutAdmin(name, b as any),
   }

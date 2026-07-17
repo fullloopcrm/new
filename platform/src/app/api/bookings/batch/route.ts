@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       // Resolve tenant brand for SMS templates
       const { data: tenantRow } = await supabaseAdmin
         .from('tenants')
-        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
+        .select('name, slug, industry, phone, website_url, domain, domain_name, google_place_id, timezone')
         .eq('id', tenantId)
         .single()
 

@@ -118,7 +118,7 @@ export async function POST(request: Request) {
   const isEmergency = !!booking.is_emergency
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id, timezone')
     .eq('id', auth.tid)
     .single()
   const bizName = tenant?.name || 'Your Business'

@@ -26,7 +26,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug, industry, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, owner_phone, phone')
+    .select('id, name, slug, industry, website_url, domain, domain_name, google_place_id, telnyx_api_key, telnyx_phone, owner_phone, phone, timezone')
     .eq('status', 'active')
     .limit(1000)
 
