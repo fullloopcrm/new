@@ -34,6 +34,17 @@ function intervalDays(recurringType: string): number {
   return recurringType === 'weekly' ? 7 : recurringType === 'biweekly' ? 14 : 28
 }
 
+// validate.ts has no enum type, so recurring_type is checked by hand here --
+// mirrors the guard PUT /api/schedules/[id] already has. Without it, an
+// invalid recurring_type stored via this admin creation route (BookingsAdmin
+// UI, or a direct API caller) gets an initial batch from this route's own
+// loose intervalDays() (defaults any unrecognized value to a 28-day step, so
+// it never errors here), but every future cron/generate-recurring refill
+// calls the strict generateRecurringDates switch (no default case), which
+// silently returns zero dates forever -- the schedule quietly stops
+// generating with no error, no flag, once the initial 6-week batch runs out.
+const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
+
 export async function GET(request: Request) {
   const { tenant, error } = await requirePermission('schedules.view')
   if (error) return error
@@ -108,6 +119,10 @@ export async function POST(request: Request) {
       { error: 'client_id, recurring_type, and start_date are required' },
       { status: 400 }
     )
+  }
+
+  if (!VALID_RECURRING_TYPES.includes(recurring_type)) {
+    return NextResponse.json({ error: `recurring_type must be one of: ${VALID_RECURRING_TYPES.join(', ')}` }, { status: 400 })
   }
 
   // 'per_visit' (default, standalone invoice per completed booking) or

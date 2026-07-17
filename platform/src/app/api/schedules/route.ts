@@ -6,6 +6,15 @@ import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
+// validate.ts has no enum type, so recurring_type is checked by hand here --
+// mirrors the guard PUT /api/schedules/[id] already has. Without it, an
+// unvalidated recurring_type passes validate()'s bare string/max-50 check,
+// gets stored on recurring_schedules, and generateRecurringDates' switch (no
+// default case) silently returns zero dates for it forever -- both for this
+// route's own initial-batch generation below AND every future cron/
+// generate-recurring refill, with no error anywhere.
+const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
+
 export async function GET() {
   try {
     const { tenant, error: authError } = await requirePermission('schedules.view')
@@ -54,6 +63,10 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const v = fields!
+
+    if (!VALID_RECURRING_TYPES.includes(v.recurring_type as string)) {
+      return NextResponse.json({ error: `recurring_type must be one of: ${VALID_RECURRING_TYPES.join(', ')}` }, { status: 400 })
+    }
 
     // invoice_consolidation: 'per_visit' (default, standalone invoice per
     // completed booking) or 'monthly' (commercial/office accounts — folded

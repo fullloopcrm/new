@@ -132,6 +132,20 @@ describe('recurring schedule → occurrences (happy path)', () => {
     expect(h.store.bookings).toHaveLength(0)
   })
 
+  // recurring_type only had a truthiness check ("is it present") -- an
+  // invalid value like 'monthly' (not in RecurringType) used to insert fine:
+  // this route's own loose intervalDays() defaults any unrecognized value to
+  // a 28-day step so the initial batch generated something, but every future
+  // cron/generate-recurring refill hits generateRecurringDates' strict switch
+  // (no default case) and silently returns zero dates forever.
+  it('rejects a recurring_type that is not a valid RecurringType with 400, and writes nothing', async () => {
+    const res = await POST(req({ ...validBody, recurring_type: 'monthly' }))
+    expect(res.status).toBe(400)
+
+    expect(h.store.recurring_schedules).toHaveLength(0)
+    expect(h.store.bookings).toHaveLength(0)
+  })
+
   it('still creates the schedule when team_member_id/property_id genuinely belong to the caller tenant', async () => {
     const res = await POST(req({ ...validBody, team_member_id: 'tm-A', property_id: 'prop-A' }))
     expect(res.status).toBe(200)

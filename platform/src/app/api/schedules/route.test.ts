@@ -103,6 +103,18 @@ describe('POST /api/schedules — validation', () => {
 
     expect(res.status).toBe(400)
   })
+
+  // recurring_type only had a bare string/max-50 check here -- an invalid
+  // value (e.g. 'monthly', which isn't in RecurringType) would insert a
+  // schedule that generateRecurringDates' switch (no default case) silently
+  // treats as zero dates forever, both here and on every future cron refill.
+  it('rejects a recurring_type that is not a valid RecurringType with 400, and creates no schedule', async () => {
+    const before = h.store.recurring_schedules.length
+    const res = await POST(postReq({ client_id: CLIENT_ID, recurring_type: 'monthly' }))
+
+    expect(res.status).toBe(400)
+    expect(h.store.recurring_schedules).toHaveLength(before)
+  })
 })
 
 describe('POST /api/schedules — creation + booking generation', () => {
