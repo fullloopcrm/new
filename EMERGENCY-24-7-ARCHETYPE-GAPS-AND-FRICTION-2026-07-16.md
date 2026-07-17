@@ -2852,3 +2852,64 @@ symptom, RED → `git apply` restored, GREEN). `tsc --noEmit` clean, full
 suite 374/374 files, 1857/1857 tests, zero regressions (same pre-existing
 unrelated tenant-scope guard warning on `fixture/route.ts`, not touched,
 noted since item 17).
+
+## (68) New today, archetype depth — `booking_completed` sat undeclared-but-unfired since inception, same shape as items (63)/(66)/(67)'s quote-lifecycle gaps — NOW FIXED
+
+Swept every `NotificationType` literal in `lib/notify.ts` against actual
+`notify()` call sites across `src/` looking for more "declared type, zero
+callers" gaps in the quote-lifecycle family's shape. Found five with zero
+call sites (`booking_completed`, `escalation`, `expense_added`,
+`payroll_paid`, `review_request`) but only `booking_completed` has a real,
+shipped UI treatment waiting for it — a dedicated green badge in
+`app/dashboard/notifications/page.tsx`'s `TYPE_COLORS` map, same evidence
+bar items (63)/(66)/(67) used. `PATCH /api/bookings/[id]/status` is the
+only place a booking ever transitions to `'completed'`; the route already
+calls `notify()` for the `cancelled` transition two blocks below (team-
+member SMS) but never did for completion — the single event a job's own
+completion feed entry depended on.
+
+**Fixed** (`p1-w3`) — added a `notify()` call on the `'completed'`
+transition: type `booking_completed`, `channel: 'email'`,
+`recipientType: 'admin'`, matching the exact convention items (63)/(66)/(67)
+used for sales-hub admin-visibility gaps (no bespoke email template exists
+for this type, same as those — the plain fallback body is fine since the
+point is the in-app feed row, not a branded send). 3 new tests
+(`route.completed-notify.test.ts`): fires once on `in_progress → completed`;
+does not fire on other transitions; does not fail the status change if
+`notify()` throws. Mutation-verified via saved patch (`git diff` → `git
+apply -R` → the "fires" assertion dropped to 0 calls reproducing the exact
+pre-fix symptom, RED → `git apply` restored, GREEN). `tsc --noEmit` clean,
+full suite 375/375 files, 1860/1860 tests, zero regressions (same
+pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, noted since item 17).
+
+## (69) Fresh ground, flagged not fixed — `review_request`'s branded client email (`reviewRequestEmail`) is fully built and dead; the real review-request cron only ever sends SMS
+
+Same "declared type, zero `notify()` callers" sweep as item (68) turned up
+`review_request` too — and this one is a deeper miss than a missing admin
+badge. `lib/notify.ts` has a complete `case 'review_request':` branch
+building a branded `reviewRequestEmail()` HTML body, and
+`app/dashboard/notifications/page.tsx` has a real yellow badge for it — but
+`grep -rn "type:.*review_request" src/` finds zero callers. The actual
+review-request flow, `app/api/cron/post-job-followup/route.ts` (both the
+per-booking and per-job branches), sends the ask via a raw `sendSMS()` call
+that never touches `notify()` at all — so every tenant's clients only ever
+get a review request by text, the branded email path has shipped and never
+fired once, and the admin's own in-app feed never shows a review request
+having gone out either.
+
+**Not fixed — flagging instead of acting.** Unlike (68) and the
+quote-lifecycle items, wiring this one for real is a product decision, not
+a pure visibility fix: `reviewRequestEmail`'s content is addressed to the
+*client* (their name, their feedback link), so firing it correctly means
+`notify()` with `recipientType: 'client'` — an actual new outbound email to
+real customers on every tenant, on a cron loop, the first time this code
+path would ever run. That's a live customer-communication change, not an
+admin-dashboard-only wire-up like (68)/(63)/(66)/(67), and it isn't this
+queue's call to make unilaterally. Options for Jeff: (a) fire it as
+designed — clients get both SMS and a branded review-request email; (b)
+fire `notify()` with `recipientType: 'admin'` instead/in addition, purely so
+the admin feed shows "review requested" the way it shows every other
+lifecycle event, with no new customer-facing send; (c) leave as-is and
+narrow the declared type / strip the dead email template as cleanup.
+Left open pending a call.
