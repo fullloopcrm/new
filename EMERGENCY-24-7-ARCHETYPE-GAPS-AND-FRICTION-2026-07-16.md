@@ -1650,6 +1650,72 @@ regressions (one pre-existing, unrelated tenant-scope guard warning on
 `fixture/route.ts`, not touched, same precedent as items
 17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38).
 
+## (40) New today, archetype depth — the 8am/2pm "Unassigned Bookings" admin alert was is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38) — NOW FIXED
+
+`GET /api/cron/reminders`' pending-booking-alert section (fires at 8am and
+2pm for any `pending`/`scheduled` booking with no `team_member_id`) never
+fetched `bookings.is_emergency`, so a same-day emergency job that's still
+unassigned produced the byte-identical "N bookings need assignment: Client A
+- Fri, Client B - next Tue, ..." notice as a routine job three weeks out
+sitting unassigned — exactly the scenario (an emergency job with nobody
+dispatched to it) where the owner most needs it to jump out of the list, not
+blend in. Worse: the detail preview is hard-capped to the first 5 by
+`start_time` ascending, so a same-day emergency booking could be silently
+dropped from the preview text entirely whenever 5+ other unassigned bookings
+happen to sort ahead of it — emergency or not, anything past the top 5 never
+appears. Verified via
+`grep -l is_emergency src/app/api/cron/*/route.ts` (same method as items
+34/36/38) that `reminders/route.ts` was still missing the field.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the `pendingBookings` select and
+the `BookingPending` type (`src/lib/types.ts`), sorted the list
+emergency-first before slicing to the top-5 detail preview (so an emergency
+job can no longer be crowded out by routine ones), marked each emergency
+entry in the preview with a `🚨` prefix, and escalated both the in-app
+notification title and the admin-email title to `🚨 N Emergency + M
+Unassigned Bookings` when any are present — reusing the exact convention
+items (20)/(32)/(34)/(38) already established. No copy/product call needed.
+Zero test files exist under any `src/app/api/cron/*` route in this repo
+(same precedent as items 18/20/22/32/34/35/36/38/39) — relies on
+`tsc --noEmit` + full-suite verification. `tsc --noEmit` clean, full suite
+355/355 files, 1810/1810 tests, zero regressions (one pre-existing, unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, same
+precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39).
+
+## (41) New today, fresh ground outside the archetype — the "Payment Due Soon" admin alert fires on jobs already paid in advance — NOW FIXED
+
+Found while tracing every writer of `bookings.payment_status` against the
+`reminders/route.ts` "Payment Due Soon" section's own query, same
+"read every writer before concluding" method items (6)/(27)/(35)/(39) used.
+That section fires an admin alert 10-20 minutes before a booking's
+`end_time` for any booking with `status = 'in_progress'` — no
+`payment_status` check at all. Two real write paths flip a booking's
+`payment_status` to `'paid'` (or `'partial'`) while **deliberately leaving
+`status` untouched** at `'in_progress'`: the Stripe pay-link webhook
+(`webhooks/stripe/route.ts:427`) and the manual Zelle/Venmo match route
+(`admin/payments/confirm-match/route.ts:92`) — confirmed the paid-while-
+`in_progress` state is an expected, reachable state (not a fluke) because
+the Stripe webhook's own no-booking-ref recovery query
+(`webhooks/stripe/route.ts:342`) explicitly searches `in_progress` jobs for
+ones where `payment_status` is *not yet* `'paid'`, i.e. the code already
+assumes `in_progress` + `payment_status='paid'` is a normal combination.
+Net effect: any client who paid in advance (online checkout, or an admin
+manually matching a Zelle/Venmo payment mid-job) still gets their job flagged
+to the owner as having payment "due in 15 min" the moment it's about to
+end — a false alarm on money that's already collected.
+
+**Fixed** (`p1-w3`) — added `.neq('payment_status', 'paid')` to the query.
+Deliberately left `'partial'` un-excluded — a job paid only partway still
+legitimately has money due on it, so the alert should still fire for the
+remainder; only a fully-`'paid'` booking is a false alarm. Zero test files
+exist under any `src/app/api/cron/*` route in this repo (same precedent as
+items 18/20/22/32/34/35/36/38/39/40) — relies on `tsc --noEmit` + full-suite
+verification. `tsc --noEmit` clean, full suite 355/355 files, 1810/1810
+tests, zero regressions (one pre-existing, unrelated tenant-scope guard
+warning on `fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
