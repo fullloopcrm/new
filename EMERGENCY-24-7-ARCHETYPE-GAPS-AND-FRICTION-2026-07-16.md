@@ -5887,3 +5887,67 @@ Flagging for a dedicated pass rather than guessing at reachability.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (129) Dedicated pass: the `team/[token]/page.tsx` reachability question flagged in (128), resolved — dead code, not a live bug
+
+(128) left this ambiguous: does `next.config.ts`'s `/team/:uuid` →
+`/team/checkin/:uuid` redirect fire before `wash-and-fold-hoboken` and
+`wash-and-fold-nyc`'s `(app)/team/[token]/page.tsx` can render on a tenant
+domain? Traced the full request path through `src/middleware.ts` — it
+doesn't just fire first, the tenant-site page can never be reached at all,
+independent of the redirect.
+
+`rewriteToSite()` (`src/middleware.ts:389`) checks `APP_ROOT_PREFIXES`
+(`/api/`, `/portal`, `/team`, …) before falling through to the bespoke
+per-tenant `/site/<slug>` subtree logic. `/team` is in that list, so on
+`wash-and-fold-nyc`'s own domain a request to `/team/<anything>` never
+rewrites into `/site/wash-and-fold-nyc/team/<anything>` — it passes through
+unchanged (tenant headers injected) to the root-level `/team` route tree,
+same as on the main host. There is no code path, on any host, that ever
+rewrites a request into that per-tenant `[token]` page — the only way to
+reach it is by requesting the internal `/site/wash-and-fold-nyc/team/<token>`
+path directly, which no link, redirect, or rewrite in the codebase produces.
+
+On top of that unreachability, the page's own fetches don't work either:
+`/api/team/${token}` resolves to `/api/team/[id]/route.ts`, an
+admin-authed (`requirePermission('team.view')`) `team_members` CRUD endpoint
+that 401s an unauthenticated token holder and, even if it somehow succeeded,
+returns `{ member }` (a team_members row) not the `{ start_time, clients,
+cleaners, ... }` booking shape the page expects. `/api/team/${token}/check-in`
+and `/check-out` don't resolve to anything — no such nested route exists
+under `/api/team/[id]/`. And no code anywhere generates a token or a link to
+this page (grepped for `team_portal_token`, `team_token`, and any
+`` `/team/${...}` `` link-building — none found).
+
+Net: this is inert code ported wholesale from the pre-platform nycmaid
+build (`f1b7dbaa`, "port 19 tenant /site/ subtrees from nycmaid") whose
+matching backend and link-generation never made the jump to this
+architecture. The REAL, working booking check-in/checkout flow for every
+tenant, including these two, is the global session-based
+`src/app/team/checkin/[bookingId]/page.tsx` + `/api/team-portal/checkin` —
+confirmed that path is intact and unaffected by any of this. No fix applied;
+nothing here is reachable by a real user, so there's no live bug to
+correct. Not touching/deleting the two orphaned `[token]/page.tsx` files
+(337 lines each, `wash-and-fold-hoboken` + `wash-and-fold-nyc`) without
+Jeff/leader sign-off — flagging for a deletion decision rather than acting
+on it unilaterally.
+
+Fresh-ground hunt (queue item 2, same session): re-swept the client-facing
+self-service surface for the (126)-(128) archetypes (silently-discarded
+picks, join-alias shape mismatches) across `client/recurring`,
+`client/preferred-cleaner`, `client/booking/[id]`, and `client/collect`.
+`client/recurring` correctly persists `cleaner_id`/`extra_cleaner_ids` to
+both `recurring_schedules` and every generated booking, with the same
+tenant-ownership gate (128)'s siblings already have. `client/booking/[id]`
+returns an un-aliased `team_members` join, but its only consumers (the four
+reschedule pages) never read a cleaner name field, so no mismatch.
+`client/preferred-cleaner` (GET+PUT) has no frontend caller anywhere in the
+codebase — grepped `src/app` for any fetch to it, found only a same-named
+TypeScript field on `BookingsAdmin.tsx`'s `Client` interface, not a call
+site. Possibly dead API, not a live bug (nothing broken because nothing
+calls it) — noting it, not filing it as a fresh-ground item. No new
+live bug found this round.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
