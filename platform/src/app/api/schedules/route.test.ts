@@ -46,7 +46,10 @@ vi.mock('@/lib/tenant-query', () => ({
   },
 }))
 vi.mock('@/lib/audit', () => ({ audit: (...a: unknown[]) => h.audit(...a) }))
-vi.mock('@/lib/recurring', () => ({ generateRecurringDates: (...a: unknown[]) => h.generateRecurringDates(...a) }))
+vi.mock('@/lib/recurring', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/recurring')>('@/lib/recurring')
+  return { ...actual, generateRecurringDates: (...a: unknown[]) => h.generateRecurringDates(...a) }
+})
 
 import { GET, POST } from './route'
 import { AuthError } from '@/lib/tenant-query'

@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logInvoiceEvent } from '@/lib/invoice'
+import { nowNaiveET } from '@/lib/recurring'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -34,9 +35,15 @@ export async function GET(request: Request, { params }: Params) {
 
     let nextStatus: string | null = null
     if (invoice.status === 'sent') nextStatus = 'viewed'
+    // due_date is a DATE column (calendar day, no time) meant in the
+    // business's local (ET) terms. `new Date(due_date) < new Date()` parsed
+    // it as UTC midnight and compared it to the real instant -- UTC midnight
+    // of the due date is 8pm ET the EVENING BEFORE (EDT) / 7pm ET (EST), so
+    // an invoice went "overdue" up to ~28h before its due date had even
+    // fully elapsed in ET. Compare ET calendar dates directly instead: only
+    // overdue once ET's "today" has moved past the due date.
     if (invoice.due_date && !['paid', 'void', 'refunded'].includes(invoice.status)) {
-      const due = new Date(invoice.due_date as string)
-      if (due < new Date() && invoice.status !== 'overdue') nextStatus = 'overdue'
+      if (nowNaiveET().slice(0, 10) > (invoice.due_date as string) && invoice.status !== 'overdue') nextStatus = 'overdue'
     }
 
     // Check-then-act, not atomic: `invoice.status` above is a stale snapshot --

@@ -7,6 +7,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
+import { nowNaiveET } from '@/lib/recurring'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -37,9 +38,16 @@ export async function GET(request: Request, { params }: Params) {
     // both it and the view-tracking fields in one write.
     const originalStatus = quote.status as string
     let nextStatus: string | null = null
+    // valid_until is a DATE column (calendar day, no time) meant in the
+    // business's local (ET) terms. `new Date(valid_until) < new Date()`
+    // parsed it as UTC midnight and compared it to the real instant -- UTC
+    // midnight of valid_until is 8pm ET the EVENING BEFORE (EDT) / 7pm ET
+    // (EST), so a quote expired up to ~28h before valid_until had even fully
+    // elapsed in ET, sometimes showing "expired" to the customer before
+    // valid_until had even arrived. Compare ET calendar dates directly
+    // instead: only expired once ET's "today" has moved past valid_until.
     if (quote.valid_until && originalStatus === 'sent') {
-      const validUntil = new Date(quote.valid_until as string)
-      if (validUntil < new Date()) nextStatus = 'expired'
+      if (nowNaiveET().slice(0, 10) > (quote.valid_until as string)) nextStatus = 'expired'
     }
     if (nextStatus === null && originalStatus === 'sent') nextStatus = 'viewed'
 

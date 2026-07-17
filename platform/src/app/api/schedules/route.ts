@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
-import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { addCalendarDays, calendarDayOfWeek, etToday, generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
 
@@ -88,18 +88,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    // Generate first 4 weeks of bookings
-    const startDate = new Date()
-    if (v.preferred_time) {
-      const [h, m] = (v.preferred_time as string).split(':')
-      startDate.setHours(parseInt(h), parseInt(m), 0, 0)
-    }
-    // Adjust to next occurrence of day_of_week
+    // Generate first 4 weeks of bookings.
+    // Anchor the day-of-week search to ET's calendar "today" (etToday()), not
+    // `new Date()`'s own getDay()/setDate() -- those read the SERVER's local
+    // calendar (UTC on Vercel). A schedule created ~8pm-midnight ET, when UTC
+    // has already rolled to tomorrow, searched forward from the wrong
+    // starting day: a day_of_week that was actually still "today" in ET got
+    // skipped entirely, pushing the first occurrence -- and every date after
+    // it, since each later date steps a fixed interval off this anchor -- a
+    // full week later than intended.
+    let anchor = etToday()
     if (v.day_of_week !== undefined && v.day_of_week !== null) {
-      while (startDate.getDay() !== (v.day_of_week as number)) {
-        startDate.setDate(startDate.getDate() + 1)
+      while (calendarDayOfWeek(anchor) !== (v.day_of_week as number)) {
+        anchor = addCalendarDays(anchor, 1)
       }
     }
+    const now = new Date()
+    const [hh, mm] = v.preferred_time
+      ? (v.preferred_time as string).split(':').map((n) => parseInt(n, 10))
+      : [now.getUTCHours(), now.getUTCMinutes()]
+    const startDate = new Date(Date.UTC(anchor.year, anchor.month, anchor.day, hh, mm, 0, 0))
 
     const dates = generateRecurringDates({
       recurringType: v.recurring_type as RecurringType,
