@@ -6,6 +6,7 @@ import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -23,13 +24,15 @@ export async function POST(request: Request) {
   // Get tenant config
   const { data: tenantConfig } = await supabaseAdmin
     .from('tenants')
-    .select('name, telnyx_api_key, telnyx_phone, resend_api_key, primary_color')
+    .select('name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, primary_color')
     .eq('id', tenantId)
     .single()
 
   if (!tenantConfig) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
   }
+
+  const smsCreds = resolveTenantSmsCredentials(tenantConfig)
 
   // Get the booking
   const { data: booking } = await supabaseAdmin
@@ -65,7 +68,7 @@ export async function POST(request: Request) {
 
   // Check if at least one notification channel is configured
   const hasEmail = !!(tenantConfig.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
-  const hasSMS = !!(tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone)
+  const hasSMS = !!(smsCreds.apiKey && smsCreds.phone)
 
   if (!hasEmail && !hasSMS) {
     return NextResponse.json({ error: 'No notification channels configured. Add Resend or Telnyx keys in Settings.' }, { status: 400 })
@@ -86,10 +89,10 @@ export async function POST(request: Request) {
     // SMS broadcast — sms_consent (team_members.sms_consent is a real,
     // crew-editable column since the team-portal/preferences fix; this
     // broadcast texted every active member regardless of it before this fix).
-    if (member.phone && member.sms_consent !== false && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
+    if (member.phone && member.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
       const smsBody = smsUrgentBroadcast(tenantConfig.name, { start_time: booking.start_time, team_pay_rate: payRate })
       try {
-        await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenantConfig.telnyx_api_key, telnyxPhone: tenantConfig.telnyx_phone })
+        await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
         smsSent = true
       } catch { /* skip */ }
     }

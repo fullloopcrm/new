@@ -15,6 +15,7 @@ import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -329,9 +330,10 @@ export async function POST(request: Request) {
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
+      const smsCreds = resolveTenantSmsCredentials(tenantData)
       const bizName = tenantData?.name || 'Your Business'
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -359,12 +361,12 @@ export async function POST(request: Request) {
       // same invariant every other client SMS fan-out enforces (payment-processor.ts,
       // client/book, client/reschedule) — this route sent unconditionally on
       // phone presence.
-      if (data.clients?.phone && data.clients?.sms_consent !== false && !data.clients?.do_not_service && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      if (data.clients?.phone && data.clients?.sms_consent !== false && !data.clients?.do_not_service && smsCreds.apiKey && smsCreds.phone) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
-          telnyxApiKey: tenantData.telnyx_api_key,
-          telnyxPhone: tenantData.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(err => console.error('Client confirmation SMS error:', err))
       }
 
@@ -372,12 +374,12 @@ export async function POST(request: Request) {
       // is a real, crew-editable column), same invariant the client SMS
       // right above it enforces; this send fired unconditionally on phone
       // presence before this fix.
-      if (data.team_members?.phone && data.team_members?.sms_consent !== false && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      if (data.team_members?.phone && data.team_members?.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
-          telnyxApiKey: tenantData.telnyx_api_key,
-          telnyxPhone: tenantData.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(err => console.error('Team assignment SMS error:', err))
       }
     } catch (notifErr) {

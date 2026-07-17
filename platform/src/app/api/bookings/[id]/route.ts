@@ -10,6 +10,7 @@ import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { audit } from '@/lib/audit'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function GET(
   _request: Request,
@@ -153,11 +154,12 @@ export async function PUT(
     try {
       const { data: tenantData } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
+      const smsCreds = resolveTenantSmsCredentials(tenantData)
       const bizName = tenantData?.name || 'Your Business'
-      const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
+      const hasSMS = !!(smsCreds.apiKey && smsCreds.phone)
       const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
       const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
@@ -186,8 +188,8 @@ export async function PUT(
           sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
-            telnyxApiKey: tenantData!.telnyx_api_key,
-            telnyxPhone: tenantData!.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey!,
+            telnyxPhone: smsCreds.phone!,
           }).catch(err => console.error('Confirm SMS error:', err))
         }
       }
@@ -200,8 +202,8 @@ export async function PUT(
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
-          telnyxApiKey: tenantData!.telnyx_api_key,
-          telnyxPhone: tenantData!.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey!,
+          telnyxPhone: smsCreds.phone!,
         }).catch(err => console.error('Assignment SMS error:', err))
       }
 
@@ -210,8 +212,8 @@ export async function PUT(
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
-          telnyxApiKey: tenantData!.telnyx_api_key,
-          telnyxPhone: tenantData!.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey!,
+          telnyxPhone: smsCreds.phone!,
         }).catch(err => console.error('Reschedule SMS error:', err))
       }
     } catch (notifErr) {
@@ -263,11 +265,12 @@ export async function DELETE(
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
-          .select('name, telnyx_api_key, telnyx_phone')
+          .select('name, telnyx_api_key, telnyx_phone, sms_number')
           .eq('id', tenantId)
           .single()
+        const smsCreds = resolveTenantSmsCredentials(tenantData)
         const bizName = tenantData?.name || 'Your Business'
-        const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
+        const hasSMS = !!(smsCreds.apiKey && smsCreds.phone)
 
         // Client cancellation email — do_not_service blocks; both sends
         // fired unconditionally before this fix.
@@ -291,8 +294,8 @@ export async function DELETE(
           sendSMS({
             to: booking.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),
-            telnyxApiKey: tenantData!.telnyx_api_key,
-            telnyxPhone: tenantData!.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey!,
+            telnyxPhone: smsCreds.phone!,
           }).catch(err => console.error('Cancellation SMS error:', err))
         }
       } catch (notifErr) {
