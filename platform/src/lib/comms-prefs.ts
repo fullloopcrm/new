@@ -50,7 +50,7 @@ export interface CommPreferences {
 export interface CommCapabilities {
   /** Email can be sent (tenant Resend key or platform fallback). */
   email: boolean
-  /** SMS can be sent (tenant Telnyx key + phone). */
+  /** SMS can be sent (tenant Telnyx key + phone, or platform fallback). */
   sms: boolean
 }
 

@@ -99,6 +99,12 @@ beforeEach(() => {
   sendSMS.mockClear()
   delete process.env.ADMIN_EMAIL
   delete process.env.ADMIN_FORWARD_PHONE
+  // sms-credentials.ts's resolveTenantSmsCredentials() falls back to the
+  // platform's shared Telnyx account by default — clear it so the "no
+  // Telnyx credentials configured" tests below stay deterministic
+  // regardless of the ambient shell/CI env.
+  delete process.env.TELNYX_API_KEY
+  delete process.env.TELNYX_PHONE
 })
 
 afterEach(() => {

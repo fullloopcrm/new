@@ -73,6 +73,11 @@ describe('notify() SMS — telnyx_phone/sms_number fallback precedence', () => {
     insertCalls = []
     sendEmail.mockClear()
     sendSMS.mockClear()
+    // These tests probe tenant-column precedence specifically — clear the
+    // platform TELNYX_API_KEY/TELNYX_PHONE fallback (sms-credentials.ts) so
+    // results stay deterministic regardless of the ambient shell/CI env.
+    vi.stubEnv('TELNYX_API_KEY', '')
+    vi.stubEnv('TELNYX_PHONE', '')
   })
 
   function tenantRow(id: string, fields: Record<string, unknown>) {
@@ -155,5 +160,72 @@ describe('notify() SMS — telnyx_phone/sms_number fallback precedence', () => {
 
     expect(sendSMS).not.toHaveBeenCalled()
     expect(result).toEqual({ success: false, error: 'SMS not configured — no Telnyx API key' })
+  })
+
+  it('BUG-CLASS PROBE: sends via the platform Telnyx account when the tenant has configured neither field', async () => {
+    // Before this fix this was indistinguishable from the WRONG-TENANT PROBE
+    // above — a tenant with no telnyx_api_key/telnyx_phone silently never
+    // got SMS, even though the platform maintains its own shared Telnyx
+    // account for exactly this case (same precedent as email's RESEND_API_KEY
+    // fallback, already live in this same function for the email channel).
+    vi.stubEnv('TELNYX_API_KEY', 'platform-key')
+    vi.stubEnv('TELNYX_PHONE', '+18885550000')
+
+    resolve = (table) => {
+      if (table === 'tenants') {
+        return { data: tenantRow(TENANT_A, { telnyx_api_key: null, telnyx_phone: null, sms_number: null }), error: null }
+      }
+      if (table === 'clients') {
+        return { data: { email: null, phone: '+15559990000' }, error: null }
+      }
+      return { data: { id: 'notif-1' }, error: null }
+    }
+
+    const result = await notify({
+      tenantId: TENANT_A,
+      type: 'booking_confirmed',
+      title: 'Confirmed',
+      message: 'Your booking is confirmed',
+      channel: 'sms',
+      recipientType: 'client',
+      recipientId: 'client-1',
+    })
+
+    expect(result.success).toBe(true)
+    expect(sendSMS).toHaveBeenCalledTimes(1)
+    expect(sendSMS.mock.calls[0][0]).toMatchObject({ telnyxApiKey: 'platform-key', telnyxPhone: '+18885550000' })
+  })
+
+  it('WRONG-TENANT PROBE: the platform fallback used for tenant A is never tenant B\'s own key/phone', async () => {
+    vi.stubEnv('TELNYX_API_KEY', 'platform-key')
+    vi.stubEnv('TELNYX_PHONE', '+18885550000')
+
+    resolve = (table, eqs) => {
+      if (table === 'tenants') {
+        if (eqs.id === TENANT_A) {
+          return { data: tenantRow(TENANT_A, { telnyx_api_key: null, telnyx_phone: null, sms_number: null }), error: null }
+        }
+        return { data: tenantRow(TENANT_B, { telnyx_api_key: 'key-b', telnyx_phone: '+15551110000', sms_number: null }), error: null }
+      }
+      if (table === 'clients') {
+        return { data: { email: null, phone: '+15559990000' }, error: null }
+      }
+      return { data: { id: 'notif-1' }, error: null }
+    }
+
+    const result = await notify({
+      tenantId: TENANT_A,
+      type: 'booking_confirmed',
+      title: 'Confirmed',
+      message: 'Your booking is confirmed',
+      channel: 'sms',
+      recipientType: 'client',
+      recipientId: 'client-1',
+    })
+
+    expect(result.success).toBe(true)
+    expect(sendSMS.mock.calls[0][0]).toMatchObject({ telnyxApiKey: 'platform-key', telnyxPhone: '+18885550000' })
+    expect(sendSMS.mock.calls[0][0]).not.toMatchObject({ telnyxApiKey: 'key-b' })
+    expect(sendSMS.mock.calls[0][0]).not.toMatchObject({ telnyxPhone: '+15551110000' })
   })
 })

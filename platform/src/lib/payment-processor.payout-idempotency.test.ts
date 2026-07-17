@@ -139,6 +139,11 @@ beforeEach(() => {
   realTransferCount = 0
   realPayoutCount = 0
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
+  // TENANT below has no telnyx_api_key/telnyx_phone — clear the platform
+  // fallback (sms-credentials.ts) so SMS-send behavior here stays
+  // deterministic regardless of the ambient shell/CI env.
+  delete process.env.TELNYX_API_KEY
+  delete process.env.TELNYX_PHONE
 })
 
 describe('payment-processor — duplicate manual payment confirmation does not double-pay the cleaner', () => {

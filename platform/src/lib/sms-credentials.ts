@@ -17,6 +17,21 @@
  * this centralizes that same precedence so the many other call sites that
  * read tenant.telnyx_phone directly can adopt it instead of re-deriving it
  * (or missing it).
+ *
+ * Platform fallback: when a tenant hasn't configured its own Telnyx
+ * sub-account, this falls back to the platform's shared TELNYX_API_KEY/
+ * TELNYX_PHONE — the SAME tenant-first-then-platform precedence already
+ * established for every sibling credential resolver (email.ts's
+ * defaultResend, stripe.ts's getStripe(), comhub-voice-config.ts's
+ * resolveTenantVoiceConfig(), and bookings/batch/route.ts's own inline
+ * `tRow?.telnyx_api_key || process.env.TELNYX_API_KEY`). Before this, the
+ * shared resolver used by notify.ts/notify-team.ts/admin-contacts.ts/
+ * payment-processor.ts/comms-prefs.ts silently treated SMS as unavailable
+ * for every tenant without its own Telnyx account, even though the platform
+ * account could already send for them (as bookings/batch already proved).
+ * Pass `{ platformFallback: false }` for a caller that must use the
+ * tenant's OWN number or not send at all (lib/jefe/actions.ts's
+ * notifyTenantOwner(), which documents exactly that contract).
  */
 export interface TenantSmsFields {
   telnyx_api_key?: string | null
@@ -29,16 +44,34 @@ export interface TenantSmsCredentials {
   phone: string | null
 }
 
+export interface ResolveSmsCredentialsOptions {
+  platformFallback?: boolean
+}
+
+// Read at call time (not module load) so tests can stub process.env per-case,
+// matching the read-at-call-time shape of comhub-voice-config.ts's ENV block.
+function platformTelnyxApiKey(): string | null {
+  return (process.env.TELNYX_API_KEY || '').trim() || null
+}
+function platformTelnyxPhone(): string | null {
+  return (process.env.TELNYX_PHONE || '').trim() || null
+}
+
 export function resolveTenantSmsCredentials(
   tenant: TenantSmsFields | null | undefined,
+  opts: ResolveSmsCredentialsOptions = {},
 ): TenantSmsCredentials {
+  const { platformFallback = true } = opts
   return {
-    apiKey: tenant?.telnyx_api_key || null,
-    phone: tenant?.telnyx_phone || tenant?.sms_number || null,
+    apiKey: tenant?.telnyx_api_key || (platformFallback ? platformTelnyxApiKey() : null),
+    phone: tenant?.telnyx_phone || tenant?.sms_number || (platformFallback ? platformTelnyxPhone() : null),
   }
 }
 
-export function hasTenantSms(tenant: TenantSmsFields | null | undefined): boolean {
-  const { apiKey, phone } = resolveTenantSmsCredentials(tenant)
+export function hasTenantSms(
+  tenant: TenantSmsFields | null | undefined,
+  opts: ResolveSmsCredentialsOptions = {},
+): boolean {
+  const { apiKey, phone } = resolveTenantSmsCredentials(tenant, opts)
   return !!(apiKey && phone)
 }

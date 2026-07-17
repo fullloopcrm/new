@@ -101,7 +101,10 @@ export async function notifyTenantOwner(identifier: string, message: string, con
   if (!t) return { ok: false, error: `No single tenant matched "${identifier}". Use the exact slug or name.` }
   if (!has(message)) return { ok: false, error: 'message is empty' }
 
-  const smsCreds = resolveTenantSmsCredentials(t)
+  // platformFallback: false — this function's contract is the tenant's OWN
+  // channel or manual_contact, never a silent send off the shared platform
+  // Telnyx account (see the doc comment above).
+  const smsCreds = resolveTenantSmsCredentials(t, { platformFallback: false })
   const fromNumber = smsCreds.phone || ''
   const canSms = has(smsCreds.apiKey) && has(fromNumber) && has(t.owner_phone)
   const canEmail = has(t.resend_api_key) && has(t.owner_email)
