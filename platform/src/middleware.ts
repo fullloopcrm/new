@@ -241,7 +241,14 @@ export default async function middleware(req: NextRequest) {
       return rewriteToSite(req, staticTenant.id, staticTenant.slug)
     }
     try {
-      const tenant = await getTenantByDomain(hostname)
+      // cleanHost (port-stripped, lowercased), not the raw hostname — a Host
+      // header carrying a port suffix (some proxies/preview setups) or
+      // non-lowercase casing never matches tenants.domain/tenant_domains.domain
+      // (getTenantByDomain only strips a leading "www.", nothing else), so the
+      // raw hostname silently fails resolution and falls through to the main
+      // site below, exactly like the STATIC_TENANT_MAP lookup two lines above
+      // already accounts for by using cleanHost instead of hostname.
+      const tenant = await getTenantByDomain(cleanHost)
       if (tenant && tenantServesSite(tenant.status)) {
         return rewriteToSite(req, tenant.id, tenant.slug)
       }
@@ -288,7 +295,18 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/routes') || p.startsWith('/api/schedule') ||
           p.startsWith('/api/service-area') || p.startsWith('/api/sales-applications') ||
           p.startsWith('/api/audit') || p.startsWith('/api/connect') ||
-          p.startsWith('/api/tenant/public')) {
+          p.startsWith('/api/tenant/public') ||
+          // Same H-01 class repeating: these dashboard-fetched routes
+          // (BookingNotes on every booking detail, ProjectsView, the
+          // permissions fetch dashboard-shell.tsx runs on EVERY /dashboard
+          // page load, and the AI assistant/campaign-chat features) resolve
+          // tenant context via getTenantForRequest()/requirePermission() —
+          // the same admin-impersonation-aware helper every other route in
+          // this list depends on — but had no prefix here, so an
+          // admin-impersonated request to any of them fell through to the
+          // /sign-in redirect below instead of running.
+          p.startsWith('/api/booking-notes') || p.startsWith('/api/projects') ||
+          p.startsWith('/api/permissions') || p.startsWith('/api/ai')) {
         return
       }
     }
