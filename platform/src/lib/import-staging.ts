@@ -248,11 +248,25 @@ export async function commitBatch(batchId: string): Promise<{ committed: number 
   let committed = 0
   for (const r of rows || []) {
     const table = r.target_table as string
-    const payload = { ...(r.mapped as Record<string, unknown>), tenant_id: batch.tenant_id }
+    const payload: Record<string, unknown> = { ...(r.mapped as Record<string, unknown>), tenant_id: batch.tenant_id }
     const { data: ins, error } = await supabaseAdmin.from(table).insert(payload).select('id').single()
     if (error || !ins) continue // leave uncommitted; row keeps target_id null
     await supabaseAdmin.from('import_rows').update({ target_id: ins.id }).eq('id', r.id)
     committed++
+
+    // GET /api/bookings/:id/team and closeout-summary source the lead from
+    // booking_team_members, not bookings.team_member_id -- committing a
+    // staged schedule row with a resolved staff_name match left
+    // booking_team_members empty, so the booking showed as unassigned in
+    // the admin Team panel and closeout payout attribution. Same
+    // booking_team_members-sync gap fixed at every other
+    // bookings.team_member_id write site this session.
+    if (table === 'bookings' && payload.team_member_id) {
+      await supabaseAdmin.from('booking_team_members').upsert(
+        { tenant_id: batch.tenant_id, booking_id: ins.id, team_member_id: payload.team_member_id, is_lead: true, position: 1 },
+        { onConflict: 'booking_id,team_member_id' },
+      )
+    }
   }
 
   await supabaseAdmin.from('import_batches')
