@@ -61,6 +61,7 @@ vi.mock('@/lib/jobs', () => ({ convertSaleToJob: vi.fn(async () => {}) }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert: vi.fn(async () => {}) }))
 
 import { POST } from './route'
+import { sendSMS } from '@/lib/sms'
 
 function seed() {
   return {
@@ -72,6 +73,15 @@ function seed() {
     deal_activities: [] as Record<string, any>[],
     bookings: [
       { id: 'bk-a', tenant_id: A, client_id: 'c-a', team_member_id: null, price: 10000, hourly_rate: 50, actual_hours: 2, payment_status: 'unpaid' },
+      {
+        id: 'bk-sms', tenant_id: A, client_id: 'c-sms', team_member_id: 'tm-sms', price: 10000, hourly_rate: 50, actual_hours: 2, payment_status: 'unpaid',
+        // Embedded join shapes — the harness has no real relational join, so
+        // `clients(...)`/`team_members(...)`/`tenants(...)` in route.ts's
+        // select() resolve to whatever is nested directly on the row here.
+        clients: { name: 'SMS Client', phone: '+15559998888', address: null, sms_consent: true, do_not_service: false },
+        team_members: { name: 'Cleaner', phone: '+15557776666', stripe_account_id: null, preferred_language: 'en', sms_consent: true },
+        tenants: { name: 'Test Tenant', telnyx_api_key: 'key_x', telnyx_phone: '+15550001111' },
+      },
     ],
     notifications: [] as Record<string, any>[],
     admin_tasks: [] as Record<string, any>[],
@@ -139,5 +149,43 @@ describe('webhooks/stripe — booking pay', () => {
     expect(await res.json()).toEqual({ received: true })
     expect(h.seed.payments.filter((p) => p.stripe_session_id === 'cs_bk')).toHaveLength(0)
     expect(h.seed.bookings.find((b) => b.id === 'bk-a')!.payment_status).toBe('unpaid')
+  })
+})
+
+describe('webhooks/stripe — booking pay client/cleaner SMS respects sms_consent + do_not_service', () => {
+  // The client "thank you" SMS (and the cleaner finish-up SMS) never checked
+  // sms_consent/do_not_service before this fix — a client who'd texted STOP
+  // (sms_consent -> false) or been marked do_not_service kept getting a
+  // payment-confirmation text on every Stripe payment.
+  const sendSMSMock = vi.mocked(sendSMS)
+
+  beforeEach(() => {
+    sendSMSMock.mockClear()
+  })
+
+  it('positive control: both consented — client and cleaner both get an SMS', async () => {
+    await fire(checkoutCompleted({ id: 'cs_sms_ok', amount_total: 10000, metadata: { booking_id: 'bk-sms', tenant_id: A } }))
+    expect(sendSMSMock).toHaveBeenCalledWith(expect.objectContaining({ to: '+15559998888' }))
+    expect(sendSMSMock).toHaveBeenCalledWith(expect.objectContaining({ to: '+15557776666' }))
+  })
+
+  it('BLOCKED: client sms_consent=false — client gets no SMS, cleaner still does', async () => {
+    h.seed.bookings.find((b) => b.id === 'bk-sms')!.clients.sms_consent = false
+    await fire(checkoutCompleted({ id: 'cs_sms_client_blocked', amount_total: 10000, metadata: { booking_id: 'bk-sms', tenant_id: A } }))
+    expect(sendSMSMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: '+15559998888' }))
+    expect(sendSMSMock).toHaveBeenCalledWith(expect.objectContaining({ to: '+15557776666' }))
+  })
+
+  it('BLOCKED: client do_not_service=true — client gets no SMS even with sms_consent true', async () => {
+    h.seed.bookings.find((b) => b.id === 'bk-sms')!.clients.do_not_service = true
+    await fire(checkoutCompleted({ id: 'cs_sms_dns', amount_total: 10000, metadata: { booking_id: 'bk-sms', tenant_id: A } }))
+    expect(sendSMSMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: '+15559998888' }))
+  })
+
+  it('BLOCKED: cleaner sms_consent=false — cleaner gets no SMS, client still does', async () => {
+    h.seed.bookings.find((b) => b.id === 'bk-sms')!.team_members.sms_consent = false
+    await fire(checkoutCompleted({ id: 'cs_sms_tm_blocked', amount_total: 10000, metadata: { booking_id: 'bk-sms', tenant_id: A } }))
+    expect(sendSMSMock).not.toHaveBeenCalledWith(expect.objectContaining({ to: '+15557776666' }))
+    expect(sendSMSMock).toHaveBeenCalledWith(expect.objectContaining({ to: '+15559998888' }))
   })
 })
