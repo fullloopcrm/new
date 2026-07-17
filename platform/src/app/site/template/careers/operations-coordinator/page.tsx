@@ -6,49 +6,56 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 
 
-const pageUrl = 'https://www.example.com/careers/operations-coordinator'
-const pageTitle = 'Part-Time Operations Admin — 10% Per Job, ~$40/hr Last Month | Your Business'
-const pageDescription = 'Your Business is hiring a part-time operations coordinator. Earn 10% of every completed job — paid per job via Zelle. Last month 10% averaged out to about $40/hr. Own the calendar, cleaners, and collections. Aiming for 100 services/week. Apply now.'
-
-export const metadata: Metadata = {
-  title: pageTitle,
-  description: pageDescription,
-  alternates: { canonical: '/careers/operations-coordinator' },
-  robots: {
-    index: true,
-    follow: true,
-    'max-snippet': -1,
-    'max-image-preview': 'large' as const,
-    'max-video-preview': -1,
-  },
-  openGraph: {
-    title: pageTitle,
-    description: pageDescription,
-    url: '/careers/operations-coordinator',
-    type: 'article',
-    locale: 'en_US',
-    images: [{ url: '/icon-512.png', width: 512, height: 512 }],
-    publishedTime: '2026-03-31T00:00:00Z',
-    modifiedTime: new Date().toISOString(),
-  },
-  twitter: {
-    card: 'summary_large_image',
-    title: pageTitle,
-    description: pageDescription,
-    images: ['/icon-512.png'],
-  },
-  keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator NYC, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job NYC, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
-  other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
-    'revisit-after': '3 days',
-    'format-detection': 'telephone=yes',
-  },
+function coordinatorMeta(brandName: string) {
+  return {
+    title: `Part-Time Operations Admin — 10% Per Job, ~$40/hr Last Month | ${brandName}`,
+    description: `${brandName} is hiring a part-time operations coordinator. Earn 10% of every completed job — paid per job via Zelle. Last month 10% averaged out to about $40/hr. Own the calendar, cleaners, and collections. Aiming for 100 services/week. Apply now.`,
+  }
 }
 
-function coordinatorJobPostingSchema() {
+export async function generateMetadata(): Promise<Metadata> {
+  const config = await getSiteConfig()
+  const { title: pageTitle, description: pageDescription } = coordinatorMeta(config.identity.name)
+  return {
+    title: pageTitle,
+    description: pageDescription,
+    alternates: { canonical: '/careers/operations-coordinator' },
+    robots: {
+      index: true,
+      follow: true,
+      'max-snippet': -1,
+      'max-image-preview': 'large' as const,
+      'max-video-preview': -1,
+    },
+    openGraph: {
+      title: pageTitle,
+      description: pageDescription,
+      url: '/careers/operations-coordinator',
+      type: 'article',
+      locale: 'en_US',
+      images: [{ url: '/icon-512.png', width: 512, height: 512 }],
+      publishedTime: '2026-03-31T00:00:00Z',
+      modifiedTime: new Date().toISOString(),
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: pageTitle,
+      description: pageDescription,
+      images: ['/icon-512.png'],
+    },
+    keywords: 'part time operations coordinator, part time coordinator remote, part time dispatcher, part time customer service, second job from home, side job remote, work from phone job, cleaning service coordinator, scheduling coordinator part time, payment coordinator, virtual coordinator, remote coordinator NYC, part time work from home, easy second job, side gig remote, operations coordinator cleaning company, bilingual coordinator, part time job NYC, part time job New Jersey, part time job Long Island, remote part time job, work from home part time, dispatcher part time, service coordinator part time, 10 percent commission job, per job pay, pay per job coordinator',
+    other: {
+      'geo.region': 'US-NY',
+      'geo.placename': 'New York City',
+      'geo.position': '40.7589;-73.9851',
+      'ICBM': '40.7589, -73.9851',
+      'revisit-after': '3 days',
+      'format-detection': 'telephone=yes',
+    },
+  }
+}
+
+function coordinatorJobPostingSchema(biz: ReturnType<typeof buildBusiness>) {
   const now = new Date()
   const datePosted = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString()
   const validThrough = new Date(now.getTime() + 90 * 24 * 60 * 60 * 1000).toISOString()
@@ -60,8 +67,8 @@ function coordinatorJobPostingSchema() {
     title: 'Operations Admin (Part-Time, Remote)',
     datePosted,
     validThrough,
-    description: `<h2>Part-Time Operations Admin — Your Business — Remote</h2>
-<p>Your Business is hiring a <strong>part-time operations coordinator</strong> to own the calendar, the cleaners, and the collections. You earn <strong>10% of every completed and paid job</strong> — paid per job via Zelle within minutes of completion, same as the cleaners. No base salary. No hourly rate. You earn when the business earns.</p>
+    description: `<h2>Part-Time Operations Admin — ${biz.name} — Remote</h2>
+<p>${biz.name} is hiring a <strong>part-time operations coordinator</strong> to own the calendar, the cleaners, and the collections. You earn <strong>10% of every completed and paid job</strong> — paid per job via Zelle within minutes of completion, same as the cleaners. No base salary. No hourly rate. You earn when the business earns.</p>
 
 <h3>Compensation</h3>
 <p><strong>10% of total revenue per completed job, paid via Zelle within minutes.</strong> February: 36 jobs. March: 81 jobs, $17,000 revenue = $1,700 earned — 10% averaged out to about $40/hr. We are aiming for 100 services per week, which would be $80K/month in revenue and around $8,000/month for you. Average job is ~$210, so you earn ~$21 per job. The business is doubling — more jobs means more money, automatically.</p>
@@ -99,21 +106,21 @@ function coordinatorJobPostingSchema() {
 <p>This is a <strong>1099 independent contractor position</strong>. You are not an employee. You are paid per job, you set your own workflow, and you are responsible for your own taxes. You will receive a 1099-NEC at the end of the year.</p>
 
 <h3>How to Apply</h3>
-<p>Submit your application at <a href="https://www.example.com/apply/operations-coordinator">example.com/apply/operations-coordinator</a>. Include a photo and a 60-second selfie video introduction. If bilingual, speak in both English and Spanish.</p>`,
+<p>Submit your application at <a href="${biz.url}/apply/operations-coordinator">${biz.url.replace(/^https?:\/\//, '')}/apply/operations-coordinator</a>. Include a photo and a 60-second selfie video introduction. If bilingual, speak in both English and Spanish.</p>`,
 
     hiringOrganization: {
       '@type': 'Organization',
-      name: 'Your Business',
-      sameAs: 'https://www.example.com',
-      url: 'https://www.example.com',
+      name: biz.name,
+      sameAs: biz.url,
+      url: biz.url,
       logo: {
         '@type': 'ImageObject',
-        url: 'https://www.example.com/icon-512.png',
+        url: `${biz.url}/icon-512.png`,
         width: 512,
         height: 512,
       },
-      telephone: '+1-555-555-5555',
-      email: 'hi@example.com',
+      telephone: biz.phone,
+      email: biz.email,
       foundingDate: '2018',
       numberOfEmployees: {
         '@type': 'QuantitativeValue',
@@ -163,11 +170,11 @@ function coordinatorJobPostingSchema() {
     jobImmediateStart: true,
     totalJobOpenings: 1,
     directApply: true,
-    url: pageUrl,
+    url: `${biz.url}/careers/operations-coordinator`,
 
     identifier: {
       '@type': 'PropertyValue',
-      name: 'Your Business',
+      name: biz.name,
       value: 'ops-coordinator-2026',
     },
 
@@ -190,8 +197,8 @@ function coordinatorJobPostingSchema() {
 
     applicationContact: {
       '@type': 'ContactPoint',
-      telephone: '+1-555-555-5555',
-      email: 'hi@example.com',
+      telephone: biz.phone,
+      email: biz.email,
       contactType: 'Human Resources',
       availableLanguage: ['English', 'Spanish'],
     },
@@ -259,6 +266,7 @@ const faqs = [
 export default async function OperationsCoordinatorPage() {
   const biz = buildBusiness(await getSiteConfig())
   const careerUrl = `${biz.url}/careers/operations-coordinator`
+  const { title: pageTitle, description: pageDescription } = coordinatorMeta(biz.name)
   return (
     <>
       <JsonLd data={[
@@ -281,7 +289,7 @@ export default async function OperationsCoordinatorPage() {
           { name: 'Careers', url: `${biz.url}/careers` },
           { name: 'Operations Admin', url: careerUrl },
         ]),
-        coordinatorJobPostingSchema(),
+        coordinatorJobPostingSchema(biz),
         faqSchema(faqs),
       ]} />
 

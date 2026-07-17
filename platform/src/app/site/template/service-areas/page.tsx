@@ -6,6 +6,7 @@ import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { organizationSchema, webSiteSchema, webPageSchema, localBusinessSchema, howToBookSchema, breadcrumbSchema, faqSchema, areaItemListSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
@@ -24,39 +25,46 @@ const areaFAQs = [
   { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
 ]
 
-const pageUrl = 'https://www.example.com/service-areas'
-const pageTitle = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | Your Business`
-const pageDescription = `Your Business serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. (555) 555-5555`
+function areasMeta(brand: { name: string; phone: string }) {
+  const title = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | ${brand.name}`
+  const description = `${brand.name} serves ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. Same rates everywhere — $59/hr. Find professional cleaning in your neighborhood. ${brand.phone}`
+  return { title, description }
+}
 
-export const metadata: Metadata = {
-  title: pageTitle,
-  description: pageDescription,
-  alternates: { canonical: '/service-areas' },
-  openGraph: {
-    title: pageTitle,
-    description: pageDescription,
-    url: '/service-areas',
-    type: 'website',
-    locale: 'en_US',
-    images: [{ url: '/icon-512.png', width: 512, height: 512 }],
-  },
-  twitter: {
-    card: 'summary',
-    title: pageTitle,
-    description: pageDescription,
-  },
-  other: {
-    'geo.region': 'US-NY',
-    'geo.placename': 'New York City',
-    'geo.position': '40.7589;-73.9851',
-    'ICBM': '40.7589, -73.9851',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = toBrand(await getSiteConfig())
+  const { title, description } = areasMeta(brand)
+  return {
+    title,
+    description,
+    alternates: { canonical: '/service-areas' },
+    openGraph: {
+      title,
+      description,
+      url: '/service-areas',
+      type: 'website',
+      locale: 'en_US',
+      images: [{ url: '/icon-512.png', width: 512, height: 512 }],
+    },
+    twitter: {
+      card: 'summary',
+      title,
+      description,
+    },
+    other: {
+      'geo.region': 'US-NY',
+      'geo.placename': 'New York City',
+      'geo.position': '40.7589;-73.9851',
+      'ICBM': '40.7589, -73.9851',
+    },
+  }
 }
 
 export default async function AreasIndexPage() {
   await requireCleaningTenant()
   const biz = buildBusiness(await getSiteConfig())
   const areasUrl = `${biz.url}/service-areas`
+  const { title: pageTitle, description: pageDescription } = areasMeta({ name: biz.name, phone: biz.phoneDisplay })
   return (
     <>
       <JsonLd data={[

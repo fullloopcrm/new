@@ -1,19 +1,23 @@
 import type { Metadata } from 'next'
 import { localBusinessSchema, breadcrumbSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import ReviewForm from './ReviewForm'
 
-export const metadata: Metadata = {
-  title: 'Leave a Review | Your Business',
-  description: 'Share your experience with Your Business. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.',
-  alternates: { canonical: '/reviews/submit' },
-  openGraph: {
-    title: 'Leave a Review | Your Business',
-    description: 'Share your experience with Your Business cleaning service.',
-    url: 'https://www.example.com/reviews/submit',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = toBrand(await getSiteConfig())
+  return {
+    title: `Leave a Review | ${brand.name}`,
+    description: `Share your experience with ${brand.name}. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.`,
+    alternates: { canonical: '/reviews/submit' },
+    openGraph: {
+      title: `Leave a Review | ${brand.name}`,
+      description: `Share your experience with ${brand.name} cleaning service.`,
+      url: `${brand.url}/reviews/submit`,
+    },
+  }
 }
 
 export default async function ReviewSubmitPage() {

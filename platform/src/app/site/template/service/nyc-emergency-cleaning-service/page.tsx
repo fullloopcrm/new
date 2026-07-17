@@ -5,6 +5,7 @@ import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { getNeighborhoodsByArea } from '@/app/site/template/_lib/seo/locations'
 import { breadcrumbSchema, localBusinessSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
@@ -183,15 +184,19 @@ const faqData = [
   { q: 'What areas do you cover for emergency service?', a: 'We cover all five NYC boroughs: Manhattan, Brooklyn, Queens, the Bronx, and Staten Island, plus Long Island (Nassau and western Suffolk), Westchester County, and northern New Jersey for emergency situations. Response times are fastest in Manhattan and Brooklyn.' },
 ]
 
-export const metadata: Metadata = {
-  title: 'Emergency Cleaning Service NYC — 24/7 Response | Your Business',
-  description: 'NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text (555) 555-5555.',
-  alternates: { canonical: 'https://www.example.com/service/nyc-emergency-cleaning-service' },
-  openGraph: {
-    title: 'Emergency Cleaning Service NYC | Your Business',
-    description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
-    url: 'https://www.example.com/service/nyc-emergency-cleaning-service',
-  },
+export async function generateMetadata(): Promise<Metadata> {
+  const brand = toBrand(await getSiteConfig())
+  const url = `${brand.url}/service/nyc-emergency-cleaning-service`
+  return {
+    title: `Emergency Cleaning Service NYC — 24/7 Response | ${brand.name}`,
+    description: `NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text ${brand.phone}.`,
+    alternates: { canonical: url },
+    openGraph: {
+      title: `Emergency Cleaning Service NYC | ${brand.name}`,
+      description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
+      url,
+    },
+  }
 }
 
 export default async function EmergencyCleaningPage() {
@@ -214,9 +219,9 @@ export default async function EmergencyCleaningPage() {
     description: 'Professional emergency cleaning service for NYC apartments — water damage, fire, sewage, biohazard, mold, and disaster cleanup. Available 24/7.',
     provider: {
       '@type': 'LocalBusiness',
-      name: 'Your Business',
-      url: 'https://www.example.com',
-      telephone: '+15555555555',
+      name: biz.name,
+      url: biz.url,
+      telephone: biz.phone,
       address: { '@type': 'PostalAddress', addressLocality: 'New York', addressRegion: 'NY', addressCountry: 'US' },
     },
     areaServed: { '@type': 'City', name: 'New York' },
