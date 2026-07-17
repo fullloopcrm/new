@@ -936,6 +936,81 @@ or after — `payment-processor.test.ts` exists but doesn't cover this code
 path, confirmed by grepping for `sms_consent`/`clientRecord` in it before
 concluding no test was at risk).
 
+## (22) New today, archetype depth — a tech releasing their own job back to the pool told nobody, admin included — NOW FIXED
+
+Third trigger on the "job falls back to unassigned" chain items (4)/(18)/(20)
+already documented (unassigned-at-creation and no-show-cron orphaning), this
+one via voluntary tech release. `/api/team-portal/jobs/release` (a member
+handing their OWN job back, e.g. sick that morning) fired zero notifications
+of any kind — no admin alert, no dedicated push — unlike its sibling
+`/reassign` (`jobs/reassign/route.ts:104-111`), which already pushes both the
+outgoing and incoming tech on every reassignment. A same-day emergency job
+that a tech released 20 minutes before start had no signal to anyone that it
+had gone back to unassigned short of an admin happening to refresh the
+dashboard.
+
+**Fixed** (`p1-w3`) — fires `sendPushToTenantAdmins()` on every successful
+release, reusing the exact tech-triggered admin-push convention
+`running-late/route.ts` already established (SMS-adjacent operational event,
+tech self-reports, admin gets pushed). Escalates to `"🚨 Emergency Job
+Released"` wording when `is_emergency` is true, matching the severity
+convention item (20)/schedule-monitor already set for this exact
+unassigned-booking risk. No wording/product decision needed — both
+conventions already existed in the codebase, this just ports them to a third
+trigger neither had reached. 3 new tests (`route.notify.test.ts`),
+mutation-verified (reverted the fix, both new-behavior tests went RED,
+negative control unaffected, restored). `tsc --noEmit` clean, full suite
+336/336 files, 1771/1771 tests, zero regressions. Commit `d3489603`.
+
+## (23) New today, fresh ground outside the archetype — six more client-SMS call sites never checked sms_consent
+
+Codebase-wide compliance sweep, same class of gap as items (19)/(21) (a
+client who explicitly texted STOP should never get another SMS from any
+call site, transactional or not — that's what the STOP webhook's
+`sms_consent: false` write is for). Went looking for every remaining
+client-facing `sendSMS()` call site not already covered by items (19)/(21)'s
+established convention (`campaigns/send`, `campaigns/[id]/send`,
+`cron/outreach`, `cron/retention`, `selena/tools`'s broadcast helper,
+`send-apology-batch`, `payment-processor`) and found six more real senders
+that never adopted it, none previously audited against the convention:
+
+- `cron/reminders` — day-based + 2-hour booking reminder SMS (2 sites)
+- `cron/confirmations` — day-before confirmation SMS, the message that
+  literally contains *"Reply STOP to opt out"* in its own body
+- `cron/payment-reminder` — unpaid-booking client nudge (the sibling admin
+  overdue-escalation branch was deliberately left ungated — different
+  recipient, still needs to fire regardless of the client's own opt-out)
+- `cron/post-job-followup` — review-request SMS for both standalone bookings
+  and completed jobs (2 sites), also contains *"Reply STOP to opt out"*
+- `cron/payment-followup-daily` — up to 3x/day, up to 100 clients/run payment
+  chase
+- `reviews/request` — the admin dashboard's manual "Request Review" button
+
+Net effect: a client who texted STOP could still receive any of these six —
+real, ongoing TCPA exposure spread across the highest-volume automated SMS
+paths in the app (reminders and confirmations fire for essentially every
+booking), not a one-off outlier the way (21) was.
+
+**Fixed** (`p1-w3`) — all six gated on `sms_consent !== false`, matching the
+codebase's own already-established convention, same reasoning item (21)
+used: no wording/product decision needed, this corrects an inconsistency to
+an existing pattern rather than opening a new policy question. Added
+`sms_consent` to `ClientRecord` (`src/lib/types.ts`) plus two new
+consent-carrying `Pick<>` variants (`ClientNamePhoneConsent`,
+`ClientNamePhoneEmailConsent`) so the field travels with the client join in
+every typed query that conditionally SMS's them, instead of being fetched ad
+hoc per call site. Deliberately left untouched (different consent question,
+not the same pattern): OTP/auth codes, client-initiated document/invoice/
+quote sends, and `cron/late-check-in` (never SMS's the client at all, only
+team + admin). This repo has zero test files under any `src/app/api/cron/*`
+route (same precedent items 18/20 already established) — the five cron
+fixes rely on `tsc --noEmit` + full-suite verification, not new unit tests;
+`reviews/request` is a regular API route, not cron, so it got 2 new tests
+(`route.consent.test.ts`), mutation-verified the same way as item (22).
+`tsc --noEmit` clean, full suite 337/337 files, 1773/1773 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched). Commit `5dc38572`.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
