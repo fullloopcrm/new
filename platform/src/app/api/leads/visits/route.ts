@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { nowNaiveET, parseNaiveET } from '@/lib/recurring'
 
 // GET — authenticated visit feed for dashboard
 export async function GET(request: NextRequest) {
@@ -13,10 +14,16 @@ export async function GET(request: NextRequest) {
     const url = new URL(request.url)
     const period = url.searchParams.get('period') || 'week'
 
-    // Date filter
+    // Date filter. website_visits.created_at is genuinely UTC (DB default),
+    // but "today" means the business's ET calendar day, not the server's
+    // (UTC on Vercel) one -- since.setHours(0,0,0,0) built midnight in the
+    // SERVER's local calendar, silently shifting the "today" boundary by the
+    // ET/UTC gap (4-5h) and, during the ~4-5h evening window where UTC has
+    // already rolled to tomorrow, excluding most of the real ET day from
+    // every "visits today" stat on this dashboard.
     const now = new Date()
     let since = new Date()
-    if (period === 'today') since.setHours(0, 0, 0, 0)
+    if (period === 'today') since = parseNaiveET(`${nowNaiveET().slice(0, 10)}T00:00:00`)
     else if (period === 'week') since.setDate(now.getDate() - 7)
     else if (period === 'month') since.setDate(now.getDate() - 30)
     else since.setDate(now.getDate() - 7)

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { nowNaiveET, parseNaiveET } from '@/lib/recurring'
 
 type FeedRow = {
   id: string
@@ -60,9 +61,13 @@ export async function GET(_request: NextRequest) {
     const { tenantId } = tenant
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 86_400_000).toISOString()
-    const todayStart = new Date()
-    todayStart.setHours(0, 0, 0, 0)
-    const todayStartIso = todayStart.toISOString()
+    // clicks/created_at is genuinely UTC, but "visits_today" below means the
+    // business's ET calendar day -- new Date().setHours(0,0,0,0) built
+    // midnight in the SERVER's local (UTC on Vercel) calendar, silently
+    // shifting the boundary by the ET/UTC gap (4-5h) and, during the evening
+    // window where UTC has already rolled to tomorrow, excluding most of the
+    // real ET day from this dashboard's "visits today" stat.
+    const todayStartIso = parseNaiveET(`${nowNaiveET().slice(0, 10)}T00:00:00`).toISOString()
     const oneDayAgo = new Date(Date.now() - 86_400_000).toISOString()
 
     const [clicksRes, leadsRes, bookingsRes, clientsRes] = await Promise.all([
