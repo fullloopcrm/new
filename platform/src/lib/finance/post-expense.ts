@@ -92,6 +92,63 @@ export async function postExpenseToLedger(opts: { tenantId: string; expenseId: s
   return { posted: true, entryId }
 }
 
+/**
+ * Reverse a previously-posted expense entry — called before DELETE so a
+ * removed expense doesn't leave a stale journal entry silently drifting the
+ * P&L forever (unlike an unposted expense, there is no backfill safety net
+ * that could ever find and fix an orphaned entry once its expense row is
+ * gone). Idempotent by (source='expense_reversal', source_id=expense.id) —
+ * an expense can only be reversed once.
+ *
+ * Reads the ORIGINAL entry's own posted lines (not the current expense row)
+ * and posts the exact opposite of each line, so it's correct regardless of
+ * whether postExpenseToLedger's category-matching would resolve differently
+ * today than it did at post time.
+ *
+ * Editing amount/category on an ALREADY-POSTED expense is a separate, still-
+ * open gap: migration 061's UNIQUE(tenant_id, source, source_id) means the
+ * 'expense' key can only ever hold one entry, so a clean reverse-then-repost
+ * (supporting more than one edit over the expense's lifetime while still
+ * preserving the original entry for audit) needs a schema decision, not a
+ * guess — not attempted here.
+ */
+export async function reverseExpenseFromLedger(opts: { tenantId: string; expenseId: string }): Promise<PostExpenseResult> {
+  const { tenantId, expenseId } = opts
+  if (await journalEntryExists(tenantId, 'expense_reversal', expenseId)) return { posted: false, reason: 'already_reversed' }
+
+  const { data: original } = await supabaseAdmin
+    .from('journal_entries')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('source', 'expense')
+    .eq('source_id', expenseId)
+    .maybeSingle()
+  if (!original) return { posted: false, reason: 'no_original_entry' }
+
+  const { data: origLines } = await supabaseAdmin
+    .from('journal_lines')
+    .select('coa_id, debit_cents, credit_cents, memo')
+    .eq('entry_id', original.id as string)
+  if (!origLines || origLines.length === 0) return { posted: false, reason: 'no_lines' }
+
+  const lines: JournalLineInput[] = origLines.map((l) => ({
+    coa_id: l.coa_id as string,
+    debit_cents: Number(l.credit_cents) || 0,
+    credit_cents: Number(l.debit_cents) || 0,
+    memo: `Reversal — ${(l.memo as string) || 'expense'}`,
+  }))
+
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: new Date().toISOString().slice(0, 10),
+    memo: 'Expense reversal (deleted)',
+    source: 'expense_reversal',
+    source_id: expenseId,
+    lines,
+  })
+  return { posted: true, entryId }
+}
+
 /** Safety net: post any historical expenses lacking a journal entry. Idempotent, safe to re-run. */
 export async function backfillUnpostedExpenses(tenantId: string, limit = 500): Promise<{ posted: number }> {
   let posted = 0

@@ -39,6 +39,53 @@ const COA = [
   { id: 'acct_6050', tenant_id: 'tenant_1', type: 'expense', subtype: 'operating', name: 'Vehicle & Fuel' },
 ]
 
+// Simulates a real ORIGINAL entry+lines already posted for an expense --
+// reverseExpenseFromLedger reads these directly (not through the mocked
+// '../ledger' module, which only tracks the idempotency key + call count).
+type JournalEntryRow = { id: string; tenant_id: string; source: string; source_id: string }
+type JournalLineRow = { coa_id: string; debit_cents?: number; credit_cents?: number; memo?: string }
+const JOURNAL_ENTRIES = new Map<string, JournalEntryRow>()
+const JOURNAL_LINES = new Map<string, JournalLineRow[]>() // keyed by entry id
+
+function seedOriginalEntry(tenantId: string, expenseId: string, entryId: string, lines: JournalLineRow[]) {
+  JOURNAL_ENTRIES.set(entryId, { id: entryId, tenant_id: tenantId, source: 'expense', source_id: expenseId })
+  JOURNAL_LINES.set(entryId, lines)
+}
+
+function journalEntriesBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    eq: (col: string, val: unknown) => {
+      chain.__filters = { ...(chain.__filters as object), [col]: val }
+      return chain
+    },
+    maybeSingle: async () => {
+      const filters = (chain.__filters as Record<string, unknown>) || {}
+      const hit = [...JOURNAL_ENTRIES.values()].find(
+        (r) => r.tenant_id === filters.tenant_id && r.source === filters.source && r.source_id === filters.source_id
+      )
+      return { data: hit ? { id: hit.id } : null, error: null }
+    },
+  }
+  return chain
+}
+
+function journalLinesBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    eq: (col: string, val: unknown) => {
+      chain.__filters = { ...(chain.__filters as object), [col]: val }
+      return chain
+    },
+    then: (resolve: (v: { data: JournalLineRow[]; error: null }) => void) => {
+      const filters = (chain.__filters as Record<string, unknown>) || {}
+      const rows = JOURNAL_LINES.get(filters.entry_id as string) || []
+      resolve({ data: rows, error: null })
+    },
+  }
+  return chain
+}
+
 function expensesBuilder() {
   const chain: Record<string, unknown> = {
     select: () => chain,
@@ -79,11 +126,16 @@ function coaBuilder() {
 
 vi.mock('../supabase', () => ({
   supabaseAdmin: {
-    from: (table: string) => (table === 'chart_of_accounts' ? coaBuilder() : expensesBuilder()),
+    from: (table: string) => {
+      if (table === 'chart_of_accounts') return coaBuilder()
+      if (table === 'journal_entries') return journalEntriesBuilder()
+      if (table === 'journal_lines') return journalLinesBuilder()
+      return expensesBuilder()
+    },
   },
 }))
 
-import { postExpenseToLedger } from './post-expense'
+import { postExpenseToLedger, reverseExpenseFromLedger } from './post-expense'
 
 const TENANT = 'tenant_1'
 
@@ -91,6 +143,8 @@ beforeEach(() => {
   posted.clear()
   postJournalEntry.mockClear()
   EXPENSES.clear()
+  JOURNAL_ENTRIES.clear()
+  JOURNAL_LINES.clear()
 })
 
 describe('postExpenseToLedger', () => {
@@ -133,5 +187,53 @@ describe('postExpenseToLedger', () => {
     const res = await postExpenseToLedger({ tenantId: TENANT, expenseId: 'does-not-exist' })
     expect(res.posted).toBe(false)
     expect(res.reason).toBe('not_found')
+  })
+})
+
+describe('reverseExpenseFromLedger', () => {
+  it('posts the exact opposite of every line on the original entry -- net effect zero', async () => {
+    seedOriginalEntry(TENANT, 'exp-10', 'je-10', [
+      { coa_id: 'acct_5100', debit_cents: 22000, memo: 'Rotted decking replacement' },
+      { coa_id: 'acct_2450', credit_cents: 22000, memo: 'Rotted decking replacement' },
+    ])
+    const res = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-10' })
+    expect(res.posted).toBe(true)
+    const call = postJournalEntry.mock.calls[0][0]
+    expect(call.source).toBe('expense_reversal')
+    expect(call.source_id).toBe('exp-10')
+    // Original DR 5100/CR 2450 flips to CR 5100/DR 2450 -- undoes the cost.
+    expect(call.lines.find((l: { coa_id: string }) => l.coa_id === 'acct_5100')).toMatchObject({ credit_cents: 22000, debit_cents: 0 })
+    expect(call.lines.find((l: { coa_id: string }) => l.coa_id === 'acct_2450')).toMatchObject({ debit_cents: 22000, credit_cents: 0 })
+  })
+
+  it('is idempotent -- reversing the same expense twice only posts once', async () => {
+    seedOriginalEntry(TENANT, 'exp-11', 'je-11', [
+      { coa_id: 'acct_6900', debit_cents: 5000, memo: 'x' },
+      { coa_id: 'acct_2450', credit_cents: 5000, memo: 'x' },
+    ])
+    const first = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-11' })
+    const second = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-11' })
+    expect(first.posted).toBe(true)
+    expect(second.posted).toBe(false)
+    expect(second.reason).toBe('already_reversed')
+    expect(postJournalEntry).toHaveBeenCalledTimes(1)
+  })
+
+  it('is a safe no-op when the expense was never posted to the ledger (e.g. zero-amount)', async () => {
+    const res = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'never-posted' })
+    expect(res.posted).toBe(false)
+    expect(res.reason).toBe('no_original_entry')
+    expect(postJournalEntry).not.toHaveBeenCalled()
+  })
+
+  it('does not reverse another tenant\'s entry for the same expense id', async () => {
+    seedOriginalEntry('tenant_2', 'exp-12', 'je-12', [
+      { coa_id: 'acct_5100', debit_cents: 900, memo: 'x' },
+      { coa_id: 'acct_2450', credit_cents: 900, memo: 'x' },
+    ])
+    const res = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-12' })
+    expect(res.posted).toBe(false)
+    expect(res.reason).toBe('no_original_entry')
+    expect(postJournalEntry).not.toHaveBeenCalled()
   })
 })

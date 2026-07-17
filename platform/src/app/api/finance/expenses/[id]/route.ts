@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
+import { reverseExpenseFromLedger } from '@/lib/finance/post-expense'
 
 export async function PUT(
   request: Request,
@@ -64,6 +65,16 @@ export async function DELETE(
     const { tenantId } = _authTenant
     const { id } = await params
 
+    // Reverse any already-posted ledger entry BEFORE deleting the expense —
+    // unlike an unposted expense (which backfillUnpostedExpenses can catch
+    // later), there is no safety net that could ever find and fix a journal
+    // entry orphaned by a deleted expense, so a failed reversal must block
+    // the delete rather than silently leave a stale entry drifting the P&L.
+    const reversal = await reverseExpenseFromLedger({ tenantId, expenseId: id })
+    if (!reversal.posted && reversal.reason !== 'no_original_entry' && reversal.reason !== 'already_reversed') {
+      return NextResponse.json({ error: `Failed to reverse ledger entry before delete: ${reversal.reason}` }, { status: 500 })
+    }
+
     const { error } = await supabaseAdmin
       .from('expenses')
       .delete()
@@ -74,7 +85,7 @@ export async function DELETE(
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    await audit({ tenantId, action: 'expense.deleted', entityType: 'expense', entityId: id })
+    await audit({ tenantId, action: 'expense.deleted', entityType: 'expense', entityId: id, details: { ledger_reversed: reversal.posted } })
 
     return NextResponse.json({ success: true })
   } catch (e) {
