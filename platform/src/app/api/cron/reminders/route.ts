@@ -281,7 +281,7 @@ export async function GET(request: Request) {
 
       const { data: endingSoon } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name)')
+        .select('id, client_id, start_time, end_time, hourly_rate, is_emergency, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         // A client who already paid in advance (Stripe pay-link, Zelle/Venmo
@@ -313,12 +313,15 @@ export async function GET(request: Request) {
         const amount = (hours * rate).toFixed(0)
         const clientName = booking.clients?.name || 'Client'
         const memberName = booking.team_members?.name || 'Team member'
+        const isEmergency = booking.is_emergency === true
+        const title = isEmergency ? '🚨 Urgent Payment Due Soon' : 'Payment Due Soon'
+        const message = `${isEmergency ? '🚨 EMERGENCY — ' : ''}${clientName} — $${amount} due in 15 min (${memberName})`
 
         await notify({
           tenantId,
           type: 'payment_received' as const,
-          title: 'Payment Due Soon',
-          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
+          title,
+          message,
           channel: 'email',
           recipientType: 'admin',
           metadata: { dedup: 'payment_due' },
@@ -328,8 +331,8 @@ export async function GET(request: Request) {
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'payment_due',
-          title: 'Payment Due Soon',
-          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
+          title,
+          message,
           booking_id: booking.id,
           channel: 'in_app',
           status: 'sent',

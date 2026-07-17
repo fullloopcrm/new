@@ -83,6 +83,7 @@ export interface BookingWithPaymentAlert {
   start_time: string
   end_time: string
   hourly_rate: number | null
+  is_emergency: boolean | null
   clients: ClientName
   team_members: TeamMemberName
 }
