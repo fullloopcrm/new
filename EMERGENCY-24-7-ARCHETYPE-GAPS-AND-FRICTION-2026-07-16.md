@@ -5623,3 +5623,83 @@ fixture/route.ts`, not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (123) Archetype depth — item (118)'s delete-safety fix landed on the legacy shim, not the route the UI actually calls: `DELETE /api/team/[id]` still hard-deleted unconditionally — NOW FIXED
+
+Item (118) fixed `DELETE /api/cleaners/[id]` — a legacy nycmaid-path shim
+over `team_members` — to unassign only upcoming/in-flight bookings (keeping
+`team_member_id` intact on completed/paid ones for finance/tax-export
+attribution), null `suggested_team_member_id`/`recurring_schedules`, and
+notify the admin with a reassignment count. But no UI code calls DELETE on
+`/api/cleaners/[id]` at all — `dashboard/team/[id]/page.tsx`'s own "Remove
+this team member?" button, the actual reachable delete path, calls DELETE
+`/api/team/[id]` directly, a completely separate route file that still ran
+the pre-fix unconditional `.delete()` with none of item (118)'s safety:
+no booking unassignment, no `suggested_team_member_id`/
+`recurring_schedules` cleanup, no admin notification. A client's assigned
+tech could vanish from a scheduled/confirmed job with nobody told — the
+exact gap item (118) believed it had closed, still wide open on the route
+real traffic hits.
+
+**Fixed** — ported item (118)'s exact logic onto this route: same
+`UNASSIGNABLE_ON_DELETE_STATUSES` unassign-only-upcoming behavior, same
+`suggested_team_member_id`/`recurring_schedules` cleanup, same admin
+`notify()` with the reassignment count.
+
+6 new tests (historical bookings keep `team_member_id`, upcoming ones
+unassign, notify fires/doesn't fire on the reassignment count,
+`suggested_team_member_id` + `recurring_schedules` cleanup, actual row
+deletion, cross-tenant isolation), mutation-verified (`git diff+apply -R`
+the fix, 3 of 6 RED for the expected reason — `team_member_id` stayed set
+on an upcoming booking, `notify()` never fired, `suggested_team_member_id`/
+`recurring_schedules` stayed untouched — `git apply` restored, GREEN).
+`tsc --noEmit` clean, full suite 423/423 files, 2031/2031 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (124) Fresh ground, new bug class (destructive-op-no-server-guard thread, items 118/122/123, now on the client self-service surface) — `PUT /api/portal/bookings/[id]` let an authenticated client cancel or reschedule ANY booking regardless of status — NOW FIXED
+
+`portal/bookings/[id]/page.tsx`'s own `canReschedule`/`canCancel` constants
+(`['pending','scheduled','confirmed']` for reschedule,
+`['scheduled','confirmed']` for cancel) only control which buttons render
+— the backend `PUT` enforced neither. Any client holding a valid portal
+bearer token could POST `{status:'cancelled'}` or a new `start_time`
+directly at a `completed`, paid-out, or already-`cancelled` booking's own
+id, and the route applied it unconditionally — no different from editing
+devtools past a disabled button, except this is a bearer-token API with no
+UI in the loop to disable anything.
+
+Financially real, not cosmetic: `finance/payroll-prep` and
+`finance/cleaner-income` both filter on `.eq('status', 'completed')` to
+compute what a team member is owed. Flipping a completed booking to
+`cancelled` silently drops it from both reports — the tech who did the
+work goes unpaid for it with no error, no audit trail pointing at the
+client, and no admin awareness beyond a normal-looking "cancellation"
+notification for a job that already happened. Rescheduling a
+completed/cancelled booking was equally nonsensical and just as
+unguarded.
+
+**Fixed** — ported the exact status sets the UI already computes into the
+route itself: cancelling requires `status` in `['scheduled','confirmed']`,
+changing `start_time`/`end_time` requires `status` in
+`['pending','scheduled','confirmed']` — 400 otherwise, checked before any
+write touches the row. Unrelated field edits (`notes`,
+`special_instructions`) still work regardless of status, matching the UI
+which never gates those.
+
+9 new tests (reject/allow cancel across every status, reject/allow
+reschedule across every status, notes-edit unaffected by status),
+mutation-verified (`git diff+apply -R` the fix, 4 of 9 RED for the
+expected reason — completed/cancelled bookings accepted the cancel or
+reschedule at 200 instead of rejecting at 400 — `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 424/424 files, 2040/2040 tests,
+zero regressions (same pre-existing, unrelated `tenant-scope` guard
+warning on `src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
