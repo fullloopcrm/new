@@ -463,6 +463,20 @@ function BookingsPage() {
   // sms_conversations-sourced ones have no row in the `waitlist` table to PATCH.
   const [pendingWaitlistBooking, setPendingWaitlistBooking] = useState<typeof waitlistEntries[number] | null>(null)
 
+  // Mark a stale/unwanted entry 'expired' so it stops cluttering the panel —
+  // the other half of the (130) status-lifecycle fix (booked is set by
+  // closeCreateModal/handleCreate above). Same sms-source caveat: nothing to
+  // PATCH for legacy sms_conversations-sourced entries.
+  const dismissWaitlistEntry = (entry: typeof waitlistEntries[number]) => {
+    if (entry.source === 'sms') return
+    setWaitlistEntries((prev) => prev.filter((e) => e.id !== entry.id))
+    fetch(`/api/waitlist/${entry.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'expired' }),
+    }).catch(() => {})
+  }
+
   const closeCreateModal = () => {
     // Cancelled/dismissed without completing the booking — restore the entry
     // that was optimistically hidden when "Book Now" was clicked.
@@ -1555,6 +1569,15 @@ function BookingsPage() {
                           <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" /></svg>
                           Text
                         </a>
+                        {entry.source !== 'sms' && (
+                          <button
+                            onClick={() => dismissWaitlistEntry(entry)}
+                            title="Remove from the waiting list without booking"
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium bg-gray-50 border border-gray-200 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-all"
+                          >
+                            Dismiss
+                          </button>
+                        )}
                       </div>
                     </div>
                   ))}
