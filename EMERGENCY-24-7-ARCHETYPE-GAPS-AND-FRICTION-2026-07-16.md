@@ -6404,3 +6404,63 @@ here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (140) New fresh-ground surface — the dispatch `routes` table's declared `cancelled` lifecycle status had a badge color prepared and a fully generic PATCH writer, and nothing ever called it
+
+`routes.status`'s CHECK constraint names six values (`draft`, `optimized`,
+`published`, `started`, `completed`, `cancelled`) and the admin Routes
+dashboard's own `STATUS_COLORS` map already has a badge for every one of
+them. `PATCH /api/routes/[id]` already accepts `status` through its generic
+`assignables` whitelist with zero special-casing needed for `cancelled` —
+but grepping every call site in the app that ever hits `/api/routes/`
+(`GET ?date=`, `POST /auto-build`, `POST /[id]/optimize`, `POST
+/[id]/publish`, `DELETE /[id]`) found no PATCH call anywhere, on any
+surface. Once a route reached `published` (SMS with stops + a Google Maps
+link sent to the team member), an operator had exactly one way to retire a
+route that turned out wrong — the "Delete" button, a hard delete with no
+audit trail. There was no way to mark a bad route dead while keeping the
+record: same "operator needs a soft-terminal state, only has the
+destructive one" shape as (138)'s invoices void/refund distinction.
+
+**Fixed** — added a "Cancel" button to `/dashboard/sales/routes`, shown for
+any route not already `cancelled`/`completed`, PATCHing `status: 'cancelled'`
+on the same endpoint (136)'s FK-injection test already covers for
+`team_member_id` reassignment. No backend change: the whitelist and CHECK
+constraint already supported the literal, confirmed by writing the test
+first and watching it pass green against the untouched route handler
+before any UI code was added — the gap was purely the missing button, not
+missing plumbing.
+
+2 new tests (`route.status-lifecycle.test.ts`): PATCH persists
+`status: 'cancelled'`; PATCH persists `status: 'completed'` and stamps
+`completed_at` (locks in behavior (141) below now depends on). `tsc
+--noEmit` clean.
+
+## (141) Continuing (140)'s surface — `started`/`completed` had the identical gap; `completed` is the one with a real trigger surface, `started` does not
+
+Same PATCH handler already special-cases `completed`: `if (body.status ===
+'completed' && !body.completed_at) updates.completed_at = new
+Date().toISOString()` — written and ready since this endpoint's own
+authoring, never called by any UI. `started` has the identical auto-stamp
+treatment on `started_at`. Both were equally unreachable before this item.
+
+**Fixed only `completed`** — added a "Mark Complete" button, shown for
+`published`/`started` routes, reusing (140)'s same `setStatus()` PATCH
+helper. `started` was deliberately left alone: nothing in this codebase is
+a team-member-facing view of a route (the publish SMS is text + a bare
+Google Maps link, no deep link back into the app), so there is no natural
+actor to click "start" — an admin clicking start on behalf of a team
+member already driving would be inventing a workflow, not fixing a real
+one. Building that surface is a real feature (a team-portal route view),
+not a one-button wire-up — flagging per the same reasoning (69)'s dead
+`reviewRequestEmail` and (137)'s unstampable `reviewed_by` used: don't
+fake a value or a workflow that doesn't exist yet.
+
+Covered by (140)'s same test file (the `completed` + `completed_at` case).
+`tsc --noEmit` clean, full suite 435/435 files, 2084/2084 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
