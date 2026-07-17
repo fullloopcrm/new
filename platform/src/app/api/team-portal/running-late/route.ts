@@ -23,10 +23,10 @@ export async function POST(request: Request) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data: booking } = (await db
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
-      .single()) as { data: { tenant_id: string; start_time: string; client_id: string | null; clients: unknown; team_members: unknown } | null }
+      .single()) as { data: { tenant_id: string; start_time: string; client_id: string | null; is_emergency: boolean | null; clients: unknown; team_members: unknown } | null }
 
     if (!booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
@@ -47,16 +47,26 @@ export async function POST(request: Request) {
     // Record on booking
     await db.from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)
 
-    // Notify admin
-    await notify({ tenantId, type: 'booking_reminder' as any, title: 'Running Late', message: `${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`, bookingId })
+    // Notify admin — 🚨 escalation on an emergency job, same convention
+    // schedule-monitor/job-release/admin-new-booking already apply elsewhere
+    // (items 20/24/26): a same-day emergency running late is a different
+    // severity of problem than a routine job running a few minutes behind.
+    const isEmergency = !!booking.is_emergency
+    await notify({
+      tenantId,
+      type: 'booking_reminder' as any,
+      title: isEmergency ? '🚨 Emergency Job Running Late' : 'Running Late',
+      message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`,
+      bookingId,
+    })
 
     // SMS to admin
     const adminPhone = tenant.owner_phone || tenant.phone
     if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-      sendSMS({ to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`, body: smsRunningLateAdmin(tenant.name, memberName, clientName, time, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+      sendSMS({ to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`, body: smsRunningLateAdmin(tenant.name, memberName, clientName, time, eta, isEmergency), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
 
-    sendPushToTenantAdmins(tenantId, 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
+    sendPushToTenantAdmins(tenantId, isEmergency ? '🚨 Emergency Job Running Late' : 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
 
     // SMS to client
     if (clientPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
