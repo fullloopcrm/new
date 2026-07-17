@@ -58,15 +58,20 @@ export async function GET(request: Request) {
         const member = booking.team_members
         if (!member?.phone) continue
 
-        // Check if team member already confirmed this job
+        // Check if team member already confirmed this job. Scoped to the
+        // CURRENT start_time: a reschedule keeps the same booking_id, so a
+        // stale confirmation of a since-changed slot must not silence the
+        // resend for the new one.
         const { data: confirmed } = await supabaseAdmin
           .from('notifications')
-          .select('id')
+          .select('id, metadata')
           .eq('tenant_id', tenantId)
           .eq('booking_id', booking.id)
           .eq('type', 'team_confirmed')
-          .limit(1)
-        if (confirmed && confirmed.length > 0) continue
+        const confirmedThisSlot = (confirmed || []).some(
+          (n) => (n.metadata as { confirmed_start_time?: string } | null)?.confirmed_start_time === booking.start_time
+        )
+        if (confirmedThisSlot) continue
 
         // Check when we last sent a confirmation request for this booking
         const { data: lastSent } = await supabaseAdmin

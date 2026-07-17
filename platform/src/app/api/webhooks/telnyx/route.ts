@@ -413,7 +413,12 @@ export async function POST(request: Request) {
             message: `${member.name} confirmed job for ${(nextJob.clients as unknown as { name: string } | null)?.name || 'client'} via SMS.`,
             channel: 'in_app',
             booking_id: nextJob.id,
-            metadata: { team_member_id: member.id, phone: from, confirmed_via: 'sms' },
+            // confirmed_start_time lets the resend cron (cron/confirmations)
+            // tell "confirmed" apart from "confirmed a slot that no longer
+            // exists" — a reschedule keeps the same booking_id but changes
+            // start_time, and this row alone can't otherwise distinguish
+            // the two.
+            metadata: { team_member_id: member.id, phone: from, confirmed_via: 'sms', confirmed_start_time: nextJob.start_time },
             status: 'sent',
           })
         }
