@@ -81,9 +81,28 @@ wrong until a customer reports the domain doesn't work.
   (`admin/businesses/[id]/route.ts`, confirmed via
   `route.delete-domains.test.ts`) — this was specifically the *add* path
   that was missing the pairing.
-- `scripts/onboard-tenant-site.ts` (the CLI onboarding script) was not
-  checked for the same gap this pass — flagging, not verified. It's a
-  brand-new-tenant path, likely closer to `activate-tenant.ts`'s coverage,
-  but not confirmed either way.
+
+## Update (18:40) — same gap closed in the CLI onboarding script
+Checked the flagged `scripts/onboard-tenant-site.ts` follow-up: same gap,
+confirmed. It bypasses `activate-tenant.ts` entirely (writes
+`tenants.status:'active'` directly, upserts `tenant_domains` itself), so
+`registerCustomDomain` never ran for a script-onboarded tenant either — its
+own header lists 10 things the script does and Vercel registration isn't
+one of them; unlike the BESPOKE_SITE_TENANTS middleware entry (already
+flagged in-file as a required manual step), this one wasn't flagged at all,
+just silently skipped.
+
+Fixed by calling `registerCustomDomain()` after the `tenant_domains` upsert,
+same never-throws/log-don't-abort contract. No test added — `scripts/` is
+out of `vitest.config.ts`'s reach (`src/**/*.test.{ts,tsx}` only, same
+limitation noted for this file's normalization fix earlier tonight);
+verified by reading — mirrors `activate-tenant.ts`'s exact call shape into a
+function already covered by `src/lib/vercel-domains.test.ts`.
+`tsc --noEmit` clean (same 4 baseline errors), `eslint` 0 new warnings.
+
+Both admin-facing write paths that create `tenant_domains` rows outside
+`activate-tenant.ts` now register with Vercel. Domain-adjacent write-path
+surface (POST /websites, onboard-tenant-site.ts, activate-tenant.ts,
+businesses delete) reconfirmed closed for this class of gap.
 
 File-only. No push/deploy/DB.
