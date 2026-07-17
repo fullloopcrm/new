@@ -16,6 +16,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { requireAdmin } from '@/lib/require-admin'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
+import { isNycMaid } from '@/lib/nycmaid/tenant'
 
 export async function GET(request: Request) {
   try {
@@ -147,6 +148,39 @@ export async function POST(request: Request) {
         recipientType: 'admin',
         metadata: { referrer_id: ref.id, commission, booking_id },
       }).catch(err => console.error('[ref-comm] notify failed:', err))
+
+      // Item (59) fixed this identical gap on the auto-created checkout path
+      // (POST /api/team-portal/checkout) but explicitly flagged this
+      // admin-initiated path as having the same one, unfixed: the notify()
+      // call above only reaches the tenant admin — never the referrer
+      // themselves, the person actually owed the money. Same fix, same
+      // convention: nycmaid keeps its own richer template, every other
+      // tenant gets the generic sendEmail() gated on the tenant actually
+      // having Resend configured.
+      if (isNycMaid(tenantId)) {
+        const { sendEmail } = await import('@/lib/nycmaid/email')
+        await sendEmail(
+          ref.email,
+          'You earned a referral commission',
+          `<p>Hi ${ref.name || 'there'}, you just earned $${(commission / 100).toFixed(2)} from ${client?.name || 'a'} booking. Thank you for spreading the word!</p>`,
+        ).catch(() => {})
+      } else {
+        const { data: tenantRow } = await supabaseAdmin
+          .from('tenants')
+          .select('name, resend_api_key, email_from')
+          .eq('id', tenantId)
+          .maybeSingle<{ name: string | null; resend_api_key: string | null; email_from: string | null }>()
+        if (tenantRow?.resend_api_key) {
+          const { sendEmail } = await import('@/lib/email')
+          await sendEmail({
+            to: ref.email,
+            subject: 'You earned a referral commission',
+            html: `<p>Hi ${ref.name || 'there'}, you just earned $${(commission / 100).toFixed(2)} from ${client?.name || 'a'} booking with ${tenantRow.name || 'us'}. Thank you for spreading the word!</p>`,
+            resendApiKey: tenantRow.resend_api_key,
+            from: tenantRow.email_from || undefined,
+          }).catch(() => {})
+        }
+      }
     }
 
     return NextResponse.json({
