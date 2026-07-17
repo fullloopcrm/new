@@ -316,6 +316,14 @@ export function calendarDayOfWeek(date: CalendarDate): number {
 }
 
 /**
+ * Number of days in a CalendarDate's month. Pure calendar arithmetic, same
+ * caveat as addCalendarDays.
+ */
+export function daysInCalendarMonth(date: CalendarDate): number {
+  return new Date(Date.UTC(date.year, date.month + 1, 0)).getUTCDate()
+}
+
+/**
  * Formats a CalendarDate + time-of-day as the naive 'YYYY-MM-DDTHH:MM:SS'
  * string bookings.start_time/end_time use (see nowNaiveET above).
  */
