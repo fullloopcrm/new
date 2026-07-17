@@ -20,7 +20,7 @@ type Contact = {
   phone: string | null
   email: string | null
   client_id: string | null
-  cleaner_id: string | null
+  team_member_id: string | null
 }
 
 type Thread = {
@@ -81,7 +81,7 @@ type Booking = {
   hourly_rate: number | null
   actual_hours: number | null
   price: number | null
-  cleaners: { name: string } | { name: string }[] | null
+  team_members: { name: string } | { name: string }[] | null
 }
 type ClientRow = {
   id: string
@@ -439,7 +439,7 @@ export default function ComhubPage() {
           {threads.map(t => {
             const isSel = selected === t.id
             const c = t.comhub_contacts
-            const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.cleaner_id ? 'cleaner' : 'unlinked'
+            const role: 'client' | 'cleaner' | 'unlinked' = c?.client_id ? 'client' : c?.team_member_id ? 'cleaner' : 'unlinked'
             const roleClass = role === 'client'
               ? 'bg-blue-500/15 text-blue-300'
               : role === 'cleaner'
@@ -1249,8 +1249,8 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
     return d.length === 10 ? `(${d.slice(0, 3)}) ${d.slice(3, 6)}-${d.slice(6)}` : p
   }
   const cleanerName = (b: Booking): string => {
-    if (!b.cleaners) return '—'
-    const c = Array.isArray(b.cleaners) ? b.cleaners[0] : b.cleaners
+    if (!b.team_members) return '—'
+    const c = Array.isArray(b.team_members) ? b.team_members[0] : b.team_members
     return c?.name || '—'
   }
   const role: 'client' | 'cleaner' | 'unlinked' = client ? 'client' : cleaner ? 'cleaner' : 'unlinked'
