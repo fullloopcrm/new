@@ -119,6 +119,25 @@ it('allows a client to create their own recurring series', async () => {
   expect((fake._store.get('bookings') ?? []).length).toBeGreaterThan(2)
 })
 
+// frequency:'monthly' is a valid, validated input value here, but RecurringType
+// (lib/recurring.ts) has no bare 'monthly' -- only monthly_date/monthly_weekday.
+// Storing it verbatim used to write recurring_type:'monthly' into
+// recurring_schedules: this route's own initial-batch loop (fixed 28-day step)
+// still produced the first 6 weeks fine, but cron/generate-recurring's refill
+// calls generateRecurringDates' switch (no default case), which silently
+// returns zero dates for 'monthly' forever -- the client's recurring service
+// permanently stopped refilling once the initial batch ran out, no error.
+it("normalizes frequency:'monthly' to the real RecurringType 'monthly_date' so cron refills keep working", async () => {
+  withSession(OWNER_ID)
+  const res = await post({ ...basePayload, frequency: 'monthly', client_id: OWNER_ID })
+  expect(res.status).toBe(200)
+  const schedules = fake._store.get('recurring_schedules') ?? []
+  expect(schedules).toHaveLength(1)
+  expect(schedules[0].recurring_type).toBe('monthly_date')
+  const newBookings = (fake._store.get('bookings') ?? []).filter((b: { schedule_id?: string }) => b.schedule_id === schedules[0].id)
+  expect(newBookings.every((b: { recurring_type?: string }) => b.recurring_type === 'monthly_date')).toBe(true)
+})
+
 // cleaner_id/extra_cleaner_ids/property_id were written straight into
 // recurring_schedules + 6 future bookings (+ clients.preferred_team_member_id)
 // with zero check they belonged to the caller's own tenant.

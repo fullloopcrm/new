@@ -7,6 +7,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { isAdminAuthenticated } from '@/lib/nycmaid/auth'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import type { RecurringType } from '@/lib/recurring'
 
 // Client-initiated recurring booking. Creates a recurring_schedules row + the
 // initial 6 weeks of bookings. The cron `/api/cron/generate-recurring` extends
@@ -139,7 +140,18 @@ export async function POST(request: Request) {
   }
 
   const dayOfWeek = startDt.getDay()
-  const recurringType = frequency
+  // frequency is validated above as one of weekly/biweekly/monthly, but
+  // RecurringType (lib/recurring.ts) has no bare 'monthly' -- only
+  // monthly_date/monthly_weekday. Storing frequency verbatim used to write
+  // recurring_type:'monthly' straight into recurring_schedules: this route's
+  // own initial-batch loop above (fixed intervalDays) still produced the
+  // first 6 weeks fine, but cron/generate-recurring's refill calls
+  // generateRecurringDates({recurringType: schedule.recurring_type}), whose
+  // switch has no 'monthly' case -- it silently returns zero dates every run,
+  // so every NYC-Maid client who self-served a "monthly" recurring cleaning
+  // had it permanently stop refilling once the initial batch ran out, with no
+  // error, no admin flag, nothing skipped visibly -- schedule just went dead.
+  const recurringType: RecurringType = frequency === 'monthly' ? 'monthly_date' : frequency
   const lastInitialDate = dates[dates.length - 1]
 
   const { data: schedule, error: scheduleErr } = await supabaseAdmin
