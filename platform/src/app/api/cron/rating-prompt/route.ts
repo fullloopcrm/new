@@ -11,6 +11,8 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 // Multi-tenant: iterates active tenants and runs per-tenant. The CAP is
 // enforced PER TENANT to keep the 4/29 SMS-blast lesson honored even after
 // fan-out.
+export const maxDuration = 60
+
 export async function GET(request: Request) {
   const authError = protectCronAPI(request)
   if (authError) return authError
@@ -65,15 +67,31 @@ export async function GET(request: Request) {
 
     for (const booking of dueList.slice(0, CAP)) {
       if (!booking.client_id) continue
-      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
-        smsType: 'rating_prompt',
-        bookingId: booking.id,
-      })
-      await supabaseAdmin
+
+      // Claim BEFORE sending. rating_prompt_sent_at IS NULL is the only
+      // durable gate against a resend, so it must land before the SMS goes
+      // out -- marking it after (the old order) left a window where a
+      // crash/timeout between the two writes (this route has no
+      // maxDuration override historically, loops every active tenant) let
+      // the same client get texted again on the very next 5-min run. That's
+      // exactly the duplicate-client-SMS failure mode the CAP block above
+      // exists to prevent. The conditional `.is(...)` update also makes
+      // this safe against two overlapping invocations claiming the same row.
+      const { data: claimed } = await supabaseAdmin
         .from('bookings')
         .update({ rating_prompt_sent_at: new Date().toISOString() })
         .eq('id', booking.id)
         .eq('tenant_id', tenantId)
+        .is('rating_prompt_sent_at', null)
+        .select('id')
+        .maybeSingle()
+
+      if (!claimed) continue // already claimed by a prior/overlapping run
+
+      await sendClientSMS(booking.client_id, clientSms.ratingQ1(), {
+        smsType: 'rating_prompt',
+        bookingId: booking.id,
+      })
       totalSent++
     }
   }
