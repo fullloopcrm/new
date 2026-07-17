@@ -116,7 +116,16 @@ export async function POST(request: Request) {
       .eq('id', txnId)
     if (error) throw error
 
-    // Bump pattern
+    // Bump pattern. Looked up by (tenant_id, pattern) only -- that matches
+    // the actual unique index (idx_categ_patterns_tenant_pattern), not
+    // (tenant_id, pattern, coa_id). Filtering by coa_id here used to hide an
+    // existing row whenever this description was previously learned under a
+    // *different* category, so a routine re-categorization fell through to
+    // the insert branch and hit a 23505 there -- silently, since that
+    // insert's result was never checked, so the conflict never surfaced as
+    // an error. Net effect: hit_count quietly stopped incrementing (and the
+    // row was never corrected) the first time any recurring vendor got
+    // recategorized to a new account.
     const pattern = normalizeDescription(txn.description).slice(0, 64)
     if (pattern) {
       const { data: existing } = await supabaseAdmin
@@ -124,7 +133,6 @@ export async function POST(request: Request) {
         .select('id, hit_count')
         .eq('tenant_id', tenantId)
         .eq('pattern', pattern)
-        .eq('coa_id', coaId)
         .maybeSingle()
       if (existing) {
         await supabaseAdmin
@@ -132,9 +140,27 @@ export async function POST(request: Request) {
           .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
           .eq('id', existing.id)
       } else {
-        await supabaseAdmin.from('categorization_patterns').insert({
+        const { error: insertErr } = await supabaseAdmin.from('categorization_patterns').insert({
           tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
         })
+        // 23505 = a concurrent request for the same brand-new pattern won
+        // the race between our SELECT and our INSERT. Bump the winner's row
+        // instead of dropping this hit silently (same house idiom as
+        // sales-contacts.ts / clients/import / finance/bank-import).
+        if (insertErr?.code === '23505') {
+          const { data: winner } = await supabaseAdmin
+            .from('categorization_patterns')
+            .select('id, hit_count')
+            .eq('tenant_id', tenantId)
+            .eq('pattern', pattern)
+            .maybeSingle()
+          if (winner) {
+            await supabaseAdmin
+              .from('categorization_patterns')
+              .update({ hit_count: (winner.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
+              .eq('id', winner.id)
+          }
+        }
       }
     }
 
