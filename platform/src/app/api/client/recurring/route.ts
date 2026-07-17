@@ -209,7 +209,25 @@ export async function POST(request: Request) {
       const { error: teamErr } = await tenantDb(tenantId)
         .from('booking_team_members')
         .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
-      if (teamErr) console.error('client recurring booking_team_members insert failed:', teamErr.message)
+      if (teamErr) {
+        // booking_team_members is the ONLY record of non-lead extras --
+        // bookings.team_member_id carries just the lead. A swallowed failure
+        // here (console.error alone, previously) silently: drops extras from
+        // closeout-summary's payout breakdown (falls back to lead-only), locks
+        // extras out of this job in team-portal (15min-alert's visibility/authz
+        // check reads booking_team_members), and leaves them un-flagged as busy
+        // for future scheduling (smart-schedule's conflict check reads it too)
+        // -- a real double-booking risk, not just cosmetic. Response still said
+        // success with bookings_created > 0. Surface it the same way comms_fail
+        // does (lib/nycmaid/sms.ts) so ops actually sees it, instead of only a
+        // console line no one is watching.
+        console.error('client recurring booking_team_members insert failed:', teamErr.message)
+        await tenantDb(tenantId).from('notifications').insert({
+          type: 'team_sync_fail',
+          title: 'Recurring booking team sync failed',
+          message: `schedule ${schedule.id}: booking_team_members write failed for ${bookings.length} booking(s), ${extras.length} extra(s) may be missing from payout/team-portal visibility/scheduling conflicts. error=${teamErr.message}`,
+        })
+      }
     }
   }
 
