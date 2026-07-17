@@ -3246,6 +3246,45 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-35. team_members.working_start/working_end — DEAD COLUMN, not a live bug (fresh-ground sweep this round found no new instance of the wrong-storage-location class; this is the different shape — accepted and stored, but never read anywhere, so writing it has zero functional effect either way) ----
+    // migrations/013_full_parity.sql added working_start/working_end (TIME) to
+    // team_members in the SAME statement block as working_days/unavailable_dates/
+    // schedule (5a-34's fix). The legacy admin shim PUT /api/cleaners/[id] and
+    // activate-tenant.ts's provisioning defaults both still write these two
+    // columns — but grepping every scheduling read path (smart-schedule.ts,
+    // availability.ts, cleaner-availability.ts, cron/generate-recurring,
+    // cron/schedule-monitor, admin/find-cleaner/preview) shows none of them
+    // .select() working_start or working_end at all. Unlike 5a-34's bug, there
+    // is no consequence to prove here — nothing depends on these columns, so a
+    // write to them (or its absence) changes no scheduling outcome. Flagging as
+    // NOTICED rather than fixing: whether they're meant to become a daily
+    // time-window constraint (distinct from working_days' day-of-week gate) or
+    // are pure legacy carry-over from the nycmaid port is a product question,
+    // not inferable from the code. This probe proves the columns genuinely
+    // exist on the live table and genuinely accept the legacy shim's exact
+    // write shape — i.e. confirms "dead" (accepted, stored, never read) rather
+    // than "broken" (write fails) or "wired" (some reader exists).
+    {
+      const deadColGatePhone = '917' + String(5300000 + idx * 131 + (Date.now() % 1000)).slice(-7)
+      const { data: deadColMember, error: deadColMemberErr } = await supabase.from('team_members').insert({
+        tenant_id: tenant.id, name: 'Working-Start/End Dead-Column Gate Crew', phone: deadColGatePhone,
+      }).select('id').single()
+      add('dead-col-gate: crew row created', !!deadColMember && !deadColMemberErr, deadColMemberErr?.message)
+
+      if (deadColMember?.id) {
+        // The legacy /api/cleaners/[id] shim's exact write shape for these two fields.
+        const { error: deadColUpdateErr } = await supabase.from('team_members').update({
+          working_start: '09:00', working_end: '17:00',
+        }).eq('id', deadColMember.id).eq('tenant_id', tenant.id)
+        add('dead-col-gate: working_start/working_end columns exist on the live team_members table and accept the legacy shim\'s write (migration 013 landed)', !deadColUpdateErr, deadColUpdateErr?.message)
+
+        const { data: deadColAfter } = await supabase.from('team_members').select('working_start, working_end').eq('id', deadColMember.id).eq('tenant_id', tenant.id).single()
+        add('dead-col-gate: the written values round-trip back on read (columns are real, not a schema-cache mirage)', deadColAfter?.working_start?.startsWith('09:00') && deadColAfter?.working_end?.startsWith('17:00'), JSON.stringify(deadColAfter))
+
+        await supabase.from('team_members').delete().eq('id', deadColMember.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
