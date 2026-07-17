@@ -143,7 +143,17 @@ export async function PUT(request: Request) {
     const auditedFields = selenaConfigTouched ? [...Object.keys(body), 'selena_config'] : Object.keys(body)
     await audit({ tenantId, action: 'settings.updated', entityType: 'settings', entityId: tenantId, details: { fields: auditedFields, sensitiveChanged: changedSensitive } })
 
-    return NextResponse.json({ tenant: data })
+    // Same NEVER_RETURNED_FIELDS strip as GET above — the update response is
+    // a full select('*') row (either straight off .update().select() or the
+    // fallback re-fetch), so without this the PUT response leaks
+    // google_tokens/telegram_bot_token/telegram_webhook_secret even though
+    // GET on this same route already guards against it.
+    const safeData = { ...data }
+    for (const field of NEVER_RETURNED_FIELDS) {
+      delete (safeData as Record<string, unknown>)[field]
+    }
+
+    return NextResponse.json({ tenant: safeData })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

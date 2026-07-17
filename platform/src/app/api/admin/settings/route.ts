@@ -2,7 +2,16 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { clearSettingsCache } from '@/lib/settings'
-import { encryptTenantSecrets } from '@/lib/secret-crypto'
+import { encryptTenantSecrets, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+import { omit } from '@/lib/validate'
+
+// Same redaction as admin/tenants/[id]/route.ts: this GET's `tenant_id`
+// branch has no known frontend consumer (admin/settings/page.tsx actually
+// calls this route with `scope=platform`/`scope=tenant`, which this handler
+// doesn't implement — a pre-existing mismatch, not fixed here), so there is
+// zero raw-secret consumer to protect. Redact the full vendor-secret set plus
+// the Google OAuth token pair rather than assume a future caller needs them.
+const NEVER_RETURNED_TENANT_FIELDS = [...ENCRYPTED_TENANT_FIELDS, 'google_tokens'] as const
 
 // Columns a super-admin may write to via this route. Excludes: id, slug,
 // created_at, system-managed (google_tokens, google_business, stripe_account_id),
@@ -49,7 +58,8 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ tenant })
+    const safeTenant = omit(tenant, [...NEVER_RETURNED_TENANT_FIELDS])
+    return NextResponse.json({ tenant: safeTenant })
   }
 
   const { count: tenantCount } = await supabaseAdmin
