@@ -5,6 +5,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import {
   smsLateCheckInTeam,
   smsLateCheckInAdmin,
@@ -59,6 +60,16 @@ export async function GET(request: Request) {
         .is('check_in_time', null)
         .limit(100)
 
+      // Booking assignment survives HR termination — without this check a
+      // terminated team member still gets texted about their own late
+      // check-in on a job they no longer work. Same guard class as the
+      // reminders/daily-summary/confirmations cron fixes; batched once per
+      // pass.
+      const lateCheckInTeamMemberIds = Array.from(new Set((lateBookings || []).map(b => b.team_member_id).filter((x): x is string => !!x)))
+      const lateCheckInTerminatedIds = lateCheckInTeamMemberIds.length > 0
+        ? new Set(await getTerminatedTeamMemberIds(tenantId, lateCheckInTeamMemberIds))
+        : new Set<string>()
+
       for (const booking of lateBookings || []) {
         // Dedup via notifications table
         const { data: existing } = await supabaseAdmin
@@ -74,9 +85,10 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const isTerminatedAssignee = !!booking.team_member_id && lateCheckInTerminatedIds.has(booking.team_member_id)
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — skip a terminated assignee
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckInTeam(tenant.name, booking as any),
@@ -131,6 +143,13 @@ export async function GET(request: Request) {
         .is('check_out_time', null)
         .limit(100)
 
+      // Same terminated-assignee guard as the check-in pass above, batched
+      // once per pass.
+      const lateCheckOutTeamMemberIds = Array.from(new Set((lateCheckouts || []).map(b => b.team_member_id).filter((x): x is string => !!x)))
+      const lateCheckOutTerminatedIds = lateCheckOutTeamMemberIds.length > 0
+        ? new Set(await getTerminatedTeamMemberIds(tenantId, lateCheckOutTeamMemberIds))
+        : new Set<string>()
+
       for (const booking of lateCheckouts || []) {
         // Dedup
         const { data: existing } = await supabaseAdmin
@@ -145,9 +164,10 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const isTerminatedAssignee = !!booking.team_member_id && lateCheckOutTerminatedIds.has(booking.team_member_id)
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — skip a terminated assignee
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckOutTeam(tenant.name, booking as any),

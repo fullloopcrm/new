@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
 
@@ -54,9 +55,20 @@ export async function GET(request: Request) {
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
 
+      // Booking assignment survives HR termination (nothing unassigns a
+      // let-go worker's existing future bookings) — without this check a
+      // terminated team member keeps getting hourly "please confirm your
+      // job" resends for jobs they no longer work. Same guard class as the
+      // reminders/daily-summary cron fixes; batched once per tenant pass.
+      const confirmTeamMemberIds = Array.from(new Set((unconfirmedJobs || []).map(b => b.team_member_id).filter((x): x is string => !!x)))
+      const confirmTerminatedIds = confirmTeamMemberIds.length > 0
+        ? new Set(await getTerminatedTeamMemberIds(tenantId, confirmTeamMemberIds))
+        : new Set<string>()
+
       for (const booking of unconfirmedJobs || []) {
         const member = booking.team_members
         if (!member?.phone) continue
+        if (booking.team_member_id && confirmTerminatedIds.has(booking.team_member_id)) continue
 
         // Check if team member already confirmed this job
         const { data: confirmed } = await supabaseAdmin
