@@ -125,6 +125,19 @@ const isPublicRoute = createRouteMatcher([
                              // route, not an admin_token cookie — without this
                              // entry they 307'd to /sign-in before that
                              // in-route auth check ever ran, same H-01 shape.
+  '/api/internal/deploy-hook', // Vercel deployment webhook (re-aliases carrying
+                             // domains after every prod deploy); self-gates via
+                             // its own HMAC-SHA1 signature check
+                             // (VERCEL_DEPLOY_HOOK_SECRET), same public-but-
+                             // self-gated shape as /api/uploads and
+                             // /api/push/subscribe above. Vercel's webhook
+                             // caller has no admin_token cookie and no Clerk
+                             // session, so without this entry every delivery
+                             // 307'd to /sign-in before the route's own
+                             // signature check ever ran — the carrying-domain
+                             // re-alias step silently never fired on any
+                             // production deploy, same H-01 shape as those
+                             // two fixes.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/referrals/track(.*)', // Referral click tracking

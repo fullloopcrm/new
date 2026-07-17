@@ -103,4 +103,20 @@ describe('middleware.ts public-route list — /api/uploads stays covered (H-01 c
         'team_member/client push-registration requests on the main host will fall through to the /sign-in redirect.',
     ).toBe(true)
   })
+
+  it('covers /api/internal/deploy-hook (Vercel deploy webhook, self-gated via its own HMAC signature)', () => {
+    const src = middlewareSource()
+    // Vercel POSTs deployment.succeeded events straight to the production
+    // main host with no admin_token cookie and no Clerk session — the route
+    // itself verifies an HMAC-SHA1 signature (VERCEL_DEPLOY_HOOK_SECRET)
+    // before doing anything. Without this entry in isPublicRoute, every
+    // delivery 307s to /sign-in before that signature check ever runs, so
+    // the carrying-domain re-alias step silently never fires after a prod
+    // deploy — same H-01 shape as /api/uploads and /api/push/subscribe above.
+    expect(
+      src.includes(`'/api/internal/deploy-hook'`),
+      "middleware.ts isPublicRoute list no longer covers '/api/internal/deploy-hook' — " +
+        "Vercel's deploy webhook will fall through to the /sign-in redirect and never re-alias carrying domains.",
+    ).toBe(true)
+  })
 })
