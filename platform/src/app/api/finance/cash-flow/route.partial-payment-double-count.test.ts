@@ -22,6 +22,9 @@ const bookings: Row[] = [
   { id: 'bk-partial', tenant_id: TENANT, price: 20000, payment_status: 'partial', partial_payment_cents: 15000, start_time: '2026-07-19T10:00:00Z' },
   // Fully paid — excluded entirely (existing behavior).
   { id: 'bk-paid', tenant_id: TENANT, price: 10000, payment_status: 'paid', start_time: '2026-07-20T10:00:00Z' },
+  // Refunded — money already went back to the client, must NOT project as a
+  // future inflow (was previously only excluded via 'paid', not 'refunded').
+  { id: 'bk-refunded', tenant_id: TENANT, price: 30000, payment_status: 'refunded', start_time: '2026-07-21T10:00:00Z' },
 ]
 
 vi.mock('@/lib/supabase', () => {
@@ -76,7 +79,15 @@ describe('GET /api/finance/cash-flow — partial payments must not double-count 
   it('only projects the remaining balance for a partially-paid booking, not the full price', async () => {
     const res = await GET(new Request('https://app.fullloop.example/api/finance/cash-flow'))
     const json = await res.json()
-    // unpaid: 200 (full) + partial: 50 (200 - 150 already received) = 250. Paid booking excluded.
+    // unpaid: 200 (full) + partial: 50 (200 - 150 already received) = 250. Paid + refunded excluded.
+    expect(json.totals.inflows_cents).toBe(20000 + 5000)
+  })
+
+  it('excludes a refunded booking from the inflow forecast entirely', async () => {
+    const res = await GET(new Request('https://app.fullloop.example/api/finance/cash-flow'))
+    const json = await res.json()
+    // If the refunded $300 booking leaked in as a projected inflow, this
+    // would be 250 + 300 = 550 instead of 250.
     expect(json.totals.inflows_cents).toBe(20000 + 5000)
   })
 })

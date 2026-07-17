@@ -44,6 +44,7 @@ const h = vi.hoisted(() => {
     tenantFromPaymentIntent: vi.fn(async (pi: string) => owners[pi] ?? null),
     postDepositToLedger: vi.fn(async () => ({ posted: true })),
     postChargebackToLedger: vi.fn(async () => ({ posted: true })),
+    syncBookingRefundStatus: vi.fn(async () => {}),
   }
 })
 
@@ -60,6 +61,7 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
   tenantFromPaymentIntent: h.tenantFromPaymentIntent,
   postDepositToLedger: h.postDepositToLedger,
   postChargebackToLedger: h.postChargebackToLedger,
+  syncBookingRefundStatus: h.syncBookingRefundStatus,
 }))
 
 import { POST } from './route'

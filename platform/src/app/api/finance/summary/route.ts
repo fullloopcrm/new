@@ -74,7 +74,10 @@ export async function GET() {
     // client -- only the remainder is still pending. Without this, the
     // dashboard's headline "pending client payments" figure double-counted
     // money that had already come in, same class of bug as ar-aging/cash-flow.
-    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => {
+    // 'refunded' is excluded too -- a refunded booking's money already went
+    // back to the client, it's not still owed (ar-aging already excludes it
+    // the same way; this filter only ever excluded 'paid').
+    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid' && b.payment_status !== 'refunded').reduce((s, b) => {
       const price = b.price || 0
       const received = b.payment_status === 'partial' ? Math.max(0, Number(b.partial_payment_cents) || 0) : 0
       return s + Math.max(0, price - received)

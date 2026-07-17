@@ -227,6 +227,28 @@ export async function backfillUnpostedCommissions(tenantId: string, limit = 500)
 }
 
 /**
+ * Sync `bookings.payment_status` after a Stripe refund FULLY reverses a
+ * charge. Selena's own manual refund tool (`handleProcessStripeRefund`)
+ * already sets this the instant it initiates a refund, but any refund
+ * processed the normal way -- directly in the Stripe Dashboard, or by any
+ * integration outside Selena chat -- only ever hit `postRefundToLedger`
+ * above and never touched the booking row. The ledger was correct; the
+ * booking kept reading 'paid'/'partial' forever, so every booking-driven
+ * finance report (dashboard, P&L, cash-flow, AR-aging) kept counting its
+ * full price as still-collected revenue with no way to ever correct it.
+ * Partial refunds are left alone -- there's no agreed status/partial_
+ * payment_cents treatment for a partially-refunded booking yet, flagged as
+ * an open question rather than guessed at.
+ */
+export async function syncBookingRefundStatus(opts: { tenantId: string; bookingId: string }): Promise<void> {
+  await supabaseAdmin
+    .from('bookings')
+    .update({ payment_status: 'refunded' })
+    .eq('tenant_id', opts.tenantId)
+    .eq('id', opts.bookingId)
+}
+
+/**
  * Resolve a tenant id (and payment memo) from a Stripe payment_intent, used by
  * refund/dispute webhook handlers where only the charge/intent is known.
  */

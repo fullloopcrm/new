@@ -68,7 +68,13 @@ export async function GET(request: Request) {
     }
 
     for (const b of upcomingBookings || []) {
-      if (b.payment_status === 'paid') continue
+      // A refunded booking's money already went back to the client -- it is
+      // not a future inflow. ar-aging already excludes 'refunded' (see its
+      // query filter); this loop only ever excluded 'paid', so a refund
+      // (now reachable via the Stripe webhook sync, not just Selena's manual
+      // tool) projected the booking's full price as still-incoming cash
+      // that will never arrive.
+      if (b.payment_status === 'paid' || b.payment_status === 'refunded') continue
       // bookings.price is already in cents — no ×100 (that over-projected 100×).
       const price = Math.round(Number(b.price || 0))
       if (!price) continue

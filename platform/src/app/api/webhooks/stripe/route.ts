@@ -16,7 +16,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
-import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent, syncBookingRefundStatus } from '@/lib/finance/post-adjustments'
 import Stripe from 'stripe'
 
 function getStripe(): Stripe {
@@ -654,6 +654,13 @@ export async function POST(request: Request) {
           // Fallback when the refunds list isn't expanded on the event.
           await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
             .catch(err => console.error('[stripe] refund post failed:', err))
+        }
+        // Full refund (cumulative amount_refunded covers the whole charge) →
+        // flip the booking so revenue reports stop counting it as collected.
+        // Partial refunds intentionally left alone (see syncBookingRefundStatus).
+        if (resolved.bookingId && typeof charge.amount === 'number' && charge.amount_refunded >= charge.amount) {
+          await syncBookingRefundStatus({ tenantId: resolved.tenantId, bookingId: resolved.bookingId })
+            .catch(err => console.error('[stripe] booking refund-status sync failed:', err))
         }
       }
       break

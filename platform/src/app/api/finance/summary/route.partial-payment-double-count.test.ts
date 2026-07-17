@@ -81,13 +81,17 @@ describe('GET /api/finance/summary — partial payments must not double-count re
       { id: 'bk-unpaid', tenant_id: TENANT, status: 'completed', price: 10000, team_member_pay: 0, team_member_paid: false, payment_status: 'unpaid', start_time: now.toISOString() },
       // Partially paid — only the remainder ($50 of $200) is still pending.
       { id: 'bk-partial', tenant_id: TENANT, status: 'completed', price: 20000, partial_payment_cents: 15000, team_member_pay: 0, team_member_paid: false, payment_status: 'partial', start_time: now.toISOString() },
+      // Refunded — money already went back to the client, must NOT count
+      // toward pendingClientPayments (was previously only excluded via
+      // 'paid', not 'refunded').
+      { id: 'bk-refunded', tenant_id: TENANT, status: 'completed', price: 30000, team_member_pay: 0, team_member_paid: false, payment_status: 'refunded', start_time: now.toISOString() },
     ]
   })
 
   it('only counts the remaining balance for a partially-paid booking toward pendingClientPayments', async () => {
     const res = await GET()
     const json = await res.json()
-    // unpaid: 100 (full) + partial: 50 (200 - 150 already received) = 150.
+    // unpaid: 100 (full) + partial: 50 (200 - 150 already received) = 150. Refunded booking excluded.
     expect(json.pendingClientPayments).toBe(10000 + 5000)
   })
 })
