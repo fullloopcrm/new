@@ -9,6 +9,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { audit } from '@/lib/audit'
+import { checkBookingDeletable } from '@/lib/booking-delete-guard'
 
 export async function GET(
   _request: Request,
@@ -271,6 +272,11 @@ export async function DELETE(
   try {
     const { tenantId } = tenant
     const { id } = await params
+
+    const guard = await checkBookingDeletable(tenantId, id)
+    if (!guard.deletable) {
+      return NextResponse.json({ error: guard.reason }, { status: 409 })
+    }
 
     // Get booking details before deleting for notifications
     const { data: booking } = await supabaseAdmin
