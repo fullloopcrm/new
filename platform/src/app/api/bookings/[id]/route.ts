@@ -223,7 +223,7 @@ export async function PUT(
 }
 
 export async function DELETE(
-  _request: Request,
+  request: Request,
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { tenant, error: authError } = await requirePermission('bookings.delete')
@@ -233,8 +233,12 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
     const db = tenantDb(tenantId)
+    const searchParams = new URL(request.url).searchParams
+    const cancelSeries = searchParams.get('cancel_series') === 'true'
+    const hardDelete = searchParams.get('hard_delete') === 'true'
+    const skipEmail = searchParams.get('skip_email') === 'true'
 
-    // Get booking details before deleting for notifications
+    // Get booking details before deleting/cancelling for notifications.
     // tenantDb's select() takes a non-literal `columns` param, which widens
     // supabase-js's column-string type inference — cast the narrow-select
     // result to the shape actually selected (see client/bookings for the same gap).
@@ -242,11 +246,68 @@ export async function DELETE(
       .from('bookings')
       .select('*, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
-      .single()) as { data: { client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; sms_consent?: boolean | null } | null } | null }
+      .single()) as { data: { status: string; schedule_id: string | null; client_id: string | null; start_time: string; clients: { name?: string | null; phone?: string | null; sms_consent?: boolean | null } | null } | null }
 
+    if (!booking) {
+      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    }
+
+    // cancel_series=true (BookingsAdmin's "Cancel All Future" action) —
+    // this route previously ignored the param entirely and hard-deleted
+    // only the single clicked booking, leaving the rest of the recurring
+    // series (and the generator that keeps refilling it) completely live.
+    // Delegate to the same status-flip DELETE /api/admin/recurring-schedules/
+    // [id] already uses correctly — same convention, same "no client
+    // notifications for a bulk series action" rule documented there.
+    if (cancelSeries && booking.schedule_id) {
+      const { error: schedErr } = await supabaseAdmin
+        .from('recurring_schedules')
+        .update({ status: 'cancelled', updated_at: new Date().toISOString() })
+        .eq('id', booking.schedule_id)
+        .eq('tenant_id', tenantId)
+      if (schedErr) return NextResponse.json({ error: schedErr.message }, { status: 500 })
+
+      await supabaseAdmin
+        .from('bookings')
+        .update({ status: 'cancelled' })
+        .eq('tenant_id', tenantId)
+        .eq('schedule_id', booking.schedule_id)
+        .in('status', ['scheduled', 'pending'])
+        .gte('start_time', new Date().toISOString())
+
+      await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: 'cancelled', series: true } })
+      return NextResponse.json({ success: true })
+    }
+
+    // hard_delete=true — BookingsAdmin only shows this action for a booking
+    // that's already status='cancelled' (its own confirm dialog says
+    // "Permanently delete this cancelled booking"); enforce that server-side
+    // too rather than trusting the query param alone.
+    if (hardDelete) {
+      if (booking.status !== 'cancelled') {
+        return NextResponse.json({ error: 'Only cancelled bookings can be permanently deleted' }, { status: 400 })
+      }
+      const { error } = await db.from('bookings').delete().eq('id', id)
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      await audit({ tenantId, action: 'booking.deleted', entityType: 'booking', entityId: id })
+      return NextResponse.json({ success: true })
+    }
+
+    // Default (plain DELETE, BookingsAdmin's "Cancel" action) — this route
+    // previously hard-deleted the row unconditionally here too, so clicking
+    // "Cancel" on ANY booking (including a completed/paid one — the button
+    // shows for every non-cancelled status) permanently erased it, taking
+    // any finance-report history with it. Same "destructive op on a record
+    // with financial significance" shape as item (118), just the row itself
+    // instead of one column. Soft-cancel instead: preserves the row, matches
+    // the status-flip convention every other cancel path in this codebase
+    // (recurring-schedules pause/cancel) already uses, and is what actually
+    // lets the UI's own two-step "Cancel" → "Delete" flow function — right
+    // now the hard-delete on step one erases the row before step two's
+    // "cancelled" list can ever show it.
     const { error } = await db
       .from('bookings')
-      .delete()
+      .update({ status: 'cancelled' })
       .eq('id', id)
 
     if (error) {
@@ -254,7 +315,7 @@ export async function DELETE(
     }
 
     // Send cancellation notifications
-    if (booking) {
+    if (booking && !skipEmail) {
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
@@ -294,7 +355,7 @@ export async function DELETE(
       }
     }
 
-    await audit({ tenantId, action: 'booking.deleted', entityType: 'booking', entityId: id })
+    await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: 'cancelled' } })
 
     return NextResponse.json({ success: true })
   } catch (e) {

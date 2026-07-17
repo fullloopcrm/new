@@ -135,13 +135,18 @@ describe('CROSS-TENANT ATTACK · bookings/[id] (base GET/PUT/DELETE)', () => {
     expect(bBooking.notes).not.toBe('HIJACKED VIA BASE PUT')
   })
 
-  it("tenant A's DELETE never removes tenant B's same-id booking", async () => {
+  it("tenant A's DELETE never touches tenant B's same-id booking", async () => {
     setAdminSessionFor(A_ID)
     const res = await bookingDELETE(new Request('http://x'), paramsFor(SHARED_ID))
     expect(res.status).toBe(200)
     const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)
     expect(bBooking).toBeTruthy()
-    expect(fake._all('bookings').some((r) => r.tenant_id === A_ID)).toBe(false)
+    expect(bBooking!.status).toBe('pending')
+    // Plain DELETE now soft-cancels (status flip), not a hard delete — the
+    // row itself survives with status:'cancelled', same tenant A only.
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)
+    expect(aBooking).toBeTruthy()
+    expect(aBooking!.status).toBe('cancelled')
   })
 })
 

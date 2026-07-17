@@ -110,13 +110,15 @@ describe('bookings/[id] PUT — FK-injection guard (client_id / team_member_id o
 })
 
 describe('bookings/[id] DELETE — tenantDb isolation', () => {
-  it("tenant A deleting its OWN same-id booking leaves tenant B's booking intact", async () => {
+  it("tenant A cancelling its OWN same-id booking leaves tenant B's booking intact", async () => {
     const res = await DELETE(new Request('http://x'), paramsFor(SHARED_ID))
     expect(res.status).toBe(200)
 
-    const remaining = fake._all('bookings')
-    expect(remaining).toHaveLength(1)
-    expect(remaining[0].tenant_id).toBe(B_ID)
-    expect(remaining[0].notes).toBe('B note')
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.status).toBe('cancelled')
+
+    const bBooking = fake._all('bookings').find((r) => r.tenant_id === B_ID)!
+    expect(bBooking.status).toBe('scheduled')
+    expect(bBooking.notes).toBe('B note')
   })
 })

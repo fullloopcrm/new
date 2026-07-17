@@ -200,7 +200,7 @@ describe('CROSS-TENANT ATTACK · booking family — /api/bookings/[id]', () => {
   it("tenant A DELETE targeting tenant B's booking id removes nothing — B's row survives", async () => {
     setAdminSessionFor(A_ID)
     const res = await bookingDELETE(new Request('http://x', { method: 'DELETE' }), paramsFor(ids.booking.b))
-    expect(res.status).toBe(200) // route reports success:true even on a 0-row scoped delete
+    expect(res.status).toBe(404) // tenantDb's scoped pre-fetch finds nothing, same as GET's 404 above
     expect(fake._all('bookings').some((r) => r.id === ids.booking.b)).toBe(true)
   })
 
