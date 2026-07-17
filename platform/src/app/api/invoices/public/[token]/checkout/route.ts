@@ -1,6 +1,7 @@
 /**
  * Create a Stripe Checkout Session for the balance due on a public invoice.
- * Uses the tenant's own Stripe API key + connected account.
+ * Uses the tenant's own Stripe API key if configured, else falls back to the
+ * platform's shared key (same fallback as /api/payments/checkout and /link).
  * On success, Stripe webhook inserts a payment row (invoice_id set via metadata),
  * DB trigger marks the invoice paid.
  */
@@ -47,8 +48,8 @@ export async function POST(request: Request, { params }: Params) {
     const balance = invoice.total_cents - (invoice.amount_paid_cents || 0)
     if (balance <= 0) return NextResponse.json({ error: 'Nothing due' }, { status: 400 })
 
-    const apiKey = tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : null
-    if (!apiKey) return NextResponse.json({ error: 'Tenant Stripe not configured' }, { status: 500 })
+    const apiKey = tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : process.env.STRIPE_SECRET_KEY
+    if (!apiKey) return NextResponse.json({ error: 'Checkout unavailable. Try again or contact the business.' }, { status: 500 })
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 

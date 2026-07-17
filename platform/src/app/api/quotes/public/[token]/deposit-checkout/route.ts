@@ -1,7 +1,8 @@
 /**
  * Create a Stripe Checkout Session for the DEPOSIT on a public proposal.
  * Mirrors /api/invoices/public/[token]/checkout: uses the tenant's own Stripe
- * key, fixed amount = the remaining deposit due. On success the Stripe webhook
+ * key if configured, else falls back to the platform's shared key; fixed
+ * amount = the remaining deposit due. On success the Stripe webhook
  * (metadata.quote_id + deposit flag) marks the deposit paid, closes the deal to
  * sold, and spins up the Job.
  */
@@ -48,8 +49,8 @@ export async function POST(_request: Request, { params }: Params) {
     } | null
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 500 })
 
-    const apiKey = tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : null
-    if (!apiKey) return NextResponse.json({ error: 'Tenant Stripe not configured' }, { status: 500 })
+    const apiKey = tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : process.env.STRIPE_SECRET_KEY
+    if (!apiKey) return NextResponse.json({ error: 'Checkout unavailable. Try again or contact the business.' }, { status: 500 })
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 
