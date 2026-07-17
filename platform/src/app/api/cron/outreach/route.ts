@@ -132,6 +132,30 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
 
     for (const c of toSend) {
       const message = pickMessage(moment, c.id, c.name, c.pet_name, tenant.name, aiName)
+
+      // Claim BEFORE sending: the outreach_log unique constraint on
+      // (tenant_id, client_id, moment_id) is the atomic dedup boundary here,
+      // not just a post-send log. Sending first and logging after left a
+      // window where two overlapping invocations (a manual re-trigger racing
+      // the scheduled Saturday run, or a platform-retried delivery) could
+      // both read the same empty `sentIds` set above and both text the same
+      // client for the same moment before either's insert landed -- the
+      // insert's duplicate-key handling only deduped the LOG row, it never
+      // prevented the duplicate SMS itself. Same bug class + fix shape as
+      // rating-prompt/payment-reminder/comhub-email's claim-before-send fixes.
+      const { error: logErr } = await supabaseAdmin.from('outreach_log').insert({
+        tenant_id: tenant.id,
+        client_id: c.id,
+        moment_id: moment.id,
+        message,
+      })
+      if (logErr) {
+        if (!logErr.message.includes('duplicate key')) {
+          console.error('[outreach] log insert failed:', logErr.message)
+        }
+        continue // lost the race, or the claim write itself failed -- either way, do not send
+      }
+
       try {
         await sendSMS({
           to: c.phone!,
@@ -139,17 +163,6 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
           telnyxApiKey: tenant.telnyx_api_key!,
           telnyxPhone: tenant.telnyx_phone!,
         })
-
-        // Log the send (unique constraint dedups within (tenant, client, moment)).
-        const { error: logErr } = await supabaseAdmin.from('outreach_log').insert({
-          tenant_id: tenant.id,
-          client_id: c.id,
-          moment_id: moment.id,
-          message,
-        })
-        if (logErr && !logErr.message.includes('duplicate key')) {
-          console.error('[outreach] log insert failed:', logErr.message)
-        }
 
         await supabaseAdmin
           .from('clients')
