@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { guessZoneFromAddress } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // HARD-CODED test mode. Flip to false ONLY after the broadcast pipeline is
 // verified end-to-end with a single test team member. Mass-SMS guard
@@ -100,6 +101,15 @@ export async function POST(request: Request) {
     .eq('status', 'active')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
+  // team_members.status alone doesn't reflect HR termination (deliberate split,
+  // see the identical comment in team-portal-auth.ts / smart-schedule.ts / etc)
+  // -- a fired worker's row can sit at status:'active' indefinitely. Without this,
+  // a terminated cleaner would show up "eligible" here and the sibling POST /send
+  // would actually text them asking if they're available for a paid shift.
+  const terminatedIds = new Set(
+    await getTerminatedTeamMemberIds(tenantId, (cleaners as CleanerRow[] || []).map((c) => c.id)),
+  )
+
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
     .select('id, team_member_id, start_time, end_time, status')
@@ -121,6 +131,9 @@ export async function POST(request: Request) {
 
     if (TEST_MODE && !c.name.toLowerCase().includes(TEST_CLEANER_NAME_SUBSTRING)) {
       reasons.push('TEST MODE — only the test cleaner is messaged')
+    }
+    if (terminatedIds.has(c.id)) {
+      reasons.push('No longer employed')
     }
     if (c.unavailable_dates?.includes(job_date)) {
       reasons.push('Marked unavailable that day')

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '../preview/route'
 
 function zoneLabel(zoneId: string | null, lang: 'en' | 'es'): string {
@@ -114,9 +115,19 @@ export async function POST(request: Request) {
     .in('id', cleaner_ids)
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
+  // Re-check HR status at send time, not just trust the preview call's picker
+  // (client-selectable cleaner_ids, and preview's own eligible/excluded split is
+  // advisory only) -- team_members.status never reflects HR termination, so
+  // without this a terminated worker could still be texted "Available for a
+  // paid shift?" if their id ends up in the request body.
+  const terminatedIds = new Set(
+    await getTerminatedTeamMemberIds(tenantId, (cleaners as CleanerRow[] || []).map((c) => c.id)),
+  )
+
   // Mass-SMS guard: TEST_MODE hard-filters to the test cleaner row(s) until cleared.
   const recipients = (cleaners as CleanerRow[] || []).filter((c) => {
     if (!c.phone) return false
+    if (terminatedIds.has(c.id)) return false
     if (TEST_MODE && !c.name.toLowerCase().includes(TEST_CLEANER_NAME_SUBSTRING)) return false
     return true
   })
