@@ -27,6 +27,7 @@ export async function POST(request: Request, { params }: Params) {
     await supabaseAdmin
       .from('documents')
       .update({ status: 'voided', voided_at: new Date().toISOString(), void_reason: reason || null })
+      .eq('tenant_id', tenantId)
       .eq('id', id)
 
     await logDocEvent({

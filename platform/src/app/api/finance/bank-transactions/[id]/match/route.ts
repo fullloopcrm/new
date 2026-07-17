@@ -141,6 +141,7 @@ export async function POST(request: Request, { params }: Params) {
       await supabaseAdmin
         .from('expenses')
         .update({ matched_bank_transaction_id: txn.id })
+        .eq('tenant_id', tenantId)
         .eq('id', ex.id)
 
       // If this expense was already posted to the ledger at creation time
