@@ -28,8 +28,14 @@ vi.mock('@/lib/supabase', () => {
       eq: () => c,
       in: () => c,
       not: () => c,
+      or: () => c,
       order: () => c,
       limit: async () => ({ data: [], error: null }),
+      // The 15min-alert atomic claim (`.update(...).eq(...).or(...).select('id').maybeSingle()`)
+      // always "wins" in this mock — it isn't exercising the race guard, just
+      // needs to not throw so the payment-link/discount assertions still see
+      // the SMS send that follows the claim.
+      maybeSingle: async () => ({ data: table === 'bookings' ? { id: (state.booking as Booking | null)?.id ?? 'bk' } : null, error: null }),
       single: async () => {
         if (table === 'team_members' && selectStr.includes('status')) return { data: { status: 'active' }, error: null }
         if (table === 'tenants' && selectStr.includes('selena_config')) return { data: { selena_config: null }, error: null }

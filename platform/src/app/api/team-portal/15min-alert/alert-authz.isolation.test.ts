@@ -51,8 +51,17 @@ vi.mock('@/lib/supabase', () => {
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       in: () => c,
       not: () => c,
+      or: () => c,
       order: () => c,
       limit: async () => ({ data: [], error: null }),
+      // Atomic-claim path for the 15min-alert timestamp write
+      // (`.update(...).eq(...).or(...).select('id').maybeSingle()`). Always
+      // "wins" here — this file isn't exercising the race guard, just needs
+      // to not throw so authz behavior downstream of the claim still runs.
+      maybeSingle: async () => {
+        if (isUpdate && table === 'bookings') calls.bookingUpdates++
+        return { data: { id: 'bk' }, error: null }
+      },
       single: async () => {
         if (table === 'team_members' && selectStr.includes('status')) return { data: { status: 'active' }, error: null }
         if (table === 'tenants' && selectStr.includes('selena_config')) return { data: { selena_config: null }, error: null }

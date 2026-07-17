@@ -166,11 +166,33 @@ export async function POST(req: NextRequest) {
 
     const smsMessage = smsLines.join('\n')
 
-    // Record the 30-min alert timestamp on the booking
-    await supabaseAdmin
+    // Atomic claim on the alert-timestamp write. The idempotency check above
+    // (lines 68-80) reads a plain SELECT snapshot taken before all the hours/
+    // billing computation in between — a field cleaner (or their client-side
+    // retry after a slow response) double-tapping "30-min alert" fires two
+    // near-simultaneous requests that both read the same pre-alert snapshot
+    // and both fall through. Without a conditional WHERE here, both would
+    // send duplicate admin + client SMS — including a duplicate Stripe pay
+    // link, which a client could pay twice through if they act on both texts.
+    // The same-shape unconditional update this replaced let that race through;
+    // this mirrors the checkin/checkout atomic-claim pattern elsewhere in
+    // team-portal. `force` is an explicit manual resend and bypasses the guard.
+    const cutoffIso = new Date(now.getTime() - 30 * 60 * 1000).toISOString()
+    let claimQuery = supabaseAdmin
       .from('bookings')
       .update({ fifteen_min_alert_time: now.toISOString() })
       .eq('id', bookingId)
+    if (!force) {
+      claimQuery = claimQuery.or(`fifteen_min_alert_time.is.null,fifteen_min_alert_time.lt.${cutoffIso}`)
+    }
+    const { data: claimed } = await claimQuery.select('id').maybeSingle()
+    if (!claimed && !force) {
+      return NextResponse.json({
+        success: true,
+        alreadySent: true,
+        message: 'Alert already sent moments ago by a concurrent request — skipping duplicate',
+      })
+    }
 
     // --- Notify admin FIRST, then text the client. No client email. ---
     const firstName = clientName.split(' ')[0]
