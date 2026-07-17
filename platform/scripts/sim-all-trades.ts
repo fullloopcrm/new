@@ -1687,6 +1687,79 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           const { data: staleRouteAfter } = await supabase.from('routes').select('status').eq('id', staleRoute.id).single()
           add('dispatch-route: PUBLISH — the blocked route stays in draft, never flips to published', staleRouteAfter?.status === 'draft', staleRouteAfter?.status)
         }
+
+        // ---- 5a-7. BATCH-UPDATE SERIES REASSIGNMENT — FIELD MAPPING + TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+        // PUT /api/bookings/batch-update is the real route BookingsAdmin.tsx's
+        // "apply to all future bookings" recurring-series edit calls. Before
+        // this round's fix the frontend sent the new assignee as `cleaner_id`
+        // (its own field-naming convention) while the route's allowlist only
+        // recognized `team_member_id` -- pick() silently dropped it, so a
+        // series-wide reassignment only ever landed on the one booking open
+        // in the edit modal (set via the separate PUT /api/bookings/[id]/team
+        // call) and silently left every OTHER future booking in the series on
+        // the old assignee. Because that branch was unreachable from its only
+        // real caller, its terminated-crew guard -- present on every sibling
+        // assignment surface -- was dead code too. Also fixed this round:
+        // `service_type` (free text) was missing from the same allowlist, so
+        // a series-wide service-type correction was silently dropped the same
+        // way. requirePermission needs headers()/cookies() this harness
+        // doesn't have, so (same reasoning as 5a-3/5a-4/5a-6 above) this
+        // mirrors the route's own allowlist + guard + write sequence directly
+        // against a REAL 3-booking recurring series sharing one schedule_id,
+        // rather than calling the handler.
+        if (helper?.id) {
+          const { pick: batchPick } = await import('../src/lib/validate')
+          const BATCH_UPDATABLE_FIELDS = ['client_id', 'team_member_id', 'service_type_id', 'service_type', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price']
+
+          const { data: batchSchedule } = await supabase.from('recurring_schedules').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, team_member_id: replacement.id,
+            recurring_type: 'weekly', day_of_week: 3, preferred_time: '09:00:00', duration_hours: 2,
+            hourly_rate: 59, status: 'active',
+          }).select('id').single()
+
+          if (batchSchedule) {
+            const seriesStarts = [projectDaysFromNow(14, 9), projectDaysFromNow(21, 9), projectDaysFromNow(28, 9)]
+            const seriesBookingIds: string[] = []
+            for (const start of seriesStarts) {
+              const startDt = new Date(start)
+              const endDt = new Date(startDt.getTime() + 2 * 3600 * 1000)
+              const { data: seriesBooking } = await supabase.from('bookings').insert({
+                tenant_id: tenant.id, client_id: job?.client_id || null, schedule_id: batchSchedule.id,
+                team_member_id: replacement.id, start_time: startDt.toISOString(), end_time: endDt.toISOString(),
+                status: 'scheduled', service_type: 'Recurring maintenance visit',
+              }).select('id').single()
+              if (seriesBooking) seriesBookingIds.push(seriesBooking.id)
+            }
+            add('batch-update: real 3-booking recurring series seeded, all sharing one schedule_id', seriesBookingIds.length === 3, JSON.stringify(seriesBookingIds))
+
+            // Mirror the route: attempt to reassign the WHOLE series to the
+            // just-terminated worker in one batch call.
+            const blockedUpdates = seriesBookingIds.map(id => ({ id, data: batchPick({ team_member_id: worker.id }, BATCH_UPDATABLE_FIELDS) }))
+            const blockedRequestedMemberIds = Array.from(new Set(blockedUpdates.map(u => u.data.team_member_id).filter((x): x is string => typeof x === 'string')))
+            const blockedTerminatedIds = await getTerminatedTeamMemberIds(tenant.id, blockedRequestedMemberIds)
+            add('batch-update: series-wide reassignment to the terminated worker is caught by the guard before any row in the batch is touched', blockedTerminatedIds.includes(worker.id), JSON.stringify(blockedTerminatedIds))
+
+            const { data: seriesUnchanged } = await supabase.from('bookings').select('id, team_member_id').in('id', seriesBookingIds)
+            add('batch-update: all-or-nothing semantics — every booking in the series still shows the original assignee, guard fired before any write', (seriesUnchanged || []).every(b => b.team_member_id === replacement.id), JSON.stringify(seriesUnchanged))
+
+            // Corrected batch: real reassignment (to the helper) + a
+            // service_type correction across the whole series in the same
+            // call — proves BOTH fixes land together: the field-name mapping
+            // (team_member_id, not cleaner_id) and the service_type allowlist
+            // gap, each propagating to every booking in the series, not just
+            // the one open in the edit modal.
+            const okUpdates = seriesBookingIds.map(id => ({
+              id,
+              data: batchPick({ team_member_id: helper.id, service_type: 'Deep Clean (reassigned)' }, BATCH_UPDATABLE_FIELDS),
+            }))
+            for (const u of okUpdates) {
+              await supabase.from('bookings').update(u.data).eq('id', u.id).eq('tenant_id', tenant.id)
+            }
+            const { data: seriesAfter } = await supabase.from('bookings').select('id, team_member_id, service_type').in('id', seriesBookingIds)
+            add('batch-update: CONTROL — corrected series-wide reassignment to the active helper propagates to EVERY future booking in the series, not just one', (seriesAfter || []).length === 3 && (seriesAfter || []).every(b => b.team_member_id === helper.id), JSON.stringify(seriesAfter))
+            add('batch-update: service_type correction also propagates across the whole series (allowlist gap fixed this round)', (seriesAfter || []).every(b => b.service_type === 'Deep Clean (reassigned)'), JSON.stringify(seriesAfter))
+          }
+        }
       }
     }
 
