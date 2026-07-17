@@ -370,6 +370,59 @@ out as its own line item once it does. Verified by reading
 and `cron/reminders/route.ts` directly (worktree still has no
 `.env.local`/Supabase env for a live send, same constraint as P11.8-22).
 
+## (10) New today — a working tech-broadcast dispatch mechanism already exists in the codebase, fully built, and is completely dormant
+
+Fresh ground, and directly closes the open question item (4)/P11.18 left
+hanging ("needs a product call on what the push mechanism should be — SMS
+blast to all on-call/available techs? A single most-likely-available
+tech?"). Went looking for any existing SMS-broadcast machinery anywhere in
+the codebase (grepped for `cleaner_id`/`cleaner_` patterns outside the
+already-fixed `BookingsAdmin.tsx`/ComHub scope) and found one:
+`/api/admin/find-cleaner/{preview,send,recent}` + a full 145-line dashboard
+page (`src/app/dashboard/find-cleaner/page.tsx`) that does exactly what
+P11.18 asked for — an admin picks a date/time/zone, `preview` returns
+eligible team members (filtered by `working_days`/`schedule`/
+`unavailable_dates`/`service_zones`/`max_jobs_per_day` via
+`src/lib/day-availability.ts`), `send` mass-texts the selected ones an
+"Available {date} {time}? Reply YES" broadcast (capped at `BROADCAST_CAP=50`
+recipients, `TEST_MODE=true` hard-coded in `preview/route.ts:8-10` per the
+`feedback_no_mass_sms` guard), and `recent` shows broadcast history with
+per-recipient delivery/reply status. RBAC is already gated (`campaigns.send`
+permission, has its own `.rbac.test.ts` probes for both `send` and
+`recent`). This is a real, tested, permission-checked feature — not a stub.
+
+It is completely unreachable and non-functional as shipped, for two
+independent reasons, both verified directly:
+- **No nav link anywhere.** Grepped every `.tsx` in the repo for the string
+  `find-cleaner` outside the feature's own three files — zero hits in
+  `dashboard/layout.tsx` or any other component. The only way to reach
+  `/dashboard/find-cleaner` today is typing the URL directly.
+- **Its two backing tables are explicitly documented as not in prod.**
+  `src/lib/migrations/008_cleaner_broadcasts.sql:1-2`: *"find-cleaner /
+  cleaner-dispatch broadcast tables (ported from standalone nycmaid). Tenant-
+  scoped. NOT YET APPLIED to prod — apply explicitly before enabling
+  /api/admin/find-cleaner/send."* If an admin found the URL anyway and hit
+  Send, the `cleaner_broadcasts` insert in `send/route.ts:148-163` would
+  fail outright (relation does not exist) on any tenant where migration 008
+  was never run — this worktree has no `.env.local`/Supabase env to confirm
+  live, but the migration file's own header is explicit that this is the
+  expected state, not a hypothesis.
+
+Net effect: this session spent real analysis in item (4) treating "no push
+mechanism exists" as an open product question requiring new design work —
+it doesn't need new design work, it needs activation. A ready-built,
+already-tested, already-permission-gated SMS broadcast feature has been
+sitting dormant since it was ported from nycmaid, one migration + one nav
+link away from closing the P11.18 gap. Not fixed here — migration 008 is
+real prod DDL (needs Jeff's approval per standing rule) and flipping
+`TEST_MODE` off is an explicit mass-SMS decision per `feedback_no_mass_sms`,
+so this is a decision doc, not a code change:
+`FIND-CLEANER-BROADCAST-ACTIVATION-OPTIONS.md`. Verified by reading
+`find-cleaner/{preview,send,recent}/route.ts`, `find-cleaner/page.tsx`,
+`day-availability.ts`, `008_cleaner_broadcasts.sql`, and both `.rbac.test.ts`
+probes directly, plus confirming via `grep -rn "find-cleaner"` across all
+`.ts`/`.tsx`/`.json` that no nav config references it anywhere in the repo.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
@@ -384,3 +437,6 @@ and `cron/reminders/route.ts` directly (worktree still has no
   working code paths, a wiring/product call, not re-verified again today
   since nothing in this session's diffs touched `createBookingFromQuote`'s
   dispatch path.
+- Dormant find-cleaner broadcast dispatch (item 10 above) — activation
+  options doc at `FIND-CLEANER-BROADCAST-ACTIVATION-OPTIONS.md`, awaiting
+  Jeff's call on migration 008 + `TEST_MODE` flip.
