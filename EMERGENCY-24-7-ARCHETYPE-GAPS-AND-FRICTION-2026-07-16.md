@@ -1259,6 +1259,86 @@ clean, full suite 347/347 files, 1792/1792 tests, zero regressions (one
 pre-existing, unrelated tenant-scope guard warning on `fixture/route.ts`,
 not touched, same precedent as items 17/23/24/26/27/28).
 
+## (30) New today, archetype depth — manager-initiated reassignment push notifications were is_emergency-blind, same class as items (20)/(22)/(24)/(26) — NOW FIXED
+
+Found while re-checking `.../jobs/reassign/route.ts` for item (28)'s
+`pay_rate` fix (now flagged separately below, not re-decided). The route
+already notifies both sides of a reassignment (`sendPushToTeamMember` to the
+incoming tech, and to the outgoing tech if different) — but its booking
+`select()` never fetched `is_emergency`, and both push titles were
+hardcoded plain strings (`'New job assigned'` / `'Job reassigned'`)
+regardless of urgency. Same root pattern as items (20) (schedule-monitor
+severity), (22) (release push), (24) (admin new-booking notify), and (26)
+(multi-tech extras SMS): a manager-initiated action on a same-day emergency
+job produced byte-identical notification wording to a routine reassignment
+three weeks out, with no signal to either tech that the job they're
+gaining/losing is urgent.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the route's booking `select()`
+and escalated both push titles to `'🚨 Urgent job assigned'` /
+`'🚨 Urgent job reassigned'` when true, reusing the same 🚨 convention
+already established at every sibling call site above rather than inventing
+new wording — no product/copy call needed. 2 new tests
+(`route.emergency-push.test.ts`: escalation case asserting both push titles,
+routine-job control), mutation-verified (reverted the fix, the escalation
+test went RED reproducing the exact plain-title symptom, restored). `tsc
+--noEmit` clean, full suite 348/348 files, 1794/1794 tests, zero regressions
+(one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items 17/23/24/26/27/28/29).
+
+## (31) New today, fresh ground outside the archetype — three more client-facing SMS confirmation sites never checked sms_consent — NOW FIXED
+
+Continuation of the codebase-wide TCPA compliance sweep begun by items
+(19)/(21)/(23) (that convention: every real client-SMS call site gates on
+`sms_consent !== false`, matching what the STOP-reply webhook actually
+writes — transactional or not, a client who texted STOP shouldn't get
+another SMS). Went looking for any client-facing `sendSMS()` call site not
+already covered by items (19)/(21)/(23)'s seven audited sites and found
+three more real senders that never adopted the convention, all using the
+generic multi-tenant `@/lib/sms` wrapper (a bare Telnyx call with no
+built-in consent logic, confirmed by reading the module directly):
+
+- `POST /api/client/book` — the public booking widget's own "booking
+  received" confirmation, the very first SMS a client ever gets from the
+  app (`:469-475`). `data.clients` already carried `sms_consent` via its
+  existing `clients(*)` select — the field was fetched, just never checked.
+- `POST /api/portal/bookings` — item (12)'s notify+email+SMS fix ported
+  `client/book`'s confirmation block verbatim, inheriting the same
+  blindness. Its `clients` select only fetched `name, phone, email` — had
+  to add `sms_consent` to the select before it could be gated.
+- `PUT /api/client/reschedule/[id]` — the reschedule-confirmation SMS
+  (`:134-140`). Already had `sms_consent` via `clients(*)`, just unchecked.
+
+Deliberately investigated and left alone, not the same pattern:
+- `POST /api/client/confirm/[token]` — its `sendSMS()` call is from a
+  *different* module, `@/lib/nycmaid/sms` (the NYC-Maid-specific bot's SMS
+  lib), which has its own built-in consent gate keyed on
+  `options.recipientType`/`recipientId`, and explicitly passes
+  `skipConsent: true` for this one message type (`terms_accepted` — a
+  direct reply to the client's own action of tapping a link they were just
+  sent). That's a considered, existing design decision baked into the
+  wrapper itself, not an oversight — confirmed by reading
+  `nycmaid/sms.ts`'s consent-gate logic directly before ruling this one out.
+- `portal/collect/route.ts` — a conversational SMS reply inside an
+  in-progress two-way texting flow the client themself just sent a message
+  into (the "recap" reply after they text back their booking details).
+  Whether STOP-consent should gate a direct reply inside an active
+  conversation the client initiated is a genuine policy question, not a
+  clean match for the "send a confirmation after a form submit" pattern
+  the other three fixes share — flagging, not auto-fixing.
+
+**Fixed** (`p1-w3`) — all three gated on `sms_consent !== false`, matching
+the codebase's own established convention; no wording/product decision
+needed. 6 new tests across three new files (`route.sms-consent.test.ts` in
+each of `client/book`, `portal/bookings`, `client/reschedule/[id]`: one
+opted-out-skips-the-send case + one not-opted-out-still-sends control per
+route), mutation-verified (reverted all three fixes together, all three
+opted-out tests went RED reproducing the exact still-sends symptom,
+controls unaffected, restored). `tsc --noEmit` clean, full suite 351/351
+files, 1800/1800 tests, zero regressions (one pre-existing, unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, same
+precedent as items 17/23/24/26/27/28/29/30).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
