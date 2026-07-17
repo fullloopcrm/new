@@ -67,16 +67,29 @@ export function generateRecurringDates({
         if (i === 0) {
           dates.push(new Date(current))
         } else {
-          const next = new Date(current)
-          next.setMonth(next.getMonth() + i)
-          next.setDate(1)
-          // Find the nth occurrence of targetDay
-          let count = 0
-          while (count < weekOfMonth) {
-            if (next.getDay() === targetDay) count++
-            if (count < weekOfMonth) next.setDate(next.getDate() + 1)
+          const monthStart = new Date(current)
+          monthStart.setMonth(monthStart.getMonth() + i)
+          monthStart.setDate(1)
+          // Collect every occurrence of targetDay WITHIN THIS MONTH ONLY, then
+          // pick the weekOfMonth-th one -- or the month's LAST occurrence if it
+          // has fewer than weekOfMonth (e.g. a schedule anchored on a month's
+          // 5th Friday falls back to that month's 4th/last Friday when the
+          // target month has no 5th). The old version searched day-by-day with
+          // no month boundary, so once a month ran out of the target weekday it
+          // just kept counting into the FOLLOWING month until it hit
+          // weekOfMonth -- e.g. a 5th-Friday-of-May anchor produced a July
+          // occurrence for the June slot instead of resolving within June,
+          // corrupting the once-a-month cadence for any schedule anchored on a
+          // month's 5th occurrence of a weekday (which is most months, since
+          // only 4-5 months a year have a 5th occurrence of any given weekday).
+          const occurrences: Date[] = []
+          const probe = new Date(monthStart)
+          const targetMonth = probe.getMonth()
+          while (probe.getMonth() === targetMonth) {
+            if (probe.getDay() === targetDay) occurrences.push(new Date(probe))
+            probe.setDate(probe.getDate() + 1)
           }
-          dates.push(next)
+          dates.push(occurrences[Math.min(weekOfMonth, occurrences.length) - 1])
         }
       }
       break

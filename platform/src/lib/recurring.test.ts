@@ -212,6 +212,24 @@ describe('generateRecurringDates — monthly_weekday (nth weekday of month)', ()
     expect(Math.ceil(dates[1].getDate() / 7)).toBe(1) // 1st Monday of Oct -> Oct 5
     expect(ymd(dates[1])).toBe('2026-10-05')
   })
+
+  it('5th-occurrence anchor falls back to the month\'s LAST occurrence when a later month has no 5th (does not spill into the following month)', () => {
+    // May 29 2026 is a Friday, and May 2026 has 5 Fridays (1,8,15,22,29) -- a
+    // valid "5th Friday" anchor. June 2026 has only 4 Fridays (5,12,19,26), no 5th.
+    const dates = generateRecurringDates({
+      recurringType: 'monthly_weekday',
+      startDate: noon(2026, 4, 29), // May 29 2026
+      weeksToGenerate: 3,
+    })
+    expect(ymd(dates[0])).toBe('2026-05-29')
+    // June has no 5th Friday -- must resolve to June's LAST Friday (June 26),
+    // never drift into July looking for a literal 5th occurrence.
+    expect(dates[1].getMonth()).toBe(5) // June (0-indexed)
+    expect(dates[1].getDay()).toBe(5) // Friday
+    expect(ymd(dates[1])).toBe('2026-06-26')
+    // July 2026 DOES have 5 Fridays (3,10,17,24,31) -- back to the real 5th.
+    expect(ymd(dates[2])).toBe('2026-07-31')
+  })
 })
 
 describe('getRecurringDisplayName', () => {
