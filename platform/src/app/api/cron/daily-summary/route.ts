@@ -103,7 +103,7 @@ export async function GET(request: Request) {
 
     const { data: teamMembers } = await supabaseAdmin
       .from('team_members')
-      .select('id, name, phone, email')
+      .select('id, name, phone, email, sms_consent')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
       .limit(500) // Don't process more than 500 per tenant per run
@@ -135,8 +135,10 @@ export async function GET(request: Request) {
 
       if (!upcomingJobs || upcomingJobs.length === 0) continue
 
-      // SMS summary
-      if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      // SMS summary — sms_consent (team_members.sms_consent is a real,
+      // crew-editable column); this send fired unconditionally regardless
+      // of it before this fix.
+      if (member.phone && member.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
         const smsBody = smsDailySummary(tenant.name, member.name, upcomingJobs.length)
         await sendSMS({
           to: member.phone,

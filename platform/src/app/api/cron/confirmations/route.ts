@@ -46,7 +46,7 @@ export async function GET(request: Request) {
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, end_time, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
@@ -68,6 +68,10 @@ export async function GET(request: Request) {
       for (const booking of unconfirmedJobs || []) {
         const member = booking.team_members
         if (!member?.phone) continue
+        // team_members.sms_consent is a real, crew-editable column; this
+        // hourly resend fired unconditionally regardless of it before this
+        // fix.
+        if (member.sms_consent === false) continue
         if (booking.team_member_id && confirmTerminatedIds.has(booking.team_member_id)) continue
 
         // Check if team member already confirmed this job

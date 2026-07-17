@@ -110,7 +110,7 @@ export interface BookingUnconfirmed {
   end_time: string
   team_member_id: string | null
   clients: ClientNameAddress
-  team_members: TeamMemberNamePhone
+  team_members: TeamMemberNamePhoneConsent
 }
 
 /** confirmations/route.ts — tomorrow bookings query */
