@@ -4,6 +4,7 @@
 
 import { clientArrivalWindow } from '../time-window'
 import { escapeHtml } from '../escape-html'
+import { formatRecurringLabel } from '../recurring'
 
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
@@ -280,7 +281,7 @@ export function clientConfirmationEmail(booking: any) {
       ${infoRow('Address', escapeHtml(booking.clients?.address || 'On file'))}
       ${infoRow('Service', booking.service_type)}
       ${infoRow('Cleaner', escapeHtml(cleanerName))}
-      ${isRecurring ? infoRow('Schedule', booking.recurring_type) : ''}
+      ${isRecurring ? infoRow('Schedule', escapeHtml(formatRecurringLabel(booking.recurring_type, booking.start_time))) : ''}
       ${infoRow('Estimate', `${estimatedHoursLabel} hrs × $${hourlyRate}/hr`)}
       ${discountCents > 0 ? infoRow('Discount', `<span style="color:#15803d;font-weight:600;">−$${(discountCents / 100).toFixed(0)} (${discountPct}% off)</span>`) : ''}
       ${hasSelfBookingPromo ? infoRow('Promo', `<span style="color:#15803d;font-weight:600;">$10 self-booking discount — applied to your final bill</span>`) : ''}

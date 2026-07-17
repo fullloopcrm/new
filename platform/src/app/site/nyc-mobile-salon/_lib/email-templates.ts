@@ -2,6 +2,8 @@
 // EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
+import { formatRecurringLabel } from '@/lib/recurring'
+
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
 <html>
@@ -166,7 +168,7 @@ export function clientConfirmationEmail(booking: any) {
       ${infoRow('Address', booking.clients?.address || 'On file')}
       ${infoRow('Service', booking.service_type)}
       ${infoRow('Stylist', cleanerName)}
-      ${isRecurring ? infoRow('Schedule', booking.recurring_type) : ''}
+      ${isRecurring ? infoRow('Schedule', formatRecurringLabel(booking.recurring_type, booking.start_time)) : ''}
       ${infoRow('Estimate', `${estimatedRange} hrs × $${hourlyRate}/hr`)}
     `)}
 

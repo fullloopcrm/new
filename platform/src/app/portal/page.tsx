@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePortalAuth } from './layout'
 import PushPrompt from '@/components/PushPrompt'
+import { formatRecurringLabel } from '@/lib/recurring'
 
 interface Booking {
   id: string
@@ -799,7 +800,7 @@ export default function PortalHomePage() {
                     {booking.recurring_type && (
                       <div className="col-span-2">
                         <p className="text-slate-400 text-xs uppercase tracking-wide">Schedule</p>
-                        <p className="text-slate-800 font-medium capitalize">{booking.recurring_type}</p>
+                        <p className="text-slate-800 font-medium capitalize">{formatRecurringLabel(booking.recurring_type, booking.start_time)}</p>
                       </div>
                     )}
                   </div>

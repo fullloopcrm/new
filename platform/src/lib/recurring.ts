@@ -186,8 +186,27 @@ export function getRecurringDisplayName(
     case 'biweekly': return 'Bi-weekly'
     case 'triweekly': return 'Tri-weekly'
     case 'monthly_date': return 'Monthly'
-    case 'monthly_day': return `${weekNames[weekNum-1]} ${dayName}`
+    // 'monthly_day' is BookingsAdmin.tsx's own repeat_type convention (dashboard/bookings/_recurring.ts);
+    // 'monthly_weekday' is the real persisted RecurringType enum value for the same pattern.
+    case 'monthly_day':
+    case 'monthly_weekday':
+      return `${weekNames[weekNum-1]} ${dayName}`
     case 'custom': return 'Custom'
     default: return null
   }
+}
+
+/**
+ * Customer-facing label for a stored `recurring_type` value. Wraps
+ * getRecurringDisplayName with a raw-value fallback (never renders blank, never
+ * worse than the unformatted enum string that was showing before this existed) --
+ * for use anywhere a booking's recurring_type reaches a customer (emails, portal).
+ */
+export function formatRecurringLabel(
+  recurringType: string | null | undefined,
+  startDateTime: string | null | undefined
+): string {
+  if (!recurringType) return ''
+  const startDate = startDateTime ? startDateTime.slice(0, 10) : ''
+  return getRecurringDisplayName(recurringType, startDate) || recurringType
 }

@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   generateRecurringDates,
   getRecurringDisplayName,
+  formatRecurringLabel,
   computeNaiveVisitWindow,
   nextOccurrenceDates,
   type RecurringType,
@@ -244,9 +245,32 @@ describe('getRecurringDisplayName', () => {
     expect(getRecurringDisplayName('monthly_day', '2026-03-02')).toBe('1st Mon')
   })
 
+  it('monthly_weekday (the real persisted RecurringType enum value, as opposed to ' +
+    "BookingsAdmin.tsx's own 'monthly_day' repeat_type) renders the same Nth-weekday label", () => {
+    expect(getRecurringDisplayName('monthly_weekday', '2026-01-12')).toBe('2nd Mon')
+  })
+
   it('returns null for an unknown repeat type', () => {
     expect(getRecurringDisplayName('yearly', anyDate)).toBeNull()
     expect(getRecurringDisplayName('', anyDate)).toBeNull()
+  })
+})
+
+describe('formatRecurringLabel', () => {
+  it('formats a real enum value using the booking start_time datetime', () => {
+    expect(formatRecurringLabel('monthly_weekday', '2026-01-12T09:00:00')).toBe('2nd Mon')
+    expect(formatRecurringLabel('monthly_date', '2026-01-12T09:00:00')).toBe('Monthly')
+    expect(formatRecurringLabel('weekly', '2026-01-12T09:00:00')).toBe('Weekly')
+  })
+
+  it('falls back to the raw value instead of rendering blank when unrecognized or dateless', () => {
+    expect(formatRecurringLabel('triweekly', '')).toBe('triweekly')
+    expect(formatRecurringLabel('some-legacy-value', '2026-01-12T09:00:00')).toBe('some-legacy-value')
+  })
+
+  it('returns empty string for no recurring type', () => {
+    expect(formatRecurringLabel(null, '2026-01-12T09:00:00')).toBe('')
+    expect(formatRecurringLabel(undefined, '2026-01-12T09:00:00')).toBe('')
   })
 })
 

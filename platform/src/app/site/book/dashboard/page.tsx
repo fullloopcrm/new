@@ -4,6 +4,7 @@ import { useRouter } from 'next/navigation'
 import PushPrompt from '@/components/PushPrompt'
 import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
+import { formatRecurringLabel } from '@/lib/recurring'
 
 interface Booking {
   id: string
@@ -615,7 +616,7 @@ export default function ClientDashboardPage() {
                       {booking.recurring_type && (
                         <div className="col-span-2">
                           <p className="text-gray-400 text-xs uppercase tracking-wide">Schedule</p>
-                          <p className="text-[#1E2A4A] font-medium capitalize">{booking.recurring_type}</p>
+                          <p className="text-[#1E2A4A] font-medium capitalize">{formatRecurringLabel(booking.recurring_type, booking.start_time)}</p>
                         </div>
                       )}
                     </div>
