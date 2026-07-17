@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, client_id, service_type, clients(name)')
+    .select('id, tenant_id, client_id, service_type, clients(name, do_not_service)')
     .in('status', ['completed', 'paid'])
     .gte('check_out_time', windowStart.toISOString())
     .lte('check_out_time', windowEnd.toISOString())
@@ -25,13 +25,18 @@ export async function GET(request: Request) {
   let totalSent = 0
 
   for (const booking of bookings || []) {
+    const client = booking.clients as unknown as { name: string; do_not_service: boolean | null } | null
+    // do_not_service blocks — same invariant every other client fan-out this
+    // session enforces.
+    if (client?.do_not_service) continue
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name')
       .eq('id', booking.tenant_id)
       .single()
 
-    const clientName = (booking.clients as unknown as { name: string } | null)?.name || 'there'
+    const clientName = client?.name || 'there'
 
     await notify({
       tenantId: booking.tenant_id,

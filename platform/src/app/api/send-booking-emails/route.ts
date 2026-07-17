@@ -18,14 +18,14 @@ export async function POST(request: Request) {
 
     const { data: booking, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, service_type, price, address, clients(id, name, email, phone), team_members!bookings_team_member_id_fkey(id, name, email, phone)')
+      .select('id, start_time, end_time, service_type, price, address, clients(id, name, email, phone, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(id, name, email, phone)')
       .eq('id', bookingId)
       .eq('tenant_id', tenantId)
       .single()
 
     if (error || !booking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
-    const client = booking.clients as unknown as { id?: string; name?: string; email?: string; phone?: string } | null
+    const client = booking.clients as unknown as { id?: string; name?: string; email?: string; phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
     const member = booking.team_members as unknown as { id?: string; name?: string; email?: string; phone?: string } | null
     const dateTime = booking.start_time ? new Date(booking.start_time).toLocaleString('en-US', {
       timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
@@ -33,7 +33,13 @@ export async function POST(request: Request) {
 
     const results: Array<Record<string, unknown>> = []
 
-    if (client?.id) {
+    // do_not_service blocks either channel; sms_consent (STOP compliance)
+    // additionally blocks the sms channel — same invariant every other
+    // client fan-out this session enforces.
+    const clientChannelAllowed = client?.id && !client?.do_not_service
+      && (channel !== 'sms' || client?.sms_consent !== false)
+
+    if (clientChannelAllowed) {
       const r = await notify({
         tenantId,
         type: 'booking_confirmed',
@@ -41,10 +47,10 @@ export async function POST(request: Request) {
         message: dateTime,
         channel: channel === 'sms' ? 'sms' : 'email',
         recipientType: 'client',
-        recipientId: client.id,
+        recipientId: client!.id!,
         bookingId,
         metadata: {
-          clientName: client.name,
+          clientName: client!.name,
           serviceName: booking.service_type,
           dateTime,
           teamMemberName: member?.name,
@@ -53,6 +59,8 @@ export async function POST(request: Request) {
         },
       })
       results.push({ type: 'client_confirmation', ...r })
+    } else if (client?.id) {
+      results.push({ type: 'client_confirmation', success: false, error: 'blocked: do_not_service or sms_consent revoked' })
     }
 
     if (!clientOnly && member?.id) {

@@ -10,6 +10,8 @@ export interface ClientRecord {
   email: string
   phone: string
   address: string
+  sms_consent: boolean | null
+  do_not_service: boolean | null
 }
 
 export interface TeamMemberRecord {
@@ -37,6 +39,8 @@ export type ClientNameEmail = Pick<ClientRecord, 'name' | 'email'> | null
 export type ClientNameAddress = Pick<ClientRecord, 'name' | 'address'> | null
 export type ClientNamePhoneEmail = Pick<ClientRecord, 'name' | 'phone' | 'email'> | null
 export type ClientNamePhoneAddress = Pick<ClientRecord, 'name' | 'phone' | 'address'> | null
+export type ClientNamePhoneEmailConsent = Pick<ClientRecord, 'name' | 'phone' | 'email' | 'sms_consent' | 'do_not_service'> | null
+export type ClientNameEmailConsent = Pick<ClientRecord, 'name' | 'email' | 'sms_consent' | 'do_not_service'> | null
 
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
 export type TeamMemberNamePhone = Pick<TeamMemberRecord, 'name' | 'phone'> | null
@@ -55,7 +59,7 @@ export interface BookingWithClientAndTeam {
   service_type: string | null
   start_time: string
   end_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhoneEmail
 }
 
@@ -66,7 +70,7 @@ export interface BookingWith2HourReminder {
   team_member_id: string | null
   service_type: string | null
   start_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhone
 }
 
@@ -86,7 +90,7 @@ export interface BookingWithThankYou {
   id: string
   client_id: string | null
   service_type: string | null
-  clients: ClientNameEmail
+  clients: ClientNameEmailConsent
 }
 
 /** reminders/route.ts — pending bookings query */

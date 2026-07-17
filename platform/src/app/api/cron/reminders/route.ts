@@ -68,7 +68,7 @@ export async function GET(request: Request) {
 
           const { data: bookings } = await supabaseAdmin
             .from('bookings')
-            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
+            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
             .gte('start_time', target.toISOString())
@@ -104,8 +104,10 @@ export async function GET(request: Request) {
             const client = booking.clients
             const clientName = client?.name?.split(' ')[0] || 'there'
 
-            // Client email reminder
-            if (client?.email) {
+            // Client email reminder — do_not_service blocks, same invariant
+            // every other client fan-out this session enforces (see bookings
+            // create/update/cancel, reviews/request, cron/payment-reminder).
+            if (client?.email && !client?.do_not_service) {
               await notify({
                 tenantId,
                 type: 'booking_reminder',
@@ -119,8 +121,9 @@ export async function GET(request: Request) {
               })
             }
 
-            // Client SMS reminder (gated by the booking_reminder SMS toggle)
-            if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Client SMS reminder — gated by the booking_reminder SMS toggle
+            // plus sms_consent (STOP compliance) / do_not_service.
+            if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {
@@ -219,7 +222,7 @@ export async function GET(request: Request) {
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .gte('start_time', hourWindowStart.toISOString())
@@ -249,8 +252,9 @@ export async function GET(request: Request) {
         const member = booking.team_members
         const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
 
-        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
-        if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Client SMS — 2hr reminder — gated by the booking_reminder SMS toggle
+        // plus sms_consent (STOP compliance) / do_not_service.
+        if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
             await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
@@ -365,7 +369,7 @@ export async function GET(request: Request) {
 
         const { data: completedBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, client_id, service_type, clients(name, email)')
+          .select('id, client_id, service_type, clients(name, email, sms_consent, do_not_service)')
           .eq('tenant_id', tenantId)
           .in('status', ['completed', 'paid'])
           .gte('end_time', threeDaysAgo.toISOString())
@@ -375,7 +379,9 @@ export async function GET(request: Request) {
 
         for (const booking of completedBookings || []) {
           const client = booking.clients
-          if (!client?.email || !booking.client_id) continue
+          // do_not_service blocks — same invariant every other client fan-out
+          // this session enforces.
+          if (!client?.email || !booking.client_id || client?.do_not_service) continue
 
           // Check if thank-you already sent to this client (in last year)
           const oneYearAgo = new Date(now)

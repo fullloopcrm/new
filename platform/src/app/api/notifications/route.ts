@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
       if (booking_id) {
         const { data } = await db
           .from('bookings')
-          .select('client_id, check_in_time, hourly_rate, clients(name, phone)')
+          .select('client_id, check_in_time, hourly_rate, clients(name, phone, sms_consent, do_not_service)')
           .eq('id', booking_id)
           .maybeSingle()
         if (!data) {
@@ -44,9 +44,11 @@ export async function POST(request: NextRequest) {
         status: 'sent',
       })
 
-      // Also send SMS to client if booking has a client with phone
-      if (booking?.client_id) {
-        const client = booking.clients as unknown as { name: string; phone: string | null } | null
+      // Also send SMS to client if booking has a client with phone —
+      // sms_consent (STOP compliance) / do_not_service, same invariant every
+      // other client fan-out this session enforces.
+      const client = booking?.clients as unknown as { name: string; phone: string | null; sms_consent: boolean | null; do_not_service: boolean | null } | null
+      if (booking?.client_id && client?.sms_consent !== false && !client?.do_not_service) {
         const clientName = client?.name?.split(' ')[0] || 'there'
 
         // Calculate estimated amount for the SMS
