@@ -66,11 +66,23 @@ export async function POST(request: Request) {
       // booking, resolve booking + tenant here so it routes to the booking-payment
       // path below, not the Full Loop signup path. Strictly additive — a prospect's
       // client_reference_id won't match a booking id, so signups are unaffected.
+      //
+      // client_reference_id is a public Stripe Payment Link query param — anyone
+      // holding the link URL can overwrite it in their own browser before paying.
+      // Without a tenant filter here, that let a payer redirect a payment on
+      // NYC Maid's static link to mark ANY tenant's booking "paid" (and, if the
+      // booking's cleaner has Stripe Connect, trigger a real cross-tenant payout)
+      // regardless of what was actually charged. Scope to the one tenant this
+      // static link belongs to — same rule the email-recovery fallback below
+      // already applies, and the same "never let event-supplied identifiers pick
+      // the tenant" rule the charge.refunded handler enforces via
+      // tenantFromPaymentIntent (see route.cross-tenant-refund.isolation.test.ts).
       if (!bookingId && session.client_reference_id) {
         const { data: refBooking } = await supabaseAdmin
           .from('bookings')
           .select('id, tenant_id')
           .eq('id', session.client_reference_id)
+          .eq('tenant_id', NYCMAID_TENANT_ID)
           .maybeSingle()
         if (refBooking) {
           bookingId = refBooking.id
