@@ -34,21 +34,29 @@ export function generateRecurringDates(
     let year = start.getFullYear()
 
     while (dates.length < maxDates) {
-      // Find the Nth occurrence of the target day in this month
-      const firstOfMonth = new Date(year, month, 1)
-      let firstOccurrence = 1
-      while (new Date(year, month, firstOccurrence).getDay() !== targetDay) {
-        firstOccurrence++
+      // Collect every occurrence of targetDay in this month, then pick the
+      // targetWeek-th one -- or the month's LAST occurrence if it has fewer
+      // than targetWeek (e.g. a schedule anchored on a month's 5th Friday
+      // falls back to that month's 4th/last Friday when the target month has
+      // no 5th). Matches lib/recurring.ts's monthly_weekday fallback -- the
+      // old fixed-offset version (firstOccurrence + (targetWeek-1)*7) just
+      // dropped the month entirely once it ran out of occurrences, silently
+      // skipping a scheduled visit instead of substituting one.
+      const occurrences: number[] = []
+      const daysInMonth = new Date(year, month + 1, 0).getDate()
+      for (let d = 1; d <= daysInMonth; d++) {
+        if (new Date(year, month, d).getDay() === targetDay) occurrences.push(d)
       }
-      const targetDate = firstOccurrence + (targetWeek - 1) * 7
-      const lastDay = new Date(year, month + 1, 0).getDate()
-
-      if (targetDate <= lastDay) {
-        const date = new Date(year, month, targetDate)
-        if (date >= start) {
-          if (endDate && date > endDate) break
-          dates.push(date.toISOString().split('T')[0])
-        }
+      const targetDate = occurrences[Math.min(targetWeek, occurrences.length) - 1]
+      // Noon anchor (matches `start`'s own 'T12:00:00' construction) -- a
+      // bare `new Date(year, month, targetDate)` is midnight, which compared
+      // LESS than `start` (noon) whenever targetDate landed on the anchor's
+      // own day, silently excluding the anchor month's own occurrence from
+      // every monthly_day schedule (the very visit the admin just selected).
+      const date = new Date(year, month, targetDate, 12, 0, 0)
+      if (date >= start) {
+        if (endDate && date > endDate) break
+        dates.push(date.toISOString().split('T')[0])
       }
 
       month++
