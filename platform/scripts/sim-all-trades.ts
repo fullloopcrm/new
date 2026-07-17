@@ -31,6 +31,13 @@ const key = process.env.SUPABASE_SERVICE_ROLE_KEY
 if (!url || !key) { console.error('Missing Supabase env'); process.exit(1) }
 // Guarantee no real emails fire during the sim (platform Resend disabled).
 process.env.RESEND_API_KEY = 'placeholder'
+// team-portal token.ts refuses to fall back to SUPABASE_SERVICE_ROLE_KEY (a
+// leaked portal token would then act as a signature oracle against it) and
+// throws if TEAM_PORTAL_SECRET is unset -- .env.local doesn't carry it in
+// every worktree. A process-local random secret is sufficient here: this
+// harness only ever mints and verifies its own tokens within the same run,
+// never against a real deployed instance.
+if (!process.env.TEAM_PORTAL_SECRET) process.env.TEAM_PORTAL_SECRET = randomBytes(32).toString('hex')
 const supabase = createClient(url, key, { auth: { persistSession: false } })
 
 const OWNER = { name: 'Jeff Tucker', email: 'fullloopcrm@gmail.com', phone: '+12122029220' }
@@ -1197,6 +1204,24 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     const worker = (members || [])[0]
     add('hr: crew got 4-digit portal PIN', !!worker?.pin && /^\d{4}$/.test(String(worker.pin)))
 
+    // ================= 5.0a TEAM-PORTAL LOGIN (real route, first-ever archetype coverage) =================
+    // Every HR assertion above only checks the team_members/hr_employee_profiles
+    // rows directly -- the crew's own actual entry point into the product,
+    // POST /api/team-portal/auth (PIN login), had never been driven by this
+    // harness at all (flagged as a gap in the prior gap/fluidity round). It's
+    // unauthenticated/bearer-based (no headers()/cookies() dependency), so this
+    // exercises real production code, not a mock. Unique per-scenario IP so
+    // rateLimitDb's per-tenant+ip cap never trips.
+    const { POST: portalAuthPOST } = await import('../src/app/api/team-portal/auth/route')
+    const portalLogin = await portalAuthPOST(new Request('http://sim.local/api/team-portal/auth', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.91.${idx}.1` },
+      body: JSON.stringify({ pin: worker?.pin, tenant_slug: tenant.slug }),
+    }))
+    const portalLoginBody = await portalLogin.json()
+    add('portal: crew member logs in with their real PIN (real route, not a mock)', portalLogin.status === 200 && !!portalLoginBody?.token, JSON.stringify({ status: portalLogin.status, hasToken: !!portalLoginBody?.token }))
+    add('portal: login resolves to the correct team member', portalLoginBody?.member?.id === worker?.id, `${portalLoginBody?.member?.id} vs ${worker?.id}`)
+
     const hr2 = await seedHrDefaults(tenant.id)
     add('hr: profile backfilled for the new crew member', hr2.profilesBackfilled >= 1, `backfilled=${hr2.profilesBackfilled}`)
 
@@ -1269,9 +1294,21 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     // inside a real Next.js request.
     const firstSession = jobBookings?.[0]
     if (firstSession) {
-      const rainDelayStart = new Date(new Date(firstSession.start_time).getTime() + 2 * 24 * 3600 * 1000).toISOString()
-      const rainDelayEnd = new Date(new Date(firstSession.end_time).getTime() + 2 * 24 * 3600 * 1000).toISOString()
-      await supabase.from('bookings').update({ start_time: rainDelayStart, end_time: rainDelayEnd }).eq('id', firstSession.id)
+      // A flat "+2 days" reschedule landed session 0 on top of this job's OWN
+      // later session for the SAME crew member (these trades run one worker
+      // across the whole project timeline) and tripped the real
+      // trg_block_booking_overlap DB trigger (src/lib/migrations/
+      // 015_booking_overlap_trigger.sql, live since 47ec885e/2026-04-20) on
+      // every run -- the UPDATE's error was previously discarded, so this
+      // assertion silently failed 100% of the time even though the trigger
+      // was doing exactly its job. Push the delay PAST the whole project's
+      // own session plan instead, so it can't collide with the job's own
+      // remaining sessions.
+      const lastOffset = cfg.sessions[cfg.sessions.length - 1].offsetDays
+      const rainDelayStart = projectDaysFromNow(lastOffset + 7, cfg.sessions[0].startHour)
+      const rainDelayEnd = projectDaysFromNow(lastOffset + 7, cfg.sessions[0].endHour)
+      const { error: rescheduleErr } = await supabase.from('bookings').update({ start_time: rainDelayStart, end_time: rainDelayEnd }).eq('id', firstSession.id)
+      add('weather-delay: reschedule update succeeds (no collision with this job\'s own later sessions)', !rescheduleErr, rescheduleErr?.message)
       await logJobEvent({ tenant_id: tenant.id, job_id: jobRes.job_id, event_type: 'session_rescheduled', detail: { booking_id: firstSession.id, start_time: rainDelayStart, note: 'weather delay' } })
 
       const { data: rescheduledEvent } = await supabase.from('job_events').select('id').eq('job_id', jobRes.job_id).eq('event_type', 'session_rescheduled').maybeSingle()
@@ -1329,6 +1366,21 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('crew-termination: the just-terminated crew member is flagged by the guard', terminatedNow.includes(worker.id), JSON.stringify(terminatedNow))
       add('crew-termination: reassigning them to a remaining session would be blocked (guard fires before any write)', terminatedNow.length > 0)
 
+      // The terminated worker's OWN portal access, not just their eligibility to
+      // be assigned by someone else -- the exact real-world case commit
+      // 2b96769b fixed (HR termination never revoked portal access; a fired
+      // worker could keep minting fresh tokens by PIN forever). This is the
+      // first time the archetype harness drives POST /api/team-portal/auth
+      // post-termination with the same PIN that logged in successfully above
+      // (5.0a) -- unit tests already cover this route, but nothing before this
+      // proved it against a real archetype tenant/team_member/hr lifecycle.
+      const terminatedLogin = await portalAuthPOST(new Request('http://sim.local/api/team-portal/auth', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json', 'x-forwarded-for': `10.92.${idx}.1` },
+        body: JSON.stringify({ pin: worker.pin, tenant_slug: tenant.slug }),
+      }))
+      add('crew-termination: the terminated worker can no longer log in with their old PIN (real route)', terminatedLogin.status === 401, `status=${terminatedLogin.status}`)
+
       // The real-world resolution: hire a replacement and put THEM on what's left.
       const { provisionApprovedApplicant: provisionReplacement } = await import('../src/lib/team-provisioning')
       const replacementPhone = '704' + String(4000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
@@ -1351,22 +1403,22 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         const { data: reassignedSession } = await supabase.from('bookings').select('team_member_id').eq('id', remainingSession.id).single()
         add('crew-termination: remaining session reassigned to the replacement, not left on the terminated worker', reassignedSession?.team_member_id === replacement.id, reassignedSession?.team_member_id)
 
-        // ---- 5a-3. DOUBLE-BOOKING THE SAME CREW MEMBER (no conflict guard) ----
-        // FRESH GROUND, found while proving the termination guard above: the
-        // replacement is now the sole assignee on the remaining session.
-        // Nothing stops that SAME person also being booked onto an unrelated
-        // job's session at the EXACT SAME time. POST/PATCH .../sessions
-        // (route.ts + [sessionId]/route.ts) only ever validate team_members
-        // existence+tenant, and (since the fix above) hr_status -- neither
-        // checks the assignee's OTHER bookings for a time overlap. For a
-        // solo/small crew (the norm on these trades), a double-booked crew
-        // member means one of the two jobs silently has nobody show up,
-        // discovered only when the customer calls. NOT FIXED here -- whether
-        // ANY overlap should be blocked is a real product decision (a crew
-        // lead legitimately splitting a morning between two nearby
-        // walk-throughs is not itself a bug); documented as an
-        // expected-to-fail check so this doesn't silently regress into
-        // "considered and rejected" territory before Jeff weighs in.
+        // ---- 5a-3. DOUBLE-BOOKING THE SAME CREW MEMBER (DB-level guard, confirmed live) ----
+        // Previously flagged as gap #11 ("no scheduling-conflict guard exists
+        // anywhere in session create/reassign") from reading POST/PATCH
+        // .../sessions alone -- true at the app layer (neither route checks
+        // the assignee's other bookings for a time overlap of its own), but
+        // WRONG as a product conclusion. A BEFORE INSERT/UPDATE trigger
+        // (trg_block_booking_overlap, src/lib/migrations/
+        // 015_booking_overlap_trigger.sql, applied to prod 2026-04-20 per
+        // 47ec885e) blocks ANY overlapping team_member_id/start_time/end_time
+        // write to `bookings`, regardless of which route or code path
+        // performs it. This was misdiagnosed because the archetype harness
+        // had never actually been run against a live DB before this session
+        // (no .env.local in prior worktrees) -- running it live here for the
+        // first time surfaced the trigger firing on this exact probe.
+        // Correcting the assertion (and gap #11) to match reality: the
+        // overlap insert FAILS, not succeeds.
         const { data: secondJob } = await supabase.from('jobs').insert({
           tenant_id: tenant.id, client_id: job?.client_id || null,
           title: `${cfg.crew.name} — second job (double-book probe)`, status: 'scheduled', total_cents: 0,
@@ -1377,8 +1429,8 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
             team_member_id: replacement.id, start_time: remainingSession.start_time, end_time: remainingSession.end_time,
             status: 'confirmed', notes: 'Double-book probe — unrelated job, same crew member, overlapping window',
           }).select('id').single()
-          add('double-booking (KNOWN GAP — no scheduling-conflict guard exists anywhere in session create/reassign): the SAME crew member can be booked onto a second, unrelated job at the EXACT SAME overlapping time with zero warning',
-            !overlapErr && !!overlapBooking, overlapErr?.message)
+          add('double-booking: the DB-level overlap trigger blocks the SAME crew member from being booked onto a second, unrelated job at the EXACT SAME overlapping window (app-layer routes have no check of their own, but this catches it regardless)',
+            !!overlapErr && overlapErr.code === '23P01' && !overlapBooking, overlapErr?.message)
         }
       }
     }
