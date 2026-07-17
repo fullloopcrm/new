@@ -10,6 +10,15 @@
  * makes it vanish from every entity picker. PATCH {active: false} reached
  * the identical end state with no such guard. Fixed by mirroring DELETE's
  * check inside PATCH.
+ *
+ * Follow-on: the first fix checked `updates.active === false` against the
+ * row's *pre-update* is_default, then applied `make_default` in the same
+ * write — so {active: false, make_default: true} in one request slipped
+ * through (is_default was still false when the guard ran) and landed an
+ * inactive default entity. A second path bypassed it entirely: {make_default:
+ * true} alone on an already-inactive entity never touched `updates.active`,
+ * so the guard never fired at all. Fixed by checking the merged final state
+ * (willBeDefault && !willBeActive) instead of the two fields in isolation.
  */
 import { describe, it, expect, vi } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
@@ -22,6 +31,8 @@ vi.mock('@/lib/supabase', async () => {
     entities: [
       { id: 'ent-default', tenant_id: TENANT_A, name: 'Main LLC', is_default: true, active: true },
       { id: 'ent-other', tenant_id: TENANT_A, name: 'Side LLC', is_default: false, active: true },
+      { id: 'ent-other2', tenant_id: TENANT_A, name: 'Third LLC', is_default: false, active: true },
+      { id: 'ent-inactive', tenant_id: TENANT_A, name: 'Dormant LLC', is_default: false, active: false },
     ],
   })
   return { supabase: fake, supabaseAdmin: fake, __fake: fake }
@@ -61,5 +72,26 @@ describe('PATCH /api/finance/entities/[id] — default-entity deactivation guard
     expect(res.status).toBe(200)
     const row = fake._all('entities').find(r => r.id === 'ent-other')
     expect(row?.active).toBe(false)
+  })
+
+  it('rejects {active: false, make_default: true} combined in one request', async () => {
+    const res = await PATCH(patchReq({ active: false, make_default: true }), { params: Promise.resolve({ id: 'ent-other2' }) })
+    expect(res.status).toBe(400)
+    const row = fake._all('entities').find(r => r.id === 'ent-other2')
+    expect(row?.active).toBe(true)
+    expect(row?.is_default).toBe(false)
+    // the original default entity must still be untouched/default
+    const original = fake._all('entities').find(r => r.id === 'ent-default')
+    expect(original?.is_default).toBe(true)
+  })
+
+  it('rejects {make_default: true} alone on an already-inactive entity', async () => {
+    // ent-inactive starts active:false, is_default:false
+    const res = await PATCH(patchReq({ make_default: true }), { params: Promise.resolve({ id: 'ent-inactive' }) })
+    expect(res.status).toBe(400)
+    const row = fake._all('entities').find(r => r.id === 'ent-inactive')
+    expect(row?.is_default).toBe(false)
+    const original = fake._all('entities').find(r => r.id === 'ent-default')
+    expect(original?.is_default).toBe(true)
   })
 })

@@ -20,10 +20,19 @@ export async function PATCH(request: Request, { params }: Params) {
     // the default entity (getDefaultEntityId() has no active filter, so
     // invoices/expenses/bank-accounts would keep silently posting to it
     // even after it vanishes from every active-entity picker) — same guard.
-    if (updates.active === false) {
-      const { data: ent } = await supabaseAdmin
-        .from('entities').select('is_default').eq('tenant_id', tenantId).eq('id', id).single()
-      if (ent?.is_default) return NextResponse.json({ error: 'Cannot archive the default entity. Set another as default first.' }, { status: 400 })
+    // Checked against the FINAL merged state (not `updates.active` in
+    // isolation): {active:false, make_default:true} in one request passed the
+    // old check (is_default was still false pre-update) and then make_default
+    // set is_default:true in the same write, landing exactly the forbidden
+    // state; {make_default:true} alone on an already-inactive entity bypassed
+    // the check entirely since `active` was never in the body.
+    const { data: ent } = await supabaseAdmin
+      .from('entities').select('is_default, active').eq('tenant_id', tenantId).eq('id', id).single()
+    if (!ent) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    const willBeDefault = body.make_default === true || ent.is_default
+    const willBeActive = 'active' in updates ? updates.active === true : ent.active
+    if (willBeDefault && !willBeActive) {
+      return NextResponse.json({ error: 'Cannot archive the default entity. Set another as default first.' }, { status: 400 })
     }
     if (body.make_default) {
       await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
