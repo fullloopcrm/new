@@ -4951,3 +4951,100 @@ here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (113) Grounding item (112)'s 7 TELEGRAM_NOTIFY_TYPES candidates (running_late/cleaner_paid/tip_paid) — architectural, not a per-type fix; one real fresh bug found along the way
+
+Item (112) found 7 declared-but-zero-call-site entries in
+`nycmaid/notify.ts`'s `TELEGRAM_NOTIFY_TYPES` and deliberately didn't fold
+any in, flagging `running_late`/`cleaner_paid`/`tip_paid` as the
+highest-weight candidates to ground first (money + ops signal). Ran all
+three to ground.
+
+**The real shape: this isn't 3 isolated dead entries, it's an architecture
+split.** The codebase has two independent, non-interoperating notification
+systems: `lib/nycmaid/notify.ts` (Telegram-capable, `TELEGRAM_NOTIFY_TYPES`
+lives here) has exactly 6 callers — Selena/Yinez AI-chat code, login,
+client-confirm, and an error logger. `lib/notify.ts` (the global system,
+email/SMS/push with per-tenant comms-preference gating) has 48 callers and
+is where every real operational route actually lives — bookings, payments,
+webhooks, crons, team-portal. **It has zero Telegram integration of any
+kind.** `running_late` (`POST /api/team-portal/running-late`),
+`cleaner_paid` and `tip_paid` (both folded into the Stripe-Connect
+auto-payout branches of `payment-processor.ts` and
+`webhooks/stripe/route.ts`, alongside the already-live `payment_received`
+type — which I also confirmed has zero real call sites through
+`nycmaid/notify()`, despite being one of the *original*, not new,
+`TELEGRAM_NOTIFY_TYPES` entries) all fire real, correctly-implemented
+admin/client/team notifications today — just entirely through the global
+system, which never touches Telegram.
+
+Given `TELEGRAM_NOTIFY_TYPES`'s own header comment ("Operational event
+types that Jeff wants pushed to Telegram"), the honest reading is: whoever
+declared this list assumed every `notify()` call in the codebase funnels
+through it, not realizing the modern global system is a separate,
+Telegram-blind path carrying the actual majority of live traffic. That's a
+real, plausible gap — a tenant with their own Telegram bot configured for
+ops alerts gets nothing on Telegram for a late team member, a cleaner
+payout, or a tip, despite the type existing specifically to signal "this
+should reach Telegram."
+
+**Not fixing it as 3 one-line additions.** There's no existing precedent
+anywhere in the codebase for a modern route dual-firing both notify systems
+(checked — zero files import both). Wiring Telegram into 3 call sites
+piecemeal would mean either (a) bolting a second, inconsistent notification
+call onto routes that already correctly use the global system end to end,
+or (b) the actually-correct fix — adding Telegram support to `lib/notify.ts`
+itself so all 48 callers benefit uniformly — which is a real feature
+addition to the platform's primary notification system, not a narrow bug
+fix, and deserves a product/architecture call rather than a unilateral
+file-only patch. `cleaner_paid`/`tip_paid` specifically aren't even clean,
+separable events in the current implementation — both are metadata baked
+into one consolidated `payment_received` admin message (tip amount, payout
+confirmation, all in one string), not independent notify() calls that could
+individually be redirected. Flagging this whole thread for Jeff's call:
+either scope a Telegram bridge into the global system, or retire the 4 dead
+entries (`running_late`/`cleaner_paid`/`tip_paid`/`payment_received`) from
+`TELEGRAM_NOTIFY_TYPES` as aspirational-never-built.
+
+**One concrete bug did fall out of tracing `running_late`'s real call
+site, fixed as item (113):** `POST /api/team-portal/running-late`'s admin
+`notify()` call omitted `channel`, so it fell to the global `notify()`'s
+default of `'email'`. With `type: 'booking_reminder' as any` (the closest
+valid `NotificationType`, borrowed since no dedicated ops type exists),
+`notify()` rendered the CLIENT-facing `bookingReminderEmail` template — "Hi
+Client, this is a reminder that your appointment is soon", Service:
+"Running Late", Date & Time: the ops message text itself (e.g. "🚨
+EMERGENCY — A Worker running late for A Client (10:00 AM) — ETA 10 min")
+— and emailed that to the tenant owner on **every single late report**,
+confusing internal ops signal dressed as a garbled client appointment
+reminder. Confirmed this fires in practice for essentially every tenant:
+`hasEmail` only requires a platform-level `RESEND_API_KEY` fallback (no
+per-tenant key needed), and every onboarded owner has an email on
+`tenant_members`.
+
+Fixed with the minimal, non-architectural change: explicit `channel: 'sms'`
+on that one call. `recipientType` stays the default `'admin'`, which
+`notify()` never resolves a phone number for — so the send becomes an inert
+no-op (status `'skipped'`, not `'failed'`) and the only observable effect
+is the in-app `notifications` row, exactly matching what the route's own
+comment already intended (it sends its own purpose-built admin SMS/push
+directly below, unaffected). No comms-registry/gating semantics touched,
+no duplicate sends introduced.
+
+1 new test (`route.notify-channel.test.ts`), mutation-verified (`git apply
+-R` the fix, RED for the expected reason — call args missing
+`channel: 'sms'` — `git apply` restored, GREEN). `tsc --noEmit` clean, full
+suite 408/408 files, 1991/1991 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Noticed, not fixed: `src/app/api/team-portal/availability/route.ts`'s
+time-off-request admin notify borrows `type: 'check_in'` the same way (no
+dedicated type, no explicit channel) — lower severity since `check_in` has
+no explicit template case and falls to the generic plain-paragraph email
+fallback rather than a mismatched one, but the same "silently defaults to
+email with a borrowed type" shape. Worth a follow-up grounding pass.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
