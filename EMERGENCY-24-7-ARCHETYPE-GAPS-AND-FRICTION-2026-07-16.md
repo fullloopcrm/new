@@ -6883,3 +6883,89 @@ regressions (same pre-existing, unrelated `tenant-scope` guard warning on
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (152) New fresh-ground surface — matching a bank transaction to an invoice/booking never posts revenue to the GL; for an invoice with no linked booking, no other path ever does either
+
+`POST /api/finance/bank-transactions/[id]/match` (the manual reconciliation
+action: "this specific bank deposit IS this invoice/booking") inserts a
+`payments` row and, for bookings, flips `bookings.payment_status` — but
+never calls `postPaymentRevenue`, the real-time ledger-posting step every
+other money-in path (`mark-paid`, the Stripe webhook, `payment-processor.ts`)
+takes immediately after inserting a payment. `lib/finance/post-revenue.ts`'s
+own doc comment states the accounting model explicitly: "revenue is counted
+once here[, at payment time,] and the bank categorization only reconciles
+the asset" — the match route silently skips the "counted once here" step
+entirely.
+
+For a **booking** match this only delayed revenue: the daily `finance-post`
+cron's `backfillRevenueFromBookings` scans `bookings.payment_status IN
+('paid','partial')`, so it eventually catches a bank-matched booking's
+revenue on its next run. For an **invoice** match with no linked booking,
+it's permanent, not delayed: `backfillRevenueFromBookings` only ever reads
+the `bookings` table, and the generic payments-table safety net that would
+catch a bare `payments` row —`backfillUnpostedRevenue`— is deliberately
+never wired into the `finance-post` cron (its own comment: calling it
+alongside `backfillRevenueFromBookings` "would post the same job under
+different keys and double-count," so it was left out entirely rather than
+scoped to invoice-only payments). The invoice shows paid to the client; the
+revenue never reaches the books, through any path, ever.
+
+**Fixed** — added a `postPaymentRevenue` call immediately after the payment
+insert in both the `invoice` and `booking` match branches, matching the
+established real-time-posting convention. Best-effort or (per `mark-paid`'s
+own precedent) "never fail the flip" — a `.catch()` logs and continues
+rather than failing the match on a ledger hiccup, since `postPaymentRevenue`
+is idempotent by construction (`journalEntryExists` fast-path +
+`idx_journal_entries_source_unique` as the atomic backstop) so a concurrent
+or later cron re-post can never double-count. 4 new tests
+(`route.revenue.test.ts`): an invoice match with no linked booking posts
+revenue keyed by the payment; a booking match posts revenue immediately
+(not waiting on the cron); an invoice match whose invoice IS linked to a
+booking keys revenue by the booking (unifying with the existing bookings
+backfill's idempotency key, not double-keying); a ledger-posting failure
+(missing chart-of-accounts) doesn't fail the match itself. Mutation-verified
+— reverted the fix, confirmed all 3 posting assertions RED for the right
+reason (0 entries where 1 expected), restored. `tsc --noEmit` clean.
+
+## (153) Continuing (152)'s surface — the sibling categorize route had zero status guard, and (152) turned that from a cosmetic issue into a live double-count risk
+
+`PATCH /api/finance/bank-transactions/[id]` (the "categorize" action) posts
+its own journal entry (`source='bank_txn'`) whenever given a `coa_id` —
+with **no check on the transaction's current `status`** at all, unlike the
+match route's own re-match guard (`if (txn.status === 'matched' ||
+'posted') return 400`). Before (152), a stray categorize click on an
+already-`matched` transaction (reachable via the transactions page's "All"
+tab, which renders `matched` rows with an active categorize dropdown
+identically to `pending` ones — `matched` isn't a recognized status in that
+page's per-row branching at all) would just post a first, orphaned journal
+entry for money that had no other GL trail yet — a real gap, but a
+single-entry one. (152) closes that GL trail by posting revenue at match
+time, which means the same stray click now creates a **second, duplicate**
+journal entry for the exact same real-world deposit — once as
+`payment`/`booking`-sourced revenue at match time, again as a `bank_txn`-
+sourced categorization on top.
+
+**Fixed** — ported match/route.ts's own guard verbatim: `PATCH` now rejects
+categorizing a transaction already `matched` or `posted` with the same
+`Already {status}` 400 shape. Continued the surface UI-side rather than
+leaving a dead-end control behind the new 400: the transactions page didn't
+recognize `matched` as a status at all (fell into the same branch as
+`pending`, showing an active categorize dropdown that would now just error,
+and wasn't counted in the page's own summary tally) — added a `matched`
+display branch (greyed row, "Matched → Invoice/Booking/Expense" label using
+the already-fetched `matched_invoice_id`/`matched_booking_id` columns
+instead of a live control) and a `matched` count to the summary line,
+mirroring how `posted` is already handled. 4 new tests
+(`route.status-guard.test.ts`): rejects categorizing an already-matched
+transaction (0 journal entries created); rejects an already-posted one;
+still allows categorizing a genuinely `pending` transaction (regression);
+still allows ignoring a `pending` transaction (regression, unaffected by
+the new guard since `ignore` is checked before it). Mutation-verified —
+reverted the guard, confirmed both rejection tests RED for the right reason
+(200 instead of 400, i.e. the double-post would have gone through),
+restored. `tsc --noEmit` clean, full suite 445/445 files, 2118/2118 tests,
+zero regressions.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
