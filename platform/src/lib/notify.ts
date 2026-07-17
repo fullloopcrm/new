@@ -14,7 +14,9 @@ import {
   notificationDigestEmail,
   reviewRequestEmail,
   paymentReceiptEmail,
+  baseTemplate,
 } from './email-templates'
+import { unsubscribeUrl } from './unsubscribe-token'
 
 export type NotificationType =
   | 'booking_confirmed'
@@ -228,6 +230,31 @@ export async function notify({
         serviceName: serviceName || 'Appointment',
         dateTime: message,
       })
+      break
+    case 'campaign_sent':
+      // CAN-SPAM requires a working unsubscribe mechanism on commercial email.
+      // Without this case, a campaign sent through this path (POST
+      // /api/campaigns/send) fell through to the generic `<p>{message}</p>`
+      // fallback below — no branded shell, no footer, no unsubscribe link at
+      // all (the sibling POST /api/campaigns/[id]/send path at least attempted
+      // one, just with a broken token — see that route's fix). tenantId is
+      // guaranteed non-null here (checked above); recipientId is the client id
+      // this notify() call already resolved `email` from.
+      if (recipientType === 'client' && recipientId) {
+        // Signing can throw if PORTAL_SECRET/ADMIN_TOKEN_SECRET is unset —
+        // never let a misconfigured secret take down the send itself; fall
+        // back to the branded shell with no unsubscribe link over crashing.
+        let campaignUnsubUrl: string | undefined
+        try {
+          campaignUnsubUrl = unsubscribeUrl(
+            process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com',
+            { clientId: recipientId, tenantId, channel: 'email' },
+          )
+        } catch (e) {
+          console.error('unsubscribeUrl signing failed', e)
+        }
+        htmlBody = baseTemplate(message, { ...templateData, unsubscribeUrl: campaignUnsubUrl })
+      }
       break
   }
 

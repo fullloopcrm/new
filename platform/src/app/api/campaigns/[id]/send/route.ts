@@ -6,6 +6,7 @@ import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
+import { unsubscribeUrl } from '@/lib/unsubscribe-token'
 
 export async function POST(
   _request: Request,
@@ -115,8 +116,27 @@ export async function POST(
       // whenever it's on file, independent of the unsubscribe toggle.
       const tenantAddress = (tenant as { address?: string | null }).address
       const addressLine = tenantAddress ? `<br>${tenant.name} · ${tenantAddress}` : ''
-      const emailBody = settings.campaign_auto_unsubscribe
-        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
+      // The unsubscribe link must carry the same signed token /api/unsubscribe
+      // actually verifies (clientId+tenantId+channel, see unsubscribe-token.ts)
+      // — a raw ?email= param the page/API never reads left every "Unsubscribe"
+      // link in a sent campaign permanently non-functional (button disabled,
+      // no token to POST). Real CAN-SPAM exposure: no client could ever
+      // one-click opt out via the link this footer claims to provide. Signing
+      // can throw if PORTAL_SECRET/ADMIN_TOKEN_SECRET is unset — never let a
+      // misconfigured secret take down the whole campaign send.
+      let clientUnsubUrl = ''
+      if (settings.campaign_auto_unsubscribe) {
+        try {
+          clientUnsubUrl = unsubscribeUrl(
+            process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com',
+            { clientId: client.id, tenantId, channel: 'email' },
+          )
+        } catch (e) {
+          console.error('unsubscribeUrl signing failed', e)
+        }
+      }
+      const emailBody = settings.campaign_auto_unsubscribe && clientUnsubUrl
+        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${clientUnsubUrl}">Unsubscribe</a>${addressLine}</p>`
         : (tenantAddress ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${tenant.name} · ${tenantAddress}</p>` : personalizedBody)
 
       if (sendEmails && client.email && !client.email_marketing_opt_out) {
