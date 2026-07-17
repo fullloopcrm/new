@@ -127,7 +127,23 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
       })
       matched++
     } else {
-      // No match — open reconciliation task
+      // No match — open reconciliation task.
+      // Idempotency on raw_email_id, same guard as the matched-payment branch
+      // above (line ~79). Without it, a slow IMAP round-trip or a timed-out
+      // invocation that inserts the row but never reaches markEmailRead below
+      // leaves the email unread, so the next minute's cron tick (schedule is
+      // "* * * * *") reprocesses the same email and inserts another
+      // unmatched_payments + admin_tasks row for it — repeating every minute
+      // until the email is finally marked read, same duplicate-row shape as
+      // the payment-reminder admin_tasks bug fixed separately.
+      const { data: dupUnmatched } = await supabaseAdmin
+        .from('unmatched_payments').select('id')
+        .eq('tenant_id', tenant.id).eq('raw_email_id', payment.referenceId).limit(1)
+      if (dupUnmatched && dupUnmatched.length > 0) {
+        await markEmailRead(cfg, email.uid).catch(() => {})
+        continue
+      }
+
       await supabaseAdmin.from('unmatched_payments').insert({
         tenant_id: tenant.id,
         amount_cents: payment.amountCents,
