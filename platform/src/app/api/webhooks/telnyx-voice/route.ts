@@ -302,6 +302,21 @@ async function maybeSendMissedCallSMS(opts: {
     .limit(1)
   if (cleanerMatch && cleanerMatch.length > 0) return
 
+  // sendSMS() only checks sms_consent when both recipientType AND recipientId
+  // are passed — neither is available here (opts.contactId is a
+  // comhub_contacts id, a different table than the 'client'/'cleaner' rows
+  // checkSMSConsent() knows about), so this automated callback was sending
+  // unconditionally, bypassing STOP even for a caller who IS a known client
+  // with sms_consent=false on their booking record. Same phone format
+  // (E.164) and exact-match convention as the STOP webhook's own lookup.
+  const { data: clientMatch } = await supabaseAdmin
+    .from('clients')
+    .select('sms_consent')
+    .eq('tenant_id', NYCMAID_TENANT_ID)
+    .eq('phone', opts.customerPhone)
+    .maybeSingle()
+  if (clientMatch?.sms_consent === false) return
+
   const result = await sendSMS(opts.customerPhone, MISSED_CALL_SMS_BODY, {
     smsType: 'missed_call_callback',
   })
