@@ -68,4 +68,35 @@ describe('checkBookingDeletable', () => {
     const result = await checkBookingDeletable(TENANT, BOOKING)
     expect(result.deletable).toBe(true)
   })
+
+  it('blocks deletion of a completed booking with no rows in ANY related table yet — real work done, not paid out through any path', async () => {
+    fake._seed('bookings', [{ id: BOOKING, tenant_id: TENANT, status: 'completed', check_in_time: '2026-07-16T10:00:00Z', team_member_pay: 15000 }])
+    const result = await checkBookingDeletable(TENANT, BOOKING)
+    expect(result.deletable).toBe(false)
+    expect(result.reason).toMatch(/job history/i)
+  })
+
+  it("blocks deletion of a booking bulk-payroll already paid (status:'paid'), invisible to the team_member_payouts/payments checks", async () => {
+    fake._seed('bookings', [{ id: BOOKING, tenant_id: TENANT, status: 'paid', check_in_time: '2026-07-16T10:00:00Z', team_member_pay: 15000 }])
+    const result = await checkBookingDeletable(TENANT, BOOKING)
+    expect(result.deletable).toBe(false)
+  })
+
+  it('blocks deletion the moment a booking has been checked in, even before check-out/completion', async () => {
+    fake._seed('bookings', [{ id: BOOKING, tenant_id: TENANT, status: 'in_progress', check_in_time: '2026-07-16T10:00:00Z', team_member_pay: null }])
+    const result = await checkBookingDeletable(TENANT, BOOKING)
+    expect(result.deletable).toBe(false)
+  })
+
+  it("does NOT block a genuinely untouched booking (status:'scheduled', never checked in, no pay stamped)", async () => {
+    fake._seed('bookings', [{ id: BOOKING, tenant_id: TENANT, status: 'scheduled', check_in_time: null, team_member_pay: null }])
+    const result = await checkBookingDeletable(TENANT, BOOKING)
+    expect(result.deletable).toBe(true)
+  })
+
+  it("does not block on a DIFFERENT tenant's completed booking with the same id", async () => {
+    fake._seed('bookings', [{ id: BOOKING, tenant_id: 'other-tenant', status: 'completed', check_in_time: '2026-07-16T10:00:00Z', team_member_pay: 15000 }])
+    const result = await checkBookingDeletable(TENANT, BOOKING)
+    expect(result.deletable).toBe(true)
+  })
 })

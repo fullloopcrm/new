@@ -19,6 +19,21 @@
  * bookings.status already supports the exact soft-remove state this needs
  * ('cancelled', the same state the PUT route's own guard steers toward) so
  * this guard steers callers there instead of guessing a new mechanism.
+ *
+ * None of the four related-table checks below catch a completed job that
+ * hasn't been paid out through ANY path yet: a booking can carry a real
+ * check_in_time/check_out_time/actual_hours/team_member_pay — a crew member
+ * actually did the work and is owed real money — with zero rows in
+ * `payments`, `team_member_payouts`, `ratings`, or `referral_commissions`,
+ * because pay hasn't been processed yet. And bulk payroll (`POST /api/
+ * finance/payroll`) pays out by flipping the booking's own `status` to
+ * 'paid' and inserting a lump-sum `payroll_payments` row with no
+ * `booking_id` column at all — that path is invisible to every check above
+ * even AFTER the crew has been paid. Either way, hard-deleting the booking
+ * destroys the only record that the job happened and pay is owed/was paid
+ * for it — worse than "not notified," it erases the evidence a dispute
+ * would need. Block on the booking's own row: 'completed' or 'paid' status,
+ * or a real check-in timestamp, means real job history exists.
  */
 import { supabaseAdmin } from '@/lib/supabase'
 
@@ -31,12 +46,26 @@ export async function checkBookingDeletable(
   tenantId: string,
   bookingId: string,
 ): Promise<DeleteGuardResult> {
-  const [ratings, commissions, payments, payouts] = await Promise.all([
+  const [ratings, commissions, payments, payouts, bookingRow] = await Promise.all([
     supabaseAdmin.from('ratings').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('booking_id', bookingId),
     supabaseAdmin.from('referral_commissions').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('booking_id', bookingId),
     supabaseAdmin.from('payments').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('booking_id', bookingId),
     supabaseAdmin.from('team_member_payouts').select('id', { count: 'exact', head: true }).eq('tenant_id', tenantId).eq('booking_id', bookingId),
+    supabaseAdmin.from('bookings').select('status, check_in_time, team_member_pay').eq('tenant_id', tenantId).eq('id', bookingId).maybeSingle(),
   ])
+
+  const booking = bookingRow.data as { status?: string; check_in_time?: string | null; team_member_pay?: number | null } | null
+  if (booking && (
+    booking.status === 'completed' ||
+    booking.status === 'paid' ||
+    !!booking.check_in_time ||
+    (booking.team_member_pay || 0) > 0
+  )) {
+    return {
+      deletable: false,
+      reason: 'This booking has real job history (checked in, completed, or paid) and cannot be deleted — cancel it instead to preserve the record.',
+    }
+  }
 
   if ((ratings.count || 0) > 0) {
     return {
