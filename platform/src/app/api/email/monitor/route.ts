@@ -216,22 +216,16 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
     }
   }
 
-  // 3. Fallback: most recent unpaid booking with a matching amount (within $1)
-  const targetCents = payment.amountCents
-  const { data: candidates } = await supabaseAdmin
-    .from('bookings')
-    .select('id, client_id, price, clients(phone)')
-    .eq('tenant_id', tenant.id)
-    .neq('payment_status', 'paid')
-    .gte('price', targetCents - 100)
-    .lte('price', targetCents + 100)
-    .order('start_time', { ascending: false })
-    .limit(1)
-  if (candidates && candidates.length > 0) {
-    const c = candidates[0].clients as unknown as { phone?: string } | null
-    return { bookingId: candidates[0].id, clientId: candidates[0].client_id || undefined, clientPhone: c?.phone }
-  }
-
+  // No identity signal (sender name didn't match any known payer/client) —
+  // deliberately do NOT fall back to matching by amount alone. Inbound
+  // email content (from/subject/body) is fully attacker-controlled with no
+  // DKIM/SPF/Authentication-Results verification anywhere in this pass —
+  // matching purely on "some unpaid booking happens to cost the same
+  // amount" would let anyone who can email this inbox (e.g. from a
+  // self-registered domain containing "zelle"/"venmo") mark an arbitrary
+  // unrelated client's booking paid with zero real money moved. Unmatched
+  // payments already have a safe path: they open unmatched_payments +
+  // admin_tasks for human reconciliation.
   return {}
 }
 
