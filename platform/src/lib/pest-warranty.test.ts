@@ -40,6 +40,22 @@ describe('warrantyStatus', () => {
     // applied 2026-06-15 + 30 days = expires 2026-07-15 (yesterday)
     expect(warrantyStatus('2026-06-15', 30, today)).toBe('expired')
   })
+
+  describe('ET calendar day vs UTC calendar day (evening boundary)', () => {
+    // 9pm EDT on 2026-07-13 == 01:00 UTC on 2026-07-14 -- UTC has already
+    // rolled to the 14th, but it's still the 13th (the expiry date itself,
+    // not yet elapsed) in ET.
+    const nineFivePmEdtJul13 = new Date('2026-07-14T01:00:00.000Z')
+
+    it('a warranty expiring 2026-07-13 is NOT expired at 9pm ET on the 13th (still the expiry day itself in ET)', () => {
+      // applied 2026-06-13 + 30 days = expires exactly 2026-07-13
+      expect(warrantyStatus('2026-06-13', 30, nineFivePmEdtJul13)).toBe('expiring_soon')
+    })
+
+    it('the same warranty correctly goes expired once ET has moved past the 13th (regression control)', () => {
+      expect(warrantyStatus('2026-06-13', 30, new Date('2026-07-15T14:00:00.000Z'))).toBe('expired')
+    })
+  })
 })
 
 describe('warrantyExpiresOn', () => {

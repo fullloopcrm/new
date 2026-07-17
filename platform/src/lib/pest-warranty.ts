@@ -23,7 +23,19 @@ export function warrantyStatus(
   const expires = new Date(applied)
   expires.setUTCDate(expires.getUTCDate() + warrantyDays)
 
-  const todayUTC = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()))
+  // application_date/warranty_expires_on are date-only columns meant in the
+  // business's local (ET) calendar terms (same convention as invoices'
+  // due_date / quotes' valid_until). Truncating `today` via its UTC
+  // components read the SERVER's/browser's UTC calendar day, not the ET one
+  // -- from ~8pm-midnight ET (UTC already rolled to tomorrow), a warranty
+  // expiring "today" (ET) was already reported as expired, and one expiring
+  // tomorrow read one day closer than it truly was. Extract ET calendar
+  // components instead (same technique as lib/recurring.ts's nowNaiveET()).
+  const [etYear, etMonth, etDay] = today
+    .toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    .split('-')
+    .map(Number)
+  const todayUTC = new Date(Date.UTC(etYear, etMonth - 1, etDay))
   const daysUntilExpiry = Math.round((expires.getTime() - todayUTC.getTime()) / 86_400_000)
 
   if (daysUntilExpiry < 0) return 'expired'
