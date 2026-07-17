@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail, tenantSender } from '@/lib/email'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export interface NotifyTeamMemberOptions {
   tenantId: string
@@ -85,21 +86,23 @@ export async function notifyTeamMember(opts: NotifyTeamMemberOptions): Promise<D
   // 3. Get tenant for API keys
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone, resend_api_key, name, slug, email_from')
+    .select('telnyx_api_key, telnyx_phone, sms_number, resend_api_key, name, slug, email_from')
     .eq('id', opts.tenantId)
     .single()
 
   if (!tenant) return report
 
+  const smsCreds = resolveTenantSmsCredentials(tenant)
+
   // 4. SMS (still delivered during quiet hours for urgent notifications)
   if (!opts.skipSms && typePrefs.sms && member.phone && member.sms_consent !== false && opts.smsMessage) {
-    if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (smsCreds.apiKey && smsCreds.phone) {
       try {
         await sendSMS({
           to: member.phone,
           body: opts.smsMessage,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
         report.sms = true
       } catch {

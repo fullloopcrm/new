@@ -8,6 +8,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 const has = (v: string | null | undefined): boolean => typeof v === 'string' && v.trim().length > 0
 
@@ -100,8 +101,9 @@ export async function notifyTenantOwner(identifier: string, message: string, con
   if (!t) return { ok: false, error: `No single tenant matched "${identifier}". Use the exact slug or name.` }
   if (!has(message)) return { ok: false, error: 'message is empty' }
 
-  const fromNumber = t.telnyx_phone || t.sms_number || ''
-  const canSms = has(t.telnyx_api_key) && has(fromNumber) && has(t.owner_phone)
+  const smsCreds = resolveTenantSmsCredentials(t)
+  const fromNumber = smsCreds.phone || ''
+  const canSms = has(smsCreds.apiKey) && has(fromNumber) && has(t.owner_phone)
   const canEmail = has(t.resend_api_key) && has(t.owner_email)
   const channel: 'sms' | 'email' | 'none' = canSms ? 'sms' : canEmail ? 'email' : 'none'
 
@@ -123,7 +125,7 @@ export async function notifyTenantOwner(identifier: string, message: string, con
 
   try {
     if (channel === 'sms') {
-      await sendSMS({ to, body: message, telnyxApiKey: t.telnyx_api_key as string, telnyxPhone: fromNumber })
+      await sendSMS({ to, body: message, telnyxApiKey: smsCreds.apiKey as string, telnyxPhone: fromNumber })
     } else {
       const from = has(t.email_from) ? (t.email_from as string) : undefined
       const html = `<div style="font-family:sans-serif;font-size:15px;white-space:pre-wrap;">${message.replace(/</g, '&lt;')}</div>`

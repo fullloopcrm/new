@@ -25,6 +25,7 @@ import {
   type CommChannel,
   type CommTimingKey,
 } from './comms-registry'
+import { hasTenantSms } from './sms-credentials'
 
 export interface CommChannelPrefs {
   email?: boolean
@@ -160,12 +161,13 @@ export function deriveCapabilities(tenant: {
   resend_api_key?: string | null
   telnyx_api_key?: string | null
   telnyx_phone?: string | null
+  sms_number?: string | null
 }): CommCapabilities {
   const platformEmail =
     !!process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'
   return {
     email: !!tenant.resend_api_key || platformEmail,
-    sms: !!(tenant.telnyx_api_key && tenant.telnyx_phone),
+    sms: hasTenantSms(tenant),
   }
 }
 
@@ -177,7 +179,7 @@ export function deriveCapabilities(tenant: {
 export async function getCapabilities(tenantId: string): Promise<CommCapabilities> {
   const { data, error } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', tenantId)
     .maybeSingle()
   if (error) {

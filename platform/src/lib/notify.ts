@@ -5,6 +5,7 @@ import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { resolveTenantSmsCredentials } from './sms-credentials'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -141,11 +142,13 @@ export async function notify({
   // Get tenant for API keys and branding
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('resend_api_key, telnyx_api_key, telnyx_phone, name, slug, email_from, primary_color, logo_url, address')
+    .select('resend_api_key, telnyx_api_key, telnyx_phone, sms_number, name, slug, email_from, primary_color, logo_url, address')
     .eq('id', tenantId)
     .single()
 
   if (!tenant) return { success: false, error: 'Tenant not found' }
+
+  const smsCreds = resolveTenantSmsCredentials(tenant)
 
   // Get recipient contact info
   let email: string | null = null
@@ -258,7 +261,7 @@ export async function notify({
 
   // Check if integrations are configured
   const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
-  const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+  const hasSMS = !!(smsCreds.apiKey && smsCreds.phone)
 
   // ── Communications gate ────────────────────────────────────────────────
   // The in-app notification row is already persisted above; here we honor the
@@ -290,8 +293,8 @@ export async function notify({
       await sendSMS({
         to: phone,
         body: message,
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: smsCreds.apiKey!,
+        telnyxPhone: smsCreds.phone!,
       })
       sent = true
     } else if (channel === 'email' && !email) {
@@ -316,8 +319,8 @@ export async function notify({
         await sendSMS({
           to: phone,
           body: `${title}: ${message}`.slice(0, 320),
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey!,
+          telnyxPhone: smsCreds.phone!,
         })
         sent = true
         await updateNotif('sent', {

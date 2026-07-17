@@ -24,11 +24,12 @@ import { postPayoutToLedger } from './finance/post-labor'
 import { effectiveCleanerRate } from './cleaner-pay'
 import { isNycMaid } from './nycmaid/tenant'
 import { parseTimestamp } from './dates'
+import { resolveTenantSmsCredentials } from './sms-credentials'
 import type { Tenant } from './tenant'
 
 type TenantPaymentFields = Pick<
   Tenant,
-  'id' | 'name' | 'stripe_api_key' | 'telnyx_api_key' | 'telnyx_phone'
+  'id' | 'name' | 'stripe_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'sms_number'
 >
 
 export interface ProcessPaymentInput {
@@ -65,7 +66,7 @@ async function hydrateTenant(input: TenantPaymentFields | { id: string }): Promi
   }
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, stripe_api_key, telnyx_api_key, telnyx_phone')
+    .select('id, name, stripe_api_key, telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', (input as { id: string }).id)
     .single()
   return data
@@ -75,6 +76,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   const tenant = await hydrateTenant(input.tenant)
   if (!tenant) return null
   const tenantId = tenant.id
+  const smsCreds = resolveTenantSmsCredentials(tenant)
 
   const { bookingId, clientId, method, amountCents, referenceId } = input
   const label = method.charAt(0).toUpperCase() + method.slice(1)
@@ -295,7 +297,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   }
 
   // Team member finish-up SMS (bilingual)
-  if (teamMember?.phone && teamMember.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+  if (teamMember?.phone && teamMember.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
     const isEs = teamMember.preferred_language === 'es'
     const tipLine = tipCents > 0
       ? (isEs
@@ -309,8 +311,8 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     sendSMS({
       to: teamMember.phone,
       body: cleanerSms,
-      telnyxApiKey: tenant.telnyx_api_key,
-      telnyxPhone: tenant.telnyx_phone,
+      telnyxApiKey: smsCreds.apiKey,
+      telnyxPhone: smsCreds.phone,
     }).catch(err => console.error('[payment-processor] team member SMS failed:', err))
   }
 
@@ -324,7 +326,7 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     .eq('id', clientId)
     .eq('tenant_id', tenantId)
     .single()
-  if (clientRecord?.phone && clientRecord.sms_consent !== false && !clientRecord.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
+  if (clientRecord?.phone && clientRecord.sms_consent !== false && !clientRecord.do_not_service && smsCreds.apiKey && smsCreds.phone) {
     const tipThank = tipCents > 0
       ? ` Your generous tip of $${tipAmount} has been passed along — thank you!`
       : ''
@@ -332,8 +334,8 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     sendSMS({
       to: clientRecord.phone as string,
       body: clientSms,
-      telnyxApiKey: tenant.telnyx_api_key,
-      telnyxPhone: tenant.telnyx_phone,
+      telnyxApiKey: smsCreds.apiKey,
+      telnyxPhone: smsCreds.phone,
     }).catch(err => console.error('[payment-processor] client SMS failed:', err))
   }
 

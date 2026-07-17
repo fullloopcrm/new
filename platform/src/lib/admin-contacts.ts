@@ -13,6 +13,7 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
+import { resolveTenantSmsCredentials } from './sms-credentials'
 import type { Tenant } from './tenant'
 
 export interface AdminContact {
@@ -22,13 +23,13 @@ export interface AdminContact {
   role: string
 }
 
-type TenantLike = Pick<Tenant, 'id' | 'name' | 'slug' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'email_from'> | { id: string }
+type TenantLike = Pick<Tenant, 'id' | 'name' | 'slug' | 'email' | 'phone' | 'resend_api_key' | 'telnyx_api_key' | 'telnyx_phone' | 'sms_number' | 'email_from'> | { id: string }
 
 async function loadTenant(input: TenantLike | string): Promise<TenantLike | null> {
   if (typeof input === 'string') {
     const { data } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
+      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, sms_number, email_from')
       .eq('id', input)
       .single()
     return data
@@ -38,7 +39,7 @@ async function loadTenant(input: TenantLike | string): Promise<TenantLike | null
   if (anyT.email === undefined || anyT.phone === undefined || anyT.telnyx_api_key === undefined) {
     const { data } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, email_from')
+      .select('id, name, slug, email, phone, resend_api_key, telnyx_api_key, telnyx_phone, sms_number, email_from')
       .eq('id', anyT.id as string)
       .single()
     return data
@@ -164,9 +165,9 @@ export async function smsAdmins(
   const tenant = await loadTenant(tenantOrId)
   if (!tenant) return
 
-  const t = tenant as TenantLike & { telnyx_api_key?: string | null; telnyx_phone?: string | null }
-  const telnyxKey = t.telnyx_api_key || null
-  const telnyxPhone = t.telnyx_phone || null
+  const smsCreds = resolveTenantSmsCredentials(tenant as Pick<Tenant, 'telnyx_api_key' | 'telnyx_phone' | 'sms_number'>)
+  const telnyxKey = smsCreds.apiKey
+  const telnyxPhone = smsCreds.phone
   if (!telnyxKey || !telnyxPhone) {
     console.warn('[admin-contacts] smsAdmins: tenant missing Telnyx config, skipping')
     return
