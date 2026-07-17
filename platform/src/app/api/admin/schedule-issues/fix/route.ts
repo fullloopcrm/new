@@ -65,7 +65,7 @@ async function buildFixPlan(issue: IssueRow, tenantId: string): Promise<FixPlan>
     }
   }
 
-  if (issue.type === 'day_off') {
+  if (issue.type === 'day_off' || issue.type === 'terminated_assigned') {
     return {
       description: `Unassign team member from this booking and flip status back to pending so admin can reassign.`,
       changes: [

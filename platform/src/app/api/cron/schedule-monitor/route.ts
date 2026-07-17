@@ -6,6 +6,7 @@ import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export const maxDuration = 300
 
@@ -49,6 +50,14 @@ export async function GET(request: Request) {
         .lte('start_time', toDateStr(endDate) + 'T23:59:59')
         .in('status', ['scheduled', 'pending', 'confirmed'])
         .limit(500)
+
+      // A terminated employee's existing future bookings are never touched by
+      // the HR termination action (it only writes hr_status) and team-portal
+      // login is already blocked for them (team-portal-auth.ts), so without
+      // this check the job silently has nobody who can show up for it while
+      // still reading as "assigned" everywhere else on the dashboard.
+      const assignedMemberIds = [...new Set((bookings ?? []).map((b) => b.team_member_id).filter((id): id is string => !!id))]
+      const terminatedIds = new Set(await getTerminatedTeamMemberIds(tenantId, assignedMemberIds))
 
       // Sold-but-unscheduled: a converted service sale lands as a 'pending'
       // booking on a placeholder slot (bookings.start_time is NOT NULL, so it
@@ -146,6 +155,14 @@ export async function GET(request: Request) {
             continue
           }
           if (!member) continue
+
+          // Terminated but still assigned — checked ahead of day_off since it's
+          // the more specific/urgent condition (the member can never come back
+          // to this booking, vs. day_off which is a scheduling conflict).
+          if (terminatedIds.has(b.team_member_id)) {
+            issues.push({ type: 'terminated_assigned', severity: 'critical', message: `${member.name} was let go but is still booked for ${client?.name || 'a client'} on ${date}`, booking_ids: [b.id], team_member_id: b.team_member_id, tenant_id: tenantId, date })
+            continue
+          }
 
           // Day off
           if (member.unavailable_dates?.includes(date)) {
