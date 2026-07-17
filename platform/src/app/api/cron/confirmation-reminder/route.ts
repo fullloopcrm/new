@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
@@ -16,7 +17,11 @@ export async function GET(request: Request) {
   if (authError) return authError
 
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-  const nowIso = new Date().toISOString()
+  // start_time is naive-ET (see recurring.ts's nowNaiveET() header) -- a raw
+  // true-UTC new Date().toISOString() here read as a later clock time than
+  // the real ET instant, silently excluding any booking in the true ET/UTC
+  // gap window from getting its confirmation reminder sent.
+  const nowNaive = nowNaiveET()
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
@@ -37,7 +42,7 @@ export async function GET(request: Request) {
       .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .lte('created_at', thirtyMinAgo)
-      .gte('start_time', nowIso)
+      .gte('start_time', nowNaive)
 
     if (error) continue
 

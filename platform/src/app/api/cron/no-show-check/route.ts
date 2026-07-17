@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
+import { nowNaiveET, parseNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -22,7 +23,14 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
-  const cutoff = new Date(Date.now() - GRACE_MINUTES * 60 * 1000)
+  // start_time is naive-ET (see recurring.ts's nowNaiveET() header) -- the old
+  // cutoff/floor were built from true-UTC new Date().toISOString(), the same
+  // ET/UTC gap bug class fixed elsewhere this session. Since UTC runs ahead of
+  // ET, that made both bounds read as a later clock time than the real ET
+  // instant, so a booking within the true 45-minute grace window (cleaner
+  // could still be en route) got flipped to no_show up to ~4-5h early.
+  const cutoff = nowNaiveET(-GRACE_MINUTES * 60 * 1000)
+  const laggingFloor = nowNaiveET(-24 * 60 * 60 * 1000)
 
   // Find candidates across all tenants in one query (tenant_id returned so
   // we can notify per tenant).
@@ -31,8 +39,8 @@ export async function GET(request: Request) {
     .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
     .is('check_in_time', null)
-    .lt('start_time', cutoff.toISOString())
-    .gt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // skip old stragglers
+    .lt('start_time', cutoff)
+    .gt('start_time', laggingFloor) // skip old stragglers
     .limit(500)
 
   if (!candidates || candidates.length === 0) {
@@ -57,7 +65,7 @@ export async function GET(request: Request) {
         tenantId: b.tenant_id,
         type: 'late_check_in',
         title: 'No-show detected',
-        message: `${client?.name || 'Client'} booking at ${new Date(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
+        message: `${client?.name || 'Client'} booking at ${parseNaiveET(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
         bookingId: b.id,
       }).catch(() => {})
 
