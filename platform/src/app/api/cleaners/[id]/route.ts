@@ -15,7 +15,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const body = await request.json()
 
-  const today = new Date().toISOString().split('T')[0]
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: tenant.tenant?.timezone || 'America/New_York' })
   const futureDates = (body.unavailable_dates || []).filter((d: string) => d >= today)
 
   const update: Record<string, unknown> = {

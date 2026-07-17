@@ -24,6 +24,7 @@ const TELEGRAM_NOTIFY_TYPES = new Set<string>([
   'check_in',
   'escalation',
   'callback_requested',
+  'client_issue',
   'escalation_locked_inbound',
   'low_rating',
   'comms_fail',

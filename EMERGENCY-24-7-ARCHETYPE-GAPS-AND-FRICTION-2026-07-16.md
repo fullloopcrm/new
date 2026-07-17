@@ -3806,3 +3806,90 @@ default branch is unchanged). `tsc --noEmit` clean, full suite 382/382 files,
 1899/1899 tests, zero regressions (same pre-existing, unrelated
 `tenant-scope` guard warning on `src/app/api/fixture/route.ts` noted
 elsewhere in this doc — not touched here).
+
+## (88) New today, archetype depth — `PUT /api/cleaners/[id]` computed "today" in the server's default zone instead of the tenant's, silently stripping a still-current unavailable-date entry every evening — NOW FIXED
+
+Same day-boundary bug shape as items (70)-(75)/(78)/(85), a route none of
+those sweeps touched (they covered same-day/emergency determinations and
+client-facing date pickers; this one is neither — it's an operator-facing
+team-member profile edit). `PUT /api/cleaners/[id]` (the legacy nycmaid-
+compat shim over `team_members`, still the only route that can set
+`working_start`/`working_end`/`pin`/`role`/etc. via the dashboard's team
+editor) filters the submitted `unavailable_dates` array down to future-only
+entries before saving: `today = new Date().toISOString().split('T')[0]`,
+`d >= today`. On Vercel (UTC-default, the same assumption items (70)-(73)
+established and item (71) confirmed empirically doesn't hold on a
+local-ET sandbox, hence the `vi.stubEnv('TZ', 'UTC')` fix to this session's
+own test methodology), a tenant on America/New_York already ticks past UTC
+midnight by 7-8pm local — so any PUT to this route during that window
+computed "today" as tomorrow's date and silently dropped a genuinely-still-
+current `unavailable_dates` entry for that tenant's own actual "today" one
+day early. Concrete impact: an admin editing any *other* field on a team
+member's profile in the early evening (the route saves the whole form, not
+a diff) could silently un-block a tech who is still marked unavailable for
+the rest of today, one edit-of-something-unrelated away from over-scheduling
+them.
+
+**Fixed** (`p1-w3`) — same convention items (72)/(85) already established:
+`new Date().toLocaleDateString('en-CA', { timeZone: tenant.tenant?.timezone
+|| 'America/New_York' })`, reading the tenant's own configured zone off the
+`TenantContext.tenant` row `requirePermission()` already returns (confirmed
+via `require-permission.ts`'s own `tenant.tenant?.selena_config` access
+pattern — same nesting). 2 new tests
+(`src/app/api/cleaners/[id]/route.test.ts`): a `vi.stubEnv('TZ', 'UTC')` +
+fake-timer case at 2026-01-15 23:30 America/New_York (already 2026-01-16
+04:30 UTC) proves a same-(tenant-local)-day entry survives the filter, plus
+a no-timezone-set fallback case. Mutation-verified (reverted to the UTC
+line, both new tests RED — the one asserting the still-current date
+survives failed with `[]` instead of `['2026-01-15']` — restored, GREEN).
+`tsc --noEmit` clean, full suite 384/384 files, 1903/1903 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+## (89) New today, fresh ground outside the archetype — the AI bot's `report_issue` tool (client complaints) never reached Jeff's Telegram, while its sibling `request_callback` tool always did
+
+Found applying the "declared-type sweep" method (items (63)/(66)/(68)/(69))
+one layer deeper — not to `lib/notify.ts`'s tenant-scoped `NotificationType`
+union this time, but to the older, separate `lib/nycmaid/notify.ts` module
+Selena/Yinez's own tool handlers actually call (`import { notify } from
+'@/lib/nycmaid/notify'`, a loose `type: string`, not the typed union — a
+different file from every prior notify-type item in this doc). That module
+maintains its own `TELEGRAM_NOTIFY_TYPES` allowlist deciding which
+notification types also get pushed to Jeff's phone via Telegram in real
+time, versus sitting dashboard-only. `selena/core.ts`'s tool list documents
+`report_issue` and `request_callback` identically — both say "Notifies
+admin" — and both are routed to by the exact same `feedback_negative`/
+`human_request` intent branches as each other's nearest siblings. But their
+handlers diverged: `handleRequestCallback` calls `notify({ type:
+'callback_requested', ... })`, which **is** in `TELEGRAM_NOTIFY_TYPES`;
+`handleReportIssue` — the tool used for logging an actual client complaint
+(explicitly routed to on negative feedback, per core.ts's own
+`feedback_negative: 'Acknowledge. Apologize sincerely. Use report_issue
+tool. Do NOT be defensive.'` comment) — calls `notify({ type:
+'client_issue', ... })`, which was **not** in the set. Net effect: a client
+telling Yinez they want a human to call them back reached Jeff on Telegram
+within seconds; a client filing an actual complaint about the service —
+arguably the higher-urgency of the two — landed only in the dashboard
+notifications feed, silent until someone happened to check it. Confirmed
+via a full sweep of every `notify({ type: '...' })` call site importing
+from this specific module (6 files: `auth/login`, `client/confirm/[token]`,
+`api/yinez`, `nycmaid/error-logger`, `selena/core.ts`, `selena/tools.ts`)
+against the allowlist — `client_issue` was the one genuine mismatch between
+a "notifies admin" tool docstring and its actual reach; the others either
+already matched (`callback_requested`, `new_lead`, `new_booking`,
+`yinez_error`) or are lower-urgency by design per the module's own comment
+("Security/login chatter and unsubscribe noise stay dashboard-only" —
+correctly excludes `security`, `error`, `payment_claimed`, `booking_cancelled`,
+`recurring_cancelled`, `refund_approved`, none of which claim to "notify
+admin" the way the report_issue/request_callback pair does).
+
+**Fixed** (`p1-w3`) — added `'client_issue'` to `TELEGRAM_NOTIFY_TYPES` in
+`src/lib/nycmaid/notify.ts`. New test file
+`src/lib/nycmaid/notify.test.ts` (2 cases): a `client_issue` notify call
+now reaches `notifyOwnerOnTelegram`, and a dashboard-only type
+(`security`) still correctly does not. Mutation-verified (reverted the
+one-line addition, the `client_issue` case went RED — 0 calls instead of
+1 — restored, GREEN). `tsc --noEmit` clean, full suite 384/384 files,
+1903/1903 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
+touched here).
