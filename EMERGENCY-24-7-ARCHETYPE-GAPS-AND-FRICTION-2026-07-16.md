@@ -3347,3 +3347,149 @@ directly for this file), so there's no existing harness to extend.
 `tsc --noEmit` clean, full suite 378/378 files, 1886/1886 tests, zero
 regressions (unaffected — no existing test touches this route). Landed
 in the same commit as item (77) above, `d3b6f232`.
+
+## (79) Archetype depth — items (74)/(75)'s own `/book/new` sweep missed 2 of the 3 form variants it was meant to cover, plus a whole separate reschedule/rebook flow with the identical bug — NOW FIXED
+
+Re-checked items (74)/(75)'s own claim that "the customer-facing same-day
+booking date picker" was fixed in "the 3 real customer-facing 'book new
+appointment' forms." `template/book/new/page.tsx` actually branches to
+ONE OF THREE forms depending on the tenant's industry profile —
+`BookFormClient` (cleaning tenants, the one items 74/75 fixed),
+`RemoteBookForm` (remote/retainer verticals — virtual assistant, etc.),
+or a redirect to `/book/standard`'s `StandardBookForm` (non-cleaning
+on-site tenants) — and only the cleaning-tenant branch was actually
+touched. The other two had the exact same `minDate = new Date(Date.now()
++ 24 * 60 * 60 * 1000).toISOString().split('T')[0]` line, unfixed:
+during the same evening-ET window items 74/75 already proved, any remote
+or non-cleaning-on-site tenant's customers would have the *next*
+available day hidden from the date picker.
+
+Separately — a different flow entirely, not part of the `/book/new`
+sweep at all — found while checking whether the same client-side UTC
+pattern existed anywhere else customer-facing: the *existing-customer*
+booking dashboard (`isSameDay`/`minDate`/`maxDate`, used to gate same-day
+slot-fetching and float the picker's bounds) and the *reschedule* flow's
+30-day date list both had it too, across every one of this method's
+already-established multi-tenant duplication points: `src/app/portal/
+page.tsx` (the shared customer portal), `site/book/dashboard/page.tsx` +
+`site/book/reschedule/[id]/page.tsx` (nycmaid's live routes), and the
+identical clones under `wash-and-fold-nyc/(app)/book/*`,
+`wash-and-fold-hoboken/(app)/book/*`, and `the-florida-maid/clients/*`.
+Each dashboard file also converts a specific booking's stored
+`start_time` to a calendar day via `.toISOString()` (to decide whether
+to pre-select it in a "book again" panel) — same bug, since a late-
+evening ET appointment's UTC calendar date is already the next day.
+Worst-case impact mirrors item (74)/(75)'s severity assessment exactly:
+in the evening, `isSameDay` compares the picker's selection against
+*tomorrow's* UTC-computed date, so a customer picking an actual
+same-day/emergency slot would incorrectly NOT be flagged same-day (skips
+whatever same-day handling — e.g. call-in requirement — that gate
+exists for), while a customer picking the very next day gets
+incorrectly treated as same-day and blocked from fetching slots at all.
+
+Last: the identical `min={new Date().toISOString().split('T')[0]}` /
+`today` pattern also showed up on the *cleaner/team* side — `team/
+page.tsx`'s and the two `wash-and-fold-*/team/dashboard/page.tsx`
+clones' "Days Off" blocked-date picker (`min` attribute) and its
+`addDateOff` past-date guard (`if (newDateOff < today) return`) — same
+shape, different user (team member instead of customer), found by
+finishing the same `toISOString().split('T')[0]` grep sweep rather than
+stopping once the customer-facing instances were covered.
+
+**Fixed** (`p1-w3`) — all 15 files, same one-line substitution items
+(74)/(75) already established as correct for client-side "today"
+(`.toLocaleDateString('en-CA')` — no IANA zone needed, host-local by
+spec, correct for a device physically in the browser's own timezone):
+`template/book/new/RemoteBookForm.tsx`, `template/book/standard/
+StandardBookForm.tsx` (item 79's `/book/new` gap), `portal/page.tsx`,
+`site/book/dashboard/page.tsx`, `site/book/reschedule/[id]/page.tsx`,
+the 2 `wash-and-fold-{nyc,hoboken}/(app)/book/{dashboard,reschedule}`
+clone pairs, `the-florida-maid/clients/{dashboard,reschedule}`,
+`team/page.tsx`, and the 2 `wash-and-fold-{nyc,hoboken}/(app)/team/
+dashboard/page.tsx` clones. No render harness exists for any of these
+15 files (same precedent items 74/75/77 already established for this
+entire class — verification is source-level plus the same standalone
+UTC-vs-local divergence mechanism item 74's methodology note already
+documented). `tsc --noEmit` clean, full suite 378/378 files, 1886/1886
+tests, zero regressions (unaffected — none of these files had prior
+test coverage to regress).
+
+## (80) Fresh ground — `GET /api/admin/referrals` queried the wrong table entirely, same shape as item (76) but on the admin side, plus a separate missing-`tenants`-array bug on top
+
+Found applying item (76)'s own "diff frontend body vs backend query
+against the real schema" method to the platform-admin console (as
+opposed to item (76)'s tenant-dashboard-side `POST /api/referrals`).
+`src/app/admin/referrals/page.tsx` renders an *affiliate-referrer
+commission* program — its `Referral` type expects `referrer_name`,
+`referrer_email`, `referee_name`, `referee_email`, `reward_status`,
+`revenue_generated`, `tenant_name` — but the route backing it queried
+`.from('referrals')` (the same client-referred-a-client rewards table
+item (76) already fixed the write side of) and reduced stats via
+`r.total_earned` and `r.status === 'active'`. Neither field exists on
+`referrals` (`referrer_client_id`, `referred_client_id`,
+`referral_code`, `status: pending|converted|paid`, `reward_amount` are
+the real columns — confirmed again directly against `supabase/
+schema.sql:247-256`) — `total_earned` and `status: 'active'` are
+columns from the *referrers* table (migration `019_referral_
+commissions.sql`), whose own top-of-file comment states the two are
+"distinct" in exactly these terms: "External affiliate referrers +
+their per-booking commission ledger. Distinct from `referrals`
+(client-to-client)." So this was the admin-side twin of item (76)'s bug,
+against a different pair of tables.
+
+Concrete impact, worse than a silently-zeroed stat card: every field the
+table actually renders — `referrer_name`, `referrer_email`,
+`referee_name`, `referee_email` — would be `undefined` for every real
+row (none of those columns exist on `referrals`), and
+`filteredReferrals`'s search filter calls `r.referrer_name.toLowerCase()`
+unconditionally on every render (not gated behind typing into the search
+box), so the entire admin `/admin/referrals` page would throw ("Cannot
+read properties of undefined") and fail to render at all as soon as a
+single real referral row existed anywhere in the platform.
+
+Found one more bug in the same route while fixing the first: the
+frontend does `setTenants(data.tenants || [])` to populate the "All
+Tenants" filter dropdown, but the backend never returned a `tenants` key
+at all (only `{ referrals, stats }`) — so the tenant filter was
+permanently stuck showing only "All Tenants," independent of and
+unrelated to the wrong-table bug above.
+
+**Fixed** — rewrote the query to match the already-correct, already-live
+pattern the tenant-facing `GET /api/referral-commissions` route uses for
+this exact data (`referral_commissions` joined to `referrers` and
+`bookings`, per-tenant): `.from('referral_commissions').select('*,
+referrers(name, email, status), bookings(clients(email)),
+tenants(name)')`. Field mapping uses only real, already-established
+columns — no invented business logic: `referrer_name`/`referrer_email`
+← `referrers.name`/`email`; `referee_name` ← `referral_commissions.
+client_name` (populated by `POST /api/referral-commissions` today);
+`referee_email` ← `bookings.clients.email` (bookings has a single
+unambiguous `client_id` FK, no relationship-name disambiguation needed,
+same as the existing `POST /api/referral-commissions` booking lookup);
+`status` ← `referrers.status` (real values: 'active' is the only one
+ever set anywhere in the repo today); `reward_status` ← `referral_
+commissions.status` (real values `pending|paid|void` — `pending`/`paid`
+map directly onto the frontend's existing `getRewardBadge` cases,
+`void` falls through to its existing default); `reward_amount` ←
+`commission_cents`; `revenue_generated` ← `gross_amount_cents`. Also
+added the missing `tenants` array (`select('id, name').neq('status',
+'deleted').order('name')`, run in parallel via `Promise.all`, matching
+the identical convention already used in `GET /api/admin/tenant-chats`).
+Left honestly unfixed rather than invented: `converted_at` now returns
+`referral_commissions.paid_at` (the closest real analog — a commission
+being marked paid is the closest event to "converted" this schema
+tracks) but there is no real backing data for the frontend's `pending
+→ active → converted → expired` lifecycle beyond `referrers.status`
+being permanently `'active'` (no deactivation feature exists yet); if
+the product wants those 4 distinct states to mean something,
+`referrers` needs an actual status enum, not a mapping I'd be guessing
+at here. No test added: the same `src/test/fake-supabase.ts` limitation
+item (76)/(77) already hit applies here too, more so — this route's
+correctness rests on embedded-join resolution (`referrers(...)`,
+`bookings(clients(...))`), which the fake mock explicitly documents it
+does not implement ("Not a general-purpose mock — do not grow it beyond
+what a test needs"), so a mock-backed test would validate the mock, not
+this fix; verification here is the source/migration-comment cross-check
+above plus mirroring the already-live, already-correct sibling route's
+exact query shape. `tsc --noEmit` clean, full suite 378/378 files,
+1886/1886 tests, zero regressions.
