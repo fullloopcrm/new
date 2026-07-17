@@ -19,7 +19,7 @@ export async function POST(request: Request) {
 
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, clients(name, phone, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('tenant_id', auth.tid)
       .eq('team_member_id', auth.id)
@@ -39,6 +39,8 @@ export async function POST(request: Request) {
     const memberName = (booking.team_members as any)?.name || 'Team member'
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
+    const clientSmsConsent = (booking.clients as any)?.sms_consent
+    const clientDoNotService = (booking.clients as any)?.do_not_service
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Record on booking
@@ -55,8 +57,10 @@ export async function POST(request: Request) {
 
     sendPushToTenantAdmins(tenantId, 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
 
-    // SMS to client
-    if (clientPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // SMS to client — sms_consent (STOP compliance) / do_not_service, same
+    // invariant every other client SMS fan-out enforces (payment-processor.ts,
+    // client/book, client/reschedule, schedules/[id]/pause).
+    if (clientPhone && clientSmsConsent !== false && !clientDoNotService && tenant.telnyx_api_key && tenant.telnyx_phone) {
       sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
     if (booking.client_id) {
