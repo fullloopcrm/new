@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD, naiveETToUtc } from '@/lib/dates'
 
 type CalendarEvent = {
   id: string
@@ -81,9 +82,17 @@ export async function GET(request: NextRequest) {
     const { tenantId } = tenant
     const url = request.nextUrl
     const monthParam = url.searchParams.get('month') // YYYY-MM
+    const now = new Date()
+    // ET calendar "today" as a UTC-digit Date -- matches the digit-consistent
+    // representation `new Date(naiveEtString)` produces elsewhere in this file
+    // (bookings.start_time is naive ET). Reading `now`'s own UTC digits
+    // instead (server-local calendar on Vercel) would be a full day ahead of
+    // ET for ~4-5h every evening.
+    const { y: etTodayY, m: etTodayM, d: etTodayD } = etYMD(now)
+    const etToday = new Date(Date.UTC(etTodayY, etTodayM - 1, etTodayD))
     const focus = monthParam
       ? new Date(`${monthParam}-01T00:00:00`)
-      : new Date()
+      : etToday
 
     const gridStart = startOfGrid(focus)
     const gridEnd = endOfGrid(focus)
@@ -187,16 +196,14 @@ export async function GET(request: NextRequest) {
     }
 
     // Outlook stats — for the focused month + this-week view.
-    const now = new Date()
-    const monStart = (() => {
-      const d = new Date(now)
-      const dayIdx = (d.getDay() + 6) % 7
-      d.setHours(0, 0, 0, 0)
-      d.setDate(d.getDate() - dayIdx)
-      return d
-    })()
+    // Monday-start week boundary from ET "today" (weekday is a pure function
+    // of the calendar date, so getUTCDay() on etToday is correct regardless
+    // of server timezone).
+    const monStart = new Date(etToday)
+    const dayIdx = (etToday.getUTCDay() + 6) % 7
+    monStart.setUTCDate(monStart.getUTCDate() - dayIdx)
     const monEnd = new Date(monStart)
-    monEnd.setDate(monEnd.getDate() + 7)
+    monEnd.setUTCDate(monEnd.getUTCDate() + 7)
 
     let weekJobs = 0
     let weekRevenueCents = 0
@@ -206,7 +213,7 @@ export async function GET(request: NextRequest) {
     let todayTotal = 0
     let firstUpcoming: { client: string; start: string; team_member: string | null } | null = null
     const weekHoursByTm = new Map<string, number>()
-    const todayKey = ymd(now)
+    const todayKey = ymd(etToday)
 
     for (const b of bookings) {
       const startStr = b.start_time as string
@@ -230,7 +237,10 @@ export async function GET(request: NextRequest) {
         todayTotal += 1
         if ((b.status as string) === 'in_progress') todayActive += 1
       }
-      if (start.getTime() > now.getTime() && !firstUpcoming) {
+      // Real instant comparison, not the mis-parsed naive-ET digit Date `start`
+      // -- that's ~4-5h earlier than the true instant it represents, which
+      // would wrongly exclude the next few hours of genuinely-upcoming jobs.
+      if (naiveETToUtc(startStr).getTime() > now.getTime() && !firstUpcoming) {
         firstUpcoming = {
           client: ((b.clients as unknown as { name?: string } | null)?.name) || 'Unknown',
           start: startStr,
@@ -273,7 +283,10 @@ export async function GET(request: NextRequest) {
         let durationLabel = ''
         if (status === 'in_progress') {
           liveStatus = 'in-progress'
-          const hrs = (now.getTime() - start.getTime()) / 3_600_000
+          // Real instant, not `start` (mis-parsed naive-ET digits, ~4-5h
+          // earlier than the true instant) -- else "hrs in" reads inflated
+          // by the EST/EDT offset for every in-progress job.
+          const hrs = (now.getTime() - naiveETToUtc(b.start_time as string).getTime()) / 3_600_000
           durationLabel = `${hrs.toFixed(1)}h in`
         } else if (status === 'completed') {
           liveStatus = 'done'
