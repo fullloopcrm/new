@@ -11,6 +11,7 @@
 import Stripe from 'stripe'
 import { promises as dnsPromises } from 'dns'
 import { safeFetch } from './ssrf'
+import { getPrimaryTenantDomain } from './domains'
 
 export interface CheckResult {
   ok: boolean
@@ -196,7 +197,15 @@ export interface TenantForVerify {
 }
 
 export async function runAllChecks(tenant: TenantForVerify, appUrl: string) {
-  const d = tenant.domain || ''
+  // tenant_domains FIRST, tenants.domain FALLBACK — mirrors tenantSiteUrl()'s
+  // resolution order. Previously read tenant.domain only, so a tenant_domains
+  // -only tenant (the normal state — admin/websites writes tenant_domains
+  // only, never tenants.domain) got d='' here: every DNS/SSL check ran
+  // against an empty string and always failed, persisting
+  // dns_configured=false into the tenants row on every verify run even
+  // though the tenant's real custom domain was live and correctly
+  // registered.
+  const d = (await getPrimaryTenantDomain(tenant.id)) || tenant.domain || ''
   const results = await Promise.allSettled([
     verifyDnsA(d),
     verifyDnsCname(d),

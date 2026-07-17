@@ -5,6 +5,7 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { validateUsPhone } from '@/lib/nycmaid/phone-validator'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 import { createPhoneFixupToken } from '@/lib/nycmaid/phone-fixup-token'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
@@ -41,9 +42,16 @@ export async function GET(request: Request) {
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    // website_url stays first (existing precedence, unchanged). Below that,
+    // this previously read tenant.domain only and never consulted
+    // tenant_domains, so a tenant with no website_url whose real custom
+    // domain lives only in tenant_domains got the phone-fixup email link
+    // built from the wrong host (or the nycmaid default).
+    const primaryDomain = await getPrimaryTenantDomain(tenantId)
+    const domain = primaryDomain || tenant.domain
     const baseUrl =
       tenant.website_url?.replace(/\/$/, '') ||
-      (tenant.domain ? `https://${tenant.domain}` : null) ||
+      (domain ? `https://${domain}` : null) ||
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
       'https://www.thenycmaid.com'
 

@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 export async function POST(request: Request) {
   try {
@@ -27,7 +28,13 @@ export async function POST(request: Request) {
     const businessName = tenant.name || 'our company'
     const industry = tenant.industry || 'service'
     const brand = tenant.primary_color || '#2563eb'
-    const bookUrl = tenant.domain ? `https://${tenant.domain}/book` : '/book'
+    // tenant_domains FIRST, tenants.domain FALLBACK via tenantSiteUrl() —
+    // previously read tenant.domain only, so a tenant_domains-only tenant's
+    // AI-generated "Book Now" CTA in customer marketing email/SMS pointed
+    // at a bare "/book" relative path, a dead link outside the tenant's own
+    // site.
+    const siteUrl = await tenantSiteUrl({ id: tenant.id, domain: tenant.domain, slug: tenant.slug })
+    const bookUrl = siteUrl ? `${siteUrl}/book` : '/book'
     const phone = tenant.phone || ''
 
     const client = anthropicFromStoredKey(tenant.anthropic_api_key)

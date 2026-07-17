@@ -7,6 +7,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 interface TeamMemberRow {
   id: string
@@ -27,7 +28,12 @@ export async function POST() {
 
     const rows = (members as TeamMemberRow[] | null) || []
     const businessName = tenant.name || 'the team'
-    const portalUrl = tenant.domain ? `https://${tenant.domain}/team` : '/team'
+    // tenant_domains FIRST, tenants.domain FALLBACK via tenantSiteUrl() —
+    // previously read tenant.domain only, so a tenant_domains-only tenant
+    // got a bare "/team" relative path texted in an SMS, which never
+    // resolves outside a browser tab already on the tenant's site.
+    const siteUrl = await tenantSiteUrl({ id: tenant.id, domain: tenant.domain, slug: tenant.slug })
+    const portalUrl = siteUrl ? `${siteUrl}/team` : '/team'
 
     let sent = 0
     for (const m of rows) {

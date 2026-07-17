@@ -21,6 +21,24 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const A = 'tid-a'
 
+// getPrimaryTenantDomain() (resolver-precedence fix, route.domain-fallback.test.ts
+// covers its behavior) queries tenant_domains via supabaseAdmin — this permission
+// test isn't exercising that path, so a table with no rows is enough to satisfy it.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const chain: any = {
+        select: () => chain,
+        eq: () => chain,
+        order: () => chain,
+        then: (resolve: (v: { data: unknown[]; error: null }) => void) => resolve({ data: [], error: null }),
+      }
+      return chain
+    },
+  },
+}))
+
 const tenantHolder = vi.hoisted(() => ({
   role: 'owner' as string,
   tenant: { id: 'tid-a', name: 'Acme Cleaning', anthropic_api_key: 'stored-key' } as Record<string, unknown>,

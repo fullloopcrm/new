@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
 import { checkAvailability } from '@/lib/availability'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 /**
  * Onboarding readiness gate.
@@ -53,7 +54,15 @@ export async function runOnboardingGate(tenantId: string): Promise<GateResult> {
   ])
 
   // 1. SITE — the public front door resolves (name + a reachable host).
-  const host = tenant?.domain || tenant?.domain_name || (tenant?.slug ? `${tenant.slug}.fullloopcrm.com` : null)
+  // tenant_domains FIRST, tenants.domain/domain_name FALLBACK — mirrors
+  // tenantSiteUrl()'s resolution order. Previously read tenant.domain only,
+  // so a tenant_domains-only tenant (the normal state — admin/websites
+  // writes tenant_domains only, never tenants.domain) failed the SITE (and
+  // downstream LEAD) stage here even with a live, correctly-registered
+  // custom domain, which gates this tenant's onboarding->active flip in
+  // activate-tenant.ts.
+  const primaryDomain = await getPrimaryTenantDomain(tenantId)
+  const host = primaryDomain || tenant?.domain || tenant?.domain_name || (tenant?.slug ? `${tenant.slug}.fullloopcrm.com` : null)
   stages.push({
     stage: 'site',
     ok: !!(tenant?.name && host),
