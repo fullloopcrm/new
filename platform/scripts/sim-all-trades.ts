@@ -2338,6 +2338,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-20. finance/cash-flow FORECAST — MONTHLY/QUARTERLY ANCHOR-DAY DRIFT ON A SHORT-MONTH CROSSING (fresh ground, third instance of the setUTCMonth/setMonth-chaining bug class after lib/recurring.ts and cron/recurring-expenses' advance(), this time in the Finance Reports cash-flow forecast) ----
+    // advanceCursor()'s monthly/quarterly branches chained
+    // r.setUTCMonth(r.getUTCMonth() + N) straight off the previous tick's own
+    // (possibly already-overflowed) result: a recurring_expenses row anchored
+    // on day 29/30/31 that overflows a short month (Jan 31 -> Feb 31 rolls to
+    // Mar 3) silently skipped its true Feb occurrence's week entirely and
+    // misplaced every remaining tick's projected cash-flow bucket for the
+    // rest of that forecast walk. Ephemeral, not persisted like the cron
+    // version (recomputed fresh from next_due_date/start_date on every
+    // request, so no permanent DB corruption) -- but still a real bug in the
+    // wired-up Finance Reports forecast page. Fixed: zero the day before
+    // advancing months, clamp back to the recurrence's true anchor day
+    // (start_date) instead of chaining off the previous tick's drifted day.
+    //
+    // advanceCursor() is a private, inline function in the route file (not
+    // an extracted lib export), so -- same constraint every other guard-
+    // function probe in this archetype block documents -- it can't be called
+    // directly here; the mutation-tested vitest suite
+    // (route.monthly-anchor-drift.test.ts) owns proving the date-walk logic
+    // itself. What this DOES prove against the real live schema: a
+    // recurring_expenses row anchored on day 31 round-trips through the
+    // exact column set/query shape (`.select('id, label, amount_cents,
+    // frequency, next_due_date, start_date, active').eq('active', true)`)
+    // the fix's anchorDay derivation (`new Date(r.start_date).getUTCDate()`)
+    // reads from -- proving start_date comes back as a real DATE column
+    // preserving day-of-month, not silently normalized/shifted by the
+    // Postgres DATE type or the JS Date parse the fix depends on.
+    {
+      const anchorAmount = 12345 + idx
+      const { data: cashFlowAnchorRow, error: cashFlowAnchorErr } = await supabase.from('recurring_expenses').insert({
+        tenant_id: tenant.id, label: 'Cash-flow anchor-drift probe (rent, day-31 anchor)',
+        amount_cents: anchorAmount, frequency: 'monthly', start_date: '2026-01-31',
+        next_due_date: '2026-01-31', active: true,
+      }).select('id, amount_cents, frequency, next_due_date, start_date, active').single()
+      add('cash-flow-anchor-drift: day-31-anchored monthly recurring_expenses row created', !!cashFlowAnchorRow && !cashFlowAnchorErr, cashFlowAnchorErr?.message)
+
+      // Live schema probe mirroring the exact query + column set the route
+      // reads, then the exact getUTCDate() derivation the fix's anchorDay
+      // computation runs against the returned start_date.
+      const { data: cashFlowReadBack } = await supabase.from('recurring_expenses')
+        .select('id, label, amount_cents, frequency, next_due_date, start_date, active')
+        .eq('id', cashFlowAnchorRow?.id || '').eq('tenant_id', tenant.id).eq('active', true).maybeSingle()
+      add('cash-flow-anchor-drift: live schema — active=true query shape reads the row back', !!cashFlowReadBack, JSON.stringify(cashFlowReadBack))
+      const anchorDayFromLiveData = cashFlowReadBack?.start_date ? new Date(cashFlowReadBack.start_date as string).getUTCDate() : null
+      add('cash-flow-anchor-drift: live schema — start_date preserves day-of-month (31) through the DATE column round-trip, exactly what the fix\'s anchorDay derivation depends on', anchorDayFromLiveData === 31, `start_date=${cashFlowReadBack?.start_date}, getUTCDate()=${anchorDayFromLiveData}`)
+      add('cash-flow-anchor-drift: live schema — frequency stored/read as the plain string literal the advanceCursor() switch-case matches on', cashFlowReadBack?.frequency === 'monthly', cashFlowReadBack?.frequency)
+
+      // Cleanup: deactivate rather than delete so this probe never gets
+      // picked up by a real cron/report run outside this harness's own read.
+      if (cashFlowAnchorRow?.id) {
+        await supabase.from('recurring_expenses').update({ active: false }).eq('id', cashFlowAnchorRow.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
