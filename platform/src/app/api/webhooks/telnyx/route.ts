@@ -688,11 +688,16 @@ export async function POST(request: Request) {
             if (newConvo) {
               convo = newConvo
 
-              // Log inbound message to conversation
-              await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
+              // Log inbound message to conversation. tenant_id stamped
+              // explicitly — an unstamped insert falls back to
+              // sms_conversation_messages' column DEFAULT ('nycmaid'), same
+              // P2 write-side gap fixed on the chat/yinez/admin-chat/selena
+              // siblings (deploy-prep/idor-remediation-status.md).
+              await supabaseAdmin.from('sms_conversation_messages').insert({
                 conversation_id: convo.id,
                 direction: 'inbound',
                 message: text,
+                tenant_id: tenantId,
               })
 
               // Send greeting
@@ -703,11 +708,12 @@ export async function POST(request: Request) {
 
               await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
 
-              // Log outbound greeting
+              // Log outbound greeting — tenant_id stamped, same reasoning as the inbound insert above.
               await supabaseAdmin.from('sms_conversation_messages').insert({
                 conversation_id: convo.id,
                 direction: 'outbound',
                 message: greeting,
+                tenant_id: tenantId,
               })
 
               // Log to client transcript if client exists
@@ -724,11 +730,13 @@ export async function POST(request: Request) {
             return NextResponse.json({ received: true, action: 'chatbot_greeting' })
           }
 
-          // Ongoing conversation — log inbound and route to AI
-          await supabaseAdmin.from('sms_conversation_messages').insert({  // tenant-scope-ok: webhook resolves tenant from the verified event payload
+          // Ongoing conversation — log inbound and route to AI. tenant_id
+          // stamped, same reasoning as the new-conversation inbound insert above.
+          await supabaseAdmin.from('sms_conversation_messages').insert({
             conversation_id: convo.id,
             direction: 'inbound',
             message: text,
+            tenant_id: tenantId,
           })
 
           // NYC Maid runs the REAL Yinez agent (warm voice, self-book redirect,
@@ -752,11 +760,12 @@ export async function POST(request: Request) {
               telnyxPhone: tenant.telnyx_phone,
             })
 
-            // Log outbound to conversation
+            // Log outbound to conversation — tenant_id stamped, same reasoning as above.
             await supabaseAdmin.from('sms_conversation_messages').insert({
               conversation_id: convo.id,
               direction: 'outbound',
               message: aiResult.text,
+              tenant_id: tenantId,
             })
 
             // Log to client transcript

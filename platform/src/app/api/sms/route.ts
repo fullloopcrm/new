@@ -142,14 +142,22 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Insert outbound message
+    // Insert outbound message. tenant_id stamped explicitly — an unstamped
+    // insert falls back to sms_conversation_messages' column DEFAULT
+    // ('nycmaid', the rollout safety net from 2026_05_09_tenant_id_core.sql),
+    // mis-tagging every other tenant's message as nycmaid's and hiding it
+    // from that tenant's own tenant-scoped GET ?convoId read. Same gap
+    // already fixed on the selena reset-insert and chat/yinez/admin-chat
+    // siblings; tracked as P2 "write-side siblings" in
+    // deploy-prep/idor-remediation-status.md.
     const now = new Date().toISOString()
     const { data: msg, error: msgError } = await supabaseAdmin
-      .from('sms_conversation_messages')  // tenant-scope-ok: row-scoped by conversation_id (conversation is tenant-owned)
+      .from('sms_conversation_messages')
       .insert({
         conversation_id: convoId,
         direction: 'outbound',
         message,
+        tenant_id: tenantId,
       })
       .select()
       .single()

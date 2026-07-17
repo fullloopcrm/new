@@ -127,9 +127,15 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, error: 'convo_lookup_threw' })
   }
 
+  // tenant_id stamped explicitly (NYCMAID_TENANT_ID, same sentinel as the
+  // conversation row above) — an unstamped insert falls back to
+  // sms_conversation_messages' column DEFAULT, which happens to already be
+  // that same nycmaid UUID here, but leaving it implicit was the same P2
+  // write-side gap fixed on the chat/yinez/admin-chat/selena siblings
+  // (deploy-prep/idor-remediation-status.md).
   await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'inbound', message: text })
+    .from('sms_conversation_messages')
+    .insert({ conversation_id: convoId, direction: 'inbound', message: text, tenant_id: NYCMAID_TENANT_ID })
     .then(() => {}, () => {})
 
   // Run Yinez with full error visibility
@@ -147,9 +153,10 @@ export async function POST(req: Request) {
     reply = `[yinez error] ${errMsg.slice(0, 500)}`
   }
 
+  // tenant_id stamped — same reasoning as the inbound insert above.
   await supabaseAdmin
-    .from('sms_conversation_messages')  // tenant-scope-ok: webhook resolves tenant from the verified event payload
-    .insert({ conversation_id: convoId, direction: 'outbound', message: reply })
+    .from('sms_conversation_messages')
+    .insert({ conversation_id: convoId, direction: 'outbound', message: reply, tenant_id: NYCMAID_TENANT_ID })
     .then(() => {}, () => {})
 
   const send = await sendTelegram(chatId, reply)
