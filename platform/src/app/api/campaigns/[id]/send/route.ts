@@ -43,10 +43,13 @@ export async function POST(
 
     // Get recipients (active clients). Per-channel marketing opt-outs are
     // enforced below so a client who opted out of SMS/email marketing is never
-    // sent a campaign on that channel (CAN-SPAM / TCPA).
+    // sent a campaign on that channel (CAN-SPAM / TCPA). do_not_service is the
+    // codebase-wide "NEVER contact" flag (enforced in payment-processor,
+    // selena-legacy-core's DNS filter, client-auth) — campaigns must honor it
+    // on every channel too, not just the per-channel marketing opt-outs.
     const { data: clients } = await db
       .from('clients')
-      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent, do_not_service')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
@@ -91,7 +94,7 @@ export async function POST(
         ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
         : (tenantAddress ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${tenant.name} · ${tenantAddress}</p>` : personalizedBody)
 
-      if (sendEmails && client.email && !client.email_marketing_opt_out) {
+      if (sendEmails && client.email && !client.email_marketing_opt_out && !client.do_not_service) {
         try {
           await sendEmail({
             to: client.email,
@@ -106,7 +109,7 @@ export async function POST(
         }
       }
 
-      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
+      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false && !client.do_not_service) {
         try {
           await sendSMS({
             to: client.phone,

@@ -43,10 +43,13 @@ export async function POST(request: Request) {
       .update({ status: 'sending' })
       .eq('id', campaign_id)
 
-    // Fetch audience
+    // Fetch audience. do_not_service is the codebase-wide "NEVER contact"
+    // flag (enforced in payment-processor, selena-legacy-core's DNS filter,
+    // client-auth) — honored below alongside the per-channel marketing
+    // opt-outs, even when the caller explicitly picks client_ids.
     let query = db
       .from('clients')
-      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent, do_not_service')
       .eq('tenant_id', tenantId)
 
     if (client_ids && client_ids.length > 0) {
@@ -105,7 +108,7 @@ export async function POST(request: Request) {
     const recipientRows: RecipientRow[] = []
 
     for (const client of clients) {
-      if (sendEmail && client.email && !client.email_marketing_opt_out) {
+      if (sendEmail && client.email && !client.email_marketing_opt_out && !client.do_not_service) {
         recipientRows.push({
           campaign_id,
           client_id: client.id,
@@ -115,7 +118,7 @@ export async function POST(request: Request) {
           tenant_id: tenantId,
         })
       }
-      if (sendSms && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
+      if (sendSms && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false && !client.do_not_service) {
         recipientRows.push({
           campaign_id,
           client_id: client.id,
