@@ -363,13 +363,12 @@ export async function handleLookupBookings(tenantId: string, input: Record<strin
     const clientId = await getConvoClientId(conversationId)
     if (!clientId) return JSON.stringify({ error: 'No account' })
     const filter = (input.status_filter as string) || 'upcoming'
-    const now = new Date().toISOString()
     let query = supabaseAdmin.from('bookings')
       .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, team_members!bookings_team_member_id_fkey(name), actual_hours, recurring_type')
       .eq('tenant_id', tenantId).eq('client_id', clientId)
       .order('start_time', { ascending: filter === 'upcoming' }).limit(5)
     if (filter === 'upcoming') {
-      query = query.gte('start_time', now).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
+      query = query.gte('start_time', nowNaiveET()).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
     } else if (filter === 'completed') {
       query = query.eq('status', 'completed').order('start_time', { ascending: false })
     }

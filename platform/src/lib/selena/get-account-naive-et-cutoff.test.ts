@@ -82,4 +82,18 @@ describe('get_account / resend_confirmation — naive-ET "now" cutoff', () => {
     expect(call).toBeDefined()
     expect(String(call!.val)).toMatch(NAIVE_ET_RE)
   })
+
+  it('lookup_bookings\'s "upcoming" filter (the default status_filter) filters against a naive-ET now', async () => {
+    // Missed by d53297f5's sweep of this same engine (get_account/resend_confirmation) --
+    // same true-UTC `new Date().toISOString()` cutoff, different handler, same
+    // "what's my next booking" failure mode for a client texting Selena.
+    selectResolver = (table) => {
+      if (table === 'sms_conversations') return { data: { client_id: CLIENT_A, tenant_id: TENANT_A }, error: null }
+      return { data: null, error: null }
+    }
+    await handleTool('lookup_bookings', {}, 'convo-A', coreResult(), TENANT_A)
+    const call = gteCalls.find(c => c.table === 'bookings' && c.col === 'start_time')
+    expect(call).toBeDefined()
+    expect(String(call!.val)).toMatch(NAIVE_ET_RE)
+  })
 })

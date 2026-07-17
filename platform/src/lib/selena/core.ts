@@ -1505,11 +1505,10 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
     if (!convo?.client_id) return JSON.stringify({ error: 'No account' })
     const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     const filter = (input.status_filter as string) || 'upcoming'
-    const now = new Date().toISOString()
     let query = supabaseAdmin.from('bookings')
       .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, cleaners(name), actual_hours, recurring_type')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).order('start_time', { ascending: filter === 'upcoming' }).limit(5)
-    if (filter === 'upcoming') query = query.gte('start_time', now).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress', 'checked_in'])
+    if (filter === 'upcoming') query = query.gte('start_time', nowNaiveET()).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress', 'checked_in'])
     else if (filter === 'completed') query = query.eq('status', 'completed').order('start_time', { ascending: false })
     const { data: bookings } = await query
     if (!bookings?.length) return JSON.stringify({ bookings: [], message: 'No bookings found.' })

@@ -75,6 +75,7 @@ import {
   handleRescheduleBooking,
   handleCancelBooking,
   handleBookingDetails,
+  handleLookupBookings,
 } from './selena-legacy-handlers'
 
 // naive 'YYYY-MM-DDTHH:MM:SS' (no 'Z'/offset) -- the same convention bookings.start_time
@@ -146,6 +147,17 @@ describe('handleGetAccount / handleResendConfirmation — naive-ET "now" cutoff'
   it('handleResendConfirmation\'s no-booking_id lookup filters against a naive-ET now', async () => {
     selectResolver = mockConvo()
     await handleResendConfirmation(TENANT, {}, 'convo-1')
+    const call = gteCalls.find(c => c.table === 'bookings' && c.col === 'start_time')
+    expect(call).toBeDefined()
+    expect(String(call!.val)).toMatch(NAIVE_ET_RE)
+  })
+
+  it('handleLookupBookings\'s "upcoming" filter (the default status_filter) filters against a naive-ET now', async () => {
+    // Missed by d53297f5's sweep of this same file (get_account/resend_confirmation) --
+    // same true-UTC `new Date().toISOString()` cutoff, different handler, same
+    // "what's my next booking" failure mode for a client texting Selena.
+    selectResolver = mockConvo()
+    await handleLookupBookings(TENANT, {}, 'convo-1')
     const call = gteCalls.find(c => c.table === 'bookings' && c.col === 'start_time')
     expect(call).toBeDefined()
     expect(String(call!.val)).toMatch(NAIVE_ET_RE)
