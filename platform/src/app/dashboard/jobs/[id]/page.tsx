@@ -177,6 +177,9 @@ export default function JobDetailPage() {
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
 
+  const voidPayment = (p: Payment) => act(`void-${p.id}`, () =>
+    fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'void' }) }))
+
   /** Assemble a session-write body from the shared form. */
   function formBody(f: SessionForm) {
     const base: Record<string, unknown> = {
@@ -259,10 +262,18 @@ export default function JobDetailPage() {
                 {p.trigger && p.trigger !== 'manual' && <span className="ml-2 text-[10px] text-slate-400">{p.trigger.replace(/_/g, ' ')}</span>}
               </span>
               {p.status === 'invoiced' && <span className="text-[10px] text-amber-600 font-medium">due</span>}
+              {p.status === 'void' && <span className="text-[10px] text-slate-400 font-medium">voided</span>}
               <span className="text-sm font-medium text-slate-900">{money(p.amount_cents)}</span>
               {p.status === 'paid'
                 ? <span className="text-[11px] text-green-600 font-medium w-16 text-right">paid</span>
-                : <button onClick={() => markPaid(p)} disabled={busy === `pay-${p.id}`} className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 w-16">Mark paid</button>}
+                : p.status === 'void'
+                  ? <span className="text-[11px] text-slate-400 font-medium w-16 text-right">—</span>
+                  : (
+                    <>
+                      <button onClick={() => markPaid(p)} disabled={!!busy} className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 w-16">Mark paid</button>
+                      <button onClick={() => voidPayment(p)} disabled={!!busy} className="text-[11px] px-2 py-1 rounded bg-slate-100 text-slate-500 hover:bg-slate-200 disabled:opacity-50">Void</button>
+                    </>
+                  )}
             </div>
           ))}
           {payments.length === 0 && <p className="text-sm text-slate-400">No payments.</p>}

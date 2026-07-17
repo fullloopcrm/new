@@ -381,3 +381,35 @@ export async function releasePaymentsForEvent(
   }
   return (released ?? []).length
 }
+
+/**
+ * A cancelled job never collects the rest of its payment plan. Void every
+ * payment that hasn't already been paid (pending — never released — or
+ * invoiced — due but not yet collected) so they stop showing as outstanding
+ * on a dead job. Already-'paid' rows are untouched — cancellation doesn't
+ * refund money already collected, same distinction (138)/(139) draw between
+ * voiding and refunding on invoices. Returns how many were voided.
+ */
+export async function voidPaymentsForCancellation(tenantId: string, jobId: string): Promise<number> {
+  const { data: voided, error } = await supabaseAdmin
+    .from('job_payments')
+    .update({ status: 'void' })
+    .eq('tenant_id', tenantId)
+    .eq('job_id', jobId)
+    .in('status', ['pending', 'invoiced'])
+    .select('id, label, amount_cents')
+  if (error) {
+    console.error('[voidPaymentsForCancellation] failed:', error)
+    return 0
+  }
+
+  for (const p of voided ?? []) {
+    await logJobEvent({
+      tenant_id: tenantId,
+      job_id: jobId,
+      event_type: 'payment_voided',
+      detail: { payment_id: p.id, label: p.label, amount_cents: p.amount_cents, released_by: 'cancelled' },
+    })
+  }
+  return (voided ?? []).length
+}
