@@ -284,6 +284,14 @@ export async function GET(request: Request) {
         .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
+        // A client who already paid in advance (Stripe pay-link, Zelle/Venmo
+        // match) has payment_status flipped to 'paid' without status leaving
+        // 'in_progress' — see webhooks/stripe/route.ts and
+        // admin/payments/confirm-match/route.ts, neither of which touch
+        // `status` on a paid-in-advance booking. Without this filter every
+        // such job still fires a spurious "Payment Due Soon" admin alert
+        // 15 min before it ends.
+        .neq('payment_status', 'paid')
         .gte('end_time', payWindowStart.toISOString())
         .lte('end_time', payWindowEnd.toISOString())
         .limit(500)
