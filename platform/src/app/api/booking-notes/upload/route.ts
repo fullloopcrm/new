@@ -23,7 +23,24 @@ export async function POST(request: NextRequest) {
 
     // MODE 1: URLs already uploaded
     if (imageUrlsRaw) {
-      const imageUrls = JSON.parse(imageUrlsRaw) as string[]
+      const parsedUrls = JSON.parse(imageUrlsRaw)
+      // These are expected to come from this route's own MODE 2 upload
+      // (the client always uploads each file first, then re-POSTs the
+      // returned URLs here to batch them into one note — see
+      // components/BookingNotes.tsx). Nothing stops a direct caller from
+      // POSTing arbitrary image_urls instead, and note.images renders
+      // unsanitized as <img src> in both the admin dashboard
+      // (BookingsAdmin.tsx) and the client-portal booking dashboard — same
+      // unvalidated-URL-storage class already fixed for
+      // team_applications.photo_url and reviews.images/video_url. Restrict
+      // to this route's own bucket/folder prefix, matching what MODE 2
+      // actually writes (this upload path isn't tenant-scoped, so the check
+      // is bucket/folder-level here too, consistent with those fixes).
+      const { data: notesPrefix } = supabaseAdmin.storage.from('uploads').getPublicUrl('booking-notes/')
+      if (!Array.isArray(parsedUrls) || parsedUrls.some(u => typeof u !== 'string' || !u.startsWith(notesPrefix.publicUrl))) {
+        return NextResponse.json({ error: 'Invalid image_urls' }, { status: 400 })
+      }
+      const imageUrls = parsedUrls as string[]
       const { data, error } = await supabaseAdmin
         .from('booking_notes')
         .insert({
