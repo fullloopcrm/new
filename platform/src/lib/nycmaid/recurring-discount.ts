@@ -3,6 +3,11 @@
 //   • biweekly / monthly → 10% off
 //   • one-time / none    → no discount
 // Pure helper, no imports — safe for client + server.
+//
+// 'monthly' is kept alongside 'monthly_date'/'monthly_weekday' for any legacy row --
+// every current enum-validated write path (admin/recurring-schedules, dashboard/schedules,
+// client/recurring, CSV import) persists the real RecurringType (lib/recurring.ts) values,
+// which are monthly_date/monthly_weekday, never bare 'monthly'.
 
 export function recurringDiscountPct(recurringType: string | null | undefined): number {
   switch ((recurringType || '').toLowerCase().replace(/[\s_]/g, '-')) {
@@ -11,6 +16,8 @@ export function recurringDiscountPct(recurringType: string | null | undefined): 
     case 'biweekly':
     case 'bi-weekly':
     case 'monthly':
+    case 'monthly-date':
+    case 'monthly-weekday':
       return 0.10
     default:
       return 0

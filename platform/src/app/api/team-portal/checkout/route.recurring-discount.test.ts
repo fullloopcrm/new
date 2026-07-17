@@ -115,6 +115,15 @@ describe('POST /api/team-portal/checkout — recurring discount survives to char
     expect(h.updateSpy).toHaveBeenCalledWith(expect.objectContaining({ price: 27000 }))
   })
 
+  it('applies 10% off for a monthly_date recurring booking (the real enum value every schedule route actually persists)', async () => {
+    h.booking!.recurring_type = 'monthly_date'
+    h.booking!.check_in_time = checkInThreeHoursAgo()
+    const res = await POST(postReq(CHECKOUT_REQ))
+    const json = await res.json()
+    expect(json.client_total).toBe(270)
+    expect(h.updateSpy).toHaveBeenCalledWith(expect.objectContaining({ price: 27000 }))
+  })
+
   it('applies no discount for a one-time (non-recurring) booking', async () => {
     h.booking!.recurring_type = null
     h.booking!.check_in_time = checkInThreeHoursAgo()

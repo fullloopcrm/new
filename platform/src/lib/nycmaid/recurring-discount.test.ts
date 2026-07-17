@@ -22,6 +22,14 @@ describe('recurringDiscountPct', () => {
     expect(recurringDiscountPct('monthly')).toBe(0.1)
   })
 
+  it('monthly_date / monthly_weekday (the real RecurringType enum values, lib/recurring.ts) → 10%', () => {
+    // bare 'monthly' never actually reaches this function from a real schedule row anymore --
+    // every enum-validated write path (admin/recurring-schedules, dashboard/schedules,
+    // client/recurring, CSV import) normalizes it to monthly_date/monthly_weekday before persisting.
+    expect(recurringDiscountPct('monthly_date')).toBe(0.1)
+    expect(recurringDiscountPct('monthly_weekday')).toBe(0.1)
+  })
+
   it('normalizes case and separators (WEEKLY, Weekly)', () => {
     expect(recurringDiscountPct('WEEKLY')).toBe(0.2)
     expect(recurringDiscountPct('Weekly')).toBe(0.2)
