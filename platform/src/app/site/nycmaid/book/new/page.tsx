@@ -130,7 +130,7 @@ function BookFormContent() {
     }
   }, [form.date, form.time])
 
-  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA')
   const isSameDay = form.service_type === 'Same-Day Emergency'
   const isMultiCleaner = form.team_size >= 2
   // The 48-hour rule applies ONLY to multi-cleaner bookings: a 2+ cleaner
