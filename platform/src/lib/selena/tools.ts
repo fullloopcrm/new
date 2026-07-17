@@ -1307,7 +1307,32 @@ async function handleCancelRecurring(input: { schedule_id: string; reason?: stri
     .eq('id', input.schedule_id)
     .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
-  return JSON.stringify({ ok: true, schedule_id: input.schedule_id, status: 'cancelled', reason: input.reason })
+
+  // Mirror the human-admin route (DELETE .../recurring-schedules/[id]): same
+  // gap this file's own pause/resume handlers had until this session --
+  // cron/generate-recurring keeps a schedule's next ~4 weeks pre-generated,
+  // so flipping the rule to 'cancelled' alone stops FUTURE generation but
+  // leaves those already-materialized visits 'scheduled' -- a cleaner would
+  // still show up for a series the client asked (via this exact tool) to
+  // cancel entirely. Unlike pause, cancel is terminal (no resume path), so
+  // there's no cancelled_reason bookkeeping to set for later restoration --
+  // matches the admin route exactly.
+  const { data: cancelledBookings } = await supabaseAdmin
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('schedule_id', input.schedule_id)
+    .eq('tenant_id', tid)
+    .in('status', ['scheduled', 'pending', 'confirmed'])
+    .gte('start_time', nowNaiveET())
+    .select('id')
+
+  return JSON.stringify({
+    ok: true,
+    schedule_id: input.schedule_id,
+    status: 'cancelled',
+    reason: input.reason,
+    bookings_cancelled: cancelledBookings?.length || 0,
+  })
 }
 
 async function handleListDeals(input: { stage?: string }, tid: string): Promise<string> {
