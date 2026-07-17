@@ -2055,6 +2055,43 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           if (helper?.id) {
             add('client-reschedule-notify-guard: CONTROL — the active helper\'s booking is NOT caught, still gets notified on a date-only reschedule', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
           }
+
+          // ---- 5a-16. checkTeamAvailability — TERMINATED-CREW GUARD ON THE ADMIN CALENDAR'S REASSIGNMENT PICKER (fresh ground, found chasing the "UI direct-read" angle 5a-15's own NOTICED flagged as unswept: does a display/assignment surface reading team_member_id distinguish a terminated worker from an active one?) ----
+          // Not a display-only miss after all: /api/team-availability (the
+          // data behind CalendarBoard.tsx's reassignment panel) and
+          // /api/admin/team-availability-batch both resolve through
+          // checkTeamAvailability (src/lib/availability.ts), which filtered
+          // team_members on `.eq('status', 'active')` only -- same dead-end
+          // as every other round in this class, since HR termination never
+          // touches team_members.status/active. scoreTeamForBooking
+          // (src/lib/smart-schedule.ts) already carries the identical
+          // getTerminatedTeamMemberIds guard for ITS four callers (admin/
+          // client smart-schedule, client/book, generate-recurring's smart-
+          // assign) -- checkTeamAvailability was the one sibling function
+          // that never got the same fix, so an admin opening the calendar's
+          // reassignment panel for ANY booking would see the already-
+          // terminated worker (5a-2) listed "Available" and pickable, same
+          // real bug as the class scoreTeamForBooking's guard already
+          // closed. Fixed: checkTeamAvailability now excludes
+          // getTerminatedTeamMemberIds up front too, before the day-off/
+          // conflict checks, mirroring the fix once already made.
+          //
+          // Calling the real fixed function directly (not a route) --
+          // requirePermission needs request context this harness doesn't
+          // have, same reasoning as every other guard-function call in this
+          // archetype block -- against the SAME real worker/helper rows used
+          // by 5a-13/14/15, since both are still team_members.status='active'
+          // (only hr_status flipped) and this is the exact set
+          // checkTeamAvailability's `.eq('status','active')` query returns.
+          const { checkTeamAvailability } = await import('../src/lib/availability')
+          const availDate = staleAssignStart.toISOString().slice(0, 10)
+          const availMembers = await checkTeamAvailability(tenant.id, availDate, '09:00', 2)
+          const workerAvail = availMembers.find(m => m.id === worker.id)
+          add('calendar-reassignment-availability-guard: the terminated worker is listed unavailable ("No longer employed"), not offered as a normal pick', workerAvail?.available === false && workerAvail?.conflict === 'No longer employed', JSON.stringify(workerAvail))
+          if (helper?.id) {
+            const helperAvail = availMembers.find(m => m.id === helper.id)
+            add('calendar-reassignment-availability-guard: CONTROL — the active helper is not caught by the terminated check (may still be unavailable/conflicted for unrelated day-off/booking reasons, but never "No longer employed")', helperAvail?.conflict !== 'No longer employed', JSON.stringify(helperAvail))
+          }
         }
       }
     }
