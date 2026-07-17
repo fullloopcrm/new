@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { etYMD, etMidnightUtc, toNaiveET, naiveETDayRange } from './dates'
+import { etYMD, etMidnightUtc, toNaiveET, naiveETDayRange, naiveETToUtc } from './dates'
 
 describe('etYMD', () => {
   it('reads the ET calendar day, not the UTC calendar day, during the evening offset window', () => {
@@ -43,6 +43,27 @@ describe('toNaiveET', () => {
   it('rolls to the correct ET calendar day when UTC has already advanced past midnight', () => {
     // Same instant as the first case: UTC is Jan 6, ET is still Jan 5.
     expect(toNaiveET(new Date('2026-01-06T04:59:00.000Z'))).toBe('2026-01-05T23:59:00')
+  })
+})
+
+describe('naiveETToUtc', () => {
+  it('is the inverse of toNaiveET under EST (UTC-5)', () => {
+    const instant = new Date('2026-01-06T00:30:00.000Z')
+    expect(naiveETToUtc(toNaiveET(instant)).toISOString()).toBe(instant.toISOString())
+  })
+
+  it('is the inverse of toNaiveET under EDT (UTC-4)', () => {
+    const instant = new Date('2026-07-05T23:15:00.000Z')
+    expect(naiveETToUtc(toNaiveET(instant)).toISOString()).toBe(instant.toISOString())
+  })
+
+  it('computes correct real elapsed time against a naive-ET timestamp (the bug this fixes)', () => {
+    // Booking naive start_time "09:00" means 9am EDT = 13:00 UTC. A raw
+    // `new Date('...T09:00:00') - now` would be off by the 4h EDT offset.
+    const naiveStart = '2026-07-17T09:00:00'
+    const now = new Date('2026-07-17T13:30:00.000Z') // 30 real minutes after 9am EDT
+    const hrs = (now.getTime() - naiveETToUtc(naiveStart).getTime()) / 3_600_000
+    expect(hrs).toBeCloseTo(0.5, 5)
   })
 })
 

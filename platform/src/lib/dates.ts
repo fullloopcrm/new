@@ -118,6 +118,24 @@ export function toNaiveET(date: Date): string {
 }
 
 /**
+ * True UTC instant for a naive-ET wall-clock string (e.g. bookings.start_time).
+ * Inverse of `toNaiveET`. Needed when computing real elapsed time between a
+ * naive-ET timestamp and an actual instant (`new Date()`) -- a naive string
+ * parses as server-local (UTC on Vercel), so subtracting its raw `.getTime()`
+ * from a real instant's is off by the EST/EDT offset. (Duration-between-two-
+ * naive-timestamps math, e.g. end_time minus start_time, doesn't need this --
+ * the offset is identical on both sides and cancels out.)
+ */
+export function naiveETToUtc(naiveEt: string): Date {
+  const match = naiveEt.match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2}):(\d{2})/)
+  if (!match) return new Date(naiveEt)
+  const [y, mo, d, h, mi, s] = match.slice(1).map(Number)
+  const guessUtc = Date.UTC(y, mo - 1, d, h, mi, s)
+  const offsetMinutes = etUtcOffsetMinutes(new Date(guessUtc))
+  return new Date(guessUtc - offsetMinutes * 60 * 1000)
+}
+
+/**
  * Naive-ET day-range strings [start, end] for the ET calendar date that is
  * `dayOffset` days from `date` (0 = same ET day, 1 = tomorrow, -3 = 3 days
  * ago). For boundary comparisons against naive-ET TIMESTAMP columns
