@@ -2584,6 +2584,71 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('review-gate: CONTROL — the fixed predicate runs the action and texts the consented, non-banned client', reviewGateWouldText.includes(reviewGateOkClient?.id), JSON.stringify(reviewGateWouldText))
     }
 
+    // ---- 5a-25. cron/payment-reminder (+15min client nudge) — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, eighth call site of the missing-consent-check bug class; same TCPA-exposure shape as payment-followup-daily on p1-w1 but a separate cron file — the +15/+60min "still unpaid" chase loop, not the daily 8am/12pm/6pm one) ----
+    // This is a CRON_SECRET-gated route, not requirePermission, but has no
+    // exported testable predicate helper — same reasoning as 5a-18/5a-22
+    // through 5a-24: prove the fixed predicate against real bookings/clients
+    // rows in this archetype tenant through the exact column selection the
+    // fixed route now uses (`clients(name, phone, sms_consent,
+    // do_not_service)`), rather than invoking the cron handler directly.
+    {
+      const payRemGatePhone = '646' + String(4300000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: payRemGateBlockedClient, error: payRemGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PayRem-Gate STOP Client', email: `payremgate-stop+${runId}@example.com`,
+        phone: payRemGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('payment-reminder-gate: STOP-revoked client row created (sms_consent=false)', !!payRemGateBlockedClient && !payRemGateBlockedErr, payRemGateBlockedErr?.message)
+
+      const { data: payRemGateDnsClient, error: payRemGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PayRem-Gate Banned Client', email: `payremgate-dns+${runId}@example.com`,
+        phone: payRemGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('payment-reminder-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!payRemGateDnsClient && !payRemGateDnsErr, payRemGateDnsErr?.message)
+
+      const { data: payRemGateOkClient, error: payRemGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'PayRem-Gate Consented Client', email: `payremgate-ok+${runId}@example.com`,
+        phone: payRemGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('payment-reminder-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!payRemGateOkClient && !payRemGateOkErr, payRemGateOkErr?.message)
+
+      // Also prove a real bookings row (what the cron actually queries — 15-60
+      // min past fifteen_min_alert_time, still unpaid) round-trips the same
+      // consent columns through its embedded clients() join, not just the
+      // clients table read directly.
+      const payRemGateAlertTime = new Date(Date.now() - 20 * 60 * 1000).toISOString()
+      const payRemGateBookingIds: Record<string, string> = {}
+      for (const [label, gateClient] of [
+        ['blocked', payRemGateBlockedClient], ['dns', payRemGateDnsClient], ['control', payRemGateOkClient],
+      ] as const) {
+        if (!gateClient?.id) continue
+        const { data: payRemGateBooking, error: payRemGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 60, actual_hours: 2, status: 'confirmed', payment_status: 'unpaid',
+          service_type: `payment-reminder-gate ${label} probe`, fifteen_min_alert_time: payRemGateAlertTime,
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add(`payment-reminder-gate: ${label} — live schema — a real bookings row's embedded clients() join surfaces the same consent columns the fix reads`, !!payRemGateBooking && !payRemGateBookingErr, payRemGateBookingErr?.message || JSON.stringify(payRemGateBooking))
+        if (payRemGateBooking?.id) payRemGateBookingIds[label] = payRemGateBooking.id
+      }
+
+      // Live schema — re-read straight from prod through the exact column
+      // selection the fixed route now uses, and apply the exact gate
+      // predicate the fix enforces on the +15min nudge branch.
+      const payRemGateIds = Object.values(payRemGateBookingIds)
+      const { data: payRemGateRows } = await supabase.from('bookings')
+        .select('id, clients(phone, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', payRemGateIds)
+      const payRemGateWouldText = (payRemGateRows || [])
+        .filter(b => { const c = b.clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return !!c?.phone && c.sms_consent !== false && !c.do_not_service })
+        .map(b => b.id)
+      add('payment-reminder-gate: the fixed predicate skips the STOP-revoked client\'s nudge', !payRemGateWouldText.includes(payRemGateBookingIds.blocked), JSON.stringify(payRemGateWouldText))
+      add('payment-reminder-gate: the fixed predicate skips the do_not_service client\'s nudge even though sms_consent=true', !payRemGateWouldText.includes(payRemGateBookingIds.dns), JSON.stringify(payRemGateWouldText))
+      add('payment-reminder-gate: CONTROL — the fixed predicate still nudges the consented, non-banned client', payRemGateWouldText.includes(payRemGateBookingIds.control), JSON.stringify(payRemGateWouldText))
+
+      for (const id of Object.values(payRemGateBookingIds)) {
+        await supabase.from('bookings').delete().eq('id', id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
