@@ -34,7 +34,7 @@ export async function GET(request: Request) {
 
     const bookingsQ = supabaseAdmin
       .from('bookings')
-      .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, clients(name)')
+      .select('id, start_time, price, team_member_pay, payment_status, payment_method, payment_date, partial_payment_cents, clients(name)')
       .eq('tenant_id', tenantId)
       .gte('start_time', from)
       .lte('start_time', to)
@@ -73,11 +73,19 @@ export async function GET(request: Request) {
     lines.push(['date', 'booking_id', 'client', 'amount', 'payment_method', 'payment_date'].join(','))
     for (const b of bookings || []) {
       const client = b.clients as { name?: string } | null
+      // A 'partial' booking has only collected partial_payment_cents from
+      // the client -- the same signal ar-aging/cash-flow/summary/dashboard
+      // already key off. Using the full price here reported revenue (and
+      // therefore taxable income) the accountant never actually received
+      // for every partially-paid booking.
+      const receivedCents = b.payment_status === 'partial'
+        ? Math.max(0, Math.round(Number(b.partial_payment_cents) || 0))
+        : Math.round(Number(b.price) || 0)
       lines.push([
         csvEscape((b.start_time as string).slice(0, 10)),
         csvEscape(b.id),
         csvEscape(client?.name || ''),
-        csvEscape(((Number(b.price) || 0) / 100).toFixed(2)), // price is cents
+        csvEscape((receivedCents / 100).toFixed(2)), // price is cents
         csvEscape(b.payment_method || ''),
         csvEscape(b.payment_date ? (b.payment_date as string).slice(0, 10) : ''),
       ].join(','))

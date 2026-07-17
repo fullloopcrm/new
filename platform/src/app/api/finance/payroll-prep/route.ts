@@ -168,7 +168,20 @@ export async function GET(request: Request) {
 
     for (const p of payouts || []) {
       if (!p.team_member_id) continue
-      if (p.status !== 'paid' && p.status !== 'succeeded' && p.status !== 'completed') continue
+      // team_member_payouts.status has never actually held 'paid' /
+      // 'succeeded' / 'completed' -- every real write path (webhooks/stripe,
+      // payment-processor.ts, admin/bookings/[id]/cleaner-payout) inserts a
+      // row only AFTER the money already moved, and stamps `status` with the
+      // MECHANISM ('transferred' for Stripe Connect, or the payout method
+      // 'zelle'/'venmo'/'cashapp'/'cash'/'other' for a manual payout) --
+      // never a completion state. That allow-list matched none of them, so
+      // every payout ever recorded here was silently excluded from
+      // paid_out_cents: balance_owed_cents then permanently overstated what
+      // a contractor was still owed by the FULL amount already paid out to
+      // them, for every team member ever paid through either real payout
+      // path. Same as finance/summary's own payouts sum (route.ts:95),
+      // which never filtered on status at all -- match that: every row in
+      // this table is a real payout, count it.
       const row = rowMap.get(p.team_member_id)
       if (!row) continue
       row.paid_out_cents += Number(p.amount_cents) || 0

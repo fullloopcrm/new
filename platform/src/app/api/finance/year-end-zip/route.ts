@@ -64,11 +64,19 @@ export async function GET(request: Request) {
       description: r.description || '', deductible: r.tax_deductible !== false ? 'yes' : 'no',
     }))))
 
-    // Contractor payouts (1099 summary)
+    // Contractor payouts (1099 summary). No status filter -- every real
+    // write path (webhooks/stripe, payment-processor.ts, admin/bookings/
+    // [id]/cleaner-payout) inserts a team_member_payouts row only AFTER the
+    // money already moved and stamps `status` with the MECHANISM
+    // ('transferred' for Stripe Connect, or the payout method 'zelle'/
+    // 'venmo'/'cashapp'/'cash'/'other' for a manual payout) -- never
+    // 'paid'/'succeeded'/'completed'. That allow-list matched none of them,
+    // so this year-end accountant package's contractor_payouts.csv was
+    // silently empty of every real payout. See payroll-prep/route.ts for
+    // the same bug fixed in that sibling report.
     const { data: payouts } = await supabaseAdmin.from('team_member_payouts')
       .select('created_at, amount_cents, status, team_members(name, tax_business_name, tax_ein, tax_ssn_last4)')
       .eq('tenant_id', tenantId).gte('created_at', from).lte('created_at', `${to}T23:59:59Z`)
-      .in('status', ['paid','succeeded','completed'])
     zip.file('contractor_payouts.csv', toCsv((payouts || []).map(r => {
       const tm = r.team_members as unknown as { name?: string; tax_business_name?: string; tax_ein?: string; tax_ssn_last4?: string } | null
       return {
