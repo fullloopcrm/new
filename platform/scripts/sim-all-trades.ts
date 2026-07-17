@@ -2542,6 +2542,48 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('campaign-gate: CONTROL — the fixed predicate still reaches the non-banned client on both legs', campaignGateWouldEmail.includes(campaignGateOkClient?.id) && campaignGateWouldText.includes(campaignGateOkClient?.id), JSON.stringify({ campaignGateWouldEmail, campaignGateWouldText }))
     }
 
+    // ---- 5a-24. reviews/request — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, seventh call site of the missing-consent-check bug class; unlike 5a-22's two sites and 5a-23's campaigns, this route sent BOTH email and SMS unconditionally and do_not_service must block the whole action, not just one channel) ----
+    // requirePermission needs headers()/cookies() this harness doesn't have,
+    // so — same reasoning as 5a-18/5a-22/5a-23 — this proves the fixed
+    // predicate against a real clients row in this archetype tenant through
+    // the exact column selection the fixed route now uses
+    // (`clients(name, email, phone, sms_consent, do_not_service)`), rather
+    // than calling the route directly.
+    {
+      const reviewGatePhone = '646' + String(4200000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: reviewGateDnsClient, error: reviewGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Review-Gate Banned Client', email: `reviewgate-dns+${runId}@example.com`,
+        phone: reviewGatePhone, status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('review-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!reviewGateDnsClient && !reviewGateDnsErr, reviewGateDnsErr?.message)
+
+      const { data: reviewGateStopClient, error: reviewGateStopErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Review-Gate STOP Client', email: `reviewgate-stop+${runId}@example.com`,
+        phone: reviewGatePhone + '1', status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('review-gate: STOP-revoked client row created (sms_consent=false, do_not_service=false)', !!reviewGateStopClient && !reviewGateStopErr, reviewGateStopErr?.message)
+
+      const { data: reviewGateOkClient, error: reviewGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Review-Gate Consented Client', email: `reviewgate-ok+${runId}@example.com`,
+        phone: reviewGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('review-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!reviewGateOkClient && !reviewGateOkErr, reviewGateOkErr?.message)
+
+      // Live schema — re-read straight from prod through the exact column
+      // selection the fixed route now uses, and apply both gate predicates
+      // it now enforces (do_not_service blocks the whole action; sms_consent
+      // gates only the SMS leg, matching the STOP webhook's SMS-only scope).
+      const reviewGateIds = [reviewGateDnsClient?.id, reviewGateStopClient?.id, reviewGateOkClient?.id].filter(Boolean) as string[]
+      const { data: reviewGateRows } = await supabase.from('clients')
+        .select('id, email, phone, sms_consent, do_not_service').eq('tenant_id', tenant.id).in('id', reviewGateIds)
+      const reviewGateWouldRunAtAll = (reviewGateRows || []).filter(c => !c.do_not_service).map(c => c.id)
+      const reviewGateWouldText = (reviewGateRows || []).filter(c => !c.do_not_service && !!c.phone && c.sms_consent !== false).map(c => c.id)
+      add('review-gate: the fixed predicate blocks the whole action (403) for the do_not_service client', !reviewGateWouldRunAtAll.includes(reviewGateDnsClient?.id), JSON.stringify(reviewGateWouldRunAtAll))
+      add('review-gate: the fixed predicate still runs the action (email sent) for the STOP-revoked client, but skips the SMS leg', reviewGateWouldRunAtAll.includes(reviewGateStopClient?.id) && !reviewGateWouldText.includes(reviewGateStopClient?.id), JSON.stringify({ reviewGateWouldRunAtAll, reviewGateWouldText }))
+      add('review-gate: CONTROL — the fixed predicate runs the action and texts the consented, non-banned client', reviewGateWouldText.includes(reviewGateOkClient?.id), JSON.stringify(reviewGateWouldText))
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
