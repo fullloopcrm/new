@@ -22,11 +22,12 @@ export async function POST(request: Request) {
 
     const { data: acct } = await supabaseAdmin
       .from('bank_accounts')
-      .select('id')
+      .select('id, entity_id')
       .eq('tenant_id', tenantId)
       .eq('id', bankAccountId)
       .single()
     if (!acct) return NextResponse.json({ error: 'Bank account not found' }, { status: 404 })
+    const entityId = (acct as { entity_id?: string | null }).entity_id || null
 
     const bytes = Buffer.from(await file.arrayBuffer())
     const fileHash = sha256File(bytes)
@@ -66,6 +67,7 @@ export async function POST(request: Request) {
       .insert({
         tenant_id: tenantId,
         bank_account_id: bankAccountId,
+        entity_id: entityId,
         source: parsed.source,
         filename: file.name,
         sha256: fileHash,
@@ -105,38 +107,53 @@ export async function POST(request: Request) {
     }
 
     const accepted = toInsert.filter(r => !r.duplicate)
-    const duplicates = toInsert.length - accepted.length
+    let raceDuplicates = 0
 
     if (accepted.length > 0) {
-      const { error: iErr } = await supabaseAdmin.from('bank_transactions').insert(
-        accepted.map(r => ({
-          tenant_id: tenantId,
-          bank_account_id: bankAccountId,
-          import_batch_id: batch.id,
-          txn_date: r.txn_date,
-          posted_date: r.posted_date || null,
-          description: r.description,
-          counterparty: r.counterparty || null,
-          amount_cents: r.amount_cents,
-          check_number: r.check_number || null,
-          external_id: r.external_id || null,
-          fingerprint: r.fingerprint,
-          status: 'pending',
-        })),
-      )
-      if (iErr) throw iErr
+      const acceptedRows = accepted.map(r => ({
+        tenant_id: tenantId,
+        bank_account_id: bankAccountId,
+        entity_id: entityId,
+        import_batch_id: batch.id,
+        txn_date: r.txn_date,
+        posted_date: r.posted_date || null,
+        description: r.description,
+        counterparty: r.counterparty || null,
+        amount_cents: r.amount_cents,
+        check_number: r.check_number || null,
+        external_id: r.external_id || null,
+        fingerprint: r.fingerprint,
+        status: 'pending',
+      }))
+      const { error: iErr } = await supabaseAdmin.from('bank_transactions').insert(acceptedRows)
+      if (iErr) {
+        // 23505 = unique_violation on (bank_account_id, fingerprint)
+        // (migrations/032_ledger.sql). A multi-row insert is all-or-nothing,
+        // so one row racing a concurrent import's commit would otherwise
+        // sink every other legitimately-new row in this batch. Retry
+        // row-by-row so only the actual race loser is dropped.
+        if (iErr.code !== '23505') throw iErr
+        for (const row of acceptedRows) {
+          const { error: rowErr } = await supabaseAdmin.from('bank_transactions').insert(row)
+          if (rowErr?.code === '23505') raceDuplicates++
+          else if (rowErr) throw rowErr
+        }
+      }
     }
+
+    const acceptedCount = accepted.length - raceDuplicates
+    const duplicates = toInsert.length - accepted.length + raceDuplicates
 
     await supabaseAdmin
       .from('bank_import_batches')
-      .update({ accepted_count: accepted.length, duplicate_count: duplicates })
+      .update({ accepted_count: acceptedCount, duplicate_count: duplicates })
       .eq('id', batch.id)
 
     return NextResponse.json({
       ok: true,
       source: parsed.source,
       rows_parsed: rows.length,
-      accepted: accepted.length,
+      accepted: acceptedCount,
       duplicates,
       period_start: periodStart,
       period_end: periodEnd,
