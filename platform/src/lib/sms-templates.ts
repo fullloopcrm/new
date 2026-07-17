@@ -44,11 +44,12 @@ export function smsCancellation(bizName: string, booking: { start_time: string }
   return `${bizName}: Your ${date} appointment has been cancelled.${link}${STOP_TEXT}`
 }
 
-export function smsReschedule(bizName: string, booking: { start_time: string }, portalUrl?: string): string {
+export function smsReschedule(bizName: string, booking: { start_time: string; is_emergency?: boolean | null }, portalUrl?: string): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const link = portalUrl ? ` Details: ${portalUrl}` : ''
-  return `${bizName}: Your appointment has been rescheduled to ${newDate} at ${newTime}.${link}${STOP_TEXT}`
+  const urgentLine = booking.is_emergency ? ' This is now a same-day/emergency appointment — our emergency rate applies.' : ''
+  return `${bizName}: Your appointment has been rescheduled to ${newDate} at ${newTime}.${urgentLine}${link}${STOP_TEXT}`
 }
 
 export function smsThankYou(bizName: string, clientName: string): string {
@@ -205,10 +206,11 @@ export function smsCancellationES(bizName: string, booking: { start_time: string
   return `${bizName}: Su cita del ${date} ha sido cancelada.${STOP_TEXT_ES}`
 }
 
-export function smsRescheduleES(bizName: string, booking: { start_time: string }): string {
+export function smsRescheduleES(bizName: string, booking: { start_time: string; is_emergency?: boolean | null }): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  return `${bizName}: Su cita ha sido reprogramada para ${newDate} a las ${newTime}.${STOP_TEXT_ES}`
+  const urgentLine = booking.is_emergency ? ' Esta cita ahora es de emergencia el mismo día — aplica nuestra tarifa de emergencia.' : ''
+  return `${bizName}: Su cita ha sido reprogramada para ${newDate} a las ${newTime}.${urgentLine}${STOP_TEXT_ES}`
 }
 
 export function smsJobAssignmentES(bizName: string, booking: { start_time: string; clients?: { name: string } | null }): string {

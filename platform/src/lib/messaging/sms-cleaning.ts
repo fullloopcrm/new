@@ -106,7 +106,8 @@ export function cancellation(brand: TenantBrand, booking: BookingLike): string {
 export function reschedule(brand: TenantBrand, booking: BookingLike): string {
   const newDate = etDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
-  return `${brand.name}: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}. ${ARRIVAL_WINDOW_NOTE_SMS} Details: ${brand.bookUrl}${STOP_TEXT}`
+  const urgentLine = booking.is_emergency ? ' This is now a same-day/emergency booking — our emergency rate applies.' : ''
+  return `${brand.name}: Your cleaning has been rescheduled to ${newDate}, arrival window ${newTime}.${urgentLine} ${ARRIVAL_WINDOW_NOTE_SMS} Details: ${brand.bookUrl}${STOP_TEXT}`
 }
 
 export function thankYou(brand: TenantBrand, clientName: string): string {
@@ -147,5 +148,6 @@ export function cancellationES(brand: TenantBrand, booking: BookingLike): string
 export function rescheduleES(brand: TenantBrand, booking: BookingLike): string {
   const newDate = etDate(booking.start_time)
   const newTime = clientArrivalWindow(booking.start_time)
-  return `${brand.name}: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}. ${ARRIVAL_WINDOW_NOTE_ES} Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
+  const urgentLine = booking.is_emergency ? ' Esta reserva ahora es de emergencia el mismo día — aplica nuestra tarifa de emergencia.' : ''
+  return `${brand.name}: Tu limpieza ha sido reprogramada para ${newDate}, ventana de llegada ${newTime}.${urgentLine} ${ARRIVAL_WINDOW_NOTE_ES} Detalles: ${brand.bookUrl}${STOP_TEXT_ES}`
 }

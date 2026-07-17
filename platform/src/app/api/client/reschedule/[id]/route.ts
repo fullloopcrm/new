@@ -108,13 +108,23 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   void (async () => {
     const newDate = body.start_time ? fmtDate(body.start_time, tz) : ''
     const newTime = body.start_time ? fmtTime(body.start_time, tz) : ''
+    // Item (56) fixed the team-member push/quiet-hours leg of this exact
+    // reschedule-into-emergency event; the client's own two channels below
+    // (email + SMS) were still silent about the urgency/rate change they're
+    // the ones actually billed for. Computed once here, ahead of the
+    // client-facing blocks rather than only inside the team-member block.
+    const isEmergency = Boolean(updated.is_emergency)
 
     // 1. Client confirmation email
     if (updated.clients?.email && tenant.resend_api_key) {
+      const urgentNotice = isEmergency
+        ? '<p style="color:#b91c1c;"><strong>🚨 This is now a same-day/emergency appointment</strong> — our emergency rate applies.</p>'
+        : ''
       const html = `<div style="font-family:system-ui;-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
         <h2>Your booking has been rescheduled</h2>
         <p><strong>${escapeHtml(tenant.name)}</strong> moved your appointment.</p>
         <p><strong>From:</strong> ${oldDate} at ${oldTime}<br/><strong>To:</strong> ${newDate} at ${newTime}</p>
+        ${urgentNotice}
       </div>`
       await sendEmail({
         to: updated.clients.email,
@@ -151,7 +161,6 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // 4. Team member (if assigned)
     if (updated.team_member_id) {
-      const isEmergency = Boolean(updated.is_emergency)
       await notifyTeamMember({
         tenantId: tenant.id,
         teamMemberId: updated.team_member_id,
