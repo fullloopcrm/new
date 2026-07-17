@@ -214,10 +214,11 @@ export function formatRecurringLabel(
 /**
  * Date-independent variant of formatRecurringLabel, for call sites (client
  * health/LTV dashboards) that only have the recurring_type, no occurrence date
- * to derive a monthly_weekday week-number/day-name from. Same raw-value
- * fallback discipline: known cadences get a real label, monthly_weekday and
- * any unrecognized/legacy display-string value pass through unformatted
- * rather than showing blank.
+ * to derive a monthly_weekday week-number/day-name from. monthly_weekday
+ * collapses to the same generic 'Monthly' label as monthly_date (same
+ * information loss already accepted for monthly_date here) rather than
+ * leaking the raw enum key to admin UI. Only truly unrecognized/legacy
+ * values pass through unformatted, rather than showing blank.
  */
 export function formatRecurringFrequency(recurringType: string | null | undefined): string {
   if (!recurringType) return ''
@@ -226,7 +227,9 @@ export function formatRecurringFrequency(recurringType: string | null | undefine
     case 'weekly': return 'Weekly'
     case 'biweekly': return 'Bi-weekly'
     case 'triweekly': return 'Tri-weekly'
-    case 'monthly_date': return 'Monthly'
+    case 'monthly_date':
+    case 'monthly_weekday':
+      return 'Monthly'
     case 'custom': return 'Custom'
     default: return recurringType
   }

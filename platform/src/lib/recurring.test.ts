@@ -285,8 +285,8 @@ describe('formatRecurringFrequency', () => {
     expect(formatRecurringFrequency('custom')).toBe('Custom')
   })
 
-  it('falls back to the raw value for monthly_weekday (needs a date to name the week/day) and unrecognized values', () => {
-    expect(formatRecurringFrequency('monthly_weekday')).toBe('monthly_weekday')
+  it('collapses monthly_weekday to the same generic "Monthly" label as monthly_date (no date available to name the week/day), and falls back to the raw value only for truly unrecognized values', () => {
+    expect(formatRecurringFrequency('monthly_weekday')).toBe('Monthly')
     expect(formatRecurringFrequency('some-legacy-value')).toBe('some-legacy-value')
   })
 
