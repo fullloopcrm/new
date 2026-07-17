@@ -112,3 +112,41 @@ describe('PUT /api/client/reschedule/[id] — team_member_id ownership', () => {
     expect(res.status).toBe(200)
   })
 })
+
+describe('PUT /api/client/reschedule/[id] — booking_team_members lead sync', () => {
+  it('replaces the stale booking_team_members lead row on reassign', async () => {
+    fake._seed('booking_team_members', [
+      { id: 'btm-1', tenant_id: TENANT_ID, booking_id: BOOKING_ID, team_member_id: INACTIVE_MEMBER_ID, is_lead: true, position: 1 },
+    ])
+    const res = await putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', team_member_id: ACTIVE_MEMBER_ID })
+    expect(res.status).toBe(200)
+
+    const leadRows = (fake._store.get('booking_team_members') || []).filter((r) => r.booking_id === BOOKING_ID && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe(ACTIVE_MEMBER_ID)
+    expect(leadRows[0].tenant_id).toBe(TENANT_ID)
+  })
+
+  it('unassigning (team_member_id: null) deletes the stale lead row without inserting a new one', async () => {
+    fake._seed('booking_team_members', [
+      { id: 'btm-1', tenant_id: TENANT_ID, booking_id: BOOKING_ID, team_member_id: ACTIVE_MEMBER_ID, is_lead: true, position: 1 },
+    ])
+    const res = await putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z', team_member_id: null })
+    expect(res.status).toBe(200)
+
+    const leadRows = (fake._store.get('booking_team_members') || []).filter((r) => r.booking_id === BOOKING_ID && r.is_lead)
+    expect(leadRows.length).toBe(0)
+  })
+
+  it('a reschedule that never touches team_member_id leaves booking_team_members untouched', async () => {
+    fake._seed('booking_team_members', [
+      { id: 'btm-1', tenant_id: TENANT_ID, booking_id: BOOKING_ID, team_member_id: ACTIVE_MEMBER_ID, is_lead: true, position: 1 },
+    ])
+    const res = await putReq({ start_time: '2026-08-05T10:00:00.000Z', end_time: '2026-08-05T11:00:00.000Z' })
+    expect(res.status).toBe(200)
+
+    const leadRows = (fake._store.get('booking_team_members') || []).filter((r) => r.booking_id === BOOKING_ID && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe(ACTIVE_MEMBER_ID)
+  })
+})

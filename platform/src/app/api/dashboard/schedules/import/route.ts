@@ -117,17 +117,36 @@ export async function POST(request: Request) {
 
     let importedBookings = 0
     let importedRecurring = 0
+    const insertedBookingRows: { id: string; team_member_id: string | null }[] = []
     const insertBatched = async (table: string, list: Record<string, unknown>[]) => {
       let n = 0
       for (let i = 0; i < list.length; i += 200) {
-        const { data, error } = await db.from(table).insert(list.slice(i, i + 200)).select('id')
+        const { data, error } = await db.from(table).insert(list.slice(i, i + 200)).select('id, team_member_id')
         if (error) errors.push(`${table} batch ${Math.floor(i / 200) + 1}: ${error.message}`)
-        else n += data?.length || 0
+        else {
+          n += data?.length || 0
+          if (table === 'bookings') insertedBookingRows.push(...((data || []) as { id: string; team_member_id: string | null }[]))
+        }
       }
       return n
     }
     if (bookings.length) importedBookings = await insertBatched('bookings', bookings)
     if (recurring.length) importedRecurring = await insertBatched('recurring_schedules', recurring)
+
+    // GET /api/bookings/:id/team and closeout-summary source the lead from
+    // booking_team_members, not bookings.team_member_id -- an imported row
+    // with a resolved staff_name match landed on bookings.team_member_id but
+    // left booking_team_members empty, so it showed as unassigned in the
+    // admin Team panel and closeout payout attribution. Same
+    // booking_team_members-sync gap fixed at every other bookings.team_member_id
+    // write site this session.
+    const teamRows = insertedBookingRows
+      .filter((r) => r.team_member_id)
+      .map((r) => ({ booking_id: r.id, team_member_id: r.team_member_id as string, is_lead: true, position: 1 }))
+    if (teamRows.length) {
+      const { error: teamErr } = await db.from('booking_team_members').upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+      if (teamErr) errors.push(`booking_team_members: ${teamErr.message}`)
+    }
 
     await audit({
       tenantId, action: 'booking.created', entityType: 'booking',

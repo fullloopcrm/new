@@ -91,6 +91,21 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     )
   }
 
+  // GET /api/bookings/:id/team and closeout-summary source the lead from
+  // booking_team_members, not bookings.team_member_id -- a client-initiated
+  // reassign here updated the latter but left the stale (or missing) lead
+  // row behind. Same booking_team_members-sync gap fixed at every other
+  // bookings.team_member_id write site this session.
+  if (body.team_member_id !== undefined) {
+    await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', id).eq('is_lead', true)
+    if (body.team_member_id) {
+      await supabaseAdmin.from('booking_team_members').upsert(
+        { tenant_id: tenant.id, booking_id: id, team_member_id: body.team_member_id, is_lead: true, position: 1 },
+        { onConflict: 'booking_id,team_member_id' }
+      )
+    }
+  }
+
   // Async fan-out — never block the response on notification failures.
   void (async () => {
     const newDate = body.start_time ? fmtDate(body.start_time, tz) : ''
