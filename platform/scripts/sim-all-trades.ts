@@ -2506,6 +2506,42 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-23. campaigns (marketing email+SMS) — DO_NOT_SERVICE NEVER CHECKED (fresh ground, unlike 5a-18..5a-22's transactional/automated sends, this is the bulk marketing send path -- campaigns/[id]/send and campaigns/send both already enforced the per-channel marketing opt-outs but never do_not_service, the codebase-wide "NEVER contact" flag) ----
+    // requirePermission needs headers()/cookies() this harness doesn't
+    // have, so — same reasoning as 5a-18/5a-22 — this proves the fixed
+    // predicate against a real clients row in this archetype tenant
+    // through the exact column selection both campaign routes now use
+    // (`clients(..., sms_consent, do_not_service)`), rather than calling
+    // the routes directly.
+    {
+      const campaignGatePhone = '646' + String(4100000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: campaignGateDnsClient, error: campaignGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Campaign-Gate Banned Client', email: `campaigngate-dns+${runId}@example.com`,
+        phone: campaignGatePhone, status: 'active', sms_consent: true, email_marketing_opt_out: false, sms_marketing_opt_out: false, do_not_service: true,
+      }).select('id, do_not_service').single()
+      add('campaign-gate: do_not_service client row created (do_not_service=true, both marketing opt-outs false)', !!campaignGateDnsClient && !campaignGateDnsErr, campaignGateDnsErr?.message)
+
+      const { data: campaignGateOkClient, error: campaignGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Campaign-Gate Good Client', email: `campaigngate-ok+${runId}@example.com`,
+        phone: campaignGatePhone + '1', status: 'active', sms_consent: true, email_marketing_opt_out: false, sms_marketing_opt_out: false, do_not_service: false,
+      }).select('id, do_not_service').single()
+      add('campaign-gate: CONTROL non-banned client row created (do_not_service=false)', !!campaignGateOkClient && !campaignGateOkErr, campaignGateOkErr?.message)
+
+      // Live schema — re-read straight from prod through the exact column
+      // selection both fixed campaign routes now use, and apply the exact
+      // gate predicate both fixes share (per-channel opt-out || do_not_service).
+      const campaignGateIds = [campaignGateDnsClient?.id, campaignGateOkClient?.id].filter(Boolean) as string[]
+      const { data: campaignGateRows } = await supabase.from('clients')
+        .select('id, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent, do_not_service')
+        .eq('tenant_id', tenant.id).in('id', campaignGateIds)
+      const campaignGateWouldEmail = (campaignGateRows || []).filter(c => !!c.email && !c.email_marketing_opt_out && !c.do_not_service).map(c => c.id)
+      const campaignGateWouldText = (campaignGateRows || []).filter(c => !!c.phone && !c.sms_marketing_opt_out && c.sms_consent !== false && !c.do_not_service).map(c => c.id)
+      add('campaign-gate: the fixed predicate excludes the banned client from the email leg', !campaignGateWouldEmail.includes(campaignGateDnsClient?.id), JSON.stringify(campaignGateWouldEmail))
+      add('campaign-gate: the fixed predicate excludes the banned client from the SMS leg', !campaignGateWouldText.includes(campaignGateDnsClient?.id), JSON.stringify(campaignGateWouldText))
+      add('campaign-gate: CONTROL — the fixed predicate still reaches the non-banned client on both legs', campaignGateWouldEmail.includes(campaignGateOkClient?.id) && campaignGateWouldText.includes(campaignGateOkClient?.id), JSON.stringify({ campaignGateWouldEmail, campaignGateWouldText }))
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
