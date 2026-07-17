@@ -1949,6 +1949,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           add("recurring-drift: Mar returns to the TRUE anchor day 31 -- proves no permanent drift off Feb's clamp (the old bug would already read Apr 3 here, two months behind)", generated[2]?.getMonth() === 2 && generated[2]?.getDate() === 31, generated[2]?.toISOString())
           add('recurring-drift: May (a second 31-day month, crossed after two more short/long months) is still 31 -- confirms the anchor never degrades across repeated crossings', generated[4]?.getMonth() === 4 && generated[4]?.getDate() === 31, generated[4]?.toISOString())
         }
+
+        // ---- 5a-13. CRON/REMINDERS + CRON/DAILY-SUMMARY — TERMINATED-CREW GUARD ON STALE BOOKING ASSIGNMENT (fresh ground, broadened back to the terminated-crew bug class via a NEW trigger: an automated cron reading a pre-termination assignment, not an admin-triggered NEW-assignment write) ----
+        // Every terminated-crew guard fixed earlier in this archetype block
+        // (5a-4/6/7/8/9/10) blocks a NEW write that would assign the
+        // already-terminated worker (5a-2) going forward. None of them touch
+        // bookings.team_member_id on bookings that were assigned BEFORE the
+        // termination -- HR termination (PATCH /api/dashboard/hr/[id]) only
+        // ever writes hr_employee_profiles.hr_status, it never unassigns the
+        // worker's existing FUTURE bookings. Two hourly/daily crons read that
+        // stale assignment straight off bookings with zero hr_status check:
+        // cron/reminders' day-before "Job Tomorrow" text (+ NYC Maid's full
+        // route text) and 2-hour-before text, and cron/daily-summary's 3-day
+        // lookahead SMS/email/push (whose team_members.status='active' filter
+        // does nothing here -- that column is independent of hr_status and
+        // termination never touches it either). Fixed this round: both crons
+        // now batch getTerminatedTeamMemberIds over each query pass's
+        // team_member_ids and skip a terminated assignee's texts.
+        //
+        // These are CRON_SECRET-gated routes with no per-tenant scoping --
+        // calling the real GET handlers here would sweep every ACTIVE tenant
+        // in this database and fire real Telnyx/Resend sends, far outside a
+        // single archetype tenant's blast radius. Same class of reason 5a-2's
+        // termination-guard mirrors call getTerminatedTeamMemberIds directly
+        // rather than the route (there: no request context; here: no
+        // single-tenant scope + real side effects) -- proves the exact guard
+        // both crons now call, against a REAL future booking row in this
+        // archetype tenant, not a reimplementation.
+        {
+          const staleAssignStart = new Date(); staleAssignStart.setDate(staleAssignStart.getDate() + 1); staleAssignStart.setHours(9, 0, 0, 0)
+          const staleAssignEnd = new Date(staleAssignStart.getTime() + 2 * 3600 * 1000)
+
+          const { data: staleTermBooking, error: staleTermErr } = await supabase.from('bookings').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, team_member_id: worker.id,
+            start_time: staleAssignStart.toISOString(), end_time: staleAssignEnd.toISOString(),
+            status: 'confirmed', service_type: 'post-termination stale-assignment reminder probe',
+          }).select('id, team_member_id').single()
+          add('cron-reminder-guard: future booking seeded still pointing at the already-terminated worker (termination never unassigns it)', !!staleTermBooking && !staleTermErr && staleTermBooking.team_member_id === worker.id, staleTermErr?.message)
+
+          const staleActiveBooking = helper?.id ? await supabase.from('bookings').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, team_member_id: helper.id,
+            start_time: staleAssignStart.toISOString(), end_time: staleAssignEnd.toISOString(),
+            status: 'confirmed', service_type: 'CONTROL: active helper reminder probe',
+          }).select('id, team_member_id').single() : null
+
+          // Exact guard both fixed crons now call before texting a booking's
+          // assigned team member, batched over the distinct ids in the query
+          // pass -- reproducing that batch call against these two real rows.
+          const reminderCandidateIds = [staleTermBooking?.team_member_id, staleActiveBooking?.data?.team_member_id].filter(Boolean) as string[]
+          const reminderTerminatedIds = await getTerminatedTeamMemberIds(tenant.id, reminderCandidateIds)
+          add('cron-reminder-guard: the terminated worker\'s stale-assigned booking is caught by the guard the crons now apply before sending', reminderTerminatedIds.includes(worker.id), JSON.stringify(reminderTerminatedIds))
+          if (helper?.id) {
+            add('cron-reminder-guard: CONTROL — the active helper\'s booking is NOT caught, still gets the reminder', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
+          }
+        }
       }
     }
 
