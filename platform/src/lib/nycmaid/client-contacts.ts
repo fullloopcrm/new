@@ -107,6 +107,7 @@ export async function getContactById(contactId: string): Promise<ClientContact |
  */
 export async function createPrimaryContact(
   clientId: string,
+  tenantId: string,
   input: { name?: string | null; phone?: string | null; email?: string | null }
 ): Promise<void> {
   const phone_e164 = input.phone ? normalizePhone(input.phone) : null
@@ -114,7 +115,16 @@ export async function createPrimaryContact(
   if (!phone_e164 && !email) return
 
   const now = new Date().toISOString()
-  await supabaseAdmin.from('client_contacts').insert({  // tenant-scope-ok: nycmaid-legacy helper; retires with the standalone cutover
+  // Every other client_contacts write path (POST /clients/[id]/contacts,
+  // set_primary_client_contact's p_tenant_id) carries tenant_id -- this insert
+  // omitted it, and its only caller wraps it in `.catch(() => {})`. If
+  // tenant_id is NOT NULL on this table (every other row-write here sets it,
+  // same as the RPC's WHERE clause expects), the insert has been failing
+  // silently for every client created through the SMS/AI-chatbot path, and
+  // even where it succeeds a null tenant_id makes the row invisible to any
+  // tenant-scoped lookup (e.g. webhooks/telnyx's STOP/START handler).
+  await supabaseAdmin.from('client_contacts').insert({
+    tenant_id: tenantId,
     client_id: clientId,
     name: input.name || null,
     role: 'primary',
