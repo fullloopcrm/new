@@ -42,12 +42,12 @@ export async function GET(request: NextRequest) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data, error } = (await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, start_time, end_time, service_type, price, status, clients(address)')
+      .select('id, start_time, end_time, service_type, price, status, is_emergency, clients(address)')
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
       .gte('start_time', today.toISOString())
       .order('start_time')) as {
-      data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; clients: { address: string | null } | { address: string | null }[] | null }[] | null
+      data: { id: string; start_time: string; end_time: string; service_type: string; price: number; status: string; is_emergency: boolean | null; clients: { address: string | null } | { address: string | null }[] | null }[] | null
       error: { message: string } | null
     }
 
@@ -62,6 +62,7 @@ export async function GET(request: NextRequest) {
         service_type: b.service_type,
         price: b.price,
         status: b.status,
+        is_emergency: !!b.is_emergency,
         area: maskArea(client?.address),
       }
     })

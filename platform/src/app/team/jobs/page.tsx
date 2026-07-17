@@ -11,6 +11,7 @@ type Job = {
   end_time: string | null
   // Open-pool jobs are masked: only a coarse area, no client name/address/phone.
   area: string | null
+  is_emergency?: boolean
 }
 
 export default function OpenJobsPage() {
@@ -57,8 +58,11 @@ export default function OpenJobsPage() {
 
       <div className="space-y-3">
         {jobs.map((job) => (
-          <div key={job.id} className="bg-white border border-gray-200 rounded-xl p-4">
+          <div key={job.id} className={`bg-white rounded-xl p-4 border ${job.is_emergency ? 'border-red-300 ring-1 ring-red-200' : 'border-gray-200'}`}>
             <div className="mb-3">
+              {job.is_emergency && (
+                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white mb-1">🚨 {t('URGENT', 'URGENTE')}</span>
+              )}
               <p className="font-semibold text-slate-800">{job.service_type || 'Service'}</p>
               <p className="text-sm text-slate-400">{new Date(job.start_time).toLocaleString()}</p>
               {job.area && <p className="text-sm text-slate-400">📍 {job.area}</p>}
