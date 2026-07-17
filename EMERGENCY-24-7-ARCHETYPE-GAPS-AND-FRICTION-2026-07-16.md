@@ -278,6 +278,22 @@ the pay rate) before touching the templates, verified by reading
 (worktree still has no `.env.local`/Supabase env for a live call, same
 constraint as P11.8-20).
 
+**Update, later this session — the PULL half is now FIXED (`p1-w3`); the
+PUSH half is still open, unchanged.** Of the two channels named above,
+direct-assignment SMS (`jobAssignment()`/`smsJobAssignment()`) genuinely
+needs a copy/wording decision before touching the templates — left as-is,
+still the open product call described above. But the self-claim open-jobs
+listing needed no wording decision, only the same mechanical fix as item
+(8): `GET /api/team-portal/jobs?available=true` now selects `is_emergency`
+and threads it through the masked response (`route.ts`), and
+`team/jobs/page.tsx` (the tech-facing open-jobs screen) now renders a 🚨
+badge + red ring on any emergency card in the pool. A tech voluntarily
+browsing open jobs can now see which ones are urgent and prioritize their
+own claim order; a tech who's *pushed* an assignment via SMS still gets no
+urgency signal in that message. 2 new tests
+(`route.emergency-flag.test.ts`), mutation-verified. `tsc --noEmit` clean,
+full suite 329/329 files, 1745/1745 tests, zero regressions.
+
 ## (8) New today — the operator's own admin UI never visually flags an emergency booking either — NOW FIXED
 
 Third and final leg of items (7)'s "who ever finds out this job is
