@@ -209,6 +209,24 @@ describe('batch-update — cross-tenant client_id guard', () => {
   })
 })
 
+/**
+ * BUG (fixed here): the edit modal's own service-type dropdown
+ * (BookingsAdmin.tsx form.service_type) writes the free-text `service_type`
+ * column on the batch payload -- service_type_id is a separate FK the admin
+ * UI never populates. UPDATABLE_FIELDS only recognized service_type_id, so a
+ * series-wide "apply to all future bookings" service-type correction was
+ * silently dropped by pick() on every row, same bug class as the
+ * team_member_id field-name gap fixed earlier this round.
+ */
+describe('batch-update — service_type free-text field', () => {
+  it('service_type now passes the allowlist and persists (was silently dropped)', async () => {
+    const res = await PUT(req([{ id: 'bk-1', data: { service_type: 'Deep Clean' } }]))
+    expect(res.status).toBe(200)
+    const call = holder.updateCalls.find((c) => c.id === 'bk-1')
+    expect(call!.values.service_type).toBe('Deep Clean')
+  })
+})
+
 describe('batch-update — cross-tenant service_type_id guard', () => {
   it('rejects the whole batch when any update targets a foreign service type (wrong-tenant probe)', async () => {
     const res = await PUT(req([{ id: 'bk-1', data: { service_type_id: 'st-foreign' } }]))

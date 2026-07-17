@@ -50,7 +50,14 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
+    // service_type (free text) is the only field the edit modal's own service
+    // dropdown writes (BookingsAdmin.tsx form.service_type) -- service_type_id
+    // is a separate FK the admin UI never populates. Without it here, every
+    // admin correction to a booking's service type via the edit modal was
+    // silently dropped by pick() (bug class identical to the batch-update
+    // cleaner_id/team_member_id field-name gap, just a missing field instead
+    // of a wrong name).
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'service_type', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
 
     // client_id/team_member_id/service_type_id are caller-supplied FKs — this
     // route's own response (and every GET) embeds clients(name/phone/address/

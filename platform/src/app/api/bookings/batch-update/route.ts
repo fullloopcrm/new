@@ -8,8 +8,14 @@ import { pick } from '@/lib/validate'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Same allowlist as PUT /api/bookings/[id] — kept in sync so a batch edit can
-// touch exactly the same fields a single edit can, no more.
-const UPDATABLE_FIELDS = ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price']
+// touch exactly the same fields a single edit can, no more. service_type
+// (free text) is what BookingsAdmin.tsx's edit-modal dropdown actually
+// writes (form.service_type) -- service_type_id is a separate FK the admin
+// UI never populates. Without it here, every series-wide correction to a
+// booking's service type via "apply to all future bookings" was silently
+// dropped by pick() -- same missing-allowlist-entry bug class as the
+// team_member_id field-name gap fixed earlier this round.
+const UPDATABLE_FIELDS = ['client_id', 'team_member_id', 'service_type_id', 'service_type', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price']
 
 /**
  * Batch update multiple bookings in parallel.
