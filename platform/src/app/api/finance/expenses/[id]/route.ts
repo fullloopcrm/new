@@ -62,6 +62,31 @@ export async function DELETE(
     const { tenantId } = _authTenant
     const { id } = await params
 
+    // matched_bank_transaction_id is only ever set by the bank-transaction
+    // match route (POST /api/finance/bank-transactions/[id]/match), which
+    // also posts a real journal entry for the cash outflow. There's no
+    // unmatch endpoint, no status/void field on this table, and tax-export
+    // + year-end-zip read this table directly (not journal_lines) — so
+    // hard-deleting a reconciled expense would silently orphan the bank
+    // transaction's matched_expense_id (ON DELETE SET NULL) and drop the
+    // vendor/receipt/category record backing an already-posted ledger entry
+    // out of tax reporting, with no way to reattach it.
+    const { data: existing } = await supabaseAdmin
+      .from('expenses')
+      .select('id, matched_bank_transaction_id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (!existing) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
+    if (existing.matched_bank_transaction_id) {
+      return NextResponse.json(
+        { error: 'This expense is reconciled to a bank transaction and already posted to the ledger — it cannot be deleted.' },
+        { status: 409 }
+      )
+    }
+
     const { error } = await supabaseAdmin
       .from('expenses')
       .delete()
