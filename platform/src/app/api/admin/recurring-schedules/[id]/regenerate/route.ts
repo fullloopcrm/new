@@ -14,6 +14,14 @@ import { computeNaiveVisitWindow } from '@/lib/recurring'
 //   3. insert the new pattern's bookings (carrying the schedule's property_id)
 // Tenant-scoped, admin-only, no client notifications (admin-managed flow).
 
+// Sibling routes (POST ../route.ts, PUT ../[id]/route.ts) both guard
+// recurring_type against this exact allowlist -- this route wrote
+// body.recurring_type straight onto the schedule rule with no check, so an
+// invalid value (e.g. a display string like 'Weekly' instead of the raw
+// 'weekly') silently zeroes out cron/generate-recurring's date math
+// (generateRecurringDates' switch falls through every case) with no error.
+const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
+
 function parseTime(raw: string | null | undefined): { h: number; m: number } {
   const s = String(raw || '09:00')
   const match = s.match(/(\d{1,2})\D+(\d{2})/)
@@ -57,6 +65,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     : []
   if (dates.length === 0) {
     return NextResponse.json({ error: 'dates[] required' }, { status: 400 })
+  }
+
+  if (recurring_type !== undefined && !VALID_RECURRING_TYPES.includes(recurring_type)) {
+    return NextResponse.json({ error: `recurring_type must be one of: ${VALID_RECURRING_TYPES.join(', ')}` }, { status: 400 })
   }
 
   // Distinguish "caller didn't send this field" from "caller explicitly wants

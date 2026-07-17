@@ -13,6 +13,20 @@ import { formatPhone } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
 
+// recurring_schedules.recurring_type drives real cron/generate-recurring date
+// math (lib/recurring.ts's strict generateRecurringDates switch, no default
+// case) -- unlike bookings.recurring_type, which this file stores as a
+// display-name badge (getRecurringDisplayName's output: 'Weekly'/'Monthly'/
+// '1st Mon') read verbatim by many badge call sites elsewhere in this file.
+// The two schedule-writing calls (create + regenerate) need the RAW
+// RecurringType key, not that display string -- form.repeat_type already IS
+// the raw key except 'monthly_day', which _RecurringOptions.tsx uses for its
+// own dropdown value but which the shared RecurringType (lib/recurring.ts)
+// spells 'monthly_weekday'.
+function rawRecurringType(repeatType: string): string {
+  return repeatType === 'monthly_day' ? 'monthly_weekday' : repeatType
+}
+
 export default function BookingsPageWrapper() {
   return (
     <Suspense>
@@ -859,7 +873,7 @@ function BookingsPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            recurring_type: recurringType,
+            recurring_type: rawRecurringType(form.repeat_type),
             day_of_week: startDateObj.getDay(),
             preferred_time: form.start_time,
             duration_hours: form.hours,
@@ -1036,7 +1050,7 @@ function BookingsPage() {
           client_id: createForm.client_id,
           property_id: createForm.property_id || null,
           cleaner_id: createForm.cleaner_id,
-          recurring_type: recurringType,
+          recurring_type: rawRecurringType(createForm.repeat_type),
           day_of_week: new Date(createForm.start_date + 'T12:00:00').getDay(),
           preferred_time: createForm.start_time,
           duration_hours: createForm.hours,

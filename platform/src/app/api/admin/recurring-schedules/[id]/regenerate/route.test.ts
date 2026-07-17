@@ -129,6 +129,19 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — validation', ()
 
     expect(res.status).toBe(404)
   })
+
+  // Sibling routes (POST ../route.ts, PUT ../[id]/route.ts) already guard
+  // recurring_type against this exact allowlist -- this route wrote it
+  // straight onto the rule with no check, so a display string like 'Weekly'
+  // (BookingsAdmin's own bookings.recurring_type badge convention) silently
+  // zeroed out every future cron/generate-recurring refill for the schedule.
+  it('rejects a recurring_type that is not a valid RecurringType with 400, and writes nothing', async () => {
+    const res = await POST(postReq({ ...baseBody, recurring_type: 'Weekly' }), params('sched-A1'))
+
+    expect(res.status).toBe(400)
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')?.recurring_type).toBeUndefined()
+    expect(h.store.bookings.filter((b) => b.schedule_id === 'sched-A1')).toHaveLength(4)
+  })
 })
 
 describe('POST /api/admin/recurring-schedules/:id/regenerate — tenant isolation', () => {
