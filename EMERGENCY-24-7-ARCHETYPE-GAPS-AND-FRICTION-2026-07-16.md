@@ -658,6 +658,71 @@ not excerpted) plus all 4 call sites directly (worktree still has no
 `.env.local`/Supabase env for a live call, same constraint as every other
 item in this doc).
 
+## (14) New today — the AI/SMS bot's own reschedule tool had the same emergency-rate gap item (11) fixed on the human-facing reschedule path — NOW FIXED
+
+Archetype depth, direct continuation of the price-transparency/urgency
+trilogy onto a channel item (11) never traced: both `reschedule_booking`
+tool handlers — `handleRescheduleBooking` in `src/lib/selena/core.ts`
+(Yinez, the nycmaid bot) and in `src/lib/selena-legacy-handlers.ts` (the
+multi-tenant legacy bot) — already had the *notice-period* guard (7 days /
+tenant-configured `reschedule_notice_days`), but neither ever touched
+`is_emergency`/`hourly_rate`/`price` on the row they updated, only
+`start_time`/`end_time`/`notes`. Both files' sibling `handleCreateBooking`
+already force the same-day emergency rate server-side (P11.16/17,
+`core.ts`'s own comment at the fix site cites this exact precedent) — the
+reschedule tool was the one entry point in each file that fell through that
+net, same shape as item (11)'s finding on `PUT
+/api/client/reschedule/[id]`'s `smsJobRescheduled` gap, just one layer
+earlier (the booking row itself, not just its SMS wording). Net effect: a
+client asking the AI bot to move an existing routine booking to today got
+the move confirmed at the original $69/$59 rate, with `is_emergency` left
+`false` — silently skipping the emergency rate and leaving every downstream
+`is_emergency`-reading consumer (admin badges, urgent SMS wording,
+schedule-monitor) blind to the fact that this is now a same-day job.
+
+**Fixed** (`p1-w3`) — both handlers now compute `isEmergency = (new_date ===
+today)` server-side and set `is_emergency` on every reschedule; when it
+lands on today, `core.ts` applies its own hardcoded $89/hr (matching its
+`handleCreateBooking` convention for the single-tenant nycmaid bot), and the
+legacy handler reads `tenant.selena_config.emergency_rate` off the same
+`tenants(...)` join already used for `reschedule_notice_days` (matching
+`selena-legacy.ts`'s `handleCreateBooking` convention for the
+multi-tenant bot) — if a tenant has no emergency rate configured,
+`is_emergency` still flips true but the rate is left untouched, same
+graceful-degradation shape as the human-facing route. 5 new tests across
+both files (same-day forces the rate, far-future leaves it alone, and for
+the legacy handler a no-emergency-config case). `tsc --noEmit` clean, full
+suite 333/333 files, 1763/1763 tests, zero regressions. Commit `00485307`.
+
+## (15) New today — the reschedule notice-period guard checks the wrong date entirely, on both AI bot handlers
+
+Fresh ground, found while fixing (14) and deliberately left alone —
+touching it is a live customer-facing bot-policy change, not a code-quality
+fix. Both `handleRescheduleBooking` implementations compute `daysUntil` from
+`booking.start_time` — the booking's **current, pre-change** date — and
+reject the reschedule if that's under the notice threshold (`7` days in
+`core.ts`, tenant's `reschedule_notice_days` in the legacy handler,
+default `2`). Read literally, the guard's own error message ("Booking is in
+`daysUntil` days. Need `N` days notice.") describes protecting the
+**original** appointment from a last-minute change — and the code as
+written does do that correctly. What it never checks at all is the
+**target** date the client is asking to move *to*. Concretely: a weekly
+recurring client's booking sitting 20 days out passes the notice check
+easily (20 ≥ 7), and the bot will happily move it to **today** with zero
+friction — no notice-days rejection of any kind, since `new_date`'s
+proximity to now is never evaluated, only the old booking's. Item (14)
+above makes that landing correctly priced/flagged as an emergency now, but
+whether the bot *should even allow* a zero-notice same-day reschedule
+through this low-friction channel in the first place — versus requiring the
+same notice period on the new date, or routing it to a human — is a real
+policy call (this session's already-decided precedent, `PUT
+/api/client/reschedule/[id]`, has no notice-period gate on this axis at
+all, so "block it" isn't obviously correct either; it might be exactly the
+self-service convenience the bot exists for). Not fixed — flagging with
+both code sites named (`selena/core.ts:handleRescheduleBooking`,
+`selena-legacy-handlers.ts:handleRescheduleBooking`) rather than guessing
+which date the notice policy is supposed to protect.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
