@@ -62,6 +62,7 @@ vi.mock('@/lib/supabase', () => {
               eqs[col] = val
               return chain
             },
+            or: () => chain,
             select: () => {
               const matches = Object.values(bookings).filter((b) =>
                 Object.entries(eqs).every(([k, v]) => (b as Record<string, unknown>)[k] === v),

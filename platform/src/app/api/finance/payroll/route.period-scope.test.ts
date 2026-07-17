@@ -48,9 +48,14 @@ vi.mock('@/lib/supabase', () => {
           const eqs: Record<string, unknown> = {}
           let gte: { col: string; val: string } | null = null
           let lte: { col: string; val: string } | null = null
+          let excludeTeamMemberPaid = false
           const chain = {
             eq: (col: string, val: unknown) => {
               eqs[col] = val
+              return chain
+            },
+            or: (clause: string) => {
+              if (clause.includes('team_member_paid')) excludeTeamMemberPaid = true
               return chain
             },
             gte: (col: string, val: string) => {
@@ -66,6 +71,10 @@ vi.mock('@/lib/supabase', () => {
                 if (!Object.entries(eqs).every(([k, v]) => (b as Record<string, unknown>)[k] === v)) return false
                 if (gte && ((b as Record<string, unknown>)[gte.col] as string) < gte.val) return false
                 if (lte && ((b as Record<string, unknown>)[lte.col] as string) > lte.val) return false
+                if (excludeTeamMemberPaid) {
+                  const paid = (b as Record<string, unknown>).team_member_paid
+                  if (paid != null && paid !== false) return false
+                }
                 return true
               })
               const claimed = matches.map((b) => {

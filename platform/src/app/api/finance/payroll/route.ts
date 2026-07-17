@@ -93,12 +93,24 @@ export async function POST(request: Request) {
     // never paid for that work. Mirrors payroll-prep's own from/to windowing
     // (gte/lte on start_time). No-period calls keep the prior blanket
     // behavior, same as the existing no-period dedup gap.
+    //
+    // Also exclude bookings already settled out-of-band via
+    // team_member_paid (POST /api/admin/bookings/[id]/cleaner-payout) --
+    // GET above already excludes these from "pending pay" with this exact
+    // OR clause, but this claim, the one that actually flips status and
+    // records payroll_payments, never applied it. A booking manually
+    // Zelle/cash-paid stays 'completed' (cleaner-payout never touches
+    // status), so it was fully re-claimable and re-paid a second time by
+    // the very next payroll run for that member/period -- a real double
+    // payment reachable through completely normal, sequential staff action,
+    // not a race.
     let bookingsQuery = supabaseAdmin
       .from('bookings')
       .update({ status: 'paid' })
       .eq('tenant_id', tenantId)
       .eq('team_member_id', team_member_id)
       .eq('status', 'completed')
+      .or('team_member_paid.is.null,team_member_paid.eq.false')
     if (period_start) bookingsQuery = bookingsQuery.gte('start_time', period_start)
     if (period_end) bookingsQuery = bookingsQuery.lte('start_time', period_end)
     const { data: claimedBookings, error: claimErr } = await bookingsQuery
