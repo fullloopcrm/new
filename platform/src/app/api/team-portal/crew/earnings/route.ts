@@ -28,7 +28,15 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('team_member_id, pay_rate, start_time, end_time, check_in_time, check_out_time, status')
       .in('team_member_id', scope)
-      .eq('status', 'completed')
+      // status='completed' only would silently drop a job the instant POST
+      // /api/finance/payroll (bulk payroll) claims it (flips status straight
+      // to 'paid') -- a crew lead's earnings roll-up going blind on real,
+      // recently-worked jobs the moment payroll runs, same blind spot
+      // already fixed on finance/summary, ar-aging, pending, and
+      // cleaner-income this session. No paid/unpaid split here (this is a
+      // gross trailing-30-day earnings figure), so no team_member_paid trap
+      // to guard against -- just widen the status filter.
+      .in('status', ['completed', 'paid'])
       .gte('start_time', since.toISOString()),
   ])
 
