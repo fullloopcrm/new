@@ -22,11 +22,15 @@ export async function GET() {
     const activeCutoff = new Date(Date.now() - settings.active_client_threshold_days * dayMs).toISOString()
     const atRiskCutoff = new Date(Date.now() - settings.at_risk_threshold_days * dayMs).toISOString()
 
+    // 'paid' is a completed job that bulk payroll (POST /api/finance/payroll)
+    // has since flipped past 'completed' once the team member was paid out —
+    // still real client LTV, so it must count here too. A client whose only
+    // booking got bulk-paid used to vanish from this report entirely.
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
       .select('client_id, price, start_time, status, clients(name)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .order('start_time', { ascending: false })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })

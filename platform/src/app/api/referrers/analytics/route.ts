@@ -55,7 +55,11 @@ export async function GET() {
       .not('referrer_id', 'is', null)
 
     const allReferred = (referredBookings as ReferredBooking[] | null) || []
-    const completedReferred = allReferred.filter(b => b.status === 'completed')
+    // 'paid' is a completed job bulk payroll has since flipped past
+    // 'completed' once the team member was paid out — still a finished
+    // referred job, so it must count here too, or this undercounts the
+    // instant payroll runs on a referred booking.
+    const completedReferred = allReferred.filter(b => b.status === 'completed' || b.status === 'paid')
     const allReferredRevenue = allReferred.reduce((s, b) => s + (b.price || 0), 0)
 
     const refClickCounts: Record<string, { ref_code: string; clicks: number; bookClicks: number }> = {}

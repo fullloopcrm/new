@@ -18,12 +18,17 @@ export async function GET() {
       .eq('tenant_id', tenant.tenantId)
       .order('created_at', { ascending: false })
 
-    // Get all completed bookings
+    // Get all completed bookings. 'paid' is a completed job that bulk
+    // payroll (POST /api/finance/payroll) has since flipped past
+    // 'completed' once the team member was paid out — still a real,
+    // revenue-generating job for the client, so it must count here too.
+    // Omitting it silently dropped a client's spend/booking history (and
+    // skewed active/inactive classification) the instant payroll ran.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('*')
       .eq('tenant_id', tenant.tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .order('start_time', { ascending: false })
 
     // Get cancelled bookings for cancellation rate
