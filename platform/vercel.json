@@ -134,7 +134,7 @@
     },
     {
       "path": "/api/cron/refresh-job-postings",
-      "schedule": "0 3 * * *"
+      "schedule": "0 3 1,16 * *"
     },
     {
       "path": "/api/cron/comhub-email",

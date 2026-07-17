@@ -11,11 +11,18 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 // is requested again, so its date freezes (that is how a listing got
 // to "19 days old").
 //
-// This cron runs daily and invalidates the FULL-ROUTE cache for every
-// tenant's career section using the `layout` tag, which is attached to
+// This cron runs on the 1st and 16th of each month (~every 15 days, matching
+// the Google Jobs freshness window) and invalidates the FULL-ROUTE cache for
+// every tenant's career section using the `layout` tag, which is attached to
 // every page nested under that section. One call per section therefore
 // sweeps every city/state/neighborhood page beneath it — including any
 // newly added pages — so the next crawl regenerates a fresh date.
+//
+// Previously ran daily (0 3 * * *): a full-layout sweep of 22 section roots,
+// each fanning out to many nested borough/neighborhood/city pages, 30x/month
+// when only 2x/month was ever needed for the 15-day freshness requirement —
+// a likely driver of excess ISR Writes cost with no SEO benefit (Google Jobs
+// only needs a date that isn't stale beyond ~15 days, not a daily-fresh one).
 //
 // NEW TENANTS ARE AUTO-COVERED. Every new tenant renders from the shared
 // `/site/template`, so the `/site/template/...` roots below sweep all current
