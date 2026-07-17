@@ -7,6 +7,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { runTool } from '@/lib/selena/tools'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import { buildPlaybook } from './build-playbook'
 import { getAgentConfig } from './agent-config-loader'
 import { resolveAnthropic } from '@/lib/anthropic-client'
@@ -202,22 +203,31 @@ const NYCMAID_TENANT_ID = '00000000-0000-0000-0000-000000000001'
  * For the nycmaid tenant the override is empty — the original prompt is
  * already correct.
  */
-async function buildBrandOverride(tenantId: string): Promise<string> {
+export async function buildBrandOverride(tenantId: string): Promise<string> {
   if (tenantId === NYCMAID_TENANT_ID) return ''
 
-  const { data: tenant } = await supabaseAdmin
-    .from('tenants')
-    .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color, agent_name')
-    .eq('id', tenantId)
-    .single()
+  // tenant_domains PRIMARY row wins over the legacy tenants.domain column,
+  // same precedence as tenantSiteUrl()/getPrimaryTenantDomain() — a tenant
+  // whose custom domain lives only in tenant_domains (added via
+  // admin/websites) would otherwise have this override tell Yinez to keep
+  // quoting "thenycmaid.com" to their customers instead of their own domain.
+  const [{ data: tenant }, primaryDomain] = await Promise.all([
+    supabaseAdmin
+      .from('tenants')
+      .select('id, name, slug, domain, phone, email, industry, address, tagline, website_url, primary_color, agent_name')
+      .eq('id', tenantId)
+      .single(),
+    getPrimaryTenantDomain(tenantId),
+  ])
 
   if (!tenant) return ''
 
   const cfg = (tenant as { brand_config?: Record<string, unknown> }).brand_config || {}
   const phone = tenant.phone || (cfg.phone as string) || '<not configured>'
   const email = tenant.email || (cfg.email as string) || '<not configured>'
-  const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || '<not configured>'
-  const portal = `${tenant.website_url || `https://${tenant.domain || ''}`}/portal`
+  const resolvedDomain = primaryDomain || tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
+  const domain = resolvedDomain || '<not configured>'
+  const portal = `${tenant.website_url || (resolvedDomain ? `https://${resolvedDomain}` : '')}/portal`
   const industry = tenant.industry || 'home services'
   // FullLoop platform default agent is "Jefe"; each tenant may override via
   // tenants.agent_name. The template prompt below names the agent "Yinez" 40+
@@ -379,16 +389,23 @@ export async function loadContext(tenantId: string, phone: string | null, _conve
 // non-nycmaid tenants we rewrite the final outbound text token-by-token here.
 // This is the safety net that lets a tenant be served without auditing all ~65
 // hardcoded brand references individually.
-async function applyBrandRewrite(text: string, tenantId: string): Promise<string> {
+export async function applyBrandRewrite(text: string, tenantId: string): Promise<string> {
   if (!text || tenantId === NYCMAID_TENANT_ID) return text
   try {
-    const { data: tenant } = await supabaseAdmin
-      .from('tenants')
-      .select('name, domain, phone, email, website_url, agent_name')
-      .eq('id', tenantId)
-      .single()
+    // Same tenant_domains-first precedence as buildBrandOverride() above —
+    // without it, a tenant whose only domain lives in tenant_domains got
+    // "domain" falsy here, which skipped both thenycmaid.com replace()
+    // calls below and let the literal wrong-brand domain reach the customer.
+    const [{ data: tenant }, primaryDomain] = await Promise.all([
+      supabaseAdmin
+        .from('tenants')
+        .select('name, domain, phone, email, website_url, agent_name')
+        .eq('id', tenantId)
+        .single(),
+      getPrimaryTenantDomain(tenantId),
+    ])
     if (!tenant) return text
-    const domain = tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
+    const domain = primaryDomain || tenant.domain || tenant.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
     let out = text
     if (domain) out = out.replace(/thenycmaid\.com\/portal/gi, `${domain}/portal`)
     if (domain) out = out.replace(/thenycmaid\.com/gi, domain)

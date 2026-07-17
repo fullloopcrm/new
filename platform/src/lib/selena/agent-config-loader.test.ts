@@ -12,15 +12,25 @@ import { CHECKLIST_BY_INDUSTRY } from '@/lib/industry-presets'
  * fetch (used by getSettings) resolves via the terminal .order().
  */
 
+type Eqs = Record<string, unknown>
 let tenantRow: Record<string, unknown> | null
 let serviceRows: unknown[]
+let resolveTenantDomains: (eqs: Eqs) => { data: unknown; error?: unknown }
 
 function from(table: string) {
+  const eqs: Eqs = {}
   const chain = {
     select: () => chain,
-    eq: () => chain,
+    eq: (col: string, val: unknown) => {
+      eqs[col] = val
+      return chain
+    },
     order: () => Promise.resolve({ data: serviceRows, error: null }),
     single: async () => ({ data: table === 'tenants' ? tenantRow : null, error: null }),
+    // getPrimaryTenantDomain() (tenant_domains) ends on a bare .eq() — no
+    // .single()/.order() — so the chain itself must be a thenable.
+    then: (onFulfilled: (v: { data: unknown; error?: unknown }) => unknown) =>
+      Promise.resolve(table === 'tenant_domains' ? resolveTenantDomains(eqs) : { data: null }).then(onFulfilled),
   }
   return chain
 }
@@ -37,6 +47,7 @@ beforeEach(() => {
   clearSettingsCache()
   serviceRows = [{ name: 'General Pest Control', default_duration_hours: 1, default_hourly_rate: 95, active: true }]
   tenantRow = null
+  resolveTenantDomains = () => ({ data: [] })
 })
 
 describe('getAgentConfig intake — seeded checklist reaches the agent (F2)', () => {
@@ -64,6 +75,37 @@ describe('getAgentConfig intake — seeded checklist reaches the agent (F2)', ()
     expect(cfg.intake.questions).toHaveLength(3)
     expect(cfg.intake.questions).toContain('Where are you located?')
     expect(cfg.intake.questions).toContain('When do you need it?')
+  })
+})
+
+describe('getAgentConfig domain resolution (fresh-ground, mirrors tenantSiteUrl precedence)', () => {
+  it('prefers the tenant_domains PRIMARY row over the legacy tenants.domain column', async () => {
+    tenantRow = { id: 't-1', name: 'Ace Pest', domain: 'legacy-ace.com', selena_config: {} }
+    resolveTenantDomains = (eqs) =>
+      eqs.tenant_id === 't-1' ? { data: [{ domain: 'alias.ace.com', is_primary: false }, { domain: 'ace.com', is_primary: true }] } : { data: [] }
+    const cfg = await getAgentConfig('t-1')
+    expect(cfg.contact.portal_url).toBe('ace.com/portal')
+  })
+
+  it('falls back to tenants.domain when the tenant has no tenant_domains rows', async () => {
+    tenantRow = { id: 't-2', name: 'Ace Pest', domain: 'legacy-ace.com', selena_config: {} }
+    const cfg = await getAgentConfig('t-2')
+    expect(cfg.contact.portal_url).toBe('legacy-ace.com/portal')
+  })
+
+  it('falls back to website_url when neither tenant_domains nor tenants.domain resolves', async () => {
+    tenantRow = { id: 't-3', name: 'Ace Pest', domain: null, website_url: 'https://ace-site.example/', selena_config: {} }
+    const cfg = await getAgentConfig('t-3')
+    expect(cfg.contact.portal_url).toBe('ace-site.example/portal')
+  })
+
+  it('WRONG-TENANT PROBE: a different tenant\'s tenant_domains PRIMARY row never leaks into this tenant\'s portal_url', async () => {
+    tenantRow = { id: 't-4', name: 'Ace Pest', domain: null, selena_config: {} }
+    resolveTenantDomains = (eqs) =>
+      eqs.tenant_id === 't-4' ? { data: [] } : { data: [{ domain: 'other-tenants-domain.com', is_primary: true }] }
+    const cfg = await getAgentConfig('t-4')
+    expect(cfg.contact.portal_url).not.toContain('other-tenants-domain.com')
+    expect(cfg.contact.portal_url).toBe('<portal>')
   })
 })
 

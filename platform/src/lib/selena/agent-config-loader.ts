@@ -9,6 +9,7 @@
 
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import type { AgentConfig, BookingModel, PricingModel } from './agent-config'
 
 function funnelToBooking(funnel: string, hasHourly: boolean): BookingModel {
@@ -54,20 +55,25 @@ export function intakeFromChecklist(checklist: unknown, fallback: string[]): str
 }
 
 export async function getAgentConfig(tenantId: string): Promise<AgentConfig> {
-  const [{ data: tenant }, settings] = await Promise.all([
+  const [{ data: tenant }, settings, primaryDomain] = await Promise.all([
     supabaseAdmin
       .from('tenants')
       .select('name, phone, email, domain, website_url, industry, agent_name, address, selena_config')
       .eq('id', tenantId)
       .single(),
     getSettings(tenantId),
+    getPrimaryTenantDomain(tenantId),
   ])
 
   const name = tenant?.name || 'the business'
   const agentName = tenant?.agent_name || 'Jefe'
   const industry = (tenant?.industry || 'home services').replace(/_/g, ' ')
   const phone = tenant?.phone || settings.business_phone || '<not configured>'
-  const domain = tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
+  // tenant_domains PRIMARY row wins over the legacy tenants.domain column,
+  // same precedence as tenantSiteUrl()/getPrimaryTenantDomain() — a tenant
+  // whose custom domain lives only in tenant_domains (added via
+  // admin/websites) would otherwise never surface it to their own AI agent.
+  const domain = primaryDomain || tenant?.domain || tenant?.website_url?.replace(/^https?:\/\//, '').replace(/\/$/, '') || ''
   const portal = domain ? `${domain}/portal` : '<portal>'
 
   const activeServices = settings.service_types.filter((s) => s.active)
