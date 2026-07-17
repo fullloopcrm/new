@@ -90,7 +90,12 @@ export default function RoutesPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || 'Failed')
-      setMsg(`Built ${data.routes_created} route${data.routes_created === 1 ? '' : 's'} from ${data.bookings} bookings`)
+      const builtMsg = `Built ${data.routes_created} route${data.routes_created === 1 ? '' : 's'} from ${data.bookings} bookings`
+      if (data.failed_team_members?.length) {
+        setErr(`${builtMsg}. Failed to build routes for ${data.failed_team_members.length} team member(s) — try again.`)
+      } else {
+        setMsg(builtMsg)
+      }
       load()
     } catch (e) {
       setErr(e instanceof Error ? e.message : 'Failed')

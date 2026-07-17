@@ -74,6 +74,7 @@ export async function POST(request: Request) {
       .single()
 
     const createdRouteIds: string[] = []
+    const failedTeamMembers: string[] = []
 
     for (const [teamMemberId, groupBookings] of groups.entries()) {
       const firstTm = groupBookings[0]?.team_members || null
@@ -105,19 +106,26 @@ export async function POST(request: Request) {
       const startLng = firstTm?.home_longitude || tenantRow?.hq_longitude || null
       const startAddress = firstTm?.address || tenantRow?.address || null
 
-      // Delete any existing route for this team_member + date so this is idempotent
-      const delQuery = supabaseAdmin
+      // Find any existing route for this team_member + date (replaced below to
+      // keep this idempotent) but don't delete it yet -- there's no unique
+      // constraint on (tenant_id, team_member_id, route_date), so a temporary
+      // second row for the same slot is harmless, and inserting the new route
+      // BEFORE removing the old one means a failed insert leaves the existing
+      // route (which may be 'optimized'/'published', not just a throwaway
+      // draft) fully intact instead of silently destroying it. Same
+      // insert-before-delete ordering already applied to the recurring-
+      // schedule regenerate route for the equivalent reason.
+      let oldRouteQuery = supabaseAdmin
         .from('routes')
-        .delete()
+        .select('id')
         .eq('tenant_id', tenantId)
         .eq('route_date', date)
-      if (teamMemberId === null) {
-        await delQuery.is('team_member_id', null)
-      } else {
-        await delQuery.eq('team_member_id', teamMemberId)
-      }
+      oldRouteQuery = teamMemberId === null
+        ? oldRouteQuery.is('team_member_id', null)
+        : oldRouteQuery.eq('team_member_id', teamMemberId)
+      const { data: oldRoutes } = await oldRouteQuery
 
-      const { data: newRoute } = await supabaseAdmin
+      const { data: newRoute, error: insErr } = await supabaseAdmin
         .from('routes')
         .insert({
           tenant_id: tenantId,
@@ -136,21 +144,36 @@ export async function POST(request: Request) {
         .select('id')
         .single()
 
-      if (newRoute) {
-        createdRouteIds.push(newRoute.id)
+      // Insert failed -> old route (if any) untouched, nothing to roll back.
+      if (insErr || !newRoute) {
+        console.error('routes/auto-build insert failed for team_member', teamMemberId, insErr)
+        failedTeamMembers.push(teamMemberId || 'unassigned')
+        continue
+      }
+
+      createdRouteIds.push(newRoute.id)
+      await supabaseAdmin
+        .from('bookings')
+        .update({ route_id: newRoute.id })
+        .eq('tenant_id', tenantId)
+        .in('id', stops.map(s => s.booking_id))
+
+      // New route is live and bookings repointed to it; now safe to remove the
+      // old one(s) for this team_member/date.
+      if (oldRoutes && oldRoutes.length > 0) {
         await supabaseAdmin
-          .from('bookings')
-          .update({ route_id: newRoute.id })
-          .eq('tenant_id', tenantId)
-          .in('id', stops.map(s => s.booking_id))
+          .from('routes')
+          .delete()
+          .in('id', oldRoutes.map(r => r.id))
       }
     }
 
     return NextResponse.json({
-      ok: true,
+      ok: failedTeamMembers.length === 0,
       routes_created: createdRouteIds.length,
       bookings: bookings.length,
       route_ids: createdRouteIds,
+      ...(failedTeamMembers.length > 0 ? { failed_team_members: failedTeamMembers } : {}),
     })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
