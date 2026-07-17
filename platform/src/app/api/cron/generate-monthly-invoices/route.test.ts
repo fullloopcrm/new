@@ -118,6 +118,33 @@ describe('GET /api/cron/generate-monthly-invoices', () => {
     expect(h.store.invoices.some((i) => i.client_id === 'client-B')).toBe(false)
   })
 
+  it('excludes a completed booking with price:null from the rollup instead of billing it at $0, and leaves it unclaimed for a future run', async () => {
+    // health-check's stale-in-progress auto-complete sets status:'completed'
+    // without ever finalizing price (only team-portal/checkout does) --
+    // billing that as a real $0 line item would silently under-bill a real
+    // visit and, worse, permanently lock it out of billing via invoice_id.
+    h.store.bookings.push({
+      id: 'book-unpriced',
+      schedule_id: 'sched-monthly',
+      status: 'completed',
+      invoice_id: null,
+      price: null,
+      service_type: 'Cleaning',
+      start_time: '2026-06-20T09:00:00',
+    })
+
+    const res = await GET(req())
+    const json = await res.json()
+
+    expect(json.bookings_billed).toBe(2) // book-1 + book-2 only, not book-unpriced
+    const inv = h.store.invoices.find((i) => i.recurring_schedule_id === 'sched-monthly')!
+    expect((inv.line_items as unknown[]).length).toBe(2)
+    // Left un-invoiced, not silently dropped -- picks up automatically once priced.
+    expect(h.store.bookings.find((b) => b.id === 'book-unpriced')?.invoice_id).toBeNull()
+    const skipNotif = h.store.notifications.find((n) => n.type === 'monthly_invoice_unpriced_bookings_skipped')
+    expect(skipNotif?.message).toContain('book-unpriced')
+  })
+
   it('is a no-op for a schedule with nothing left to bill', async () => {
     h.store.bookings = h.store.bookings.filter((b) => b.schedule_id !== 'sched-monthly' || b.status !== 'completed' || b.invoice_id)
 

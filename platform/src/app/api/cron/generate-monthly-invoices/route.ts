@@ -32,9 +32,10 @@ export async function GET(request: Request) {
   let invoicesCreated = 0
   let bookingsBilled = 0
   const failures: string[] = []
+  const unpricedBookingIds: string[] = []
 
   for (const schedule of schedules || []) {
-    const { data: bookings } = await supabaseAdmin
+    const { data: allBookings } = await supabaseAdmin
       .from('bookings')
       .select('id, start_time, price, service_type')
       .eq('schedule_id', schedule.id)
@@ -42,7 +43,20 @@ export async function GET(request: Request) {
       .is('invoice_id', null)
       .order('start_time')
 
-    if (!bookings || bookings.length === 0) continue
+    if (!allBookings || allBookings.length === 0) continue
+
+    // A completed booking can still have price:NULL — e.g. the health-check
+    // cron's stale-in-progress auto-complete never finalizes price/actual_hours
+    // (only team-portal/checkout does). buildConsolidatedLineItems would turn
+    // that into a real $0 line item, and claiming it here (invoice_id set)
+    // would make it permanently unbillable even after someone fixes the price.
+    // Leave it out and un-invoiced so it's picked up once priced, instead of
+    // silently under-billing the client for a real visit.
+    const bookings = allBookings.filter((b) => b.price !== null && b.price !== undefined)
+    const skipped = allBookings.filter((b) => b.price === null || b.price === undefined)
+    if (skipped.length > 0) unpricedBookingIds.push(...skipped.map((b) => b.id as string))
+
+    if (bookings.length === 0) continue
 
     const lineItems = normalizeLineItems(buildConsolidatedLineItems(bookings))
     if (lineItems.length === 0) continue
@@ -138,6 +152,16 @@ export async function GET(request: Request) {
       type: 'monthly_invoice_generation_failed',
       title: 'cron:generate-monthly-invoices had failures',
       message: failures.join('; '),
+      channel: 'system',
+      recipient_type: 'admin',
+    }).then(() => {}, () => {})
+  }
+
+  if (unpricedBookingIds.length > 0) {
+    await supabaseAdmin.from('notifications').insert({ // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+      type: 'monthly_invoice_unpriced_bookings_skipped',
+      title: 'cron:generate-monthly-invoices skipped unpriced bookings',
+      message: `${unpricedBookingIds.length} completed booking(s) have no price set and were left off this month's rollup(s): ${unpricedBookingIds.join(', ')}`,
       channel: 'system',
       recipient_type: 'admin',
     }).then(() => {}, () => {})
