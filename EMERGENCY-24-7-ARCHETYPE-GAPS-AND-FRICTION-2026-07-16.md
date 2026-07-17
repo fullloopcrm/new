@@ -1957,3 +1957,88 @@ Verified by reading `post-job-followup/route.ts` in full (both loops),
 confirm the plain `sendSMS()` this route calls has no `sms_logs` write path
 (worktree still has no `.env.local`/Supabase env for a live run, same
 constraint as every other item in this doc). No code changed for this item.
+
+## (48) New today, fresh ground — the STOP/START webhook never actually persisted a team member's SMS opt-out/in, and the highest-profile emergency SMS in the app (the urgent-job broadcast) never checked the flag anyway — NOW FIXED
+
+With both the `is_emergency`-blind and duplicate-row hunt threads confirmed
+exhausted last pass, this pass took the established `sms_consent` gap class
+(items 19/21/23/31/33/37 — all on the *client* side) and asked the mirror
+question: is team-member-side `sms_consent` actually enforced end to end?
+`src/lib/notify-team.ts` / `notify-team-member.ts` already gate on
+`member.sms_consent !== false`, so the codebase clearly intends team members
+to have working opt-out — but two things were true at the same time:
+
+1. **The revoke mechanism itself was broken.** In
+   `src/app/api/webhooks/telnyx/route.ts`, the STOP handler's client branch
+   writes `clients.sms_consent = false`; the very next block ("Also check
+   team members") only inserted an admin-facing notification and never wrote
+   `team_members.sms_consent` at all — a team member replying STOP got a
+   confirmation text saying they'd been unsubscribed, but the flag every
+   other code path checks stayed `true` forever. The START/re-subscribe
+   handler was worse: it only ever checked `clients`, so a team member had
+   no path back in via SMS even if the STOP write had worked.
+2. **Several real send sites never checked the flag regardless.** Grepped
+   every `sendSMS()` call site targeting a team member's phone
+   (`member.phone`/`tm.phone`) across `src/app/api` and found five call
+   sites with zero `sms_consent` check, sitting alongside sibling code that
+   already does check it (e.g. `payment-processor.ts`'s "payment received"
+   cleaner SMS already gates on `sms_consent`, but its two closest
+   siblings — `webhooks/stripe/route.ts` and
+   `admin/payments/confirm-match/route.ts`, both firing the identical
+   "payment received" text on the same event from different trigger paths —
+   did not). Most notable for this session's archetype:
+   `src/app/api/bookings/broadcast/route.ts` — the "URGENT JOB AVAILABLE,
+   first to claim gets it" emergency dispatch broadcast, the one mechanism
+   in the app that pages the *entire* active roster for a same-day
+   emergency — texted every active member unconditionally, opted-out or
+   not.
+
+Fixed both halves:
+- `webhooks/telnyx/route.ts`: STOP now writes
+  `team_members.sms_consent = false` (scoped `.eq('id', member.id).eq('tenant_id', tenantId)`,
+  matching this file's own IDOR-guard-driven convention per item (12) rather
+  than relying on the single-tenant-match lookup alone); START now mirrors
+  the client branch entirely — looks up the team member by phone, writes
+  `sms_consent = true`, and fires the matching `sms_opt_in` admin
+  notification (previously absent for team members).
+- Gated on `sms_consent !== false` at the five unguarded send sites:
+  `bookings/broadcast/route.ts` (urgent job broadcast),
+  `cron/reminders/route.ts` (2hr team-member job reminder — the client leg
+  two lines above it already had this gate, the team leg didn't),
+  `cron/daily-summary/route.ts` (3-day lookahead SMS),
+  `cron/confirmations/route.ts` (hourly "please confirm your job" request —
+  gating this one also means an opted-out member is no longer nagged by SMS
+  they can't stop; the existing item (38) admin escalation still surfaces
+  the same unconfirmed job to a human either way, so nothing goes silently
+  unnoticed), `webhooks/stripe/route.ts` and
+  `admin/payments/confirm-match/route.ts` (payment-received cleaner SMS,
+  brought in line with `payment-processor.ts`'s existing guard).
+  `routes/[id]/publish/route.ts` also gated, but deliberately *not* made a
+  hard failure the way a missing phone number already is — a route can
+  still be published (status flip + internal record) even when the SMS leg
+  is skipped for consent, matching how every other site here treats consent
+  as gating the message, not the underlying action. Left alone,
+  deliberately: `pin-reset/route.ts`'s team-member PIN-reset code (a
+  self-requested security code, same OTP-exempt precedent as
+  `nycmaid/client-contacts.ts`'s `skipConsent:true` pin reminders).
+- Added `sms_consent` to `TeamMemberRecord` in `src/lib/types.ts` plus a new
+  `TeamMemberNamePhoneConsent` partial-join type (mirroring the existing
+  `ClientNamePhoneConsent` pattern), and switched
+  `BookingWith2HourReminder`/`BookingUnconfirmed`'s `team_members` field to
+  it so the consent flag travels with every query that conditionally SMSes
+  a team member instead of being fetched separately or forgotten — same
+  rationale the client-side type comment already states.
+
+3 new tests across 2 files (`bookings/broadcast/route.consent.test.ts`,
+`webhooks/telnyx/route.stop-start-team.test.ts`), mutation-verified: reverted
+the broadcast route's guard and the webhook's STOP/START team-member writes
+in turn, confirmed all three tests reproduced the exact pre-fix symptom (RED —
+opted-out member still texted; STOP left `sms_consent` at `true`), restored.
+The automated IDOR ratchet (`src/lib/idor-route-guard.test.ts`) flagged the
+first draft of the STOP/START `team_members` update for missing a sibling
+`tenant_id` filter, same as item (12) — fixed to match convention rather than
+relying on the tenant-scoped lookup alone. `tsc --noEmit` clean, full suite
+357/357 files, 1813/1813 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, noted since item 17).
+Worktree still has no `.env.local`/Supabase env for a live webhook call, same
+constraint as every other item in this doc.
