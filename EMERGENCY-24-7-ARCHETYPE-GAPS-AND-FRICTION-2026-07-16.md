@@ -5754,3 +5754,82 @@ investigation.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (126) Item (125)'s Noticed item, investigated — the `cleaner_id`/`team_member_id` mismatch was NOT a silent-discard, it was a crash: `selectedSlot.cleaners` was always undefined — NOW FIXED
+
+Queued as "same fix shape as W1's item (4)" — self-booking's `POST
+/api/client/book` ignoring a real `cleaner_id` a client actually picked
+from real data. Investigating found the reschedule surface isn't that
+shape at all: `GET /api/client/availability` (`src/lib/availability.ts`)
+only ever returns `{ time, available }` per slot — it has never had a
+`.cleaners` field — and none of the four reschedule pages (`site/book`,
+`wash-and-fold-hoboken`, `wash-and-fold-nyc`, `the-florida-maid`) render
+any cleaner-selection UI; there was never a real pick for the client to
+make on this surface. `selectedSlot.cleaners[0]?.id` was fictional dead
+code reading an undefined property, so `handleReschedule` threw a
+`TypeError` on literal every reschedule attempt across all four tenant
+surfaces — a total feature outage, not a silent discard. The server-side
+route (fixed at item 124/57b5a9f7) already reads and correctly validates
+`team_member_id`, not `cleaner_id`, so there was nothing to wire up even
+with the field name corrected.
+
+**Fixed** — matched the real fix already landed for this exact bug on
+p1-w1 (commit `5dd0fd0b`): dropped the fictional `cleaners` field from the
+`TimeSlot` interface and the crash-causing/dead `cleaner_id` param from the
+PUT body on all 4 pages. Reschedule now sends only `start_time`/`end_time`,
+matching what `/api/client/availability` actually returns and what the UI
+actually lets a client choose. Existing server-side route suite (24/24)
+unaffected — confirms the `team_member_id` validation logic this doesn't
+touch is untouched.
+
+Flagging the discrepancy rather than silently substituting: the queue
+instruction described a "pick silently discarded" shape by analogy to item
+(4), but the actual code showed a different (and worse) failure mode with a
+different correct fix. Investigate-before-porting caught it before writing
+a fix that wouldn't have matched reality.
+
+## (127) Fresh ground, real instance of the item-(4) archetype — `POST /api/client/book` never read `cleaner_id`/`extra_cleaner_ids` at all, unlike the reschedule surface this one has live UI + real data behind it — NOW FIXED
+
+Unlike (126)'s dead reschedule-surface field, the self-booking "Choose your
+team" step is real: `nycmaid/book/new`, `template/book/new` (shared by
+every generic tenant), and `the-florida-maid/book-now` all render an actual
+LEAD/EXTRA/YOUR-PICK cleaner picker backed by real per-slot availability
+data from `/api/client/smart-schedule`, and all three POST
+`cleaner_id`/`extra_cleaner_ids` to `/api/client/book`. The route never
+read either field: `create_booking_atomic`
+(`migrations/2026_07_13_client_book_dedupe_atomic.sql`) hardcoded
+`team_member_id` to a literal `NULL` in its INSERT — a client's explicit
+pick was silently discarded on every live call, every time, in favor of
+manual admin assignment. Exactly the shape W1 already fixed on
+`/api/client/recurring` the same session (`cfc05323`).
+
+**Fixed** — `route.ts` now validates `cleaner_id`/`extra_cleaner_ids` are
+tenant-scoped + active before use (the same gate `recurring`/`reschedule`
+already enforce — a client picking their crew must stay inside their own
+tenant's roster), passes the lead through to `create_booking_atomic`'s new
+`p_team_member_id` param, and syncs `booking_team_members` (lead + extras)
+the same way `recurring`/`reschedule` already do.
+`migrations/2026_07_17_client_book_team_member_id.sql` adds
+`p_team_member_id DEFAULT NULL` (backward compatible — this route is the
+RPC's only caller, confirmed by repo-wide grep) and uses it in the INSERT
+instead of the hardcoded `NULL`. File only — not run against any DB; the
+leader runs it after Jeff approves, per standing rules.
+
+5 new tests (valid lead cleaner passes through + syncs to
+`booking_team_members`, extras sync as non-lead, foreign-tenant cleaner_id
+rejected 400, inactive cleaner_id rejected 400, no-cleaner-id positive
+control unaffected). Mutation-verified via `git stash` on `route.ts` alone
+(all 5 RED for the expected reason against pre-fix code — `p_team_member_id`
+came back `undefined` instead of the picked id or `null`, foreign/inactive
+picks got 200 instead of 400 — `git stash pop` restored, GREEN). `tsc
+--noEmit` clean, full suite 426/426 files, 2051/2051 tests, zero
+regressions.
+
+Left untouched: booking `status` stays `'pending'` regardless of whether a
+cleaner is assigned — `recurring`'s `status:'scheduled'`-when-cleaner-picked
+convenience isn't mirrored here. That's a separate behavior change nobody
+asked for and isn't required for the client's pick to actually take effect.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
