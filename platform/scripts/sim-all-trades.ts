@@ -1408,6 +1408,33 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await notify({ tenantId: tenant.id, type: 'payroll_paid', title: 'Payroll paid', message: `${cfg.crew.name} — ${cfg.crew.payLabel}` })
     }
 
+    // ============ 6a. KNOWN GAP: payroll-prep (the only 1099/contractor report in the
+    // product) never sees payroll_payments ============
+    // GET /api/finance/payroll-prep sums bookings.team_member_pay (status='completed')
+    // for gross pay and team_member_payouts.amount_cents for paid-out -- both belong to
+    // the cleaning-vertical's booking-based pay tracking. createJobFromQuote's session
+    // bookings (src/lib/jobs.ts) never set team_member_pay, and this archetype's crew is
+    // paid entirely through payroll_payments (section 6 just above -- correctly posted to
+    // the ledger via postPayrollToLedger). payroll-prep never reads that table. Net effect:
+    // every roofing/remodeling/interior_design contractor shows $0 gross pay, $0 paid out,
+    // and hits_1099_threshold=false on the ONLY 1099 report in the product, no matter how
+    // much they've actually been paid. Asserting the CORRECT behavior here (both checks
+    // are expected to fail today) rather than silently "fixing" it -- payroll_payments
+    // records the amount PAID directly with no separate gross-owed concept the way
+    // bookings/team_member_payouts split estimate vs payout, so folding it into
+    // payroll-prep changes what "gross pay" vs "paid out" even means for this tenant type;
+    // that's a product decision, not a one-line patch.
+    const { data: bookingsForPayrollPrepGross } = await supabase.from('bookings')
+      .select('team_member_pay').eq('tenant_id', tenant.id).eq('status', 'completed')
+    const grossFromBookingsOnly = (bookingsForPayrollPrepGross || []).reduce((s, b) => s + (Number(b.team_member_pay) || 0), 0)
+    add('payroll-prep: gross pay reflects this crew\'s actual payroll_payments total (KNOWN GAP — payroll-prep only sums bookings.team_member_pay, never payroll_payments)',
+      grossFromBookingsOnly >= cfg.crew.payCents, `payroll-prep-visible gross=${grossFromBookingsOnly} vs actual payroll paid=${cfg.crew.payCents}`)
+    const { data: payoutsForPayrollPrepPaid } = await supabase.from('team_member_payouts')
+      .select('amount_cents').eq('tenant_id', tenant.id).eq('team_member_id', worker?.id || '')
+    const paidOutVisibleToPayrollPrep = (payoutsForPayrollPrepPaid || []).reduce((s, p) => s + (Number(p.amount_cents) || 0), 0)
+    add('payroll-prep: paid-out reflects this crew\'s actual payroll_payments total (KNOWN GAP — payroll-prep only sums team_member_payouts, never payroll_payments)',
+      paidOutVisibleToPayrollPrep >= cfg.crew.payCents, `payroll-prep-visible paid=${paidOutVisibleToPayrollPrep} vs actual payroll paid=${cfg.crew.payCents}`)
+
     // ================= 7. BOOKKEEPING / INVOICING (milestone invoices → ledger) =================
     const { generateInvoiceNumber, generateInvoicePublicToken, computeTotals: invTotals, normalizeLineItems: invLines, logInvoiceEvent } = await import('../src/lib/invoice')
     const { postPaymentRevenue } = await import('../src/lib/finance/post-revenue')
