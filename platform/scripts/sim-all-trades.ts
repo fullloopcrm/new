@@ -3898,6 +3898,59 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-49. tenantSiteUrl()/getPrimaryTenantDomain() — tenant_id -> domain REVERSE-LOOKUP PROBE, mirror-gap shape (fresh ground this round: NOTICED #26 from an earlier round flagged tenantSiteUrl() -- used to build "view in admin"/portal-login links in contact/lead/ingest-lead/portal-collect notification emails and team-provisioning.ts's team-member portal login -- as the MIRROR of 5a-45/5a-46/5a-47's bug class: it read tenant.domain (legacy) ONLY and never consulted tenant_domains at all, falling straight to the <slug>.homeservicesbusinesscrm.com carrying subdomain when tenant.domain was null. Not a broken link (the carrying subdomain is real and live-routed), but for a tenant whose actual custom domain lived only in tenant_domains (e.g. added via the admin/websites panel, which never touches tenants.domain), every one of these notification/login links pointed at the platform's internal subdomain instead of the tenant's own branded domain. Fixed this round: tenantSiteUrl() is now async and, given an id, resolves via the new getPrimaryTenantDomain() (tenant_domains PRIMARY row first, tenants.domain fallback, matching getTenantByDomain's precedence in reverse) before falling back to the slug subdomain. All 9 call sites updated to await it. 9 new vitest cases (tenant-site.test.ts + domains.test.ts) incl. wrong-tenant probes prove this against a mocked supabaseAdmin; this probe proves the same precedence against the REAL live schema.) ----
+    {
+      const { tenantSiteUrl } = await import('../src/lib/tenant-site')
+      const { data: beforeDomainUrl } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+
+      // Case 1: no active tenant_domains rows -- must fall back to tenants.domain.
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const legacyUrlDomain = `legacy-siteurl-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyUrlErr } = await supabase.from('tenants').update({ domain: legacyUrlDomain }).eq('id', tenant.id)
+      add('tenantSiteUrl domain-fallback probe: tenants.domain seeded, this tenant\'s tenant_domains rows deactivated', !legacyUrlErr, legacyUrlErr?.message)
+
+      const urlNoTd = await tenantSiteUrl({ id: tenant.id, domain: legacyUrlDomain, slug: tenant.slug })
+      add('tenantSiteUrl domain-fallback probe: resolves to tenants.domain when tenant_domains has nothing active (live schema, not a mock)', urlNoTd === `https://${legacyUrlDomain}`, urlNoTd)
+
+      // Case 2: an active PRIMARY tenant_domains row now exists too -- must WIN
+      // over the legacy tenants.domain column, same precedence as getTenantByDomain.
+      const primaryUrlDomain = `primary-siteurl-${tenant.id.slice(0, 8)}.example.com`
+      const { error: primaryUrlErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: primaryUrlDomain, active: true, is_primary: true, notes: 'sim-all-trades tenantSiteUrl probe',
+      })
+      add('tenantSiteUrl domain-fallback probe: an active PRIMARY tenant_domains row seeded alongside the legacy tenants.domain row', !primaryUrlErr, primaryUrlErr?.message)
+
+      const urlWithTd = await tenantSiteUrl({ id: tenant.id, domain: legacyUrlDomain, slug: tenant.slug })
+      add('tenantSiteUrl domain-fallback probe: the tenant_domains PRIMARY row wins over tenants.domain (live schema, not a mock)', urlWithTd === `https://${primaryUrlDomain}`, urlWithTd)
+
+      // WRONG-TENANT PROBE: a second real tenant's tenant_domains PRIMARY row
+      // must never leak into THIS tenant's resolution.
+      const foreignSlugUrl = slugify('siteurl-probe', randomUUID())
+      const { data: foreignTenantUrl, error: foreignTenantUrlErr } = await supabase.from('tenants').insert({
+        name: 'Site URL Probe Co', slug: foreignSlugUrl, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('tenantSiteUrl wrong-tenant probe: a real SECOND tenant row created to own a conflicting-looking domain', !!foreignTenantUrl && !foreignTenantUrlErr, foreignTenantUrlErr?.message)
+
+      if (foreignTenantUrl?.id) {
+        const foreignUrlDomain = `foreign-siteurl-${foreignTenantUrl.id.slice(0, 8)}.example.com`
+        const { error: foreignTdErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantUrl.id, domain: foreignUrlDomain, active: true, is_primary: true, notes: 'sim-all-trades wrong-tenant probe',
+        })
+        add('tenantSiteUrl wrong-tenant probe: the SECOND tenant\'s own active PRIMARY tenant_domains row seeded', !foreignTdErr, foreignTdErr?.message)
+
+        const urlStillOwn = await tenantSiteUrl({ id: tenant.id, domain: legacyUrlDomain, slug: tenant.slug })
+        add('tenantSiteUrl wrong-tenant probe: THIS tenant\'s resolution still returns its own domain, never the second tenant\'s (live schema, real conflicting rows -- not a mock)', urlStillOwn === `https://${primaryUrlDomain}` && urlStillOwn !== `https://${foreignUrlDomain}`, urlStillOwn)
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantUrl.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantUrl.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', primaryUrlDomain)
+      await supabase.from('tenants').update({ domain: beforeDomainUrl?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
