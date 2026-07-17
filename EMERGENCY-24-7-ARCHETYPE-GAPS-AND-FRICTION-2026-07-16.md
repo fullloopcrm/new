@@ -1011,6 +1011,109 @@ fixes rely on `tsc --noEmit` + full-suite verification, not new unit tests;
 regressions (one pre-existing, unrelated tenant-scope guard warning on
 `fixture/route.ts`, not touched). Commit `5dc38572`.
 
+## (24) New today, archetype depth — the admin's own "new booking" notifications were structurally blind to emergency status — NOW FIXED
+
+Direct continuation of items (7)/(8)/(11)/(20)'s "who ever finds out this job
+is urgent" thread, on a trigger none of them traced: the very first admin
+notification fired at booking creation, before the schedule-monitor dashboard
+(item 20) or the tech-facing channels (items 7/11) even exist yet. Traced
+every real caller of `notify({ type: 'new_booking', ... })` and the sibling
+`adminNewBookingRequestEmail()`/`emailAdmins()` template and found both are
+structurally blind to `is_emergency` — same "the type signature has no field
+for it" root cause as items 7/9's original findings:
+- `POST /api/client/book` (the public marketing-site booking widget, the
+  primary creation path for the actual 23-tenant plumbing/HVAC/restoration/
+  tree-service archetype this whole doc tracks) already computes
+  `bkIsEmergency` server-side (P11.8/16/17) — but neither its
+  `notify('new_booking', ...)` call nor its `adminNewBookingRequestEmail()`
+  call passed it through. Its own file has a bespoke NYC-Maid-only branch
+  (`isNycMaid(tenant.id) && bkIsEmergency` → a special `🚨 EMERGENCY` SMS via
+  `nmSmsAdmins`) proving the codebase already recognizes this exact gap for
+  one tenant — just never generalized it to the archetype tenants who don't
+  get that bolt-on.
+- `POST /api/portal/bookings` (item (12)'s fix, the client-portal self-book
+  route) ported `client/book`'s `notify('new_booking', ...)` call verbatim —
+  which means it inherited the same blindness, despite the route computing
+  its own `isEmergency` two lines earlier in the same file for pricing.
+
+Net effect: for the actual archetype (non-NYC-Maid) tenants, the owner's
+first-ever signal that a new job exists — sent over the slowest channel
+(plain branded email, `channel` defaults to `'email'`, no push/SMS) — never
+mentioned urgency at all. Subject line, body, and HTML banner were
+byte-identical for a same-day burst-pipe emergency and a routine booking
+made three weeks out.
+
+**Fixed** (`p1-w3`) — ported the same 🚨/"URGENT — " convention items
+(7)/(8)/(11)/(20) already established: `adminNewBookingRequestEmail()` now
+takes an optional `isEmergency` field, prefixing the subject
+(`"🚨 URGENT — New Booking: {name}"`) and adding the same red-banner treatment
+`bookingReceivedEmail()`'s client-facing urgent variant already uses ("Same-
+day emergency — dispatch ASAP."). Both real call sites
+(`client/book/route.ts`, `portal/bookings/route.ts`) now pass their
+already-computed emergency flag through to both `notify()` (title + a
+`"🚨 EMERGENCY — "` message prefix) and `adminNewBookingRequestEmail()`. NYC
+Maid's existing bespoke SMS branch is untouched — this closes the gap for the
+tenants that branch never covered, it doesn't replace it. 5 new tests across
+`email-templates.admin-emergency-wording.test.ts` (routine vs. urgent
+wording, direct unit test of the template function),
+`client/book/route.emergency-notify.test.ts` (both real notify/email call
+sites, urgent vs. routine), and one new case added to the existing
+`portal/bookings/route.notify.test.ts`. `tsc --noEmit` clean, full suite
+341/341 files, 1783/1783 tests, zero regressions (one pre-existing, unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, same
+precedent as items 17/23).
+
+## (25) New today, fresh ground outside the archetype — the campaign email "Unsubscribe" link was non-functional on one send path and entirely absent on the other — NOW FIXED
+
+Codebase-wide CAN-SPAM compliance gap, same class of real legal exposure as
+the sms_consent TCPA sweep (items 19/21/23) but on the email side and,
+distinctly, not a wrong-column bug — the actual signed-token unsubscribe
+mechanism (`signUnsubscribeToken`/`verifyUnsubscribeToken`/`unsubscribeUrl()`
+in `src/lib/unsubscribe-token.ts`, `/api/unsubscribe` POST, `/unsubscribe`
+page) is fully built, tested-by-construction (HMAC-signed, tenant-scoped),
+and **already wired into `email-templates.ts`'s shared `baseTemplate()`**
+(`TemplateData.unsubscribeUrl`, rendered as a footer link whenever set) —
+grepping every real caller of `unsubscribeUrl()` found zero outside its own
+definition. Traced both real campaign-email send paths and found each fails
+differently:
+- `POST /api/campaigns/[id]/send` built its own ad hoc footer link pointing
+  at `/unsubscribe?email=<address>` — but `/unsubscribe` (`src/app/
+  unsubscribe/page.tsx`) only ever reads a `?t=<signed token>` param
+  (`useSearchParams().get('t')`), and its "Confirm unsubscribe" button is
+  `disabled={!token}`. A client clicking this link landed on a page with
+  `token = null` and a **permanently disabled** button — no code path by
+  which the click could ever complete. `email_marketing_opt_out` (correctly
+  checked before every send on this path) could only ever be set by an admin
+  manually, never by the client themself via the link the footer claims to
+  provide.
+- `POST /api/campaigns/send` (the other real campaign send path, admin-side
+  bulk send with per-recipient `campaign_recipients` tracking) routes emails
+  through the shared `notify({ type: 'campaign_sent', ... })` — but
+  `'campaign_sent'` wasn't a handled case in `notify()`'s template switch, so
+  it fell through to the generic `<p>{message}</p>` fallback: no branded
+  shell, no footer, no unsubscribe link of any kind, not even a broken one.
+
+**Fixed** (`p1-w3`) — mechanical fix, no wording/product decision (the
+mechanism already existed and was already designed for exactly this): `POST
+/api/campaigns/[id]/send` now builds its footer link with the real
+`unsubscribeUrl()` (signed `{clientId, tenantId, channel:'email'}`, matching
+what `/api/unsubscribe` actually verifies). `notify.ts` gained a
+`'campaign_sent'` case that wraps the campaign body in `baseTemplate()` with
+a real per-recipient `unsubscribeUrl` when `recipientType === 'client'`,
+closing the second path's total absence of one. Both call sites wrap the
+signing call in try/catch — `unsubscribeUrl()` throws if
+`PORTAL_SECRET`/`ADMIN_TOKEN_SECRET` is unset, and a misconfigured secret
+must never take down the whole campaign send; on a signing failure the email
+still sends, just without the link, same degraded-not-broken shape `notify()`
+itself already uses elsewhere. 5 new tests:
+`campaigns/[id]/send/route.unsubscribe.test.ts` (link carries a token
+`verifyUnsubscribeToken` actually accepts and resolves to the right
+client/tenant; signing-failure fallback doesn't crash the send) and
+`notify.campaign-unsubscribe.test.ts` (same two cases for the `notify()`
+path, plus a control proving routine non-campaign notify types are
+unaffected). `tsc --noEmit` clean, full suite 341/341 files, 1783/1783
+tests, zero regressions.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
