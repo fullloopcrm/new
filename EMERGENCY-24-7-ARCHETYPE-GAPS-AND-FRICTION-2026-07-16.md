@@ -5048,3 +5048,71 @@ email with a borrowed type" shape. Worth a follow-up grounding pass.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (114) Grounding item (113)'s noticed `team-portal/availability` borrowed `check_in` — real, lower-severity, same shape — NOW FIXED
+
+Item (113) flagged this and deliberately deferred it: the time-off-request
+admin `notify()` call in `POST /api/team-portal/availability` borrows
+`type: 'check_in'`, no dedicated type, no explicit `channel`. Ran it to
+ground.
+
+Confirmed the severity read was right — `check_in` has no template case in
+`notify.ts`'s switch, so the email body itself isn't mismatched the way
+(113)'s `booking_reminder` collision was (falls to the generic
+plain-paragraph fallback, which renders the real title/message). But the
+borrowed type still collides on the UI side: 3 tenant dashboards
+(`wash-and-fold-nyc`/`wash-and-fold-hoboken`/`nyc-mobile-salon`
+`AdminSidebar.tsx`/`DashboardHeader.tsx`) map `check_in` → `▶️ "Job
+Started"` (blue icon) and route notification clicks to `/admin/bookings`;
+the global `/dashboard/notifications` page buckets it under the `check_in`
+type filter and teal badge alongside real GPS check-ins. Every time-off
+request therefore landed in the admin feed mislabeled as a job-start event
+with a dead-end link (no `booking_id` on this notify call, so the
+`/admin/bookings` link carries no `?id=`) — same shape as the
+already-fixed `video_uploaded` borrow (item 65, found and fixed in an
+earlier session, confirmed via `route.notify-type.test.ts` already in the
+tree for `team-portal/video-upload`). Checked `comms-registry.ts`'s
+`NOTIFY_COMM_MAP` too: `check_in` isn't a gating key there, so no
+preference-gating bug — the only real defect is the UI icon/link
+collision.
+
+**Fixed** — added a dedicated `time_off_request` `NotificationType` (no
+template case, same as `check_in`, so behavior is otherwise identical) and
+pointed the route at it instead of borrowing `check_in`. Deliberately did
+NOT touch the three per-tenant dashboard clones' `notificationConfig`
+maps — per this repo's `CLAUDE.md`, those are known debt not to be
+extended, and leaving `time_off_request` unmapped is strictly better than
+today: it falls through to each dashboard's neutral default (🔔, not
+clickable) instead of the misleading job-started treatment.
+
+**Fresh-ground hunting turned up a second, sharper instance of the exact
+same shape while sweeping every `notify()` call site for the
+missing-`channel` pattern:** `cron/payment-followup-daily/route.ts`'s
+cap-reached admin alert (fires when a tenant crosses 100 unpaid completed
+bookings chased in one run) borrowed `type: 'follow_up'` — and unlike
+`check_in`, `follow_up` **does** have a template case:
+`followUpEmail()`, the CLIENT-facing post-service win-back template. Every
+time this fired, the tenant owner's inbox got subject "Payment follow-up
+cap reached (100)" with a body reading "Thank You! Hi Client, thank you
+for choosing ${tenant}! We hope you enjoyed your ." (empty service name,
+generic "Client" greeting — the call passes no `metadata`) "... Your
+Discount Code THANKYOU — 10% off your next appointment," a nonsensical,
+mistemplated email carrying zero of the actual cap-reached ops content.
+Same fix pattern: added `type: 'payment_followup_cap'` (new, no template
+case) and repointed the call. Precondition is rarer than (113)'s
+near-universal one (needs >100 unpaid completed bookings for a single
+tenant inside the 14-day recency floor in one cron run — today that's
+nycmaid-only per the file's own scope comment), but it's a live, reachable
+cron path, not dead code.
+
+2 new tests (`availability/route.notify-type.test.ts`,
+`payment-followup-daily/route.notify-type.test.ts`), both mutation-verified
+(`git apply -R` each fix, RED for the expected reason — call args carrying
+the old borrowed type — `git apply` restored, GREEN). `tsc --noEmit`
+clean, full suite 410/410 files, 1993/1993 tests, zero regressions (same
+pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
