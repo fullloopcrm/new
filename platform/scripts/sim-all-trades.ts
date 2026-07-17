@@ -3822,6 +3822,33 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-47. seomgr eligibleForAutoVerify() — tenants.domain FALLBACK PROBE, allowlist-UNION shape (fresh ground this round: same coverage-gap class as 5a-45/5a-46, third instance found this round. auto-verify.ts's allowlist gate — the guard that decides which awaiting_grant seo_properties are even CANDIDATES for the auto-verify flag — built its activeDomains set from tenant_domains ONLY, no tenants.domain union. Unlike 5a-45/5a-46 (single-tenant fallback queries), this is a UNION-into-a-set shape like backlinks.ts/onboarding.ts's already-fixed loadActiveFleet()/backfillUntrackedDomains() — different code shape from the other two, same resolver-precedence bug class. A tenant live only via legacy tenants.domain could NEVER get an awaiting_grant property auto-verified, silently and permanently, even with SEOMGR_AUTOVERIFY_ENABLED=true. The 5 new vitest cases (auto-verify.test.ts) prove this against a mocked supabaseAdmin; this probe proves the same union resolves against the REAL live schema and a real throwaway seo_properties row.) ----
+    {
+      const { eligibleForAutoVerify } = await import('../src/lib/seo/auto-verify')
+      const { data: beforeDomainAv } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+
+      const legacyAvDomain = `legacy-autoverify-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyAvErr } = await supabase.from('tenants').update({ domain: legacyAvDomain }).eq('id', tenant.id)
+      add('auto-verify domain-fallback probe: tenants.domain seeded, this tenant\'s tenant_domains rows deactivated', !legacyAvErr, legacyAvErr?.message)
+
+      const avProperty = `sc-domain:${legacyAvDomain}`
+      const { error: avInsertErr } = await supabase.from('seo_properties').insert({
+        property: avProperty, tenant_id: tenant.id, domain: legacyAvDomain,
+        permission: null, meta: { gsc_status: 'awaiting_grant' },
+      })
+      add('auto-verify domain-fallback probe: throwaway awaiting_grant seo_properties row inserted', !avInsertErr, avInsertErr?.message)
+
+      const eligible = await eligibleForAutoVerify()
+      const avFound = eligible.find((e) => e.property === avProperty)
+      add('auto-verify domain-fallback probe: eligibleForAutoVerify() includes a tenants.domain-only host (live schema, not a mock)', !!avFound, JSON.stringify(eligible.map((e) => e.property)))
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('seo_properties').delete().eq('property', avProperty)
+      await supabase.from('tenants').update({ domain: beforeDomainAv?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
