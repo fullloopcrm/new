@@ -2589,3 +2589,63 @@ the referrer" assertion failed reproducing the exact pre-fix symptom — zero
 clean, full suite 368/368 files, 1844/1844 tests, zero regressions (same
 pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
 not touched, noted since item 17).
+
+## (60) New today, archetype depth — extras added to a booking's team never used the push channel items (53)/(56) established — NOW FIXED
+
+`PUT /api/bookings/[id]/team` (multi-tech team management — item 26's own
+call site) notified newly-added extra team members through
+`@/lib/notify-team.ts`, an older module with no push channel at all:
+SMS + email + in-app only. The route's own title already branded emergency
+team additions (`🚨 Added to Emergency Team Job`), and item 26's test for
+this exact call site even asserted "the push title gets the same 🚨
+convention" — but no push send ever existed on this path to carry that
+title. A push-only tech (no phone on file, or SMS-consent revoked per item
+48's sweep) got zero notification of being added to a job, including an
+emergency one — the same class of gap items (53)/(54) fixed for the
+roster-wide emergency broadcast, just a different call site that sweep
+never reached because it lived in a different, push-less sibling module.
+
+**Fixed** (`p1-w3`) — switched this call site from `notify-team.ts` to
+`notify-team-member.ts`, the module items (53)/(54)/(56) already wired with
+a real push leg and an `isEmergency` quiet-hours bypass, passing
+`isEmergency: !!bookingFull?.is_emergency` through. `notify-team.ts` itself
+is now unreferenced by any source file (only historical tests touched it)
+— left in place, not deleted; out of scope for this fix. Updated the
+existing `route.emergency-sms.test.ts` (which mocked the old module path)
+to mock `notify-team-member.ts` instead and assert `isEmergency` flows
+through on both the emergency and routine control cases. Mutation-verified
+via saved patch (`git diff` → `git apply -R` → both tests failed
+reproducing the exact pre-fix symptom — the mock never hit since the route
+no longer imported that path, RED → `git apply` restored, GREEN).
+`tsc --noEmit` clean, full suite 368/368 files, 1844/1844 tests, zero
+regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
+
+## (61) New today, fresh ground outside the archetype — item (59)'s own fix comment flagged this exact route as having the identical gap, left unfixed until now — NOW FIXED
+
+Item (59) fixed the referrer-never-notified gap on the auto-created
+checkout path (`POST /api/team-portal/checkout`) and its own fix comment
+named the admin-created sibling path (`POST /api/referral-commissions`,
+used when a booking's referral wasn't auto-caught at checkout) as having
+"the identical gap" — but that sibling was only flagged, not fixed. Read:
+its `notify()` call is gated on `if (ref.email)` yet sends with
+`recipientType: 'admin'`, so the referrer's own address is checked and then
+never actually used as the recipient. Every admin-created commission told
+the tenant admin and left the referrer — the person actually owed the
+money — silent, on every tenant including nycmaid (item 59's nycmaid
+branch only covers the checkout path).
+
+**Fixed** (`p1-w3`) — applied item (59)'s identical fix to this route:
+nycmaid keeps its own richer template via the same `isNycMaid(tenantId)`
+branch, every other tenant gets the generic `sendEmail()` gated on the
+tenant having `resend_api_key` configured. The existing admin `notify()`
+call is untouched — this adds the referrer email as a second, independent
+send. 2 new tests (`route.referrer-commission-email.test.ts`), mirroring
+item (59)'s own test shape: a non-nycmaid tenant with `resend_api_key`
+configured now emails the referrer directly (to/subject/html/key asserted
+against the real `sendEmail()` call), and a tenant with no `resend_api_key`
+configured is a silent no-op, not a crash. Mutation-verified via saved
+patch (`git diff` → `git apply -R` → the "emails the referrer" assertion
+failed reproducing the exact pre-fix symptom, RED → `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 369/369 files, 1846/1846 tests,
+zero regressions.
