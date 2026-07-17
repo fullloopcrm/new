@@ -3772,6 +3772,31 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-45. seomgr linkTenant()/backfillUntrackedDomains() — tenants.domain FALLBACK PROBE (fresh ground, sibling of this round's tenantDb() cross-tenant probe (5a-44) but on the OTHER direction of the same resolver contract: 5a-44 proved tenant_id -> row filtering rejects a foreign tenant; this probes domain -> tenant_id resolution, the shape seomgr's ingest pipeline depends on. Found this round: linkTenant() (ingest.ts) and backfillUntrackedDomains() (onboarding.ts) both queried tenant_domains ONLY, with no tenants.domain fallback -- unlike tenant.ts's getTenantByDomain and this session's earlier-fixed backlinks.ts/health.ts, which both already union the two sources. A tenant live only via legacy tenants.domain (tenant_domains registration is best-effort, activate-tenant.ts's upsert is try/catch and never blocks activation) got EVERY GSC property permanently linked with tenant_id: null -- Selena's handleSeoStatus() filters seo_properties by tenant_id, so the owner would see "no property linked" despite metrics actually flowing. Fixed both functions to fall back to tenants.domain, matching tenant.ts's precedence exactly. The 9 new vitest cases (ingest.test.ts, onboarding.test.ts) prove this against a mocked supabaseAdmin; this probe proves the same fallback resolves correctly against the REAL live schema -- tenant_domains.domain IS unique at the DB level (migrations/043_tenant_domains.sql) but tenants.domain carries NO unique constraint, a live-schema asymmetry no mock can prove either side of.) ----
+    {
+      const { linkTenant } = await import('../src/lib/seo/ingest')
+      const { data: beforeDomain } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+
+      // Clear this run's tenant_domains coverage (if any) so resolution can
+      // only succeed via the tenants.domain fallback -- proving the fallback
+      // path itself, not just that SOME row matched.
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+
+      const legacyOnlyDomain = `legacy-only-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyDomainErr } = await supabase.from('tenants').update({ domain: legacyOnlyDomain }).eq('id', tenant.id)
+      add('seomgr domain-fallback probe: tenants.domain seeded, this tenant\'s tenant_domains rows deactivated', !legacyDomainErr, legacyDomainErr?.message)
+
+      const resolvedViaFallback = await linkTenant(legacyOnlyDomain)
+      add('seomgr domain-fallback probe: linkTenant() resolves a tenants.domain-only host to the correct REAL tenant_id (live schema, not a mock)', resolvedViaFallback === tenant.id, `${resolvedViaFallback} vs ${tenant.id}`)
+
+      const resolvedUnknown = await linkTenant(`never-registered-${randomUUID().slice(0, 8)}.example.com`)
+      add('seomgr domain-fallback probe: linkTenant() returns null for a host in neither source (no default/wrong-tenant leak)', resolvedUnknown === null, String(resolvedUnknown))
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenants').update({ domain: beforeDomain?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
