@@ -1716,6 +1716,91 @@ tests, zero regressions (one pre-existing, unrelated tenant-scope guard
 warning on `fixture/route.ts`, not touched, same precedent as items
 17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40).
 
+## (42) New today, archetype depth — the payment-reminder cron's 60-min overdue admin escalation was is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38)/(40) — NOW FIXED
+
+Both `GET /api/cron/payment-reminder` paths — the generic route's
+`admin_tasks` escalation and the NYC Maid-specific
+`runNycMaidPaymentReminder`'s own Stage-2 escalation
+(`src/lib/nycmaid/payment-reminder.ts`) — never fetched `bookings.is_emergency`,
+so a same-day emergency job with payment 60+ min overdue produced the
+byte-identical `admin_tasks` entry as a routine job going unpaid.
+Verified via `grep -rn is_emergency src/app/api/cron/ src/lib/nycmaid/`
+(same method as items 34/36/38/40) that neither path had picked up the
+field.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to both queries and escalated
+the `admin_tasks` title/description (plus the NYC Maid path's aggregate
+`notify()` title and a per-entry `🚨` marker in the flagged-names list,
+mirroring item (40)'s list-marking convention), reusing the exact `🚨
+Urgent` / `EMERGENCY —` convention items (20)/(32)/(34)/(38)/(40) already
+established. Left the outbound SMS bodies (client nudge, admin overdue
+SMS, admin bulk `smsAdmins` text) untouched — same "wording/product call,
+not the blindness bug" carve-out item (38) used for the confirm-request
+SMS body. Zero test files exist for either file (same precedent as items
+18/20/22/32/34/35/36/38/39/40/41) — relies on `tsc --noEmit` + full-suite
+verification. `tsc --noEmit` clean, full suite 355/355 files, 1810/1810
+tests, zero regressions (one pre-existing, unrelated tenant-scope guard
+warning on `fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41).
+
+## (43) New today, archetype depth — the reminders cron's "Payment Due Soon" alert (the one item (41) had just fixed the false-positive on) was also is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38)/(40)/(42) — NOW FIXED
+
+Found while re-reading the exact section item (41) had just touched (the
+15-min-before-`end_time` in-progress payment alert in
+`GET /api/cron/reminders`). Item (41) fixed the false-positive
+(already-`paid`) case, but the query still never fetched
+`bookings.is_emergency`, so a same-day emergency job with payment due in
+15 min produced the byte-identical "Payment Due Soon" admin notification
+as a routine job — exactly the scenario (money still owed on an emergency
+job about to close out) where the owner most needs it to stand out.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the `BookingWithPaymentAlert`
+type (`src/lib/types.ts`) and the `endingSoon` query, and escalated both
+the `notify()` admin email and the in-app notification title/message
+using the same `🚨 Urgent` / `EMERGENCY —` convention items
+(20)/(32)/(34)/(38)/(40)/(42) already established. Zero test files exist
+under any `src/app/api/cron/*` route in this repo (same precedent as items
+18/20/22/32/34/35/36/38/39/40/41/42) — relies on `tsc --noEmit` +
+full-suite verification. `tsc --noEmit` clean, full suite 355/355 files,
+1810/1810 tests, zero regressions (one pre-existing, unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, same
+precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41/42).
+
+## (44) New today, fresh ground outside the archetype — the payment-reminder cron's generic 60-min overdue escalation created a duplicate open `admin_tasks` row every ~5 min for the same booking — NOW FIXED
+
+Found while tracing the generic payment-reminder route's `admin_tasks`
+escalation against its own NYC Maid parity port, same "read the more
+careful sibling implementation before concluding" method items
+(39)/(41) used. `runNycMaidPaymentReminder`
+(`src/lib/nycmaid/payment-reminder.ts`) explicitly guards its Stage-2
+`admin_tasks` insert with a "Dedup: one payment_overdue task per booking"
+count check before inserting. The generic route's equivalent escalate
+branch (`GET /api/cron/payment-reminder`, non-NYC-Maid tenants) has no
+such check — it re-selects every booking still sitting in the 15-60 min
+post-alert window on every cron run and unconditionally inserts a new
+`admin_tasks` row each time, so a single overdue booking that stays
+unpaid for the full ~45-min window accumulates roughly 9 duplicate
+`'open'` `payment_overdue` tasks (row `status` defaults to `'open'` per
+`migrations/011_parity_with_nycmaid.sql`) before aging out of the query —
+the one persistent, status-tracked action queue in this codebase
+(`admin_tasks`, indexed on `tenant_id`/`status`/`priority`) filling with
+duplicates for what is really one unresolved booking.
+
+**Fixed** (`p1-w3`) — added the same
+tenant+`related_type`+`related_id`+`type`+`status` count check NYC Maid's
+path already uses before the insert, so only the first pass creates the
+task; later passes still send the admin SMS nudge every ~5 min (left
+untouched — the same intentional repeat-nag pattern item (39)'s doc
+already called out and deliberately left alone for the Unpaid Team alert,
+not part of this duplicate-row bug). Zero test files exist for this route
+(same precedent as items 18/20/22/32/34/35/36/38/39/40/41/42/43) — relies
+on `tsc --noEmit` + full-suite verification. `tsc --noEmit` clean, full
+suite 355/355 files, 1810/1810 tests, zero regressions (one pre-existing,
+unrelated tenant-scope guard warning on `fixture/route.ts`, not touched,
+same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41/42/43).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
