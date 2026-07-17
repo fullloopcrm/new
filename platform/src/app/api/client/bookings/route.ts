@@ -58,9 +58,14 @@ export async function GET(request: Request) {
     }
   }
 
+  // Aliased `cleaners:` — every consuming dashboard (site/book,
+  // wash-and-fold-hoboken, wash-and-fold-nyc, the-florida-maid) reads
+  // `booking.cleaners?.name`; the bare `team_members!...` join key left the
+  // assigned cleaner's name silently blank ("Cleaner TBD"/"To be assigned")
+  // on every booking, even fully staffed ones.
   const { data: upcoming } = await tenantDb(tenant.id)
     .from('bookings')
-    .select('*, team_members!bookings_team_member_id_fkey(name)')
+    .select('*, cleaners:team_members!bookings_team_member_id_fkey(name)')
     .in('client_id', clientIds)
     .gte('start_time', now)
     .neq('status', 'cancelled')
@@ -68,7 +73,7 @@ export async function GET(request: Request) {
 
   const { data: past } = await tenantDb(tenant.id)
     .from('bookings')
-    .select('*, team_members!bookings_team_member_id_fkey(name)')
+    .select('*, cleaners:team_members!bookings_team_member_id_fkey(name)')
     .in('client_id', clientIds)
     .lt('start_time', now)
     .order('start_time', { ascending: false })
