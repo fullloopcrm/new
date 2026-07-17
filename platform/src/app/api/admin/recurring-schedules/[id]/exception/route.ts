@@ -60,7 +60,10 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     )
   if (upErr) return NextResponse.json({ error: upErr.message }, { status: 500 })
 
-  // Apply to the materialized booking for that date, if present (scheduled/pending only).
+  // Apply to the materialized booking for that date, if present (scheduled/
+  // pending/confirmed -- confirmed is the ordinary post-SMS-confirmation
+  // state, not an edge case; omitting it silently recorded the exception
+  // but left an already-confirmed booking untouched).
   const dayStart = `${occurrence_date}T00:00:00`
   const dayEnd = `${occurrence_date}T23:59:59`
   const { data: existing } = await supabaseAdmin
@@ -68,7 +71,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .select('id, start_time')
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', dayStart)
     .lte('start_time', dayEnd)
 

@@ -123,9 +123,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'This schedule was just updated elsewhere. Reload and try again.' }, { status: 409 })
   }
 
-  // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending) from
-  // the cutoff forward. Completed/paid/cancelled rows are never touched. We
-  // delete these by id AFTER the new insert succeeds, so a failed insert leaves
+  // 2. Capture the OLD future not-yet-serviced bookings (scheduled/pending/
+  // confirmed -- confirmed is the ordinary state once a client texts YES,
+  // not an edge case; omitting it here left the just-confirmed old row on
+  // the calendar alongside the freshly-inserted new one) from the cutoff
+  // forward. Completed/paid/cancelled rows are never touched. We delete
+  // these by id AFTER the new insert succeeds, so a failed insert leaves
   // the existing series fully intact (no destructive window).
   const cutoff = from_date || new Date().toISOString()
   const { data: oldRows } = await supabaseAdmin
@@ -133,7 +136,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', cutoff)
   const oldIds = (oldRows || []).map((r: { id: string }) => r.id)
 

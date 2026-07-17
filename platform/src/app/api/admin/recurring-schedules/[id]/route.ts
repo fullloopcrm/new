@@ -26,7 +26,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .gte('start_time', new Date().toISOString())
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .order('start_time')
 
   return NextResponse.json({ ...schedule, upcoming_bookings: bookings || [] })
@@ -84,7 +84,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .update({ team_member_id: teamMemberId || null })
       .eq('tenant_id', tenantId)
       .eq('schedule_id', id)
-      .in('status', ['scheduled', 'pending'])
+      .in('status', ['scheduled', 'pending', 'confirmed'])
       .gte('start_time', new Date().toISOString())
   }
 
@@ -111,7 +111,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .update({ status: 'cancelled' })
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .gte('start_time', new Date().toISOString())
     .select('id')
 

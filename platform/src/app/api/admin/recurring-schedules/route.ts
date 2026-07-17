@@ -59,7 +59,7 @@ export async function GET(request: Request) {
         .select('start_time')
         .eq('tenant_id', tenantId)
         .eq('schedule_id', schedule.id)
-        .in('status', ['scheduled', 'pending'])
+        .in('status', ['scheduled', 'pending', 'confirmed'])
         .gte('start_time', new Date().toISOString())
         .order('start_time')
         .limit(1)
