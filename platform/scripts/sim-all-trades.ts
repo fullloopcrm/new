@@ -3740,6 +3740,38 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }).eq('id', tenant.id)
     }
 
+    // ---- 5a-44. tenantDb() wrapper — GENUINE CROSS-TENANT REJECTION PROBE (archetype depth; this round's fresh-ground hunt statically swept all 36 `src/app/api/**/[id]/route.ts` GET handlers for a missing tenant_id filter — 4 looked suspicious on a bare grep, all 4 individually verified safe by hand: 3 route through tenantDb() (which auto-injects .eq('tenant_id', …)), the 4th reads a pre-tenant/platform-global table under requireAdmin(). Every prior cross-tenant-shaped probe in this file (5a-36's note, 5a-41's client-drawer probe) has been cross-CLIENT-same-tenant only, because this harness runs one tenant per pass — the actual tenantDb() auto-filter mechanism itself, which every one of those 36 routes (and this session's whole GET-by-id sweep) depends on, has never once been proven against a REAL second tenant_id at the live-schema level. This probe creates a minimal throwaway second tenant for the sole purpose of that proof, then deletes it immediately.) ----
+    {
+      const { tenantDb } = await import('../src/lib/tenant-db')
+      const foreignSlug = slugify('cross-tenant-probe', randomUUID())
+      const { data: foreignTenant, error: foreignTenantErr } = await supabase.from('tenants').insert({
+        name: 'Cross-Tenant Probe Co', slug: foreignSlug, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('tenantDb cross-tenant probe: a real SECOND tenant row created (not this run\'s primary tenant)', !!foreignTenant && !foreignTenantErr, foreignTenantErr?.message)
+
+      if (foreignTenant?.id) {
+        // Insert directly via supabaseAdmin (bypassing tenantDb) so the foreign
+        // client is unambiguously owned by the SECOND tenant, not this run's.
+        const { data: foreignClient, error: foreignClientErr } = await supabase.from('clients').insert({
+          tenant_id: foreignTenant.id, name: 'Cross-Tenant Probe Client', email: `cross-tenant-probe-${foreignTenant.id.slice(0, 8)}@example.com`,
+        }).select('id').single()
+        add('tenantDb cross-tenant probe: a real client row created under the SECOND tenant', !!foreignClient && !foreignClientErr, foreignClientErr?.message)
+
+        if (foreignClient?.id) {
+          // The exact query shape clients/[id]'s GET (and every other tenantDb-backed
+          // [id] route) runs: tenantDb(currentTenantId).from(table).select('*').eq('id', id).single()
+          const { data: leaked, error: notLeakedErr } = await tenantDb(tenant.id).from('clients').select('id').eq('id', foreignClient.id).maybeSingle()
+          add('tenantDb cross-tenant probe: tenantDb(THIS tenant) CANNOT see the SECOND tenant\'s client by id (live schema, real second tenant_id — not a mock)', !leaked, JSON.stringify({ leaked, notLeakedErr: notLeakedErr?.message }))
+
+          const { data: ownRow, error: ownRowErr } = await tenantDb(foreignTenant.id).from('clients').select('id').eq('id', foreignClient.id).maybeSingle()
+          add('tenantDb cross-tenant probe: tenantDb(the OWNING tenant) CAN see its own client (control — proves the rejection above is the tenant_id filter at work, not a broken query)', !!ownRow && !ownRowErr, ownRowErr?.message)
+
+          await supabase.from('clients').delete().eq('id', foreignClient.id).eq('tenant_id', foreignTenant.id)
+        }
+        await supabase.from('tenants').delete().eq('id', foreignTenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
