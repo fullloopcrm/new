@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { canSignerAct, DOCUMENTS_BUCKET, logDocEvent } from '@/lib/documents'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -41,6 +42,52 @@ export async function GET(request: Request, { params }: Params) {
       .eq('tenants.status', 'active')
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
+
+    // Expire if past expires_at — same declared-but-never-written gap as
+    // quotes.status='expired' had (quotes/public/[token]/route.ts's own
+    // valid_until check): the CHECK constraint, isEditableStatus/
+    // isTerminalStatus, the 'expired' document_activity event_type, and even
+    // the dashboard's STATUS_COLORS badge were all already built — nothing
+    // ever wrote the transition. Scoped to the states actually awaiting
+    // signer action (mirrors quotes' status==='sent' scoping) so a draft
+    // never sent, or a document already completed/declined/voided, can't be
+    // relabeled 'expired' by a stray public-link visit.
+    const awaitingAction = doc.status === 'sent' || doc.status === 'viewed' || doc.status === 'in_progress'
+    if (doc.expires_at && awaitingAction && new Date(doc.expires_at as string) < new Date()) {
+      await supabaseAdmin.from('documents').update({ status: 'expired' }).eq('id', doc.id)
+      doc.status = 'expired'
+      await logDocEvent({ document_id: doc.id, tenant_id: doc.tenant_id, event_type: 'expired' })
+
+      // Sibling terminal outcomes (document_declined, document_completed)
+      // both notify()+ownerAlert() the admin; expiry never did, and
+      // 'document_expired' wasn't even a declared NotificationType yet —
+      // one step further back than quote_expired, which was declared but
+      // unwired. Mirrors quote_expired's notify+ownerAlert shape exactly.
+      try {
+        const { notify } = await import('@/lib/notify')
+        await notify({
+          tenantId: doc.tenant_id,
+          type: 'document_expired',
+          title: `${doc.title} expired`,
+          message: 'This document passed its expiration date without being completed',
+          channel: 'email',
+          recipientType: 'admin',
+          metadata: { document_id: doc.id },
+        })
+      } catch (e) {
+        console.warn('notify document_expired failed', e)
+      }
+
+      const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+      await ownerAlert({
+        tenantId: doc.tenant_id,
+        subject: `Expired — ${doc.title}`,
+        kicker: 'Document expired',
+        heading: `${doc.title} expired unsigned`,
+        bodyHtml: `<p style="margin:0">${escapeHtml(doc.title)} passed its expiration date without being completed — worth a follow-up if it's still needed.</p>`,
+        sms: `Document "${doc.title}" expired unsigned.`,
+      })
+    }
 
     // Record view
     const now = new Date().toISOString()

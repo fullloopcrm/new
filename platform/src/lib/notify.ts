@@ -70,6 +70,7 @@ export type NotificationType =
   | 'quote_expired'
   | 'document_declined'
   | 'document_completed'
+  | 'document_expired'
   | 'security'
   | 'error'
   | 'referral_lead'
