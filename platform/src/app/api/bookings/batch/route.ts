@@ -8,6 +8,7 @@ import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 /**
  * POST /api/bookings/batch
@@ -63,6 +64,19 @@ export async function POST(request: Request) {
     const validIds = new Set((validMembers || []).map((m) => m.id))
     if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
       return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+    }
+
+    // Same hr_status gap already closed on the single-create paths
+    // (86b797ad, 53e83ee4, ca14a7fe, ff827f1d) — team_members.status alone
+    // doesn't reflect HR termination. This route's only real caller is the
+    // dashboard "Create Booking" modal's multi-date path
+    // (BookingsAdmin.tsx's handleCreate, when NOT setting up a recurring
+    // schedule) — a live, admin-triggered surface with zero hr_status check
+    // of its own; a terminated worker picked here got silently assigned to
+    // every date in the batch.
+    const terminatedIds = await getTerminatedTeamMemberIds(tenantId, requestedMemberIds)
+    if (terminatedIds.length > 0) {
+      return NextResponse.json({ error: 'One or more selected team members are no longer active and cannot be assigned.' }, { status: 400 })
     }
   }
 
