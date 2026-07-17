@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
-import { computeNaiveVisitWindow } from '@/lib/recurring'
+import { computeNaiveVisitWindow, generateRecurringDates, type RecurringType } from '@/lib/recurring'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -30,19 +30,13 @@ function parseTime(raw: string | null | undefined): { h: number; m: number } {
   return { h: h % 24, m: m % 60 }
 }
 
-function intervalDays(recurringType: string): number {
-  return recurringType === 'weekly' ? 7 : recurringType === 'biweekly' ? 14 : 28
-}
-
 // validate.ts has no enum type, so recurring_type is checked by hand here --
 // mirrors the guard PUT /api/schedules/[id] already has. Without it, an
 // invalid recurring_type stored via this admin creation route (BookingsAdmin
-// UI, or a direct API caller) gets an initial batch from this route's own
-// loose intervalDays() (defaults any unrecognized value to a 28-day step, so
-// it never errors here), but every future cron/generate-recurring refill
-// calls the strict generateRecurringDates switch (no default case), which
-// silently returns zero dates forever -- the schedule quietly stops
-// generating with no error, no flag, once the initial 6-week batch runs out.
+// UI, or a direct API caller) would fall through to generateRecurringDates'
+// strict switch (no default case), which silently returns zero dates for the
+// initial batch AND every future cron/generate-recurring refill -- the
+// schedule quietly never generates a single booking, no error, no flag.
 const VALID_RECURRING_TYPES = ['daily', 'weekly', 'biweekly', 'triweekly', 'monthly_date', 'monthly_weekday', 'custom']
 
 export async function GET(request: Request) {
@@ -150,18 +144,31 @@ export async function POST(request: Request) {
     if (!owned) return NextResponse.json({ error: `Invalid ${table}` }, { status: 400 })
   }
 
-  // Dates: use those provided by the frontend, else generate 6 weeks.
+  const resolvedDayOfWeek = day_of_week ?? new Date(start_date + 'T12:00:00').getDay()
+
+  // Dates: use those provided by the frontend, else generate 6 weeks. Uses the
+  // shared generateRecurringDates (same calendar-month / week-of-month
+  // stepping every other recurring writer uses) rather than a flat
+  // interval-day loop -- a flat step drifts monthly_date/monthly_weekday off
+  // the client's actual contracted day within 1-2 cycles (e.g. "the 15th of
+  // every month" landing on the 12th, then the 9th...), and also under-stepped
+  // triweekly (28 days instead of 21) since this route's old intervalDays()
+  // only special-cased weekly/biweekly.
   let dates: string[] = Array.isArray(body.dates)
     ? body.dates.filter((d: unknown): d is string => typeof d === 'string')
     : []
   if (dates.length === 0) {
-    const step = intervalDays(recurring_type)
     const startDt = new Date(start_date + 'T12:00:00')
     const horizon = new Date(startDt)
     horizon.setDate(horizon.getDate() + 42)
-    for (let d = new Date(startDt); d <= horizon; d.setDate(d.getDate() + step)) {
-      dates.push(d.toISOString().split('T')[0])
-    }
+    dates = generateRecurringDates({
+      recurringType: recurring_type as RecurringType,
+      startDate: startDt,
+      dayOfWeek: resolvedDayOfWeek,
+      weeksToGenerate: 8, // upper bound on occurrences requested; filtered to the 42-day horizon below
+    })
+      .filter((d) => d <= horizon)
+      .map((d) => d.toISOString().split('T')[0])
   }
   const lastInitialDate = dates.length > 0 ? dates[dates.length - 1] : null
   const sixWeeksOut = new Date(start_date + 'T12:00:00')
@@ -175,7 +182,7 @@ export async function POST(request: Request) {
       property_id: property_id || null,
       team_member_id: teamMemberId,
       recurring_type,
-      day_of_week: day_of_week ?? new Date(start_date + 'T12:00:00').getDay(),
+      day_of_week: resolvedDayOfWeek,
       preferred_time: preferred_time || null,
       duration_hours: hours,
       hourly_rate: hourly_rate || null,

@@ -12,15 +12,34 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
-import { computeNaiveVisitWindow } from '@/lib/recurring'
+import { computeNaiveVisitWindow, generateRecurringDates, type RecurringType } from '@/lib/recurring'
 
-function intervalDays(recurringType: string): number {
-  switch (recurringType) {
-    case 'weekly': return 7
-    case 'biweekly': return 14
-    case 'triweekly': return 21
-    default: return 28 // monthly_date / monthly_weekday
-  }
+/**
+ * Initial batch of occurrence dates (YYYY-MM-DD) for a new recurring series,
+ * covering the first ~6 weeks (42 days) from startDate. Uses the shared
+ * generateRecurringDates (same calendar-month / week-of-month stepping every
+ * other recurring writer uses) rather than a flat interval-day loop -- a flat
+ * step drifts monthly_date/monthly_weekday off the client's actual contracted
+ * day within 1-2 cycles (e.g. "the 15th of every month" landing on the 12th,
+ * then the 9th...), and that wrong date becomes the anchor
+ * cron/generate-recurring continues from forever afterward. Exported
+ * separately so this math is unit-testable without a live Supabase client.
+ */
+export function computeInitialOccurrenceDates(
+  recurringType: RecurringType,
+  startDate: string,
+): string[] {
+  const startDt = new Date(startDate + 'T12:00:00')
+  const horizon = new Date(startDt)
+  horizon.setDate(horizon.getDate() + 42)
+  return generateRecurringDates({
+    recurringType,
+    startDate: startDt,
+    dayOfWeek: startDt.getDay(),
+    weeksToGenerate: 8, // upper bound on occurrences requested; filtered to the 42-day horizon below
+  })
+    .filter((d) => d <= horizon)
+    .map((d) => d.toISOString().split('T')[0])
 }
 
 // "HH:MM" / "h:MM AM/PM" -> { h, m }
@@ -142,21 +161,14 @@ async function createSeriesAfterClaim(
     }
   }
 
-  const recurringType = quote.recurring_type as string
+  const recurringType = quote.recurring_type as RecurringType
   const startDate = (quote.recurring_start_date as string | null) || new Date().toISOString().split('T')[0]
   const preferredTime = (quote.recurring_preferred_time as string | null) || '09:00'
   const hours = Number(quote.recurring_duration_hours) || 3
   const pricePerVisit = ((quote.total_cents as number) || 0) / 100
 
-  // Initial dates: from start_date across a 6-week horizon.
-  const step = intervalDays(recurringType)
-  const startDt = new Date(startDate + 'T12:00:00')
-  const horizon = new Date(startDt)
-  horizon.setDate(horizon.getDate() + 42)
-  const dates: string[] = []
-  for (let d = new Date(startDt); d <= horizon; d.setDate(d.getDate() + step)) {
-    dates.push(d.toISOString().split('T')[0])
-  }
+  const dayOfWeek = new Date(startDate + 'T12:00:00').getDay()
+  const dates: string[] = computeInitialOccurrenceDates(recurringType, startDate)
   const nextGenerateAfter = dates.length ? dates[dates.length - 1] : startDate
 
   const { data: schedule, error: sErr } = await supabaseAdmin
@@ -165,7 +177,7 @@ async function createSeriesAfterClaim(
       tenant_id: tenantId,
       client_id: clientId,
       recurring_type: recurringType,
-      day_of_week: startDt.getDay(),
+      day_of_week: dayOfWeek,
       preferred_time: preferredTime,
       duration_hours: hours,
       notes: quote.notes || null,

@@ -134,10 +134,8 @@ describe('recurring schedule → occurrences (happy path)', () => {
 
   // recurring_type only had a truthiness check ("is it present") -- an
   // invalid value like 'monthly' (not in RecurringType) used to insert fine:
-  // this route's own loose intervalDays() defaults any unrecognized value to
-  // a 28-day step so the initial batch generated something, but every future
-  // cron/generate-recurring refill hits generateRecurringDates' strict switch
-  // (no default case) and silently returns zero dates forever.
+  // every future cron/generate-recurring refill hits generateRecurringDates'
+  // strict switch (no default case) and silently returns zero dates forever.
   it('rejects a recurring_type that is not a valid RecurringType with 400, and writes nothing', async () => {
     const res = await POST(req({ ...validBody, recurring_type: 'monthly' }))
     expect(res.status).toBe(400)
@@ -152,5 +150,29 @@ describe('recurring schedule → occurrences (happy path)', () => {
 
     expect(h.store.recurring_schedules).toHaveLength(1)
     expect(h.store.recurring_schedules[0]).toMatchObject({ team_member_id: 'tm-A', property_id: 'prop-A' })
+  })
+
+  // Generation fallback (no `dates` in the request body) used to hand-roll its
+  // own flat interval-day loop (intervalDays(): weekly=7/biweekly=14/else=28),
+  // which drifts monthly_date off the client's actual contracted day-of-month
+  // within one cycle (28 days later != "next calendar month, same date") and
+  // mis-stepped triweekly entirely (28 days instead of 21, since triweekly
+  // wasn't special-cased). Now reuses generateRecurringDates, same as every
+  // other recurring writer.
+  it('monthly_date fallback generation holds the same day-of-month, not a flat 28-day step', async () => {
+    const res = await POST(req({ ...validBody, recurring_type: 'monthly_date', start_date: '2026-01-15' }))
+    expect(res.status).toBe(200)
+
+    const dates = h.store.bookings.map((bk) => String(bk.start_time).slice(0, 10)).sort()
+    // Old buggy fallback would have produced ['2026-01-15', '2026-02-12'].
+    expect(dates).toEqual(['2026-01-15', '2026-02-15'])
+  })
+
+  it('triweekly fallback generation steps 21 days, not 28', async () => {
+    const res = await POST(req({ ...validBody, recurring_type: 'triweekly', start_date: '2026-01-05' }))
+    expect(res.status).toBe(200)
+
+    const dates = h.store.bookings.map((bk) => String(bk.start_time).slice(0, 10)).sort()
+    expect(dates).toEqual(['2026-01-05', '2026-01-26', '2026-02-16'])
   })
 })
