@@ -227,4 +227,22 @@ describe('team-portal/jobs/reassign', () => {
     expect(res.status).toBe(409)
     expect(auditCalls).toHaveLength(0)
   })
+
+  it('preserves an unclaimed emergency job\'s own pay_rate premium instead of overwriting it with the target\'s default rate', async () => {
+    // Unassigned emergency-broadcast job with its own urgent-job pay_rate set at creation.
+    scope = [ACTOR, TARGET]
+    bookingResult = { ...(bookingResult as object), team_member_id: null, pay_rate: 75 }
+    targetResult = { pay_rate: 25 } // target's own default rate is lower — must NOT win
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(200)
+    expect(lastUpdatePayload).toMatchObject({ pay_rate: 75 })
+  })
+
+  it('falls back to the target member\'s own pay_rate when the booking never had one set', async () => {
+    bookingResult = { ...(bookingResult as object), pay_rate: null }
+    targetResult = { pay_rate: 30 }
+    const res = await POST(req({ booking_id: BOOKING, to_member_id: TARGET }))
+    expect(res.status).toBe(200)
+    expect(lastUpdatePayload).toMatchObject({ pay_rate: 30 })
+  })
 })

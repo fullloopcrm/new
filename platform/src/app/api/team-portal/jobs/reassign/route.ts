@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   // Fetch the booking (tenant-scoped) so we know who currently holds it.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, team_member_id, status, start_time, clients(name)')
+    .select('id, team_member_id, status, start_time, pay_rate, clients(name)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -69,11 +69,18 @@ export async function POST(request: Request) {
     .single()
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
 
+  // Same rule as team-portal/jobs/claim: an unclaimed emergency-broadcast job
+  // (team_member_id null, no scope check above) can carry its own "Team Pay
+  // Rate" premium set at creation. Reassigning it straight to a specific
+  // member (instead of leaving it for claim) must not clobber that premium
+  // with the target's own default rate. A job that already had someone
+  // assigned (being handed to a different crew member) has no such premium
+  // to preserve, so this only ever changes behavior for the unclaimed case.
   const { data, error } = await supabaseAdmin
     .from('bookings')  // tenant-scope-ok: .eq('tenant_id', auth.tid) below, past the guard's 12-line lookahead
     .update({
       team_member_id: to_member_id,
-      pay_rate: target.pay_rate || null,
+      pay_rate: booking.pay_rate ?? target.pay_rate ?? null,
       status: 'confirmed',
       check_in_time: null,
       check_out_time: null,
