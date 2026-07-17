@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { etToday, addCalendarDays, calendarDayOfWeek, daysInCalendarMonth, formatNaiveET, parseNaiveET, type CalendarDate } from '@/lib/recurring'
 
 export async function GET() {
   try {
@@ -23,12 +24,45 @@ export async function GET() {
     const yearStart = new Date(now.getFullYear(), 0, 1)
     const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
 
+    // bookings.start_time is naive-ET (see lib/recurring.ts's nowNaiveET
+    // header); referral_commissions/payments/team_member_payouts.created_at
+    // are genuinely UTC. weekStart/monthStart/yearStart above stay
+    // server-local (UTC calendar on Vercel) ON PURPOSE -- they only feed
+    // `d()` below for the ledger's entry_date, a date-only column that's
+    // itself always written from a UTC calendar date (post-revenue.ts /
+    // post-labor.ts), so querying it with a UTC-calendar boundary is
+    // self-consistent; switching just the query side to ET would introduce a
+    // NEW mismatch instead of fixing one (same restraint as recurring.ts's
+    // booking-to-booking comparisons). The bookings/created_at boundaries
+    // below are separately anchored to the ET calendar, the same day-boundary
+    // bug class fixed across this session.
+    const etTodayCal = etToday()
+    const weekDayIdx = (calendarDayOfWeek(etTodayCal) + 6) % 7 // Mon=0
+    const weekStartCal = addCalendarDays(etTodayCal, -weekDayIdx)
+    const weekEndCal = addCalendarDays(weekStartCal, 7)
+    const monthStartCal: CalendarDate = { year: etTodayCal.year, month: etTodayCal.month, day: 1 }
+    const monthEndCal = addCalendarDays(monthStartCal, daysInCalendarMonth(monthStartCal))
+    const yearStartCal: CalendarDate = { year: etTodayCal.year, month: 0, day: 1 }
+    const yearEndCal: CalendarDate = { year: etTodayCal.year + 1, month: 0, day: 1 }
+
+    const weekStartNaive = formatNaiveET(weekStartCal)
+    const weekEndNaive = formatNaiveET(weekEndCal)
+    const monthStartNaive = formatNaiveET(monthStartCal)
+    const monthEndNaive = formatNaiveET(monthEndCal)
+    const yearStartNaive = formatNaiveET(yearStartCal)
+    const yearEndNaive = formatNaiveET(yearEndCal)
+
+    const monthStartUtc = parseNaiveET(monthStartNaive).toISOString()
+    const monthEndUtc = parseNaiveET(monthEndNaive).toISOString()
+    const yearStartUtc = parseNaiveET(yearStartNaive).toISOString()
+    const yearEndUtc = parseNaiveET(yearEndNaive).toISOString()
+
     const baseSelect = 'price, team_member_pay, team_member_paid'
 
     const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }] = await Promise.all([
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', weekStartNaive).lt('start_time', weekEndNaive),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', monthStartNaive).lt('start_time', monthEndNaive),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', yearStartNaive).lt('start_time', yearEndNaive),
       supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, team_member_paid').eq('tenant_id', tenantId).eq('status', 'completed').or('payment_status.neq.paid,team_member_paid.neq.true'),
       supabaseAdmin.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
     ])
@@ -63,11 +97,11 @@ export async function GET() {
     const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
-      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', yearStart.toISOString()).lte('created_at', yearEnd.toISOString()),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStartUtc).lt('created_at', monthEndUtc),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', yearStartUtc).lt('created_at', yearEndUtc),
       supabaseAdmin.from('bookings').select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').or('team_member_paid.is.null,team_member_paid.eq.false').not('team_member_pay', 'is', null),
-      supabaseAdmin.from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('team_member_payouts').select('amount_cents, instant').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      supabaseAdmin.from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStartUtc).lt('created_at', monthEndUtc),
+      supabaseAdmin.from('team_member_payouts').select('amount_cents, instant').eq('tenant_id', tenantId).gte('created_at', monthStartUtc).lt('created_at', monthEndUtc),
     ])
 
     const monthReferralCommissions = (monthCommissions || []).reduce((s, c) => s + (c.commission_cents || 0), 0)

@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -81,13 +82,19 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
   const clients = (rawClients as ClientRow[] | null) || []
   if (clients.length === 0) return 0
 
-  // 2. Exclude clients with upcoming/active bookings.
-  const nowIso = new Date().toISOString()
+  // 2. Exclude clients with upcoming/active bookings. bookings.start_time is
+  // naive-ET (see lib/recurring.ts's nowNaiveET header) -- a true-UTC
+  // `new Date().toISOString()` here read as a later clock time than the real
+  // ET instant, so a client with a booking genuinely still upcoming (within
+  // the ET/UTC gap) silently fell OUT of `scheduledIds` and got an unwanted
+  // win-back text despite already having an appointment. Same bug class
+  // fixed across this session.
+  const nowNaive = nowNaiveET()
   const { data: scheduled } = await supabaseAdmin
     .from('bookings')
     .select('client_id')
     .eq('tenant_id', tenant.id)
-    .gte('start_time', nowIso)
+    .gte('start_time', nowNaive)
     .in('status', ['scheduled', 'confirmed', 'pending', 'in_progress'])
   const scheduledIds = new Set(((scheduled as Array<{ client_id: string }> | null) || []).map(b => b.client_id))
 

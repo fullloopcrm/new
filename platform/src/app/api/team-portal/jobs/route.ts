@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 
 // Coarsen a free-text address to a rough area for the open pool — enough to
 // decide if a job is worth claiming, not enough to identify/contact the client.
@@ -24,10 +25,15 @@ export async function GET(request: NextRequest) {
   const available = request.nextUrl.searchParams.get('available')
   const upcoming = request.nextUrl.searchParams.get('upcoming')
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  // bookings.start_time is naive-ET (see lib/recurring.ts's nowNaiveET header)
+  // -- day boundaries here used to come from `new Date()` read via server-local
+  // setHours(0,0,0,0), the SERVER's local calendar (UTC on Vercel), silently
+  // shifting "today" by the ET/UTC gap (4-5h) near midnight ET. Anchored to
+  // etToday() + naive-ET strings instead, same fix as the rest of this session.
+  const todayCal = etToday()
+  const today = formatNaiveET(todayCal)
+  const tomorrowCal = addCalendarDays(todayCal, 1)
+  const tomorrow = formatNaiveET(tomorrowCal)
 
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
@@ -44,7 +50,7 @@ export async function GET(request: NextRequest) {
       .eq('tenant_id', auth.tid)
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
-      .gte('start_time', today.toISOString())
+      .gte('start_time', today)
       .order('start_time')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -66,16 +72,15 @@ export async function GET(request: NextRequest) {
 
   if (upcoming === 'true') {
     // Return next 14 days of jobs (excluding today)
-    const futureEnd = new Date(today)
-    futureEnd.setDate(futureEnd.getDate() + 14)
+    const futureEnd = formatNaiveET(addCalendarDays(todayCal, 14))
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
       .eq('tenant_id', auth.tid)
       .eq('team_member_id', auth.id)
-      .gte('start_time', tomorrow.toISOString())
-      .lt('start_time', futureEnd.toISOString())
+      .gte('start_time', tomorrow)
+      .lt('start_time', futureEnd)
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
@@ -89,8 +94,8 @@ export async function GET(request: NextRequest) {
     .select('*, clients(name, phone, address, special_instructions)')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
-    .gte('start_time', today.toISOString())
-    .lt('start_time', tomorrow.toISOString())
+    .gte('start_time', today)
+    .lt('start_time', tomorrow)
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 

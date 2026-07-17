@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
+import { etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 
 export async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.claim')
@@ -22,15 +23,21 @@ export async function POST(request: Request) {
   // member that start today.
   const cap = member?.max_jobs_per_day
   if (cap && cap > 0) {
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+    // bookings.start_time is naive-ET (see lib/recurring.ts's nowNaiveET
+    // header) -- `new Date(); setHours(0,0,0,0)` read the SERVER's local
+    // calendar (UTC on Vercel), not ET, silently shifting the daily cap
+    // window by the ET/UTC gap near midnight ET (same class fixed across
+    // this session). Anchored to etToday() + naive-ET strings instead.
+    const dayStartCal = etToday()
+    const dayStart = formatNaiveET(dayStartCal)
+    const dayEnd = formatNaiveET(addCalendarDays(dayStartCal, 1))
     const { count } = await supabaseAdmin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', auth.tid)
       .eq('team_member_id', auth.id)
-      .gte('start_time', dayStart.toISOString())
-      .lt('start_time', dayEnd.toISOString())
+      .gte('start_time', dayStart)
+      .lt('start_time', dayEnd)
       .not('status', 'eq', 'cancelled')
     if ((count ?? 0) >= cap) {
       return NextResponse.json({ error: `Daily job limit reached (${cap})` }, { status: 409 })
