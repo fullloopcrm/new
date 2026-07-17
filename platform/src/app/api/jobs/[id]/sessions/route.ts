@@ -75,16 +75,19 @@ export async function POST(request: Request, { params }: Params) {
       const { data: valid } = await db
         .from('team_members').select('id').in('id', explicit)
       const validIds = (valid || []).map((m) => m.id as string)
-      // Block scheduling someone the business already let go onto a NEW
-      // session -- on_leave stays assignable, only 'terminated' blocks.
-      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, validIds)
-      if (terminatedIds.length > 0) {
-        return NextResponse.json(
-          { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
-          { status: 400 },
-        )
-      }
       for (const id of validIds) assignees.add(id)
+    }
+    // Block scheduling ANY terminated team member onto a NEW session --
+    // whether explicitly picked, or pulled in via a saved crew (crew_id)
+    // whose crew_members roster isn't pruned on termination. Checked against
+    // the FULL assembled assignee set, not just the explicit ids -- on_leave
+    // stays assignable, only 'terminated' blocks.
+    const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [...assignees])
+    if (terminatedIds.length > 0) {
+      return NextResponse.json(
+        { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
+        { status: 400 },
+      )
     }
     const assigneeList = [...assignees]
     const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)

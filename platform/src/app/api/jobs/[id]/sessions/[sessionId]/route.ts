@@ -120,16 +120,19 @@ export async function PATCH(request: Request, { params }: Params) {
         const { data: valid } = await supabaseAdmin
           .from('team_members').select('id').eq('tenant_id', tenantId).in('id', explicit)
         const validIds = (valid || []).map((m) => m.id as string)
-        // Block reassigning someone the business already let go to a FUTURE
-        // session -- on_leave stays assignable, only 'terminated' blocks.
-        const terminatedIds = await getTerminatedTeamMemberIds(tenantId, validIds)
-        if (terminatedIds.length > 0) {
-          return NextResponse.json(
-            { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
-            { status: 400 },
-          )
-        }
         for (const id of validIds) assignees.add(id)
+      }
+      // Block reassigning ANY terminated team member to a FUTURE session --
+      // whether explicitly picked, or pulled in via a saved crew (crew_id)
+      // whose crew_members roster isn't pruned on termination. Checked
+      // against the FULL assembled assignee set, not just the explicit ids
+      // -- on_leave stays assignable, only 'terminated' blocks.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [...assignees])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json(
+          { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
+          { status: 400 },
+        )
       }
       assigneeList = [...assignees]
       const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)
