@@ -562,6 +562,102 @@ codebase. 5 new tests in `src/lib/sms-templates.emergency-rate-wording.test.ts`
 item in this doc). `tsc --noEmit` clean, full suite 330/330 files,
 1754/1754 tests, zero regressions.
 
+## (12) New today — the client-portal self-book route had zero notification wiring at all — NOW FIXED
+
+Archetype depth, and the most severe of this session's price-transparency /
+notification findings so far: not "the message doesn't mention the premium"
+(items 3/5/7/9) but "there is no message." Traced `POST
+/api/portal/bookings` (`src/app/portal/book/page.tsx`'s "book another
+appointment" flow — the logged-in client portal's self-book route, distinct
+from the public `POST /api/client/book` widget) end to end and found zero
+`notify()`/`sendEmail()`/`sendSMS()` calls anywhere in the file, vs. its
+sibling `client/book` which fires an admin `notify()` alert plus a client
+email + SMS confirmation on every booking. This route is also the exact one
+that gained same-day/emergency pricing logic earlier this session (see the
+`route.emergency-rate.test.ts` already in the tree) — so a returning client
+who logs into their own portal and books a burst-pipe/no-heat same-day
+emergency gets billed correctly at the emergency rate, but **nobody finds out
+a booking exists**: no confirmation to the client, and critically, no alert
+to the owner/dispatcher that a new (possibly urgent) job just landed. No DB
+trigger or other mechanism covers the gap — confirmed via `grep -n "CREATE
+TRIGGER"` against `supabase/schema.sql`, no hits. For a same-day emergency
+this is a response-time risk strictly worse than item (4)'s "no push to any
+tech" gap, since here even the human who'd dispatch a tech never learns the
+job exists until they happen to check the dashboard.
+
+**Fixed** (`p1-w3`) — ported `client/book`'s core notify+email+SMS block
+(not its public-widget-specific extras: referral credit, attribution,
+smart-schedule auto-suggestion — those are a different feature and out of
+scope for closing a notification gap): an admin `notify({type:
+'new_booking', ...})` alert now fires on every portal-created booking
+(`notify()` degrades gracefully — `skipped` status, no throw — when a tenant
+has no email/SMS provider configured, so this is safe even in the ~untested
+provider-less case), and the client gets the same `bookingReceivedEmail()` /
+`clientSmsTemplates().bookingReceived()` confirmation `client/book` already
+sends, gated on the tenant having Resend/Telnyx configured. Client contact
+info (`clients.name/phone/email`) is fetched via `tenantDb(auth.tid)` (not
+`supabaseAdmin` directly) specifically to keep the query
+`tenant_id`-scoped — this repo has an automated IDOR ratchet test
+(`src/lib/idor-route-guard.test.ts`) that flagged the first draft of this fix
+for reading `clients` by id without a sibling tenant filter, even though
+`auth.id`/`auth.tid` are already bound together in one HMAC-signed portal
+token (not independently spoofable) — fixed to match this file's own
+existing convention rather than relying on that non-obviously-safe exception.
+4 new tests (`route.notify.test.ts`): admin notify fires on every booking
+regardless of email/SMS config, client email fires only when Resend is
+configured, client SMS fires only when Telnyx is configured, and a
+notify/email/SMS throw doesn't fail the booking creation itself (the whole
+block is `try/catch`-wrapped, matching `client/book`'s fire-and-forget
+tolerance). `tsc --noEmit` clean, full suite 331/331 files, 1758/1758 tests,
+zero regressions.
+
+## (13) New today — the smart-schedule tech-suggestion scorer is completely blind to job urgency
+
+Fresh ground: a code path none of items 1-12 have touched.
+`scoreTeamForBooking()` (`src/lib/smart-schedule.ts`) is the one automated
+"who should do this job" mechanism in the codebase — it powers the
+"suggested tech" banner on every booking-creation surface (confirmed 4 real
+call sites: `POST /api/admin/smart-schedule`, `POST
+/api/client/smart-schedule`, `POST /api/client/book`, and
+`cron/generate-recurring`). Read its full scoring logic and grepped both the
+function and all 4 call sites for `is_emergency`/`isEmergency` — zero
+matches anywhere. The `opts` object it accepts has no urgency field at all,
+so it structurally cannot factor same-day/emergency status into its
+suggestion even if a caller wanted it to.
+
+What it optimizes for instead, per the scoring weights read directly:
+`+200` for the client's preferred tech, `+50`/`-30` for zone match, `-100`
+for a labor-only mismatch, up to `+30` scaled by proximity to the job,
+`+20` scaled by clustering with the tech's *other jobs that day* (i.e.
+route efficiency across their whole schedule), and a hard reject
+(`reason: 'conflict'`) if their day is already booked solid. This is a
+sensible algorithm for **routine, plannable** scheduling — minimize a
+tech's daily drive time, respect zone assignments, keep clients with their
+preferred pro — but it is close to the opposite of what an actual emergency
+dispatch needs: the fastest-available person regardless of whether picking
+them wrecks their otherwise-efficient day, with zone-clustering and
+preferred-tech weighting being secondary (or irrelevant) concerns for a
+burst pipe. Net effect: for this session's emergency/24-7 archetype
+specifically, the one piece of dispatch automation the app has treats a
+same-day emergency exactly like a routine booking made three weeks out —
+same weights, same "would this wreck their day" conflict rejection, no
+"who's truly free right now" boost. An owner triaging an incoming emergency
+call and glancing at the suggested-tech banner (already established in item
+(6)/(8) as informational-only, not auto-assigned) has no reason to trust
+it's actually surfacing the fastest responder.
+
+Not fixed — this is a genuine algorithm/product call, same class as items
+(3)/(5)/(7)/(9): should emergency jobs skip zone-clustering weight entirely?
+Should the hard "day already booked" conflict-reject become a soft penalty
+instead (a tech might reasonably bump a routine job for a true emergency)?
+Should there be a distinct "nearest available right now" mode rather than
+reusing the existing day-optimized scorer? Any of these changes the
+suggestion an owner sees and shouldn't be guessed at without a decision.
+Verified by reading `smart-schedule.ts` in full (the entire scoring block,
+not excerpted) plus all 4 call sites directly (worktree still has no
+`.env.local`/Supabase env for a live call, same constraint as every other
+item in this doc).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
