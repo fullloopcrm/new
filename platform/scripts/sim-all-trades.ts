@@ -3469,6 +3469,64 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-39. bookings.team_member_token/worker_token — SCHEMA-NAME DRIFT PROBE + REDACTION FIX PROBE (fresh-ground continuation of 5a-38's now-closed clients.pin/team_members.pin thread; this round's new bug class is the same "credential-shaped secret shipped to the client's browser" shape, but a THIRD table/column: bookings.team_member_token, a fresh crypto-random token client/book itself generates and stores via create_booking_atomic on every new booking) ----
+    // This probe resolves a real ambiguity found by static analysis alone:
+    // supabase/schema.sql declares the column `worker_token` ("Team member
+    // token (for portal access)"), but migrations/2026_07_13_client_book_
+    // dedupe_atomic.sql's create_booking_atomic INSERTs into a column named
+    // `team_member_token` — a name declared nowhere in schema.sql or any
+    // migration's own ALTER TABLE/CREATE TABLE. admin/recurring-schedules/
+    // route.ts's own doc comment ("cleaner_token -> team_member_token")
+    // states the live FullLoop column is `team_member_token` (nycmaid's
+    // `cleaner_token` renamed on port), implying `worker_token` in
+    // schema.sql is the stale pre-rename bootstrap name — the same
+    // schema/migrations-vs-prod drift this session has found before
+    // (payroll_payments.status, 5a-?? probes). Rather than assume, prove it
+    // against the real live table: exactly one of the two names should be
+    // selectable; the 4 fixed client-facing routes (client/book,
+    // client/booking/[id], client/bookings, client/reschedule/[id])
+    // defensively redact BOTH names, so this probe also confirms that
+    // choice isn't silently masking a schema question worth flagging to
+    // Jeff (see NOTICED).
+    {
+      const { omit } = await import('../src/lib/validate')
+
+      // Own throwaway booking for this probe — tenant_id/start_time/end_time
+      // are the only NOT NULL columns on bookings (supabase/schema.sql),
+      // client_id is nullable, so no client fixture is needed either.
+      const tokTestStart = projectDaysFromNow(1, 9)
+      const tokTestEnd = projectDaysFromNow(1, 11)
+      const { data: tokGateBooking, error: tokGateBookingErr } = await supabase.from('bookings').insert({
+        tenant_id: tenant.id, start_time: tokTestStart, end_time: tokTestEnd, status: 'pending',
+      }).select('id').single()
+      add('schema-drift probe: throwaway bookings row created for the token probe', !!tokGateBooking && !tokGateBookingErr, tokGateBookingErr?.message)
+
+      if (tokGateBooking) {
+        const { error: tmTokErr } = await supabase.from('bookings').select('team_member_token').eq('id', tokGateBooking.id).limit(1).maybeSingle()
+        add('schema-drift probe: bookings.team_member_token is selectable on the live table', !tmTokErr, tmTokErr?.message)
+
+        const { error: workerTokErr } = await supabase.from('bookings').select('worker_token').eq('id', tokGateBooking.id).limit(1).maybeSingle()
+        add('schema-drift probe: bookings.worker_token selectability recorded (informational — whichever of the two names errors is the stale one; not asserting a specific outcome since this is exactly the ambiguity being resolved)', true, workerTokErr ? `worker_token errors: ${workerTokErr.message}` : 'worker_token is ALSO selectable (both names coexist on the live table)')
+
+        // Prove the fix's redaction constant against a real row carrying a
+        // real generated token, not a fixture — same pattern as 5a-38's
+        // clients.pin/team_members.pin probe.
+        const liveTokenValue = 'tmtok_live_probe_' + tokGateBooking.id.slice(0, 8)
+        const { error: tokenSeedErr } = await supabase.from('bookings').update({ team_member_token: liveTokenValue }).eq('id', tokGateBooking.id).eq('tenant_id', tenant.id)
+        add('schema-drift probe: bookings.team_member_token genuinely round-trips a write (not a schema-cache mirage)', !tokenSeedErr, tokenSeedErr?.message)
+
+        const { data: tokenRow } = await supabase.from('bookings').select('*').eq('id', tokGateBooking.id).eq('tenant_id', tenant.id).single()
+        if (tokenRow) {
+          add('schema-drift probe: the written token is present on a fresh select(*) (proves the redaction fix has a real field to strip)', tokenRow.team_member_token === liveTokenValue, tokenRow.team_member_token)
+          const redactedBooking = omit(tokenRow, ['team_member_token', 'worker_token', 'token_expires_at'])
+          add('schema-drift probe: omit() strips team_member_token from a real bookings row', redactedBooking && !('team_member_token' in redactedBooking), JSON.stringify(redactedBooking && 'team_member_token' in redactedBooking))
+          add('schema-drift probe: omit() leaves other real columns (id, status) untouched', redactedBooking?.id === tokenRow.id && redactedBooking?.status === tokenRow.status, JSON.stringify(redactedBooking))
+        }
+
+        await supabase.from('bookings').delete().eq('id', tokGateBooking.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
