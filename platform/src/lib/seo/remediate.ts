@@ -103,8 +103,17 @@ async function proposeForIssue(issue: Issue): Promise<number> {
     rows.push({ ...common, field: 'meta_description', before_value: current.meta, after_value: parsed.meta })
   }
   if (rows.length) {
-    // Clear any prior proposals for this issue so re-runs stay idempotent.
-    await supabaseAdmin.from('seo_changes').delete().eq('issue_id', issue.id).eq('status', 'proposed')
+    // Supersede by (url, field), not just issue_id — seo_run_detection() wipes and
+    // reissues seo_issues with fresh UUIDs daily, so a still-pending proposal from
+    // yesterday's now-deleted issue would otherwise survive as an orphaned
+    // duplicate with a stale before/after snapshot instead of being replaced.
+    const fields = Array.from(new Set(rows.map((r) => r.field as string)))
+    await supabaseAdmin
+      .from('seo_changes')
+      .delete()
+      .eq('target_url', issue.target_url)
+      .eq('status', 'proposed')
+      .in('field', fields)
     await supabaseAdmin.from('seo_changes').insert(rows)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   }
   return rows.length

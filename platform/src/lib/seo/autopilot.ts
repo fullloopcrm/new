@@ -81,12 +81,18 @@ export async function runAutopilot(): Promise<AutopilotResult> {
   }
   if (!base.enabled) return base
 
-  // Highest-value proposed Tier-1 title/meta first.
+  // Highest-value proposed Tier-1 title/meta first. Scoped to the deterministic
+  // recipe ONLY — remediate.ts ('title_meta') and competitor-remediate.ts
+  // ('competitor_title_meta') write the identical proposed/tier-1/title-or-meta
+  // shape but are AI-drafted and explicitly documented as human-gated-only
+  // (apply via /api/admin/seo/apply). Without this filter, autopilot would
+  // silently auto-apply those unreviewed AI drafts to live pages too.
   const { data } = await supabaseAdmin
     .from('seo_changes')
     .select('id,property,tenant_id,target_url,field,before_value,after_value')
     .eq('status', 'proposed')
     .eq('tier', 1)
+    .eq('recipe', 'title_meta_deterministic')
     .in('field', ['title', 'meta_description'])
     .order('proposed_at', { ascending: true })
     .limit(500)

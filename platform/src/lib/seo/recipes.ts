@@ -120,8 +120,21 @@ async function proposeForIssue(issue: {
   if (newTitle) rows.push({ ...common, field: 'title', before_value: current.title, after_value: newTitle })
   if (newMeta) rows.push({ ...common, field: 'meta_description', before_value: current.meta, after_value: newMeta })
 
-  await supabaseAdmin.from('seo_changes').delete().eq('issue_id', issue.id).eq('status', 'proposed')
-  await supabaseAdmin.from('seo_changes').insert(rows)  // tenant-scope-ok: tenant_id is in `common`, spread into every row above
+  if (rows.length) {
+    // Supersede by (url, field), not just issue_id — seo_run_detection() wipes and
+    // reissues seo_issues with fresh UUIDs daily, so a still-pending proposal from
+    // yesterday's now-deleted issue would otherwise survive as an orphaned
+    // duplicate and could later be bundled/applied by autopilot with a stale
+    // before/after snapshot instead of being cleanly replaced by this one.
+    const fields = Array.from(new Set(rows.map((r) => r.field as string)))
+    await supabaseAdmin
+      .from('seo_changes')
+      .delete()
+      .eq('target_url', issue.target_url)
+      .eq('status', 'proposed')
+      .in('field', fields)
+    await supabaseAdmin.from('seo_changes').insert(rows)  // tenant-scope-ok: tenant_id is in `common`, spread into every row above
+  }
   return rows.length
 }
 
