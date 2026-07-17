@@ -2716,6 +2716,105 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-27. cron/reminders + cron/follow-up + notifications(15min_warning) + send-booking-emails — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, 10th-13th call sites of the missing-consent-check bug class — the last unaudited sites through the shared notify() helper; see the companion structural-fix proposal doc for the full census) ----
+    // cron/reminders and cron/follow-up are CRON_SECRET-gated; notifications
+    // and send-booking-emails need requirePermission's headers()/cookies()
+    // this harness doesn't have — same reasoning as every prior 5a-1x/2x/5a-25/
+    // 5a-26 round: prove the fixed predicate against real bookings/clients
+    // rows in this archetype tenant through the exact column selection each
+    // of the 4 fixed routes now uses, rather than invoking the handlers
+    // directly.
+    {
+      const remGatePhone = '646' + String(4500000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: remGateBlockedClient, error: remGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Reminders-Gate STOP Client', email: `remgate-stop+${runId}@example.com`,
+        phone: remGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('reminders-gate: STOP-revoked client row created (sms_consent=false)', !!remGateBlockedClient && !remGateBlockedErr, remGateBlockedErr?.message)
+
+      const { data: remGateDnsClient, error: remGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Reminders-Gate Banned Client', email: `remgate-dns+${runId}@example.com`,
+        phone: remGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('reminders-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!remGateDnsClient && !remGateDnsErr, remGateDnsErr?.message)
+
+      const { data: remGateOkClient, error: remGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Reminders-Gate Consented Client', email: `remgate-ok+${runId}@example.com`,
+        phone: remGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('reminders-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!remGateOkClient && !remGateOkErr, remGateOkErr?.message)
+
+      // Also prove a real bookings row (what all 4 fixed routes' embedded
+      // clients() joins actually return) round-trips the same consent
+      // columns, one booking per client shared across all 4 predicate checks
+      // below.
+      const remGateBookingIds: Record<string, string> = {}
+      for (const [label, gateClient] of [
+        ['blocked', remGateBlockedClient], ['dns', remGateDnsClient], ['control', remGateOkClient],
+      ] as const) {
+        if (!gateClient?.id) continue
+        const { data: remGateBooking, error: remGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 55, actual_hours: 2, status: 'confirmed', payment_status: 'unpaid',
+          service_type: `reminders-gate ${label} probe`,
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add(`reminders-gate: ${label} — live schema — a real bookings row's embedded clients() join surfaces the same consent columns all 4 fixed routes now read`, !!remGateBooking && !remGateBookingErr, remGateBookingErr?.message || JSON.stringify(remGateBooking))
+        if (remGateBooking?.id) remGateBookingIds[label] = remGateBooking.id
+      }
+
+      const remGateIds = Object.values(remGateBookingIds)
+
+      // cron/reminders day/hour-based — clients(name, phone, email, sms_consent, do_not_service)
+      const { data: remGateDayRows } = await supabase.from('bookings')
+        .select('id, clients(phone, email, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', remGateIds)
+      const remGateWouldEmail = (remGateDayRows || [])
+        .filter(b => { const c = b.clients as unknown as { do_not_service?: boolean | null } | null; return !c?.do_not_service })
+        .map(b => b.id)
+      const remGateWouldText = (remGateDayRows || [])
+        .filter(b => { const c = b.clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return !!c?.phone && c.sms_consent !== false && !c.do_not_service })
+        .map(b => b.id)
+      add('reminders-gate (cron/reminders day+hour): the fixed predicate skips the STOP-revoked client\'s SMS (email still allowed)', !remGateWouldText.includes(remGateBookingIds.blocked) && remGateWouldEmail.includes(remGateBookingIds.blocked), JSON.stringify({ remGateWouldEmail, remGateWouldText }))
+      add('reminders-gate (cron/reminders day+hour): the fixed predicate skips the do_not_service client\'s email AND SMS', !remGateWouldEmail.includes(remGateBookingIds.dns) && !remGateWouldText.includes(remGateBookingIds.dns), JSON.stringify({ remGateWouldEmail, remGateWouldText }))
+      add('reminders-gate (cron/reminders day+hour): CONTROL — the fixed predicate still reaches the consented, non-banned client on both legs', remGateWouldEmail.includes(remGateBookingIds.control) && remGateWouldText.includes(remGateBookingIds.control), JSON.stringify({ remGateWouldEmail, remGateWouldText }))
+
+      // cron/follow-up — clients(name, do_not_service) — email-only, no sms_consent column read
+      const { data: followUpGateRows } = await supabase.from('bookings')
+        .select('id, clients(do_not_service)').eq('tenant_id', tenant.id).in('id', remGateIds)
+      const followUpWouldEmail = (followUpGateRows || [])
+        .filter(b => { const c = b.clients as unknown as { do_not_service?: boolean | null } | null; return !c?.do_not_service })
+        .map(b => b.id)
+      add('reminders-gate (cron/follow-up): the fixed predicate skips the do_not_service client\'s thank-you email', !followUpWouldEmail.includes(remGateBookingIds.dns), JSON.stringify(followUpWouldEmail))
+      add('reminders-gate (cron/follow-up): CONTROL — the fixed predicate still emails the consented, non-banned client (STOP-revoked-only client is email-unaffected, no sms_consent read on this route)', followUpWouldEmail.includes(remGateBookingIds.control) && followUpWouldEmail.includes(remGateBookingIds.blocked), JSON.stringify(followUpWouldEmail))
+
+      // notifications(15min_warning) — clients(name, phone, sms_consent, do_not_service) — sms-only
+      const { data: notif15Rows } = await supabase.from('bookings')
+        .select('id, clients(phone, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', remGateIds)
+      const notif15WouldText = (notif15Rows || [])
+        .filter(b => { const c = b.clients as unknown as { sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return c?.sms_consent !== false && !c?.do_not_service })
+        .map(b => b.id)
+      add('reminders-gate (notifications 15min_warning): the fixed predicate skips the STOP-revoked client\'s heads-up text', !notif15WouldText.includes(remGateBookingIds.blocked), JSON.stringify(notif15WouldText))
+      add('reminders-gate (notifications 15min_warning): the fixed predicate skips the do_not_service client\'s heads-up text', !notif15WouldText.includes(remGateBookingIds.dns), JSON.stringify(notif15WouldText))
+      add('reminders-gate (notifications 15min_warning): CONTROL — the fixed predicate still texts the consented, non-banned client', notif15WouldText.includes(remGateBookingIds.control), JSON.stringify(notif15WouldText))
+
+      // send-booking-emails (admin resend) — clients(id, name, email, phone, sms_consent, do_not_service) — either channel, do_not_service blocks both, sms_consent blocks sms only
+      const { data: resendRows } = await supabase.from('bookings')
+        .select('id, clients(sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', remGateIds)
+      const resendWouldEmail = (resendRows || [])
+        .filter(b => { const c = b.clients as unknown as { do_not_service?: boolean | null } | null; return !c?.do_not_service })
+        .map(b => b.id)
+      const resendWouldSms = (resendRows || [])
+        .filter(b => { const c = b.clients as unknown as { sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return c?.sms_consent !== false && !c?.do_not_service })
+        .map(b => b.id)
+      add('reminders-gate (send-booking-emails resend): the fixed predicate still allows the STOP-revoked client on the email channel (only sms_consent blocks sms)', resendWouldEmail.includes(remGateBookingIds.blocked) && !resendWouldSms.includes(remGateBookingIds.blocked), JSON.stringify({ resendWouldEmail, resendWouldSms }))
+      add('reminders-gate (send-booking-emails resend): the fixed predicate blocks the do_not_service client on BOTH channels', !resendWouldEmail.includes(remGateBookingIds.dns) && !resendWouldSms.includes(remGateBookingIds.dns), JSON.stringify({ resendWouldEmail, resendWouldSms }))
+      add('reminders-gate (send-booking-emails resend): CONTROL — the fixed predicate allows the consented, non-banned client on both channels', resendWouldEmail.includes(remGateBookingIds.control) && resendWouldSms.includes(remGateBookingIds.control), JSON.stringify({ resendWouldEmail, resendWouldSms }))
+
+      for (const id of Object.values(remGateBookingIds)) {
+        await supabase.from('bookings').delete().eq('id', id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
