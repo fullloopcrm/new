@@ -3748,3 +3748,61 @@ new assignee. `tsc --noEmit` clean, full suite 381/381 files, 1896/1896
 tests, zero regressions (one pre-existing, unrelated `tenant-scope` guard
 warning on `src/app/api/fixture/route.ts` predates this session's diff, same
 note item (17)/(86) already made — not touched here).
+
+## (87) New today, fresh ground outside the emergency archetype — the quote-deposit Stripe webhook always created a Job board card, even for recurring or booking-type sold quotes — NOW FIXED
+
+Pivoted off the H-01 bypass-list class (now closed per the sweep above) to
+hunt a genuinely different bug shape: a fulfillment-routing gap, not a
+notification gap, timezone gap, or wrong-column-name gap like every other
+item in this doc. Quotes carry a `recurring_type` (weekly/biweekly/etc — a
+sold recurring service should spin up a `recurring_schedules` series) and a
+`fulfillment_type` (`'booking'` — a sold one-off service should create a
+`bookings` row, not a Job board card). The public no-deposit accept path
+(`POST /api/quotes/public/[token]/accept`) already gets this right: it
+branches 3 ways on close — `isRecurring` -> `createRecurringSeriesFromQuote`,
+`isBooking` -> `createBookingFromQuote`, else -> `convertSaleToJob` (the
+generic Job board). But the OTHER close path — the Stripe webhook's
+quote-deposit branch (`checkout.session.completed` with
+`metadata.quote_deposit === 'true'`, `src/app/api/webhooks/stripe/route.ts`)
+— is the one that actually fires for any quote requiring a deposit (which is
+the more common real-world case for a sold quote: most trades collect
+something upfront). That branch unconditionally called `convertSaleToJob`
+with no reference to `recurring_type` or `fulfillment_type` at all — its own
+`.select('id, deal_id, quote_number')` on the atomic-claim UPDATE didn't even
+fetch those two columns, so it structurally couldn't have branched even if it
+tried. Net effect: any tenant that requires a deposit on a recurring-service
+quote (e.g. a weekly cleaning contract) or a booking-type quote got a
+one-off Job board card instead of the recurring schedule series (with its
+initial 6-week horizon of visit bookings) or the single Booking the
+no-deposit accept path would have created for the identical quote — a real
+fulfillment-model mismatch on the money-in path, not just a display gap.
+Confirmed via direct signature/branch comparison of
+`public/[token]/accept/route.ts` against the webhook, and via
+`sale-to-booking.ts`/`sale-to-recurring.ts`/`jobs.ts`'s `convertSaleToJob`,
+all three of which read `quote.total_cents` directly with zero reference to
+tiers (also checked while here whether the `quotes.tiers`/`accepted_tier`
+columns feeding a stale-total risk on tier selection were a live concern —
+they are not: zero references to "tier" anywhere in the admin quote builder
+`_QuoteBuilder.tsx` or the public `quote-view.tsx`, so that column pair is
+dead/unwired code, correctly left alone per this doc's own precedent for
+unreachable paths, e.g. item (10)'s find-cleaner broadcast and the H-01
+sweep's `user/preferences` verdict).
+
+**Fixed** (`p1-w3`) — the webhook's atomic-claim UPDATE now also selects
+`recurring_type, fulfillment_type` off the same row it already claims
+(`deposit_paid_at` flip), and the fulfillment call site now runs the
+identical 3-way branch the accept path uses: `recurring_type` truthy ->
+`createRecurringSeriesFromQuote`, `fulfillment_type === 'booking'` ->
+`createBookingFromQuote`, else -> `convertSaleToJob` (unchanged default,
+verified by a control-case test). No schema change needed — both columns
+already existed and were already correctly populated at quote-creation time
+(`POST /api/quotes`), they just were never read on this close path. 3 new
+tests (`route.deposit-fulfillment.test.ts`, mirroring the existing
+`route.race.test.ts`'s fake-Stripe/fake-Supabase harness): a recurring quote
+creates a `recurring_schedules` row (+ its initial visit bookings) and zero
+Jobs, a booking-type quote creates exactly one `bookings` row and zero Jobs,
+and the plain-project control case still creates exactly one Job (proving the
+default branch is unchanged). `tsc --noEmit` clean, full suite 382/382 files,
+1899/1899 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts` noted
+elsewhere in this doc — not touched here).

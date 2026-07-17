@@ -279,7 +279,7 @@ export async function POST(request: Request) {
           .update({ deposit_paid_cents: amt, deposit_paid_at: nowIso, deposit_session_id: session.id })
           .eq('id', quoteId).eq('tenant_id', tenantId)
           .is('deposit_paid_at', null)
-          .select('id, deal_id, quote_number')
+          .select('id, deal_id, quote_number, recurring_type, fulfillment_type')
           .maybeSingle()
 
         if (!q) {
@@ -304,7 +304,25 @@ export async function POST(request: Request) {
             ])
           }
         }
-        try { const { convertSaleToJob } = await import('@/lib/jobs'); await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {}) } catch (e) { console.warn('[stripe] deposit convert-to-job failed', e) }
+        // Same 3-way fulfillment routing the no-deposit accept path already
+        // uses (recurring → schedule series, booking → Bookings, else → Job
+        // board) -- this webhook previously always called convertSaleToJob
+        // regardless of the quote's own recurring_type/fulfillment_type,
+        // silently creating a one-off Job for every deposit-required
+        // recurring or booking-type quote instead of the series/booking the
+        // accept path's own branch would have created.
+        try {
+          if (q.recurring_type) {
+            const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
+            await createRecurringSeriesFromQuote(tenantId, quoteId)
+          } else if (q.fulfillment_type === 'booking') {
+            const { createBookingFromQuote } = await import('@/lib/sale-to-booking')
+            await createBookingFromQuote(tenantId, quoteId)
+          } else {
+            const { convertSaleToJob } = await import('@/lib/jobs')
+            await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {})
+          }
+        } catch (e) { console.warn('[stripe] deposit fulfillment conversion failed', e) }
         try {
           const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
           await ownerAlert({
