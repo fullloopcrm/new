@@ -195,3 +195,25 @@ export async function listEmployees(tenantId: string): Promise<HrEmployee[]> {
     }
   })
 }
+
+/**
+ * Which of the given team members are currently terminated (hr_status).
+ * A team member with no hr_employee_profiles row is treated as active
+ * (matches listEmployees' default) -- never blocked.
+ *
+ * Used to keep scheduling from silently reassigning someone the business
+ * already let go to a FUTURE session. Deliberately narrow to 'terminated':
+ * 'on_leave' is still employed and stays assignable, and this never touches
+ * past pay -- a terminated employee's last paycheck is a separate, real
+ * event this must not interfere with.
+ */
+export async function getTerminatedTeamMemberIds(tenantId: string, teamMemberIds: string[]): Promise<string[]> {
+  if (teamMemberIds.length === 0) return []
+  const { data } = await supabaseAdmin
+    .from('hr_employee_profiles')
+    .select('team_member_id')
+    .eq('tenant_id', tenantId)
+    .eq('hr_status', 'terminated')
+    .in('team_member_id', teamMemberIds)
+  return (data || []).map((r) => r.team_member_id as string)
+}

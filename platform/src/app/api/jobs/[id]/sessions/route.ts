@@ -13,6 +13,7 @@ import { tenantDb } from '@/lib/tenant-db'
 // supabaseAdmin; tenantDb would try to stamp a column that doesn't exist.
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent } from '@/lib/jobs'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -73,7 +74,17 @@ export async function POST(request: Request, { params }: Params) {
     if (explicit.length) {
       const { data: valid } = await db
         .from('team_members').select('id').in('id', explicit)
-      for (const m of valid || []) assignees.add(m.id)
+      const validIds = (valid || []).map((m) => m.id as string)
+      // Block scheduling someone the business already let go onto a NEW
+      // session -- on_leave stays assignable, only 'terminated' blocks.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, validIds)
+      if (terminatedIds.length > 0) {
+        return NextResponse.json(
+          { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
+          { status: 400 },
+        )
+      }
+      for (const id of validIds) assignees.add(id)
     }
     const assigneeList = [...assignees]
     const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)

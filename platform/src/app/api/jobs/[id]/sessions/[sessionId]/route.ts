@@ -16,6 +16,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type RawSession } from '@/lib/jobs'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Params = { params: Promise<{ id: string; sessionId: string }> }
 
@@ -118,7 +119,17 @@ export async function PATCH(request: Request, { params }: Params) {
       if (explicit.length) {
         const { data: valid } = await supabaseAdmin
           .from('team_members').select('id').eq('tenant_id', tenantId).in('id', explicit)
-        for (const m of valid || []) assignees.add(m.id)
+        const validIds = (valid || []).map((m) => m.id as string)
+        // Block reassigning someone the business already let go to a FUTURE
+        // session -- on_leave stays assignable, only 'terminated' blocks.
+        const terminatedIds = await getTerminatedTeamMemberIds(tenantId, validIds)
+        if (terminatedIds.length > 0) {
+          return NextResponse.json(
+            { error: `Cannot assign terminated team member(s): ${terminatedIds.join(', ')}` },
+            { status: 400 },
+          )
+        }
+        for (const id of validIds) assignees.add(id)
       }
       assigneeList = [...assignees]
       const leadId = body.team_member_id && assignees.has(body.team_member_id) ? body.team_member_id : (assigneeList[0] ?? null)
