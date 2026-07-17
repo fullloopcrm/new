@@ -4888,3 +4888,66 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (112) Follow-up to (111) run to ground — the conversation quality scorer's `recurring_set`/`abandoned` checks were the same declared-value-never-written shape, one level deeper — NOW FIXED
+
+Item (111) flagged two candidates while fixing the escalation gap and
+explicitly deferred them as "the same shape and worth a follow-up":
+`'recurring_set'` (referenced by `conversation-scorer.ts` line 77's scoring
+heuristic) and `'abandoned'` (already confirmed dead-but-harmless in
+`metrics.ts`, covered by the `expired` fallback). Ran both to ground.
+
+`sms_conversations.outcome` is only ever written as `'booked'`,
+`'waitlisted'`, or (as of item 111) `'escalated'` — confirmed again by
+grepping every `outcome:` write site across `core.ts`, `selena-legacy.ts`,
+and every per-tenant `_lib/selena.ts` clone. `'recurring_set'` and
+`'abandoned'` are never written anywhere. Two different bugs fall out of
+that in `src/lib/conversation-scorer.ts`'s `scoreConversation()`:
+
+- `convo.outcome !== 'recurring_set'` (line 77) was **always true** — not a
+  quiet no-op like the `abandoned` case, an active always-fires bug. Every
+  conversation where Selena's own messages mentioned recurring/weekly/
+  monthly language took a -10 "Mentioned recurring/frequency on a one-time
+  booking" deduction, *even when the conversation ended in an actual
+  recurring booking*. The real recurring signal was never on
+  `sms_conversations` at all — it lives on the linked booking's
+  `bookings.recurring_type` column (set by `create_booking`, read
+  elsewhere in `core.ts` as `recurring_type !== 'one_time'`, e.g. line
+  1497's `lookup_bookings` response).
+- `convo.outcome === 'abandoned'` (line 134, a *second*, independent
+  instance of the same gap `metrics.ts` has) was **always false** with no
+  compensating fallback in this file — genuinely abandoned conversations
+  never took the -5 "Conversation abandoned" deduction.
+
+Checked reachability honestly before fixing: this scorer
+(`scoreConversation` in `conversation-scorer.ts`, tenant-aware) is wired to
+`POST /api/admin/selena/score`, a real permission-gated (`settings.view`)
+admin API route — grepped the whole dashboard tree and found zero UI
+callers and no cron invokes it, unlike the always-live SMS webhook path.
+Ruled it in anyway, not out: unlike (110)'s round's two dead candidates
+(a 410'd page and a route with zero possible callers), this is ordinary
+working admin-API surface, not proven-unreachable — an admin can invoke it
+today, and the bug is a live logic defect in deployed code, not inert
+scaffolding.
+
+**Fixed** — recurring detection now looks up the conversation's linked
+`booking_id` and checks `bookings.recurring_type !== 'one_time'` instead of
+the phantom outcome value. Abandoned detection now checks `convo.expired`,
+the exact fallback item 111 already confirmed `metrics.ts` relies on for
+this identical gap.
+
+5 new tests in `conversation-scorer.recurring-abandoned.test.ts`: recurring
+language not penalized when the linked booking is actually recurring,
+still penalized on a genuinely one-time booking, still penalized with no
+linked booking at all, expired conversation penalized as abandoned,
+non-expired conversation not penalized. Mutation-verified (`git apply -R`
+the fix, 2/5 RED for the expected reason — recurring language penalized
+despite a recurring booking; expired conversation not flagged as abandoned
+— `git apply` restored, GREEN). `tsc --noEmit` clean, full suite 407/407
+files, 1990/1990 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not touched
+here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
