@@ -184,6 +184,21 @@ type ToolInput = Record<string, unknown>
 const str = (v: unknown): string => (typeof v === 'string' ? v : '')
 const bool = (v: unknown): boolean => v === true
 
+// Tools that send an outbound message, post to a tenant's owner thread, or
+// fire a cron. The system prompt tells the model to preview (confirm=false),
+// stop, and only send confirm=true after Jeff replies "yes" in a NEW message
+// — but that's a prompt-level promise, not a code-level one. Nothing in the
+// tool loop below stops the model from calling confirm=false and then
+// confirm=true back-to-back inside the SAME incoming Telegram message, e.g.
+// if a prior read_tenant_thread call pulled in tenant-owner-authored text
+// (untrusted — anyone with a dashboard login can write into that thread)
+// that talks the model into "confirming" itself. Enforce the two-message
+// boundary in code: the turn stops hard the moment a confirm-gated tool is
+// called, so an actual confirm=true execution always requires a fresh
+// askJefe() invocation (a new Telegram message from Jeff), never a
+// same-turn follow-up.
+const CONFIRM_GATED_TOOLS = new Set(['notify_tenant_owner', 'rerun_cron', 'send_tenant_message'])
+
 async function runTool(name: string, input: ToolInput = {}): Promise<string> {
   let out: unknown
   switch (name) {
@@ -246,8 +261,10 @@ export async function askJefe(message: string, history: Array<{ role: 'user' | '
 
       messages.push({ role: 'assistant', content: response.content as Anthropic.Messages.ContentBlockParam[] })
       const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
+      let hitConfirmGate = false
       for (const tool of toolBlocks) {
         result.toolsCalled.push(tool.name)
+        if (CONFIRM_GATED_TOOLS.has(tool.name)) hitConfirmGate = true
         let out: string
         try {
           out = await runTool(tool.name, (tool.input as ToolInput) || {})
@@ -257,6 +274,28 @@ export async function askJefe(message: string, history: Array<{ role: 'user' | '
         toolResults.push({ type: 'tool_result', tool_use_id: tool.id, content: out })
       }
       messages.push({ role: 'user', content: toolResults })
+
+      if (hitConfirmGate) {
+        // Hard stop: get a text-only wrap-up (tool_choice 'none' makes a
+        // same-turn follow-up tool call impossible) and end the turn. A real
+        // confirm=true execution can only happen on the NEXT askJefe() call,
+        // triggered by Jeff's next actual Telegram message.
+        const followUp = await getClient().messages.create({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1024,
+          system: JEFE_PROMPT,
+          messages,
+          tools: TOOLS,
+          tool_choice: { type: 'none' },
+        })
+        const followUpText = followUp.content
+          .filter((b): b is Anthropic.Messages.TextBlock => b.type === 'text')
+          .map((b) => b.text)
+          .join(' ')
+          .trim()
+        if (followUpText) result.text = followUpText
+        break
+      }
     }
   } catch (err) {
     console.error('[Jefe]', err)
