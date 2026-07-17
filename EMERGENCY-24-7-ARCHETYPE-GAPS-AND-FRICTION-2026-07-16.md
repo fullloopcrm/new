@@ -4084,3 +4084,127 @@ stayed GREEN since that path is unchanged — restored, GREEN. `tsc --noEmit`
 clean, full suite (both items) 390/390 files, 1919/1919 tests, zero
 regressions (same pre-existing, unrelated `tenant-scope` guard warning on
 `src/app/api/fixture/route.ts`, not touched here).
+
+## (94) New today, fresh ground + archetype-depth sweep combined — Selena's owner-facing tools.ts was never ported off nycmaid's pre-rename `cleaners`/`cleaner_id` vocabulary; ~14 tool handlers queried/wrote a table that hasn't existed since the fullloop rename — NOW FIXED
+
+Investigating whether Selena has other tools with item (93)'s "raw update
+skips real side effects" shape led to `score_cleaners` — agent.ts's own
+comment calls it "the canonical availability source... Yinez must use it
+for every slot quote on every channel" — which turned out to import
+`scoreCleanersForBooking` from `@/lib/nycmaid/smart-schedule`, a legacy
+module that queries `cleaners`/`booking_cleaners`. The *current* module,
+`@/lib/smart-schedule`, exports the renamed `scoreTeamForBooking` and
+queries `team_members`/`booking_team_members` — the real, live schema.
+Three independent migration comments confirm `team_members` is fullloop's
+only convention and `cleaners` was never carried over:
+
+- `src/lib/migrations/009_nycmaid_parity_columns.sql`: "Rename-artifact
+  `cleaner_*` cols intentionally skipped (fullloop uses `team_member_*`)."
+- `src/app/api/cleaners/route.ts` / `[id]/route.ts`: "Legacy nycmaid path —
+  `/api/cleaners` reads/writes `team_members`. Kept as thin compatibility
+  shim so nycmaid-era code/frontends keep working."
+- `supabase/smart_scheduling.sql`: adds `bookings.suggested_team_member_id`
+  and (via `smart-schedule.ts`) `clients.preferred_team_member_id` — never
+  a `*_cleaner_id` variant.
+
+A full sweep of `tools.ts` found the same wrong-vocabulary shape repeated
+across ~14 more handlers, none of them ever ported:
+
+- `get_today_summary` (also the backbone of `get_briefing`) — bookings/
+  payouts joins against `cleaners`, `bookings.cleaner_id`,
+  `cleaner_payouts`, none of which exist.
+- `get_smart_suggestion` — selected `bookings.cleaner_id`,
+  `suggested_cleaner_id`, joined `cleaners(name)`; also called the same
+  legacy `scoreCleanersForBooking`.
+- `assign_cleaner_to_booking` — wrote `bookings.cleaner_id` (errors —
+  unknown column); even once fixed to `team_member_id`, it was a raw
+  update with **zero** notification to the newly-assigned tech, while the
+  human `PUT /api/bookings/[id]` path already sends a job-assignment SMS
+  on the same transition (same "mirror the human path's side effects" gap
+  as items (86)/(93)).
+- `create_manual_booking` — inserted `cleaner_id: null,
+  suggested_cleaner_id: ...` into `bookings`; both columns nonexistent, so
+  every manual booking Selena created for an owner has errored outright
+  since this tool's beginning.
+- `update_booking` — `cleaner_id` in the fields whitelist wrote straight
+  through to a nonexistent column.
+- `list_bookings` — joined `cleaners(name, id)` and filtered
+  `.eq('cleaner_id', ...)`; the multi-tech team lookup queried
+  `booking_cleaners` (real table is `booking_team_members`).
+- `lookup_cleaner`, `send_message_to_cleaner`, `send_broadcast`
+  (`all_cleaners` audience) — queried `.from('cleaners')` directly for
+  contact info; `lookup_cleaner`'s payout/rating joins used
+  `cleaner_payouts`/`.eq('cleaner_id', ...)` (real table
+  `team_member_payouts`, real FK `team_member_id`).
+- `lookup_client` — selected/joined `clients.preferred_cleaner_id`
+  against `cleaners`; real column is `preferred_team_member_id`.
+- `create_cleaner` / `update_cleaner` / `deactivate_cleaner` /
+  `list_cleaners` — all four `.from('cleaners')`, with `zone` as a bare
+  column; `team_members`' real equivalent is the array `service_zones`.
+- `approve_cleaner_application` — inserted the new hire into `cleaners`
+  (not `team_members`) with a bare `zone` (application row's real column
+  is `service_zones`), then updated `cleaner_applications` with
+  `status: 'approved'` (the table's real CHECK constraint only allows
+  `'pending'|'reviewed'|'accepted'|'rejected'` — `'approved'` would have
+  been rejected) plus `approved_at`/`cleaner_id`, neither of which exist
+  (only `reviewed_at`). No dashboard UI manages `cleaner_applications` at
+  all — this tool was the *only* path that could ever turn a real
+  application into a real team member, and it has never worked.
+- `reject_cleaner_application` — same shape: wrote nonexistent
+  `rejected_reason`/`rejected_at` columns.
+- `block_cleaner_dates` — inserted into `cleaner_blocks`, a table that
+  doesn't exist anywhere in the tracked schema. The real mechanism is
+  `team_members.unavailable_dates` (`DATE[]`), the same array `PUT
+  /api/cleaners/[id]` (item (88)'s fix) replaces wholesale.
+- `mark_payout_paid` — updated `cleaner_payouts` (real table
+  `team_member_payouts`).
+
+**Fixed** (`p1-w3`) — every call site above rewired to the real
+`team_members` / `team_member_payouts` / `booking_team_members` tables and
+real column names (`team_member_id`, `suggested_team_member_id`,
+`preferred_team_member_id`, `service_zones`). External tool-facing field
+names the LLM already knows from agent.ts's `TOOLS` schemas (`cleaner_id`,
+`zone`) were kept as-is and translated internally, so no prompt/schema
+changes were needed. `assign_cleaner_to_booking` now also sends the
+missing new-tech SMS. `block_cleaner_dates` now reads-merges-writes the
+real `unavailable_dates` array instead of inserting into a phantom table.
+`approve_cleaner_application` now writes a valid `status: 'accepted'` and
+uses `reviewed_at`; `reject_cleaner_application` appends the reason to
+`notes` (the only free-text field the table actually has) instead of a
+nonexistent `rejected_reason`.
+
+15 new tests (`tools.team-members-schema.test.ts`), covering the highest-
+severity paths through the real `runTool` dispatcher: `score_cleaners`'
+module wiring, `get_today_summary`, `get_smart_suggestion`,
+`assign_cleaner_to_booking` (+ SMS), `create_manual_booking`,
+`list_bookings`, the four cleaner-CRUD tools, `block_cleaner_dates`,
+`mark_payout_paid`, `lookup_client`, and both application-review tools.
+Mutation-verified: `git apply -R` the entire fix, all 15/15 tests RED for
+the expected reason (wrong table populated instead of `team_members`,
+wrong/missing column values, `cleaner_blocks`/`cleaners` rows appearing
+where none should, missing SMS) — `git apply` restored, GREEN. `tsc
+--noEmit` clean, full suite 391/391 files, 1934/1934 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+**Noticed, not fixed — flagging for live-schema verification before
+touching it**: `src/lib/selena/core.ts`'s `handleCreateBooking` (the
+`create_booking` tool's real implementation, bridged in from every
+channel/tenant via `CLIENT_TOOLS`; its own comment calls it "the
+platform's most-used AI booking assistant") has the *same* bug shape at
+higher severity — it imports `scoreCleanersForBooking` from
+`@/lib/nycmaid/smart-schedule` and inserts `suggested_cleaner_id` into
+`bookings` (real column `suggested_team_member_id`), which by the same
+evidence used above would fail every booking `INSERT` outright. Did not
+fix this round: `core.ts` is heavily nycmaid-tenant-specific
+(hardcoded `thenycmaid.com` links, hardcoded staff first names, a
+hardcoded NYC phone number) in a way `tools.ts` is not, and it's genuinely
+unclear from source alone whether it's dead/superseded code, a
+correctly-scoped nycmaid-only override that still has live `cleaners` data
+underneath it (contradicting this item's "table doesn't exist" evidence
+the way item (77)'s live-schema check contradicted a source-only read),
+or actually the shared implementation silently broken for every non-
+nycmaid tenant. This needs a live prod-schema check (`cleaners` table
+existence + row count) before anyone touches it — flagging instead of
+guessing, given the blast radius is the primary client-facing booking
+flow.
