@@ -24,6 +24,17 @@ export interface PostAdjResult {
   entryId?: string
 }
 
+/** Look up a booking's entity_id; returns null if unset or the booking is gone. */
+async function resolveEntityIdFromBooking(bookingId: string | null): Promise<string | null> {
+  if (!bookingId) return null
+  const { data } = await supabaseAdmin
+    .from('bookings')
+    .select('entity_id')
+    .eq('id', bookingId)
+    .maybeSingle()
+  return (data?.entity_id as string) || null
+}
+
 async function resolveAccounts(tenantId: string, codes: string[]): Promise<Record<string, string> | null> {
   await ensureChartAccounts(tenantId)
   const ids = await Promise.all(codes.map((c) => getAccountIdByCode(tenantId, c)))
@@ -71,6 +82,7 @@ export async function postRefundToLedger(opts: {
   sourceId: string
   amountCents: number
   memo?: string
+  entityId?: string | null
 }): Promise<PostAdjResult> {
   const { tenantId, sourceId, amountCents } = opts
   if (await journalEntryExists(tenantId, 'refund', sourceId)) return { posted: false, reason: 'already_posted' }
@@ -85,6 +97,7 @@ export async function postRefundToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
+    entity_id: opts.entityId ?? null,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: opts.memo || 'Refund',
     source: 'refund',
@@ -101,6 +114,7 @@ export async function postChargebackToLedger(opts: {
   sourceId: string
   amountCents: number
   memo?: string
+  entityId?: string | null
 }): Promise<PostAdjResult> {
   const { tenantId, sourceId, amountCents } = opts
   if (await journalEntryExists(tenantId, 'chargeback', sourceId)) return { posted: false, reason: 'already_posted' }
@@ -115,6 +129,7 @@ export async function postChargebackToLedger(opts: {
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
+    entity_id: opts.entityId ?? null,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: opts.memo || 'Chargeback',
     source: 'chargeback',
@@ -135,7 +150,7 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
   if (await journalEntryExists(tenantId, 'commission', commissionId)) return { posted: false, reason: 'already_posted' }
   const { data: c } = await supabaseAdmin
     .from('referral_commissions')
-    .select('commission_cents, status')
+    .select('commission_cents, status, booking_id')
     .eq('tenant_id', tenantId)
     .eq('id', commissionId)
     .maybeSingle()
@@ -146,12 +161,14 @@ export async function postCommissionAccrual(opts: { tenantId: string; commission
 
   const acct = await resolveAccounts(tenantId, ['6045', '2400'])
   if (!acct) return { posted: false, reason: 'accounts_missing' }
+  const entityId = await resolveEntityIdFromBooking(c.booking_id as string | null)
   const lines: JournalLineInput[] = [
     { coa_id: acct['6045'], debit_cents: amt, memo: 'Referral commission earned' },
     { coa_id: acct['2400'], credit_cents: amt, memo: 'Commission payable' },
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
+    entity_id: entityId,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: 'Referral commission',
     source: 'commission',
@@ -172,7 +189,7 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
   if (await journalEntryExists(tenantId, 'commission_paid', commissionId)) return { posted: false, reason: 'already_posted' }
   const { data: c } = await supabaseAdmin
     .from('referral_commissions')
-    .select('commission_cents')
+    .select('commission_cents, booking_id')
     .eq('tenant_id', tenantId)
     .eq('id', commissionId)
     .maybeSingle()
@@ -183,12 +200,14 @@ export async function postCommissionPayment(opts: { tenantId: string; commission
   await postCommissionAccrual({ tenantId, commissionId }).catch(() => {})
   const acct = await resolveAccounts(tenantId, ['2400', '1010'])
   if (!acct) return { posted: false, reason: 'accounts_missing' }
+  const entityId = await resolveEntityIdFromBooking(c.booking_id as string | null)
   const lines: JournalLineInput[] = [
     { coa_id: acct['2400'], debit_cents: amt, memo: 'Commission paid' },
     { coa_id: acct['1010'], credit_cents: amt, memo: 'Commission payout' },
   ]
   const entryId = await postJournalEntry({
     tenant_id: tenantId,
+    entity_id: entityId,
     entry_date: new Date().toISOString().slice(0, 10),
     memo: 'Referral commission paid',
     source: 'commission_paid',
@@ -252,14 +271,24 @@ export async function syncBookingRefundStatus(opts: { tenantId: string; bookingI
  * Resolve a tenant id (and payment memo) from a Stripe payment_intent, used by
  * refund/dispute webhook handlers where only the charge/intent is known.
  */
-export async function tenantFromPaymentIntent(paymentIntentId: string): Promise<{ tenantId: string; bookingId: string | null } | null> {
+export async function tenantFromPaymentIntent(paymentIntentId: string): Promise<{ tenantId: string; bookingId: string | null; entityId: string | null } | null> {
   if (!paymentIntentId) return null
   const { data } = await supabaseAdmin
     .from('payments')
-    .select('tenant_id, booking_id')
+    .select('tenant_id, booking_id, invoice_id')
     .eq('stripe_payment_intent_id', paymentIntentId)
     .limit(1)
     .maybeSingle()
   if (!data?.tenant_id) return null
-  return { tenantId: data.tenant_id as string, bookingId: (data.booking_id as string) || null }
+  const bookingId = (data.booking_id as string) || null
+  let entityId = await resolveEntityIdFromBooking(bookingId)
+  if (!entityId && data.invoice_id) {
+    const { data: invoice } = await supabaseAdmin
+      .from('invoices')
+      .select('entity_id')
+      .eq('id', data.invoice_id as string)
+      .maybeSingle()
+    entityId = (invoice?.entity_id as string) || null
+  }
+  return { tenantId: data.tenant_id as string, bookingId, entityId }
 }

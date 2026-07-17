@@ -659,12 +659,12 @@ export async function POST(request: Request) {
         const refunds = charge.refunds?.data || []
         if (refunds.length > 0) {
           for (const r of refunds) {
-            await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: r.id, amountCents: r.amount, memo })
+            await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: r.id, amountCents: r.amount, memo, entityId: resolved.entityId })
               .catch(err => console.error('[stripe] refund post failed:', err))
           }
         } else if (charge.amount_refunded > 0) {
           // Fallback when the refunds list isn't expanded on the event.
-          await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
+          await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo, entityId: resolved.entityId })
             .catch(err => console.error('[stripe] refund post failed:', err))
         }
         // Full refund (cumulative amount_refunded covers the whole charge) →
@@ -684,7 +684,7 @@ export async function POST(request: Request) {
       const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
       const resolved = piId ? await tenantFromPaymentIntent(piId) : null
       if (resolved) {
-        await postChargebackToLedger({ tenantId: resolved.tenantId, sourceId: dispute.id, amountCents: dispute.amount, memo: 'Chargeback / dispute' })
+        await postChargebackToLedger({ tenantId: resolved.tenantId, sourceId: dispute.id, amountCents: dispute.amount, memo: 'Chargeback / dispute', entityId: resolved.entityId })
           .catch(err => console.error('[stripe] chargeback post failed:', err))
         await supabaseAdmin.from('admin_tasks').insert({
           tenant_id: resolved.tenantId,
