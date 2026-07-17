@@ -15,7 +15,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
-import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, postChargebackReversalToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import Stripe from 'stripe'
 import { escapeHtml } from '@/lib/escape-html'
 
@@ -638,6 +638,23 @@ export async function POST(request: Request) {
           related_type: 'booking',
           related_id: resolved.bookingId,
         }).then(() => {}, () => {})
+      }
+      break
+    }
+
+    case 'charge.dispute.closed': {
+      // Dispute resolved. Only 'won' needs ledger action: the merchant gets
+      // the disputed funds back, reversing the loss charge.dispute.created
+      // booked when the dispute opened. 'lost' (and 'warning_closed') leave
+      // that loss standing — it's still real, Stripe already kept the funds.
+      const dispute = event.data.object as Stripe.Dispute
+      if (dispute.status === 'won') {
+        const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
+        const resolved = piId ? await tenantFromPaymentIntent(piId) : null
+        if (resolved) {
+          await postChargebackReversalToLedger({ tenantId: resolved.tenantId, sourceId: dispute.id, amountCents: dispute.amount, memo: 'Chargeback reversal (dispute won)' })
+            .catch(err => console.error('[stripe] chargeback reversal post failed:', err))
+        }
       }
       break
     }

@@ -51,6 +51,7 @@ import {
   postDepositToLedger,
   postRefundToLedger,
   postChargebackToLedger,
+  postChargebackReversalToLedger,
   postCommissionAccrual,
   postCommissionPayment,
 } from './post-adjustments'
@@ -126,6 +127,27 @@ describe('postChargebackToLedger — concurrent double-post race', () => {
     const f = supabaseAdmin as unknown as FakeSupabase
     expect(f._all('journal_entries').filter((e) => e.source_id === SOURCE_ID).length).toBe(1)
     expect(results.filter((r) => r.posted).length).toBe(1)
+  })
+})
+
+describe('postChargebackReversalToLedger — concurrent double-post race', () => {
+  it('two concurrent reversals for the same dispute id produce exactly one journal entry', async () => {
+    const results = await Promise.all([
+      postChargebackReversalToLedger({ tenantId: TENANT_ID, sourceId: SOURCE_ID, amountCents: 5_000 }),
+      postChargebackReversalToLedger({ tenantId: TENANT_ID, sourceId: SOURCE_ID, amountCents: 5_000 }),
+    ])
+    const f = supabaseAdmin as unknown as FakeSupabase
+    expect(f._all('journal_entries').filter((e) => e.source_id === SOURCE_ID && e.source === 'chargeback_reversal').length).toBe(1)
+    expect(results.filter((r) => r.posted).length).toBe(1)
+  })
+
+  it('does not collide with the original chargeback entry for the same dispute id — both post', async () => {
+    const chargeback = await postChargebackToLedger({ tenantId: TENANT_ID, sourceId: SOURCE_ID, amountCents: 5_000 })
+    const reversal = await postChargebackReversalToLedger({ tenantId: TENANT_ID, sourceId: SOURCE_ID, amountCents: 5_000 })
+    const f = supabaseAdmin as unknown as FakeSupabase
+    expect(chargeback.posted).toBe(true)
+    expect(reversal.posted).toBe(true)
+    expect(f._all('journal_entries').filter((e) => e.source_id === SOURCE_ID).length).toBe(2)
   })
 })
 

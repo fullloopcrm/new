@@ -139,6 +139,45 @@ export async function postChargebackToLedger(opts: {
 }
 
 /**
+ * Dispute won by the merchant → reverse the loss `postChargebackToLedger`
+ * booked when the dispute was opened. `sourceId` = Stripe dispute id (same
+ * id as the original chargeback entry; 'chargeback_reversal' is a distinct
+ * source type so idempotency doesn't collide with it).
+ */
+export async function postChargebackReversalToLedger(opts: {
+  tenantId: string
+  sourceId: string
+  amountCents: number
+  memo?: string
+}): Promise<PostAdjResult> {
+  const { tenantId, sourceId, amountCents } = opts
+  if (await journalEntryExists(tenantId, 'chargeback_reversal', sourceId)) return { posted: false, reason: 'already_posted' }
+  if (amountCents <= 0) return { posted: false, reason: 'zero_amount' }
+
+  const acct = await resolveAccounts(tenantId, ['6110', '1050'])
+  if (!acct) return { posted: false, reason: 'accounts_missing' }
+
+  const lines: JournalLineInput[] = [
+    { coa_id: acct['1050'], debit_cents: amountCents, memo: 'Chargeback funds returned (dispute won)' },
+    { coa_id: acct['6110'], credit_cents: amountCents, memo: 'Chargeback reversal' },
+  ]
+  try {
+    const entryId = await postJournalEntry({
+      tenant_id: tenantId,
+      entry_date: new Date().toISOString().slice(0, 10),
+      memo: opts.memo || 'Chargeback reversal (dispute won)',
+      source: 'chargeback_reversal',
+      source_id: sourceId,
+      lines,
+    })
+    return { posted: true, entryId }
+  } catch (e) {
+    if (isUniqueViolation(e)) return { posted: false, reason: 'already_posted' }
+    throw e
+  }
+}
+
+/**
  * Referral commission earned → accrue as an expense + a payable (accrual basis):
  *   DR 6045 Referral Commissions   CR 2400 Commissions Payable
  * Idempotent by (source='commission', source_id=commission.id).
