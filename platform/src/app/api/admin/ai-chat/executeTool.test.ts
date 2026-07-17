@@ -38,6 +38,7 @@ beforeEach(() => {
   h.store = {
     clients: [{ id: 'client-A1', tenant_id: 'tenant-A', name: 'Old Name', pin: '1234' }],
     bookings: [{ id: 'book-A1', tenant_id: 'tenant-A', client_id: 'client-A1', status: 'scheduled', notes: null }],
+    booking_team_members: [],
   }
 })
 
@@ -75,5 +76,44 @@ describe("executeTool('update_bookings')", () => {
     })
     expect(h.store.bookings[0].client_id).toBe('client-A1')
     expect(h.store.bookings[0].status).toBe('confirmed')
+  })
+})
+
+describe("executeTool('update_bookings') — booking_team_members lead sync", () => {
+  it('replaces the stale booking_team_members lead row on reassign', async () => {
+    h.store.team_members = [{ id: 'tm-new', tenant_id: 'tenant-A', name: 'New Member' }]
+    h.store.booking_team_members.push({ id: 'btm-1', tenant_id: 'tenant-A', booking_id: 'book-A1', team_member_id: 'tm-old', is_lead: true, position: 1 })
+    await executeTool('tenant-A', 'update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { team_member_id: 'tm-new' },
+      confirmed: true,
+    })
+    const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-A1' && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe('tm-new')
+    expect(leadRows[0].tenant_id).toBe('tenant-A')
+  })
+
+  it('unassigning (team_member_id: null) deletes the stale lead row without inserting a new one', async () => {
+    h.store.booking_team_members.push({ id: 'btm-1', tenant_id: 'tenant-A', booking_id: 'book-A1', team_member_id: 'tm-old', is_lead: true, position: 1 })
+    await executeTool('tenant-A', 'update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { team_member_id: null },
+      confirmed: true,
+    })
+    const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-A1' && r.is_lead)
+    expect(leadRows.length).toBe(0)
+  })
+
+  it('an update that never touches team_member_id leaves booking_team_members untouched', async () => {
+    h.store.booking_team_members.push({ id: 'btm-1', tenant_id: 'tenant-A', booking_id: 'book-A1', team_member_id: 'tm-old', is_lead: true, position: 1 })
+    await executeTool('tenant-A', 'update_bookings', {
+      booking_ids: ['book-A1'],
+      updates: { status: 'confirmed' },
+      confirmed: true,
+    })
+    const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-A1' && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe('tm-old')
   })
 })
