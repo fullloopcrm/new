@@ -56,7 +56,7 @@ export async function GET(request: Request) {
       // Bookings where alert fired 15-60 min ago and still unpaid.
       const { data: pending } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, payment_reminder_sent_at, fifteen_min_alert_time, clients(name, phone)')
+        .select('id, start_time, payment_reminder_sent_at, fifteen_min_alert_time, clients(name, phone, sms_consent, do_not_service)')
         .eq('tenant_id', tenantId)
         .neq('payment_status', 'paid')
         .not('fifteen_min_alert_time', 'is', null)
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         .limit(100)
 
       for (const b of pending || []) {
-        const client = b.clients as unknown as { name?: string; phone?: string } | null
+        const client = b.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
         if (!client?.phone) continue
 
         const lastReminder = b.payment_reminder_sent_at as string | null
@@ -77,7 +77,10 @@ export async function GET(request: Request) {
         const minsSinceAlert = Math.floor((Date.now() - alertTime) / 60000)
 
         if (minsSinceAlert < 30) {
-          if (clientNudgeOn && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          // sms_consent (STOP compliance) / do_not_service, same invariant every
+          // other client SMS fan-out enforces — this cron sent the +15min nudge
+          // unconditionally on phone presence, with no consent check at all.
+          if (clientNudgeOn && client.sms_consent !== false && !client.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
             await sendSMS({
               to: client.phone,
               body: `Hi ${client.name?.split(' ')[0] || 'there'} — just following up on your payment for today's service. Let us know if you need the link resent. 😊`,
