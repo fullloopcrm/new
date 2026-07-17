@@ -3,6 +3,20 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 
+// portal/bookings/[id]/page.tsx's own canReschedule/canCancel constants only
+// control which buttons render (reschedule requires ['pending','scheduled',
+// 'confirmed'], cancel requires ['scheduled','confirmed']) -- neither was
+// enforced server-side. Without this, a client with a valid portal token
+// could PUT a new start_time/end_time or {status:'cancelled'} directly at an
+// already-completed/paid booking's own id, no different from editing
+// devtools past a disabled button. finance/payroll-prep and
+// finance/cleaner-income both filter on .eq('status','completed') to compute
+// what a team member is owed -- flipping a completed booking's status or
+// silently moving its timestamps corrupts those reports with no error, no
+// audit trail, and no admin awareness beyond a normal-looking notification.
+const RESCHEDULABLE_STATUSES = ['pending', 'scheduled', 'confirmed']
+const CANCELLABLE_STATUSES = ['scheduled', 'confirmed']
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -55,6 +69,19 @@ export async function PUT(
 
   if (!oldBooking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
+  if ((start_time || end_time) && !RESCHEDULABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json(
+      { error: `Cannot reschedule a booking that is already ${oldBooking.status}` },
+      { status: 400 },
+    )
+  }
+  if (status === 'cancelled' && !CANCELLABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json(
+      { error: `Cannot cancel a booking that is already ${oldBooking.status}` },
+      { status: 400 },
+    )
   }
 
   const update: Record<string, unknown> = {}
