@@ -2042,3 +2042,51 @@ relying on the tenant-scoped lookup alone. `tsc --noEmit` clean, full suite
 tenant-scope guard warning on `fixture/route.ts`, noted since item 17).
 Worktree still has no `.env.local`/Supabase env for a live webhook call, same
 constraint as every other item in this doc.
+
+## (49) New today, fresh ground — the emergency broadcast's own "URGENT JOB
+AVAILABLE" email was silently mangled into an unrelated, unreadable template
+for every single send — NOW FIXED
+
+Found while re-tracing `POST /api/bookings/broadcast` (the same route item
+(48) just added `sms_consent` gating to) end to end on its email leg, one
+level deeper than that fix went. The route builds its own styled HTML
+"URGENT JOB AVAILABLE" card (pay rate, date, time, location, service, notes,
+a "log in to claim" CTA) and passes it as `notify()`'s `message` param with
+`type: 'booking_reminder'`. But `notify()`'s `'booking_reminder'` switch case
+(`src/lib/notify.ts:171-180`) unconditionally builds
+`bookingReminderEmail({ ..., dateTime: message, ... })` regardless of what
+the caller actually intended `message` to be — and `bookingReminderEmail()`
+runs `escapeHtml(data.dateTime)` on it. The caller's entire hand-built HTML
+card was therefore never sent as real markup: it was escaped into literal,
+visible source (`&lt;div style=...&gt;`) and dumped into the generic
+template's "Date & Time" field, under a subject/body reading "Hi Client,
+this is a reminder that your appointment is soon" (`clientName` defaults to
+`'Client'` since the route never sets `metadata.clientName`, `timeUntil`
+defaults to `'soon'`) — no pay rate, location, or CTA ever actually
+rendered, on **every single email send this route has ever made**. For the
+one mechanism in the codebase built to page the whole active roster for a
+same-day emergency (item (4)/(18)'s P11.18 gap, closed by item (10)'s
+sibling `find-cleaner` feature and this route's own SMS leg), the email half
+of that page was unreadable noise from day one. The SMS leg (`smsUrgentBroadcast`)
+was unaffected — separate code path, not templated through `notify()`'s
+email switch.
+
+**Fixed** (`p1-w3`) — gave the broadcast its own `notify()` type
+(`'job_broadcast'`) and a real, dedicated template (`jobBroadcastEmail()` in
+`email-templates.ts`, routed through the same `baseTemplate()` branded shell
+every other notification type uses) that takes the actual structured fields
+(`payRate`, `jobDate`, `jobTime`, `endTime`, `address`, `serviceType`,
+`notes`) via `notify()`'s existing `metadata` passthrough instead of a
+pre-built HTML blob masquerading as `message`. `bookings/broadcast/route.ts`
+no longer hand-builds HTML at all — deleted the ~20-line inline template
+(dead code that was never actually sent), now passes a plain-text `message`
+summary (used for the DB `notifications.message` column and as the SMS/email
+fallback path) plus the structured `metadata`. 2 new tests
+(`notify.job-broadcast-email.test.ts`), mutation-verified: reverted the new
+`notify.ts` switch case, confirmed the test fails reproducing the exact
+pre-fix symptom (RED — rendered email is the generic escaped-message
+fallback, missing every structured field), restored. `tsc --noEmit` clean,
+full suite 358/358 files, 1815/1815 tests, zero regressions (same
+pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`).
+Worktree still has no `.env.local`/Supabase env for a live send, same
+constraint as every other item in this doc.
