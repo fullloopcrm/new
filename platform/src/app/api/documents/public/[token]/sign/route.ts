@@ -209,6 +209,13 @@ export async function POST(request: Request, { params }: Params) {
       await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[]).catch(err =>
         console.error('completion copies failed:', err)
       )
+      // Same admin-notification gap as decline (item 108): nothing told the
+      // tenant admin a document finished either, short of manually checking
+      // the dashboard. Mirrors quotes/public/[token]/accept/route.ts's
+      // notify()+ownerAlert() pair on its own positive-outcome event.
+      await notifyOwnerDocumentCompleted(doc, (freshSigners || []) as CompletionSigner[]).catch(err =>
+        console.error('notify document_completed failed:', err)
+      )
     } else {
       // Partial progress
       await supabaseAdmin
@@ -275,6 +282,44 @@ async function sendCompletionCopies(
       attachments: [{ filename, content: b64 }],
     }).catch(err => console.error(`completion copy to ${s.email} failed:`, err))
   }
+}
+
+// ─── owner notification on completion ──────────────────────────────
+
+// Same admin-notification gap item (108) closed for decline: nothing told
+// the tenant admin a document finished either, unlike quotes/public/[token]/
+// accept/route.ts's notify()+ownerAlert() pair on its own positive-outcome
+// event. sendCompletionCopies above only reaches the *signers* (their
+// receipt copy) — this is the separate admin-facing signal.
+export async function notifyOwnerDocumentCompleted(
+  doc: { id: string; tenant_id: string; title: string },
+  signers: CompletionSigner[],
+) {
+  const roster = signers.map(s => s.name).filter(Boolean).join(', ')
+  try {
+    const { notify } = await import('@/lib/notify')
+    await notify({
+      tenantId: doc.tenant_id,
+      type: 'document_completed',
+      title: `${doc.title} fully signed`,
+      message: roster ? `Signed by ${roster}` : 'All parties signed',
+      channel: 'email',
+      recipientType: 'admin',
+      metadata: { document_id: doc.id },
+    })
+  } catch (e) {
+    console.warn('notify document_completed failed', e)
+  }
+
+  const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+  await ownerAlert({
+    tenantId: doc.tenant_id,
+    subject: `Fully signed — ${doc.title}`,
+    kicker: 'Document completed',
+    heading: `${doc.title} is fully signed`,
+    bodyHtml: `<p style="margin:0">All parties have signed${roster ? `: <strong>${escapeHtml(roster)}</strong>` : ''}.</p>`,
+    sms: `${doc.title} fully signed${roster ? ` by ${roster}` : ''}.`,
+  })
 }
 
 // ─── finalization ──────────────────────────────────────────────────
