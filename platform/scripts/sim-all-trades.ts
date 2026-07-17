@@ -2096,6 +2096,77 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-17. GDPR PURGE — client_contacts LEFT OUT OF THE ANONYMIZE SET (fresh ground, first archetype coverage of a bug class outside terminated-crew/consent/RBAC: the right-to-be-forgotten workflow's own purge step) ----
+    // purgeDueDeletions() (src/lib/gdpr-deletion.ts) anonymized clients,
+    // client_sms_messages, and invoices on a due request, but never touched
+    // client_contacts — the actual fan-out source every outbound client
+    // SMS/email send reads (getClientContacts() in nycmaid/client-contacts.ts,
+    // 13 call sites tenant-wide). A client who completed the 30-day
+    // right-to-be-forgotten flow would keep a real name/phone/email sitting
+    // in client_contacts forever, AND keep receiving messages indefinitely —
+    // neither the PII nor the receives_sms/receives_email flags were ever
+    // touched by the purge. Fixed: purgeOne() now also redacts
+    // client_contacts (name/phone_e164/email) and forces
+    // receives_sms/receives_email off; email gets a placeholder rather than
+    // null because the table's own contact_has_channel CHECK constraint
+    // requires phone_e164 OR email non-null.
+    //
+    // Calling the real requestDeletion/purgeDueDeletions functions directly
+    // (not a route) — neither needs request/header context, unlike every
+    // requirePermission-gated route in this harness — so this is a genuine
+    // end-to-end exercise of the fixed cron path against a real throwaway
+    // client + contact row in this archetype tenant.
+    {
+      const { requestDeletion, purgeDueDeletions } = await import('../src/lib/gdpr-deletion')
+
+      const { data: gdprClient, error: gdprClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'GDPR Purge Client', email: `gdpr+${runId}@example.com`,
+        phone: '+15551230000', status: 'active',
+      }).select('id').single()
+      add('gdpr-purge: throwaway client created for the purge scenario', !!gdprClient && !gdprClientErr, gdprClientErr?.message)
+
+      const { data: gdprContact, error: gdprContactErr } = await supabase.from('client_contacts').insert({
+        tenant_id: tenant.id, client_id: gdprClient?.id, name: 'GDPR Purge Client', phone_e164: '+15551230000',
+        email: `gdpr+${runId}@example.com`, is_primary: true, receives_sms: true, receives_email: true,
+      }).select('id').single()
+      add('gdpr-purge: real client_contacts row created (the actual sendClientSMS/sendClientEmail fan-out source)', !!gdprContact && !gdprContactErr, gdprContactErr?.message)
+
+      // CONTROL client: also requests deletion but its grace period is left
+      // at the real 30-day default (not due) — must survive the sweep
+      // untouched, proving the fix's write is scoped to due requests only,
+      // not every client_contacts row in the tenant.
+      const { data: gdprControlClient } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'GDPR Control Client', email: `gdpr-control+${runId}@example.com`,
+        phone: '+15551230001', status: 'active',
+      }).select('id').single()
+      const { data: gdprControlContact } = await supabase.from('client_contacts').insert({
+        tenant_id: tenant.id, client_id: gdprControlClient?.id, name: 'GDPR Control Client', phone_e164: '+15551230001',
+        email: `gdpr-control+${runId}@example.com`, is_primary: true, receives_sms: true, receives_email: true,
+      }).select('id').single()
+
+      if (gdprClient?.id && gdprContact?.id) {
+        const gdprReq = await requestDeletion({ tenantId: tenant.id, clientId: gdprClient.id })
+        add('gdpr-purge: requestDeletion opens a pending request + soft-deletes the client', gdprReq.status === 'pending', JSON.stringify(gdprReq))
+
+        if (gdprControlClient?.id) await requestDeletion({ tenantId: tenant.id, clientId: gdprControlClient.id })
+
+        // Backdate only THIS request's grace period into the past so it's
+        // due — the control request stays at its real 30-day schedule.
+        await supabase.from('gdpr_deletion_requests').update({ scheduled_purge_at: new Date(Date.now() - 1000).toISOString() }).eq('id', gdprReq.id)
+
+        const { purged, errors } = await purgeDueDeletions()
+        add('gdpr-purge: the due request is purged with no errors', purged >= 1 && errors.length === 0, JSON.stringify(errors))
+
+        const { data: contactAfter } = await supabase.from('client_contacts').select('name, phone_e164, email, receives_sms, receives_email').eq('id', gdprContact.id).single()
+        add('gdpr-purge: BLOCKED case fixed — client_contacts name/phone/email redacted and both channel flags forced off', contactAfter?.name === 'Deleted User' && contactAfter?.phone_e164 === null && contactAfter?.email !== `gdpr+${runId}@example.com` && contactAfter?.receives_sms === false && contactAfter?.receives_email === false, JSON.stringify(contactAfter))
+
+        if (gdprControlContact?.id) {
+          const { data: controlContactAfter } = await supabase.from('client_contacts').select('name, phone_e164, receives_sms').eq('id', gdprControlContact.id).single()
+          add("gdpr-purge: CONTROL — the not-yet-due client's contact is untouched by the same sweep", controlContactAfter?.name === 'GDPR Control Client' && controlContactAfter?.phone_e164 === '+15551230001' && controlContactAfter?.receives_sms === true, JSON.stringify(controlContactAfter))
+        }
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
