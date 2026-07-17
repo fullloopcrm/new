@@ -2193,3 +2193,108 @@ verified by direct read plus `tsc --noEmit` clean and the full suite,
 359/359 files, 1818/1818 tests, zero regressions. Worktree still has no
 `.env.local`/Supabase env for a live call, same constraint as every other
 item in this doc.
+
+## (53) New today — `notify()`'s `channel: 'push'` was a declared type with zero implementation, silently mismarking every push attempt as a delivery failure — NOW FIXED. Digging into why also surfaced a likely-live DB schema/code mismatch for `push_subscriptions` itself — flagged, migration prepared as a file, not applied
+
+With both prior archetype-depth threads (`is_emergency`-blind alerts, items
+20-45/51) and the `sms_consent` fresh-ground thread (items 19-50) re-confirmed
+exhausted last session, this pass asked the mirror question one level down
+from SMS: is the third notification channel — push — actually wired up at
+all? `src/lib/notify.ts`'s own type signature declares `channel?: 'email' |
+'sms' | 'push'`, but its send switch (`if (channel === 'email' ...) else if
+(channel === 'sms' ...)`) had no branch for `'push'` at all. Confirmed the
+consequence by reading the full function: a `channel: 'push'` call matches
+none of the primary-send conditions (`sent` stays `false`, `lastError` stays
+`''`), the fallback block only covers email-to-sms so it doesn't fire either,
+and the final classifier (`lastError && UNROUTABLE.has(lastError) ? 'skipped'
+: 'failed'`) resolves an empty `lastError` to **`'failed'`** — every push
+attempt through `notify()` was recorded as a genuine delivery failure despite
+nothing ever being attempted.
+
+Two real call sites hit this, both grepped directly (`channel: 'push'`
+across `src/app`/`src/lib`): `cron/daily-summary/route.ts:168` (the team
+member's daily "N jobs coming up" push) and, more consequential for this
+session's archetype, `src/lib/notify-team-member.ts`'s `notifyTeamMember()` —
+the multi-channel (push/email/sms/in-app) wrapper whose real callers are
+`bookings/[id]/team/route.ts` (extra-crew job assignment — the exact call
+site whose `title` is already `'Added to Emergency Team Job'` when
+`is_emergency`, item (7)'s SMS-side fix's direct sibling) and
+`client/reschedule/[id]/route.ts` (job reschedule). Worse than the
+mislabeling itself: `notifyTeamMember()`'s push branch does `await
+notify({channel:'push', ...}); sentPush = true` — unconditional, because
+`notify()` never throws on a failed send (it catches internally and returns
+`{success:false}`), so the function's own `DeliveryReport.push` field lied by
+omission on every call, regardless of outcome.
+
+Confirmed a *working* push mechanism already exists elsewhere in the
+codebase (`src/lib/push.ts` — `sendPushToTenantAdmins`/`sendPushToTeamMember`/
+`sendPushToClient`, real `web-push`/VAPID delivery against a
+`push_subscriptions` table, already called directly — bypassing `notify()`
+entirely — by `cron/reminders.ts`, `team-portal/running-late`,
+`team-portal/checkout`, `team-portal/jobs/{release,reassign}`, and
+`cron/late-check-in`), so this needed no new design — same "activation, not
+invention" shape as item (10)'s dormant `find-cleaner` broadcast.
+
+**Fixed** (`p1-w3`) — `notify.ts`'s primary-channel switch now dispatches
+`channel: 'push'` to the real functions above, keyed off `recipientType` the
+same way email/sms already are (`team_member` -> `sendPushToTeamMember`,
+`client` -> `sendPushToClient`, `admin` -> `sendPushToTenantAdmins`). Changed
+those three `lib/push.ts` functions to return `Promise<boolean>` (true only
+if a subscription existed and a send was attempted — false, not an
+exception, when there's nothing to push to) instead of implicit `void`; every
+existing caller already ignored the return value (fire-and-forget
+`.catch(()=>{})` or bare `await`), so this is additive, not a breaking
+change. `'No push subscription for recipient'` / `'No recipient for push
+notification'` added to `notify.ts`'s `UNROUTABLE` set so a genuine "nobody
+subscribed" case resolves to `status: 'skipped'` (matching the existing
+"no email/no phone" convention), not `'failed'` — the fix that actually stops
+polluting `cron/system-check`'s "Notification delivery rate" health metric
+(check #6), which counts `failed` against a 24h success-rate score. Also
+fixed `notify-team-member.ts`'s `sentPush = true` to `sentPush =
+result.success`, so `DeliveryReport.push` now reflects reality instead of
+being hardcoded. 7 new tests across `notify.push-channel.test.ts` (dispatch
+correctness for all three `recipientType`s, skip-not-fail on no subscription,
+skip-not-fail on missing recipientId) and
+`notify-team-member.push-report.test.ts` (the `DeliveryReport.push` fix,
+proven both ways — subscription exists -> `true`, doesn't -> `false`, using a
+`quiet_start === quiet_end` seed so the assertion isn't wall-clock-dependent
+given this worktree's session runs at 2am ET). `tsc --noEmit` clean, full
+suite 361/361 files, 1825/1825 tests, zero regressions (same pre-existing
+unrelated tenant-scope guard warning on `fixture/route.ts`, noted since item
+17).
+
+**Not fixed, flagged instead — a likely-live schema/code mismatch found while
+verifying the above.** Confirmed `lib/push.ts` and
+`api/push/subscribe/route.ts` consistently read/write
+`push_subscriptions.endpoint`/`role`/`client_id`/`team_member_id`/
+`updated_at`. But this repo's own tracked migration history defines that
+table TWICE, with incompatible shapes: `src/lib/migrations/
+008_missing_tables_and_columns.sql` creates `push_subscriptions(id,
+tenant_id, user_type, user_id, subscription, created_at)` — no `endpoint`,
+`role`, `client_id`, or `team_member_id` at all — and `migrations/
+2026_05_19_remaining_tables.sql` separately creates `push_subscriptions`
+with exactly the columns the app code uses. Both are `CREATE TABLE IF NOT
+EXISTS`, which is a silent no-op against an already-existing
+differently-shaped table — it does not `ALTER` it. If 008 applied first (its
+number places it early in the numbered track; the dated file is from
+2026-05-19), the live table is very likely still stuck on the old
+`user_type`/`user_id` shape, meaning every `push_subscriptions` query in the
+current codebase — not just the `notify()` gap this item fixes, but the
+already-"working" direct callers like `cron/reminders.ts` too — has been
+erroring at the DB layer (column does not exist) since inception. Worktree
+has no `.env.local`/Supabase env to check the live `information_schema`
+directly, so this is flagged with strong static evidence rather than
+asserted as confirmed fact, per this doc's standing verification discipline.
+Bonus finding while comparing the two definitions: the 2026-05-19 shape's own
+`CHECK (role IN ('admin','cleaner','client'))` doesn't even match its own
+codebase's usage — `push/subscribe/route.ts` writes `role: 'team_member'`,
+not `'cleaner'` — the identical nycmaid-era-naming mismatch class as item
+(6), just baked into a DB constraint instead of application code, so even
+under the "code-matching" shape a team-member push subscribe could be
+rejected outright if that CHECK is live. Prepared, not applied (prod DDL
+needs Jeff's per-migration go per the standing rule):
+`src/lib/migrations/063_push_subscriptions_schema_drift.sql` — additive-only
+(`ADD COLUMN IF NOT EXISTS` for the missing columns, guarded unique
+constraint, supporting indexes), deliberately leaves `NOT NULL` tightening
+and the `role` CHECK constraint as documented PRE-run manual checks rather
+than guessing at current live state or an existing constraint's name.
