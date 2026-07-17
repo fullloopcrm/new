@@ -92,6 +92,20 @@ export async function POST(request: Request) {
         .from('campaign_recipients')
         .update({ status: 'bounced' })
         .eq('id', recipient.id)
+    } else if (type === 'email.failed') {
+      // Resend's async post-acceptance failure event ("the email failed to
+      // send due to an error") — distinct from a synchronous send-time error,
+      // which campaigns/send/route.ts already catches and marks 'failed'
+      // itself. Without this branch, an email Resend accepted but later
+      // failed to deliver stayed stuck at 'sent' forever: the aggregate
+      // recount below already treats status 'failed' as first-class
+      // (`counts.filter(r => r.status === 'failed' || r.status === 'bounced')`)
+      // but nothing async ever produced it, so failed_count silently
+      // undercounted every async failure.
+      await supabaseAdmin
+        .from('campaign_recipients')
+        .update({ status: 'failed' })
+        .eq('id', recipient.id)
     } else if (type === 'email.complained') {
       // Resend's spam-complaint event — nothing in the codebase ever handled this
       // (unlike SMS's STOP-keyword path and the /api/unsubscribe link, both of
