@@ -310,7 +310,7 @@ export async function POST(request: Request) {
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, address, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .select('*, clients(name, phone, address, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone, sms_consent), client_properties(*)')
       .eq('id', claim.booking.id)
       .eq('tenant_id', tenantId)
       .single()
@@ -368,8 +368,11 @@ export async function POST(request: Request) {
         }).catch(err => console.error('Client confirmation SMS error:', err))
       }
 
-      // Team member assignment SMS
-      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      // Team member assignment SMS — sms_consent (team_members.sms_consent
+      // is a real, crew-editable column), same invariant the client SMS
+      // right above it enforces; this send fired unconditionally on phone
+      // presence before this fix.
+      if (data.team_members?.phone && data.team_members?.sms_consent !== false && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),
