@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD } from '@/lib/dates'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -37,9 +38,18 @@ export async function GET(request: NextRequest) {
   }
 
   // Summary stats
+  // bookings.start_time is stored naive-ET (no tz, literally what was typed
+  // in). The old `new Date().getFullYear()/getMonth()/getDate()` read the
+  // SERVER's local calendar (UTC on Vercel), a full day ahead of ET for
+  // ~4-5h every evening -- misplacing the "today"/"this week" stat counts
+  // against the naive-ET column during that window. Same established
+  // pattern as dashboard/admin-calendar/bookings-stats this session.
   const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).toISOString()
-  const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() - 7).toISOString()
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const { y: ty, m: tm, d: td } = etYMD(now)
+  const todayStart = `${ty}-${pad(tm)}-${pad(td)}T00:00:00`
+  const weekStartObj = new Date(Date.UTC(ty, tm - 1, td - 7))
+  const weekStart = `${weekStartObj.getUTCFullYear()}-${pad(weekStartObj.getUTCMonth() + 1)}-${pad(weekStartObj.getUTCDate())}T00:00:00`
 
   let statsQuery = supabaseAdmin
     .from('bookings')
