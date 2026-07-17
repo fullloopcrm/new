@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { safeEqual } from '@/lib/secret-compare'
+import { alertOwner } from '@/lib/telegram'
 
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives
@@ -86,18 +87,20 @@ export async function GET(request: Request) {
     }
   }
 
-  // Log backup results to a platform notification
+  // Alert Jeff directly — this is a platform-wide event, not scoped to any
+  // one tenant. Previously this stamped tenant_id: tenants[0].id (an
+  // arbitrary, unrelated tenant) and inserted into the shared `notifications`
+  // table with no recipient_type, which both polluted that tenant's own
+  // unread-count badge (sidebar-counts has no recipient_type filter) forever
+  // (nothing ever marks it read) and could leak OTHER tenants' slugs/error
+  // text into that tenant's notification row. Matches the alertOwner()
+  // convention every sibling cron job (system-check, health-check, etc.)
+  // already uses for platform-wide alerts.
   if (backed > 0 || errors.length > 0) {
-    const superAdminTenant = tenants?.[0]
-    if (superAdminTenant) {
-      await supabaseAdmin.from('notifications').insert({
-        tenant_id: superAdminTenant.id,
-        type: 'platform',
-        title: 'Nightly Backup Complete',
-        message: `${backed} tenants backed up successfully.${errors.length > 0 ? ` ${errors.length} errors: ${errors.join(', ')}` : ''}`,
-        channel: 'in_app',
-      })
-    }
+    await alertOwner(
+      `Nightly Backup: ${backed} tenant${backed === 1 ? '' : 's'} backed up${errors.length > 0 ? `, ${errors.length} error${errors.length > 1 ? 's' : ''}` : ''}`,
+      errors.length > 0 ? errors.join('\n') : undefined,
+    ).catch(() => {})
   }
 
   return NextResponse.json({
