@@ -399,6 +399,13 @@ function parseTime(t: string): { hours: number; minutes: number } | null {
   return { hours, minutes }
 }
 
+// Fresh-ground fix, same shape as handleCreateBooking's P11.16/17 fix
+// (selena-legacy.ts) and PUT /api/client/reschedule/[id]'s becomesEmergency:
+// a reschedule that lands on today never touched is_emergency/hourly_rate/
+// price, so a client moving a booking into today via the AI bot silently
+// skipped the tenant's configured emergency rate entirely. Now reads
+// selena_config off the same tenants join already used for
+// reschedule_notice_days.
 export async function handleRescheduleBooking(tenantId: string, input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const clientId = await getConvoClientId(conversationId)
@@ -406,13 +413,14 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
 
     const bookingId = input.booking_id as string
     const { data: booking } = await supabaseAdmin
-      .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days)')
+      .from('bookings').select('id, start_time, recurring_type, client_id, tenants(reschedule_notice_days, selena_config)')
       .eq('id', bookingId).eq('tenant_id', tenantId).eq('client_id', clientId).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) {
       return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be rescheduled.' })
     }
-    const noticeDays = (booking.tenants as unknown as { reschedule_notice_days: number } | null)?.reschedule_notice_days || 2
+    const tenantRow = booking.tenants as unknown as { reschedule_notice_days?: number; selena_config?: { emergency_available?: boolean; emergency_rate?: number } } | null
+    const noticeDays = tenantRow?.reschedule_notice_days || 2
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < noticeDays) {
       return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need ${noticeDays} days notice.` })
@@ -421,9 +429,14 @@ export async function handleRescheduleBooking(tenantId: string, input: Record<st
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${((parsed.hours + 2) % 24).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const isEmergency = input.new_date === todayStr
+    const emergencyRate = tenantRow?.selena_config?.emergency_available ? tenantRow.selena_config.emergency_rate : undefined
     await supabaseAdmin.from('bookings').update({
       start_time: newStart, end_time: newEnd,
       notes: `Rescheduled via Selena from ${booking.start_time.split('T')[0]}`,
+      is_emergency: isEmergency,
+      ...(isEmergency && emergencyRate ? { hourly_rate: emergencyRate, price: emergencyRate * 2 * 100 } : {}),
     }).eq('id', bookingId).eq('tenant_id', tenantId)
     return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
   } catch (err) {

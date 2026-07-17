@@ -1496,7 +1496,14 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
   }
 }
 
-async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
+// Fresh-ground fix, same shape as handleCreateBooking's P11.16/17-class fix
+// above: a reschedule that lands on today never set is_emergency/hourly_rate,
+// so a client moving an existing booking into today via the AI bot got the
+// $69/$59 routine rate charged for what every other create/reschedule
+// surface (P11.8/16/17, PUT /api/client/reschedule/[id]'s becomesEmergency)
+// already treats as a same-day emergency at $89/hr. Exported for testing,
+// matching handleCreateBooking's convention.
+export async function handleRescheduleBooking(input: Record<string, unknown>, conversationId: string): Promise<string> {
   try {
     const { data: convo } = await supabaseAdmin.from('sms_conversations').select('client_id, tenant_id').eq('id', conversationId).single()
     if (!convo?.client_id) return JSON.stringify({ error: 'No account found' })
@@ -1513,7 +1520,14 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const isEmergency = input.new_date === todayStr
+    await supabaseAdmin.from('bookings').update({
+      start_time: newStart, end_time: newEnd,
+      notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}`,
+      is_emergency: isEmergency,
+      ...(isEmergency ? { hourly_rate: 89, price: 89 * 2 * 100 } : {}),
+    }).eq('id', bookingId).eq('tenant_id', tid)
     return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
   } catch (err) {
     await yinezError('reschedule_booking', err, conversationId)
