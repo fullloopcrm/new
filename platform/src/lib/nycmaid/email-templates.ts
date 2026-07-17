@@ -223,10 +223,15 @@ export function clientReviewRequestEmail(booking: any) {
 }
 
 export function clientConfirmationEmail(booking: any) {
+  // Live selects embed the assigned team member as `team_members`
+  // (booking.cleaners is the nycmaid-standalone-era key and is never
+  // populated by any current query) -- fall back to it only for callers
+  // still passing the legacy shape.
+  const cleaner = booking.team_members || booking.cleaners
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
-  const cleanerName = booking.cleaners?.name || 'Your cleaner'
-  const cleanerFirst = (booking.cleaners?.name || 'Your cleaner').split(' ')[0]
+  const cleanerName = cleaner?.name || 'Your cleaner'
+  const cleanerFirst = (cleaner?.name || 'Your cleaner').split(' ')[0]
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const hourlyRate = booking.hourly_rate || 69
   const isRecurring = booking.recurring_type ? true : false
@@ -237,9 +242,9 @@ export function clientConfirmationEmail(booking: any) {
   const exactHours = durationMs / (1000 * 60 * 60)
   const estimatedHoursLabel = Number.isInteger(exactHours) ? `${exactHours}` : exactHours.toFixed(1)
 
-  const cleanerPhotoUrl = booking.cleaners?.photo_url
-  const cleanerAvg = booking.cleaners?.avg_rating ? Number(booking.cleaners.avg_rating).toFixed(1) : null
-  const cleanerCount = booking.cleaners?.rating_count || 0
+  const cleanerPhotoUrl = cleaner?.photo_url
+  const cleanerAvg = cleaner?.avg_rating ? Number(cleaner.avg_rating).toFixed(1) : null
+  const cleanerCount = cleaner?.rating_count || 0
   const ratingHtml = cleanerAvg && cleanerCount > 0
     ? `<span style="color:#d97706;font-weight:600;">★ ${cleanerAvg}</span> <span style="color:#999;font-size:12px;">(${cleanerCount} ${cleanerCount === 1 ? 'rating' : 'ratings'})</span>`
     : ''
