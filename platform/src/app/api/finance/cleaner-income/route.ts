@@ -14,22 +14,38 @@ export async function GET(request: NextRequest) {
     const to = searchParams.get('to')
     const paid_status = searchParams.get('paid_status')
 
+    // `status` and `team_member_paid` are independent (see finance/summary,
+    // ar-aging, pending): POST /api/finance/payroll (bulk payroll) flips a
+    // booking's `status` straight to 'paid' once claimed, but never sets
+    // `team_member_paid`. Filtering on status='completed' only meant a
+    // bulk-paid booking vanished from this cleaner-facing income report
+    // entirely the instant payroll ran on it -- their own pay history going
+    // dark. Widened to include 'paid'; `isPaid` below also treats
+    // status='paid' as settled so a bulk-paid booking shows as paid, not
+    // as still-unpaid (which broadening the status filter alone would have
+    // caused, same trap as finance/summary's labor totals).
     let query = supabaseAdmin
       .from('bookings')
-      .select('id, start_time, actual_hours, team_member_pay, team_member_paid, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, start_time, actual_hours, team_member_pay, team_member_paid, team_member_id, status, clients(name), team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId)
-      .eq('status', 'completed')
+      .in('status', ['completed', 'paid'])
       .not('team_member_pay', 'is', null)
       .order('start_time', { ascending: false })
 
     if (team_member_id) query = query.eq('team_member_id', team_member_id)
     if (from) query = query.gte('start_time', from)
     if (to) query = query.lte('start_time', to + 'T23:59:59')
-    if (paid_status === 'paid') query = query.eq('team_member_paid', true)
-    else if (paid_status === 'unpaid') query = query.or('team_member_paid.is.null,team_member_paid.eq.false')
 
-    const { data: bookings, error } = await query
+    const { data: allBookings, error } = await query
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+    const isPaid = (b: { team_member_paid?: boolean | null; status?: string | null }) =>
+      !!b.team_member_paid || b.status === 'paid'
+    const bookings = paid_status === 'paid'
+      ? (allBookings || []).filter(isPaid)
+      : paid_status === 'unpaid'
+        ? (allBookings || []).filter(b => !isPaid(b))
+        : allBookings
 
     const cleanerMap: Record<string, { team_member_id: string; name: string; totalPay: number; totalHours: number; jobCount: number; paidTotal: number; unpaidTotal: number }> = {}
     for (const b of bookings || []) {
@@ -42,7 +58,7 @@ export async function GET(request: NextRequest) {
       cleanerMap[cid].totalPay += b.team_member_pay || 0
       cleanerMap[cid].totalHours += b.actual_hours || 0
       cleanerMap[cid].jobCount++
-      if (b.team_member_paid) cleanerMap[cid].paidTotal += b.team_member_pay || 0
+      if (isPaid(b)) cleanerMap[cid].paidTotal += b.team_member_pay || 0
       else cleanerMap[cid].unpaidTotal += b.team_member_pay || 0
     }
 
@@ -58,7 +74,7 @@ export async function GET(request: NextRequest) {
         team_member_id: b.team_member_id,
         hours: b.actual_hours || 0,
         team_member_pay: b.team_member_pay || 0,
-        paid: !!b.team_member_paid,
+        paid: isPaid(b),
       }
     })
 
