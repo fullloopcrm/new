@@ -3968,6 +3968,66 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('domains.ts dead-column probe: getNeighborhoodFromZip() already threw loud pre-existing (not silently null) against the REAL live schema -- tenant_domains.zip_codes does not exist', nfzErr instanceof Error && /TENANT_DOMAIN_ZIP_LOOKUP_ERROR/.test(nfzErr.message), nfzErr instanceof Error ? nfzErr.message : String(nfzErr))
     }
 
+    // ---- 5a-51. selena/agent.ts buildBrandOverride()/applyBrandRewrite() — tenant_id -> domain REVERSE-LOOKUP PROBE, second mirror-gap instance (fresh ground this round: same bug class as 5a-49's tenantSiteUrl() fix -- two more call sites found reading tenant.domain (legacy) ONLY, never consulting tenant_domains, discovered while sweeping every remaining `.domain` read in src/lib for the resolver-precedence class. buildBrandOverride() builds the "BRAND OVERRIDE" preamble that tells the new SELENA agent what domain to quote instead of nycmaid's hardcoded thenycmaid.com; applyBrandRewrite() is the deterministic safety-net that rewrites any literal "thenycmaid.com" left in an outbound LLM response. Currently ZERO live blast radius -- per the leader's Q4 cutover note, /api/chat and /api/webhooks/telnyx route only the nycmaid tenant to this new agent today, and nycmaid's tenant_id short-circuits both functions before any domain resolution runs -- but it is a landmine: applyBrandRewrite()'s `if (domain) out = out.replace(/thenycmaid\.com/gi, domain)` silently no-ops when domain is falsy, so the moment a non-nycmaid tenant whose only domain lives in tenant_domains is cut over, this would let the literal WRONG brand domain reach that tenant's own customers in a live chat/SMS/email reply. Fixed both functions to resolve via getPrimaryTenantDomain() first, matching tenantSiteUrl()'s precedence exactly (tenant_domains PRIMARY row, then tenants.domain, then website_url-derived). Exported both functions (previously private) for direct testability -- 14 new vitest cases (agent.test.ts, new file) incl. wrong-tenant probes on both functions prove this against a mocked supabaseAdmin; this probe proves the same precedence against the REAL live schema.) ----
+    {
+      const { buildBrandOverride, applyBrandRewrite } = await import('../src/lib/selena/agent')
+      const { data: beforeDomainBrand } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+
+      // Case 1: no active tenant_domains rows -- must fall back to tenants.domain.
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const legacyBrandDomain = `legacy-brand-${tenant.id.slice(0, 8)}.example.com`
+      const { error: legacyBrandErr } = await supabase.from('tenants').update({ domain: legacyBrandDomain }).eq('id', tenant.id)
+      add('selena brand-override probe: tenants.domain seeded, this tenant\'s tenant_domains rows deactivated', !legacyBrandErr, legacyBrandErr?.message)
+
+      const overrideNoTd = await buildBrandOverride(tenant.id)
+      add('buildBrandOverride domain-fallback probe: resolves to tenants.domain when tenant_domains has nothing active (live schema, not a mock)', overrideNoTd.includes(`"${legacyBrandDomain}"`), String(overrideNoTd.includes(legacyBrandDomain)))
+
+      const rewriteNoTd = await applyBrandRewrite('Visit thenycmaid.com for details.', tenant.id)
+      add('applyBrandRewrite domain-fallback probe: rewrites to tenants.domain when tenant_domains has nothing active (live schema, not a mock)', rewriteNoTd === `Visit ${legacyBrandDomain} for details.`, rewriteNoTd)
+
+      // Case 2: an active PRIMARY tenant_domains row now exists too -- must WIN
+      // over the legacy tenants.domain column, same precedence as getTenantByDomain/tenantSiteUrl.
+      const primaryBrandDomain = `primary-brand-${tenant.id.slice(0, 8)}.example.com`
+      const { error: primaryBrandErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: primaryBrandDomain, active: true, is_primary: true, notes: 'sim-all-trades selena brand-override probe',
+      })
+      add('selena brand-override probe: an active PRIMARY tenant_domains row seeded alongside the legacy tenants.domain row', !primaryBrandErr, primaryBrandErr?.message)
+
+      const overrideWithTd = await buildBrandOverride(tenant.id)
+      add('buildBrandOverride domain-fallback probe: the tenant_domains PRIMARY row wins over tenants.domain (live schema, not a mock)', overrideWithTd.includes(`"${primaryBrandDomain}"`) && !overrideWithTd.includes(legacyBrandDomain), String(overrideWithTd.includes(primaryBrandDomain)))
+
+      const rewriteWithTd = await applyBrandRewrite('Visit thenycmaid.com for details.', tenant.id)
+      add('applyBrandRewrite domain-fallback probe: rewrites to the tenant_domains PRIMARY domain, not tenants.domain (live schema, not a mock)', rewriteWithTd === `Visit ${primaryBrandDomain} for details.`, rewriteWithTd)
+
+      // WRONG-TENANT PROBE: a second real tenant's tenant_domains PRIMARY row
+      // must never leak into THIS tenant's brand override/rewrite.
+      const foreignSlugBrand = slugify('brand-probe', randomUUID())
+      const { data: foreignTenantBrand, error: foreignTenantBrandErr } = await supabase.from('tenants').insert({
+        name: 'Brand Override Probe Co', slug: foreignSlugBrand, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('selena brand-override wrong-tenant probe: a real SECOND tenant row created to own a conflicting-looking domain', !!foreignTenantBrand && !foreignTenantBrandErr, foreignTenantBrandErr?.message)
+
+      if (foreignTenantBrand?.id) {
+        const foreignBrandDomain = `foreign-brand-${foreignTenantBrand.id.slice(0, 8)}.example.com`
+        const { error: foreignTdBrandErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantBrand.id, domain: foreignBrandDomain, active: true, is_primary: true, notes: 'sim-all-trades brand-override wrong-tenant probe',
+        })
+        add('selena brand-override wrong-tenant probe: the SECOND tenant\'s own active PRIMARY tenant_domains row seeded', !foreignTdBrandErr, foreignTdBrandErr?.message)
+
+        const overrideStillOwn = await buildBrandOverride(tenant.id)
+        const rewriteStillOwn = await applyBrandRewrite('Visit thenycmaid.com for details.', tenant.id)
+        add('selena brand-override wrong-tenant probe: THIS tenant\'s resolution still returns its own domain, never the second tenant\'s (live schema, real conflicting rows -- not a mock)', overrideStillOwn.includes(primaryBrandDomain) && !overrideStillOwn.includes(foreignBrandDomain) && rewriteStillOwn === `Visit ${primaryBrandDomain} for details.`, overrideStillOwn.includes(foreignBrandDomain) || rewriteStillOwn.includes(foreignBrandDomain) ? 'LEAKED foreign domain' : 'clean')
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantBrand.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantBrand.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', primaryBrandDomain)
+      await supabase.from('tenants').update({ domain: beforeDomainBrand?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
