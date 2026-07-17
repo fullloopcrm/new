@@ -202,6 +202,7 @@ export async function GET(request: Request) {
         service_type_id: schedule.service_type_id,
         service_type: serviceType,
         schedule_id: schedule.id,
+        recurring_type: schedule.recurring_type,
         start_time: occ.toISOString(),
         end_time: endTime.toISOString(),
         status: 'scheduled',
