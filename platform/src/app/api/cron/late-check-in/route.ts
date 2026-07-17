@@ -12,6 +12,7 @@ import {
   smsLateCheckOutAdmin,
 } from '@/lib/sms-templates'
 import { safeEqual } from '@/lib/secret-compare'
+import { etYMD, toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 300
 
@@ -22,10 +23,16 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
-  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000)
   const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
+  // bookings.start_time is naive-ET (no tz); fifteen_min_alert_time is
+  // TIMESTAMPTZ (aware). tenMinAgo/todayStart bound the start_time query
+  // below and must be naive-ET strings -- `thirtyMinAgo.toISOString()`
+  // further down stays a real UTC instant since it's compared against the
+  // aware fifteen_min_alert_time column, not start_time.
+  const tenMinAgo = toNaiveET(new Date(now.getTime() - 10 * 60 * 1000))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const { y: ty, m: tm, d: td } = etYMD(now)
+  const todayStart = `${ty}-${pad(tm)}-${pad(td)}T00:00:00`
 
   let lateCheckIns = 0
   let lateCheckOuts = 0
@@ -54,8 +61,8 @@ export async function GET(request: Request) {
         .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
-        .lte('start_time', tenMinAgo.toISOString())
-        .gte('start_time', todayStart.toISOString())
+        .lte('start_time', tenMinAgo)
+        .gte('start_time', todayStart)
         .is('check_in_time', null)
         .limit(100)
 
