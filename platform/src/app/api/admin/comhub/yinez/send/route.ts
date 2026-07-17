@@ -47,7 +47,15 @@ export async function POST(req: NextRequest) {
 
   const conversationId = `comhub-admin-${threadId}`
   const ownerPhone = (process.env.ADMIN_FORWARD_PHONE || '').trim() || undefined
-  const result = await askSelena('telegram', text, conversationId, ownerPhone)
+  // 'web' — this is Comhub's own web-based admin chat UI, not the real
+  // Telegram bot (webhooks/telegram/route.ts). Passing 'telegram' made
+  // agent.ts's channelNote falsely tell the model "you are ALWAYS talking
+  // to Jeff, the owner" (a Telegram-only persona/tone override) for every
+  // tenant's comhub admin — wrong identity claim in the system prompt, and
+  // wrong channel attribution in Selena usage metrics (byChannel.telegram
+  // instead of byChannel.web). Matches the sibling admin-chat/route.ts,
+  // which already uses 'web' for the same kind of admin-realm AI chat.
+  const result = await askSelena('web', text, conversationId, ownerPhone)
   const reply = result.text || `[yinez returned empty — tools called: ${result.toolsCalled.join(', ') || 'none'}]`
 
   await supabaseAdmin.from('comhub_messages').insert({
