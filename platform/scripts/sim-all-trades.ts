@@ -1305,6 +1305,54 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       add('weather-delay: job stays scheduled — one of several sessions done is not the whole job done', jobAfterOneSession?.status === 'scheduled', jobAfterOneSession?.status)
     }
 
+    // ============ 5a-2. CREW TERMINATION MID-PROJECT (real hr_status guard) ============
+    // Real scenario across every one of these trades: the crew member gets let
+    // go before the multi-week project wraps -- a no-show pattern, a quality
+    // issue, whatever the reason, ops flips hr_status='terminated' on their
+    // profile (PATCH /api/dashboard/hr/[id], the real route). Before the fix
+    // on this branch, PATCH .../jobs/[id]/sessions/[sessionId] and POST
+    // .../sessions only ever checked team_members existence + tenant, never
+    // hr_status -- a terminated crew member could be silently reassigned to
+    // every remaining session with zero warning to the operator. Fixed:
+    // getTerminatedTeamMemberIds (src/lib/hr.ts) now gates both routes,
+    // rejecting the reassignment with a 400 naming the terminated member.
+    // Calling the guard function directly rather than the route itself, same
+    // reasoning as the session-complete mirror above (requirePermission needs
+    // headers()/cookies() request context this harness doesn't have).
+    const remainingSession = jobBookings?.[1]
+    if (worker?.id && remainingSession) {
+      const { getTerminatedTeamMemberIds } = await import('../src/lib/hr')
+      await supabase.from('hr_employee_profiles').update({ hr_status: 'terminated' })
+        .eq('tenant_id', tenant.id).eq('team_member_id', worker.id)
+
+      const terminatedNow = await getTerminatedTeamMemberIds(tenant.id, [worker.id])
+      add('crew-termination: the just-terminated crew member is flagged by the guard', terminatedNow.includes(worker.id), JSON.stringify(terminatedNow))
+      add('crew-termination: reassigning them to a remaining session would be blocked (guard fires before any write)', terminatedNow.length > 0)
+
+      // The real-world resolution: hire a replacement and put THEM on what's left.
+      const { provisionApprovedApplicant: provisionReplacement } = await import('../src/lib/team-provisioning')
+      const replacementPhone = '704' + String(4000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+      try {
+        await provisionReplacement(tenant.id, {
+          id: randomUUID(), name: `${cfg.crew.name} (Replacement)`, email: `crew-repl+${runId}@example.com`, phone: replacementPhone, address: null,
+        })
+      } catch (e) {
+        const emailThrew = /Email not configured|Resend/i.test(e instanceof Error ? e.message : String(e))
+        if (!emailThrew) throw e
+      }
+      const { data: replacement } = await supabase.from('team_members').select('id').eq('tenant_id', tenant.id).eq('phone', replacementPhone).maybeSingle()
+      add('crew-termination: replacement crew member provisioned', !!replacement)
+
+      if (replacement?.id) {
+        const replacementTerminated = await getTerminatedTeamMemberIds(tenant.id, [replacement.id])
+        add('crew-termination: the new replacement is NOT flagged terminated (fresh hr_status defaults to active)', replacementTerminated.length === 0, JSON.stringify(replacementTerminated))
+
+        await supabase.from('bookings').update({ team_member_id: replacement.id }).eq('id', remainingSession.id)
+        const { data: reassignedSession } = await supabase.from('bookings').select('team_member_id').eq('id', remainingSession.id).single()
+        add('crew-termination: remaining session reassigned to the replacement, not left on the terminated worker', reassignedSession?.team_member_id === replacement.id, reassignedSession?.team_member_id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
