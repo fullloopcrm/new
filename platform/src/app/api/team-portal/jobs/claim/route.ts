@@ -50,9 +50,9 @@ export async function POST(request: Request) {
   // manual assignment would be blocked from creating.
   const { data: target } = (await db
     .from('bookings')
-    .select('start_time, end_time')
+    .select('start_time, end_time, pay_rate')
     .eq('id', booking_id)
-    .single()) as { data: { start_time: string | null; end_time: string | null } | null }
+    .single()) as { data: { start_time: string | null; end_time: string | null; pay_rate: number | null } | null }
   if (!target?.start_time) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
   const settings = await getSettings(auth.tid)
@@ -75,11 +75,24 @@ export async function POST(request: Request) {
 
   // Atomic claim: the `team_member_id IS NULL` filter on the UPDATE makes this
   // first-writer-wins — a concurrent claim updates zero rows → "already taken".
+  //
+  // pay_rate: only fill in the claiming member's own default when the booking
+  // doesn't already carry a per-job rate. A job open for self-claim can already
+  // have one set — an admin-set premium on an emergency broadcast
+  // (`/api/bookings/broadcast` advertises exactly `booking.pay_rate` as the
+  // "$X/hr, first to claim gets it" promise), or a previous holder's rate
+  // surviving a release back to the pool (`.../jobs/release` never touches
+  // pay_rate). Unconditionally overwriting it with `member.pay_rate` here
+  // silently broke that promise — payroll (`finance/payroll/route.ts`)
+  // already treats `booking.pay_rate` as authoritative over the member's
+  // default (`b.pay_rate || member.pay_rate`), so once claimed the row's
+  // premium was gone and the member who answered the broadcast got paid
+  // their own standard rate at payout time instead.
   const { data, error } = await db
     .from('bookings')
     .update({
       team_member_id: auth.id,
-      pay_rate: member?.pay_rate || null,
+      ...(target.pay_rate == null ? { pay_rate: member?.pay_rate || null } : {}),
       status: 'confirmed',
     })
     .eq('id', booking_id)
