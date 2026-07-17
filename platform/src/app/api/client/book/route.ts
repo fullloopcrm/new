@@ -19,6 +19,7 @@ import { getSettings } from '@/lib/settings'
 import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { omit } from '@/lib/validate'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // bookings.team_member_token/token_expires_at — this route ITSELF generates
 // the fresh crypto-random token below (generateCleanerToken(), passed as
@@ -437,12 +438,13 @@ export async function POST(request: Request) {
         // (payment-processor.ts, webhooks/stripe.ts) — do_not_service clients
         // never reach here (blocked above), but a client who has replied STOP
         // (sms_consent=false) must still stop receiving texts, including this one.
-        if (data.clients?.phone && data.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        const smsCreds = resolveTenantSmsCredentials(tenant)
+        if (data.clients?.phone && data.clients?.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
           await sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplates(tenant)).bookingReceived(data),
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
         }
       } catch (emailError) {

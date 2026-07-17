@@ -23,6 +23,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { randomInt } from 'crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 interface CollectBody {
   name?: string
@@ -273,12 +274,13 @@ export async function POST(request: NextRequest) {
             recapMsg = `Ok ${firstName}, got your info ty! 😊 I'll send you confirmation with all the details shortly. No-cancellation policy for first-time services 😊`
           }
 
-          if (tenant.telnyx_api_key && tenant.telnyx_phone && convo.phone) {
+          const smsCreds = resolveTenantSmsCredentials(tenant)
+          if (smsCreds.apiKey && smsCreds.phone && convo.phone) {
             await sendSMS({
               to: convo.phone,
               body: recapMsg,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey,
+              telnyxPhone: smsCreds.phone,
             }).catch((e) => console.error('[portal/collect] sms err:', e))
           }
 

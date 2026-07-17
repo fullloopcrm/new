@@ -10,6 +10,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { omit } from '@/lib/validate'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // bookings.team_member_token/token_expires_at — a fresh crypto-random token
 // ("Team member token (for portal access)", supabase/schema.sql's legacy
@@ -136,12 +137,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     // protectClientAPI blocks a do_not_service client's session entirely, so
     // this route never reaches here for one — but sms_consent=false (STOP)
     // is a separate, still-authenticated axis that was never checked.
-    if (updated.clients?.phone && updated.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (updated.clients?.phone && updated.clients?.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
       await sendSMS({
         to: updated.clients.phone,
         body: (await clientSmsTemplates(tenant)).reschedule(updated),
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: smsCreds.apiKey,
+        telnyxPhone: smsCreds.phone,
       }).catch(() => {})
     }
 

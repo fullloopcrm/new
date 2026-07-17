@@ -5,6 +5,7 @@ import { sendSMS } from '@/lib/sms'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt } from 'crypto'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 function codeEmailHtml(businessName: string, code: string): string {
   return `
@@ -47,6 +48,7 @@ export async function POST(request: Request) {
     }
 
     const smsBody = `Your ${tenant.name} verification code is: ${code}`
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     if (email) {
       try {
@@ -58,12 +60,12 @@ export async function POST(request: Request) {
           from: tenant.email_from || undefined,
         })
         // Best-effort SMS alongside email when phone also present.
-        if (phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (phone && smsCreds.apiKey && smsCreds.phone) {
           await sendSMS({
             to: phone,
             body: smsBody,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           }).catch(() => {})
         }
         return NextResponse.json({ success: true, method: 'email' })
@@ -73,13 +75,13 @@ export async function POST(request: Request) {
       }
     }
 
-    if (phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (phone && smsCreds.apiKey && smsCreds.phone) {
       try {
         await sendSMS({
           to: phone,
           body: smsBody,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
         return NextResponse.json({ success: true, method: 'sms' })
       } catch (e) {

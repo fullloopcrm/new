@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { generateCode, createToken } from './token'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // Verification codes now stored in portal_auth_codes table (serverless-safe)
 
@@ -18,7 +19,7 @@ export async function POST(request: Request) {
     // Look up tenant
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+      .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
       .eq('slug', tenant_slug)
       .eq('status', 'active')
       .single()
@@ -73,14 +74,15 @@ export async function POST(request: Request) {
     // Send code via SMS (preferred) or email (fallback)
     let channel: 'sms' | 'email' = 'sms'
 
-    if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (smsCreds.apiKey && smsCreds.phone) {
       try {
         const { sendSMS } = await import('@/lib/sms')
         await sendSMS({
           to: phone,
           body: `Your ${tenant.name} verification code is: ${code}`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
       } catch (e) {
         console.error('SMS send error:', e)
