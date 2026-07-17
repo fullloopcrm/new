@@ -7,7 +7,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
-import { etHour, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
+import { etHour, etToday, addCalendarDays, formatNaiveET, parseNaiveET } from '@/lib/recurring'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -542,8 +542,16 @@ export async function GET(request: Request) {
       // 9PM ET NIGHTLY DIGEST — summary of all notifications sent today
       // ============================================
       if (etHour(now) === 21) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+        // notifications.created_at is a genuine UTC timestamptz (unlike bookings.start_time's
+        // naive-ET convention) -- the ET calendar day's boundaries must be converted to real
+        // UTC instants via parseNaiveET, not built from the server's local (UTC) clock. The old
+        // `new Date(now); .setHours(0,0,0,0)` zeroed the SERVER's (UTC) hour, not ET's -- at 9pm
+        // EDT the UTC day has already rolled to tomorrow, so the window covered roughly the last
+        // hour of the real ET day plus most of tomorrow instead of the full ET day just ended,
+        // silently undercounting the digest's email/SMS totals every night.
+        const todayET = etToday()
+        const todayStart = parseNaiveET(formatNaiveET(todayET))
+        const todayEnd = parseNaiveET(formatNaiveET(todayET, 23, 59, 59))
 
         const { data: todayNotifs } = await supabaseAdmin
           .from('notifications')
