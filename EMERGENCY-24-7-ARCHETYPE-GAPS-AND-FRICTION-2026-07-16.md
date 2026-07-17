@@ -4826,3 +4826,65 @@ forward.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (111) Archetype depth — the declared-type-sweep method (items (63)/(66)/(67)/(68)/(89)/(91)) repeats on a subsystem those sweeps never reached: Selena/Yinez's own ops-monitoring surface for "needs a human" events was structurally blind — NOW FIXED
+
+Applying the same method item (91) used ("grep every declared notification
+type for a real call site") to the AI-agent ops-monitoring layer instead of
+finance/quotes/bookings turned up a two-part gap in the exact surface built
+to catch it. `GET /api/admin/selena/monitor` — its own doc comment: "so ops
+monitoring tools can scrape stats without holding an admin session" — reports
+`stats.escalated` (a raw `sms_conversations.outcome === 'escalated'` count)
+and an `errors` feed (`notifications.type IN ('selena_error', 'escalation',
+'review_received')`). Both were permanently empty:
+
+- `outcome` is only ever written as `'booked'` or `'waitlisted'` anywhere in
+  the codebase (`core.ts`/`selena-legacy.ts`) — never `'escalated'`.
+  `getTenantMetrics()`'s own `escalations` count
+  (`src/lib/selena/metrics.ts`) has a text-heuristic fallback,
+  `c.summary?.includes('escalat')`, but `summary` is itself only ever
+  written on the booked/waitlisted branches — the fallback can never match
+  either. Both readers of this column were silently stuck at zero no matter
+  how many clients asked for a human.
+- The `request_callback` tool ("Client wants to talk to a human. Notifies
+  admin with context.") — the textbook escalation event — fires
+  `notify({ type: 'callback_requested' })`, and `report_issue` fires
+  `type: 'client_issue'`. Neither type was in the monitor route's `errors`
+  filter, while `'escalation'` (which IS in the filter) has zero call sites
+  anywhere and can never appear. The one endpoint built to let external
+  tooling watch for "Selena/Yinez needed a human" was blind to both of the
+  real events that mean exactly that, while faithfully filtering for an
+  event that never fires.
+
+Ruled out, not folded in: `low_rating` (also declared in
+`nycmaid/notify.ts`'s `TELEGRAM_NOTIFY_TYPES` with zero call sites) looked
+like a third instance, but both real low-rating paths
+(`webhooks/telnyx/route.ts`'s SMS rating capture, `reviews/submit/route.ts`)
+already fire `'review_received'` through the *global* `notify()`
+(`@/lib/notify`, channel-routed, not Telegram-type-routed) — the nycmaid
+Telegram-type set doesn't apply to that call path at all, so this one is
+dead-but-harmless, not a live gap. Also noticed, not fixed: `'recurring_set'`
+outcome (referenced by `conversation-scorer.ts`'s scoring heuristic at line
+77) and `'abandoned'` outcome (silently covered by the `expired` boolean
+fallback, unlike `'escalated'`) are the same shape and worth a follow-up.
+
+**Fixed** — `handleRequestCallback` (`src/lib/selena/core.ts`) now sets
+`outcome: 'escalated'` in the same update that already sets
+`escalation_locked_until`, so the metrics/monitor stats that already read
+this column reflect reality. `/api/admin/selena/monitor`'s `errors` filter
+now also includes `callback_requested` and `client_issue`.
+
+3 new tests: `core.request-callback-escalation.test.ts` (outcome set to
+`'escalated'` alongside the lock; the existing `callback_requested` notify
+still fires unchanged) and `route.errors-feed.test.ts` (the errors feed now
+surfaces `callback_requested`/`client_issue` rows alongside `selena_error`).
+Mutation-verified (`git apply -R` each fix in turn, both new suites RED for
+the expected reason — outcome stayed `null`; the feed returned only
+`selena_error` — `git apply` restored, GREEN). `tsc --noEmit` clean, full
+suite 406/406 files, 1985/1985 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
