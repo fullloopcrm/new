@@ -5,6 +5,7 @@ import { smsDailySummary } from '@/lib/sms-templates'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET, etYMD, etMidnightUtc, naiveETDayRange } from '@/lib/dates'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -19,15 +20,25 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
-  const today = new Date(now)
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
-  const yesterday = new Date(today)
-  yesterday.setDate(yesterday.getDate() - 1)
-  const threeDaysEnd = new Date(today)
-  threeDaysEnd.setDate(threeDaysEnd.getDate() + 3)
-  threeDaysEnd.setHours(23, 59, 59, 999)
+
+  // bookings.start_time/end_time are naive-ET TIMESTAMP columns (no tz) --
+  // boundaries against them need naive-ET day-range strings (the ET
+  // calendar day), not real UTC instants built off `.setHours(0,0,0,0)`/
+  // `.setDate()` (server-local = UTC on Vercel) -- those literal digits get
+  // compared straight against the naive column.
+  const todayRange = naiveETDayRange(now, 0)
+  const tomorrowRange = naiveETDayRange(now, 1)
+  const weekEndStart = naiveETDayRange(now, 7).start
+  const threeDaysEndBound = naiveETDayRange(now, 3).end
+
+  // payment_date is TIMESTAMPTZ (aware) -- needs a real UTC instant anchored
+  // to ET midnight of the relevant ET calendar day, not the naive-ET
+  // strings above (which would be misread as UTC instants for an aware
+  // column).
+  const { y: etY, m: etM, d: etD } = etYMD(now)
+  const yesterdayYMD = new Date(Date.UTC(etY, etM - 1, etD - 1))
+  const todayMidnightUtc = etMidnightUtc(etY, etM, etD)
+  const yesterdayMidnightUtc = etMidnightUtc(yesterdayYMD.getUTCFullYear(), yesterdayYMD.getUTCMonth() + 1, yesterdayYMD.getUTCDate())
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
@@ -52,29 +63,27 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', tomorrow.toISOString())
+      .gte('start_time', todayRange.start)
+      .lt('start_time', tomorrowRange.start)
       .not('status', 'eq', 'cancelled')
 
     const { data: paidBookings } = await supabaseAdmin
       .from('bookings')
       .select('price')
       .eq('tenant_id', tenantId)
-      .gte('payment_date', yesterday.toISOString())
-      .lt('payment_date', today.toISOString())
+      .gte('payment_date', yesterdayMidnightUtc.toISOString())
+      .lt('payment_date', todayMidnightUtc.toISOString())
       .limit(500) // Don't process more than 500 per tenant per run
 
     const yesterdayRevenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
 
     // Count upcoming week
-    const weekEnd = new Date(today)
-    weekEnd.setDate(weekEnd.getDate() + 7)
     const { count: weekJobs } = await supabaseAdmin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', weekEnd.toISOString())
+      .gte('start_time', todayRange.start)
+      .lt('start_time', weekEndStart)
       .not('status', 'eq', 'cancelled')
 
     const message = [
@@ -113,8 +122,8 @@ export async function GET(request: Request) {
         .select('id, start_time, end_time, service_type, clients(name, phone, address)')
         .eq('tenant_id', tenantId)
         .eq('team_member_id', member.id)
-        .gte('start_time', tomorrow.toISOString())
-        .lte('start_time', threeDaysEnd.toISOString())
+        .gte('start_time', tomorrowRange.start)
+        .lte('start_time', threeDaysEndBound)
         .in('status', ['scheduled', 'confirmed', 'pending'])
         .order('start_time')
         .returns<BookingTeamLookahead[]>()
@@ -170,7 +179,12 @@ export async function GET(request: Request) {
     // RECURRING EXPIRATION CHECK — warn 30 days before last booking
     // ============================================
     let expiringCount = 0
-    const thirtyDaysOut = new Date(now)
+    // lastDate below is parsed from a naive-ET start_time string (its digits
+    // ARE the ET wall-clock time, not a real UTC instant) -- thirtyDaysOut/
+    // nowNaiveET must use that same encoding, or this comparison mixes two
+    // different reference frames off by the EST/EDT offset.
+    const nowNaiveET = new Date(toNaiveET(now))
+    const thirtyDaysOut = new Date(nowNaiveET)
     thirtyDaysOut.setDate(thirtyDaysOut.getDate() + 30)
 
     const { data: schedules } = await supabaseAdmin
@@ -194,7 +208,7 @@ export async function GET(request: Request) {
       if (!latestBooking) continue
 
       const lastDate = new Date(latestBooking.start_time)
-      if (lastDate <= thirtyDaysOut && lastDate >= now) {
+      if (lastDate <= thirtyDaysOut && lastDate >= nowNaiveET) {
         const clientName = schedule.clients?.name || 'Unknown'
 
         // Check if already notified within 7 days
