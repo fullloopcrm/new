@@ -31,6 +31,7 @@ export async function sendEmail({
   from,
   resendApiKey,
   attachments,
+  tags,
 }: {
   to: string
   subject: string
@@ -38,6 +39,10 @@ export async function sendEmail({
   from?: string
   resendApiKey?: string | null
   attachments?: { filename: string; content: string | Buffer }[]
+  // Round-trips back on the resend webhook payload (data.tags) — lets
+  // webhooks/resend/route.ts attribute a bounce/complaint event to a
+  // tenant+client without depending on a DB join.
+  tags?: { name: string; value: string }[]
 }) {
   // Determine which client to use — fail fast if no key available.
   // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
@@ -65,6 +70,7 @@ export async function sendEmail({
       subject,
       html,
       ...(attachments && attachments.length ? { attachments } : {}),
+      ...(tags && tags.length ? { tags } : {}),
     })
 
     if (error) {

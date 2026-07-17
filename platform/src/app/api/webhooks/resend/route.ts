@@ -15,7 +15,7 @@ export async function POST(request: Request) {
       }
     }
 
-    let body: { type?: string; data?: { email_id?: string } }
+    let body: { type?: string; data?: { email_id?: string; tags?: Record<string, string> } }
     try {
       body = JSON.parse(rawBody)
     } catch {
@@ -25,6 +25,48 @@ export async function POST(request: Request) {
 
     if (!type || !data) {
       return NextResponse.json({ ok: true })
+    }
+
+    // Spam complaint (recipient hit "report spam") or a bounce — Resend's
+    // own event-type docs define email.bounced as "the recipient's mail
+    // server PERMANENTLY rejected the email" (not a transient/soft bounce),
+    // so both are final, both should stop future marketing email to this
+    // client. This does NOT depend on the campaign_recipients join below —
+    // that join only ever matches a row created by the recipient-tracking
+    // send path (src/app/api/campaigns/send/route.ts), which the actual
+    // UI-wired send button (campaigns/[id]/send/route.ts) never creates.
+    // Every client-recipient email (campaign or transactional, either send
+    // path) is tagged with tenant_id/client_id at send time (see
+    // notify.ts / campaigns/[id]/send/route.ts) specifically so this
+    // suppression works regardless of which path sent it.
+    if (type === 'email.complained' || type === 'email.bounced') {
+      const tenantId = data.tags?.tenant_id
+      const clientId = data.tags?.client_id
+      if (tenantId && clientId) {
+        const { error: suppressErr } = await supabaseAdmin
+          .from('clients')
+          .update({
+            email_marketing_opt_out: true,
+            email_marketing_opted_out_at: new Date().toISOString(),
+          })
+          .eq('id', clientId)
+          .eq('tenant_id', tenantId)
+        if (suppressErr) {
+          console.error(`[resend webhook] failed to suppress client ${clientId} on ${type}:`, suppressErr)
+        } else {
+          await supabaseAdmin
+            .from('marketing_opt_out_log')
+            .insert({
+              client_id: clientId,
+              tenant_id: tenantId,
+              channel: 'email',
+              method: type === 'email.complained' ? 'email_complaint' : 'email_bounce',
+            })
+            .then(() => {}, () => {})
+        }
+      } else {
+        console.warn(`[resend webhook] ${type} with no tenant_id/client_id tags — cannot suppress (email_id=${data.email_id ?? 'unknown'})`)
+      }
     }
 
     // Inbound email (Resend "Enable Receiving") → store for the admin inbox.

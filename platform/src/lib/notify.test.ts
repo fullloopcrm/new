@@ -48,7 +48,11 @@ vi.mock('./supabase', () => ({
 }))
 
 const sendEmailMock = vi.fn(async (_opts: unknown) => ({ id: 'email-1' }))
-const sendSMSMock = vi.fn(async (_opts: unknown) => ({ id: 'sms-1' }))
+// Real sendSMS() (Telnyx) nests the message id under `data.id`; some tests
+// below use the simplified flat shape since notify() only reads `.data?.id`
+// (a flat mock leaves providerMessageId undefined, which is fine for tests
+// that don't assert on it).
+const sendSMSMock = vi.fn(async (_opts: unknown): Promise<{ id?: string; data?: { id: string } }> => ({ id: 'sms-1' }))
 vi.mock('./email', () => ({
   sendEmail: (opts: unknown) => sendEmailMock(opts),
   tenantSender: (t: { email_from?: string }) => t.email_from || 'noreply@example.com',
@@ -168,7 +172,7 @@ describe('notify — primary send success', () => {
       tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
       recipientType: 'client', recipientId: 'client-1',
     })
-    expect(r).toEqual({ success: true })
+    expect(r).toEqual({ success: true, providerMessageId: 'email-1' })
     expect(sendEmailMock).toHaveBeenCalledTimes(1)
     const sentUpdate = calls.find((c) => c.table === 'notifications' && c.op === 'update' && (c.payload as { status: string }).status === 'sent')
     expect(sentUpdate).toBeDefined()
@@ -189,6 +193,47 @@ describe('notify — primary send success', () => {
     tableData['tenant_members'] = { email: 'owner@acme.com' }
     await notify({ tenantId: TENANT_ID, type: 'new_lead', title: 'New lead', message: 'hi' })
     expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({ to: 'owner@acme.com' }))
+  })
+})
+
+describe('notify — Resend tags for bounce/complaint attribution', () => {
+  it('tags a client-recipient email with tenant_id/client_id so webhooks/resend can attribute a later bounce/complaint', async () => {
+    tableData['clients'] = { email: 'client@example.com', phone: null }
+    await notify({
+      tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
+      recipientType: 'client', recipientId: 'client-1',
+    })
+    expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({
+      tags: [
+        { name: 'tenant_id', value: TENANT_ID },
+        { name: 'client_id', value: 'client-1' },
+      ],
+    }))
+  })
+
+  it('does not tag an admin/owner-recipient email (no client_id to attribute)', async () => {
+    tableData['tenant_members'] = { email: 'owner@acme.com' }
+    await notify({ tenantId: TENANT_ID, type: 'new_lead', title: 'New lead', message: 'hi' })
+    expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({ tags: undefined }))
+  })
+
+  it('does not tag a team-member-recipient email (no client_id to attribute)', async () => {
+    tableData['team_members'] = { email: 'tm@example.com', phone: null }
+    await notify({
+      tenantId: TENANT_ID, type: 'team_member_added', title: 'Welcome', message: 'hi',
+      recipientType: 'team_member', recipientId: 'tm-1',
+    })
+    expect(sendEmailMock).toHaveBeenCalledWith(expect.objectContaining({ tags: undefined }))
+  })
+
+  it('captures the Telnyx message id (nested under data.id, matching the real API response shape) as providerMessageId on an SMS send', async () => {
+    sendSMSMock.mockResolvedValueOnce({ data: { id: 'telnyx-msg-1' } })
+    tableData['team_members'] = { email: null, phone: '+15559876543' }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'team_member_added', title: 'Welcome', message: 'hi',
+      recipientType: 'team_member', recipientId: 'tm-1', channel: 'sms',
+    })
+    expect(r).toEqual({ success: true, providerMessageId: 'telnyx-msg-1' })
   })
 })
 

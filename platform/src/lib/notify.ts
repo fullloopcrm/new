@@ -91,7 +91,7 @@ export async function notify({
   bookingId?: string
   booking_id?: string  // nycmaid-style alias
   metadata?: Record<string, unknown>
-}): Promise<{ success: boolean; error?: string }> {
+}): Promise<{ success: boolean; error?: string; providerMessageId?: string }> {
   // Accept nycmaid-style `booking_id` as an alias for bookingId
   bookingId = bookingId || booking_id
   // Resolve tenant from request headers if caller didn't pass one (nycmaid pattern).
@@ -251,10 +251,29 @@ export async function notify({
   // Send via channel — with fallback: if email fails, try SMS
   let sent = false
   let lastError = ''
+  // Provider-assigned id for the PRIMARY-channel send only (resend email id /
+  // telnyx message id) — callers that track per-recipient delivery status
+  // (e.g. campaign sends joining back to a webhook event) need this to
+  // correlate. Not captured on the fallback path: it would land on
+  // campaign_recipients.resend_email_id/telnyx_message_id under the wrong
+  // channel's column.
+  let providerMessageId: string | undefined
 
   // Check if integrations are configured
   const hasEmail = !!(tenant.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
   const hasSMS = !!(tenant.telnyx_api_key && tenant.telnyx_phone)
+
+  // Tag client-recipient emails with tenant_id/client_id so a Resend
+  // bounce/complaint webhook can attribute the event and suppress future
+  // marketing email for that exact client — without depending on a
+  // campaign_recipients DB join (see webhooks/resend/route.ts).
+  const clientEmailTags =
+    recipientType === 'client' && recipientId
+      ? [
+          { name: 'tenant_id', value: tenantId },
+          { name: 'client_id', value: recipientId },
+        ]
+      : undefined
 
   // ── Communications gate ────────────────────────────────────────────────
   // The in-app notification row is already persisted above; here we honor the
@@ -274,22 +293,25 @@ export async function notify({
   // Attempt primary channel
   try {
     if (channel === 'email' && email && hasEmail) {
-      await sendEmail({
+      const result = await sendEmail({
         to: email,
         subject: title,
         html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
         from: tenantSender(tenant),
         resendApiKey: tenant.resend_api_key,
+        tags: clientEmailTags,
       })
       sent = true
+      providerMessageId = result?.id
     } else if (channel === 'sms' && phone && hasSMS) {
-      await sendSMS({
+      const result = await sendSMS({
         to: phone,
         body: message,
         telnyxApiKey: tenant.telnyx_api_key,
         telnyxPhone: tenant.telnyx_phone,
       })
       sent = true
+      providerMessageId = result?.data?.id
     } else if (channel === 'email' && !email) {
       lastError = 'No email address for recipient'
     } else if (channel === 'email' && !hasEmail) {
@@ -327,6 +349,7 @@ export async function notify({
           html: htmlBody || `<p>${escapeHtml(message).replace(/\n/g, '<br>')}</p>`,
           from: tenantSender(tenant),
           resendApiKey: tenant.resend_api_key,
+          tags: clientEmailTags,
         })
         sent = true
         await updateNotif('sent', {
@@ -340,7 +363,7 @@ export async function notify({
 
   if (sent) {
     await updateNotif('sent')
-    return { success: true }
+    return { success: true, providerMessageId }
   }
 
   // A missing recipient address or an unconfigured channel is NOT a delivery

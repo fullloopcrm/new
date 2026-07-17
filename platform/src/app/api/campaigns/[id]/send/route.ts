@@ -133,6 +133,15 @@ export async function POST(
             html: emailBody,
             from: fromHeader,
             resendApiKey: tenant.resend_api_key,
+            // Tag with tenant_id/client_id so a Resend bounce/complaint
+            // webhook can attribute the event and suppress future marketing
+            // email for this exact client (see webhooks/resend/route.ts) —
+            // this route sends directly and never creates a
+            // campaign_recipients row for the webhook to join back to.
+            tags: [
+              { name: 'tenant_id', value: tenantId },
+              { name: 'client_id', value: client.id },
+            ],
           })
           sentCount++
         } catch (e) {
