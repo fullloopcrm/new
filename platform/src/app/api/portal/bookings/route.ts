@@ -76,7 +76,15 @@ export async function POST(request: Request) {
   }
 
   // Recurring-service discount ("save 20%"): weekly 20% off, biweekly/monthly 10% off.
-  const recurringType = body.recurring_type && body.recurring_type !== 'none' ? String(body.recurring_type) : null
+  // The portal booking form's own <option value="monthly"> sends the bare literal
+  // 'monthly' -- RecurringType (lib/recurring.ts) has no bare 'monthly', only
+  // monthly_date/monthly_weekday, so it's normalized here the same way
+  // client/recurring's schedule-creation path already does. This route never
+  // creates a recurring_schedules row (no cron dependency), but the raw value
+  // does reach formatRecurringLabel's display fallback -- normalizing keeps
+  // "Schedule: Monthly" instead of the unformatted "Schedule: monthly".
+  const rawRecurringType = body.recurring_type && body.recurring_type !== 'none' ? String(body.recurring_type) : null
+  const recurringType = rawRecurringType === 'monthly' ? 'monthly_date' : rawRecurringType
   if (price != null && recurringType) {
     price = applyRecurringDiscount(price, recurringType)
   }

@@ -184,6 +184,13 @@ describe('POST /api/portal/bookings — recurring discount', () => {
     expect(json.booking.price).toBe(Math.round(basePrice * 0.9))
   })
 
+  it('normalizes the bare "monthly" cadence to monthly_date before storing -- RecurringType (lib/recurring.ts) has no bare "monthly" member, so an unnormalized value would render as unformatted raw text ("Schedule: monthly") instead of a label ("Schedule: Monthly")', async () => {
+    const res = await POST(postReq({ start_time: FUTURE_DATE, service_type_id: 'svc-A1', recurring_type: 'monthly' }))
+    const json = await res.json()
+
+    expect(json.booking.recurring_type).toBe('monthly_date')
+  })
+
   it('applies no discount when recurring_type is "none"', async () => {
     const res = await POST(postReq({ start_time: FUTURE_DATE, service_type_id: 'svc-A1', recurring_type: 'none' }))
     const json = await res.json()

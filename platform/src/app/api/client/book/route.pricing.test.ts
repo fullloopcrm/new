@@ -177,6 +177,31 @@ describe('generic tenant — client-supplied price/rate cannot be pushed below t
   })
 })
 
+describe('recurring_type — bare "monthly" cadence is normalized before storing', () => {
+  // RemoteBookForm.tsx's CADENCE dropdown sends the bare literal 'monthly'.
+  // RecurringType (lib/recurring.ts) has no bare 'monthly' member, only
+  // monthly_date/monthly_weekday -- an unnormalized value would render as
+  // unformatted raw text ("Schedule: monthly") instead of a label
+  // ("Schedule: Monthly") wherever formatRecurringLabel reads it.
+  it('normalizes "monthly" to "monthly_date"', async () => {
+    const res = await bookReq({ hourly_rate: 75, estimated_hours: 2, recurring_type: 'monthly' })
+    expect(res.status).toBe(200)
+    expect(holder.insertedBookings[0].recurring_type).toBe('monthly_date')
+  })
+
+  it('leaves other recurring types (e.g. weekly) unchanged', async () => {
+    const res = await bookReq({ hourly_rate: 75, estimated_hours: 2, recurring_type: 'weekly' })
+    expect(res.status).toBe(200)
+    expect(holder.insertedBookings[0].recurring_type).toBe('weekly')
+  })
+
+  it('"none" is stored as null', async () => {
+    const res = await bookReq({ hourly_rate: 75, estimated_hours: 2, recurring_type: 'none' })
+    expect(res.status).toBe(200)
+    expect(holder.insertedBookings[0].recurring_type).toBeNull()
+  })
+})
+
 describe('NYC Maid tenant — hourly_rate clamped to the published {59, 69} tiers', () => {
   beforeEach(() => {
     nycMaidFlag.current = true

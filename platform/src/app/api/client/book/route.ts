@@ -212,7 +212,17 @@ export async function POST(request: Request) {
     // Floored at 1hr — an unfloored fractional value (e.g. 0.001) would slip
     // past the hourly-rate clamp above and still yield a near-zero total.
     const bkEstimatedHours = Math.max(1, Number(body.estimated_hours) || 2)
-    let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
+    // Template booking form (RemoteBookForm.tsx) and other callers send the bare
+    // literal 'monthly' as cadence -- RecurringType (lib/recurring.ts) has no bare
+    // 'monthly', only monthly_date/monthly_weekday, so it's normalized here the same
+    // way client/recurring's schedule-creation path already does. This route never
+    // creates a recurring_schedules row (no cron dependency), but the raw value does
+    // reach formatRecurringLabel's display fallback -- normalizing keeps "Schedule:
+    // Monthly" instead of the unformatted "Schedule: monthly".
+    const bkRecurringType = body.recurring_type === 'none' || !body.recurring_type
+      ? null
+      : body.recurring_type === 'monthly' ? 'monthly_date' : (body.recurring_type as string)
+    let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, bkRecurringType)
     let bkNotes = (body.notes as string) || ''
     const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
     let bkIsEmergency = false
@@ -291,7 +301,7 @@ export async function POST(request: Request) {
         is_emergency: bkIsEmergency,
         max_hours: bkMaxHours,
         notes: bkNotes,
-        recurring_type: body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined),
+        recurring_type: bkRecurringType,
         team_member_token: cleanerToken,
         token_expires_at: tokenExpiresAt.toISOString(),
         referrer_id: referrerId,
