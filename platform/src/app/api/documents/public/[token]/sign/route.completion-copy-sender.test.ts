@@ -71,7 +71,14 @@ function chainable(result: { data: unknown; error: unknown }) {
   return obj
 }
 
-const TENANT = {
+const TENANT: {
+  name: string
+  domain: string | null
+  telnyx_api_key: string | null
+  telnyx_phone: string | null
+  resend_api_key: string | null
+  email_from: string | null
+} = {
   name: 'Acme Cleaning',
   domain: 'acme.example.com',
   telnyx_api_key: null,
@@ -110,6 +117,8 @@ const fakeBlob = { arrayBuffer: async () => new ArrayBuffer(8) }
 let documentSignersCallCount = 0
 let documentFieldsCallCount = 0
 let documentsCallCount = 0
+let tenantDomainsRows: Array<{ tenant_id: string; domain: string; is_primary: boolean; active: boolean }> = []
+let currentDoc: typeof DOC = DOC
 let supabaseFromImpl: (table: string) => ReturnType<typeof chainable>
 
 function buildSupabaseFrom() {
@@ -139,12 +148,15 @@ function buildSupabaseFrom() {
     }
     if (table === 'documents') {
       documentsCallCount++
-      if (documentsCallCount === 1) return chainable({ data: DOC, error: null })
+      if (documentsCallCount === 1) return chainable({ data: currentDoc, error: null })
       return chainable({ data: null, error: null }) // finalizeDocument's status update
     }
     if (table === 'document_fields') {
       documentFieldsCallCount++
       return chainable({ data: [], error: null }) // no unfilled required fields / nothing to stamp
+    }
+    if (table === 'tenant_domains') {
+      return chainable({ data: tenantDomainsRows, error: null })
     }
     throw new Error(`unexpected table: ${table}`)
   }
@@ -171,6 +183,8 @@ function fakeRequest(body: Record<string, unknown>): Request {
 
 beforeEach(() => {
   sendEmail.mockClear()
+  tenantDomainsRows = []
+  currentDoc = DOC
   supabaseFromImpl = buildSupabaseFrom()
 })
 
@@ -195,5 +209,57 @@ describe("POST /api/documents/public/[token]/sign — completion-copy receipt us
     expect(call.to).toBe('sig@x.com')
     expect(call.from).toBe(TENANT.email_from)
     expect(call.resendApiKey).toBe(`decrypted:${TENANT.resend_api_key}`)
+  })
+})
+
+/**
+ * fromEmail domain-fallback bug-class probe: sendCompletionCopies's
+ * fromEmail fallback (fires only when email_from is unset) read
+ * tenant.domain directly and never consulted tenant_domains, same bug as the
+ * 13 other mirrors closed this session. Fixed by resolving through
+ * getPrimaryTenantDomain() first, same precedence as the sign-link baseUrl a
+ * few lines up in this same function.
+ */
+describe('POST /api/documents/public/[token]/sign — sendCompletionCopies fromEmail domain-fallback bug-class probe', () => {
+  it('domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
+    tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
+    const { POST } = await import('./route')
+    const res = await POST(
+      fakeRequest({ signature_png: 'data:image/png;base64,' + 'a'.repeat(120), signature_name: 'Sig One', field_values: [] }),
+      { params: Promise.resolve({ token: 'tok-1' }) }
+    )
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('docs@custom.example.com')
+  })
+
+  it('falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
+    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
+    tenantDomainsRows = []
+    const { POST } = await import('./route')
+    const res = await POST(
+      fakeRequest({ signature_png: 'data:image/png;base64,' + 'a'.repeat(120), signature_name: 'Sig One', field_values: [] }),
+      { params: Promise.resolve({ token: 'tok-1' }) }
+    )
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('docs@fullloopcrm.com')
+  })
+
+  it("wrong-tenant probe: another tenant's tenant_domains row never leaks into this tenant's receipt from-address", async () => {
+    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
+    tenantDomainsRows = [
+      { tenant_id: 'tid-a', domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: 'tid-b', domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const { POST } = await import('./route')
+    const res = await POST(
+      fakeRequest({ signature_png: 'data:image/png;base64,' + 'a'.repeat(120), signature_name: 'Sig One', field_values: [] }),
+      { params: Promise.resolve({ token: 'tok-1' }) }
+    )
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('docs@acme-real.example.com')
   })
 })

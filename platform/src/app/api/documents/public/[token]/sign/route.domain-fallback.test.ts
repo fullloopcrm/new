@@ -7,9 +7,9 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  * pending). Same bug/fix as the other 5 mirrors this session: the sign link
  * was built from `tenant.domain ? https://${tenant.domain} : appUrl` —
  * legacy column only, never consulting tenant_domains. Fixed by routing
- * through tenantSiteUrl(). (sendCompletionCopies, this file's OTHER tenant-
- * domain read, only uses tenant.domain for the fromEmail fallback — a
- * separate, deliberately-untouched concern per this round's scope note.)
+ * through tenantSiteUrl(). (sendCompletionCopies's OWN fromEmail-fallback
+ * mirror of this same bug is covered separately, in
+ * route.completion-copy-sender.test.ts.)
  */
 
 const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (_args: unknown) => ({})) }))
@@ -61,7 +61,7 @@ const SIGNER = {
   phone: null, public_token: 'tok-1', signature_png: null,
 }
 
-function buildDoc(tenant: { domain: string | null; slug: string | null }) {
+function buildDoc(tenant: { domain: string | null; slug: string | null; email_from?: string | null }) {
   return {
     id: 'doc-1', tenant_id: 'tid-a', title: 'Service Agreement',
     original_path: 'tenant-a/doc-1/original.pdf', original_sha256: null,
@@ -69,7 +69,8 @@ function buildDoc(tenant: { domain: string | null; slug: string | null }) {
     tenants: {
       name: 'Acme', domain: tenant.domain, slug: tenant.slug,
       telnyx_api_key: null, telnyx_phone: null,
-      resend_api_key: 'enc-resend-key-acme', email_from: 'docs@acme.example.com',
+      resend_api_key: 'enc-resend-key-acme',
+      email_from: tenant.email_from === undefined ? 'docs@acme.example.com' : tenant.email_from,
     },
   }
 }
@@ -187,5 +188,35 @@ describe('POST /api/documents/public/[token]/sign — sendSigningInviteToSigner 
     const call = sendEmail.mock.calls[0][0] as { html: string }
     expect(call.html).toContain('acme-real.example.com')
     expect(call.html).not.toContain('other-tenant.example.com')
+  })
+
+  it('fromEmail domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+    doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
+    tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
+    const res = await sign()
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@custom.example.com')
+  })
+
+  it('fromEmail falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
+    doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
+    tenantDomainsRows = []
+    const res = await sign()
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@fullloopcrm.com')
+  })
+
+  it("fromEmail wrong-tenant probe: another tenant's tenant_domains row never leaks into this tenant's next-signer invite from-address", async () => {
+    doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
+    tenantDomainsRows = [
+      { tenant_id: 'tid-a', domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: 'tid-b', domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const res = await sign()
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@acme-real.example.com')
   })
 })

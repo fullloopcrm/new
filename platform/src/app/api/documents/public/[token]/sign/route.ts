@@ -18,6 +18,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -255,7 +256,12 @@ async function sendCompletionCopies(
   const completedAt = new Date().toLocaleString('en-US')
   const roster = signers.map(s => `${escapeHtml(s.name)}${s.email ? ` (${escapeHtml(s.email)})` : ''}`).join(', ')
   const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-  const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
+  // tenant_domains FIRST, tenants.domain fallback -- same precedence as
+  // tenantSiteUrl(). Only fires when email_from is unset, but must not skip
+  // a custom domain that lives only in tenant_domains and land on the
+  // generic default instead.
+  const emailDomain = (await getPrimaryTenantDomain(doc.tenant_id)) || tenant?.domain
+  const fromEmail = tenant?.email_from || `docs@${emailDomain || 'fullloopcrm.com'}`
 
   for (const s of recipients) {
     const html = `
@@ -469,7 +475,12 @@ async function sendSigningInviteToSigner(
 
   const telnyxKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
   const resendKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-  const fromEmail = tenant.email_from || `docs@${tenant.domain || 'fullloopcrm.com'}`
+  // tenant_domains FIRST, tenants.domain fallback -- same precedence as
+  // tenantSiteUrl() above. Only fires when email_from is unset, but must not
+  // skip a custom domain that lives only in tenant_domains and land on the
+  // generic default instead.
+  const emailDomain = (await getPrimaryTenantDomain(doc.tenant_id)) || tenant.domain
+  const fromEmail = tenant.email_from || `docs@${emailDomain || 'fullloopcrm.com'}`
 
   if (next.email && resendKey) {
     try {
