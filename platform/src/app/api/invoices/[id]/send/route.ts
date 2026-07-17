@@ -7,7 +7,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { logInvoiceEvent, formatInvoiceCents } from '@/lib/invoice'
 import { decryptSecret } from '@/lib/secret-crypto'
 
@@ -52,9 +52,7 @@ export async function POST(request: Request, { params }: Params) {
 
     if ((via === 'email' || via === 'both') && toEmail) {
       try {
-        const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-        if (!apiKey) throw new Error('No Resend API key for tenant')
-        const fromEmail = tenant.email_from || `invoices@${tenant.domain || 'fullloopcrm.com'}`
+        const fromEmail = tenantSender(tenant)
         const html = renderInvoiceEmail({
           businessName: tenant.name,
           invoiceNumber: invoice.invoice_number,
@@ -71,7 +69,7 @@ export async function POST(request: Request, { params }: Params) {
           subject: `Invoice ${invoice.invoice_number} from ${tenant.name} — ${formatInvoiceCents(amountOwed)}`,
           html,
           from: fromEmail,
-          resendApiKey: apiKey,
+          resendApiKey: tenant.resend_api_key,
         })
         results.email = { ok: true }
       } catch (e) {

@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { DOCUMENTS_BUCKET, isEditableStatus, logDocEvent, sha256Hex } from '@/lib/documents'
 
@@ -85,8 +85,7 @@ export async function POST(_request: Request, { params }: Params) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
     const baseUrl = tenant?.domain ? `https://${tenant.domain}` : appUrl
     const telnyxKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-    const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-    const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
+    const fromEmail = tenantSender(tenant)
 
     // Determine which signers to notify now
     const toNotify = doc.sign_order === 'sequential' ? [signers[0]] : signers
@@ -96,7 +95,7 @@ export async function POST(_request: Request, { params }: Params) {
       const signUrl = `${baseUrl}/sign/${s.public_token}`
       const r: { signer_id: string; email?: { ok: boolean; detail?: string }; sms?: { ok: boolean; detail?: string } } = { signer_id: s.id }
 
-      if (s.email && resendKey) {
+      if (s.email) {
         try {
           const html = renderInviteEmail({
             businessName: tenant?.name || '',
@@ -110,7 +109,7 @@ export async function POST(_request: Request, { params }: Params) {
             subject: `${tenant?.name || 'Full Loop'}: please sign — ${doc.title}`,
             html,
             from: fromEmail,
-            resendApiKey: resendKey,
+            resendApiKey: tenant?.resend_api_key,
           })
           r.email = { ok: true }
         } catch (e) {

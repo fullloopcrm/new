@@ -15,7 +15,7 @@ import {
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { escapeHtml } from '@/lib/escape-html'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 
 type Params = { params: Promise<{ token: string }> }
@@ -457,17 +457,16 @@ async function sendSigningInviteToSigner(
   const signUrl = `${baseUrl}/sign/${tokenRow.public_token}`
 
   const telnyxKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-  const resendKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-  const fromEmail = tenant.email_from || `docs@${tenant.domain || 'fullloopcrm.com'}`
+  const fromEmail = tenantSender(tenant)
 
-  if (next.email && resendKey) {
+  if (next.email) {
     try {
       await sendEmail({
         to: next.email,
         subject: `${tenant.name}: you're up — ${doc.title}`,
         html: `<p>Hi ${escapeHtml(next.name)}, the prior signer has completed their portion. Please sign here: <a href="${encodeURI(signUrl)}">${signUrl}</a></p>`,
         from: fromEmail,
-        resendApiKey: resendKey,
+        resendApiKey: tenant.resend_api_key,
       })
     } catch { /* noop */ }
   }

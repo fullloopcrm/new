@@ -22,7 +22,10 @@ const { sendEmail, decryptSecret, notify, ownerAlert } = vi.hoisted(() => ({
   notify: vi.fn(async () => ({ success: true })),
   ownerAlert: vi.fn(async (..._args: { bodyHtml: string }[]) => {}),
 }))
-vi.mock('@/lib/email', () => ({ sendEmail }))
+vi.mock('@/lib/email', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('@/lib/email')>()
+  return { ...actual, sendEmail }
+})
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret }))
 vi.mock('@/lib/notify', () => ({ notify }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert }))

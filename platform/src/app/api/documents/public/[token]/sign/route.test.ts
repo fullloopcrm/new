@@ -21,7 +21,10 @@ vi.mock('@/lib/documents', async () => {
   const actual = await vi.importActual<typeof import('@/lib/documents')>('@/lib/documents')
   return { ...actual, logDocEvent: vi.fn(async () => {}) }
 })
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
+vi.mock('@/lib/email', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/email')>('@/lib/email')
+  return { ...actual, sendEmail: vi.fn(async () => {}) }
+})
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: vi.fn(() => 'decrypted') }))
 

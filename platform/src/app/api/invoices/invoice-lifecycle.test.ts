@@ -71,7 +71,10 @@ vi.mock('@/lib/require-permission', () => ({
   requirePermission: async () => ({ tenant: { tenantId: h.tenantId }, error: null }),
 }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: (s: string) => `dec:${s}` }))
-vi.mock('@/lib/email', () => ({ sendEmail: async () => ({ ok: true }) }))
+vi.mock('@/lib/email', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/email')>('@/lib/email')
+  return { ...actual, sendEmail: async () => ({ ok: true }) }
+})
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => ({ ok: true }) }))
 vi.mock('@/lib/finance/post-revenue', () => ({ postPaymentRevenue: async () => {} }))
 

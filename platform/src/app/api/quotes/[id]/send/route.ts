@@ -6,7 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
@@ -59,9 +59,7 @@ export async function POST(request: Request, { params }: Params) {
     // ── EMAIL ──
     if ((via === 'email' || via === 'both') && toEmail) {
       try {
-        const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-        if (!apiKey) throw new Error('No Resend API key configured for tenant')
-        const fromEmail = tenant.email_from || `quotes@${tenant.domain || 'fullloopcrm.com'}`
+        const fromEmail = tenantSender(tenant)
         // contact_name/title are caller-writable on POST /api/quotes (and can
         // originate untouched from a fully public lead-capture form, e.g.
         // /api/lead's `name` -> clients.name -> quote.contact_name) — escape
@@ -92,7 +90,7 @@ export async function POST(request: Request, { params }: Params) {
           subject: `Your quote from ${tenant.name} — ${formatCents(quote.total_cents)}`,
           html,
           from: fromEmail,
-          resendApiKey: apiKey,
+          resendApiKey: tenant.resend_api_key,
         })
         results.email = { ok: true }
       } catch (e) {
