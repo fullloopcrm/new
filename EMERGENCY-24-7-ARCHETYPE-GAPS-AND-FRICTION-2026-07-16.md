@@ -4676,3 +4676,66 @@ regressions. Commit `6adbf7cd`.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (107) Archetype depth — H-01 class repeats an eighth time: `POST /api/internal/deploy-hook` was never reachable on the main host — NOW FIXED
+
+Same shape as items (103)/(105)'s `/api/uploads` and `/api/push/subscribe`
+gaps, this time on infrastructure rather than a user-facing route: Vercel's
+`deployment.succeeded` webhook POSTs straight to the production main host
+with no `admin_token` cookie and no Clerk session. The route self-gates via
+its own HMAC-SHA1 signature check (`VERCEL_DEPLOY_HOOK_SECRET`) before doing
+anything — confirmed by reading the route directly — but `/api/internal` was
+never added to `isPublicRoute`. Without that entry, every delivery 307'd to
+`/sign-in` before the route's own signature check ever ran, so the
+carrying-domain re-alias step (`*.fullloopcrm.com` + every
+`<slug>.fullloopcrm.com` alias) silently never fired on any production
+deploy — the exact failure mode the route's own doc comment describes
+guarding against (`DEPLOYMENT_NOT_FOUND`), just triggered one layer earlier
+than the code anticipated.
+
+**Fixed** — added `/api/internal/deploy-hook` to `isPublicRoute`, same
+self-gated precedent as `/api/uploads` and `/api/push/subscribe`.
+
+1 new test in `middleware-domain-lookup.test.ts` (source-reading guard, same
+pattern as the existing bypass-list/public-route guards), mutation-verified
+(`git apply -R` the fix, RED for the expected reason — `isPublicRoute` no
+longer covers `/api/internal/deploy-hook` — `git apply` restored, GREEN).
+`tsc --noEmit` clean, full suite 402/402 files, 1976/1976 tests, zero
+regressions. Commit `eedbea43`.
+
+## (108) Fresh ground, new bug class (owner-notification parity gap, distinct from every prior webhook thread) — no document lifecycle event ever notified the tenant admin, so a signer decline landed with zero owner notice — NOW FIXED
+
+The public document e-signature flow (`consent`/`sign`/`decline` routes plus
+the completion path inside `sign/route.ts`) never notified the tenant admin
+about any lifecycle event — confirmed by grepping the whole `documents`
+route tree and `lib/documents.ts` for `notify(`/`ownerAlert(`/a
+`notifications` insert and finding none. This is the same shape as item
+(102)'s `email.complained` gap and the `quote_viewed` fix documented in
+`route.viewed-notify.test.ts` ("a declared … type … but no call site ever
+fired it"): the sibling quotes flow fires **both** `notify()` and
+`ownerAlert()` on accept AND on decline (`quotes/public/[token]/decline/
+route.ts`), but documents — a functionally identical public accept/decline
+flow, same business weight (a signer declining is a lost signed deal,
+exactly like a declined quote) — had zero admin-facing signal on any of its
+four lifecycle events. An admin relying on this feature for contracts/
+proposals had no way to know a customer declined short of manually
+re-checking the dashboard.
+
+**Fixed** — `documents/public/[token]/decline/route.ts` now fires
+`notify('document_declined')` + `ownerAlert()` on decline, mirroring
+`quotes/public/[token]/decline/route.ts`'s pair exactly (signer name,
+document title, and decline reason in the alert body). Added
+`'document_declined'` to `notify.ts`'s `NotificationType` union. Scoped to
+decline only this round — sign/consent/completion admin-notification gaps
+are the same shape and worth a follow-up, not folded into this fix.
+
+2 new tests in `route.notify.test.ts` (fires both alerts with the right
+payload on decline; fires neither on an unknown token), mutation-verified
+(`git apply -R` the route.ts fix, RED for the expected reason — `notify`/
+`ownerAlert` never called — `git apply` restored, GREEN). `tsc --noEmit`
+clean, full suite 403/403 files, 1978/1978 tests, zero regressions. Commit
+`b035d4fd`.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
