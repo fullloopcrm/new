@@ -908,7 +908,14 @@ function BookingsPage() {
           data: {
             start_time: shiftNaive(booking.start_time, deltaMinutes),
             end_time: shiftNaive(booking.start_time, deltaMinutes + durationMinutes),
-            cleaner_id: form.cleaner_id || null,
+            // was `cleaner_id` -- PUT /api/bookings/batch-update's allowlist only
+            // recognizes `team_member_id` (matches the bookings column and the
+            // sibling PUT /api/bookings/[id] contract), so a series-wide
+            // reassignment was silently dropped by every future booking except
+            // the one being edited (which gets its lead set via the separate
+            // /api/bookings/[id]/team call further down). service_type is left
+            // as-is -- that's a second, separate allowlist gap, flagged not fixed.
+            team_member_id: form.cleaner_id || null,
             price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
             hourly_rate: form.hourly_rate,
             service_type: form.service_type,

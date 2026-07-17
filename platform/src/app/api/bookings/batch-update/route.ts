@@ -5,6 +5,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
 import { pick } from '@/lib/validate'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Same allowlist as PUT /api/bookings/[id] — kept in sync so a batch edit can
 // touch exactly the same fields a single edit can, no more.
@@ -81,6 +82,16 @@ export async function PUT(request: Request) {
       const validIds = new Set((validMembers || []).map((m) => m.id))
       if (requestedMemberIds.some((mid) => !validIds.has(mid))) {
         return NextResponse.json({ error: 'Invalid team member selection' }, { status: 400 })
+      }
+      // Same guard as every other team_member_id assignment surface (POST
+      // /api/bookings, PUT /api/bookings/[id], PUT /api/bookings/[id]/team,
+      // recurring-schedule/client-portal/dispatch-route routes) -- this route
+      // never checked hr_status, so a "reassign the whole recurring series"
+      // batch edit could silently put a let-go worker back on every future
+      // booking in the series.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, requestedMemberIds)
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
       }
     }
 
