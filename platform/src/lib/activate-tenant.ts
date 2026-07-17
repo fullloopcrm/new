@@ -184,7 +184,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
   try {
     const createdEntity = await ensureDefaultEntity(tenantId, tenant.name || 'Main')
     const accounts = await seedChartOfAccounts(tenantId)
-    const hr = await seedHrDefaults(tenantId)
+    const hr = await seedHrDefaults(tenantId, tenant.industry || undefined)
     steps.push({
       key: 'finance_hr',
       label: 'Bookkeeping + HR seeded',

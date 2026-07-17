@@ -10,6 +10,7 @@
  * Global, per the platform rule: one codebase, every query tenant-scoped.
  */
 import { supabaseAdmin } from './supabase'
+import type { IndustryKey } from './industry-presets'
 
 export type EmploymentType = 'contractor_1099' | 'employee_w2'
 export type HrStatus = 'active' | 'on_leave' | 'terminated'
@@ -52,26 +53,63 @@ export const HR_REMINDER_MILESTONES = ['expiry_30d', 'expiry_14d', 'expiry_7d', 
 export type HrReminderMilestone = (typeof HR_REMINDER_MILESTONES)[number]
 
 /**
- * Seed HR defaults for a tenant. Idempotent: the requirement template is only
- * seeded when the tenant has none, and each existing team_member gets an HR
- * profile only if it lacks one. Safe to run on every activation.
+ * Trade-specific compliance docs layered on top of DEFAULT_HR_DOC_REQUIREMENTS
+ * for trades where a real license/certification is standard industry
+ * practice (CDL for heavy-truck driving trades, pesticide applicator license
+ * for pest control, etc.) — data, not code, per the module docstring above.
+ * Deliberately not exhaustive: covers the trades with an unambiguous,
+ * commonly-required credential. An operator can always add/edit/remove via
+ * the hr/requirements API regardless of what's seeded here.
+ */
+export const TRADE_HR_DOC_REQUIREMENTS: Partial<Record<IndustryKey, HrDocumentRequirement[]>> = {
+  dumpster: [{ doc_type: 'cdl', label: 'Commercial Driver License (CDL)', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  junk_removal: [{ doc_type: 'cdl', label: 'Commercial Driver License (CDL)', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  towing: [{ doc_type: 'cdl', label: 'Commercial Driver License (CDL)', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  moving: [{ doc_type: 'cdl', label: 'Commercial Driver License (CDL)', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  pest: [{ doc_type: 'pesticide_applicator_license', label: 'Pesticide Applicator License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  hvac: [{ doc_type: 'hvac_license', label: 'HVAC Contractor License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  plumbing: [{ doc_type: 'plumbing_license', label: 'Plumbing License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  electrical: [{ doc_type: 'electrical_license', label: 'Electrical License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  pool: [{ doc_type: 'cpo_certification', label: 'Certified Pool Operator (CPO)', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  locksmith: [{ doc_type: 'locksmith_license', label: 'Locksmith License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  home_inspection: [{ doc_type: 'home_inspector_license', label: 'Home Inspector License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+  septic: [{ doc_type: 'septic_installer_license', label: 'Septic Installer License', applies_to: 'all', required: true, has_expiry: true, sort_order: 70 }],
+}
+
+/**
+ * Seed HR defaults for a tenant. Idempotent: each requirement doc_type is
+ * only inserted if the tenant doesn't already have a row for it, and each
+ * existing team_member gets an HR profile only if it lacks one. Safe to run
+ * on every activation — including backfilling trade-specific docs onto a
+ * tenant that was already seeded before this industry was wired in (e.g. a
+ * re-activation after the operator later sets the tenant's trade).
  *
  * Returns a small summary of what it created.
  */
-export async function seedHrDefaults(tenantId: string): Promise<{
+export async function seedHrDefaults(tenantId: string, industry?: IndustryKey): Promise<{
   requirementsSeeded: number
   profilesBackfilled: number
 }> {
   let requirementsSeeded = 0
 
-  // 1. Document-requirement template — seed only if the tenant has none.
-  const { count: reqCount } = await supabaseAdmin
+  // 1. Document-requirement template — generic baseline seeds only on a
+  // tenant with zero requirement rows; trade-specific docs backfill onto
+  // *any* tenant missing them, so this is idempotent AND self-healing on
+  // repeat activation instead of a one-shot "if empty" gate.
+  const { data: existingReqs } = await supabaseAdmin
     .from('hr_document_requirements')
-    .select('id', { count: 'exact', head: true })
+    .select('doc_type')
     .eq('tenant_id', tenantId)
+  const existingTypes = new Set((existingReqs || []).map((r) => r.doc_type as string))
 
-  if ((reqCount || 0) === 0) {
-    const rows = DEFAULT_HR_DOC_REQUIREMENTS.map((r) => ({
+  const wanted: HrDocumentRequirement[] = [
+    ...(existingTypes.size === 0 ? DEFAULT_HR_DOC_REQUIREMENTS : []),
+    ...(industry ? TRADE_HR_DOC_REQUIREMENTS[industry] || [] : []),
+  ]
+  const toInsert = wanted.filter((r) => !existingTypes.has(r.doc_type))
+
+  if (toInsert.length > 0) {
+    const rows = toInsert.map((r) => ({
       tenant_id: tenantId,
       doc_type: r.doc_type,
       label: r.label,
