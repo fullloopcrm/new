@@ -167,7 +167,7 @@ export async function GET(request: Request) {
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+          .select('id, client_id, start_time, service_type, clients(name, phone, sms_consent), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
           .gte('start_time', tomorrowStartET)
@@ -178,6 +178,10 @@ export async function GET(request: Request) {
         for (const booking of tomorrowBookings || []) {
           const client = booking.clients
           if (!client?.phone) continue
+          // sms_consent is the blanket STOP/START opt-out flag (webhooks/telnyx's
+          // STOP handler sets it false tenant-wide) -- this route sent unconditionally,
+          // same consent-bypass bug class as payment-followup-daily/payment-reminder.
+          if (client.sms_consent === false) continue
 
           // Check if already sent confirmation for this booking
           const { data: alreadySent } = await supabaseAdmin

@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       // session. Jobs get a single review request at job completion instead.
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, notes, check_out_time, clients(name, phone)')
+        .select('id, client_id, notes, check_out_time, clients(name, phone, sms_consent)')
         .eq('tenant_id', tenant.id)
         .eq('status', 'completed')
         .is('job_id', null)
@@ -59,8 +59,15 @@ export async function GET(request: Request) {
           continue
         }
 
-        const client = booking.clients as unknown as { name: string; phone: string | null } | null
+        const client = booking.clients as unknown as { name: string; phone: string | null; sms_consent?: boolean | null } | null
         if (!client?.phone) {
+          skipped++
+          continue
+        }
+        // sms_consent is the blanket STOP/START opt-out flag (webhooks/telnyx's
+        // STOP handler sets it false tenant-wide) -- this route sent unconditionally,
+        // same consent-bypass bug class as payment-followup-daily/payment-reminder.
+        if (client.sms_consent === false) {
           skipped++
           continue
         }
@@ -106,7 +113,7 @@ export async function GET(request: Request) {
       // only ever asked once, no matter how many sessions it had.
       const { data: doneJobs } = await supabaseAdmin
         .from('jobs')
-        .select('id, client_id, completed_at, clients(name, phone)')
+        .select('id, client_id, completed_at, clients(name, phone, sms_consent)')
         .eq('tenant_id', tenant.id)
         .eq('status', 'completed')
         .gte('completed_at', threeHoursAgo.toISOString())
@@ -126,8 +133,9 @@ export async function GET(request: Request) {
           .eq('event_type', 'review_requested')
         if (already && already > 0) { skipped++; continue }
 
-        const jc = job.clients as unknown as { name: string; phone: string | null } | null
+        const jc = job.clients as unknown as { name: string; phone: string | null; sms_consent?: boolean | null } | null
         if (!jc?.phone) { skipped++; continue }
+        if (jc.sms_consent === false) { skipped++; continue }
         const jFirst = jc.name?.split(' ')[0] || 'there'
 
         try {

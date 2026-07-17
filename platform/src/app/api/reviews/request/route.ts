@@ -20,7 +20,7 @@ export async function POST(request: Request) {
     // Get client
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('name, email, phone')
+      .select('name, email, phone, sms_consent')
       .eq('id', client_id)
       .eq('tenant_id', tenantId)
       .single()
@@ -81,8 +81,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send SMS if available
-    if (client.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // Send SMS if available. sms_consent is the blanket STOP/START opt-out flag
+    // (webhooks/telnyx's STOP handler sets it false tenant-wide) -- this route
+    // sent unconditionally, same consent-bypass bug class as
+    // payment-followup-daily/payment-reminder.
+    if (client.phone && client.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         await sendSMS({
           to: client.phone,
