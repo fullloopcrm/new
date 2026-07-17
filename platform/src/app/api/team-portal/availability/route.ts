@@ -12,21 +12,30 @@ export async function GET(request: NextRequest) {
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('notes')
+    .select('working_days, unavailable_dates, schedule')
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
     .single()
 
-  // Store availability in member notes as JSON for now
-  let availability = { working_days: [1, 2, 3, 4, 5], blocked_dates: [] as string[] }
-  if (member?.notes) {
-    try {
-      const parsed = JSON.parse(member.notes)
-      if (parsed.availability) availability = parsed.availability
-    } catch { /* not JSON, ignore */ }
-  }
+  // working_days is TEXT[] (migrations/013_full_parity.sql) — the real column
+  // smart-schedule.ts/cron/generate-recurring/cron/schedule-monitor/
+  // admin/find-cleaner/preview actually read via day-availability.ts's
+  // dayTokenToIndex (which normalizes BOTH numeric "0".."6" and day-name
+  // "Sun".."Sat" tokens). Numeric tokens are widened back to Number here so
+  // /team/availability's number-keyed UI (`workingDays: number[]`) keeps
+  // working; day-name tokens (written by /team's own editor) pass through
+  // unchanged for that page. Default Mon-Fri (numeric) when unset, matching
+  // this route's long-standing default for a never-configured member.
+  const rawWorkingDays = member?.working_days?.length ? member.working_days : ['1', '2', '3', '4', '5']
+  const workingDays = (rawWorkingDays as string[]).map((d) => (/^[0-6]$/.test(d) ? Number(d) : d))
 
-  return NextResponse.json({ availability })
+  return NextResponse.json({
+    availability: {
+      working_days: workingDays,
+      schedule: member?.schedule || {},
+      blocked_dates: member?.unavailable_dates || [],
+    },
+  })
 }
 
 export async function PUT(request: NextRequest) {
@@ -38,19 +47,15 @@ export async function PUT(request: NextRequest) {
 
   const { availability } = await request.json()
 
-  // Get current availability to detect NEW blocked dates
+  // Get current unavailable_dates (the real column) to detect NEW blocked dates
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('name, notes')
+    .select('name, unavailable_dates')
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
     .single()
 
-  let currentObj: Record<string, unknown> = {}
-  if (member?.notes) {
-    try { currentObj = JSON.parse(member.notes) } catch { currentObj = { text: member.notes } }
-  }
-  const currentDates = new Set((currentObj.availability as any)?.blocked_dates || [])
+  const currentDates = new Set((member?.unavailable_dates as string[] | null) || [])
   const newDatesRequested = (availability?.blocked_dates || []).filter((d: string) => !currentDates.has(d))
 
   // Check if team member has bookings on any newly requested dates
@@ -84,13 +89,30 @@ export async function PUT(request: NextRequest) {
     }
   }
 
-  currentObj.availability = availability
+  // Target the real columns the scheduling engine actually reads
+  // (smart-schedule.ts, cron/generate-recurring, cron/schedule-monitor,
+  // admin/find-cleaner/preview) — working_days (TEXT[]) / unavailable_dates
+  // (DATE[]) / schedule (JSONB), all added by migrations/013_full_parity.sql.
+  // Only set keys the caller actually sent so a partial payload can't null out
+  // an unrelated column.
+  const update: Record<string, unknown> = {}
+  if (Array.isArray(availability?.working_days)) {
+    update.working_days = availability.working_days.map((d: unknown) => String(d))
+  }
+  if (Array.isArray(availability?.blocked_dates)) {
+    update.unavailable_dates = availability.blocked_dates
+  }
+  if (availability?.schedule && typeof availability.schedule === 'object') {
+    update.schedule = availability.schedule
+  }
 
-  await supabaseAdmin
-    .from('team_members')
-    .update({ notes: JSON.stringify(currentObj) })
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
+  if (Object.keys(update).length > 0) {
+    await supabaseAdmin
+      .from('team_members')
+      .update(update)
+      .eq('id', auth.id)
+      .eq('tenant_id', auth.tid)
+  }
 
   // Notify admin about new time-off requests
   if (newDatesRequested.length > 0) {
