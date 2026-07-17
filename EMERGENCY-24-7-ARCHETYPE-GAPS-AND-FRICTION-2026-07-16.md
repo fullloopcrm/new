@@ -5951,3 +5951,56 @@ live bug found this round.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (130) New fresh-ground surface — the dedicated `waitlist` table's own `status` field was declared with a real lifecycle but nothing ever wrote past the insert-time default — NOW FIXED
+
+Picked a surface none of the 129 prior items had touched: the admin
+"Waiting List" panel (`GET /api/waitlist`, fed by `BookingsAdmin.tsx`).
+Migration `051_waitlist.sql` declares `status: 'open' | 'contacted' |
+'booked' | 'expired'`, defaulting new rows to `'open'`, and the GET route
+already filters `.neq('status', 'expired')` — both signals that the intent
+was a real state machine. Grepped every `.from('waitlist')` call site in the
+codebase: only the GET (read) and POST (insert) in `route.ts` existed. No
+PATCH, no PUT, no cron, nothing anywhere ever wrote `contacted`, `booked`,
+or `expired`. The admin's "Book Now" button on a waitlist card only
+pre-fills the create-booking form — it never touched the waitlist row
+itself. Net effect: every entry, including ones already booked days ago,
+stayed `'open'` and kept cluttering the Waiting List panel forever, with no
+way to clear one short of a manual DB edit. Same "declared-value-never-
+written" shape as items (91)/(100)/(112), a different subsystem (its own
+dedicated table, not a `notify()` type or SMS/JSON column).
+
+**Fixed** — added `PATCH /api/waitlist/[id]` (tenant-scoped via `tenantDb`,
+gated on `bookings.edit` matching `booking-notes/[id]`'s convention),
+accepting `status` in the declared set and rejecting anything else with 400
+before touching the database. Wired `BookingsAdmin.tsx`'s "Book Now" flow to
+actually close the loop: clicking it optimistically hides the entry and
+stashes it as the pending waitlist origin for the create-booking modal;
+completing the booking (any of the modal's emergency/recurring/batch
+branches) fires the PATCH to `'booked'`; cancelling or closing the modal
+(Cancel button and the panel's own X/backdrop close, both now routed through
+one `closeCreateModal()`) restores the entry to view instead of silently
+losing it — avoids a false-positive "booked" if the admin backs out.
+Legacy `sms_conversations`-sourced waitlist rows (the GET's other union
+source, `source:'sms'`) have no row in the `waitlist` table to PATCH, so
+those are left alone as before, un-clearable by this fix — a pre-existing
+gap in the legacy union, not something this round's fix regresses.
+
+3 new tests (`waitlist/[id]/route.isolation.test.ts`): tenant A transitions
+its own entry (positive control), same-id tenant B row survives untouched,
+and an invalid status is rejected before any DB write. Mutation-verified
+(short-circuited the validity check to always pass, the invalid-status test
+went RED for the expected reason — 200 instead of 400 — restored, GREEN).
+`tsc --noEmit` clean, full suite 428/428 files, 2055/2055 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Noticed, not fixed: the hardcoded `hours: 2, hourly_rate: 69` seed values
+the "Book Now" prefill uses regardless of tenant (same defaults every other
+create-booking entry point in this file also hardcodes) — a pre-existing
+cosmetic default the admin can edit in the modal before saving, not a silent
+bug, not part of this round's scope.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
