@@ -8,7 +8,7 @@ import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantFromHeaders()
   const name = tenant?.name || 'Our Business'
-  const origin = tenantSiteUrl(tenant) || ''
+  const origin = (await tenantSiteUrl(tenant)) || ''
   return {
     title: `Privacy Policy | ${name}`,
     description: `${name} privacy policy — how we protect your data. We never sell or share your information.`,
@@ -22,7 +22,7 @@ export default async function PrivacyPolicyPage() {
   const email = tenant?.email || ''
   const phone = tenant?.phone || ''
   const phoneDigits = phone.replace(/\D/g, '')
-  const origin = tenantSiteUrl(tenant) || ''
+  const origin = (await tenantSiteUrl(tenant)) || ''
   const hasLegacyLegal = !!(tenant as Record<string, unknown> | null)?.enable_legacy_seo_pages
 
   return (

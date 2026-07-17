@@ -4,7 +4,7 @@ import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 export async function generateMetadata(): Promise<Metadata> {
   const tenant = await getTenantFromHeaders()
   const name = tenant?.name || 'Our Business'
-  const origin = tenantSiteUrl(tenant) || ''
+  const origin = (await tenantSiteUrl(tenant)) || ''
   const industry = (tenant?.industry as string | undefined) || 'service'
   return {
     title: `Apply — Join ${name}`,

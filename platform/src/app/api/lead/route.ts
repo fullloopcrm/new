@@ -120,7 +120,7 @@ export async function POST(request: NextRequest) {
         // falls back to tenant.email, so job-application alerts reach the inbox
         // even for tenants with no member rows. Non-blocking.
         try {
-          const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
+          const adminUrl = `${await tenantSiteUrl(tenant)}/admin/team/applications`
           const subject = `[${tenant.name}] New job application: ${name}`
           const html = `<h2>New Job Application</h2>
             <p><strong>Name:</strong> ${escapeHtml(name)}</p>
@@ -270,7 +270,7 @@ export async function POST(request: NextRequest) {
     }).catch((err) => console.error('[api/lead] notify error:', err))
 
     try {
-      const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
+      const adminUrl = `${await tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
         { name, phone: phone || '', email: email || undefined, notes: notes || undefined },
         {

@@ -44,6 +44,7 @@ import {
   getOwnedDomainSet,
   getDomainsForNeighborhood,
   getNeighborhoodFromZip,
+  getPrimaryTenantDomain,
   extractZip,
 } from './domains'
 
@@ -110,6 +111,41 @@ describe('getNeighborhoodFromZip', () => {
   it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning null — indistinguishable from "no zip mapped" otherwise', async () => {
     resolve = () => ({ data: null, error: { message: 'connection timeout' } })
     await expect(getNeighborhoodFromZip('t-1', '11215')).rejects.toThrow(/TENANT_DOMAIN_ZIP_LOOKUP_ERROR/)
+  })
+})
+
+describe('getPrimaryTenantDomain', () => {
+  it('prefers the row flagged is_primary over other active rows', async () => {
+    resolve = () => ({
+      data: [
+        { domain: 'alias.acme.com', is_primary: false },
+        { domain: 'acme.com', is_primary: true },
+      ],
+    })
+    expect(await getPrimaryTenantDomain('t-1')).toBe('acme.com')
+  })
+
+  it('falls back to the first active row when none is flagged primary', async () => {
+    resolve = () => ({ data: [{ domain: 'alias.acme.com', is_primary: false }] })
+    expect(await getPrimaryTenantDomain('t-1')).toBe('alias.acme.com')
+  })
+
+  it('returns null when the tenant has no active tenant_domains rows', async () => {
+    resolve = () => ({ data: [] })
+    expect(await getPrimaryTenantDomain('t-1')).toBeNull()
+  })
+
+  it('WRONG-TENANT PROBE: only queries rows for the given tenant_id, never another tenant\'s domain', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenant_domains' && eqs.tenant_id === 't-1'
+        ? { data: [{ domain: 'other-tenants-domain.com', is_primary: true }] }
+        : { data: [] }
+    expect(await getPrimaryTenantDomain('t-2')).toBeNull()
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning null', async () => {
+    resolve = () => ({ data: null, error: { message: 'connection timeout' } })
+    await expect(getPrimaryTenantDomain('t-1')).rejects.toThrow(/PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR/)
   })
 })
 

@@ -64,7 +64,7 @@ export async function GET(
   const primaryDomain = domainRows?.find((d) => d.is_primary)?.domain || tenant.domain || null
   const base = primaryDomain
     ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
-    : tenantSiteUrl({ slug: tenant.slug })
+    : await tenantSiteUrl({ slug: tenant.slug })
   const shareUrl = base ? `${base}/book/new?ref=${code}` : null
 
   // Commission history — keyed by referrer_id. Amounts are stored in cents in

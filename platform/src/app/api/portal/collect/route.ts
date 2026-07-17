@@ -198,7 +198,7 @@ export async function POST(request: NextRequest) {
 
     // Admin email
     try {
-      const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
+      const adminUrl = `${await tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
         {
           name,

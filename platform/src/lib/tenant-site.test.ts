@@ -159,20 +159,51 @@ describe('toSlug / fromSlug', () => {
 })
 
 describe('tenantSiteUrl', () => {
-  it('returns empty string for a null tenant', () => {
-    expect(tenantSiteUrl(null)).toBe('')
+  it('returns empty string for a null tenant', async () => {
+    expect(await tenantSiteUrl(null)).toBe('')
   })
 
-  it('prefers domain over slug when both are present', () => {
-    expect(tenantSiteUrl({ domain: 'https://acme.com/', slug: 'acme' })).toBe('https://acme.com')
+  it('prefers domain over slug when both are present and no id is given (no tenant_domains lookup)', async () => {
+    let queried = false
+    resolve = () => { queried = true; return { data: [] } }
+    expect(await tenantSiteUrl({ domain: 'https://acme.com/', slug: 'acme' })).toBe('https://acme.com')
+    expect(queried).toBe(false)
   })
 
-  it('falls back to the platform subdomain when domain is absent', () => {
-    expect(tenantSiteUrl({ domain: null, slug: 'acme' })).toBe('https://acme.homeservicesbusinesscrm.com')
+  it('falls back to the platform subdomain when domain is absent and no id is given', async () => {
+    expect(await tenantSiteUrl({ domain: null, slug: 'acme' })).toBe('https://acme.homeservicesbusinesscrm.com')
   })
 
-  it('returns empty string when neither domain nor slug is present', () => {
-    expect(tenantSiteUrl({ domain: null, slug: null })).toBe('')
+  it('returns empty string when neither id, domain, nor slug is present', async () => {
+    expect(await tenantSiteUrl({ domain: null, slug: null })).toBe('')
+  })
+
+  it('prefers the tenant_domains PRIMARY row over the legacy tenants.domain column when an id is given', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenant_domains' && eqs.tenant_id === 't-1'
+        ? { data: [{ domain: 'alias.acme.com', is_primary: false }, { domain: 'acme.com', is_primary: true }] }
+        : { data: [] }
+    expect(await tenantSiteUrl({ id: 't-1', domain: 'legacy-acme.com', slug: 'acme' })).toBe('https://acme.com')
+  })
+
+  it('falls back to tenants.domain when the tenant has no tenant_domains rows', async () => {
+    resolve = () => ({ data: [] })
+    expect(await tenantSiteUrl({ id: 't-2', domain: 'legacy-acme.com', slug: 'acme' })).toBe('https://legacy-acme.com')
+  })
+
+  it('WRONG-TENANT PROBE: a different tenant\'s tenant_domains row never leaks into this tenant\'s resolution', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenant_domains' && eqs.tenant_id === 't-1'
+        ? { data: [{ domain: 'other-tenants-domain.com', is_primary: true }] }
+        : { data: [] }
+    const result = await tenantSiteUrl({ id: 't-2', domain: null, slug: 'acme' })
+    expect(result).not.toContain('other-tenants-domain.com')
+    expect(result).toBe('https://acme.homeservicesbusinesscrm.com')
+  })
+
+  it('falls back to the platform subdomain when neither tenant_domains nor tenants.domain resolves', async () => {
+    resolve = () => ({ data: [] })
+    expect(await tenantSiteUrl({ id: 't-1', domain: null, slug: 'acme' })).toBe('https://acme.homeservicesbusinesscrm.com')
   })
 })
 

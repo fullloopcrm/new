@@ -30,6 +30,29 @@ export async function getOwnedDomainSet(tenantId: string): Promise<Set<string>> 
   )
 }
 
+// Resolve a tenant's primary active domain from tenant_domains (tenant_id ->
+// domain, the reverse of tenant-lookup.ts's getTenantByDomain). Prefers the
+// row flagged is_primary; falls back to the first active row when none is
+// flagged (mirrors referrers/[code]/route.ts's and site-export's inline
+// precedent). Returns null when the tenant has no tenant_domains rows at all
+// — callers combine this with the tenants.domain fallback, same precedence
+// as the request-time resolver.
+export async function getPrimaryTenantDomain(tenantId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('domain, is_primary')
+    .eq('tenant_id', tenantId)
+    .eq('active', true)
+
+  if (error) {
+    console.error(`PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`PRIMARY_TENANT_DOMAIN_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
+
+  const rows = (data || []) as Array<{ domain: string; is_primary: boolean }>
+  return rows.find(d => d.is_primary)?.domain || rows[0]?.domain || null
+}
+
 // Get domains for a specific neighborhood
 export async function getDomainsForNeighborhood(tenantId: string, neighborhood: string): Promise<string[]> {
   const { data } = await supabaseAdmin

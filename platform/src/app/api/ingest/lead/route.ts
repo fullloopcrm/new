@@ -224,7 +224,7 @@ export async function POST(request: Request) {
     }).catch((err) => console.error('[ingest/lead] notify error:', err))
 
     try {
-      const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
+      const adminUrl = `${await tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
         { name, phone: phone || '', email: email || undefined, notes: notes || undefined },
         { tenantName: tenant.name, adminUrl },

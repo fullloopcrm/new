@@ -2,6 +2,7 @@ import { headers } from 'next/headers'
 import { notFound } from 'next/navigation'
 import { supabaseAdmin } from './supabase'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { getPrimaryTenantDomain } from './domains'
 
 /**
  * Gate nycmaid-specific hardcoded SEO pages. Pages that contain
@@ -90,8 +91,32 @@ export function fromSlug(slug: string): string {
   return slug.replace(/-/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
 }
 
-export function tenantSiteUrl(tenant: { domain?: string | null; slug?: string | null } | null): string {
+// Resolves a tenant's public site URL for notification/portal-login links.
+//
+// P1 resolution order (mirrors getTenantByDomain in tenant.ts/tenant-lookup.ts):
+//   1. tenant_domains FIRST — the tenant's primary active custom domain, if
+//      any is registered (e.g. added via the admin/websites panel, which
+//      writes tenant_domains only, never tenants.domain).
+//   2. tenants.domain FALLBACK — the legacy column, used only when the
+//      tenant has no tenant_domains rows.
+//   3. <slug>.homeservicesbusinesscrm.com — the carrying subdomain, a real
+//      live-routed host, used only when neither of the above resolves.
+//
+// Previously read tenant.domain (legacy) only and never consulted
+// tenant_domains at all — a tenant whose actual custom domain lived only in
+// tenant_domains (added via admin/websites, per above) got every
+// notification/portal-login link built from this helper pointed at the
+// internal carrying subdomain instead of their own branded domain. Async
+// (was sync) because the tenant_domains lookup requires a DB round trip;
+// every call site already runs inside an async function.
+export async function tenantSiteUrl(
+  tenant: { id?: string | null; domain?: string | null; slug?: string | null } | null,
+): Promise<string> {
   if (!tenant) return ''
+  if (tenant.id) {
+    const primary = await getPrimaryTenantDomain(tenant.id)
+    if (primary) return `https://${primary.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  }
   if (tenant.domain) return `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
   if (tenant.slug) return `https://${tenant.slug}.homeservicesbusinesscrm.com`
   return ''

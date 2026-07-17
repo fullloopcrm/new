@@ -183,7 +183,7 @@ export async function POST(request: NextRequest) {
       })
 
       try {
-        const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
+        const adminUrl = `${await tenantSiteUrl(tenant)}/admin/team/applications`
         const subject = `[${tenant.name}] New team application: ${name}`
         const html = `<h2>New Team Application</h2>
           <p><strong>Name:</strong> ${escapeHtml(name)}</p>
@@ -379,7 +379,7 @@ export async function POST(request: NextRequest) {
     })
 
     try {
-      const adminUrl = `${tenantSiteUrl(tenant)}/admin/clients`
+      const adminUrl = `${await tenantSiteUrl(tenant)}/admin/clients`
       const msg = adminNewClientEmail(
         {
           name,

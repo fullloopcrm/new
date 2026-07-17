@@ -103,7 +103,7 @@ export async function provisionApprovedApplicant(tenantId: string, app: Approved
   // and make the caller think the hire failed. Log and move on.
   if (app.email && pin) {
     try {
-      const portalUrl = `${tenantSiteUrl({ domain: t.domain, slug: t.slug })}/team/login`
+      const portalUrl = `${await tenantSiteUrl({ id: tenantId, domain: t.domain, slug: t.slug })}/team/login`
       const html = teamApplicationApprovedEmail({
         tenantName: t.name || 'the team',
         primaryColor: t.primary_color || undefined,
