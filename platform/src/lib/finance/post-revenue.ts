@@ -46,11 +46,24 @@ export async function postPaymentRevenue(opts: { tenantId: string; paymentId: st
     .maybeSingle()
   if (!payment) return { posted: false, reason: 'not_found' }
 
-  // Unify the idempotency key with the bookings backfill: a booking-linked
-  // payment keys on the BOOKING, so the real-time post and backfillRevenueFromBookings
-  // can never double-count the same job. Invoice-only payments key on the payment.
-  const source = payment.booking_id ? 'booking' : 'payment'
-  const sourceId = (payment.booking_id as string) || paymentId
+  // Unify the idempotency key with the bookings backfill: the FIRST
+  // booking-linked payment keys on the BOOKING, so the real-time post and
+  // backfillRevenueFromBookings can never double-count the same job's first
+  // dollar. Invoice-only payments key on the payment.
+  //
+  // A SECOND+ payment on the same booking (multi-installment partial
+  // payments, or mark-paid closing out the remaining balance in cash) can't
+  // reuse that same booking-keyed slot -- it's already claimed -- so it
+  // silently posted NOTHING to the ledger. Falls through to a 'booking_topup'
+  // entry keyed on this specific payment instead, so every dollar actually
+  // received lands in the books, not just the first installment.
+  const bookingId = payment.booking_id as string | null
+  let source = bookingId ? 'booking' : 'payment'
+  let sourceId = bookingId || paymentId
+  if (bookingId && (await journalEntryExists(tenantId, 'booking', bookingId))) {
+    source = 'booking_topup'
+    sourceId = paymentId
+  }
   if (await journalEntryExists(tenantId, source, sourceId)) {
     return { posted: false, reason: 'already_posted' }
   }

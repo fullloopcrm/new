@@ -61,44 +61,46 @@ export async function POST(request: Request) {
   }
 
   // A manual "client paid" is money received — record it so it reaches the
-  // ledger like every other payment. Idempotent: only create a payment row if
-  // the booking has none yet (avoids double-recording a Stripe/Zelle payment
-  // that already posted). Then post revenue. Best-effort — never fail the flip.
+  // ledger like every other payment. Idempotent: subtract whatever's already
+  // been recorded (e.g. a prior partial Zelle/cash payment) and only insert a
+  // row for the shortfall, so closing out a partial booking here doesn't
+  // double-record the portion that already posted. Then post revenue.
+  // Best-effort — never fail the flip.
   if (type === 'client' && claimedClientPaid) {
     try {
-      const { data: existing } = await supabaseAdmin
+      const { data: existingPayments } = await supabaseAdmin
         .from('payments')
-        .select('id')
+        .select('amount_cents')
         .eq('tenant_id', tenantId)
         .eq('booking_id', booking_id)
         .in('status', ['completed', 'succeeded', 'partial'])
-        .limit(1)
-        .maybeSingle()
+      const alreadyReceivedCents = (existingPayments || []).reduce(
+        (sum, p) => sum + (Number(p.amount_cents) || 0),
+        0,
+      )
 
-      if (!existing) {
-        const { data: booking } = await supabaseAdmin
-          .from('bookings')
-          .select('price, client_id')
-          .eq('id', booking_id)
-          .eq('tenant_id', tenantId)
-          .maybeSingle()
-        const amountCents = Number(booking?.price) || 0
-        if (amountCents > 0) {
-          const { data: paymentRow } = await supabaseAdmin
-            .from('payments')
-            .insert({
-              tenant_id: tenantId,
-              booking_id,
-              client_id: booking?.client_id ?? null,
-              amount_cents: amountCents,
-              tip_cents: 0,
-              method: 'manual',
-              status: 'completed',
-            })
-            .select('id')
-            .single()
-          if (paymentRow?.id) await postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
-        }
+      const { data: booking } = await supabaseAdmin
+        .from('bookings')
+        .select('price, client_id')
+        .eq('id', booking_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      const amountCents = Math.max(0, (Number(booking?.price) || 0) - alreadyReceivedCents)
+      if (amountCents > 0) {
+        const { data: paymentRow } = await supabaseAdmin
+          .from('payments')
+          .insert({
+            tenant_id: tenantId,
+            booking_id,
+            client_id: booking?.client_id ?? null,
+            amount_cents: amountCents,
+            tip_cents: 0,
+            method: 'manual',
+            status: 'completed',
+          })
+          .select('id')
+          .single()
+        if (paymentRow?.id) await postPaymentRevenue({ tenantId, paymentId: paymentRow.id })
       }
     } catch (e) {
       console.error('[mark-paid] revenue capture failed:', e)
