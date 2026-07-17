@@ -5,6 +5,16 @@ import { hasPermission } from '@/lib/rbac'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { notify } from '@/lib/notify'
+
+// Bookings still in one of these statuses have no completed-work history to
+// preserve — safe to unassign on delete. Anything else (completed/paid/
+// cancelled/no_show) keeps its team_member_id: finance/tax-export,
+// finance/cleaner-income, and finance/payroll-prep all key off this FK for a
+// departed employee's past-work attribution (1099s, income reports) — nulling
+// it on delete would silently erase that history right when it matters most.
+// Mirrors the same list on the legacy /api/cleaners/[id] shim (item 118).
+const UNASSIGNABLE_ON_DELETE_STATUSES = ['pending', 'scheduled', 'confirmed', 'in_progress']
 
 // Fields only a team.edit holder (owner/admin) may read back: pin is the
 // portal-login credential (only settable via team.edit's PUT /api/cleaners/[id]),
@@ -101,6 +111,21 @@ export async function DELETE(
     const { tenantId } = tenant
     const { id } = await params
 
+    // Upcoming/in-flight bookings lose their assigned tech and need a human
+    // to reassign them — nobody was ever told this happened before now.
+    const { data: unassigned } = await supabaseAdmin
+      .from('bookings')
+      .select('id, start_time')
+      .eq('team_member_id', id)
+      .eq('tenant_id', tenantId)
+      .in('status', UNASSIGNABLE_ON_DELETE_STATUSES)
+
+    await supabaseAdmin.from('bookings').update({ team_member_id: null }).eq('team_member_id', id).eq('tenant_id', tenantId).in('status', UNASSIGNABLE_ON_DELETE_STATUSES)
+    await supabaseAdmin.from('bookings').update({ suggested_team_member_id: null }).eq('suggested_team_member_id', id).eq('tenant_id', tenantId)
+    await supabaseAdmin.from('recurring_schedules').update({ team_member_id: null }).eq('team_member_id', id).eq('tenant_id', tenantId)
+
+    const { data: memberRow } = await supabaseAdmin.from('team_members').select('name').eq('id', id).eq('tenant_id', tenantId).single()
+
     const { error } = await supabaseAdmin
       .from('team_members')
       .delete()
@@ -112,6 +137,18 @@ export async function DELETE(
     }
 
     await audit({ tenantId, action: 'team.deleted', entityType: 'team_member', entityId: id })
+
+    if (unassigned && unassigned.length > 0) {
+      const memberName = memberRow?.name || 'Deleted team member'
+      await notify({
+        tenantId,
+        type: 'lifecycle_change',
+        title: `${memberName} deleted — ${unassigned.length} job${unassigned.length === 1 ? '' : 's'} need reassignment`,
+        message: `${unassigned.length} upcoming booking${unassigned.length === 1 ? '' : 's'} lost their assigned team member and now need a new one.`,
+        channel: 'email',
+        recipientType: 'admin',
+      }).catch(() => {})
+    }
 
     return NextResponse.json({ success: true })
   } catch (e) {
