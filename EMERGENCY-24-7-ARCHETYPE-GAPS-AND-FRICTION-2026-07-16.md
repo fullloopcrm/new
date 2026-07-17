@@ -7416,3 +7416,68 @@ round).
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (164) New fresh-ground surface, new bug class (wired UI action whose only
+call target doesn't exist, distinct from every enum/race/destructive-op
+thread this session) — the schedule-issues "Dismiss" button called a
+route method that was never implemented
+
+`schedule_issues.status` (`smart_scheduling.sql`) declares
+`CHECK (status IN ('open','acknowledged','resolved','dismissed'))`, and
+`GET /api/admin/schedule-issues` already knows how to filter on all four.
+But the dashboard's `ScheduleIssues.tsx` "Dismiss" button called
+`fetch('/api/admin/schedule-issues?id=...', { method: 'DELETE' })` —
+and `route.ts` only ever exported `GET` and `PUT`. Next.js returns a 405
+for the unimplemented method; `fetch()` only rejects on network failure,
+not on HTTP error status, so the `.catch(() => {})` never fired and the
+component proceeded straight to `setIssues(prev => prev.filter(...))`.
+The issue vanished from the visible list with zero server-side effect —
+its row stayed `status:'open'` in the DB and reappeared, unexplained,
+the next time the dashboard loaded or an admin clicked "rescan."
+
+**Fixed** — `dismiss()` now calls the existing `PUT` handler with
+`{ id, status: 'dismissed' }`, which already persists `resolved_at` /
+`resolved_by` for that value; nothing had ever called it with
+`status:'dismissed'` before.
+
+## (165) Continuing (164)'s surface — 'acknowledged', the CHECK
+constraint's third value, was equally dead: "Mark all read" never
+touched the database at all
+
+Once (164) surfaced that `dismissed` had no real writer, the same file's
+"Mark all read" button turned out to be worse: `onClick={() =>
+setIssues([])}` — a pure local-state clear with no `fetch` call
+whatsoever. `'acknowledged'` is read in two places (this route's default
+GET filter, and `cron/schedule-monitor`'s open-issue dedup query) but
+grepping the whole non-test codebase for anywhere it's ever *written*
+turned up nothing. Clicking "Mark all read" gave the appearance of
+triaging a batch of issues; the DB never moved them past `'open'`.
+
+**Fixed** — added `markAllRead()`, which `PUT`s `status:'acknowledged'`
+for every currently-visible issue (`Promise.all` over the loaded list)
+before clearing local state. Note: since the GET route's default status
+filter is `'open,acknowledged'`, an acknowledged issue still reappears on
+the next load — that's the schema's own intended semantics (acknowledged
+means "seen," not "resolved"), not a regression introduced here.
+
+No new tests — both fixes are client-fetch-call wiring onto the
+already-tested `PUT` handler (unchanged by this diff); this dashboard
+component directory has no existing test harness to extend, same
+situation (161) hit on the territory admin page. `tsc --noEmit` clean.
+Full suite 452/452 files, 2145/2145 tests, zero regressions (same
+pre-existing unrelated `fixture/route.ts` tenant-scope baseline warning
+every prior report has flagged) — not visually exercised in a browser
+this round (non-interactive worker session, no dev server driven this
+round).
+
+Noticed, not fixed: the same component's "Clear all & rescan" button
+calls `POST /api/admin/schedule-issues`, which also doesn't exist on this
+route — the real per-tenant scan logic only exists inlined inside
+`cron/schedule-monitor`'s all-tenants loop, not as a callable, single-
+tenant function this route could invoke. Closing that gap properly means
+extracting the cron's scan body into a shared function, a bigger lift
+than (164)/(165)'s self-contained fetch-target fixes — flagging for a
+future round rather than bundling it in here.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
