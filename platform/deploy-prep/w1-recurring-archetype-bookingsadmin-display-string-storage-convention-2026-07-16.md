@@ -50,12 +50,12 @@ admin screen's own UI breaks. That's a real, scoped refactor (one file family, b
 touches every read+write site in it), not a one-line patch — leaving it for
 leader/Jeff to prioritize rather than guessing at the blast radius here.
 
-## Also noticed, not fixed (separate, smaller): raw-enum leaking to customers
+## FIXED this round (commit 8a6eeedc): raw-enum leaking to customers
 
 Unrelated root cause, same symptom class (a recurring-type string reaching a human
 without formatting) — the *opposite* direction: `booking.recurring_type` values that
-ARE the correct enum key (`monthly_date`, `monthly_weekday`, `triweekly`) render
-**raw** in several customer-facing surfaces instead of a label:
+ARE the correct enum key (`monthly_date`, `monthly_weekday`, `triweekly`) were
+rendering **raw** in several customer-facing surfaces instead of a label:
 - `infoRow('Schedule', booking.recurring_type)` in the confirmation email — 4 copies:
   `lib/nycmaid/email-templates.ts:283`, `app/site/nyc-mobile-salon/_lib/email-templates.ts:169`,
   `app/site/wash-and-fold-hoboken/_lib/email-templates.ts:169`,
@@ -66,20 +66,25 @@ ARE the correct enum key (`monthly_date`, `monthly_weekday`, `triweekly`) render
   `app/site/the-florida-maid/clients/dashboard/page.tsx:607`,
   `app/site/book/dashboard/page.tsx:618`, `app/site/wash-and-fold-nyc/(app)/book/dashboard/page.tsx:607`.
 
-A monthly client would see "Schedule: monthly_date" in their confirmation email today.
-Cosmetic, not a money/data bug, but genuinely customer-visible. There's already a
-`getRecurringDisplayName(repeatType, startDate)` helper in `lib/recurring.ts` (and its
-4 tenant-forked copies) intended for exactly this, but it requires a `startDate` these
-call sites don't thread through, and its own `monthly_day` case name doesn't match the
-real `monthly_weekday` enum value either (same fork, same drift). Not fixed this
-round — flagging as a real next fresh-ground target (a small shared label helper, ~9
-call sites, all display-only) rather than folding it into this already-large gap
-writeup.
+A monthly client would have seen "Schedule: monthly_date" in their confirmation email.
+Fixed by adding `formatRecurringLabel()` to `lib/recurring.ts` (falls back to the raw
+value, never blank) plus a `monthly_weekday` case in `getRecurringDisplayName` (it only
+had `monthly_day`, BookingsAdmin.tsx's own repeat_type convention, not the real
+persisted enum value — same drift class documented above, just the opposite
+direction), and wiring it into all 9 call sites. tsc clean, full suite green
+(480/480 -> 480/480 files, +4 tests), mutation-verified (git diff/apply per the
+established convention).
 
-## Recommendation (not built)
+Also fixed a 10th same-symptom instance found alongside this one:
+`CalendarBoard.tsx:639` (operator-facing admin calendar side-panel badge) rendered
+`panelBooking.recurring_type` raw too — same one-line `formatRecurringLabel` fix,
+bundled into the same commit since it's the identical call shape in the same
+investigation.
 
-Two independent, separately-scoped follow-ups for leader/Jeff to prioritize:
-1. BookingsAdmin.tsx storage-convention migration (bigger, touches one file family's
-   read+write sites) — store the enum key, format for display at every read site.
-2. Raw-enum-to-customer display fix (smaller, pure formatting, ~9 call sites across
-   4 tenant forks) — add/reuse a label helper with no `startDate` dependency.
+## Still open (not built) — leader/Jeff to prioritize
+
+BookingsAdmin.tsx storage-convention migration (bigger, touches one file family's
+read+write sites) — store the enum key, format for display at every read site.
+Unlike the customer-facing fix above, this one's blast radius is real (many read
+call sites in the same file assume `recurring_type` is already a label) and hasn't
+been scoped/estimated yet.
