@@ -4386,6 +4386,89 @@ unpaid control correctly stayed GREEN throughout; `git apply` restored,
 GREEN). `tsc --noEmit` clean, full suite 396/396 files, 1953/1953 tests,
 zero regressions. Commit `cd53ea20`.
 
+## (99) Archetype depth — item (1)'s oldest open finding, the scheduled-campaign dead end, confirmed live and fixed: scheduled_at landing on the row was only half the earlier fix, status never followed it — NOW FIXED
+
+Item (1) flagged that `POST /api/campaigns` could save a `scheduled_at`
+but nothing ever dispatched it. Tracing it further today turned up a deeper
+compounding bug behind that missing feature: the insert always forced
+`status: 'draft'`, even when `scheduled_at` was set. A campaign the admin
+"scheduled" was byte-identical, status-wise, to a plain draft — the
+dashboard's own "Scheduled" tab/counter (`campaigns/page.tsx` filters on
+`c.status === 'scheduled'`) could **never** populate, not even cosmetically,
+regardless of how many campaigns had a future `scheduled_at`. The only thing
+that ever worked was the list row's "Scheduled {date}" label, which reads
+`scheduled_at` directly.
+
+**Fixed** — three pieces:
+- `POST /api/campaigns` now sets `status: 'scheduled'` when `scheduled_at`
+  is provided (`'draft'` otherwise, unchanged).
+- New `GET /api/cron/campaign-dispatch` (added to `vercel.json`, every 15
+  min) finds campaigns with `status = 'scheduled'` and `scheduled_at` in the
+  past, and sends each one through the same path "Send Now" uses.
+- Extracted that path's send logic (approval-required gating, atomic
+  `sending` claim, unsubscribe-link signing, sender name/email resolution)
+  out of `POST /api/campaigns/[id]/send` into `src/lib/campaign-send.ts` so
+  the manual send and the new cron dispatch share one implementation instead
+  of drifting into two — this codebase already had that exact drift once
+  (the separate, UI-unreferenced bulk `POST /api/campaigns/send` route uses
+  a different, older send shape entirely; left alone, out of scope).
+- Campaign detail page's "Send Now" button previously only showed for
+  `status === 'draft'`; a newly-scheduled campaign would have had no
+  visible way to send early by hand. Now also shows for `'scheduled'`.
+
+6 new tests (4 for the cron route: sends a due campaign, leaves a not-yet-due
+one alone, never touches draft/already-sent campaigns, rejects a bad cron
+secret; 1 for the create-route status fix; the pre-existing send-route
+race/unsubscribe suites re-verified unchanged against the extracted lib).
+Mutation-verified: reverted the create-route status fix (RED for the
+expected reason, other assertions stayed GREEN); reverted the cron's
+`status` filter and its due-date filter separately (each caught by its own
+test, the others stayed GREEN) — `git apply` restored, GREEN throughout.
+`tsc --noEmit` clean, full suite 397/397 files, 1958/1958 tests, zero
+regressions. Commit `a6c137d0`.
+
+## (100) Fresh ground, new bug class (declared-but-unfired notify() types, distinct from the cleaners/cleaner_id vocabulary thread closed at item 98) — the global Yinez agent's internal-error catch never actually notified admin despite its own comment claiming it did — NOW FIXED
+
+Cross-referenced every one of `notify.ts`'s 37 declared `NotificationType`
+values against real call sites. Two had zero non-legacy, non-clone call
+sites: `escalation` (genuinely unused anywhere, including the field meant to
+carry it — `YinezResult.escalated` and `YinezContext.escalation_locked` are
+both read/written in isolation, no code path ever sets `escalated: true`;
+flagged, not fixed today — no clear owner-facing trigger to wire it to
+without a product call) and `selena_error`, which IS fired — but only from
+`selena-legacy.ts`/`selena-legacy-handlers.ts` and the 3 known-debt
+per-tenant clone Selenas (`src/app/site/*/_lib/selena.ts`). The current
+global agent (`src/lib/selena/agent.ts`'s `askSelenaCore` — the one every
+non-cloned tenant actually runs on, confirmed the platform's most-used AI
+assistant in items 95/96) has its own catch block with the comment "Surface
+error to admin (notify is best-effort)" sitting directly above a bare
+`void err` — the comment described intent that was never implemented. Any
+internal error (Anthropic call failure, an uncaught exception outside a
+tool's own try/catch, a timeout) silently returned an empty response to the
+customer and was never surfaced to admin. Compounding: the admin monitoring
+dashboard's own 24h `selena_error` count (`api/admin/monitoring/status`) was
+silently blind to every one of these crashes, since it only ever reflected
+the 3 clones' errors — a healthy-looking metric that wasn't measuring the
+thing that actually matters.
+
+**Fixed** — the catch block now fires a tenant-scoped `selena_error`
+notification (same title/message shape the clone Selenas already use),
+best-effort via `.catch(() => {})` so a notify failure can't crash the error
+handler, and awaited (not fire-and-forget) so it can't get silently dropped
+by the serverless runtime tearing down before an un-awaited promise
+resolves. `tenantId` is hoisted above the `try` so the common case (error
+after tenant resolution already succeeded) can still tenant-scope the
+notification; the catch also makes one best-effort re-resolution attempt for
+the rarer case where resolution itself was what failed.
+
+2 new tests (mocking `resolveAnthropic` to throw, standing in for any
+downstream failure): proves the tenant-scoped notification fires with the
+right type/tenantId/conversation reference, and proves the handler still
+never throws even when `notify()` itself fails. Mutation-verified: `git
+apply -R` the fix, both RED for the expected reason (0 notify calls instead
+of 1) — `git apply` restored, GREEN. `tsc --noEmit` clean, full suite
+398/398 files, 1960/1960 tests, zero regressions. Commit `8a001ea9`.
+
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
