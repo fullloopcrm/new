@@ -112,8 +112,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       }).then(() => {}, () => {})
     }
 
-    // 2. Client SMS
-    if (updated.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // 2. Client SMS — sms_consent, same invariant every other client SMS
+    // fan-out enforces (payment-processor.ts, webhooks/stripe.ts,
+    // client/book route.ts). do_not_service is already covered upstream:
+    // protectClientAPI blocks a do_not_service client's session entirely, so
+    // this route never reaches here for one — but sms_consent=false (STOP)
+    // is a separate, still-authenticated axis that was never checked.
+    if (updated.clients?.phone && updated.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       await sendSMS({
         to: updated.clients.phone,
         body: clientSmsTemplates(tenant).reschedule(updated),

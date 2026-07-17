@@ -129,6 +129,24 @@ export async function POST(request: Request) {
           title: 'New Client (via Booking)',
           message: `${body.name} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
+      } else {
+        // clientId was matched by email/phone, not caller-supplied body.client_id
+        // — the do-not-service gate above only ever ran for the body.client_id
+        // path, so a client the business banned could bypass it entirely by
+        // submitting this public form with just their known email/phone instead
+        // of their id, creating a real booking (not just an SMS oversight).
+        const { data: matchedClient } = await supabaseAdmin
+          .from('clients')
+          .select('do_not_service')
+          .eq('id', clientId)
+          .eq('tenant_id', tenant.id)
+          .maybeSingle()
+        if (matchedClient?.do_not_service) {
+          const contactPhone = tenant.phone || ''
+          return NextResponse.json({
+            error: `Please contact us${contactPhone ? ` at ${contactPhone}` : ''} to schedule your next service.`,
+          }, { status: 403 })
+        }
       }
     }
 
@@ -398,7 +416,11 @@ export async function POST(request: Request) {
           }).then(() => {}, () => {})
         }
 
-        if (data.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // sms_consent, same invariant every other client SMS fan-out enforces
+        // (payment-processor.ts, webhooks/stripe.ts) — do_not_service clients
+        // never reach here (blocked above), but a client who has replied STOP
+        // (sms_consent=false) must still stop receiving texts, including this one.
+        if (data.clients?.phone && data.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           await sendSMS({
             to: data.clients.phone,
             body: clientSmsTemplates(tenant).bookingReceived(data),
