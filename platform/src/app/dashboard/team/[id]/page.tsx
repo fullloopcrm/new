@@ -164,7 +164,12 @@ export default function TeamMemberDetailPage() {
 
   async function deleteMember() {
     if (!confirm('Remove this team member?')) return
-    await fetch(`/api/team/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/team/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({}))
+      alert(body.error || 'Could not remove this team member.')
+      return
+    }
     router.push('/dashboard/team')
   }
 
