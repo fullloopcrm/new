@@ -52,6 +52,15 @@ export async function GET() {
     const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
 
     const liveStatuses = ['confirmed', 'scheduled', 'in_progress']
+    // POST /api/finance/payroll flips a booking's status straight to 'paid'
+    // once the team member is paid out -- that only means team-pay happened,
+    // it says nothing about whether the job itself should still show as a
+    // real job on today/week/month lists and the map. Every "+ completed"
+    // status filter below needs "+ paid" too or a job silently vanishes from
+    // the operator's own dashboard the moment payroll runs on it. Same root
+    // cause as the finance/pnl, finance/summary, cleaner-income, crew-earnings,
+    // reconcile-candidates, ar-aging, pending, client-analytics sweep.
+    const doneStatuses = [...liveStatuses, 'completed', 'paid']
 
     const [
       todayRes, mapTodayRes, mapWeekRes, mapMonthRes, allJobsRes,
@@ -65,7 +74,7 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
-        .in('status', [...liveStatuses, 'completed'])
+        .in('status', doneStatuses)
         .order('start_time'),
       supabaseAdmin
         .from('bookings')
@@ -73,21 +82,21 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
-        .in('status', [...liveStatuses, 'completed']),
+        .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfWeek.toISOString())
         .lt('start_time', endOfWeek.toISOString())
-        .in('status', [...liveStatuses, 'completed']),
+        .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfMonth.toISOString())
         .lte('start_time', endOfMonth.toISOString())
-        .in('status', [...liveStatuses, 'completed']),
+        .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
@@ -99,7 +108,7 @@ export async function GET() {
         .from('bookings')
         .select('price')
         .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .eq('payment_status', 'pending'),
       supabaseAdmin
         .from('bookings')
@@ -122,7 +131,7 @@ export async function GET() {
         .from('bookings')
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .gte('start_time', thirtyDaysAgo.toISOString()),
       supabaseAdmin
         .from('bookings')
@@ -137,7 +146,7 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .eq('payment_status', 'paid'),
       supabaseAdmin
         .from('bookings')
@@ -145,7 +154,7 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfWeek.toISOString())
         .lt('start_time', endOfWeek.toISOString())
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .eq('payment_status', 'paid'),
       supabaseAdmin
         .from('bookings')
@@ -153,7 +162,7 @@ export async function GET() {
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfMonth.toISOString())
         .lte('start_time', endOfMonth.toISOString())
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .eq('payment_status', 'paid'),
       supabaseAdmin
         .from('team_members')
