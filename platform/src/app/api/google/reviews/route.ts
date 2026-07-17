@@ -93,11 +93,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Failed to post reply to Google' }, { status: 500 })
     }
 
-    // Save locally
+    // Save locally. tenant_id scope is defense-in-depth here (reviewId was
+    // already ownership-verified above), matching the scoping this session
+    // applies to every other write in this codebase.
     await supabaseAdmin
       .from('google_reviews')
       .update({ reply: replyText })
       .eq('id', reviewId)
+      .eq('tenant_id', tenant.tenantId)
 
     return NextResponse.json({ success: true })
   } catch (e) {
