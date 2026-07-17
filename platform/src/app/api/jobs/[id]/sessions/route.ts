@@ -95,10 +95,20 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (bErr) throw bErr
 
+    // This insert's error used to be discarded entirely -- booking_assignees'
+    // PRIMARY KEY (booking_id, team_member_id) can raise (e.g. a duplicate id
+    // resolved twice into `assignees`), which would silently leave the new
+    // booking with ZERO assignee rows while the response below still reported
+    // `assignees: assigneeList` -- the INTENDED set, not what actually landed.
+    // Same class as POST /api/schedules' discarded bookings-batch-insert bug:
+    // surface it instead.
     if (assigneeList.length) {
-      await supabaseAdmin.from('booking_assignees').insert(
+      const { error: assigneeErr } = await supabaseAdmin.from('booking_assignees').insert(
         assigneeList.map((mid) => ({ booking_id: booking.id, team_member_id: mid })),
       )
+      if (assigneeErr) {
+        return NextResponse.json({ error: assigneeErr.message, session: booking }, { status: 500 })
+      }
     }
 
     await logJobEvent({

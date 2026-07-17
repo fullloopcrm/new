@@ -168,13 +168,27 @@ export async function PATCH(request: Request, { params }: Params) {
       )
     }
 
-    // Replace the assignee set after the booking row is updated.
+    // Replace the assignee set after the booking row is updated. The
+    // re-insert's error used to be discarded entirely: a duplicate id
+    // resolved twice into `assigneeList` trips booking_assignees' own
+    // PRIMARY KEY (booking_id, team_member_id), which fails the insert AFTER
+    // the delete above already cleared the prior set -- leaving the booking
+    // with ZERO assignees, no error surfaced, and `session_reassigned`
+    // logged with the intended count rather than what actually landed. Same
+    // silent-write-failure class as POST /api/schedules and this route's
+    // sibling POST /api/jobs/[id]/sessions: surface it instead.
     if (didReassign) {
       await supabaseAdmin.from('booking_assignees').delete().eq('booking_id', sessionId)
       if (assigneeList.length) {
-        await supabaseAdmin.from('booking_assignees').insert(
+        const { error: assigneeErr } = await supabaseAdmin.from('booking_assignees').insert(
           assigneeList.map((mid) => ({ booking_id: sessionId, team_member_id: mid })),
         )
+        if (assigneeErr) {
+          return NextResponse.json(
+            { error: `Reassignment failed after clearing prior assignees: ${assigneeErr.message}` },
+            { status: 500 },
+          )
+        }
       }
     }
 
