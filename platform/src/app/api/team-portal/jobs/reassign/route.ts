@@ -1,7 +1,10 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
-import { sendPushToTeamMember } from '@/lib/push'
+import { notifyTeamMember } from '@/lib/notify-team-member'
+import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
+import { smsJobCancelled } from '@/lib/sms-templates'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
 import { shiftNaiveTimestamp } from '@/lib/cleaner-availability'
@@ -34,7 +37,7 @@ export async function POST(request: Request) {
     .from('bookings')
     .select('id, team_member_id, start_time, end_time, is_emergency, clients(name)')
     .eq('id', booking_id)
-    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null; end_time: string | null; is_emergency: boolean | null } | null }
+    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null; end_time: string | null; is_emergency: boolean | null; clients: { name: string | null } | null } | null }
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
   const previous = booking.team_member_id
@@ -101,28 +104,60 @@ export async function POST(request: Request) {
 
   // Notify both sides — accountability so no one silently loses/gains a job.
   // Escalate wording for a same-day emergency, same 🚨 convention items
-  // (20)/(22)/(24)/(26) already established elsewhere in the dispatch chain —
-  // otherwise a manager reassigning an urgent job produced the same plain
-  // "New job assigned" push as any routine reassignment.
+  // (20)/(22)/(24)/(26) already established elsewhere in the dispatch chain.
+  //
+  // Archetype-depth fix: this was the only team-member push in the codebase
+  // sent via sendPushToTeamMember() directly instead of notifyTeamMember()
+  // (the module items (53)/(54)/(56)/(58)/(60) established as the one true
+  // channel for team-member notifications) — so a reassignment skipped the
+  // in-app record, the SMS/email fallback for a push-less or push-declined
+  // tech, the item (48) SMS-consent gate, and quiet hours entirely (routine
+  // reassignments always pushed regardless of the hour; an emergency one had
+  // no reliable non-push fallback if the push subscription was stale).
   const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
   const isEmergency = !!booking.is_emergency
+  const { data: tenant } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name, slug, industry, phone, website_url, domain, domain_name, google_place_id')
+    .eq('id', auth.tid)
+    .single()
+  const bizName = tenant?.name || 'Your Business'
   try {
-    await sendPushToTeamMember(
-      to_member_id,
-      isEmergency ? '🚨 Urgent job assigned' : 'New job assigned',
-      `You've been assigned a job${when ? ` on ${when}` : ''}.`,
-      '/team/jobs',
-    )
+    await notifyTeamMember({
+      tenantId: auth.tid,
+      teamMemberId: to_member_id,
+      type: 'job_assignment',
+      title: isEmergency ? '🚨 Urgent job assigned' : 'New job assigned',
+      message: `You've been assigned a job${when ? ` on ${when}` : ''}.`,
+      bookingId: booking_id,
+      smsMessage: tenant && booking.start_time
+        ? teamSmsTemplates(tenant).jobAssignment({
+            start_time: booking.start_time,
+            is_emergency: booking.is_emergency,
+            pay_rate: target.pay_rate,
+            clients: booking.clients?.name ? { name: booking.clients.name } : null,
+          })
+        : undefined,
+      skipEmail: true,
+      isEmergency,
+    })
     if (previous && previous !== to_member_id) {
-      await sendPushToTeamMember(
-        previous,
-        isEmergency ? '🚨 Urgent job reassigned' : 'Job reassigned',
-        `A job${when ? ` on ${when}` : ''} was moved to a teammate.`,
-        '/team/jobs',
-      )
+      await notifyTeamMember({
+        tenantId: auth.tid,
+        teamMemberId: previous,
+        type: 'job_cancelled',
+        title: isEmergency ? '🚨 Urgent job reassigned' : 'Job reassigned',
+        message: `A job${when ? ` on ${when}` : ''} was moved to a teammate.`,
+        bookingId: booking_id,
+        smsMessage: booking.start_time
+          ? smsJobCancelled(bizName, { start_time: booking.start_time, clients: booking.clients?.name ? { name: booking.clients.name } : null })
+          : undefined,
+        skipEmail: true,
+        isEmergency,
+      })
     }
   } catch (e) {
-    console.error('[reassign] push failed (non-fatal):', e)
+    console.error('[reassign] notify failed (non-fatal):', e)
   }
 
   return NextResponse.json({ booking: data })

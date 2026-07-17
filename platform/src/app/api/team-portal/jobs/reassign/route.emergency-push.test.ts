@@ -9,12 +9,17 @@ import type { FakeSupabase } from '@/test/fake-supabase'
  * dispatch-chain urgency-signal gap as items (20)/(22)/(24)/(26). Proves the
  * fix: both pushes escalate to the 🚨 wording when the booking is emergency,
  * and stay plain for a routine job (control).
+ *
+ * Archetype-depth follow-up: this route used to call sendPushToTeamMember()
+ * directly, bypassing notifyTeamMember() (the quiet-hours/SMS/email/in-app
+ * wrapper items (53)/(54)/(56)/(58)/(60) established). Now mocks
+ * notifyTeamMember() instead and also asserts isEmergency flows through.
  */
 
-const { sendPushToTeamMemberMock } = vi.hoisted(() => ({
-  sendPushToTeamMemberMock: vi.fn(async (..._args: unknown[]) => {}),
+const { notifyTeamMemberMock } = vi.hoisted(() => ({
+  notifyTeamMemberMock: vi.fn(async (..._args: unknown[]) => ({ memberName: 'x', push: true, email: false, sms: true, inApp: true as const, quietHours: false })),
 }))
-vi.mock('@/lib/push', () => ({ sendPushToTeamMember: sendPushToTeamMemberMock }))
+vi.mock('@/lib/notify-team-member', () => ({ notifyTeamMember: notifyTeamMemberMock }))
 
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
@@ -45,15 +50,15 @@ function post(booking_id: string, to_member_id: string) {
 beforeEach(() => {
   fake._store.clear()
   clearSettingsCache()
-  sendPushToTeamMemberMock.mockClear()
+  notifyTeamMemberMock.mockClear()
   currentAuth = { id: 'lead-1', tid: TID, role: 'lead' }
-  fake._seed('tenants', [{ id: TID, booking_buffer_minutes: 60 }])
+  fake._seed('tenants', [{ id: TID, name: 'Acme Co', booking_buffer_minutes: 60 }])
   fake._seed('service_types', [])
   fake._seed('team_members', [{ id: 'tm-2', tenant_id: TID, pay_rate: 25, status: 'active' }])
 })
 
 describe('team-portal/jobs/reassign — emergency push wording', () => {
-  it('escalates both pushes to 🚨 wording when the booking is a same-day emergency', async () => {
+  it('escalates both notifications to 🚨 wording and isEmergency:true when the booking is a same-day emergency', async () => {
     fake._seed('bookings', [
       {
         id: 'bk-1', tenant_id: TID, team_member_id: 'tm-3', status: 'confirmed',
@@ -64,18 +69,26 @@ describe('team-portal/jobs/reassign — emergency push wording', () => {
 
     const res = await post('bk-1', 'tm-2')
     expect(res.status).toBe(200)
-    expect(sendPushToTeamMemberMock).toHaveBeenCalledTimes(2)
+    expect(notifyTeamMemberMock).toHaveBeenCalledTimes(2)
 
-    const [toId, toTitle] = sendPushToTeamMemberMock.mock.calls[0] as [string, string]
-    expect(toId).toBe('tm-2')
-    expect(toTitle).toBe('🚨 Urgent job assigned')
+    const [toCall] = notifyTeamMemberMock.mock.calls[0] as [{ teamMemberId: string; title: string; isEmergency: boolean; type: string; smsMessage?: string; skipEmail?: boolean }]
+    expect(toCall.teamMemberId).toBe('tm-2')
+    expect(toCall.title).toBe('🚨 Urgent job assigned')
+    expect(toCall.isEmergency).toBe(true)
+    expect(toCall.type).toBe('job_assignment')
+    expect(toCall.smsMessage).toContain('URGENT')
+    expect(toCall.smsMessage).toContain('Pay: $25/hr')
+    expect(toCall.skipEmail).toBe(true)
 
-    const [fromId, fromTitle] = sendPushToTeamMemberMock.mock.calls[1] as [string, string]
-    expect(fromId).toBe('tm-3')
-    expect(fromTitle).toBe('🚨 Urgent job reassigned')
+    const [fromCall] = notifyTeamMemberMock.mock.calls[1] as [{ teamMemberId: string; title: string; isEmergency: boolean; type: string; smsMessage?: string }]
+    expect(fromCall.teamMemberId).toBe('tm-3')
+    expect(fromCall.title).toBe('🚨 Urgent job reassigned')
+    expect(fromCall.isEmergency).toBe(true)
+    expect(fromCall.type).toBe('job_cancelled')
+    expect(fromCall.smsMessage).toContain('Cancelled')
   })
 
-  it('stays plain wording for a routine reassignment (control)', async () => {
+  it('stays plain wording and isEmergency:false for a routine reassignment (control)', async () => {
     fake._seed('bookings', [
       {
         id: 'bk-2', tenant_id: TID, team_member_id: 'tm-3', status: 'confirmed',
@@ -86,12 +99,14 @@ describe('team-portal/jobs/reassign — emergency push wording', () => {
 
     const res = await post('bk-2', 'tm-2')
     expect(res.status).toBe(200)
-    expect(sendPushToTeamMemberMock).toHaveBeenCalledTimes(2)
+    expect(notifyTeamMemberMock).toHaveBeenCalledTimes(2)
 
-    const [, toTitle] = sendPushToTeamMemberMock.mock.calls[0] as [string, string]
-    expect(toTitle).toBe('New job assigned')
+    const [toCall] = notifyTeamMemberMock.mock.calls[0] as [{ title: string; isEmergency: boolean }]
+    expect(toCall.title).toBe('New job assigned')
+    expect(toCall.isEmergency).toBe(false)
 
-    const [, fromTitle] = sendPushToTeamMemberMock.mock.calls[1] as [string, string]
-    expect(fromTitle).toBe('Job reassigned')
+    const [fromCall] = notifyTeamMemberMock.mock.calls[1] as [{ title: string; isEmergency: boolean }]
+    expect(fromCall.title).toBe('Job reassigned')
+    expect(fromCall.isEmergency).toBe(false)
   })
 })
