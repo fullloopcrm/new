@@ -131,7 +131,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     }
 
     // 2. Client SMS
-    if (updated.clients?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (updated.clients?.phone && updated.clients?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       await sendSMS({
         to: updated.clients.phone,
         body: clientSmsTemplates(tenant).reschedule(updated),

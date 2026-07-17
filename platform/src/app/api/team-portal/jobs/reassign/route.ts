@@ -32,9 +32,9 @@ export async function POST(request: Request) {
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: booking } = (await db
     .from('bookings')
-    .select('id, team_member_id, start_time, end_time, clients(name)')
+    .select('id, team_member_id, start_time, end_time, is_emergency, clients(name)')
     .eq('id', booking_id)
-    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null; end_time: string | null } | null }
+    .single()) as { data: { id: string; team_member_id: string | null; start_time: string | null; end_time: string | null; is_emergency: boolean | null } | null }
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
 
   const previous = booking.team_member_id
@@ -100,11 +100,26 @@ export async function POST(request: Request) {
   })
 
   // Notify both sides — accountability so no one silently loses/gains a job.
+  // Escalate wording for a same-day emergency, same 🚨 convention items
+  // (20)/(22)/(24)/(26) already established elsewhere in the dispatch chain —
+  // otherwise a manager reassigning an urgent job produced the same plain
+  // "New job assigned" push as any routine reassignment.
   const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
+  const isEmergency = !!booking.is_emergency
   try {
-    await sendPushToTeamMember(to_member_id, 'New job assigned', `You've been assigned a job${when ? ` on ${when}` : ''}.`, '/team/jobs')
+    await sendPushToTeamMember(
+      to_member_id,
+      isEmergency ? '🚨 Urgent job assigned' : 'New job assigned',
+      `You've been assigned a job${when ? ` on ${when}` : ''}.`,
+      '/team/jobs',
+    )
     if (previous && previous !== to_member_id) {
-      await sendPushToTeamMember(previous, 'Job reassigned', `A job${when ? ` on ${when}` : ''} was moved to a teammate.`, '/team/jobs')
+      await sendPushToTeamMember(
+        previous,
+        isEmergency ? '🚨 Urgent job reassigned' : 'Job reassigned',
+        `A job${when ? ` on ${when}` : ''} was moved to a teammate.`,
+        '/team/jobs',
+      )
     }
   } catch (e) {
     console.error('[reassign] push failed (non-fatal):', e)

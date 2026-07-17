@@ -146,9 +146,9 @@ export async function POST(request: Request) {
   try {
     const { data: client } = await db
       .from('clients')
-      .select('name, phone, email')
+      .select('name, phone, email, sms_consent')
       .eq('id', auth.id)
-      .single<{ name: string | null; phone: string | null; email: string | null }>()
+      .single<{ name: string | null; phone: string | null; email: string | null; sms_consent: boolean | null }>()
 
     await notify({
       tenantId: auth.tid,
@@ -178,7 +178,7 @@ export async function POST(request: Request) {
         })
       }
 
-      if (client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (client?.phone && client?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
         await sendSMS({
           to: client.phone,
           body: clientSmsTemplates(tenant).bookingReceived(bookingWithClient),
