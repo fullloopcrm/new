@@ -11,6 +11,8 @@ import { overridesFor } from '@/lib/require-permission'
 interface BookingRow {
   price: number | null
   status?: string
+  payment_status?: string
+  partial_payment_cents?: number | null
 }
 
 // team_members joined via `!bookings_team_member_id_fkey(*)` pulls the full
@@ -106,10 +108,10 @@ export async function GET() {
         .order('start_time'),
       supabaseAdmin
         .from('bookings')
-        .select('price')
+        .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
         .in('status', ['completed', 'paid'])
-        .eq('payment_status', 'pending'),
+        .in('payment_status', ['pending', 'partial']),
       supabaseAdmin
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
@@ -142,28 +144,28 @@ export async function GET() {
         .lte('start_time', endOfYear.toISOString()),
       supabaseAdmin
         .from('bookings')
-        .select('price')
+        .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfDay.toISOString())
         .lt('start_time', endOfDay.toISOString())
         .in('status', ['completed', 'paid'])
-        .eq('payment_status', 'paid'),
+        .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
         .from('bookings')
-        .select('price')
+        .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfWeek.toISOString())
         .lt('start_time', endOfWeek.toISOString())
         .in('status', ['completed', 'paid'])
-        .eq('payment_status', 'paid'),
+        .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
         .from('bookings')
-        .select('price')
+        .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
         .gte('start_time', startOfMonth.toISOString())
         .lte('start_time', endOfMonth.toISOString())
         .in('status', ['completed', 'paid'])
-        .eq('payment_status', 'paid'),
+        .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
         .from('team_members')
         .select('id, name')
@@ -172,8 +174,24 @@ export async function GET() {
         .order('name'),
     ])
 
+    // A 'partial' booking already collected partial_payment_cents from the
+    // client -- counting the full price as "revenue collected" (or the full
+    // price as still "pending") ignores what's already landed vs. still
+    // owed. Same class as the ar-aging/cash-flow/finance-summary fix this
+    // session.
+    const partialReceived = (b: BookingRow) =>
+      Math.max(0, Math.round(Number(b.partial_payment_cents) || 0))
     const calcRevenue = (jobs: BookingRow[] | null) =>
-      (jobs || []).reduce((sum, b) => sum + (b.price || 0), 0)
+      (jobs || []).reduce(
+        (sum, b) => sum + (b.payment_status === 'partial' ? partialReceived(b) : (b.price || 0)),
+        0,
+      )
+    const calcPendingBalance = (jobs: BookingRow[] | null) =>
+      (jobs || []).reduce(
+        (sum, b) =>
+          sum + (b.payment_status === 'partial' ? Math.max(0, (b.price || 0) - partialReceived(b)) : (b.price || 0)),
+        0,
+      )
 
     const normalizeMapJobs = (jobs: BookingRow[] | null) =>
       (jobs || []).map(j => ({
@@ -195,7 +213,7 @@ export async function GET() {
             today: { revenue: calcRevenue(todayPaidRes.data as BookingRow[] | null), jobs: todayPaidRes.data?.length || 0 },
             week: { revenue: calcRevenue(weekPaidRes.data as BookingRow[] | null), jobs: weekPaidRes.data?.length || 0 },
             month: { revenue: calcRevenue(monthPaidRes.data as BookingRow[] | null), jobs: monthPaidRes.data?.length || 0 },
-            pending: { revenue: calcRevenue(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
+            pending: { revenue: calcPendingBalance(pendingPaymentRes.data as BookingRow[] | null), jobs: pendingPaymentRes.data?.length || 0 },
           }
         : null,
       clients: {
