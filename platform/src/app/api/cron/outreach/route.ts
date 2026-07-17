@@ -126,6 +126,31 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
 
     for (const c of toSend) {
       const message = pickMessage(moment, c.id, c.name, c.pet_name, tenant.name, aiName)
+
+      // Claim BEFORE sending: the `alreadyTexted` SELECT above is a
+      // point-in-time snapshot per moment, not a lock. A slow run (or a
+      // manual re-trigger overlapping the scheduled Saturday run) could
+      // still see the same client as un-texted for this moment on both
+      // invocations. The unique constraint on outreach_log(tenant_id,
+      // client_id, moment_id) previously only deduped the *log row* after
+      // both invocations had already sent the SMS -- the client got texted
+      // twice, and only one insert survived to record it. Inserting the log
+      // row first turns the constraint into a real claim: only the
+      // invocation whose insert succeeds sends. Same pattern as the
+      // rating-prompt cron's booking claim.
+      const { error: claimErr } = await supabaseAdmin.from('outreach_log').insert({
+        tenant_id: tenant.id,
+        client_id: c.id,
+        moment_id: moment.id,
+        message,
+      })
+      if (claimErr) {
+        if (!claimErr.message.includes('duplicate key')) {
+          console.error('[outreach] log claim failed:', claimErr.message)
+        }
+        continue
+      }
+
       try {
         await sendSMS({
           to: c.phone!,
@@ -133,17 +158,6 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
           telnyxApiKey: tenant.telnyx_api_key!,
           telnyxPhone: tenant.telnyx_phone!,
         })
-
-        // Log the send (unique constraint dedups within (tenant, client, moment)).
-        const { error: logErr } = await supabaseAdmin.from('outreach_log').insert({
-          tenant_id: tenant.id,
-          client_id: c.id,
-          moment_id: moment.id,
-          message,
-        })
-        if (logErr && !logErr.message.includes('duplicate key')) {
-          console.error('[outreach] log insert failed:', logErr.message)
-        }
 
         await supabaseAdmin
           .from('clients')
@@ -157,6 +171,14 @@ async function processTenant(tenant: TenantRow, moments: OutreachMoment[], aiNam
         sent++
       } catch (err) {
         console.error(`[outreach] SMS failed for tenant=${tenant.id} client=${c.id}:`, err)
+        // Release the claim so a genuinely failed send can retry next week
+        // instead of being permanently marked as texted with no SMS sent.
+        await supabaseAdmin
+          .from('outreach_log')
+          .delete()
+          .eq('tenant_id', tenant.id)
+          .eq('client_id', c.id)
+          .eq('moment_id', moment.id)
       }
     }
   }

@@ -159,34 +159,45 @@ export async function POST(request: Request, { params }: Params) {
       // The claim above already reserved 'matched'; this second update only
       // upgrades to 'posted' + attaches coa/journal fields -- no other request
       // can race it since the claim already closed the pending window.
-      const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
-      if (bankCoa) {
-        const safeCategory = sanitizePostgrestValue(ex.category)
-        const { data: coaMatch } = await supabaseAdmin
-          .from('chart_of_accounts')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('type', 'expense')
-          .or(`subtype.eq.${safeCategory},name.ilike.%${safeCategory}%`)
-          .limit(1)
-          .maybeSingle()
-        if (coaMatch) {
-          const entryId = await postJournalEntry({
-            tenant_id: tenantId,
-            entry_date: txn.txn_date,
-            memo: `${txn.description} (matched to expense ${ex.id})`,
-            source: 'bank_txn',
-            source_id: txn.id,
-            lines: [
-              { coa_id: coaMatch.id, debit_cents: Math.abs(txn.amount_cents) },
-              { coa_id: bankCoa, credit_cents: Math.abs(txn.amount_cents) },
-            ],
-          })
-          await supabaseAdmin
-            .from('bank_transactions')
-            .update({ coa_id: coaMatch.id, journal_entry_id: entryId, status: 'posted' })
-            .eq('id', id)
+      // Best-effort only: the expense match above already committed (real
+      // state change, claim already closed the pending window). A failure
+      // here must not surface as a request failure -- the caller would see
+      // a 500 for a match that actually succeeded, and retrying is
+      // impossible since txn.status is already 'matched' (see top-of-route
+      // check). Log and leave the txn at 'matched' with no journal_entry_id
+      // so it's simply missing its optional ledger post, not stuck/corrupt.
+      try {
+        const bankCoa = (txn.bank_accounts as { coa_id?: string } | null)?.coa_id
+        if (bankCoa) {
+          const safeCategory = sanitizePostgrestValue(ex.category)
+          const { data: coaMatch } = await supabaseAdmin
+            .from('chart_of_accounts')
+            .select('id')
+            .eq('tenant_id', tenantId)
+            .eq('type', 'expense')
+            .or(`subtype.eq.${safeCategory},name.ilike.%${safeCategory}%`)
+            .limit(1)
+            .maybeSingle()
+          if (coaMatch) {
+            const entryId = await postJournalEntry({
+              tenant_id: tenantId,
+              entry_date: txn.txn_date,
+              memo: `${txn.description} (matched to expense ${ex.id})`,
+              source: 'bank_txn',
+              source_id: txn.id,
+              lines: [
+                { coa_id: coaMatch.id, debit_cents: Math.abs(txn.amount_cents) },
+                { coa_id: bankCoa, credit_cents: Math.abs(txn.amount_cents) },
+              ],
+            })
+            await supabaseAdmin
+              .from('bank_transactions')
+              .update({ coa_id: coaMatch.id, journal_entry_id: entryId, status: 'posted' })
+              .eq('id', id)
+          }
         }
+      } catch (journalErr) {
+        console.error('POST /api/finance/bank-transactions/[id]/match: optional journal post failed', journalErr)
       }
     }
 
