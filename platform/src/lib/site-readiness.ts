@@ -19,6 +19,7 @@
 import { supabaseAdmin } from './supabase'
 import { getSettings } from './settings'
 import { safeFetch } from './ssrf'
+import { getPrimaryTenantDomain } from './domains'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // THE RULEBOOK — single source of truth for the new-tenant content standard.
@@ -156,9 +157,20 @@ async function auditPage(url: string): Promise<PageAudit> {
 // The gate.
 // ─────────────────────────────────────────────────────────────────────────────
 
-/** Resolve the origin the tenant's site serves from (custom domain preferred). */
-function resolveOrigin(tenant: { slug?: string | null; domain?: string | null; domain_name?: string | null }): string | null {
-  const custom = (tenant.domain || tenant.domain_name || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+/**
+ * Resolve the origin the tenant's site serves from (custom domain preferred).
+ * tenant_domains PRIMARY row wins over the legacy tenants.domain/domain_name
+ * columns, same precedence as getPrimaryTenantDomain()'s other callers
+ * (tenantSiteUrl(), tenantBrand(), getAgentConfig()) — previously read
+ * tenant.domain/domain_name only and never consulted tenant_domains, so a
+ * tenant whose custom domain lives only in tenant_domains (added via
+ * admin/websites) fell through to the `<slug>.fullloopcrm.com` platform
+ * subdomain here, making this admin readiness audit fetch and report on the
+ * wrong origin instead of the tenant's real live site.
+ */
+export async function resolveOrigin(tenant: { id?: string | null; slug?: string | null; domain?: string | null; domain_name?: string | null }): Promise<string | null> {
+  const primary = tenant.id ? await getPrimaryTenantDomain(tenant.id) : null
+  const custom = (primary || tenant.domain || tenant.domain_name || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
   if (custom) return `https://${custom.replace(/^www\./, 'www.')}`
   if (tenant.slug) return `https://${tenant.slug}.fullloopcrm.com`
   return null
@@ -181,7 +193,7 @@ export async function checkSiteReadiness(tenantId: string): Promise<SiteReadines
       .eq('status', 'active'),
   ])
 
-  const origin = tenant ? resolveOrigin(tenant) : null
+  const origin = tenant ? await resolveOrigin(tenant) : null
 
   // ── OPS: the operational basics a live site needs ─────────────────────────
   const activeServices = settings.service_types.filter((s) => s.active).length
