@@ -61,6 +61,9 @@ export async function createBookingFromQuote(
     throw new Error('Quote conversion already in progress')
   }
 
+  // Tracked outside the try so the catch block can tell whether the booking
+  // row itself was already created (see the catch below).
+  let bookingId: string | undefined
   try {
     // Resolve or create client (identical to createJobFromQuote / the /convert path).
     let clientId = quote.client_id as string | null
@@ -117,18 +120,40 @@ export async function createBookingFromQuote(
       .select('id')
       .single()
     if (bErr) throw bErr
-    const bookingId = booking.id as string
+    bookingId = booking.id as string
 
-    await supabaseAdmin
+    const { error: linkErr } = await supabaseAdmin
       .from('quotes')
       .update({ status: 'converted', converted_booking_id: bookingId })
       .eq('id', quoteId)
       .eq('tenant_id', tenantId)
+    if (linkErr) throw linkErr
 
     return { booking_id: bookingId, already_converted: false }
   } catch (err) {
-    // Creation failed after the claim succeeded — release it so a retry
-    // isn't permanently blocked by a stuck "conversion in progress" error.
+    if (bookingId) {
+      // The booking already exists (insert succeeded before the link-back
+      // update failed). Releasing the claim here would let a retry pass the
+      // `.is('converted_at', null)` gate and create a SECOND booking for the
+      // same quote, orphaning the first. Instead, best-effort finish linking
+      // the quote to the booking we already made so a retry resolves to
+      // `already_converted: true` against the real booking instead of
+      // duplicating it. If even this fails, leave the claim in place — a
+      // quote stuck needing manual reconciliation is safer than a silent
+      // duplicate booking. Same pattern as lib/jobs.ts / the /convert route.
+      try {
+        await supabaseAdmin
+          .from('quotes')
+          .update({ status: 'converted', converted_booking_id: bookingId })
+          .eq('id', quoteId)
+          .eq('tenant_id', tenantId)
+      } catch {
+        // Best-effort — the original `err` below is what the caller sees.
+      }
+      throw err
+    }
+    // Nothing was created yet — release the claim so a retry isn't
+    // permanently blocked by a stuck "conversion in progress" error.
     await supabaseAdmin
       .from('quotes')
       .update({ converted_at: null })
