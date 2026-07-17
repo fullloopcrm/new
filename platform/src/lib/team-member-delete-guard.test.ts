@@ -68,4 +68,42 @@ describe('checkTeamMemberDeletable', () => {
     const result = await checkTeamMemberDeletable(TENANT, MEMBER)
     expect(result.deletable).toBe(true)
   })
+
+  it('allows deletion when hr_employee_profiles only has HR-default values', async () => {
+    fake._seed('hr_employee_profiles', [{
+      id: 'hp-1', tenant_id: TENANT, team_member_id: MEMBER,
+      employment_type: 'contractor_1099', comp_type: 'per_job', hr_status: 'active',
+      hire_date: null, termination_date: null, title: null, department: null,
+      pay_rate_cents: null, emergency_contact_name: null, emergency_contact_phone: null,
+      date_of_birth: null,
+    }])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(true)
+  })
+
+  it('blocks deletion when hr_employee_profiles has a real hire_date on file', async () => {
+    fake._seed('hr_employee_profiles', [{
+      id: 'hp-1', tenant_id: TENANT, team_member_id: MEMBER,
+      employment_type: 'contractor_1099', comp_type: 'per_job', hr_status: 'active',
+      hire_date: '2026-01-15', termination_date: null, title: null, department: null,
+      pay_rate_cents: null, emergency_contact_name: null, emergency_contact_phone: null,
+      date_of_birth: null,
+    }])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(false)
+    expect(result.reason).toMatch(/profile/i)
+  })
+
+  it('blocks deletion when hr_employee_profiles has a non-default hr_status (e.g. terminated)', async () => {
+    fake._seed('hr_employee_profiles', [{
+      id: 'hp-1', tenant_id: TENANT, team_member_id: MEMBER,
+      employment_type: 'contractor_1099', comp_type: 'per_job', hr_status: 'terminated',
+      hire_date: null, termination_date: '2026-06-01', title: null, department: null,
+      pay_rate_cents: null, emergency_contact_name: null, emergency_contact_phone: null,
+      date_of_birth: null,
+    }])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(false)
+    expect(result.reason).toMatch(/profile/i)
+  })
 })
