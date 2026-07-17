@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { isKnownTenantStatus } from '@/lib/tenant-status'
+import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+import { omit } from '@/lib/validate'
+
+// Sibling of admin/tenants/[id]'s redaction: this is the LIST version of that
+// same select('*') tenant row, returned wholesale to every one of this route's
+// consumers (admin/tenants, admin/settings, admin/team, admin/finance pages).
+// Grepped all 4 — none reference a vendor-secret or google_tokens field name,
+// so the same zero-consumer redaction applies here.
+const NEVER_RETURNED_TENANT_FIELDS = [...ENCRYPTED_TENANT_FIELDS, 'google_tokens'] as const
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -12,7 +21,9 @@ export async function GET() {
     .select('*, tenant_members(id)')
     .order('created_at', { ascending: false })
 
-  return NextResponse.json({ tenants })
+  return NextResponse.json({
+    tenants: (tenants || []).map(t => omit(t, [...NEVER_RETURNED_TENANT_FIELDS])),
+  })
 }
 
 export async function PATCH(request: Request) {

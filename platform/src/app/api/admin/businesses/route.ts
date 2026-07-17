@@ -3,6 +3,17 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
 import { PRICING } from '@/lib/billing-pricing'
+import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+import { omit } from '@/lib/validate'
+
+// Sibling of admin/businesses/[id]'s redaction: this is the LIST version of
+// that same select('*') tenant row, returned wholesale to every one of this
+// route's 8 consumers (businesses/clients/calendar/bookings/activity/social/
+// ai/google-profile admin pages). Grepped all 8 — none reference a
+// vendor-secret or google_tokens field name, so the same zero-consumer
+// redaction applies here (unlike businesses/[id]'s own edit form, which is a
+// documented exception this list never touches).
+const NEVER_RETURNED_TENANT_FIELDS = [...ENCRYPTED_TENANT_FIELDS, 'google_tokens'] as const
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -13,7 +24,9 @@ export async function GET() {
     .select('*, tenant_members(id), tenant_invites(id, accepted)')
     .order('created_at', { ascending: false })
 
-  return NextResponse.json({ businesses })
+  return NextResponse.json({
+    businesses: (businesses || []).map(t => omit(t, [...NEVER_RETURNED_TENANT_FIELDS])),
+  })
 }
 
 export async function POST(request: Request) {
