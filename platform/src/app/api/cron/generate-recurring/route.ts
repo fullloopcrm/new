@@ -267,15 +267,19 @@ export async function GET(request: Request) {
     // could silently drop every occurrence for this schedule. Check the error and,
     // on failure, fall back to per-row inserts so non-conflicting occurrences still
     // land — and surface the ones that couldn't instead of reporting a false count.
-    const { error: batchErr } = await supabaseAdmin.from('bookings').insert(bookings) // tenant-scope-ok: each row carries tenant_id (schedule.tenant_id)
+    const insertedRows: { id: string; team_member_id: string | null }[] = []
+    const { data: batchInserted, error: batchErr } = await supabaseAdmin
+      .from('bookings').insert(bookings).select('id, team_member_id') // tenant-scope-ok: each row carries tenant_id (schedule.tenant_id)
     if (!batchErr) {
       totalGenerated += bookings.length
+      insertedRows.push(...(batchInserted || []))
     } else {
       let inserted = 0
       const skipped: string[] = []
       for (const row of bookings) {
-        const { error: rowErr } = await supabaseAdmin.from('bookings').insert(row) // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
-        if (rowErr) skipped.push(String(row.start_time)); else inserted++
+        const { data: rowInserted, error: rowErr } = await supabaseAdmin
+          .from('bookings').insert(row).select('id, team_member_id').single() // tenant-scope-ok: row carries tenant_id (schedule.tenant_id)
+        if (rowErr) { skipped.push(String(row.start_time)) } else { inserted++; if (rowInserted) insertedRows.push(rowInserted) }
       }
       totalGenerated += inserted
       if (skipped.length > 0) {
@@ -286,6 +290,30 @@ export async function GET(request: Request) {
           channel: 'system',
           recipient_type: 'admin',
         }).then(() => {}, () => {})
+      }
+    }
+
+    // booking_team_members rows (lead + named extras) for every occurrence
+    // just inserted -- same convention POST /api/client/recurring already
+    // uses for the initial batch. Without this, a refilled occurrence billed
+    // team_size people correctly (2026_07_17_recurring_schedules_team_size.sql)
+    // but left booking_team_members empty, so the admin Team panel and
+    // closeout-summary had no record of who the extra crew members were.
+    // See 2026_07_17_recurring_schedules_extra_team_member_ids.sql.
+    const scheduleExtras: string[] = Array.isArray(schedule.extra_team_member_ids) ? schedule.extra_team_member_ids : []
+    if (insertedRows.length > 0 && scheduleExtras.length > 0) {
+      const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+      for (const row of insertedRows) {
+        if (row.team_member_id) teamRows.push({ tenant_id: schedule.tenant_id, booking_id: row.id, team_member_id: row.team_member_id, is_lead: true, position: 1 })
+        scheduleExtras.forEach((cid: string, i: number) => {
+          teamRows.push({ tenant_id: schedule.tenant_id, booking_id: row.id, team_member_id: cid, is_lead: false, position: i + 2 })
+        })
+      }
+      if (teamRows.length > 0) {
+        const { error: teamErr } = await supabaseAdmin
+          .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
+          .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+        if (teamErr) console.error('cron generate-recurring booking_team_members insert failed:', teamErr.message)
       }
     }
   }

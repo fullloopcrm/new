@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size, extra_team_member_ids')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
@@ -208,6 +208,30 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const { data: created, error: insErr } = await db.from('bookings').insert(rows).select('id')
   // Insert failed → old series untouched. Surface the error, change nothing else.
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+
+  // booking_team_members rows (lead + named extras) for every regenerated
+  // occurrence -- same gap as cron/generate-recurring's refill, same fix:
+  // this route already carries team_size (the billing multiplier) forward
+  // from the schedule but never recreated the named-extras roster, leaving
+  // the admin Team panel and closeout-summary blind to who the extra crew
+  // members were on any pattern-edited series. See
+  // 2026_07_17_recurring_schedules_extra_team_member_ids.sql.
+  const scheduleExtras: string[] = Array.isArray(schedule.extra_team_member_ids) ? schedule.extra_team_member_ids : []
+  if (created && created.length > 0 && scheduleExtras.length > 0) {
+    const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+    for (const row of created) {
+      if (teamMemberId) teamRows.push({ tenant_id: tenantId, booking_id: row.id, team_member_id: teamMemberId, is_lead: true, position: 1 })
+      scheduleExtras.forEach((cid: string, i: number) => {
+        teamRows.push({ tenant_id: tenantId, booking_id: row.id, team_member_id: cid, is_lead: false, position: i + 2 })
+      })
+    }
+    if (teamRows.length > 0) {
+      const { error: teamErr } = await db
+        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
+        .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+      if (teamErr) console.error('regenerate booking_team_members insert failed:', teamErr.message)
+    }
+  }
 
   // 4. New rows are in; now retire the old future ones by exact id (never hits
   // the rows we just created).

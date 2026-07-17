@@ -176,6 +176,12 @@ export async function POST(request: Request) {
       // to solo, permanently under-billing a multi-person crew for the rest
       // of the series. See 2026_07_17_recurring_schedules_team_size.sql.
       team_size: finalTeamSize > 1 ? finalTeamSize : null,
+      // Named extras roster, separate from the headcount above -- without
+      // this, cron/generate-recurring's refill has team_size to bill
+      // correctly but no record of WHO the extra crew members are, so every
+      // refilled occurrence gets zero booking_team_members rows for extras.
+      // See 2026_07_17_recurring_schedules_extra_team_member_ids.sql.
+      extra_team_member_ids: extras.length > 0 ? extras : null,
     })
     .select()
     .single()
