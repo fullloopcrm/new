@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
+import { getCommPrefs } from '@/lib/comms-prefs'
 import { verifyCronSecret } from '@/lib/cron-auth'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
@@ -73,6 +74,15 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     if (!tenant.telnyx_phone || !tenant.payment_link) continue
 
+    // Item (116): this send has the same registered `payment_reminder` comm
+    // (see comms-registry.ts's `firedBy: 'cron: payment-reminder /
+    // payment-followup-daily'`) as the sibling payment-reminder cron, which
+    // already gates its client nudge on this exact toggle -- this cron never
+    // did, so disabling "Payment reminder" SMS in a tenant's Communications
+    // settings had zero effect on this send path.
+    const payPrefs = await getCommPrefs(tenant.id)
+    const clientNudgeOn = payPrefs.comms.payment_reminder?.sms !== false
+
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
       .select('id, client_id, price, end_time, clients(name, phone, sms_consent)')
@@ -97,7 +107,7 @@ export async function GET(request: Request) {
     for (const booking of unpaid || []) {
       if (sent >= MAX_SENDS_PER_RUN) { capHit = true; break }
       const client = booking.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null } | null
-      if (!booking.client_id || !client?.phone || client.sms_consent === false) continue
+      if (!booking.client_id || !client?.phone || client.sms_consent === false || !clientNudgeOn) continue
 
       // Per-slot idempotency: already chased this booking this slot?
       const { count } = await supabaseAdmin
