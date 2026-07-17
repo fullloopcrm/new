@@ -46,11 +46,17 @@ export async function GET() {
       .order('created_at', { ascending: false })
       .limit(10000)
 
+    // 'paid' is a completed job bulk payroll (POST /api/finance/payroll)
+    // has since flipped past 'completed' once the team member was paid
+    // out -- still a finished job for outreach purposes. Omitting it made
+    // a recently-serviced client's booking invisible to this query
+    // entirely (not just under-counted), which could falsely surface them
+    // as "workable"/overdue-for-outreach or show $0 lifetime spend.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
       .select('client_id, start_time, status, price')
       .eq('tenant_id', tenantId)
-      .in('status', ['completed', 'scheduled', 'in_progress'])
+      .in('status', ['completed', 'scheduled', 'in_progress', 'paid'])
       .limit(10000)
 
     const { data: activeDeals } = await supabaseAdmin
@@ -64,12 +70,13 @@ export async function GET() {
 
     const clients = ((allClients as ClientRow[] | null) || []).map(client => {
       const cb = ((bookings as BookingRow[] | null) || []).filter(b => b.client_id === client.id)
-      const completed = cb.filter(b => b.status === 'completed')
+      const completed = cb.filter(b => b.status === 'completed' || b.status === 'paid')
       const totalSpent = completed.reduce((sum, b) => sum + (b.price || 0), 0)
       const totalBookings = completed.length
 
       const futureBookings = cb.filter(b =>
-        b.start_time && new Date(b.start_time).getTime() > now.getTime() && b.status !== 'completed'
+        b.start_time && new Date(b.start_time).getTime() > now.getTime()
+        && b.status !== 'completed' && b.status !== 'paid'
       )
       const hasUpcoming = futureBookings.length > 0
 
