@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -31,8 +32,15 @@ export async function GET(request: NextRequest) {
 
   const allVisits = visits || []
   const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime()
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1).getTime()
+  // website_visits.created_at is TIMESTAMPTZ (aware) -- the old
+  // `new Date().getFullYear()/getMonth()/getDate()` read the SERVER's local
+  // calendar (UTC on Vercel), a full day ahead of ET for ~4-5h every
+  // evening, misplacing "today"/"this month" visit counts during that
+  // window. Fixed with the true-UTC-instant of ET midnight (an aware column
+  // needs a real UTC instant, unlike bookings.start_time's naive-ET string).
+  const { y: ty, m: tm, d: td } = etYMD(now)
+  const todayStart = etMidnightUtc(ty, tm, td).getTime()
+  const monthStart = etMidnightUtc(ty, tm, 1).getTime()
 
   const pageViews = allVisits.filter(v => v.action === 'visit' || !v.action)
   const ctaEvents = allVisits.filter(v => v.cta_type)
