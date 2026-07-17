@@ -3,6 +3,7 @@ import { isHoliday } from '@/lib/holidays'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { hourToLabel, slotStartHours } from '@/lib/time-slots'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export interface AvailabilitySlot {
   time: string
@@ -221,7 +222,22 @@ export async function checkTeamAvailability(
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
 
+  // HR termination never touches team_members.status/active (deliberate --
+  // hr_status lives on hr_employee_profiles instead, see hr.ts). Without this,
+  // this function's two callers -- the admin calendar's reassignment panel
+  // (/api/team-availability) and /api/admin/team-availability-batch -- would
+  // list a fired employee as a normal "Available" pick. scoreTeamForBooking
+  // (smart-schedule.ts) already carries the identical guard for its own four
+  // callers; this closes the same gap for this sibling function.
+  const terminatedIds = new Set(
+    await getTerminatedTeamMemberIds(tenantId, (allMembers || []).map(m => m.id as string))
+  )
+
   return (allMembers || []).map(member => {
+    if (terminatedIds.has(member.id)) {
+      return { id: member.id, name: member.name, available: false, conflict: 'No longer employed' }
+    }
+
     const worksToday = membersForDay.some(m => m.id === member.id)
     if (!worksToday) {
       return { id: member.id, name: member.name, available: false, conflict: 'Not scheduled to work' }
