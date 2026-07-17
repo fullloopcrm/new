@@ -22,6 +22,16 @@ describe('recurringDiscountPct', () => {
     expect(recurringDiscountPct('monthly')).toBe(0.1)
   })
 
+  it('triweekly (all spellings) → 10%, same tier as its biweekly/monthly neighbors', () => {
+    // Real, staff-selectable RecurringType (quote builder's cadence picker) that
+    // reaches real bookings via sale-to-recurring.ts and gets billed through
+    // team-portal/checkout's applyRecurringDiscount call same as every other
+    // cadence -- must not silently fall through to the 0% default.
+    expect(recurringDiscountPct('triweekly')).toBe(0.1)
+    expect(recurringDiscountPct('tri-weekly')).toBe(0.1)
+    expect(recurringDiscountPct('tri_weekly')).toBe(0.1)
+  })
+
   it('"1st Mon" / "3rd Fri" (BookingsAdmin.tsx\'s own monthly_day display-string convention) → 10%', () => {
     // BookingsAdmin.tsx (dashboard/bookings/_recurring.ts's getRecurringDisplayName) stores
     // this human label directly as recurring_type instead of an enum key -- same monthly
