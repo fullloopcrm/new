@@ -5395,3 +5395,101 @@ here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (119) Archetype depth — item (117)'s own flagged-but-deferred follow-up: two more UTC-implicit date/time renders, both in same-day-dispatch-relevant admin alerts — NOW FIXED
+
+Item (117) fixed 15 route/cron files rendering `notify()`/SMS date-time
+text with no `timeZone` option, and explicitly flagged one file it
+deliberately left unchased: `bookings/batch-update/route.ts:108`
+reconstructs a Date from `start_time`'s raw Y/M/D/H/M string components
+rather than parsing it as an instant — "a different mechanism that may
+already sidestep this exact bug depending on how `start_time` is actually
+stored; needs its own investigation before touching, left alone here." Ran
+that investigation, plus a fresh repo-wide sweep for any bare
+`toLocaleDateString`/`toLocaleTimeString`/`toLocaleString` call added
+*after* item (117)'s sweep closed (so not caught by it).
+
+Investigation confirmed the deferred file is a live bug, not a sidestep:
+`start_time` is stored as a UTC ISO string (`...Z` suffix), so splitting it
+into `[y,m,d]`/`[h,min]` and feeding those raw numbers into
+`new Date(y, m-1, d, h, min)` constructs a Date whose components are the
+*UTC* clock reading, not the tenant's local one — then rendering with no
+`timeZone` option (defaulting to the server's runtime zone, UTC on Vercel)
+faithfully reproduces that same UTC calendar date. Net effect: the "Series
+Updated" admin in-app notification (BookingsAdmin's own "apply to all
+future bookings" series-edit path) silently displays the UTC calendar date
+instead of the tenant's — the exact same bug class as items
+(70)/(115)/(117), just via a different broken mechanism than a plain
+missing-option call.
+
+The fresh sweep found one more, added after item (117)'s pass:
+`team-portal/jobs/release/route.ts` — a member releasing their own job back
+to the open pool (e.g. sick that morning) triggers an admin push
+(`"${name} released ${client}'s job (${when}) back to the open pool"`)
+whose `when` is a bare `toLocaleString` with no `timeZone`, same
+UTC-default gap. This one is the most directly archetype-relevant of the
+two: a same-day emergency release mid-shift — a tech going down on a
+burst-pipe job with no backup lined up — is exactly the case where an admin
+seeing the wrong hour/date while scrambling to re-dispatch is most costly.
+
+**Fixed** — `batch-update/route.ts` now parses `start_time` as a real
+instant (`new Date(first.start_time)`) and renders with
+`tenant.tenant.timezone` (already in scope via `requirePermission`'s
+already-loaded tenant row — no extra query needed), falling back to
+`America/New_York` per the same documented convention. `jobs/release/
+route.ts` had no tenant timezone available at all (`PortalAuth` only
+carries `{id, tid, role}`), so added a parallel tenant-timezone fetch
+alongside the existing team-member-name lookup — through `supabaseAdmin`
+directly, not the `tenantDb` wrapper, since `tenants` has no `tenant_id`
+column (it IS the tenant row) and `tenantDb`'s auto-scoping would append a
+filter on a column that doesn't exist; `tenant-db.ts`'s own header comment
+already documents this exact rule.
+
+2 new test files, mutation-verified (`git apply -R` each fix, RED for the
+expected reason both times — the Pacific-zone assertion failed against the
+UTC-implicit render, e.g. "Mon, Aug 10" instead of "Aug 9" — `git apply`
+restored, GREEN). `tsc --noEmit` clean, full suite 419/419 files,
+2016/2016 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not touched
+here).
+
+## (120) Fresh ground (webhook-event coverage gap, same shape as item (106) but a different provider event) — Resend's `email.suppressed` event had zero handling — NOW FIXED
+
+Items (102)/(106) already closed two Resend webhook-event gaps
+(`email.complained`, `email.failed`). Checked whether any more of Resend's
+event catalog went unhandled by reading the installed SDK's own type
+definitions directly (`node_modules/resend/dist/index.d.ts`'s
+`WebhookEvent` union — not guessed, not assumed from memory): it lists
+`email.suppressed` alongside `bounced`/`complained`/`failed`, the first
+three of which already had a branch in `webhooks/resend/route.ts`'s
+handler. `email.suppressed` fell through to the generic
+`else { return NextResponse.json({ ok: true }) }`.
+
+Resend fires this event when a send is never even attempted because the
+recipient is already on the account's suppression list (a prior hard
+bounce, complaint, or unsubscribe) — a terminal non-delivery outcome, same
+category as `email.bounced`, just for a send that never left the launch
+pad. Without a branch, a suppressed recipient's `campaign_recipients` row
+stayed stuck at whatever status it was pre-send (almost always `'sent'`)
+forever — the aggregate recount a few lines below already treats
+`'failed'`/`'bounced'` as first-class for `failed_count`, but nothing ever
+produced either status for a suppressed send, so `failed_count` silently
+undercounted every one — identical shape to item (106)'s `email.failed`
+gap before that fix.
+
+**Fixed** — mirrors the existing `email.bounced` branch exactly (status
+update only, no opt-out side effects — unlike `email.complained`,
+suppression by itself isn't a spam-complaint signal, so no
+`marketing_opt_out_log`/`email_marketing_opt_out` write).
+
+1 new test file (3 cases: status set to `bounced`, no opt-out side effect,
+`failed_count` aggregate recount), mutation-verified (`git apply -R` the
+fix, 2 of 3 cases RED for the expected reason — status stayed `'sent'`,
+`failed_count` stayed 0 — `git apply` restored, GREEN). `tsc --noEmit`
+clean, full suite 420/420 files, 2018/2018 tests, zero regressions (same
+pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
