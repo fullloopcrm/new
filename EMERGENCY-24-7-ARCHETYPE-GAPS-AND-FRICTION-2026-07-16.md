@@ -113,6 +113,100 @@ fixed — needs a product call on what the push mechanism should be (SMS
 blast to all on-call/available techs? A single most-likely-available tech?)
 before building it.
 
+## (5) New today — SMS confirmation has the identical price-transparency gap as the email (P11.19)
+
+Same shape of gap as item (3)'s P11.19 finding, different channel: `smsBookingReceived()`
+(`src/lib/sms-templates.ts`) takes `is_emergency` and correctly renders
+"URGENT request received...We're treating this as a priority" (the P11.14
+fix), but its signature has no price/rate field at all, so there is no code
+path by which it could ever mention cost. Called live (not mocked):
+`is_emergency:true` → `"Acme Plumbing: URGENT request received for Thu, Jul
+16 at 8:23 PM. We're treating this as a priority and working to confirm
+ASAP."` — no `$`/price/rate/surcharge wording, same as the email. This is
+arguably the more consequential of the two gaps: a customer is more likely
+to read the SMS than open the email. Formalized today as `P11.20` in
+`scripts/sim-all-trades.ts` (tsc clean; verified by reading the signature
+and calling the live, DB-free `smsBookingReceived()` function directly —
+this worktree still has no `.env.local`/Supabase env to run the full sim
+harness, same constraint as P11.8-19). Not fixed — same product call as
+P11.19 (show the rate when `is_emergency`, or state "emergency/after-hours
+rate applies").
+
+## (6) New today — the primary Bookings admin page has been silently no-oping team-member writes
+
+Diff-method sweep, not archetype-specific but directly touches this
+archetype's dispatch chain (P11.10-13, P11.18): `BookingsAdmin.tsx`
+(`src/app/dashboard/bookings/`, the main "Bookings" admin page — the single
+most-used operator screen in the app) has been reading/writing a `bookings`
+table using **wrong field names inherited from an old nycmaid-era naming
+scheme** — `cleaner_id`/`cleaner_pay`/`cleaner_paid`/`cleaner_token`/
+`suggested_cleaner_id`/`cleaners` (join alias) — none of which are real
+columns. Verified via three independent sources: the base `bookings` table
+definition (`supabase/schema.sql:134`, columns are `team_member_id`,
+`team_pay`, `team_paid`, `worker_token`), an explicit migration comment
+(`migrations/2026_05_19_ratings_team_bookings.sql:3`: *"cleaner_id →
+team_member_id (fullloop convention)"*), and — the clincher — every OTHER
+dashboard page that reads the same API response (calendar's `ProjectsView`/
+`KanbanView`/`CalendarBoard`, the main dashboard, `bookings/[id]`,
+`schedules`, `books`/payroll, `map-view`, `sales/routes`) correctly uses
+`.team_members?.name`. Only `BookingsAdmin.tsx` used the stale names. Real
+production impact, all silent (no error, no exception — `pick()`
+allowlists on the API side just drop unrecognized keys):
+- The primary bookings list showed **every booking's assigned tech as
+  "Unassigned"** (`b.cleaners?.name || 'Unassigned'`) regardless of whether
+  `team_member_id` was actually set, in 4+ places in the list/card views.
+- Opening any existing booking to edit reset the "assigned cleaner" field
+  to blank every time (reading `booking.cleaner_id`, always `undefined`).
+- Check-in / checkout / closeout's computed technician payout
+  (`cleaner_pay`) was **never actually saved** to the booking — the UI
+  calculated and displayed it, but the PUT body key didn't match the API's
+  `pick()` allowlist (`team_pay`), so it silently no-op'd on every job
+  closeout. Payroll-accuracy impact for any tenant using this admin flow.
+- The "Team Paid" checkbox in the close-out list (`cleaner_paid`) never
+  persisted either — same allowlist miss (`team_paid` is the real, already-
+  accepted column).
+- "Copy team link" copied a broken URL (`undefined`) — reads
+  `cleaner_token` instead of the real `worker_token`.
+- The "suggested tech" banner (`suggested_cleaner_id`) could never show —
+  real column is `suggested_team_member_id`.
+- Team-member assignment was silently dropped on booking **creation** too:
+  the default "single booking" create flow (`POST /api/bookings/batch`) and
+  the "repeat booking" flow (`POST /api/bookings`) both sent `cleaner_id`;
+  neither endpoint recognizes that key, only `team_member_id`.
+  Multi-worker "extra crew" assignment on save also silently dropped
+  (`/api/bookings/[id]/team` PUT expects `extra_team_member_ids`, was sent
+  `extra_cleaner_ids`).
+
+**Fixed** (commit pending push, this session, `p1-w3`) — renamed all of the
+above to match the real, already-correct API contracts (no DB migration
+needed; the correct columns already existed and are already used correctly
+by every sibling page). Two admin routes (`/api/admin/recurring-schedules`
+and its `/regenerate` sub-route) already had a `cleaner_id` nycmaid-alias
+fallback baked in — left untouched, no bug there. Verification: `tsc
+--noEmit` clean (the interface rename forced every static reference through
+the type checker — used as the change checklist), full existing suite
+328/328 files, 1738/1738 tests, zero regressions (no dedicated test existed
+for this component before or after — it's a 2700-line client page with no
+render-test harness in this repo; verification here is type-level +
+manual cross-reference against every target route's actual accepted field
+names, not a rendered/clicked end-to-end test).
+
+**Not fixed, noticed but out of scope for this pass** (same class, lower
+confidence or bigger lift):
+- `cleaner_pay_rate` (createForm, the per-job tech pay-rate field on the
+  "New Booking" modal) — not a naming mismatch, `POST /api/bookings`'s
+  `validate()` allowlist doesn't accept ANY per-job pay-rate field at all,
+  under any name. Needs a schema/endpoint decision, not a rename.
+- `POST /api/bookings/batch` doesn't accept `team_size`/extra-crew fields
+  at all (only the single `team_member_id` lead) — multi-worker jobs can
+  only get extra crew assigned via a follow-up edit, not at initial
+  creation. Missing feature, not a bug.
+- Batch series edits ("apply to all future bookings") silently drop
+  `service_type` and `recurring_type` changes — `BATCH_UPDATE_FIELDS` in
+  `/api/bookings/batch-update` only allows `service_type_id`, not the plain
+  `service_type` text field the edit form actually sends. Same bug class as
+  this section, not yet verified/fixed.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
