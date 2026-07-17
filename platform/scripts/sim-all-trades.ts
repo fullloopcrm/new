@@ -3190,6 +3190,62 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-34. team-portal/availability (crew's own Working Days / Time Off settings) — WRONG COLUMN (fresh ground, second instance of this session's field-wiring bug class on the team-member side) ----
+    // team-portal/availability/route.ts used to read/write a JSON blob into
+    // team_members.notes ("Store availability in member notes as JSON for
+    // now") instead of the real team_members.working_days (TEXT[]),
+    // unavailable_dates (DATE[]), and schedule (JSONB) columns — all added by
+    // migrations/013_full_parity.sql, the same migration that added
+    // notification_preferences (5a-33's fix, this route's neighbor). Those
+    // real columns are exactly what src/lib/smart-schedule.ts,
+    // cron/generate-recurring, cron/schedule-monitor, and
+    // admin/find-cleaner/preview read to decide who's available on a given
+    // date. A crew member requesting time off had zero effect on future
+    // scheduling — cron/generate-recurring could still generate a new
+    // recurring booking on the exact date they blocked. Now fixed to target
+    // working_days/unavailable_dates/schedule directly. This probe proves
+    // those three columns genuinely exist on the live team_members table and
+    // that the fixed route's exact select/update shape round-trips correctly
+    // without touching `notes`.
+    {
+      const availGatePhone = '917' + String(5200000 + idx * 131 + (Date.now() % 1000)).slice(-7)
+      const { data: availGateMember, error: availGateMemberErr } = await supabase.from('team_members').insert({
+        tenant_id: tenant.id, name: 'Availability Field-Wiring Gate Crew', phone: availGatePhone,
+        notes: `UNRELATED LEGACY TEXT ${runId} — must survive untouched`,
+      }).select('id, notes').single()
+      add('team-avail-gate: crew row created with unrelated notes text', !!availGateMember && !availGateMemberErr, availGateMemberErr?.message)
+
+      if (availGateMember?.id) {
+        // team-portal/availability's fixed GET select shape.
+        const availGateRow = await supabase.from('team_members').select('working_days, unavailable_dates, schedule').eq('id', availGateMember.id).eq('tenant_id', tenant.id).single()
+        add('team-avail-gate: working_days/unavailable_dates/schedule columns exist on the live team_members table (migration 013 landed)', !availGateRow.error, availGateRow.error?.message)
+
+        // team-portal/availability's fixed PUT update shape — crew sets 3
+        // working days and blocks a future date, same as a real save.
+        const { error: availUpdateErr } = await supabase.from('team_members').update({
+          working_days: ['1', '3', '5'],
+          unavailable_dates: ['2026-09-15'],
+          schedule: { '1': { start: '09:00', end: '17:00' } },
+        }).eq('id', availGateMember.id).eq('tenant_id', tenant.id)
+        add('team-avail-gate: PUT update() call succeeds', !availUpdateErr, availUpdateErr?.message)
+
+        const { data: availAfter } = await supabase.from('team_members').select('notes, working_days, unavailable_dates, schedule').eq('id', availGateMember.id).eq('tenant_id', tenant.id).single()
+        add('team-avail-gate: PUT writes the real working_days column', JSON.stringify(availAfter?.working_days) === JSON.stringify(['1', '3', '5']), JSON.stringify(availAfter))
+        add('team-avail-gate: PUT writes the real unavailable_dates column', JSON.stringify(availAfter?.unavailable_dates) === JSON.stringify(['2026-09-15']), JSON.stringify(availAfter))
+        add('team-avail-gate: PUT writes the real schedule column', availAfter?.schedule?.['1']?.start === '09:00', JSON.stringify(availAfter))
+        add('team-avail-gate: PUT never mutates the unrelated notes field', availAfter?.notes === availGateMember.notes, JSON.stringify(availAfter))
+
+        // This is the actual production consequence: the exact select+includes
+        // shape cron/generate-recurring, smart-schedule.ts, and
+        // admin/find-cleaner/preview all use now sees this crew member's real
+        // blocked date, where before it always read an empty/null column.
+        const schedulerCheck = await supabase.from('team_members').select('unavailable_dates').eq('id', availGateMember.id).single()
+        add('team-avail-gate: cron/generate-recurring\'s own unavailable_dates.includes(date) check now actually sees this crew member\'s time-off request', !!schedulerCheck.data?.unavailable_dates?.includes('2026-09-15'), JSON.stringify(schedulerCheck.data))
+
+        await supabase.from('team_members').delete().eq('id', availGateMember.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
