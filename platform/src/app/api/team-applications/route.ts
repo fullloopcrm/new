@@ -151,6 +151,45 @@ export async function PUT(request: Request) {
       return NextResponse.json({ error: 'ID and status required' }, { status: 400 })
     }
 
+    if (status === 'approved') {
+      // CAS: `.neq('status', 'approved')` makes this update a no-op (0 rows)
+      // if the application was already approved. Without it, a double-click
+      // or retry hitting this route twice for the same application re-ran
+      // provisionApprovedApplicant on every call -- team_members dedup by
+      // phone so no duplicate hire was created, but the applicant's welcome
+      // email (with their PIN) was silently RE-SENT every time, with no cap.
+      const { data: claimed, error: claimErr } = await supabaseAdmin
+        .from('team_applications')
+        .update({ status })
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .neq('status', 'approved')
+        .select()
+        .maybeSingle()
+
+      if (claimErr) return NextResponse.json({ error: claimErr.message }, { status: 500 })
+
+      // On the actual pending->approved transition, provision the applicant as
+      // a team member (PIN + portal) and email them. Best-effort: a failure
+      // here must never undo the status update.
+      if (claimed) {
+        try {
+          await provisionApprovedApplicant(tenant.tenantId, claimed as ApprovedApplication)
+        } catch (provErr) {
+          console.error('Approve provisioning/email failed:', provErr instanceof Error ? provErr.message : provErr)
+        }
+      }
+
+      const { data, error } = await supabaseAdmin
+        .from('team_applications')
+        .select()
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .single()
+      if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+      return NextResponse.json({ application: data })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('team_applications')
       .update({ status })
@@ -160,16 +199,6 @@ export async function PUT(request: Request) {
       .single()
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-
-    // On approval, provision the applicant as a team member (PIN + portal) and
-    // email them. Best-effort: a failure here must never undo the status update.
-    if (status === 'approved' && data) {
-      try {
-        await provisionApprovedApplicant(tenant.tenantId, data as ApprovedApplication)
-      } catch (provErr) {
-        console.error('Approve provisioning/email failed:', provErr instanceof Error ? provErr.message : provErr)
-      }
-    }
 
     return NextResponse.json({ application: data })
   } catch (e) {
