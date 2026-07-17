@@ -1910,6 +1910,45 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           add('apology-batch: the fixed predicate skips both the unsubscribe-link client and the STOP-reply client', apologySkipped.includes(unsubClient?.id) && apologySkipped.includes(stopClient?.id), JSON.stringify(apologySkipped))
           add('apology-batch: CONTROL — the fixed predicate still sends to the consenting client', apologySent.includes(consentingClient?.id) && !apologySent.includes(unsubClient?.id) && !apologySent.includes(stopClient?.id), JSON.stringify(apologySent))
         }
+
+        // ---- 5a-12. RECURRING-SCHEDULE MONTHLY-DATE GENERATION — PERMANENT-DRIFT FIX (fresh ground, first archetype coverage of a bug class outside terminated-crew/consent) ----
+        // generateRecurringDates() (@/lib/recurring.ts) is the exact production
+        // function POST /api/schedules' initial creation AND cron/generate-
+        // recurring's weekly refill both call to expand a recurring_schedules
+        // row into real bookings -- this archetype's monthly maintenance-
+        // contract clients (roofing/remodeling follow-ups billed on a fixed
+        // day of the month) are exactly the shape that hits monthly_date. Before
+        // this round its monthly_date branch chained setMonth() off the
+        // PREVIOUS iteration's result: a day-29/30/31 anchor that overflowed a
+        // short month (Jan 31 -> setMonth(+1) rolls to Mar 3, silently
+        // skipping February's occurrence outright) became the new PERMANENT
+        // baseline for every month after it (Mar 3 -> Apr 3 -> ... forever),
+        // silently and forever shifting the client's billed visit day. Fixed
+        // this round: every month is recomputed fresh off the true anchor day,
+        // clamped to that month's real length. Pure function, no
+        // requirePermission/DB-write guard to route around -- proves the exact
+        // production function (not a reimplementation) still holds a real
+        // recurring_schedules row's anchor steady across repeated short-month
+        // crossings in this archetype tenant.
+        {
+          const { generateRecurringDates } = await import('../src/lib/recurring')
+          const { data: monthlySchedule, error: monthlyErr } = await supabase.from('recurring_schedules').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, team_member_id: (helper?.id || worker?.id) ?? null,
+            recurring_type: 'monthly_date', day_of_week: null, preferred_time: '09:00:00', duration_hours: 2,
+            hourly_rate: 55, status: 'active',
+          }).select('id').single()
+          add('recurring-drift: monthly_date recurring_schedules row seeded for the permanent-drift probe', !!monthlySchedule && !monthlyErr, monthlyErr?.message)
+
+          // Day-31 anchor, deliberately chosen so the very first advance
+          // crosses February (the shortest month) and proves the clamp, not
+          // just the happy path.
+          const anchor = new Date(2026, 0, 31) // Jan 31
+          const generated = generateRecurringDates({ recurringType: 'monthly_date', startDate: anchor, weeksToGenerate: 5 })
+          add('recurring-drift: 5 monthly occurrences generated off a day-31 anchor', generated.length === 5, `${generated.length}`)
+          add('recurring-drift: Feb clamps to the 28th instead of silently skipping straight to Mar 3 (the old chained-mutation bug)', generated[1]?.getMonth() === 1 && generated[1]?.getDate() === 28, generated[1]?.toISOString())
+          add("recurring-drift: Mar returns to the TRUE anchor day 31 -- proves no permanent drift off Feb's clamp (the old bug would already read Apr 3 here, two months behind)", generated[2]?.getMonth() === 2 && generated[2]?.getDate() === 31, generated[2]?.toISOString())
+          add('recurring-drift: May (a second 31-day month, crossed after two more short/long months) is still 31 -- confirms the anchor never degrades across repeated crossings', generated[4]?.getMonth() === 4 && generated[4]?.getDate() === 31, generated[4]?.toISOString())
+        }
       }
     }
 
