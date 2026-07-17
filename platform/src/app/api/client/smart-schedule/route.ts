@@ -55,10 +55,17 @@ export async function GET(request: Request) {
     if (!tenantId) {
       return NextResponse.json({ cleaners: [] })
     }
+    // team_members.active is a stale, never-written import snapshot column
+    // (see e33f55ef / migration 2026_07_17_team_members_active_column_backfill_PROPOSED.sql)
+    // -- status is the field HR termination actually maintains. lib/smart-schedule.ts's
+    // real scoring path already filters on status; this unscored fallback picker
+    // didn't, so a terminated team member with a stale active=true could still be
+    // shown to the public as bookable, while a currently active member with a
+    // stale active=false silently vanished from their own booking form.
     const { data: all } = await tenantDb(tenantId)
       .from('team_members')
       .select('id, name')
-      .eq('active', true)
+      .neq('status', 'inactive')
       .order('name')
     const cleaners = (all || []).map(c => ({
       id: c.id,

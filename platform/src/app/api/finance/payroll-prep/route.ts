@@ -35,11 +35,25 @@ export async function GET(request: Request) {
     }
     const toTs = `${to}T23:59:59Z`
 
+    // No status/active filter on purpose: this seeds rowMap, and anyone NOT
+    // in rowMap has their bookings silently skipped by the `if (!row)
+    // continue` below -- for a 1099/payroll report that's a real compliance
+    // bug, not a UX nicety. team_members.active is also a stale, never-written
+    // import snapshot column (see e33f55ef / migration
+    // 2026_07_17_team_members_active_column_backfill_PROPOSED.sql) that had
+    // drifted from `status` for a live sample of the roster -- filtering on
+    // it here was dropping currently-active contractors' gross pay from
+    // their own payroll/1099 report entirely. Filtering on `status` instead
+    // would fix that but reintroduce the same class of bug for a DIFFERENT
+    // case this report specifically needs: a contractor terminated mid-year
+    // still earned $600+ and still needs their 1099 flagged and their
+    // balance_owed reconciled after they're gone. Fetch every team member
+    // for the tenant; anyone with zero bookings/payouts in the window just
+    // renders as a zero-pay row.
     const { data: teamMembers } = await supabaseAdmin
       .from('team_members')
       .select('id, name, phone, tax_classification, tax_ein, tax_ssn_last4, tax_business_name, tax_address, tax_city, tax_state, tax_zip')
       .eq('tenant_id', tenantId)
-      .neq('active', false)
 
     // Include 'paid' alongside 'completed': POST /api/finance/payroll (bulk
     // payroll) flips a claimed booking's own status straight to 'paid' with

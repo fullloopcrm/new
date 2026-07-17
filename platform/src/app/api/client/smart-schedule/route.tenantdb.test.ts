@@ -23,6 +23,7 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
     gte: () => c,
     order: () => c,
     maybeSingle: async () => ({ data: matched()[0] || null, error: null }),
@@ -89,5 +90,32 @@ describe('GET /api/client/smart-schedule — tenantDb scoping (picker fallback)'
     const res = await GET(new Request('https://x?client_id=c-1'))
     const body = await res.json() as { cleaners: Row[] }
     expect(body.cleaners.map((c) => c.id)).toContain('tm-mine')
+  })
+
+  // team_members.active is a stale, never-written import snapshot column
+  // (see e33f55ef) that drifts from `status`, the field HR termination
+  // actually maintains. This route used to filter on `active`, so a
+  // terminated team member with a stale active=true stayed bookable to the
+  // public here, while a currently active member with a stale active=false
+  // vanished from their own tenant's booking form. Fixed to filter on
+  // `status`, matching lib/smart-schedule.ts's real scoring path.
+  it('excludes a terminated team member whose stale active column still says true', async () => {
+    DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, address: '1 Main St', preferred_team_member_id: null })
+    DB.team_members.push({ id: 'tm-terminated', tenant_id: TENANT_A, name: 'Terminated Tom', status: 'inactive', active: true })
+    hostTenantId = TENANT_A
+
+    const res = await GET(new Request('https://x?client_id=c-1'))
+    const body = await res.json() as { cleaners: Row[] }
+    expect(body.cleaners.map((c) => c.id)).not.toContain('tm-terminated')
+  })
+
+  it('includes a currently active team member whose stale active column says false', async () => {
+    DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, address: '1 Main St', preferred_team_member_id: null })
+    DB.team_members.push({ id: 'tm-stale', tenant_id: TENANT_A, name: 'Stale Sam', status: 'active', active: false })
+    hostTenantId = TENANT_A
+
+    const res = await GET(new Request('https://x?client_id=c-1'))
+    const body = await res.json() as { cleaners: Row[] }
+    expect(body.cleaners.map((c) => c.id)).toContain('tm-stale')
   })
 })

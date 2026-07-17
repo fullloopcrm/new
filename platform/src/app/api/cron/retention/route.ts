@@ -34,12 +34,22 @@ export async function GET(request: Request) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
 
     try {
-      // Find active clients with SMS consent
+      // Find active clients with SMS consent. clients.active is a stale,
+      // never-written NYC-Maid-import snapshot column (see
+      // 2026_07_17_clients_active_column_backfill_PROPOSED.sql) -- a
+      // production sample found 426 of 439 status='inactive' clients still
+      // read active=true, so this filter was excluding almost none of them.
+      // That included clients whose status is 'do_not_contact', a distinct
+      // value this filter never checked at all -- this daily cron was
+      // sending unsolicited retention SMS to clients explicitly marked
+      // do-not-contact in the CRM. Filter on `status` instead, the field
+      // client edits/DNS flagging actually maintain, and exclude
+      // do_not_contact alongside inactive.
       const { data: clients } = await supabaseAdmin
         .from('clients')
         .select('id, name, phone')
         .eq('tenant_id', tenant.id)
-        .eq('active', true)
+        .not('status', 'in', '(inactive,do_not_contact)')
         .eq('sms_consent', true)
         .not('phone', 'is', null)
         .limit(500)
