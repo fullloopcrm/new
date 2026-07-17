@@ -4259,3 +4259,62 @@ try/catch-wrapped). `tsc --noEmit` clean, full suite 392/392 files,
 1936/1936 tests, zero regressions (same pre-existing, unrelated
 `tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
 touched here).
+
+## (96) Fresh ground, same file as items (94)/(95) — item (94)'s tools.ts-only audit missed that the identical `cleaners`/`cleaner_id` vocabulary bug repeats across ~8 more `core.ts` call sites outside `handleCreateBooking` — NOW FIXED
+
+While landing item (95), a full sweep of the rest of `core.ts` (not just
+`handleCreateBooking`) turned up the same wrong-vocabulary shape item (94)
+found and fixed in `tools.ts`, repeated across every other place `core.ts`
+touches team-member data:
+
+- `isCleanerPhone` — the staff-phone detector (used to route an inbound SMS
+  to the staff-message path instead of the client-booking flow) queried
+  `.from('cleaners')` with a bare boolean `.eq('active', true)`; the real
+  `team_members` table has no `active` column, only `status`
+  (`'active'|'inactive'|'suspended'`). Every staff phone number has been
+  falling through to the client flow.
+- `handleGetAccount` (`get_account`) — both its upcoming-bookings and
+  active-recurring-schedule queries joined `cleaners(name)`.
+- `handleResendConfirmation` (`resend_confirmation`) — joined
+  `cleaners(name)` into the booking-confirmation resend email.
+- `handleConfirmPayment` (`confirm_payment`) — selected `cleaner_id` and
+  joined `cleaners(name, phone, sms_consent)`; both unused by the function
+  itself, but a nonexistent-relationship join still fails the whole query
+  against real Postgres, not just the two dead fields.
+- `handleLookupBookings` (`lookup_bookings`) — joined `cleaners(name)`.
+- `handleBookingDetails` (`booking_details`) — selected the nonexistent
+  `cleaner_pay` column (real column, added by
+  `011_parity_with_nycmaid.sql`: `team_member_pay`) and joined
+  `cleaners(name)`.
+- `getClientProfile` (backs the AI's own context-building, not a
+  client-facing tool) — two separate queries joined `cleaners(name)`,
+  feeding both the "preferred cleaner" tally (most-frequent completed-job
+  tech) and the upcoming/recent booking lists.
+
+Every one of these functions is wrapped in try/catch that swallows the
+query error and returns a generic `{ error: '...' }` (or, for
+`getClientProfile`/`isCleanerPhone`, silently degrades to
+nulls/`isCleaner: false`) — so nothing crashed, but `get_account`,
+`resend_confirmation`, `confirm_payment`, `lookup_bookings`, and
+`booking_details` have been unconditionally failing for every tenant,
+every channel, since whenever core.ts last touched these queries, and
+`isCleanerPhone` has been silently misrouting every staff member's texts
+into the client-booking flow the whole time.
+
+**Fixed** — every site above rewired to `team_members`, `status`,
+`team_member_id`, `team_member_pay`, and `team_members(name)` joins, the
+same mapping item (94) established. No LLM/tool-schema field names
+changed (none of these fields were ever tool-facing).
+
+6 new tests (`core.team-members-schema.test.ts`) through the real
+`handleTool` dispatcher and the directly-exported `isCleanerPhone`/
+`handleBookingDetails`/`getClientProfile`: staff-phone active/inactive
+matching, `get_account`'s upcoming + recurring cleaner surfacing,
+`lookup_bookings`, `booking_details`, and `getClientProfile`'s preferred-
+cleaner tally + upcoming/recent lists. Mutation-verified: `git apply -R`
+the fix, 5/6 RED for the expected reason (the 6th — the inactive-team-
+member negative case — correctly still passed, since a wrong table lookup
+still correctly finds nothing) — `git apply` restored, GREEN. `tsc
+--noEmit` clean, full suite 393/393 files, 1942/1942 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning,
+not touched here).
