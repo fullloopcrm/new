@@ -16,6 +16,7 @@ import { areaContent, neighborhoodContent, neighborhoodFAQs, commonServiceFAQs, 
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { areaPageSchemas, neighborhoodPageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
+import { getSeoOverride } from '@/lib/seo/overrides'
 import { pickLifestylePhoto } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -44,8 +45,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const area = getAreaByUrlSlug(slug)
   if (area) {
     const url = `${brand.url}/${slug}`
-    const title = `${area.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
-    const description = `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Rated. ${brand.phone}`
+    const override = await getSeoOverride(url)
+    const title = override?.title || `${area.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
+    const description = override?.description || `Professional house cleaning in ${area.name} from $59/hr. Deep cleaning, weekly maid service, move-in/out & more. Licensed, insured, 5.0★ Rated. ${brand.phone}`
     return {
       title: { absolute: title },
       description,
@@ -60,8 +62,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (neighborhood) {
     const neighborhoodArea = getArea(neighborhood.area)!
     const url = `${brand.url}/${slug}`
-    const title = `${neighborhood.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
-    const description = `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Rated. ${brand.phone}`
+    const override = await getSeoOverride(url)
+    const title = override?.title || `${neighborhood.name} Maid Service & House Cleaning From $59/hr | ${brand.name}`
+    const description = override?.description || `Professional cleaning in ${neighborhood.name}, ${neighborhoodArea.name}. Serving ${neighborhood.housing_types.slice(0, 2).join(', ')} near ${neighborhood.landmarks[0]}. From $59/hr. 5.0★ Rated. ${brand.phone}`
     return {
       title: { absolute: title },
       description,

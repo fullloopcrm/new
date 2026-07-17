@@ -12,6 +12,7 @@ import { neighborhoodServiceContent, neighborhoodFAQs, serviceFAQs, commonServic
 import { neighborhoodServicePageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { toBrand } from '@/app/site/template/_lib/seo/brand'
+import { getSeoOverride } from '@/lib/seo/overrides'
 import { pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
 import Image from 'next/image'
 import JsonLd from '@/app/site/template/_components/JsonLd'
@@ -51,8 +52,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const area = getArea(neighborhood.area)!
   const brand = toBrand(await getSiteConfig())
   const url = `${brand.url}/${slug}/${serviceSlug}`
-  const title = `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | ${brand.name}`
-  const description = `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${brand.phone}`
+  const override = await getSeoOverride(url)
+  const title = override?.title || `${service.name} in ${neighborhood.name}, ${area.name} From $59/hr | ${brand.name}`
+  const description = override?.description || `Professional ${service.name.toLowerCase()} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 3).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${brand.phone}`
 
   return {
     title: { absolute: title },
