@@ -5116,3 +5116,131 @@ pre-existing, unrelated `tenant-scope` guard warning on
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (115) Archetype depth — item (70)'s own flagged-but-deferred follow-up run to ground: `sms-templates.ts`'s generic client/team SMS had zero timezone awareness at all, worse than item (70)'s original bug — NOW FIXED
+
+Item (70) fixed every "is this booking today" emergency-flag comparison to
+use the tenant's real configured timezone instead of the server runtime
+default, and explicitly flagged one thing it deliberately left unchased:
+`src/lib/timezone.ts`'s `formatInTz(iso, timezone)` helper — built
+specifically to render a booking timestamp in a tenant's own zone — had
+zero callers anywhere in the codebase, and item (70) called out "a separate
+pass to find where booking-time displays are still using raw/UTC-implicit
+formatting" as worth doing. Ran that pass.
+
+`src/lib/sms-templates.ts` — the neutral (non-cleaning) SMS template set
+`client-sms.ts`/`team-sms-resolver.ts` dispatch to for all ~23 non-cleaning
+tenants spanning all 4 continental US zones (per item (70)'s own count) —
+formats every date/time with `toLocaleDateString`/`toLocaleTimeString` and
+**no `timeZone` option at all**, in all 13 functions that touch a booking's
+`start_time` (client booking-received/confirmation/reminder/cancellation/
+reschedule, team job-assignment/cancelled/rescheduled/urgent-broadcast/
+late-check-in, the new-booking admin text, and the Spanish twins of the
+client-facing ones). That's a step worse than item (70)'s bug: `team-sms.ts`
+and `sms-cleaning.ts` (the cleaning-brand templates, nycmaid/the-florida-maid
+only) at least hardcode `America/New_York` consistently — not the tenant's
+real zone, but a real US zone and correct today since both cleaning tenants
+are Eastern. The generic templates used the server runtime's default zone
+(UTC on Vercel) with no fallback at all. Confirmed live, high-traffic impact
+via a full-repo trace of every `clientSmsTemplates`/`teamSmsTemplates` call
+site (13 route files: `bookings` create/update/batch/team,
+`client/book`, `client/reschedule/[id]`, `client/recurring`,
+`portal/bookings`, `team-portal/jobs/reassign`, and the
+`daily-summary`/`late-check-in`/`confirmation-reminder`/`reminders`/
+`rating-prompt` crons) — every one of these dispatches through the generic
+branch for any non-cleaning tenant, meaning every booking-confirmation,
+reminder, reschedule, cancellation, and team job-assignment text sent to a
+Pacific/Mountain/Central non-cleaning tenant's clients and team members
+displayed a clock time hours off from the tenant's own local time (up to 8
+hours for Pacific, hours enough to also flip the displayed calendar date
+near either zone's midnight).
+
+**Fixed** — added two local formatters (`fmtDate`/`fmtTime`) inside
+`sms-templates.ts` that take an optional `timezone` param, falling back to
+`America/New_York` when omitted (the same documented-default convention
+`formatInTz`/`zipToTimezone` already use elsewhere, so no existing caller's
+behavior gets worse — only better, from UTC to at least ET). All 13
+date/time-touching functions now accept and thread through this param.
+`client-sms.ts`/`team-sms-resolver.ts`'s `TenantLike` type and
+`BRAND_COLUMNS` select both gained `timezone`, and their neutral-branch
+dispatch now passes `tenant.timezone` to every generic call — fixing the 5
+crons/routes that call the async `*For(tenantId)` resolvers for free (their
+own select lives inside the resolver). The 7 remaining route files build a
+plain tenant object themselves and call the sync `clientSmsTemplates(tenant)`/
+`teamSmsTemplates(tenant)` directly; added `timezone` to each of their
+`tenants` select lists (`bookings/route.ts`, `bookings/[id]/route.ts`,
+`bookings/batch/route.ts`, `bookings/[id]/team/route.ts`,
+`team-portal/jobs/reassign/route.ts`, `cron/daily-summary/route.ts`,
+`cron/late-check-in/route.ts`) — `client/book`/`client/reschedule/[id]`/
+`portal/bookings` already select `*` via `getTenantFromHeaders()`, so those
+three needed no route change at all.
+
+Deliberately left `team-sms.ts`/`sms-cleaning.ts`'s hardcoded ET alone,
+same judgment call item (70) made for `selena/core.ts`'s single-tenant
+convention: both cleaning-industry tenants today are genuinely Eastern, so
+there's no live bug to fix there, just the same latent fragility already
+on record.
+
+Also noticed, not fixed: several of these same routes compute a raw,
+UTC-implicit `date`/`time` locally (no `timeZone` option) for their
+`notify()` call's title/message — a related but distinct bug on the in-app
+notification/admin-email side rather than the client/team SMS side this
+item scoped to (e.g. `bookings/route.ts:291-292`). Same shape, separate
+fix, worth its own pass.
+
+2 new test files (`sms-templates.timezone.test.ts` — 6 cases proving the
+new param actually changes rendered output and that omitting it still
+falls back to ET, not UTC; `messaging/sms-resolvers.timezone.test.ts` — 4
+cases proving both resolvers read and pass through `tenant.timezone`),
+mutation-verified (stashed all three production-file changes, RED for the
+expected reason — 6 of 10 cases failed, all comparing the Pacific-zone
+expectation against whatever zone the runtime defaults to — restored,
+GREEN). `tsc --noEmit` clean, full suite 412/412 files, 2003/2003 tests,
+zero regressions (same pre-existing, unrelated `tenant-scope` guard warning
+on `src/app/api/fixture/route.ts`, not touched here).
+
+## (116) Fresh ground, new bug class (comms-registry preference-gating parity gap, distinct from every prior thread) — `cron/payment-followup-daily`'s client SMS ignored the tenant's own "Payment reminder" toggle entirely — NOW FIXED
+
+`comms-registry.ts`'s `payment_reminder` entry (the tenant-facing
+Communications-settings toggle for "Reminds a client with an outstanding
+balance") lists its own `firedBy` as `'cron: payment-reminder /
+payment-followup-daily'` — both crons are supposed to respect it. Read
+both: `cron/payment-reminder/route.ts` correctly calls `getCommPrefs(tenantId)`
+and gates its client nudge on `payPrefs.comms.payment_reminder?.sms !== false`
+before every send. `cron/payment-followup-daily/route.ts` — the cron item
+(113)/(114) already touched twice this session for its cap-reached admin
+alert — never called `getCommPrefs` at all; its client-facing "your balance
+is still open" SMS gated only on `sms_consent !== false`, with zero comms-
+registry check. `sendSMS()` itself (`lib/sms.ts`) is a raw Telnyx transport
+call with no preference awareness of its own — gating is entirely the
+caller's responsibility, and this caller never added it. A tenant
+disabling "Payment reminder" SMS in their own Communications settings,
+believing it silences both payment-nudge sources their own settings page
+describes as the same toggle, would keep getting texted by this cron with
+zero effect from the toggle they just flipped. Scope today is nycmaid-only
+(this cron only chases tenants with both a Telnyx key and a `payment_link`
+set, per the file's own comment), but it's a live, reachable, currently-
+firing cron path — not dead code — and the exact same shape as several
+already-fixed "declared feature that silently doesn't do what its label
+promises" items in this doc.
+
+**Fixed** — added the identical `getCommPrefs(tenant.id)` /
+`payPrefs.comms.payment_reminder?.sms !== false` gate the sibling cron
+already uses, called once per tenant (matching that cron's placement and
+cost profile — one extra read per active tenant per run, not per booking),
+and folded the check into the existing per-booking eligibility guard
+alongside `sms_consent`.
+
+2 new tests (`route.comm-gate.test.ts`): default/no-stored-preference still
+sends (fail-open, behavior-preserving for every tenant who never touched
+this setting); an explicit `sms: false` preference now correctly skips the
+send. Mutation-verified (`git apply -R` the fix, the off-toggle case RED
+for the expected reason — `sendSMS` still called once despite the stored
+preference — `git apply` restored, GREEN). `tsc --noEmit` clean, full
+suite 413/413 files, 2005/2005 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
