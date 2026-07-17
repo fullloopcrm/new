@@ -175,6 +175,22 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: bookingsErr.message, schedule }, { status: 500 })
       }
       bookingsCreated = inserted?.length || 0
+
+      // GET /api/bookings/:id/team and closeout-summary source the lead from
+      // booking_team_members, not bookings.team_member_id -- the initial batch
+      // above stamped team_member_id on every generated booking but never
+      // created the matching lead row, so a schedule created here with a team
+      // member showed every one of its bookings as unassigned in the admin
+      // Team panel and closeout payout attribution. Same
+      // booking_team_members-sync gap fixed at every other
+      // bookings.team_member_id write site this session (sibling route POST
+      // /api/admin/recurring-schedules included).
+      if (v.team_member_id && inserted && inserted.length > 0) {
+        const teamRows = inserted.map((b) => ({
+          tenant_id: tenantId, booking_id: b.id, team_member_id: v.team_member_id, is_lead: true, position: 1,
+        }))
+        await db.from('booking_team_members').upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+      }
     }
 
     await audit({ tenantId, action: 'schedule.created', entityType: 'schedule', entityId: schedule.id, details: { recurring_type: v.recurring_type, bookingsCreated } })
