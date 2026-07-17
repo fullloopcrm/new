@@ -133,7 +133,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         .from('bookings')
         .select('*, clients(*)')
         .eq('id', id)
-        .single<Booking & { hourly_rate?: number | null }>()
+        .single<Booking & { hourly_rate?: number | null; pay_rate?: number | null; is_emergency?: boolean | null }>()
 
       const { data: extraMember } = await db
         .from('team_members')
@@ -145,13 +145,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
         tenantId: ctx.tenantId,
         teamMemberId: extraId,
         type: 'job_assignment',
-        title: 'Added to Team Job',
+        title: bookingFull?.is_emergency ? '🚨 Added to Emergency Team Job' : 'Added to Team Job',
         message: `${clientName} on ${bookingDate} (team of ${teamSize})`,
         bookingId: id,
         smsMessage: tenant && bookingFull?.start_time
           ? teamSmsTemplates(tenant).jobAssignment({
               start_time: bookingFull.start_time,
               hourly_rate: bookingFull.hourly_rate,
+              pay_rate: bookingFull.pay_rate,
+              is_emergency: bookingFull.is_emergency,
               clients: bookingFull.clients?.name ? { name: bookingFull.clients.name } : null,
               team_members: extraMember ? { name: extraMember.name, pin: extraMember.pin } : null,
             })
