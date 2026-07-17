@@ -6,11 +6,18 @@ import { NextRequest, NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { decryptSecret } from '@/lib/secret-crypto'
 import Stripe from 'stripe'
 
-function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
-  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+function getStripe(key: string | null | undefined): Stripe {
+  // Per-tenant keys are stored encrypted; decryptSecret() passes plaintext through.
+  // Must match stripe-status.ts and payment-processor.ts's tenant-key-first
+  // convention -- team_member.stripe_account_id is a Connect account under
+  // WHICHEVER Stripe account created it, so onboarding and every later
+  // lookup/transfer against that same account_id have to use the same key.
+  const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
+  if (!apiKey) throw new Error('Stripe not configured')
+  return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
 export async function POST(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -30,7 +37,7 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
 
     if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
 
-    const stripe = getStripe()
+    const stripe = getStripe((tenant.tenant as { stripe_api_key?: string | null }).stripe_api_key)
     let accountId = tm.stripe_account_id as string | null
 
     if (!accountId) {
@@ -87,7 +94,7 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return NextResponse.json({ connected: false })
     }
 
-    const stripe = getStripe()
+    const stripe = getStripe((tenant.tenant as { stripe_api_key?: string | null }).stripe_api_key)
     const account = await stripe.accounts.retrieve(tm.stripe_account_id)
     return NextResponse.json({
       connected: true,
