@@ -19,8 +19,20 @@ function updateChain(rows: Row[], values: Row) {
   const filters: Array<(r: Row) => boolean> = []
   const uc: Record<string, unknown> = {
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return uc },
+    not: (col: string, op: string, val: string) => {
+      if (op === 'in') {
+        const list = val.replace(/^\(|\)$/g, '').split(',').map((s) => s.trim())
+        filters.push((r) => !list.includes(r[col] as string))
+      }
+      return uc
+    },
     select: () => uc,
     single: async () => {
+      const matched = rows.filter((r) => filters.every((f) => f(r)))
+      matched.forEach((r) => Object.assign(r, values))
+      return { data: matched[0] ?? null, error: null }
+    },
+    maybeSingle: async () => {
       const matched = rows.filter((r) => filters.every((f) => f(r)))
       matched.forEach((r) => Object.assign(r, values))
       return { data: matched[0] ?? null, error: null }

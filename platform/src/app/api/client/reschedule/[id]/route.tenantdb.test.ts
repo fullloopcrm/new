@@ -26,6 +26,13 @@ function chain(table: string) {
     update: (p: Row) => { mode = 'update'; payload = p; return c },
     insert: (p: Row) => { mode = 'insert'; payload = p; return c },
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    not: (col: string, op: string, val: string) => {
+      if (op === 'in') {
+        const list = val.replace(/^\(|\)$/g, '').split(',').map((s) => s.trim())
+        filters.push((r) => !list.includes(r[col] as string))
+      }
+      return c
+    },
     single: async () => {
       if (mode === 'update') {
         const rows = matched()
@@ -34,6 +41,15 @@ function chain(table: string) {
       }
       const m = matched()
       return m[0] ? { data: m[0], error: null } : { data: null, error: { message: 'not found' } }
+    },
+    maybeSingle: async () => {
+      if (mode === 'update') {
+        const rows = matched()
+        rows.forEach((r) => Object.assign(r, payload))
+        return { data: rows[0] ?? null, error: null }
+      }
+      const m = matched()
+      return { data: m[0] ?? null, error: null }
     },
     then: (resolve: (v: { data: unknown; error: unknown }) => unknown) => {
       if (mode === 'insert') {

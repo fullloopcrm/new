@@ -37,8 +37,13 @@ vi.mock('@/lib/tenant-db', () => ({
       update: () => ({
         eq: () => ({
           eq: () => ({
+            not: () => ({
+              select: () => ({
+                maybeSingle: async () => ({ data: { id: 'booking-1' }, error: null }),
+              }),
+            }),
             select: () => ({
-              single: async () => ({ data: { id: 'booking-1' }, error: null }),
+              maybeSingle: async () => ({ data: { id: 'booking-1' }, error: null }),
             }),
           }),
         }),

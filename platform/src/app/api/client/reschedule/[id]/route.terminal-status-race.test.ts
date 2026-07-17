@@ -1,13 +1,22 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 /**
- * W4 adversarial pass: PUT /api/client/reschedule/[id] previously allowed a
- * client to shift start_time/end_time on a booking that is already
- * completed/paid/cancelled/no_show, with no guard mirroring the staff-side
- * VALID_TRANSITIONS state machine (bookings/[id]/status). Payroll
- * (actual_hours), closeout, and cleaner-payout key off those timestamps once
- * a job is done -- letting a client move the schedule after the fact would
- * silently corrupt already-settled records.
+ * W4 follow-up to route.terminal-status.test.ts: that test proves the
+ * pre-check rejects a reschedule when the SELECT snapshot already shows a
+ * terminal status. It does NOT prove anything about a concurrent write
+ * landing in the gap between that SELECT and this route's own UPDATE -- a
+ * status flip (checkout, cron auto-complete, no-show) happening in that gap
+ * would, with only a pre-check and no conditional WHERE on the write itself,
+ * still let the reschedule through and silently corrupt an already-settled
+ * booking's timestamps.
+ *
+ * Simulates the race organically: the pre-check SELECT reads 'scheduled'
+ * and passes, then the mocked rateLimitDb call (which the real route awaits
+ * AFTER the pre-check but BEFORE the update) flips the row to 'completed' as
+ * a side effect -- standing in for a concurrent checkout/auto-complete
+ * landing in that exact gap. Proves the UPDATE's own
+ * `.not('status','in',...)` guard, not just the earlier SELECT-based
+ * pre-check, is what actually stops the write.
  */
 
 const TENANT_A = 'aaaaaaaa-0000-0000-0000-00000000000a'
@@ -67,7 +76,20 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => chain(t
 const tenantCtx: { value: Row } = { value: { id: TENANT_A, name: 'Tenant A', timezone: 'America/New_York' } }
 vi.mock('@/lib/tenant-site', () => ({ getTenantFromHeaders: async () => tenantCtx.value }))
 vi.mock('@/lib/client-auth', () => ({ protectClientAPI: async (_t: string, clientId?: string) => ({ clientId }) }))
-vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 1 }) }))
+
+// Stands in for the concurrent write: fires AFTER the route's pre-check read
+// but BEFORE its update, exactly the gap a real concurrent transition would
+// land in.
+const raceFlip = { enabled: false }
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: async () => {
+    if (raceFlip.enabled) {
+      const row = DB.bookings?.find((r) => r.id === 'bk-race')
+      if (row) row.status = 'completed'
+    }
+    return { allowed: true, remaining: 1 }
+  },
+}))
 vi.mock('@/lib/sms', () => ({ sendSMS: async () => {} }))
 vi.mock('@/lib/email', () => ({ sendEmail: async () => {} }))
 vi.mock('@/lib/notify', () => ({ notify: async () => {} }))
@@ -80,6 +102,7 @@ import { PUT } from './route'
 beforeEach(() => {
   DB.bookings = []
   tenantCtx.value = { id: TENANT_A, name: 'Tenant A', timezone: 'America/New_York' }
+  raceFlip.enabled = false
 })
 
 function req(body: Record<string, unknown>): Request {
@@ -90,25 +113,24 @@ function req(body: Record<string, unknown>): Request {
   })
 }
 
-describe('PUT /api/client/reschedule/[id] — terminal-status guard', () => {
-  it.each(['completed', 'paid', 'cancelled', 'no_show'])(
-    'rejects a start_time change on a %s booking',
-    async (status) => {
-      DB.bookings.push({ id: 'bk-1', tenant_id: TENANT_A, client_id: 'c-1', status, start_time: '2099-01-01T10:00:00Z' })
-      const res = await PUT(req({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'bk-1' }) })
-      expect(res.status).toBe(400)
-      const body = await res.json() as Row
-      expect(body.error).toContain(status)
-      const row = DB.bookings.find((r) => r.id === 'bk-1')
-      expect(row?.start_time).toBe('2099-01-01T10:00:00Z')
-    }
-  )
+describe('PUT /api/client/reschedule/[id] — atomic terminal-status race', () => {
+  it('409s instead of silently overwriting when the booking completes between the pre-check read and the write', async () => {
+    DB.bookings.push({ id: 'bk-race', tenant_id: TENANT_A, client_id: 'c-1', status: 'scheduled', start_time: '2099-01-01T10:00:00Z' })
+    raceFlip.enabled = true
 
-  it('allows a reschedule on a still-open booking', async () => {
-    DB.bookings.push({ id: 'bk-2', tenant_id: TENANT_A, client_id: 'c-1', status: 'scheduled', start_time: '2099-01-01T10:00:00Z' })
-    const res = await PUT(req({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'bk-2' }) })
+    const res = await PUT(req({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'bk-race' }) })
+
+    expect(res.status).toBe(409)
+    expect(DB.bookings.find((r) => r.id === 'bk-race')?.start_time).toBe('2099-01-01T10:00:00Z')
+  })
+
+  it('control: still succeeds when nothing races', async () => {
+    DB.bookings.push({ id: 'bk-norace', tenant_id: TENANT_A, client_id: 'c-1', status: 'scheduled', start_time: '2099-01-01T10:00:00Z' })
+    raceFlip.enabled = false
+
+    const res = await PUT(req({ start_time: '2099-02-01T10:00:00Z' }), { params: Promise.resolve({ id: 'bk-norace' }) })
+
     expect(res.status).toBe(200)
-    const body = await res.json() as Row
-    expect(body.start_time).toBe('2099-02-01T10:00:00Z')
+    expect(DB.bookings.find((r) => r.id === 'bk-norace')?.start_time).toBe('2099-02-01T10:00:00Z')
   })
 })

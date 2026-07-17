@@ -97,16 +97,33 @@ export async function PUT(
   if (special_instructions !== undefined) update.special_instructions = special_instructions
   if (status === 'cancelled') update.status = 'cancelled'
 
-  const { data, error } = await tenantDb(auth.tid)
+  const baseUpdate = tenantDb(auth.tid)
     .from('bookings')
     .update(update)
     .eq('id', id)
     .eq('client_id', auth.id)
+
+  // Atomic re-check: the terminal-status guards above read oldBooking from a
+  // plain SELECT snapshot taken before this write. A concurrent transition
+  // (checkout, cron auto-complete, no-show) landing in the gap between that
+  // read and this update would otherwise still let the cancel/reschedule
+  // through, silently corrupting a since-settled booking. Mirrors the
+  // atomic-claim guard already applied to team-portal/jobs/reassign and
+  // client/reschedule/[id] for the same race.
+  const needsTerminalGuard = Boolean(start_time || end_time || status === 'cancelled')
+  const updateQuery = needsTerminalGuard
+    ? baseUpdate.not('status', 'in', '(completed,paid,cancelled,no_show)')
+    : baseUpdate
+
+  const { data, error } = await updateQuery
     .select('*, team_members!bookings_team_member_id_fkey(name, phone)')
-    .single()
+    .maybeSingle()
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+  if (!data) {
+    return NextResponse.json({ error: 'Update failed — booking state changed' }, { status: 409 })
   }
 
   const clientName = (oldBooking.clients as unknown as { name: string } | null)?.name || 'Client'

@@ -78,7 +78,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
-  const { data: updated, error } = await tenantDb(tenant.id)
+  const baseUpdate = tenantDb(tenant.id)
     .from('bookings')
     .update({
       start_time: body.start_time,
@@ -86,9 +86,22 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       ...(body.team_member_id !== undefined ? { team_member_id: body.team_member_id } : {}),
     })
     .eq('id', id)
+
+  // Atomic re-check: the terminal-status guard above reads a plain SELECT
+  // snapshot taken before this write. A concurrent transition (checkout,
+  // cron auto-complete, no-show) landing in the gap between that read and
+  // this update would otherwise still let the reschedule through, silently
+  // corrupting a since-settled booking's timestamps. Mirrors the atomic-claim
+  // guard already applied to team-portal/jobs/reassign for the same race.
+  const updateQuery = (body.start_time || body.end_time)
+    ? baseUpdate.not('status', 'in', '(completed,paid,cancelled,no_show)')
+    : baseUpdate
+
+  const { data: updated, error } = await updateQuery
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-    .single()
-  if (error || !updated) return NextResponse.json({ error: error?.message || 'Update failed' }, { status: 500 })
+    .maybeSingle()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updated) return NextResponse.json({ error: 'Reschedule failed — booking state changed' }, { status: 409 })
 
   // Async fan-out — never block the response on notification failures.
   void (async () => {

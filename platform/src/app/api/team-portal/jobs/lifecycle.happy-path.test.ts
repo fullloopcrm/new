@@ -63,6 +63,7 @@ vi.mock('@/lib/supabase', () => {
       not: () => c,
       gte: () => c,
       lt: () => c,
+      lte: () => c,
       single: async () => {
         if (table === 'team_members') return { data: members[eqs.id as string] ?? null, error: null }
         if (table === 'bookings') {
