@@ -723,6 +723,64 @@ both code sites named (`selena/core.ts:handleRescheduleBooking`,
 `selena-legacy-handlers.ts:handleRescheduleBooking`) rather than guessing
 which date the notice policy is supposed to protect.
 
+## (16) New today — the client's own "My Bookings" page never showed the emergency badge item (8) already added everywhere else — NOW FIXED
+
+Archetype depth, direct continuation of item (8) (admin UI) and item (7)/(11)
+(tech-facing SMS): `GET /api/client/bookings` already `select('*')`s the
+booking row, so `is_emergency` was in every response the client's own
+portal received — but the three client-facing "My Bookings" pages
+(`site/book/dashboard/page.tsx` and its two tenant clones,
+`wash-and-fold-hoboken/(app)/book/dashboard/page.tsx` and
+`wash-and-fold-nyc/(app)/book/dashboard/page.tsx` — byte-identical render
+logic, confirmed by diff) never declared `is_emergency` on their local
+`Booking` interface and never rendered it. A client looking at their own
+upcoming booking saw a price with no explanation of why it was higher than
+usual on a same-day job — the exact price-transparency gap items (5)/(9)
+already fixed on the confirmation channels, just one screen later, on the
+one surface the client is most likely to actually revisit.
+
+**Fixed** (`p1-w3`) — all three files: added `is_emergency?: boolean | null`
+to the `Booking` interface, a small "🚨 Emergency" badge next to the
+existing status pill (collapsed card header), and a "(emergency rate)"
+note next to the price in the expanded detail grid — same 🚨 visual
+language item (8)'s admin-side fix already established. No new API
+wiring needed since the field was already being returned, just never
+read. `tsc --noEmit` clean; no existing tests covered these pages
+(client-portal pages, not previously under test) so none were at risk.
+
+## (17) New today, fresh ground (not archetype-specific, but hits the archetype hardest) — cancelling a booking from the operator dashboard told the assigned tech nothing — NOW FIXED
+
+Not part of the emergency-rate/price-transparency thread above — found
+while hunting a different surface entirely (the booking lifecycle/
+notification layer) — but the harm concentrates hardest on same-day
+emergency jobs, where there's the least buffer for a tech to notice a
+cancellation some other way before showing up. `PATCH
+/api/bookings/[id]/status` — the transition the operator dashboard's
+"Cancel" button (`src/app/dashboard/bookings/[id]/page.tsx`,
+`STATUS_ACTIONS`) calls — updates the row's status and syncs the mirrored
+deal stage, but fires zero notifications of any kind. Its sibling client-
+facing path, `PUT /api/portal/bookings/[id]` (client-portal self-cancel,
+fixed earlier this session per item (12)'s wiring pass), already SMS's the
+assigned team member the moment a *client* cancels — this endpoint is the
+operator-initiated mirror of that exact same action, and it never got the
+same treatment. Net effect: an admin cancelling a same-day emergency job
+from the dashboard — the most likely reason to cancel same-day at all —
+left the assigned tech with no signal their job was gone short of manually
+checking the portal.
+
+**Fixed** (`p1-w3`) — on `status === 'cancelled'` with a `team_member_id`
+present, fires the identical `notify()` call the portal route already
+uses (`type: 'booking_cancelled'`, `channel: 'sms'`,
+`recipientType: 'team_member'`), wrapped in the same non-blocking
+try/catch shape the route's existing deal-sync step already uses so a
+notify failure can't fail the cancellation itself. 4 new tests
+(`route.cancel-notify.test.ts`): notifies on cancel-with-assignee, skips
+when unassigned, skips on non-cancellation transitions, and doesn't fail
+the request if `notify()` throws. `tsc --noEmit` clean, full suite
+334/334 files, 1767/1767 tests, zero regressions (one pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`
+predates this session's diff — not touched here).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
