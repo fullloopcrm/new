@@ -3138,6 +3138,58 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-33. team-portal/preferences (crew's own notification/SMS-consent settings) — WRONG COLUMN (fresh ground, first instance of this session's field-wiring bug class found on the team-member side rather than the client side) ----
+    // team-portal/preferences/route.ts used to read/write team_members.notes
+    // (JSON-encoded) instead of the real team_members.notification_preferences
+    // (migrations/013_full_parity.sql) / sms_consent (migrations/011_parity_
+    // with_nycmaid.sql) columns — the exact columns notifyTeamMember()
+    // (src/lib/notify-team-member.ts) reads to decide whether to actually
+    // push/email/text a crew member. GET/PUT round-tripped against `notes`
+    // internally, so the settings page looked correct from the crew member's
+    // side, but a team member revoking SMS consent (or disabling SMS for one
+    // notification type) kept getting real texts anyway — the real send path
+    // never read `notes`. Now fixed to target notification_preferences/
+    // sms_consent directly. This probe proves those two columns genuinely
+    // exist on the live team_members table (the migrations actually landed
+    // in prod) and that the fixed route's exact select/update shape round-
+    // trips correctly without touching `notes`.
+    {
+      const prefsGatePhone = '917' + String(5100000 + idx * 127 + (Date.now() % 1000)).slice(-7)
+      const { data: prefsGateMember, error: prefsGateMemberErr } = await supabase.from('team_members').insert({
+        tenant_id: tenant.id, name: 'Preferences Field-Wiring Gate Crew', phone: prefsGatePhone,
+        notes: `UNRELATED LEGACY TEXT ${runId} — must survive untouched`,
+        sms_consent: true,
+      }).select('id, notes').single()
+      add('team-prefs-gate: crew row created with sms_consent defaulting true and unrelated notes text', !!prefsGateMember && !prefsGateMemberErr, prefsGateMemberErr?.message)
+
+      if (prefsGateMember?.id) {
+        // team-portal/preferences' fixed GET select shape.
+        const prefsGateRow = await supabase.from('team_members').select('notification_preferences, sms_consent').eq('id', prefsGateMember.id).eq('tenant_id', tenant.id).single()
+        add('team-prefs-gate: notification_preferences/sms_consent columns exist on the live team_members table (migrations 011/013 landed)', !prefsGateRow.error, prefsGateRow.error?.message)
+        add('team-prefs-gate: sms_consent reads back as the real column value (true), not something parsed out of notes', prefsGateRow.data?.sms_consent === true, JSON.stringify(prefsGateRow.data))
+
+        // team-portal/preferences' fixed PUT update shape — crew revokes SMS
+        // consent and sets a per-type preference, same as a real settings save.
+        const { error: prefsUpdateErr } = await supabase.from('team_members').update({
+          sms_consent: false,
+          notification_preferences: { job_assignment: { push: true, email: true, sms: false } },
+        }).eq('id', prefsGateMember.id).eq('tenant_id', tenant.id)
+        add('team-prefs-gate: PUT update() call succeeds', !prefsUpdateErr, prefsUpdateErr?.message)
+
+        const { data: prefsAfter } = await supabase.from('team_members').select('notes, sms_consent, notification_preferences').eq('id', prefsGateMember.id).eq('tenant_id', tenant.id).single()
+        add('team-prefs-gate: PUT writes the real sms_consent column', prefsAfter?.sms_consent === false, JSON.stringify(prefsAfter))
+        add('team-prefs-gate: PUT writes the real notification_preferences column', prefsAfter?.notification_preferences?.job_assignment?.sms === false, JSON.stringify(prefsAfter))
+        add('team-prefs-gate: PUT never mutates the unrelated notes field', prefsAfter?.notes === prefsGateMember.notes, JSON.stringify(prefsAfter))
+
+        // This is the actual production consequence: notifyTeamMember's own
+        // select+gate shape now sees the crew member's real opt-out.
+        const gateCheck = await supabase.from('team_members').select('sms_consent').eq('id', prefsGateMember.id).single()
+        add('team-prefs-gate: notifyTeamMember\'s own sms_consent !== false gate now actually sees this crew member\'s opt-out', gateCheck.data?.sms_consent === false, JSON.stringify(gateCheck.data))
+
+        await supabase.from('team_members').delete().eq('id', prefsGateMember.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
