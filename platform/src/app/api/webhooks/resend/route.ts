@@ -92,6 +92,22 @@ export async function POST(request: Request) {
         .from('campaign_recipients')
         .update({ status: 'bounced' })
         .eq('id', recipient.id)
+    } else if (type === 'email.suppressed') {
+      // Resend's suppression-list event ("the email was not sent because the
+      // recipient is on your suppression list" — a prior hard bounce/complaint/
+      // unsubscribe) — a terminal non-delivery, same shape as 'email.bounced'
+      // just for a send Resend never even attempted. Unhandled until now: the
+      // installed resend SDK's own WebhookEvent union (node_modules/resend/
+      // dist/index.d.ts) lists it alongside 'bounced'/'complained'/'failed',
+      // all three of which already had a branch here — this one didn't, so a
+      // suppressed recipient's campaign_recipients row stayed stuck at
+      // whatever status it was pre-send (usually 'sent') forever, silently
+      // undercounting failed_count below exactly like item (106)'s
+      // 'email.failed' gap did before that fix.
+      await supabaseAdmin
+        .from('campaign_recipients')
+        .update({ status: 'bounced' })
+        .eq('id', recipient.id)
     } else if (type === 'email.failed') {
       // Resend's async post-acceptance failure event ("the email failed to
       // send due to an error") — distinct from a synchronous send-time error,
