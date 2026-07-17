@@ -2791,3 +2791,64 @@ received instead of `'video_uploaded'`), RED → `git apply` restored,
 GREEN). `tsc --noEmit` clean, full suite 372/372 files, 1852/1852 tests,
 zero regressions (same pre-existing unrelated tenant-scope guard warning on
 `fixture/route.ts`, not touched, noted since item 17).
+
+## (66) New today, archetype depth — `quote_expired` sits one function above item (63)'s own `quote_viewed` fix in the same file, and was never wired either — NOW FIXED
+
+`GET /api/quotes/public/[token]` is the ONLY place in the codebase that ever
+transitions a quote's status to `'expired'` (past `valid_until`, still
+`'sent'`). That block already does the full bookkeeping its sibling
+accept/decline/viewed transitions do — flips `status`, logs a `quote_events`
+row (`event_type: 'expired'`) — but, unlike every other terminal event on
+this same public token surface, never called `notify()` or `ownerAlert()`.
+`notify.ts`'s `NotificationType` union has declared `'quote_expired'` since
+its beginning; `grep -rn "type:.*quote_expired" src/` turned up zero call
+sites. A proposal dying unsigned — arguably the single most important
+"this deal needs a follow-up call" signal in the sales-hub pipeline — was
+exactly as silent as item (63)'s `quote_viewed` gap, sitting one `if` block
+above the code item (63) already fixed in this identical file.
+
+**Fixed** (`p1-w3`) — added the identical `notify()` + `ownerAlert()` pair
+the accept/decline/viewed cases already use, inside the existing expire
+block. Naturally one-shot: the surrounding `if (quote.status === 'sent')`
+guard means a quote already `'expired'` never re-enters this branch on a
+later visit, so no repeat-open spam guard was needed (unlike `quote_viewed`,
+which can be reopened many times). 3 new tests
+(`route.expired-notify.test.ts`): fires on a still-`'sent'` quote past
+`valid_until`; does NOT fire on a quote already `'expired'`; does NOT fire
+when `valid_until` is still in the future. Mutation-verified via saved
+patch (`git diff` → `git apply -R` → the "fires" assertion dropped to 0
+calls reproducing the exact pre-fix symptom, RED → `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 373/373 files, 1855/1855 tests,
+zero regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
+
+## (67) New today, fresh ground outside the archetype — `POST /api/quotes/[id]/send` never fired `notify()`, so "sent" is the one step of a proposal's lifecycle invisible to the admin's own in-app notifications feed — NOW FIXED
+
+`ownerAlert()` (`src/lib/messaging/owner-alerts.ts`) sends a branded
+email + SMS to the tenant's admins — it does NOT insert a `notifications`
+row. Only `notify()` does that DB insert, which is what the in-app feed at
+`/dashboard/notifications` reads from. Every terminal event in a proposal's
+lifecycle — viewed (63), accepted, declined, and now expired (66) — calls
+BOTH `notify()` and `ownerAlert()`. `POST /api/quotes/[id]/send`, the route
+that fires the FIRST step of that same lifecycle, only ever called
+`ownerAlert()`. Confirmed via `grep -n "notify(\|ownerAlert(" src/app/api/
+quotes/[id]/send/route.ts` — one `ownerAlert()` call, zero `notify()`
+calls — and `notify.ts`'s `NotificationType` union has declared
+`'quote_sent'` since its beginning with zero call sites anywhere in
+`src/`. Net effect: opening a deal's in-app activity trail shows it being
+viewed, accepted/declined, or expiring, but not the moment it was actually
+sent — the first and most basic step of the trail is the one silently
+missing.
+
+**Fixed** (`p1-w3`) — added a `notify()` call (`type: 'quote_sent'`,
+`recipientType: 'admin'`) alongside the existing `ownerAlert()` call, same
+pattern as (63)/(66). 2 new tests (`route.notify-type.test.ts`): a
+successful send fires both `notify()` and the existing `ownerAlert()`; a
+send where the only requested channel fails (email rejects) still 400s
+without firing either — matching the route's own existing "neither channel
+sent" guard. Mutation-verified via saved patch (`git diff` → `git apply -R`
+→ the "fires" assertion dropped to 0 calls reproducing the exact pre-fix
+symptom, RED → `git apply` restored, GREEN). `tsc --noEmit` clean, full
+suite 374/374 files, 1857/1857 tests, zero regressions (same pre-existing
+unrelated tenant-scope guard warning on `fixture/route.ts`, not touched,
+noted since item 17).
