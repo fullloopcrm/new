@@ -32,7 +32,7 @@ const MEMBER_A1 = 'member-a1'
 function seed() {
   return {
     tenants: [{ id: TENANT_A, status: 'active' }],
-    team_members: [{ id: MEMBER_A1, name: 'Alice' }],
+    team_members: [{ id: MEMBER_A1, tenant_id: TENANT_A, name: 'Alice', status: 'active' }],
     connect_channels: [
       { id: 'chan-a-general', tenant_id: TENANT_A, type: 'general', name: 'General' },
       { id: 'chan-a-client', tenant_id: TENANT_A, type: 'client', client_id: 'client-a1', name: 'Victor' },

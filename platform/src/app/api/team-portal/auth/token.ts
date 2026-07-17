@@ -1,6 +1,7 @@
 import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantServesSite } from '@/lib/tenant-status'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Token helpers for the field-staff (team) portal. Extracted from route.ts
 // because Next 16 rejects non-standard exports from a route file.
@@ -50,6 +51,26 @@ export async function verifyToken(token: string): Promise<{ id: string; tid: str
       .eq('id', result.tid)
       .single()
     if (!tenant || !tenantServesSite(tenant.status)) return null
+
+    // Member-side instant revocation, same rationale as the tenant-status check
+    // above: requirePortalPermission (team-portal-auth.ts) already re-checks
+    // team_members.status==='active' and hr_status!=='terminated' on every
+    // gated call, but ~14 routes (checkin, checkout, messages, video-upload,
+    // etc.) call verifyToken() directly and skip that wrapper entirely.
+    // checkin/checkout are the two routes where this matters most — a fired
+    // or suspended worker's existing token (up to 24h life) could still check
+    // in, check out, and get paid. Baking the member check in here closes the
+    // gap for every direct caller at once, matching the tenant-status fix.
+    const { data: member } = await supabaseAdmin
+      .from('team_members')
+      .select('status')
+      .eq('id', result.id)
+      .eq('tenant_id', result.tid)
+      .single()
+    if (!member || member.status !== 'active') return null
+
+    const terminated = await getTerminatedTeamMemberIds(result.tid, [result.id])
+    if (terminated.length > 0) return null
 
     return result
   } catch {
