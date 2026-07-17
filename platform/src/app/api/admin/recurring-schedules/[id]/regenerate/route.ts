@@ -88,7 +88,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
@@ -192,6 +192,12 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       // resend it) would silently null every regenerated booking's series
       // membership instead of keeping the schedule's actual type.
       recurring_type: effRecurringType,
+      // Carried forward from the schedule, same fallback class as
+      // pay_rate/hourly_rate/price/recurring_type above -- this route has no
+      // team_size input, so an edit here must not silently drop a
+      // client-set crew size back to solo (see
+      // 2026_07_17_recurring_schedules_team_size.sql).
+      team_size: schedule.team_size ?? null,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',

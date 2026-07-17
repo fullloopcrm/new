@@ -261,6 +261,28 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(row.price).toBe(0)
   })
 
+  // team_size (2026-07-17): a real billing multiplier read by closeout-summary
+  // and team-portal/checkout (Math.max(1, team_size || 1)). This route has no
+  // team_size input at all, so an edit used to drop it entirely instead of
+  // carrying the schedule's own crew size forward — a multi-person recurring
+  // series silently reverted to solo billing the moment it was regenerated.
+  it("carries the schedule's team_size onto regenerated bookings even though this route has no team_size input", async () => {
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    sched.team_size = 3
+
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'] }), params('sched-A1'))
+
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')!
+    expect(row.team_size).toBe(3)
+  })
+
+  it('leaves team_size null on regenerated bookings for a solo schedule, matching every read site’s fallback', async () => {
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'] }), params('sched-A1'))
+
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-15T09:00:00')!
+    expect(row.team_size).toBeNull()
+  })
+
   it('persists an explicit team_member_id: null unassign onto the schedule rule, not just the new bookings', async () => {
     await POST(postReq({ ...baseBody, dates: ['2026-08-15'], team_member_id: 'tm-1' }), params('sched-A1'))
     expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.team_member_id).toBe('tm-1')

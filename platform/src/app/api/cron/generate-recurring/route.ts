@@ -250,6 +250,11 @@ export async function GET(request: Request) {
         price: fallbackPrice,
         hourly_rate: schedule.hourly_rate,
         pay_rate: schedule.pay_rate,
+        // Billing multiplier for closeout-summary/team-portal/checkout
+        // (both do Math.max(1, team_size || 1)). Never set here before
+        // 2026_07_17_recurring_schedules_team_size.sql -- a multi-person
+        // crew silently reverted to solo on every refilled occurrence.
+        team_size: schedule.team_size ?? null,
         notes: unassignedNote
           ? `${schedule.notes ? schedule.notes + ' — ' : ''}${unassignedNote}`
           : schedule.notes,

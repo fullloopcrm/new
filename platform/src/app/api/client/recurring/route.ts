@@ -169,6 +169,13 @@ export async function POST(request: Request) {
       notes: notes || null,
       status: 'active',
       next_generate_after: lastInitialDate,
+      // team_size is a real billing multiplier (closeout-summary,
+      // team-portal/checkout both read it) -- without persisting it here,
+      // cron/generate-recurring's refill (everything past this initial
+      // batch) has no client in the loop and defaults every occurrence back
+      // to solo, permanently under-billing a multi-person crew for the rest
+      // of the series. See 2026_07_17_recurring_schedules_team_size.sql.
+      team_size: finalTeamSize > 1 ? finalTeamSize : null,
     })
     .select()
     .single()
