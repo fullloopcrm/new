@@ -372,7 +372,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language, sms_consent), clients(name, phone, address, sms_consent, do_not_service), tenants(name, telnyx_api_key, telnyx_phone)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -382,8 +382,8 @@ export async function POST(request: Request) {
         break
       }
 
-      const tm = booking.team_members as unknown as { name?: string; phone?: string; stripe_account_id?: string; preferred_language?: string } | null
-      const client = booking.clients as unknown as { name?: string; phone?: string; address?: string | null } | null
+      const tm = booking.team_members as unknown as { name?: string; phone?: string; stripe_account_id?: string; preferred_language?: string; sms_consent?: boolean | null } | null
+      const client = booking.clients as unknown as { name?: string; phone?: string; address?: string | null; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
       const tenant = booking.tenants as unknown as { name?: string; telnyx_api_key?: string; telnyx_phone?: string } | null
 
       const amountCents = session.amount_total || 0
@@ -534,7 +534,7 @@ export async function POST(request: Request) {
       }
 
       // 5. SMS the cleaner with payment + tip (bilingual)
-      if (tm?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
+      if (tm?.phone && tm.sms_consent !== false && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const isEs = tm.preferred_language === 'es'
         const tipNote = tipCents > 0
           ? (isEs ? `\n\n¡Propina de $${(tipCents / 100).toFixed(0)}! 💰` : `\n\nClient tipped $${(tipCents / 100).toFixed(0)}! 💰`)
@@ -552,8 +552,10 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[stripe] cleaner SMS failed:', err))
       }
 
-      // 6. SMS client a thank-you
-      if (client?.phone && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
+      // 6. SMS client a thank-you — gated on sms_consent (STOP compliance) and
+      // do_not_service (account-level gate), same invariant every other client
+      // SMS fan-out in the codebase enforces (see getClientContacts()).
+      if (client?.phone && client.sms_consent !== false && !client.do_not_service && tenant?.telnyx_api_key && tenant?.telnyx_phone) {
         const tipLine = tipCents > 0 ? ` and the ${(tipCents / 100).toFixed(0)} tip` : ''
         const body = `Thanks for the payment of $${(amountCents / 100).toFixed(0)}${tipLine}! 😊 — ${tenant.name || ''}`
         sendSMS({

@@ -314,14 +314,17 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     }).catch(err => console.error('[payment-processor] team member SMS failed:', err))
   }
 
-  // Client confirmation SMS
+  // Client confirmation SMS — gated on sms_consent (STOP compliance) and
+  // do_not_service, same invariant every other client SMS fan-out enforces
+  // (see getClientContacts()). The team-member finish-up SMS above already
+  // checks teamMember.sms_consent; this one didn't.
   const { data: clientRecord } = await supabaseAdmin
     .from('clients')
-    .select('phone')
+    .select('phone, sms_consent, do_not_service')
     .eq('id', clientId)
     .eq('tenant_id', tenantId)
     .single()
-  if (clientRecord?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+  if (clientRecord?.phone && clientRecord.sms_consent !== false && !clientRecord.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
     const tipThank = tipCents > 0
       ? ` Your generous tip of $${tipAmount} has been passed along — thank you!`
       : ''
