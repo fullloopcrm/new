@@ -195,6 +195,15 @@ async function purgeOne(tenantId: string, clientId: string, requestId: string): 
     .eq('client_id', clientId)
   if (invoiceErr) throw new Error(`invoice anonymize: ${invoiceErr.message}`)
 
+  // quotes carries the identical denormalized contact-snapshot shape as
+  // invoices (contact_name/contact_email/contact_phone/service_address) —
+  // same gap, same fix, found alongside the invoices anonymize above.
+  const { error: quoteErr } = await db
+    .from('quotes')
+    .update({ contact_name: null, contact_email: null, contact_phone: null, service_address: null })
+    .eq('client_id', clientId)
+  if (quoteErr) throw new Error(`quote anonymize: ${quoteErr.message}`)
+
   const { error: reqErr } = await db
     .from('gdpr_deletion_requests')
     .update({ status: 'completed', completed_at: completedAt })

@@ -29,6 +29,10 @@ function seed() {
       { id: 'con-a1', tenant_id: TENANT_A, client_id: 'cli-a', name: 'Alice A', phone_e164: '+15551110000', email: 'alice@example.com', is_primary: true, receives_sms: true, receives_email: true },
       { id: 'con-b1', tenant_id: TENANT_B, client_id: 'cli-b', name: 'Bob B', phone_e164: '+15552220000', email: 'bob@example.com', is_primary: true, receives_sms: true, receives_email: true },
     ],
+    quotes: [
+      { id: 'qte-a1', tenant_id: TENANT_A, client_id: 'cli-a', contact_name: 'Alice A', contact_email: 'alice@example.com', contact_phone: '+15551110000', service_address: '1 Main St', total_cents: 5000 },
+      { id: 'qte-b1', tenant_id: TENANT_B, client_id: 'cli-b', contact_name: 'Bob B', contact_email: 'bob@example.com', contact_phone: '+15552220000', service_address: '2 Oak St', total_cents: 6000 },
+    ],
   }
 }
 
@@ -128,6 +132,16 @@ describe('purgeDueDeletions', () => {
     expect(invoiceA.contact_name).toBe(null)
     expect(invoiceA.contact_email).toBe(null)
     expect(invoiceA.total_cents).toBe(10000) // financial aggregate preserved, row not deleted
+
+    // Same denormalized contact-snapshot shape as invoices — quotes carries
+    // it too and was equally unpurged before this round.
+    const quoteA = h.seed.quotes.find((q) => q.id === 'qte-a1')!
+    expect(quoteA.contact_name).toBe(null)
+    expect(quoteA.contact_email).toBe(null)
+    expect(quoteA.contact_phone).toBe(null)
+    expect(quoteA.total_cents).toBe(5000) // aggregate preserved, row not deleted
+    const quoteB = h.seed.quotes.find((q) => q.id === 'qte-b1')!
+    expect(quoteB.contact_name).toBe('Bob B') // not due — untouched
 
     // BLOCKED: the actual fan-out source for every outbound client SMS/email
     // (getClientContacts()) is purged too — a real phone/email left here
