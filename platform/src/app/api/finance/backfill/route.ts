@@ -22,6 +22,8 @@ interface BookingRow {
   hourly_rate: number | null
   check_in_time: string | null
   check_out_time: string | null
+  actual_hours: number | null
+  price: number | null
   team_members: { hourly_rate?: number | null } | null
 }
 
@@ -33,7 +35,7 @@ export async function POST() {
 
     const { data: bookings, error } = await supabaseAdmin
       .from('bookings')
-      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, team_members!bookings_team_member_id_fkey(hourly_rate)')
+      .select('id, start_time, end_time, team_member_id, hourly_rate, check_in_time, check_out_time, actual_hours, price, team_members!bookings_team_member_id_fkey(hourly_rate)')
       .eq('tenant_id', tenantId)
       .eq('status', 'completed')
       .is('team_member_pay', null)
@@ -52,13 +54,21 @@ export async function POST() {
       }
 
       const teamRate = booking.team_members?.hourly_rate ?? 25
-      const clientRate = booking.hourly_rate ?? 75
       const teamPay = Math.round(hours * teamRate * 100)
-      const clientPrice = Math.round(hours * clientRate * 100)
+
+      // Only fill fields that are actually missing. `price` in particular is
+      // set at booking creation from the quote/flat-fee total (sale-to-booking.ts,
+      // client/book) for nearly every booking, and post-revenue.ts posts ledger
+      // entries straight off it — overwriting an already-set price with an
+      // hourly-formula estimate here would silently diverge the booking from
+      // what was actually quoted, invoiced, and posted.
+      const updates: Record<string, number> = { team_member_pay: teamPay }
+      if (booking.actual_hours == null) updates.actual_hours = hours
+      if (booking.price == null) updates.price = Math.round(hours * (booking.hourly_rate ?? 75) * 100)
 
       await supabaseAdmin
         .from('bookings')
-        .update({ actual_hours: hours, team_member_pay: teamPay, price: clientPrice })
+        .update(updates)
         .eq('id', booking.id)
         .eq('tenant_id', tenantId)
 
