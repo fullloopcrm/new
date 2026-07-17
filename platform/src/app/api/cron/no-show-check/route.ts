@@ -3,6 +3,11 @@
  * Finds bookings where:
  *   - start_time + 45 min is in the past
  *   - status is still 'scheduled' | 'confirmed' | 'pending'
+ *   - team_member_id is set (a "no-show" requires someone who was supposed
+ *     to show up — an unassigned booking is a dispatch failure, not a
+ *     no-show, and flipping it to 'no_show' would silently drop it from the
+ *     team-portal self-claim pool, which only lists 'scheduled'/'confirmed'
+ *     jobs — see /api/team-portal/jobs?available=true)
  *   - check_in_time is null (team never checked in)
  * Flips them to status='no_show' and fires an admin notify per tenant.
  *
@@ -30,6 +35,7 @@ export async function GET(request: Request) {
     .from('bookings')
     .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
+    .not('team_member_id', 'is', null)
     .is('check_in_time', null)
     .lt('start_time', cutoff.toISOString())
     .gt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // skip old stragglers
