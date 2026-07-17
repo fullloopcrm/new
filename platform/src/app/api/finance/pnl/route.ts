@@ -10,9 +10,21 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { etToday, addCalendarDays, daysInCalendarMonth, formatNaiveET, type CalendarDate } from '@/lib/recurring'
 
-function monthStart(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), 1)) }
-function monthEnd(d: Date) { return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0, 23, 59, 59)) }
+// journal_entries.entry_date (the ledger path below) and bookings.start_time
+// (the ?source=raw fallback) are both naive-ET -- defaulting this range from
+// the server's UTC calendar shifted the default "this month" by a full
+// calendar day during the ~4-5h ET-evening window, and on the LAST evening of
+// any month landed on the wrong month entirely (e.g. Jul 31 11pm ET reads as
+// Aug 1 UTC), showing an empty/wrong-month P&L exactly when month-end
+// closing is being checked.
+export function monthRangeET(): { from: string; to: string } {
+  const todayCal = etToday()
+  const startCal: CalendarDate = { year: todayCal.year, month: todayCal.month, day: 1 }
+  const endCal = addCalendarDays(startCal, daysInCalendarMonth(startCal) - 1)
+  return { from: formatNaiveET(startCal).slice(0, 10), to: formatNaiveET(endCal).slice(0, 10) }
+}
 
 export async function GET(request: Request) {
   try {
@@ -20,9 +32,9 @@ export async function GET(request: Request) {
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const url = new URL(request.url)
-    const now = new Date()
-    const from = url.searchParams.get('from') || monthStart(now).toISOString().slice(0, 10)
-    const to = url.searchParams.get('to') || monthEnd(now).toISOString().slice(0, 10)
+    const defaultRange = monthRangeET()
+    const from = url.searchParams.get('from') || defaultRange.from
+    const to = url.searchParams.get('to') || defaultRange.to
     const toTs = `${to}T23:59:59Z`
     const entityId = entityIdFromUrl(url)
 

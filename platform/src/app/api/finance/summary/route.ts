@@ -5,37 +5,44 @@ import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
 import { etToday, addCalendarDays, calendarDayOfWeek, daysInCalendarMonth, formatNaiveET, parseNaiveET, type CalendarDate } from '@/lib/recurring'
 
+/**
+ * journal_entries.entry_date is naive-ET (post-revenue.ts/post-labor.ts/
+ * post-adjustments.ts all write it via nowNaiveET()) -- these are the
+ * ledger P&L's [from, to] bounds, ET-anchored and date-only (`.lte()`).
+ * month/year use the route's pre-existing INCLUSIVE-last-day convention;
+ * week keeps its own pre-existing exclusive-bound-as-`.lte()` shape.
+ */
+export function ledgerRangesET(): { week: [string, string]; month: [string, string]; year: [string, string] } {
+  const etTodayCal = etToday()
+  const weekDayIdx = (calendarDayOfWeek(etTodayCal) + 6) % 7 // Mon=0
+  const weekStartCal = addCalendarDays(etTodayCal, -weekDayIdx)
+  const weekEndCal = addCalendarDays(weekStartCal, 7)
+  const monthStartCal: CalendarDate = { year: etTodayCal.year, month: etTodayCal.month, day: 1 }
+  const monthEndCal = addCalendarDays(monthStartCal, daysInCalendarMonth(monthStartCal))
+  const yearStartCal: CalendarDate = { year: etTodayCal.year, month: 0, day: 1 }
+  const yearEndCal: CalendarDate = { year: etTodayCal.year + 1, month: 0, day: 1 }
+  const dCal = (c: CalendarDate) => formatNaiveET(c).slice(0, 10)
+  return {
+    week: [dCal(weekStartCal), dCal(weekEndCal)],
+    month: [dCal(monthStartCal), dCal(addCalendarDays(monthEndCal, -1))],
+    year: [dCal(yearStartCal), dCal(addCalendarDays(yearEndCal, -1))],
+  }
+}
+
 export async function GET() {
   try {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
-    const now = new Date()
-
-    const dayOfWeek = now.getDay()
-    const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 7)
-
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-
-    const yearStart = new Date(now.getFullYear(), 0, 1)
-    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
 
     // bookings.start_time is naive-ET (see lib/recurring.ts's nowNaiveET
     // header); referral_commissions/payments/team_member_payouts.created_at
-    // are genuinely UTC. weekStart/monthStart/yearStart above stay
-    // server-local (UTC calendar on Vercel) ON PURPOSE -- they only feed
-    // `d()` below for the ledger's entry_date, a date-only column that's
-    // itself always written from a UTC calendar date (post-revenue.ts /
-    // post-labor.ts), so querying it with a UTC-calendar boundary is
-    // self-consistent; switching just the query side to ET would introduce a
-    // NEW mismatch instead of fixing one (same restraint as recurring.ts's
-    // booking-to-booking comparisons). The bookings/created_at boundaries
-    // below are separately anchored to the ET calendar, the same day-boundary
-    // bug class fixed across this session.
+    // are genuinely UTC; journal_entries.entry_date (the ledger P&L's basis
+    // below) is ALSO naive-ET as of this session's ledger-posting fix
+    // (post-revenue.ts/post-labor.ts/post-adjustments.ts all write it via
+    // nowNaiveET()) -- so every boundary here is anchored to the ET calendar,
+    // reusing the same *Cal values for both the bookings query and the
+    // ledger query instead of re-deriving a second, UTC-anchored set.
     const etTodayCal = etToday()
     const weekDayIdx = (calendarDayOfWeek(etTodayCal) + 6) % 7 // Mon=0
     const weekStartCal = addCalendarDays(etTodayCal, -weekDayIdx)
@@ -74,11 +81,11 @@ export async function GET() {
 
     // Revenue from the LEDGER (single source of truth, matches the books).
     // Labor stays from bookings — it's operational owed/paid tracking.
-    const d = (x: Date) => x.toISOString().slice(0, 10)
+    const ledgerRanges = ledgerRangesET()
     const [ledgerWeek, ledgerMonth, ledgerYear] = await Promise.all([
-      ledgerProfitAndLoss(tenantId, d(weekStart), d(weekEnd)),
-      ledgerProfitAndLoss(tenantId, d(monthStart), d(monthEnd)),
-      ledgerProfitAndLoss(tenantId, d(yearStart), d(yearEnd)),
+      ledgerProfitAndLoss(tenantId, ...ledgerRanges.week),
+      ledgerProfitAndLoss(tenantId, ...ledgerRanges.month),
+      ledgerProfitAndLoss(tenantId, ...ledgerRanges.year),
     ])
 
     const weekRevenue = ledgerWeek.revenue_cents

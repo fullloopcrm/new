@@ -9,6 +9,21 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { etToday, addCalendarDays, daysInCalendarMonth, formatNaiveET, type CalendarDate } from '@/lib/recurring'
+
+/**
+ * bookings.start_time (queried below) is naive-ET (see lib/recurring.ts's
+ * nowNaiveET header) -- defaulting this range from the server's UTC calendar
+ * shifted the default month by a full calendar day during the ~4-5h
+ * ET-evening window, and on the LAST evening of any month landed on the
+ * wrong month entirely (e.g. Jul 31 11pm ET reads as Aug 1 UTC).
+ */
+export function monthRangeET(): { from: string; to: string } {
+  const todayCal = etToday()
+  const monthStartCal: CalendarDate = { year: todayCal.year, month: todayCal.month, day: 1 }
+  const monthEndCal = addCalendarDays(monthStartCal, daysInCalendarMonth(monthStartCal) - 1)
+  return { from: formatNaiveET(monthStartCal).slice(0, 10), to: formatNaiveET(monthEndCal).slice(0, 10) }
+}
 
 export async function GET(request: Request) {
   try {
@@ -22,9 +37,9 @@ export async function GET(request: Request) {
       from = `${year}-01-01`
       to = `${year}-12-31`
     } else {
-      const now = new Date()
-      from = url.searchParams.get('from') || new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)).toISOString().slice(0, 10)
-      to = url.searchParams.get('to') || new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0)).toISOString().slice(0, 10)
+      const defaultRange = monthRangeET()
+      from = url.searchParams.get('from') || defaultRange.from
+      to = url.searchParams.get('to') || defaultRange.to
     }
     const toTs = `${to}T23:59:59Z`
 
