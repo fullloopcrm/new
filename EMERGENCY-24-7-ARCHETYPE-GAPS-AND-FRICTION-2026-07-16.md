@@ -2504,3 +2504,88 @@ reading `webhooks/telnyx/route.ts`'s delivery-tracking block,
 `telnyx_message_id` capture pattern directly, plus every tracked migration
 referencing `campaign_recipients` by name
 (`grep -rln campaign_recipients src/lib/migrations migrations`).
+
+## (58) New today, archetype depth — the client's own reschedule-into-emergency notifications (email + SMS) were silent on urgency/rate, the one half item (56) didn't cover — NOW FIXED
+
+Direct continuation of item (56): that item fixed the assigned tech's
+push/quiet-hours leg of `PUT /api/client/reschedule/[id]`'s
+reschedule-into-same-day-emergency event. Checking the *client's own* two
+notification channels for the identical event found both still fully
+`is_emergency`-blind. The route's inline confirmation email
+(`sendEmail({...})` built directly in the route, not via any shared
+template) never read `updated.is_emergency` at all. The client SMS —
+resolved via `clientSmsTemplates(tenant).reschedule(updated)` — fares no
+better on either branch: for generic (non-cleaning) tenants it calls
+`smsReschedule(bizName, booking: { start_time: string })` in
+`sms-templates.ts`, whose signature didn't even accept an emergency field;
+for cleaning tenants it calls `reschedule()` in `sms-cleaning.ts`, whose
+`BookingLike` type already carries `is_emergency` (every sibling function in
+that same file reads it) but `reschedule()` itself never did. Confirmed via
+direct reads of all four functions plus the route. The client is the one
+actually billed the emergency rate, so of the two halves of this event —
+tech notification (item 56) and client notification (this item) — the
+client half is the more consequential one to have been silent, mirroring
+item (3)'s original chargeback/dispute framing but for a reschedule rather
+than initial booking.
+
+**Fixed** (`p1-w3`) — added an optional `is_emergency` field to
+`smsReschedule`/`smsRescheduleES` (`sms-templates.ts`) and read the
+already-present field in `sms-cleaning.ts`'s `reschedule`/`rescheduleES`;
+all four now append an urgency notice ("this is now a same-day/emergency
+appointment/booking — our emergency rate applies") instead of byte-identical
+routine copy. Matches the established convention
+(`smsJobRescheduled`'s own `URGENT —` prefix, item (3)'s suggested
+"emergency/after-hours rate applies" fallback wording) without inventing a
+price field — the dollar-figure display remains item (3)'s open product
+decision. The reschedule route itself now hoists `isEmergency` above the
+client email/SMS blocks (previously only computed inside the team-member
+block) and injects a matching notice into its inline HTML. 4 new test
+files, 10 assertions covering both languages, both tenant types (generic +
+cleaning), and the route's actual email/SMS payloads end to end.
+Mutation-verified via saved patch (`git diff` → `git apply -R` → all 6
+assertions across the 3 route/lib test files failed reproducing the exact
+pre-fix symptom, RED — no urgency wording on either channel → `git apply`
+restored, GREEN). `tsc --noEmit` clean, full suite 367/367 files, 1842/1842
+tests, zero regressions (same pre-existing unrelated tenant-scope guard
+warning on `fixture/route.ts`, not touched, noted since item 17).
+
+## (59) New today, fresh ground outside the archetype — a referral commission auto-created at checkout told admin but never the referrer, except for one hardcoded tenant — NOW FIXED
+
+With the reschedule-into-emergency thread (item 58) closed, this pass
+checked a subsystem this doc hasn't touched yet: the referral/affiliate
+commission ledger. `POST /api/team-portal/checkout` auto-creates a
+`referral_commissions` row on job completion when the booking has a
+`referrer_id` (idempotent via `UNIQUE(booking_id)`, a documented no-op on
+re-checkout) and bumps `referrers.total_earned` — but the referrer
+themselves, the person actually owed the money and the one this
+notification exists to keep engaged for future referrals, was only ever
+emailed inside a hardcoded `isNycMaid(auth.tid)` branch explicitly labeled
+"NYC Maid parity." Every other trades tenant running the referral program
+got the commission ledgered and an internal admin notification inserted,
+in total silence on the referrer's own channel. Checked whether the
+*other* commission-creation path covers this: `POST
+/api/referral-commissions` (admin-created, for a booking the checkout path
+didn't already handle) has the identical gap — its `notify()` call is
+`recipientType: 'admin'`, never the referrer directly. The checkout route's
+own comment even flagged this outright ("Referrer-notification email not
+ported — flagged."), just never acted on until now. Confirmed by reading
+both commission-creation routes end to end and grepping every
+`referral_commissions` reference in the codebase.
+
+**Fixed** (`p1-w3`) — generalized the referrer-earned-commission email to
+every tenant, gated on the tenant actually having Resend configured (the
+same precondition the client-facing reschedule route already checks before
+sending), using the same generic `sendEmail()` those client-facing routes
+use rather than the nycmaid-only helper. The nycmaid branch is untouched —
+still uses its own richer nycmaid-specific template, this fix only covers
+the tenants that previously got nothing. 2 new tests
+(`route.referrer-commission-email.test.ts`): a non-nycmaid tenant with
+`resend_api_key` configured now emails the referrer directly (to/subject/
+html/key all asserted against the actual `sendEmail()` call), and a tenant
+with no `resend_api_key` configured is a silent no-op, not a crash.
+Mutation-verified via saved patch (`git diff` → `git apply -R` → the "emails
+the referrer" assertion failed reproducing the exact pre-fix symptom — zero
+`sendEmail` calls, RED → `git apply` restored, GREEN). `tsc --noEmit`
+clean, full suite 368/368 files, 1844/1844 tests, zero regressions (same
+pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, noted since item 17).
