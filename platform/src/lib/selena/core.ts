@@ -8,6 +8,7 @@ import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
+import { nowNaiveET } from '@/lib/recurring'
 
 // nycmaid's well-known UUID — fallback when a conversation row pre-dates the
 // tenant_id column. Phase 3.2 sweep: every tenant-scoped query in this file
@@ -1256,7 +1257,7 @@ async function handleGetAccount(conversationId: string): Promise<string> {
     const { data: upcoming } = await supabaseAdmin.from('bookings')
       .select('id, start_time, status, service_type, hourly_rate, payment_status, cleaners(name)')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
-      .gte('start_time', new Date().toISOString()).order('start_time').limit(5)
+      .gte('start_time', nowNaiveET()).order('start_time').limit(5)
     const { data: payments } = await supabaseAdmin.from('payments')
       .select('amount, tip, method, created_at').eq('tenant_id', tid).eq('client_id', convo.client_id)
       .order('created_at', { ascending: false }).limit(5)
@@ -1345,7 +1346,7 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
     if (!bookingId) {
       const { data: next } = await supabaseAdmin.from('bookings')
         .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id)
-        .in('status', ['pending', 'scheduled']).gte('start_time', new Date().toISOString())
+        .in('status', ['pending', 'scheduled']).gte('start_time', nowNaiveET())
         .order('start_time').limit(1).single()
       bookingId = next?.id
     }

@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
+import { nowNaiveET } from '@/lib/recurring'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -79,7 +80,7 @@ export async function handleGetAccount(tenantId: string, conversationId: string)
       .select('id, start_time, status, service_type, hourly_rate, payment_status, team_members!bookings_team_member_id_fkey(name)')
       .eq('tenant_id', tenantId).eq('client_id', clientId)
       .in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
-      .gte('start_time', new Date().toISOString())
+      .gte('start_time', nowNaiveET())
       .order('start_time').limit(5)
 
     const { data: payments } = await supabaseAdmin
@@ -187,7 +188,7 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
       const { data: next } = await supabaseAdmin
         .from('bookings').select('id')
         .eq('tenant_id', tenantId).eq('client_id', clientId)
-        .in('status', ['pending', 'scheduled']).gte('start_time', new Date().toISOString())
+        .in('status', ['pending', 'scheduled']).gte('start_time', nowNaiveET())
         .order('start_time').limit(1).single()
       bookingId = next?.id
     }

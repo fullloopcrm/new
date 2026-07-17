@@ -26,6 +26,7 @@ type Resolved = { data: unknown; error: unknown }
 
 let selectResolver: (table: string, eqs: Eqs) => Resolved
 let updateCalls: Array<{ table: string; values: Record<string, unknown>; eqs: Eqs }>
+let gteCalls: Array<{ table: string; col: string; val: unknown }>
 
 function builder(table: string) {
   const eqs: Eqs = {}
@@ -43,7 +44,10 @@ function builder(table: string) {
       return chain
     },
     in: () => chain,
-    gte: () => chain,
+    gte: (col: string, val: unknown) => {
+      gteCalls.push({ table, col, val })
+      return chain
+    },
     order: () => chain,
     limit: () => chain,
     single: async () => selectResolver(table, eqs),
@@ -66,11 +70,17 @@ vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
 vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
 
 import {
+  handleGetAccount,
   handleResendConfirmation,
   handleRescheduleBooking,
   handleCancelBooking,
   handleBookingDetails,
 } from './selena-legacy-handlers'
+
+// naive 'YYYY-MM-DDTHH:MM:SS' (no 'Z'/offset) -- the same convention bookings.start_time
+// is stored in. A bare `new Date().toISOString()` cutoff is a true-UTC instant and reads
+// hours ahead of real ET time once compared against this naive column.
+const NAIVE_ET_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}$/
 
 const TENANT = 'tenant-A'
 const CALLER_CLIENT = 'client-caller'
@@ -79,6 +89,7 @@ const FUTURE = new Date(Date.now() + 30 * 864e5).toISOString()
 
 beforeEach(() => {
   updateCalls = []
+  gteCalls = []
   selectResolver = () => ({ data: null, error: null })
 })
 
@@ -120,6 +131,24 @@ describe('handleResendConfirmation — cross-client authorization', () => {
     }
     const out = await handleResendConfirmation(TENANT, { booking_id: 'bk-own' }, 'convo-1')
     expect(JSON.parse(out).success).toBe(true)
+  })
+})
+
+describe('handleGetAccount / handleResendConfirmation — naive-ET "now" cutoff', () => {
+  it('handleGetAccount filters upcoming bookings against a naive-ET now, not a true-UTC instant', async () => {
+    selectResolver = mockConvo()
+    await handleGetAccount(TENANT, 'convo-1')
+    const call = gteCalls.find(c => c.table === 'bookings' && c.col === 'start_time')
+    expect(call).toBeDefined()
+    expect(String(call!.val)).toMatch(NAIVE_ET_RE)
+  })
+
+  it('handleResendConfirmation\'s no-booking_id lookup filters against a naive-ET now', async () => {
+    selectResolver = mockConvo()
+    await handleResendConfirmation(TENANT, {}, 'convo-1')
+    const call = gteCalls.find(c => c.table === 'bookings' && c.col === 'start_time')
+    expect(call).toBeDefined()
+    expect(String(call!.val)).toMatch(NAIVE_ET_RE)
   })
 })
 
