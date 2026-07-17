@@ -6024,3 +6024,108 @@ full suite 428/428 files, 2055/2055 tests, zero regressions.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (132) New fresh-ground surface — the dedicated `cleaner_applications` table (real job applicants from three live tenant marketing sites) had zero admin UI, and the one notification that pointed at it 404'd — NOW FIXED
+
+Picked a surface none of the 131 prior items had touched: the OTHER applicant
+table. `team_applications` (fed by `/api/team-applications`) is fully wired
+to the "Applications" tab on `/dashboard/team` — that one's fine. But
+`cleaner_applications` (migration `2026_05_19_cleaner_applications.sql`,
+its own `status: 'pending'|'reviewed'|'accepted'|'rejected'` lifecycle) is a
+separate table written by the public `/api/apply` form, which three tenant
+marketing sites actually use (`nyc-mobile-salon`, `the-nyc-interior-designer`,
+`landscaping-in-nyc` — grepped every `fetch('/api/apply'` call site to
+confirm). Submitting notifies admins via `notify(type:'cleaner_application')`,
+and the ported nycmaid-style dashboard chrome (`nyc-mobile-salon` /
+`wash-and-fold-hoboken` / `wash-and-fold-nyc` `_components/DashboardHeader.tsx`
++ `AdminSidebar.tsx`) maps that notification type to a `/admin/cleaners` deep
+link — which the platform's own middleware rewrites to `/dashboard/cleaners`
+for the tenant's Loop dashboard. That page never existed (confirmed no
+`src/app/dashboard/cleaners` directory) — a genuine 404, not a permissions
+wall. The ONLY other access to these rows was Selena's owner-only chat tools
+(`list_cleaner_applications`/`approve_cleaner_application`/
+`reject_cleaner_application` in `lib/selena/tools.ts`) — text commands only,
+no visible list, no button, and gated to whichever role counts as "owner"
+for that tenant's Selena config. Real applicants to three live tenant sites
+had, in practice, no admin-visible review surface.
+
+Also noticed while reading the approve tool: its `team_members` insert never
+sets a `pin` (the portal-login credential) — unlike `POST /api/team` and the
+shared `provisionApprovedApplicant` helper, both of which mint one. An
+applicant "approved" via that chat tool would be created as a team member
+who could never actually log into the team portal — same silent-non-
+functional shape as the (130)/(131) waitlist gap, different subsystem.
+
+**Fixed** — added `GET /api/team/cleaner-applications` (list, `team.view`)
+and `PATCH /api/team/cleaner-applications/[id]` (`action: 'accept'|'reject'`,
+`team.edit`, tenant-scoped via `tenantDb`) plus `/dashboard/cleaners` (styled
+to match the sibling `SalesAppsTab.tsx` pattern already used for the other
+applicant-review tab), giving every tenant — not just the three whose ported
+chrome links to it — a real place to see and act on these applications.
+Deliberately did NOT port the chat tool's bare insert: `accept` instead calls
+the same `provisionApprovedApplicant` helper `POST /api/team-applications`
+already uses, so accepting from `/dashboard/cleaners` mints a real PIN,
+dedupes by phone, geocodes the address, and sends the welcome-PIN email —
+fixing the pin gap above as a byproduct rather than reproducing it in new
+code. `reject` appends the optional reason to `notes` (table has no
+`rejected_reason`/`rejected_at` columns, matching the chat tool's existing
+workaround). Named the new API path `/api/team/cleaner-applications`
+specifically to avoid colliding with the existing `/api/cleaner-applications`
+alias, which forwards to the unrelated `team_applications` table for the
+ported nycmaid `/site/apply` frontend — same-ish name, different table,
+already a landmine before this fix; flagging the naming collision itself as
+a pre-existing footgun, not something to rename unilaterally here.
+
+5 new tests (`cleaner-applications/route.isolation.test.ts` +
+`cleaner-applications/[id]/route.isolation.test.ts`): tenant A's GET never
+sees tenant B's applications, the `team.view`/`team.edit` gates 403 when
+denied, tenant A's accept/reject never mutates a same-id tenant B row, reject
+appends the reason to notes, and an unrecognized action is rejected before
+any DB write (mutation-verified — short-circuited the action check to always
+pass, the invalid-action test went RED for the expected reason, 200 instead
+of 400 — restored, GREEN). `provisionApprovedApplicant` is mocked in the
+accept test (unit-isolated; that helper has its own untested surface —
+noted below, not fixed here). `tsc --noEmit` clean, full suite 430/430
+files, 2062/2062 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not touched
+here).
+
+Noticed, not fixed: `provisionApprovedApplicant` (`lib/team-provisioning.ts`)
+and the `team_applications` PUT/bulk-approve routes that call it have zero
+existing test coverage of their own — grepped for any test file referencing
+either, found none. Also, the main/modern `/dashboard` shell has no
+notification-type routing at all (`/dashboard/notifications` is a flat list,
+not a per-type deep-linker), so tenants NOT on the ported nycmaid-style
+chrome get no deep link to `/dashboard/cleaners` either — this fix makes the
+page reachable via direct nav for every tenant, but only the three ported-
+chrome tenants get a one-click notification path to it. Neither is this
+round's scope.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (133) Continuing (132)'s surface — the third declared `cleaner_applications` status, `'reviewed'`, still had no writer either
+
+(132) wired `'accepted'`/`'rejected'`. The table's own enum also declares
+`'reviewed'` — same "declared-value-never-written" root cause, the third of
+three states, same table. An admin looking through a growing pile of
+applicants had no way to flag "I looked at this one, still deciding" without
+prematurely accepting or rejecting it outright.
+
+**Fixed** — added `action: 'mark_reviewed'` to `PATCH /api/team/cleaner-
+applications/[id]` (same route (132) added, `team.edit`), setting
+`status: 'reviewed'` + `reviewed_at`. Wired a "Mark Reviewed" button on
+`/dashboard/cleaners`, shown only for `'pending'` cards (a `'reviewed'` entry
+still shows Accept/Reject — mark-reviewed is a one-way "seen" flag, not a
+dead end). No new backend dependencies — reuses (132)'s already-tested fetch
++ tenantDb update pattern.
+
+1 new test (`cleaner-applications/[id]/route.isolation.test.ts`): marking an
+application reviewed sets the right status/reviewed_at and does not call
+`provisionApprovedApplicant` (that path is accept-only). `tsc --noEmit`
+clean, full suite 430/430 files, 2063/2063 tests, zero regressions.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
