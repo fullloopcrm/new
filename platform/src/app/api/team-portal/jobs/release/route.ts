@@ -2,6 +2,14 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
+import { sendPushToTenantAdmins } from '@/lib/push'
+
+type ReleasedBooking = {
+  id: string
+  start_time: string | null
+  is_emergency: boolean | null
+  clients: { name?: string | null } | null
+}
 
 // A member hands their OWN job back to the open pool (e.g. sick that morning).
 // Distinct from reassign — no permission over others, only over your own job.
@@ -20,8 +28,8 @@ export async function POST(request: Request) {
     .update({ team_member_id: null, status: 'scheduled' })
     .eq('id', booking_id)
     .eq('team_member_id', auth.id)
-    .select()
-    .maybeSingle()
+    .select('*, clients(name)')
+    .maybeSingle<ReleasedBooking>()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
   if (!data) return NextResponse.json({ error: 'Not your job to release' }, { status: 403 })
@@ -33,6 +41,28 @@ export async function POST(request: Request) {
     entityId: booking_id,
     details: { event: 'released', by: auth.id },
   })
+
+  // Unlike reassign (which notifies both the outgoing and incoming tech),
+  // a release had no admin-facing signal at all — a job silently fell back
+  // into the unassigned pool with nobody but the releasing tech aware it
+  // happened. Mirrors running-late's existing tech-triggered admin-push
+  // convention; escalates wording for a same-day emergency the same way
+  // schedule-monitor's unassigned check already does.
+  const { data: member } = await db
+    .from('team_members')
+    .select('name')
+    .eq('id', auth.id)
+    .maybeSingle<{ name: string | null }>()
+  const clientName = data.clients?.name || 'a client'
+  const when = data.start_time
+    ? new Date(data.start_time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    : ''
+  sendPushToTenantAdmins(
+    auth.tid,
+    data.is_emergency ? '🚨 Emergency Job Released' : 'Job Released',
+    `${member?.name || 'A team member'} released ${clientName}'s job${when ? ` (${when})` : ''} back to the open pool.`,
+    '/dashboard/bookings',
+  ).catch(() => {})
 
   return NextResponse.json({ booking: data })
 }
