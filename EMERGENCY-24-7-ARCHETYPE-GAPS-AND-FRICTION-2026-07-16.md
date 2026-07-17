@@ -3189,3 +3189,52 @@ partial-day error there shifts the *routine* minimum-notice floor by at
 most a few hours rather than hard-blocking the archetype's core same-day
 flow. Different severity, same underlying pattern — flagging for a future
 pass rather than bundling an unrelated-severity fix into this one.
+
+## (75) Archetype depth — the non-same-day `minDate` (24hr lead) noted-but-not-fixed above, NOW FIXED
+
+Same 3 files as item (74): `template/book/new/BookFormClient.tsx`,
+`nycmaid/book/new/page.tsx`, `the-florida-maid/book-now/page.tsx`.
+`minDate = new Date(Date.now() + 24*60*60*1000).toISOString().split('T')[0]`
+took the **UTC** calendar date of "24 hours from now" instead of the
+browser's own local date — during the same ~7-8pm ET-onward evening window
+item (74) covers, the UTC date has already rolled to tomorrow relative to
+local time, so `minDate` landed a full calendar day further out than
+intended, hiding the very next day from the date picker even though a
+booking on it at a proper time would satisfy the 24-hour notice
+requirement. Standalone verification: at 10:30pm ET, old code set
+`minDate` to July 19 (blocking July 18 entirely), fixed code correctly
+floors to July 18. Fixed via `toLocaleDateString('en-CA')`, same pattern
+as item (74)'s same-day branch on the same line. No render harness for
+these 3 files (same precedent as item 74). `tsc --noEmit` clean, full
+suite 378/378 files, 1883/1883 tests, zero regressions.
+
+## (76) Fresh ground — POST /api/referrals validated and inserted the WRONG table's columns; "Create Referral" has never worked
+
+Not part of the emergency/24-7 archetype — found applying the session's
+"diff frontend POST body vs backend validate schema" method to a fresh
+route not yet audited. `referrals` (client-referred-a-client rewards;
+`supabase/schema.sql:249-258`) has columns `referrer_client_id`,
+`referred_client_id`, `referral_code`, `status`, `reward_amount`. POST's
+`validate()` schema instead required `name`/`email`/`phone`/`code`/
+`commission_rate` — the *referrers* table's shape (a separate,
+already-working referral-commission feature with its own tested
+`/api/referrers` routes). The dashboard's "Create Referral" form only
+ever sends `{ referrer_client_id, reward_amount }`; neither field was in
+the allowlist, and `name` was required but never sent, so every real
+attempt 400'd with "name is required" before ever reaching the insert —
+and even a hypothetical caller sending the old expected fields would have
+failed too, since `referrals` has no columns for PostgREST to write them
+to. This endpoint could never have succeeded for anyone. The existing
+`route.isolation.test.ts` never caught it because its DB mock is a plain
+JS object store that accepts any field name, unable to reproduce
+PostgREST's real "unknown column" rejection.
+
+**Fixed** — `validate()` now matches the real `referrals` columns, with
+the same cross-tenant-FK-ownership check already used on
+`schedules.client_id`/`reviews.client_id`/`clients.referrer_id` (this
+table's own GET join is unscoped by tenant on the joined side).
+`referral_code` is always server-generated. 3 new tests (the real
+dashboard-sent body now succeeds, a cross-tenant `referrer_client_id` is
+rejected 404, a missing one 400s pre-DB), mutation-verified (saved patch,
+revert → RED "expected 400" on all 3 → restore → GREEN). `tsc --noEmit`
+clean, full suite 378/378 files, 1886/1886 tests, zero regressions.
