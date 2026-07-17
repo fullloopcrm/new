@@ -3849,6 +3849,55 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-48. tenant.ts's getTenantByDomain() — TRANSITION ASSERT-AND-REFUSE DIVERGENCE-GUARD PROBE (archetype depth; 5a-45/5a-46/5a-47 all proved the FALLBACK side of the tenant_domains/tenants.domain resolver contract -- a host resolving correctly when only ONE source has it. This probes the OTHER safety property the same resolver promises and that has never been exercised in this harness: when BOTH sources have a row for the same host but they point at DIFFERENT tenants -- e.g. a custom domain re-pointed to a new tenant in tenant_domains while a stale tenants.domain row for the OLD tenant was never cleared -- the resolver must REFUSE to pick one rather than silently serve either tenant's data under the disputed host. This is the guard standing between a stale legacy row and the brand-swap failure mode getTenantByDomain's own doc comment names explicitly. tenant.ts's getTenantByDomain() is the exact function middleware.ts calls on every custom-domain request; zero prior exercise here.) ----
+    {
+      const { getTenantByDomain } = await import('../src/lib/tenant')
+      const foreignSlugDiv = slugify('divergence-probe', randomUUID())
+      const { data: foreignTenantDiv, error: foreignTenantDivErr } = await supabase.from('tenants').insert({
+        name: 'Divergence Probe Co', slug: foreignSlugDiv, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('divergence-guard probe: a real SECOND tenant row created to own the conflicting legacy domain', !!foreignTenantDiv && !foreignTenantDivErr, foreignTenantDivErr?.message)
+
+      if (foreignTenantDiv?.id) {
+        const divergenceHost = `divergence-probe-${tenant.id.slice(0, 8)}.example.com`
+
+        // tenant_domains says this host belongs to THIS run's tenant (A) --
+        // active, so it's the resolver's primary (winning) source. Same row
+        // shape activate-tenant.ts's real upsert writes in production.
+        const { error: tdInsertErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: tenant.id, domain: divergenceHost, active: true, is_primary: true, notes: 'sim-all-trades divergence-guard probe',
+        })
+        add('divergence-guard probe: active tenant_domains row seeded, host -> tenant A (this run\'s tenant)', !tdInsertErr, tdInsertErr?.message)
+
+        // tenants.domain (legacy) says the SAME host belongs to tenant B --
+        // a real disagreement between the two sources, not a mock.
+        const { error: legacyDivErr } = await supabase.from('tenants').update({ domain: divergenceHost }).eq('id', foreignTenantDiv.id)
+        add('divergence-guard probe: legacy tenants.domain row seeded, SAME host -> tenant B (a different, real tenant)', !legacyDivErr, legacyDivErr?.message)
+
+        let divergenceThrew = false
+        let divergenceMessage = ''
+        try {
+          await getTenantByDomain(divergenceHost)
+        } catch (e) {
+          divergenceThrew = true
+          divergenceMessage = e instanceof Error ? e.message : String(e)
+        }
+        add('divergence-guard probe: getTenantByDomain() REFUSES (throws) rather than silently picking tenant A or B (live schema, real conflicting rows -- not a mock)', divergenceThrew, divergenceMessage)
+        add('divergence-guard probe: the thrown error is the TENANT_DIVERGENCE guard specifically, naming both real conflicting tenant ids -- not some unrelated failure', divergenceMessage.includes('TENANT_DIVERGENCE') && divergenceMessage.includes(tenant.id) && divergenceMessage.includes(foreignTenantDiv.id), divergenceMessage)
+
+        // Control: clear the legacy conflict and confirm the SAME host now
+        // resolves cleanly to tenant A -- proves the throw above was the
+        // divergence guard specifically firing, not the host being left
+        // permanently broken by this probe.
+        await supabase.from('tenants').update({ domain: null }).eq('id', foreignTenantDiv.id)
+        const resolvedAfterClear = await getTenantByDomain(divergenceHost)
+        add('divergence-guard probe control: once the legacy conflict is cleared, the SAME host resolves cleanly to tenant A (proves the throw above was the guard, not a broken host)', resolvedAfterClear?.id === tenant.id, resolvedAfterClear?.id)
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', divergenceHost)
+        await supabase.from('tenants').delete().eq('id', foreignTenantDiv.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
