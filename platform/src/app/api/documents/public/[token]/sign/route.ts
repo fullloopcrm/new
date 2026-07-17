@@ -201,7 +201,7 @@ export async function POST(request: Request, { params }: Params) {
         event_type: 'completed',
       })
       // Both parties get a receipt + the fully-signed copy attached.
-      await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[]).catch(err =>
+      await sendCompletionCopies(doc, (freshSigners || []) as CompletionSigner[], doc.tenants).catch(err =>
         console.error('completion copies failed:', err)
       )
     } else {
@@ -230,9 +230,19 @@ type CompletionSigner = { id: string; name: string; email: string | null; role?:
 
 // After all parties sign, email each signer a receipt with the fully-signed
 // PDF attached. Best-effort; never throws into the signing response.
+//
+// tenant carries the SAME per-tenant Resend credentials/from-address that
+// sendSigningInviteToSigner (below) already uses for every other email on
+// this document — without it this function falls back to sendEmail()'s
+// platform-wide default (RESEND_API_KEY + "Full Loop CRM <hello@...>"),
+// silently un-white-labeling the single highest-stakes email in the whole
+// signing flow (the final receipt with the legally-signed PDF attached) and
+// routing its cost/volume through the platform's own Resend account instead
+// of the tenant's.
 async function sendCompletionCopies(
   doc: { id: string; tenant_id: string; title: string },
-  signers: CompletionSigner[]
+  signers: CompletionSigner[],
+  tenant: { domain: string | null; resend_api_key: string | null; email_from: string | null } | null
 ) {
   const recipients = signers.filter(s => s.email)
   if (recipients.length === 0) return
@@ -243,6 +253,8 @@ async function sendCompletionCopies(
   const filename = `${(doc.title || 'agreement').replace(/[^a-z0-9]+/gi, '-').replace(/^-|-$/g, '').slice(0, 60) || 'agreement'}-signed.pdf`
   const completedAt = new Date().toLocaleString('en-US')
   const roster = signers.map(s => `${escapeHtml(s.name)}${s.email ? ` (${escapeHtml(s.email)})` : ''}`).join(', ')
+  const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
+  const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
 
   for (const s of recipients) {
     const html = `
@@ -266,6 +278,8 @@ async function sendCompletionCopies(
       to: s.email!,
       subject: `Signed & complete — ${doc.title}`,
       html,
+      from: fromEmail,
+      resendApiKey: resendKey,
       attachments: [{ filename, content: b64 }],
     }).catch(err => console.error(`completion copy to ${s.email} failed:`, err))
   }
