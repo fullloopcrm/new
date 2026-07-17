@@ -61,8 +61,18 @@ export default function ScheduleIssues() {
     setIssues(prev => prev.filter(i => i.id !== id))
   }
   const dismiss = async (id: string) => {
-    await fetch(`/api/admin/schedule-issues?id=${id}`, { method: 'DELETE' }).catch(() => {})
+    await fetch('/api/admin/schedule-issues', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id, status: 'dismissed' }),
+    }).catch(() => {})
     setIssues(prev => prev.filter(i => i.id !== id))
+  }
+  const markAllRead = async () => {
+    await Promise.all(issues.map(i => fetch('/api/admin/schedule-issues', {
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: i.id, status: 'acknowledged' }),
+    }).catch(() => {})))
+    setIssues([])
   }
   const rescan = async () => {
     setRescanning(true)
@@ -83,7 +93,7 @@ export default function ScheduleIssues() {
         <Bar>{`Schedule Issues (${issues.length})`}</Bar>
         <div className="flex gap-2">
           <button onClick={rescan} disabled={rescanning} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '8px 14px', border: `1px solid ${V.line}`, color: V.ink, background: V.canvas }}>{rescanning ? 'Rescanning…' : 'Clear all & rescan'}</button>
-          <button onClick={() => setIssues([])} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '8px 14px', background: V.ink, color: '#fff' }}>Mark all read</button>
+          <button onClick={markAllRead} style={{ fontFamily: V.mono, fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.12em', padding: '8px 14px', background: V.ink, color: '#fff' }}>Mark all read</button>
         </div>
       </div>
 
