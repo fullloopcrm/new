@@ -7099,3 +7099,64 @@ convention.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (157) New fresh-ground surface, different bug class from the (152)-(156) missing-revenue-post thread — referrers.total_earned/total_paid have a lost-update race across DIFFERENT commissions for the same referrer
+
+`referral_commissions.status` already has an atomic CAS (`.neq('status',
+'paid')` on the UPDATE) so a double-submit of the SAME commission can't
+double-credit — the route's own comment said as much. But that CAS only
+protects the one row it's claiming. The separate counter it bumps,
+`referrers.total_earned`/`total_paid`, was still a plain read-then-write
+(`SELECT total_paid` → compute `old + commission_cents` in JS → `UPDATE`)
+in three places:
+
+- `POST /api/referral-commissions` (admin creates a commission for a
+  booking) — bumps `total_earned`.
+- `PUT /api/referral-commissions` (admin marks a commission `'paid'`) —
+  bumps `total_paid`.
+- `POST /api/team-portal/checkout` (auto-created commission when a
+  referred booking's cleaner checks out) — bumps `total_earned`.
+
+Two *different* commissions for the *same* referrer, created or paid
+around the same time — two cleaners checking out two of that referrer's
+bookings back to back, or an admin marking two pending commissions paid in
+quick succession — both read the same stale counter value and the second
+write clobbers the first. The referrer's ledger silently undercounts by
+one commission's worth, with no error anywhere: the individual
+`referral_commissions` rows are all correct, only the aggregate on
+`referrers` drifts. Same lost-update shape as today's `admin_seats`/
+`team_seats` merge-race fix, just on a plain counter instead of a
+computed multi-column rate.
+
+**Fixed** — new migration `2026_07_17_referrer_counter_atomic_bump.sql`
+(file-only, not applied) adds `bump_referrer_total_earned`/
+`bump_referrer_total_paid`, both a single `UPDATE ... SET col = col +
+p_amount_cents ...` in the same style as the existing
+`cpa_token_bump_usage` RPC (`039_atomic_ledger_and_hardening.sql`). All
+three call sites now call the RPC instead of computing the new value in
+JS, so there's no window between "read the old value" and "write the new
+one" for a concurrent request to land in.
+
+New test file `route.referrer-counter-race.test.ts` (2 tests): seeds two
+*different* commissions for one referrer, fires both POST-create (or both
+PUT-paid) concurrently via `Promise.all`, asserts the counter equals the
+**sum** of both commissions, not last-write-wins. Also updated 3 existing
+test files' `supabaseAdmin` mocks to simulate the new RPC (the shared
+`fake-supabase.ts` harness doesn't model `.rpc()`, same limitation noted
+by `post-revenue-race.test.ts`/`post-adjustments-race.test.ts` — added the
+increment inline in each mock, matching that established convention)
+since they exercise the same code path and would otherwise throw
+`supabaseAdmin.rpc is not a function`.
+
+Mutation-verified: reverted the route.ts fix via `git apply -R` on a
+diff-patch (not `git stash` — disabled in this worker worktree, shared
+`.git` dir across all 4 workers), reran the 2 new tests, both failed for
+the right reason (`3000` instead of `5000`, `6000` instead of `10000` —
+the exact lost-update signature), then `git apply`'d the patch back and
+reran to confirm GREEN. `tsc --noEmit` clean. Full repo suite: 449/449
+files, 2131/2131 tests, zero regressions (same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report has
+flagged).
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
