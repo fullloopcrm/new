@@ -19,8 +19,9 @@ import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
-type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'email_from' | 'domain'>
+type TenantLike = Pick<Tenant, 'id' | 'name' | 'email' | 'phone' | 'resend_api_key' | 'email_from' | 'domain' | 'slug'>
 
 function extractNewContent(text: string): string {
   if (!text) return ''
@@ -38,7 +39,11 @@ function extractNewContent(text: string): string {
   return out.join('\n').trim()
 }
 
-function formatHtmlReply(text: string, tenant: TenantLike): string {
+// Resolves the site link through tenantSiteUrl() (tenant_domains first,
+// tenants.domain fallback) — same precedence every other outbound
+// tenant-branded surface uses. Reading tenant.domain directly here would
+// footer-link a tenant_domains-only tenant's reply to a stale/absent domain.
+export async function formatHtmlReply(text: string, tenant: TenantLike): Promise<string> {
   const escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -47,7 +52,7 @@ function formatHtmlReply(text: string, tenant: TenantLike): string {
     .replace(/\n/g, '<br>')
 
   const phoneTel = tenant.phone ? `<a href="tel:${tenant.phone.replace(/[^0-9+]/g, '')}" style="color: #888;">${tenant.phone}</a> · ` : ''
-  const siteUrl = tenant.domain ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}` : ''
+  const siteUrl = await tenantSiteUrl({ id: tenant.id, domain: tenant.domain, slug: tenant.slug })
   const siteLink = siteUrl ? `<a href="${siteUrl}" style="color: #888;">${siteUrl.replace(/^https?:\/\//, '')}</a>` : ''
 
   return `<div style="font-family: system-ui, -apple-system, sans-serif; font-size: 15px; line-height: 1.5; color: #222;">
@@ -183,7 +188,7 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
     { expectedTenantId: tenant.id },
   )
 
-  const html = formatHtmlReply(reply, tenant)
+  const html = await formatHtmlReply(reply, tenant)
   const replySubject = buildReplySubject(email.subject, tenant.name)
 
   try {
