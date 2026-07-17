@@ -34,6 +34,12 @@ const PAGE = 1000
  * Stream every journal line for a tenant within an optional date window / entity,
  * paginated so the 1000-row cap never truncates. Calls `onRow` per line with its
  * debit/credit and the joined account (type/subtype/code/name).
+ *
+ * `.order('id')` is required alongside `.range()` — Postgres gives no row-order
+ * guarantee across separate OFFSET/LIMIT queries without an explicit ORDER BY,
+ * so an unordered multi-page scan can silently skip or double-count lines once
+ * a tenant's ledger passes one page. Every other paginated query in this repo
+ * pairs `.range()` with `.order()`; this was the one that didn't.
  */
 async function streamLedgerLines(
   tenantId: string,
@@ -46,6 +52,7 @@ async function streamLedgerLines(
       .from('journal_lines')
       .select('debit_cents, credit_cents, journal_entries!inner(entry_date, entity_id), chart_of_accounts!inner(type, subtype, code, name)')
       .eq('tenant_id', tenantId)
+      .order('id', { ascending: true })
       .range(offset, offset + PAGE - 1)
     if (opts.from) q = q.gte('journal_entries.entry_date', opts.from)
     if (opts.to) q = q.lte('journal_entries.entry_date', opts.to)
@@ -86,6 +93,7 @@ export async function ledgerProfitAndLoss(
       .eq('tenant_id', tenantId)
       .gte('journal_entries.entry_date', from)
       .lte('journal_entries.entry_date', to)
+      .order('id', { ascending: true })
       .range(offset, offset + PAGE - 1)
     if (entityId) q = q.eq('journal_entries.entity_id', entityId)
 

@@ -34,6 +34,9 @@ export async function buildTrialBalance(tenantId: string, entityId: string | nul
   let truncated = false
 
   // Page through journal lines so tenants with >10k lines aren't silently cut off.
+  // `.order('id')` is required alongside `.range()` — without it, Postgres doesn't
+  // guarantee stable row order across separate paginated queries, so this can
+  // silently skip or double-count lines once a tenant passes one page.
   for (;;) {
     let q = supabaseAdmin
       .from('journal_lines')
@@ -42,6 +45,7 @@ export async function buildTrialBalance(tenantId: string, entityId: string | nul
     if (entityId) q = q.eq('entity_id', entityId)
     const { data } = await q
       .lte('journal_entries.entry_date', asOfDate)
+      .order('id', { ascending: true })
       .range(offset, offset + TRIAL_BALANCE_PAGE - 1)
 
     const rows = (data || []) as unknown as Array<{

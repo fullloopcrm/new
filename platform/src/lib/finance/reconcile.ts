@@ -15,7 +15,14 @@ import { getAccountIdByCode, ensureChartAccounts } from '../ledger'
 
 const PAGE = 1000
 
-/** Net movement on one account across the ledger: Σdebit − Σcredit. */
+/**
+ * Net movement on one account across the ledger: Σdebit − Σcredit.
+ *
+ * `.order('id')` is required alongside `.range()` — without it, Postgres
+ * doesn't guarantee stable row order across separate paginated queries, so a
+ * multi-page scan can silently skip or double-count lines once an account
+ * passes one page of journal lines.
+ */
 async function accountNetCents(tenantId: string, coaId: string): Promise<number> {
   let net = 0
   let offset = 0
@@ -25,6 +32,7 @@ async function accountNetCents(tenantId: string, coaId: string): Promise<number>
       .select('debit_cents, credit_cents')
       .eq('tenant_id', tenantId)
       .eq('coa_id', coaId)
+      .order('id', { ascending: true })
       .range(offset, offset + PAGE - 1)
     if (error) throw error
     const rows = data || []
