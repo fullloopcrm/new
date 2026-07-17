@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-process.env.TZ = 'UTC' // route gates blocks on now.getHours() in server-local time; pin it for a deterministic test
+process.env.TZ = 'UTC' // route gates blocks on the real ET hour; pin server TZ so toNaiveET() is deterministic
 
 /**
  * The 8am "UNPAID TEAM ALERTS" block read the legacy `team_paid` column,
@@ -112,7 +112,9 @@ describe('GET /api/cron/reminders — unpaid-team alert must not read the stale 
   beforeEach(() => {
     notificationInserts.length = 0
     vi.useFakeTimers()
-    vi.setSystemTime(new Date('2026-01-05T08:15:00.000Z'))
+    // 8:15am EST Jan 5 = 13:15 UTC -- the route's unpaid-team-alert gate now
+    // checks the real ET hour (etHour === 8), not the server-local (UTC) one.
+    vi.setSystemTime(new Date('2026-01-05T13:15:00.000Z'))
   })
   afterEach(() => {
     vi.useRealTimers()

@@ -116,3 +116,18 @@ export function toNaiveET(date: Date): string {
   const hour = get('hour') === '24' ? '00' : get('hour')
   return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}`
 }
+
+/**
+ * Naive-ET day-range strings [start, end] for the ET calendar date that is
+ * `dayOffset` days from `date` (0 = same ET day, 1 = tomorrow, -3 = 3 days
+ * ago). For boundary comparisons against naive-ET TIMESTAMP columns
+ * (bookings.start_time/end_time) -- unlike `etMidnightUtc`, which returns a
+ * real UTC instant for TIMESTAMPTZ columns.
+ */
+export function naiveETDayRange(date: Date, dayOffset: number): { start: string; end: string } {
+  const { y, m, d } = etYMD(date)
+  const dayObj = new Date(Date.UTC(y, m - 1, d + dayOffset))
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const ymd = `${dayObj.getUTCFullYear()}-${pad(dayObj.getUTCMonth() + 1)}-${pad(dayObj.getUTCDate())}`
+  return { start: `${ymd}T00:00:00`, end: `${ymd}T23:59:59` }
+}

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { toNaiveET } from '@/lib/dates'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
@@ -15,8 +16,16 @@ export async function GET(request: Request) {
   const authError = protectCronAPI(request)
   if (authError) return authError
 
+  // created_at is TIMESTAMPTZ (aware) -- a real UTC instant is correct here.
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
-  const nowIso = new Date().toISOString()
+  // bookings.start_time is naive-ET (no tz). A raw `.toISOString()` bound is
+  // a real UTC instant -- Postgres drops the tz marker for a `timestamp
+  // without time zone` column, so the UTC clock digits were read as if they
+  // were ET clock digits, shifting this lower bound LATER by the EST/EDT
+  // offset. Net effect: any pending booking starting within the next ~4-5h
+  // fell below the shifted bound and silently stopped being considered for
+  // its confirmation-reminder SMS -- right when confirmation matters most.
+  const nowEt = toNaiveET(new Date())
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
@@ -37,7 +46,7 @@ export async function GET(request: Request) {
       .eq('tenant_id', tenantId)
       .eq('status', 'pending')
       .lte('created_at', thirtyMinAgo)
-      .gte('start_time', nowIso)
+      .gte('start_time', nowEt)
 
     if (error) continue
 

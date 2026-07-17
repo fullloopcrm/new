@@ -14,6 +14,7 @@ import type {
   BookingPending,
 } from '@/lib/types'
 import { safeEqual } from '@/lib/secret-compare'
+import { etYMD, etMidnightUtc, toNaiveET, naiveETDayRange } from '@/lib/dates'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -27,6 +28,18 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
+  // bookings.start_time/end_time are naive-ET (no tz); notifications.created_at
+  // is TIMESTAMPTZ (aware). Every `now.getHours() === N` gate below reads the
+  // SERVER's local hour (UTC on Vercel), not ET -- e.g. the "8am" gate fired
+  // at 8am UTC (3-4am ET) instead of 8am ET, and every day-range boundary
+  // built via server-local setDate/setHours+toISOString used the UTC
+  // calendar day instead of the ET one, compared against naive-ET columns.
+  // `etHour` gives the real ET hour for the gates; `naiveETDayRange` gives
+  // naive-ET day-range strings for start_time/end_time boundaries;
+  // `etMidnightUtc` gives real UTC instants for the one boundary compared
+  // against the aware `notifications.created_at` column (nightly digest).
+  const nowEt = toNaiveET(now)
+  const etHour = Number(nowEt.slice(11, 13))
   const results: { type: string; booking_id: string; tenant_id: string }[] = []
   let sent = 0
   let failed = 0
@@ -55,13 +68,9 @@ export async function GET(request: Request) {
       // DAY-BASED REMINDERS — send at 8am (per server TZ)
       // 3 days before + 1 day before
       // ============================================
-      if (now.getHours() === 8) {
+      if (etHour === 8) {
         for (const daysOut of reminderDays) {
-          const target = new Date(now)
-          target.setDate(target.getDate() + daysOut)
-          target.setHours(0, 0, 0, 0)
-          const targetEnd = new Date(target)
-          targetEnd.setHours(23, 59, 59, 999)
+          const { start: targetStart, end: targetEnd } = naiveETDayRange(now, daysOut)
           const label = daysOut === 1 ? 'tomorrow' : `in ${daysOut} days`
           const emailType = `reminder_${daysOut}day`
 
@@ -70,8 +79,8 @@ export async function GET(request: Request) {
             .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
-            .gte('start_time', target.toISOString())
-            .lte('start_time', targetEnd.toISOString())
+            .gte('start_time', targetStart)
+            .lte('start_time', targetEnd)
             .limit(500)
             .returns<BookingWithClientAndTeam[]>()
 
@@ -207,8 +216,8 @@ export async function GET(request: Request) {
         .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
-        .gte('start_time', hourWindowStart.toISOString())
-        .lte('start_time', hourWindowEnd.toISOString())
+        .gte('start_time', toNaiveET(hourWindowStart))
+        .lte('start_time', toNaiveET(hourWindowEnd))
         .limit(500)
         .returns<BookingWith2HourReminder[]>()
 
@@ -284,8 +293,8 @@ export async function GET(request: Request) {
         .select('id, client_id, start_time, end_time, hourly_rate, clients(name), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
-        .gte('end_time', payWindowStart.toISOString())
-        .lte('end_time', payWindowEnd.toISOString())
+        .gte('end_time', toNaiveET(payWindowStart))
+        .lte('end_time', toNaiveET(payWindowEnd))
         .limit(500)
         .returns<BookingWithPaymentAlert[]>()
 
@@ -334,20 +343,16 @@ export async function GET(request: Request) {
       // ============================================
       // THANK YOU EMAIL — 3 days after first booking (8am only)
       // ============================================
-      if (now.getHours() === 8) {
-        const threeDaysAgo = new Date(now)
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-        threeDaysAgo.setHours(0, 0, 0, 0)
-        const threeDaysAgoEnd = new Date(threeDaysAgo)
-        threeDaysAgoEnd.setHours(23, 59, 59, 999)
+      if (etHour === 8) {
+        const { start: threeDaysAgoStart, end: threeDaysAgoEnd } = naiveETDayRange(now, -3)
 
         const { data: completedBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, service_type, clients(name, email)')
           .eq('tenant_id', tenantId)
           .in('status', ['completed', 'paid'])
-          .gte('end_time', threeDaysAgo.toISOString())
-          .lte('end_time', threeDaysAgoEnd.toISOString())
+          .gte('end_time', threeDaysAgoStart)
+          .lte('end_time', threeDaysAgoEnd)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingWithThankYou[]>()
 
@@ -375,7 +380,7 @@ export async function GET(request: Request) {
             .eq('tenant_id', tenantId)
             .eq('client_id', booking.client_id)
             .in('status', ['completed', 'paid'])
-            .lt('end_time', threeDaysAgo.toISOString())
+            .lt('end_time', threeDaysAgoStart)
 
           if ((count || 0) === 0) {
             await notify({
@@ -398,16 +403,15 @@ export async function GET(request: Request) {
       // ============================================
       // UNPAID TEAM ALERTS — 8am, completed 2+ days ago with unpaid team
       // ============================================
-      if (now.getHours() === 8) {
-        const twoDaysAgo = new Date(now)
-        twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
+      if (etHour === 8) {
+        const twoDaysAgo = new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000)
 
         const { data: unpaidBookings } = await supabaseAdmin
           .from('bookings')
           .select('id')
           .eq('tenant_id', tenantId)
           .eq('status', 'completed')
-          .lt('end_time', twoDaysAgo.toISOString())
+          .lt('end_time', toNaiveET(twoDaysAgo))
           .or('team_member_paid.is.null,team_member_paid.eq.false')
           .limit(500) // Don't process more than 500 per tenant per run
 
@@ -428,7 +432,7 @@ export async function GET(request: Request) {
       // ============================================
       // PENDING BOOKING ALERTS — 8am and 2pm, unassigned bookings
       // ============================================
-      if (now.getHours() === 8 || now.getHours() === 14) {
+      if (etHour === 8 || etHour === 14) {
         const { data: pendingBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, clients(name)')
@@ -472,18 +476,16 @@ export async function GET(request: Request) {
       // ============================================
       // 8PM DAILY OPS RECAP — today's jobs + financials + tomorrow preview
       // ============================================
-      if (now.getHours() === 20) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
-        const tomorrowStart = new Date(now); tomorrowStart.setDate(tomorrowStart.getDate() + 1); tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart); tomorrowEnd.setHours(23, 59, 59, 999)
+      if (etHour === 20) {
+        const { start: todayStart, end: todayEnd } = naiveETDayRange(now, 0)
+        const { start: tomorrowStart, end: tomorrowEnd } = naiveETDayRange(now, 1)
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', todayStart.toISOString())
-          .lte('start_time', todayEnd.toISOString())
+          .gte('start_time', todayStart)
+          .lte('start_time', todayEnd)
           .neq('status', 'cancelled')
           .order('start_time')
           .limit(500)
@@ -492,8 +494,8 @@ export async function GET(request: Request) {
           .from('bookings')
           .select('id, start_time, end_time, price, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStart)
+          .lte('start_time', tomorrowEnd)
           .in('status', ['scheduled', 'confirmed'])
           .order('start_time')
           .limit(500)
@@ -544,9 +546,10 @@ export async function GET(request: Request) {
       // ============================================
       // 9PM NIGHTLY DIGEST — summary of all notifications sent today
       // ============================================
-      if (now.getHours() === 21) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
+      if (etHour === 21) {
+        const { y: ty, m: tm, d: td } = etYMD(now)
+        const todayStart = etMidnightUtc(ty, tm, td)
+        const todayEnd = new Date(etMidnightUtc(ty, tm, td + 1).getTime() - 1)
 
         const { data: todayNotifs } = await supabaseAdmin
           .from('notifications')
