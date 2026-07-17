@@ -2,7 +2,7 @@ import crypto from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
-import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
+import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
@@ -97,11 +97,13 @@ export async function isCleanerPhone(phone: string, tenantId: string): Promise<{
   if (!cleanPhone || cleanPhone.length < 7) return { isCleaner: false }
 
   // tenantId REQUIRED — always tenant-scope so this can never match another
-  // tenant's team across the shared cleaners/team table.
+  // tenant's team across the shared team_members table. Real table is
+  // team_members (no cleaners table exists); status is the active flag
+  // ('active'/'inactive'/'suspended'), not a boolean active column.
   const q = supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('name')
-    .eq('active', true)
+    .eq('status', 'active')
     .eq('tenant_id', tenantId)
     .ilike('phone', `%${cleanPhone}%`)
     .limit(1)
@@ -1158,7 +1160,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     let suggestedCleanerId: string | null = null
     let suggestedReason = ''
     try {
-      const scores = await scoreCleanersForBooking({
+      const scores = await scoreTeamForBooking({
         tenantId: tid,
         date, startTime: `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`,
         durationHours: estimatedHours, clientAddress: checklist.address || '',
@@ -1181,7 +1183,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', service_type: serviceType,
       hourly_rate: hourlyRate, price: finalPriceCents,
-      recurring_type: recurringType, suggested_cleaner_id: suggestedCleanerId,
+      recurring_type: recurringType, suggested_team_member_id: suggestedCleanerId,
       notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $20 self-booking discount applies at billing]`,
     }).select('id').single()
 
@@ -1255,7 +1257,7 @@ async function handleGetAccount(conversationId: string): Promise<string> {
 
     const { data: client } = await supabaseAdmin.from('clients').select('name, email, phone, address, pin, created_at').eq('id', convo.client_id).eq('tenant_id', tid).single()
     const { data: upcoming } = await supabaseAdmin.from('bookings')
-      .select('id, start_time, status, service_type, hourly_rate, payment_status, cleaners(name)')
+      .select('id, start_time, status, service_type, hourly_rate, payment_status, team_members(name)')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
       .gte('start_time', nowNaiveET()).order('start_time').limit(5)
     const { data: payments } = await supabaseAdmin.from('payments')
@@ -1264,7 +1266,7 @@ async function handleGetAccount(conversationId: string): Promise<string> {
     const { data: memories } = await supabaseAdmin.from('yinez_memory')
       .select('type, content').eq('tenant_id', tid).eq('client_id', convo.client_id).limit(10)
     const { data: recurring } = await supabaseAdmin.from('recurring_schedules')
-      .select('id, recurring_type, day_of_week, preferred_time, status, cleaners(name)')
+      .select('id, recurring_type, day_of_week, preferred_time, status, team_members(name)')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).eq('status', 'active')
 
     return JSON.stringify({
@@ -1273,10 +1275,10 @@ async function handleGetAccount(conversationId: string): Promise<string> {
         id: b.id, date: b.start_time?.split('T')[0],
         time: b.start_time ? new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) : null,
         status: b.status, service: b.service_type, rate: b.hourly_rate,
-        payment: b.payment_status, cleaner: (b.cleaners as unknown as { name: string })?.name || 'TBD',
+        payment: b.payment_status, cleaner: (b.team_members as unknown as { name: string })?.name || 'TBD',
       })),
       recent_payments: (payments || []).map(p => ({ amount: `$${(p.amount / 100).toFixed(0)}`, tip: p.tip ? `$${(p.tip / 100).toFixed(0)}` : null, method: p.method, date: p.created_at?.split('T')[0] })),
-      recurring: (recurring || []).map(r => ({ id: r.id, type: r.recurring_type, day: r.day_of_week, time: r.preferred_time, cleaner: (r.cleaners as unknown as { name: string })?.name || 'TBD' })),
+      recurring: (recurring || []).map(r => ({ id: r.id, type: r.recurring_type, day: r.day_of_week, time: r.preferred_time, cleaner: (r.team_members as unknown as { name: string })?.name || 'TBD' })),
       preferences: (memories || []).map(m => m.content),
     })
   } catch (err) {
@@ -1353,7 +1355,7 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
     if (!bookingId) return JSON.stringify({ error: 'No upcoming booking found' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('client_id, start_time, service_type, hourly_rate, clients(name, email, pin), cleaners(name)')
+      .select('client_id, start_time, service_type, hourly_rate, clients(name, email, pin), team_members(name)')
       .eq('id', bookingId).eq('tenant_id', tid).single()
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
     if (booking.client_id !== convo.client_id) return JSON.stringify({ error: 'not_your_booking' })
@@ -1361,7 +1363,7 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
     const client = booking.clients as unknown as { name: string; email: string; pin: string }
     if (!client?.email) return JSON.stringify({ error: 'No email on file' })
 
-    const cleaner = booking.cleaners as unknown as { name: string }
+    const cleaner = booking.team_members as unknown as { name: string }
     const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' })
 
@@ -1419,7 +1421,7 @@ async function handleConfirmPayment(input: Record<string, unknown>, conversation
     const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('id, cleaner_id, start_time, clients(name), cleaners(name, phone, sms_consent)')
+      .select('id, team_member_id, start_time, clients(name), team_members(name, phone, sms_consent)')
       .eq('tenant_id', tid).eq('client_id', convo.client_id)
       .neq('payment_status', 'paid').not('fifteen_min_alert_time', 'is', null)
       .order('start_time', { ascending: false }).limit(1).single()
@@ -1506,7 +1508,7 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
     const tid = (convo as { tenant_id?: string }).tenant_id || NYCMAID_TENANT_ID
     const filter = (input.status_filter as string) || 'upcoming'
     let query = supabaseAdmin.from('bookings')
-      .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, cleaners(name), actual_hours, recurring_type')
+      .select('id, start_time, end_time, status, service_type, hourly_rate, price, payment_status, team_members(name), actual_hours, recurring_type')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).order('start_time', { ascending: filter === 'upcoming' }).limit(5)
     if (filter === 'upcoming') query = query.gte('start_time', nowNaiveET()).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress', 'checked_in'])
     else if (filter === 'completed') query = query.eq('status', 'completed').order('start_time', { ascending: false })
@@ -1517,7 +1519,7 @@ async function handleLookupBookings(input: Record<string, unknown>, conversation
       time: b.start_time ? new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) : null,
       status: b.status, service: b.service_type, rate: b.hourly_rate,
       price: b.price ? `$${(b.price / 100).toFixed(0)}` : null,
-      payment: b.payment_status, cleaner: (b.cleaners as unknown as { name: string })?.name || 'TBD',
+      payment: b.payment_status, cleaner: (b.team_members as unknown as { name: string })?.name || 'TBD',
       recurring: b.recurring_type !== 'one_time' ? b.recurring_type : null,
     }))})
   } catch (err) {
@@ -1697,7 +1699,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     if (!bookingId) return JSON.stringify({ error: 'No bookings found for this client' })
 
     const { data: booking } = await supabaseAdmin.from('bookings')
-      .select('id, client_id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, cleaner_pay, payment_status, payment_method, status, service_type, cleaners(name), clients(name, address), client_properties(address)')
+      .select('id, client_id, start_time, end_time, check_in_time, check_out_time, check_in_location, check_out_location, actual_hours, hourly_rate, price, pay_rate, payment_status, payment_method, status, service_type, team_members(name), clients(name, address), client_properties(address)')
       .eq('id', bookingId).eq('tenant_id', tid).single()
 
     if (!booking) return JSON.stringify({ error: 'Booking not found' })
@@ -1709,7 +1711,7 @@ export async function handleBookingDetails(input: Record<string, unknown>, conve
     applyPropertyToBookingClient(booking as Parameters<typeof applyPropertyToBookingClient>[0])
 
     const client = booking.clients as unknown as { name: string; address: string } | null
-    const cleaner = booking.cleaners as unknown as { name: string } | null
+    const cleaner = booking.team_members as unknown as { name: string } | null
 
     // Calculate times
     const formatTime = (t: string | null) => {
@@ -1892,7 +1894,7 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
     if (!client) return JSON.stringify({ error: 'Client not found' })
 
     const { data: recentBookings } = await supabaseAdmin.from('bookings')
-      .select('id, start_time, service_type, price, hourly_rate, status, payment_status, cleaners(name)')
+      .select('id, start_time, service_type, price, hourly_rate, status, payment_status, team_members(name)')
       .eq('tenant_id', tid).eq('client_id', client.id).in('status', ['completed', 'scheduled', 'in_progress', 'pending'])
       .order('start_time', { ascending: false }).limit(5)
 
@@ -1902,11 +1904,11 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
 
     let preferredCleaner: string | null = null
     const { data: completedBookings } = await supabaseAdmin.from('bookings')
-      .select('cleaners(name)').eq('tenant_id', tid).eq('client_id', client.id).eq('status', 'completed')
+      .select('team_members(name)').eq('tenant_id', tid).eq('client_id', client.id).eq('status', 'completed')
     if (completedBookings && completedBookings.length > 0) {
       const counts: Record<string, number> = {}
       for (const b of completedBookings) {
-        const n = (b.cleaners as unknown as { name: string })?.name
+        const n = (b.team_members as unknown as { name: string })?.name
         if (n) counts[n] = (counts[n] || 0) + 1
       }
       const sorted = Object.entries(counts).sort((a, b) => b[1] - a[1])
@@ -1922,7 +1924,7 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
       .map(b => ({
         booking_id: b.id, date: b.start_time?.split('T')[0],
         time: b.start_time ? new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true, timeZone: 'America/New_York' }) : null,
-        service_type: b.service_type, cleaner: (b.cleaners as unknown as { name: string })?.name || 'unassigned',
+        service_type: b.service_type, cleaner: (b.team_members as unknown as { name: string })?.name || 'unassigned',
         hourly_rate: b.hourly_rate, status: b.status, payment_status: b.payment_status,
       }))
 
@@ -1934,7 +1936,7 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
       upcoming,
       recent_bookings: (recentBookings || []).map(b => ({
         date: b.start_time?.split('T')[0], service_type: b.service_type,
-        cleaner: (b.cleaners as unknown as { name: string })?.name || 'unassigned',
+        cleaner: (b.team_members as unknown as { name: string })?.name || 'unassigned',
         hourly_rate: b.hourly_rate, status: b.status, payment_status: b.payment_status,
       })),
       memories: (memories || []).map(m => ({ type: m.type, content: m.content })),

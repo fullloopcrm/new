@@ -302,7 +302,7 @@ export async function loadContext(tenantId: string, phone: string | null, _conve
       ? { data: [] }
       : await supabaseAdmin
           .from('clients')
-          .select('id, name, address, email, last_rate, notes, created_at, preferred_cleaner_id, status')
+          .select('id, name, address, email, last_rate, notes, created_at, preferred_team_member_id, status')
           .eq('tenant_id', tenantId)
           .ilike('phone', `%${last10}%`)
           .limit(5)
@@ -324,12 +324,12 @@ export async function loadContext(tenantId: string, phone: string | null, _conve
       if (client.notes) parts.push(`NOTES: ${client.notes}`)
 
       // Preferred cleaner — surface so Yinez can mention them when booking.
-      if (client.preferred_cleaner_id) {
+      if (client.preferred_team_member_id) {
         const { data: pref } = await supabaseAdmin
-          .from('cleaners')
+          .from('team_members')
           .select('name')
           .eq('tenant_id', tenantId)
-          .eq('id', client.preferred_cleaner_id)
+          .eq('id', client.preferred_team_member_id)
           .maybeSingle()
         if (pref?.name) {
           parts.push(`PREFERRED CLEANER: ${pref.name}. When this client books, mention you'll send ${pref.name} if available ("you've been with ${pref.name} — I'll see if she's free for that slot"). If ${pref.name} is NOT available for the time they want, name a backup. Don't promise ${pref.name} until smart-schedule confirms.`)
