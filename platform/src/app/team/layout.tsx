@@ -61,7 +61,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
         .catch(() => {})
     }
     fetchCount()
-    const interval = setInterval(fetchCount, 60000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchCount() }, 60000)
     return () => clearInterval(interval)
   }, [auth])
 
@@ -75,7 +75,7 @@ export default function TeamLayout({ children }: { children: React.ReactNode }) 
         .catch(() => {})
     }
     fetchConnectUnread()
-    const interval = setInterval(fetchConnectUnread, 15000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchConnectUnread() }, 15000)
     return () => clearInterval(interval)
   }, [auth])
 

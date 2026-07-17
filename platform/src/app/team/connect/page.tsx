@@ -43,7 +43,7 @@ export default function TeamConnectPage() {
   useEffect(() => {
     if (!auth) return
     fetchMessages()
-    const interval = setInterval(fetchMessages, 5000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchMessages() }, 5000)
     return () => clearInterval(interval)
   }, [auth, fetchMessages])
 

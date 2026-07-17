@@ -93,12 +93,12 @@ export default function LoopConnectPage() {
   useEffect(() => {
     if (!activeChannelId) return
     fetchMessages()
-    const interval = setInterval(fetchMessages, 5000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchMessages() }, 5000)
     return () => clearInterval(interval)
   }, [activeChannelId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    const interval = setInterval(fetchChannels, 15000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchChannels() }, 15000)
     return () => clearInterval(interval)
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 

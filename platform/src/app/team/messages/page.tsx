@@ -44,7 +44,7 @@ export default function TeamMessagesPage() {
   useEffect(() => {
     if (!token) return
     fetchMessages()
-    const interval = setInterval(() => fetchMessages(), 5000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchMessages() }, 5000)
     return () => clearInterval(interval)
   }, [token, fetchMessages])
 

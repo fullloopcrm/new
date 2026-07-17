@@ -51,7 +51,7 @@ export default function PortalLayout({ children }: { children: React.ReactNode }
         .catch(() => {})
     }
     fetchConnectUnread()
-    const interval = setInterval(fetchConnectUnread, 15000)
+    const interval = setInterval(() => { if (document.visibilityState === 'visible') fetchConnectUnread() }, 15000)
     return () => clearInterval(interval)
   }, [auth])
 

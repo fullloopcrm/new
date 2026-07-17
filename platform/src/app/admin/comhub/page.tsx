@@ -227,14 +227,16 @@ export default function ComhubPage() {
     window.history.replaceState({}, '', url.toString())
   }, [])
   useEffect(() => {
-    const t = setInterval(() => { fetchThreads(); fetchChannels() }, 5000)
+    const t = setInterval(() => {
+      if (document.visibilityState === 'visible') { fetchThreads(); fetchChannels() }
+    }, 5000)
     return () => clearInterval(t)
   }, [fetchThreads, fetchChannels])
 
   useEffect(() => {
     if (!selected) { setThread(null); setMessages([]); setContext(null); return }
     fetchThread(selected)
-    const t = setInterval(() => fetchThread(selected), 5000)
+    const t = setInterval(() => { if (document.visibilityState === 'visible') fetchThread(selected) }, 5000)
     return () => clearInterval(t)
   }, [selected, fetchThread])
 

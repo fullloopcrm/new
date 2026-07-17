@@ -30,7 +30,7 @@ export default function ClientPortalMessages() {
 
   useEffect(() => {
     fetchMessages()
-    const t = setInterval(fetchMessages, 5000)
+    const t = setInterval(() => { if (document.visibilityState === 'visible') fetchMessages() }, 5000)
     return () => clearInterval(t)
   }, [fetchMessages])
 
