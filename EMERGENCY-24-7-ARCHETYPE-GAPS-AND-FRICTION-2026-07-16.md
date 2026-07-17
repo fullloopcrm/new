@@ -3493,3 +3493,133 @@ this fix; verification here is the source/migration-comment cross-check
 above plus mirroring the already-live, already-correct sibling route's
 exact query shape. `tsc --noEmit` clean, full suite 378/378 files,
 1886/1886 tests, zero regressions.
+
+## (81) Fresh ground — custom-domain routing resolved tenants against the raw, un-normalized Host header instead of the already-computed cleanHost
+
+Found auditing the custom-domain branch of `middleware.ts` (the routing path
+for a tenant's own pointed domain, as opposed to the `<slug>.fullloopcrm.com`
+carrying-domain subdomain branch two blocks above it). That subdomain branch,
+and this same custom-domain branch's own `STATIC_TENANT_MAP` fallback lookup
+two lines above, both already use `cleanHost` — the Host header lowercased
+and port-stripped. The live DB lookup one line below it, `getTenantByDomain
+(hostname)`, used the raw, un-normalized header instead. `getTenantByDomain`
+(`tenant-lookup.ts`) only ever strips a leading `"www."`; it does not
+lowercase or strip a port. Any Host header carrying a port suffix (some
+proxy/preview setups forward one) or non-lowercase casing would silently
+fail to match `tenants.domain`/`tenant_domains.domain`, and — because the
+`catch` block only logs and falls through — the request would render the
+main marketing site instead of the tenant's own site, with no error visible
+to anyone.
+
+**Fixed** (`p1-w3`) — changed the call to `getTenantByDomain(cleanHost)`,
+matching the pattern the two sibling lookups in the same function already
+established. Added `src/lib/middleware-domain-lookup.test.ts`, a pure
+source-reading regression guard (same pattern as the `seo-*.test.ts` guards
+— `middleware.ts` imports `next/server` APIs that don't run under plain
+vitest) asserting the call site stays `getTenantByDomain(cleanHost)` and
+never reverts to `getTenantByDomain(hostname)`. `tsc --noEmit` clean, full
+suite 379/379 files, 1888/1888 tests. Commit `9c58ba02`.
+
+## (82) Archetype depth — H-01 admin-impersonation-bypass class repeats a fourth time: BookingNotes, ProjectsView, dashboard-shell's own on-every-load permissions fetch, and the AI assistant
+
+Same gap items (54) and the original `66fdc031` fix already established:
+a route resolving tenant context via `getTenantForRequest()`/
+`requirePermission()` needs a matching prefix in `middleware.ts`'s
+admin-impersonation bypass list, or an admin-impersonated request to it
+307s to `/sign-in` instead of running — and since real owner login is
+dormant (moved off Clerk, P5 not yet wired), admin impersonation is
+currently the *only* way any owner-side route runs in production at all,
+not just an impersonation-testing edge case. Re-swept dashboard components
+for `fetch('/api/...')` calls whose target route uses either helper and
+cross-checked each against the bypass list: `BookingNotes.tsx` (rendered on
+every booking detail view), `ProjectsView.tsx`, `dashboard-shell.tsx`'s own
+`/api/permissions/me` fetch — which runs on **every single** `/dashboard`
+page load, so this one alone made admin-impersonated sessions bounce to
+sign-in constantly — and the AI assistant/campaign-chat features (`/api/ai`)
+all had no prefix.
+
+**Fixed** — added `/api/booking-notes`, `/api/projects`, `/api/permissions`,
+`/api/ai` to the bypass list. Extended `middleware-domain-lookup.test.ts`
+(added alongside item (81) in the same commit) with a second guard asserting
+all four prefixes stay present. `tsc --noEmit` clean, full suite 379/379
+files, 1888/1888 tests. Commit `9c58ba02`.
+
+## (83) Archetype depth — H-01 class repeats a fifth time: the push-notification toggle
+
+Continued the same bypass-list sweep from item (82), this time diffing every
+directory under `src/app/api/*` against both the bypass-list prefixes and
+`isPublicRoute`'s patterns rather than re-grepping dashboard components (the
+inverse direction — catches a route with no *currently wired* dashboard
+caller too, not just ones already confirmed reachable). `push/subscribe/
+route.ts`'s `resolveAuthedTenantId()` has three branches by `role`
+(`team_member` → `getPortalAuth`, `client` → `protectClientAPI`, default/
+`admin` → `getTenantForRequest()`) — the same three-way split item (54)'s
+push-channel work and this route's own security fix already established.
+The `admin` branch was missing from the bypass list. Live caller: `<PushPrompt
+role="admin" />` in `AdminSidebar.tsx`/`DashboardHeader.tsx` on the
+`nyc-mobile-salon`, `wash-and-fold-nyc`, and `wash-and-fold-hoboken`
+tenant-dashboard clones (the per-tenant operator clones `platform/CLAUDE.md`
+already flags as debt to migrate, but still live and still the only UI these
+three tenants' owners have) — an admin-impersonated owner clicking "Enable
+notifications" got 307'd to `/sign-in` instead of subscribing.
+
+Also checked `announcements/unread/route.ts`, which has the identical
+`getTenantForRequest()`-with-no-bypass-prefix gap — but is dead code from
+the dashboard's own perspective (grepped every `.tsx` under `app/`: no
+component anywhere fetches `/api/announcements/unread` or references
+`platform_announcements`; only the separate, already-covered PIN-authed
+`/api/admin/announcements` CMS side and this route's own body reference it).
+Left it undocumented as a gap here since there is no live request path to
+be blocked — flagging as a Noticed item instead: a notification-bell UI for
+platform announcements was apparently planned but never shipped.
+
+**Fixed** — added `/api/push` to the bypass list. Extended
+`middleware-domain-lookup.test.ts` with a third guard for this prefix.
+`tsc --noEmit` clean, full suite 380/380 files, 1892/1892 tests, zero
+regressions. Commit `b8107a59`.
+
+## (84) Fresh ground — team-portal photo upload has 401'd since inception; wrong auth type entirely, not an impersonation-bypass gap
+
+Different bug shape from items (81)-(83) — found while confirming
+`/api/uploads` (the only other route `resolveAuthedTenantId`-style
+dashboard/portal auth branching seemed plausible for) wasn't a sixth H-01
+repeat. It isn't: `/api/uploads/route.ts` had exactly one auth path,
+`getTenantForRequest()` — the Clerk-session/`admin_token`-cookie resolver —
+unconditionally. Grepped the entire repo for its only caller: `app/team/
+page.tsx`'s `handlePhotoUpload`, the client-side half of item (77)'s
+already-fixed team-photo-upload feature (item 77 fixed the server writing to
+the wrong DB column; this is the upload call one step earlier in the same
+flow). The team portal authenticates with a PIN-issued bearer token
+(`localStorage`'s `team_auth.token`, verified server-side via
+`getPortalAuth()`/`verifyToken()`) — every other authenticated fetch in this
+1000+ line file sends `Authorization: Bearer ${auth.token}` (8 other call
+sites, confirmed by grep). The photo-upload fetch was the lone exception: no
+Authorization header at all. Even if it had sent one, the route wouldn't
+have checked it — `getTenantForRequest()` has no code path that reads a
+portal bearer token, only Clerk cookies/admin-impersonation cookies, neither
+of which a team-portal session ever carries.
+
+Net effect: a team member has never been able to successfully upload a
+profile photo, on any tenant, since the feature existed. Silent, because
+`handlePhotoUpload`'s catch block is `catch { /* silently fail */ }` — the
+UI just resets the "uploading" spinner and nothing happens, no error shown.
+Confirmed via full-codebase grep that `/api/uploads` truly has no second
+caller today (so the fix carries no risk of breaking a real admin/Clerk-
+session upload path — that branch is now purely a forward-compatible
+fallback, not exercised by any live UI yet).
+
+**Fixed** — `uploads/route.ts` now checks `getPortalAuth(request)` first
+(same helper `push/subscribe`'s `team_member` branch and every `team-portal/
+*` route already use) and only falls back to `getTenantForRequest()` if no
+portal token is present, scoping the upload path to whichever tenant
+resolves. `team/page.tsx`'s fetch now sends `Authorization: Bearer
+${auth.token}`, matching its 8 sibling calls in the same file. Added
+`route.test.ts` (3 cases: no auth at all → 401, portal bearer token →
+200 scoped to that member's tenant, admin/Clerk session with no portal
+token → 200 scoped to that session's tenant) — `formData()` itself is
+stubbed rather than built from a real multipart body, since jsdom's File/
+FormData/Request classes (this repo's vitest `environment: jsdom`) aren't
+brand-compatible with the undici multipart encoder `NextRequest.formData()`
+actually uses at runtime, which is orthogonal to what this fix changes
+(auth resolution, not multipart parsing). `tsc --noEmit` clean, full suite
+380/380 files, 1892/1892 tests, zero regressions. Commit `b8107a59`.
