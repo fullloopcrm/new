@@ -52,12 +52,39 @@ export function generateRecurringDates({
       }
       break
 
-    case 'monthly_date':
+    case 'monthly_date': {
+      // Recompute each month's anchor from the ORIGINAL day-of-month every
+      // iteration (clamped to that month's last day when the target day
+      // doesn't exist), instead of chaining setMonth() off the previous
+      // (possibly-already-overflowed) date. The old chained version let one
+      // short month permanently shift the day-of-month forward for every
+      // later month: Jan 31 -> setMonth() overflows Feb 31 into Mar 3 -> Mar
+      // 3 + 1mo -> Apr 3 -> ... stabilizing at day 3 FOREVER, never
+      // returning to 31 even in 31-day months. That's not a one-month
+      // hiccup, it's a silent permanent shift of the client's whole
+      // recurring day. Clamping fresh off the day-1 anchor each iteration
+      // (matching monthly_weekday's per-month recompute below) makes a short
+      // month a one-off fallback instead of a permanent drift.
+      const targetDate = current.getDate()
       for (let i = 0; i < weeksToGenerate; i++) {
-        dates.push(new Date(current))
-        current.setMonth(current.getMonth() + 1)
+        if (i === 0) {
+          dates.push(new Date(current))
+        } else {
+          const monthAnchor = new Date(current)
+          // Zero the day-of-month BEFORE advancing the month: setMonth()
+          // itself overflows when the CURRENT day-of-month (29-31) doesn't
+          // exist in the target month (e.g. calling setMonth() on a day-31
+          // date to reach Feb spills straight into March), so the target
+          // month must be reached via a safe day-1 anchor first.
+          monthAnchor.setDate(1)
+          monthAnchor.setMonth(monthAnchor.getMonth() + i)
+          const daysInMonth = new Date(monthAnchor.getFullYear(), monthAnchor.getMonth() + 1, 0).getDate()
+          monthAnchor.setDate(Math.min(targetDate, daysInMonth))
+          dates.push(monthAnchor)
+        }
       }
       break
+    }
 
     case 'monthly_weekday': {
       // Same weekday, same week-of-month
@@ -68,8 +95,16 @@ export function generateRecurringDates({
           dates.push(new Date(current))
         } else {
           const monthStart = new Date(current)
-          monthStart.setMonth(monthStart.getMonth() + i)
+          // Zero the day-of-month BEFORE advancing the month -- same overflow
+          // trap as monthly_date above. When the anchor's raw day-of-month is
+          // 29-31, calling setMonth() first (while day is still 29-31) can
+          // overflow past the intended target month (e.g. a Jan-29 anchor in
+          // a non-leap year: setMonth(+1) to reach Feb overflows Feb 29 into
+          // Mar 1, so `i=1`'s "Feb" anchor lands in March instead) -- which
+          // both skips the intended month entirely AND duplicates the
+          // following month once `i` catches up to it for real.
           monthStart.setDate(1)
+          monthStart.setMonth(monthStart.getMonth() + i)
           // Collect every occurrence of targetDay WITHIN THIS MONTH ONLY, then
           // pick the weekOfMonth-th one -- or the month's LAST occurrence if it
           // has fewer than weekOfMonth (e.g. a schedule anchored on a month's

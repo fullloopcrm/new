@@ -65,6 +65,38 @@ export function generateRecurringDates(
     return dates
   }
 
+  // For monthly_date, same special handling as monthly_day above: recompute
+  // each month's anchor from month/year integer counters + the ORIGINAL
+  // day-of-month, clamped to that month's last day, instead of chaining
+  // setMonth() off the previous result. The old chained version (still used
+  // below for daily/weekly/etc, harmless there since those never overflow a
+  // day-of-month) let one short month permanently shift a monthly_date
+  // schedule's day forward for every later month -- e.g. a Jan-31 anchor's
+  // setMonth() call overflows Feb 31 into Mar 3, then Mar 3 + 1mo -> Apr 3 ->
+  // ... stabilizing at day 3 FOREVER, never returning to 31 even in a real
+  // 31-day month. This is the exact array of dates this admin form both
+  // previews AND submits verbatim to /api/admin/recurring-schedules +
+  // /api/bookings/batch, so the corrupted day silently became the client's
+  // real permanent recurring day, not just a display glitch.
+  if (repeatType === 'monthly_date') {
+    const targetDate = start.getDate()
+    let month = start.getMonth()
+    let year = start.getFullYear()
+
+    while (dates.length < maxDates) {
+      const daysInMonth = new Date(year, month + 1, 0).getDate()
+      const date = new Date(year, month, Math.min(targetDate, daysInMonth), 12, 0, 0)
+      if (date >= start) {
+        if (endDate && date > endDate) break
+        dates.push(date.toISOString().split('T')[0])
+      }
+
+      month++
+      if (month > 11) { month = 0; year++ }
+    }
+    return dates
+  }
+
   // For other types
   while (dates.length < maxDates) {
     if (endDate && current > endDate) break
@@ -82,9 +114,6 @@ export function generateRecurringDates(
         break
       case 'triweekly':
         current.setDate(current.getDate() + 21)
-        break
-      case 'monthly_date':
-        current.setMonth(current.getMonth() + 1)
         break
       case 'custom':
         current.setDate(current.getDate() + (customInterval * 7)) // weeks, not days

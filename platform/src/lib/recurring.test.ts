@@ -142,29 +142,47 @@ describe('generateRecurringDates — monthly_date (setMonth day-of-month math)',
     expect(dates.map(ymd)).toEqual(['2026-11-10', '2026-12-10', '2027-01-10'])
   })
 
-  it('month-end (Jan 31) overflows per JS Date semantics — pinned, not "fixed"', () => {
-    // setMonth on a 31st rolls short months forward (Feb 31 -> Mar 3). This is a
-    // known JS Date quirk the current impl inherits; assert the ACTUAL behavior
-    // so a future change to it is a conscious, visible decision rather than a
-    // silent scheduling shift.
+  it('month-end (Jan 31) falls back to each short month\'s LAST day WITHOUT permanently drifting the anchor day', () => {
+    // Old behavior (pinned by a prior version of this test): chaining
+    // setMonth() off the previous result let Feb's overflow (Feb 31 -> Mar 3)
+    // become the new baseline forever -- Mar 3 -> Apr 3 -> May 3 -> ...,
+    // silently and PERMANENTLY changing the client's recurring day from the
+    // 31st to the 3rd, never returning to 31 even in a real 31-day month.
+    // Fixed (matching monthly_weekday's per-month fallback below): each
+    // month's anchor is recomputed fresh from the ORIGINAL day-of-month (31),
+    // clamped to that month's own last day -- so a short month is a one-off
+    // substitution, and the very next 31-day month resolves back to the 31st.
     const dates = generateRecurringDates({
       recurringType: 'monthly_date',
       startDate: noon(2026, 0, 31), // Jan 31 2026
-      weeksToGenerate: 4,
+      weeksToGenerate: 8,
     })
-    // Jan31 -> +1mo lands Mar 3 (Feb overflow) -> +1mo Apr 3 -> +1mo May 3.
-    expect(dates.map(ymd)).toEqual(['2026-01-31', '2026-03-03', '2026-04-03', '2026-05-03'])
+    expect(dates.map(ymd)).toEqual([
+      '2026-01-31',
+      '2026-02-28', // Feb has no 31st -> falls back to Feb's last day
+      '2026-03-31', // back to the real 31st, not permanently pinned at 28/3
+      '2026-04-30', // Apr has no 31st -> falls back
+      '2026-05-31', // back to 31
+      '2026-06-30', // Jun has no 31st -> falls back
+      '2026-07-31', // back to 31
+      '2026-08-31',
+    ])
   })
 
-  it('leap-day start (2028-02-29) advances without throwing', () => {
+  it('leap-day start (2028-02-29) advances without throwing, and resyncs to the 29th every leap-adjacent month', () => {
     const dates = generateRecurringDates({
       recurringType: 'monthly_date',
       startDate: noon(2028, 1, 29), // Feb 29 2028 (2028 is a leap year)
-      weeksToGenerate: 2,
+      weeksToGenerate: 4,
     })
-    expect(ymd(dates[0])).toBe('2028-02-29')
-    // Mar has 29 days available, so the 29th holds.
-    expect(ymd(dates[1])).toBe('2028-03-29')
+    expect(dates.map(ymd)).toEqual(['2028-02-29', '2028-03-29', '2028-04-29', '2028-05-29'])
+  })
+
+  it('does not mutate the caller-supplied startDate (monthly_date branch has its own current-cloning path)', () => {
+    const original = noon(2026, 0, 31)
+    const snapshot = original.getTime()
+    generateRecurringDates({ recurringType: 'monthly_date', startDate: original, weeksToGenerate: 6 })
+    expect(original.getTime()).toBe(snapshot)
   })
 })
 
@@ -229,6 +247,28 @@ describe('generateRecurringDates — monthly_weekday (nth weekday of month)', ()
     expect(ymd(dates[1])).toBe('2026-06-26')
     // July 2026 DOES have 5 Fridays (3,10,17,24,31) -- back to the real 5th.
     expect(ymd(dates[2])).toBe('2026-07-31')
+  })
+
+  it('anchor day-of-month 29-31 does not skip/duplicate a month via setMonth() overflow before the day is zeroed', () => {
+    // Jan 29 2023 is a Sunday (5th Sunday of Jan), and 2023 is NOT a leap
+    // year, so Feb 2023 has no 29th. The per-month anchor used to compute
+    // setMonth() BEFORE zeroing the day-of-month to 1 -- so with the cursor
+    // still sitting on day 29, advancing from Jan to Feb overflowed straight
+    // past Feb (Feb 29 doesn't exist) into March 1. That made the i=1 "Feb"
+    // slot actually resolve inside March, AND the i=2 "Mar" slot ALSO
+    // resolved to the same March anchor -- Feb got silently skipped entirely
+    // while March got a duplicate (identical) date pushed twice.
+    const dates = generateRecurringDates({
+      recurringType: 'monthly_weekday',
+      startDate: noon(2023, 0, 29), // Sun Jan 29 2023
+      weeksToGenerate: 4,
+    })
+    expect(dates.map(ymd)).toEqual(['2023-01-29', '2023-02-26', '2023-03-26', '2023-04-30'])
+    // No two dates in the same month (the old bug's duplicate symptom), and
+    // every month 1-4 (Jan-Apr) is represented exactly once.
+    const months = dates.map((d) => d.getMonth())
+    expect(new Set(months).size).toBe(months.length)
+    expect(months).toEqual([0, 1, 2, 3])
   })
 })
 

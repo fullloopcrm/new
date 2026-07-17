@@ -47,3 +47,35 @@ describe('generateRecurringDates — monthly_day (Nth weekday of month)', () => 
     expect(dates).toEqual(['2026-01-12', '2026-02-09'])
   })
 })
+
+describe('generateRecurringDates — monthly_date (Nth day-of-month), month-end fallback', () => {
+  it('holds the same day-of-month for months that have it', () => {
+    const dates = generateRecurringDates('2026-01-15', true, 'monthly_date', 'after', 4, '', 1)
+    expect(dates).toEqual(['2026-01-15', '2026-02-15', '2026-03-15', '2026-04-15'])
+  })
+
+  it('falls back to each short month\'s LAST day WITHOUT permanently drifting the anchor day', () => {
+    // Old behavior: chaining setMonth() off the previous result let Feb's
+    // overflow (Feb 31 -> Mar 3) become the new baseline forever -- Mar 3 ->
+    // Apr 3 -> May 3 -> ..., permanently changing a client's real recurring
+    // day from the 31st to the 3rd for every future visit, on the exact
+    // dates array this form both previews AND submits to create the
+    // schedule's real initial bookings.
+    const dates = generateRecurringDates('2026-01-31', true, 'monthly_date', 'after', 8, '', 1)
+    expect(dates).toEqual([
+      '2026-01-31',
+      '2026-02-28', // Feb has no 31st -> falls back to Feb's last day
+      '2026-03-31', // back to the real 31st, not permanently pinned at 28/3
+      '2026-04-30', // Apr has no 31st -> falls back
+      '2026-05-31',
+      '2026-06-30', // Jun has no 31st -> falls back
+      '2026-07-31',
+      '2026-08-31',
+    ])
+  })
+
+  it('honors an on_date end bound without excluding the anchor', () => {
+    const dates = generateRecurringDates('2026-01-31', true, 'monthly_date', 'on_date', 0, '2026-04-01', 1)
+    expect(dates).toEqual(['2026-01-31', '2026-02-28', '2026-03-31'])
+  })
+})
