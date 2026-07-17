@@ -91,13 +91,26 @@ export async function POST(request: Request) {
       property_id: { type: 'uuid' },
       team_member_id: { type: 'uuid' },
       service_type_id: { type: 'uuid' },
+      service_type: { type: 'string', max: 200 },
       start_time: { type: 'date', required: true },
       end_time: { type: 'date' },
       notes: { type: 'string', max: 2000 },
       special_instructions: { type: 'string', max: 2000 },
+      price: { type: 'number', min: 0 },
+      hourly_rate: { type: 'number', min: 0 },
+      max_hours: { type: 'number', min: 0 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
+
+    // pay_rate/cleaner_pay_rate alias (nycmaid parity, same convention as
+    // admin/recurring-schedules): the emergency-booking "Team Pay Rate" field
+    // and legacy callers send cleaner_pay_rate; the real column is pay_rate.
+    const payRateInput = body.pay_rate !== undefined ? body.pay_rate : body.cleaner_pay_rate
+    if (payRateInput !== undefined && payRateInput !== null && payRateInput !== '') {
+      const payRateNum = Number(payRateInput)
+      if (!isNaN(payRateNum)) (validated as Record<string, unknown>).pay_rate = payRateNum
+    }
 
     // Confirm client_id/property_id/team_member_id (if given) belong to this
     // tenant -- otherwise a foreign id gets its name/phone/address pulled into

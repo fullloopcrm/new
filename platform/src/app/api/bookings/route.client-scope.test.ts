@@ -151,3 +151,38 @@ describe('POST /api/bookings — client/property/team-member tenant scoping', ()
     expect(store.bookings.length).toBe(1)
   })
 })
+
+describe('POST /api/bookings — emergency/repeat-path fields were silently dropped by the allowlist', () => {
+  beforeEach(() => {
+    store.bookings = []
+    store.tenants = [{ id: TENANT, name: 'Own Biz' }]
+    store.clients = [
+      { id: OWN_CLIENT, tenant_id: TENANT, name: 'Own Client', phone: '+15550001111', address: '1 Own St' },
+    ]
+    store.client_properties = []
+    store.team_members = []
+    idSeq = 0
+  })
+
+  it('persists price, hourly_rate, raw service_type, and max_hours sent by the emergency-booking + repeat-enable UI paths', async () => {
+    const res = await CREATE(jsonReq({
+      client_id: OWN_CLIENT, start_time: '2026-08-01T10:00:00Z',
+      price: 250, hourly_rate: 69, service_type: 'Emergency / Same-Day', max_hours: 4,
+    }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.booking.price).toBe(250)
+    expect(body.booking.hourly_rate).toBe(69)
+    expect(body.booking.service_type).toBe('Emergency / Same-Day')
+    expect(body.booking.max_hours).toBe(4)
+  })
+
+  it('maps the emergency form\'s cleaner_pay_rate onto the real pay_rate column so the broadcast SMS shows the admin\'s actual urgent rate', async () => {
+    const res = await CREATE(jsonReq({
+      client_id: OWN_CLIENT, start_time: '2026-08-01T10:00:00Z', cleaner_pay_rate: 75,
+    }))
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.booking.pay_rate).toBe(75)
+  })
+})

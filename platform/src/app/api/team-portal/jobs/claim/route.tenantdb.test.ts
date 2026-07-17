@@ -97,3 +97,36 @@ describe('POST /api/team-portal/jobs/claim — tenantDb scoping', () => {
     expect(bookingB.status).toBe('scheduled')
   })
 })
+
+describe('POST /api/team-portal/jobs/claim — emergency pay_rate preservation', () => {
+  it('preserves an urgent-job premium pay_rate already on the booking instead of overwriting it with the claimant\'s own rate', async () => {
+    DB.bookings.find((r) => r.tenant_id === TENANT_A && r.id === BOOKING_ID)!.pay_rate = 75
+    const token = createToken(MEMBER_ID, TENANT_A, 25, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/jobs/claim', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A && r.id === BOOKING_ID)!
+    // Member's own pay_rate is 25 — if the fix regresses, this would read 25.
+    expect(bookingA.pay_rate).toBe(75)
+  })
+
+  it('falls back to the claiming member\'s own pay_rate when the booking had none set', async () => {
+    DB.bookings.find((r) => r.tenant_id === TENANT_A && r.id === BOOKING_ID)!.pay_rate = null
+    const token = createToken(MEMBER_ID, TENANT_A, 25, 'worker')
+    const req = new NextRequest('https://x/api/team-portal/jobs/claim', {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}`, 'content-type': 'application/json' },
+      body: JSON.stringify({ booking_id: BOOKING_ID }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(200)
+
+    const bookingA = DB.bookings.find((r) => r.tenant_id === TENANT_A && r.id === BOOKING_ID)!
+    expect(bookingA.pay_rate).toBe(25)
+  })
+})

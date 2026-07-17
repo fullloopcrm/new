@@ -35,13 +35,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // A job broadcast with its own "Team Pay Rate" (e.g. an urgent-job premium
+  // set at creation) already has booking.pay_rate populated — preserve it
+  // rather than clobbering it with the claimant's own default rate, or the
+  // whole point of offering a premium to entice a claim is lost the instant
+  // someone claims it. Only unassigned jobs with no rate of their own fall
+  // back to the claiming member's rate.
+  const { data: existingBooking } = await tenantDb(auth.tid)
+    .from('bookings')
+    .select('pay_rate')
+    .eq('id', booking_id)
+    .single()
+
   // Atomic claim: the `team_member_id IS NULL` filter on the UPDATE makes this
   // first-writer-wins — a concurrent claim updates zero rows → "already taken".
   const { data, error } = await tenantDb(auth.tid)
     .from('bookings')
     .update({
       team_member_id: auth.id,
-      pay_rate: member?.pay_rate || null,
+      pay_rate: existingBooking?.pay_rate ?? member?.pay_rate ?? null,
       status: 'confirmed',
     })
     .eq('id', booking_id)
