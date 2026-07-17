@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { toNaiveET } from '@/lib/dates'
 
 // Single recurring schedule: view / edit / cancel. Tenant-scoped, admin-only,
 // client comms suppressed (see ../route.ts header). Cancelling a series cancels
@@ -25,7 +26,9 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .select('id, start_time, end_time, status, team_member_id, team_members!bookings_team_member_id_fkey(name)')
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
-    .gte('start_time', new Date().toISOString())
+    // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() cutoff
+    // silently excludes the next ~4-5h of bookings every evening ET.
+    .gte('start_time', toNaiveET(new Date()))
     .in('status', ['scheduled', 'pending', 'confirmed'])
     .order('start_time')
 
@@ -85,7 +88,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .eq('tenant_id', tenantId)
       .eq('schedule_id', id)
       .in('status', ['scheduled', 'pending', 'confirmed'])
-      .gte('start_time', new Date().toISOString())
+      // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() cutoff
+      // would leave the next ~4-5h of bookings still assigned to the OLD
+      // team member every evening ET.
+      .gte('start_time', toNaiveET(new Date()))
   }
 
   return NextResponse.json(data)
@@ -112,7 +118,11 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .eq('tenant_id', tenantId)
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending', 'confirmed'])
-    .gte('start_time', new Date().toISOString())
+    // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() cutoff
+    // would leave the next ~4-5h of bookings still 'scheduled' after the
+    // series is cancelled every evening ET -- a cleaner could still be
+    // dispatched to a job whose schedule was just cancelled.
+    .gte('start_time', toNaiveET(new Date()))
     .select('id')
 
   return NextResponse.json({

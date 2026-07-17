@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { toNaiveET } from '@/lib/dates'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -60,7 +61,9 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenantId)
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending', 'confirmed'])
-        .gte('start_time', new Date().toISOString())
+        // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() cutoff
+        // silently excludes the next ~4-5h of bookings every evening ET.
+        .gte('start_time', toNaiveET(new Date()))
         .order('start_time')
         .limit(1)
         .single()

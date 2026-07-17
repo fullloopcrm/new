@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
+import { toNaiveET } from '@/lib/dates'
 
 export async function GET(
   _request: Request,
@@ -94,7 +95,10 @@ export async function DELETE(
       .update({ status: 'cancelled' })
       .eq('schedule_id', id)
       .eq('tenant_id', tenantId)
-      .gte('start_time', new Date().toISOString())
+      // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() cutoff
+      // would leave the next ~4-5h of bookings still 'scheduled'/'confirmed'
+      // after the series is cancelled every evening ET.
+      .gte('start_time', toNaiveET(new Date()))
       .in('status', ['scheduled', 'confirmed'])
 
     // Cancel the schedule

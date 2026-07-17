@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { toNaiveET } from '@/lib/dates'
 
 // Atomic "edit recurring pattern" for a series. Replaces the old client-side
 // loop (delete-each future booking, then create-each new one — N+N requests,
@@ -130,7 +131,11 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // forward. Completed/paid/cancelled rows are never touched. We delete
   // these by id AFTER the new insert succeeds, so a failed insert leaves
   // the existing series fully intact (no destructive window).
-  const cutoff = from_date || new Date().toISOString()
+  // start_time is a naive-ET TIMESTAMP; a real-UTC .toISOString() fallback
+  // cutoff would exclude the next ~4-5h of old bookings from deletion every
+  // evening ET, leaving both the stale old booking and the freshly-inserted
+  // new one on the calendar for that slot.
+  const cutoff = from_date || toNaiveET(new Date())
   const { data: oldRows } = await supabaseAdmin
     .from('bookings')
     .select('id')
