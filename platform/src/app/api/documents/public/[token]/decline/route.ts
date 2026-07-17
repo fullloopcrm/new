@@ -37,16 +37,28 @@ export async function POST(request: Request, { params }: Params) {
     const ua = request.headers.get('user-agent')
     const now = new Date().toISOString()
 
-    await supabaseAdmin
+    // Atomic claim — only decline from a still-open status. Without this,
+    // a decline racing a concurrent sign() (which claims atomically) could
+    // read stale pending/sent/viewed data, sign() wins first, and this
+    // request would then unconditionally overwrite the freshly-signed
+    // signer + document back to 'declined' with no way to recover.
+    const { data: claimed } = await supabaseAdmin
       .from('document_signers')
       .update({ status: 'declined', declined_at: now, decline_reason: reason || null })
       .eq('id', signer.id)
+      .in('status', ['pending', 'sent', 'viewed'])
+      .select('id')
+      .maybeSingle()
+    if (!claimed) {
+      return NextResponse.json({ error: 'Already signed' }, { status: 400 })
+    }
 
     // Any decline = doc declined (per product decision)
     await supabaseAdmin
       .from('documents')
       .update({ status: 'declined' })
       .eq('id', signer.document_id)
+      .not('status', 'in', '(completed)')
 
     await logDocEvent({
       document_id: signer.document_id,
