@@ -38,7 +38,7 @@ export default function RemoteBookForm({ services, businessName }: { services: S
   const [done, setDone] = useState(false)
 
   const set = (k: keyof typeof form, v: string) => setForm(p => ({ ...p, [k]: v }))
-  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA')
 
   async function submit(e: React.FormEvent) {
     e.preventDefault()

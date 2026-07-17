@@ -854,7 +854,7 @@ export default function TeamHomePage() {
         <p className="text-xs text-slate-400 font-medium mb-2">{t('Days Off', 'Días Libres')}</p>
         <div className="flex gap-2 mb-2">
           <input type="date" value={newBlock} onChange={(e) => setNewBlock(e.target.value)}
-            min={new Date().toISOString().split('T')[0]}
+            min={new Date().toLocaleDateString('en-CA')}
             className="flex-1 border border-gray-200 rounded px-2 py-1.5 text-xs" />
           <button onClick={() => { if (newBlock && !blockedDates.includes(newBlock)) { setBlockedDates((p) => [...p, newBlock].sort()); setNewBlock('') } }}
             className="bg-slate-800 text-white px-3 py-1.5 rounded text-xs">{t('Add', 'Agregar')}</button>

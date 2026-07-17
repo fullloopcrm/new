@@ -151,13 +151,13 @@ export default function ClientDashboardPage() {
   // Date bounds for booking picker
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate = tomorrow.toISOString().split('T')[0]
+  const minDate = tomorrow.toLocaleDateString('en-CA')
   const maxDateObj = new Date()
   maxDateObj.setDate(maxDateObj.getDate() + 60)
-  const maxDate = maxDateObj.toISOString().split('T')[0]
+  const maxDate = maxDateObj.toLocaleDateString('en-CA')
 
   const isSameDay = (date: string) => {
-    return date === new Date().toISOString().split('T')[0]
+    return date === new Date().toLocaleDateString('en-CA')
   }
 
   const fetchSlots = async (date: string, hours?: number) => {
@@ -642,7 +642,7 @@ export default function ClientDashboardPage() {
                       {activeTab === 'past' && booking.status === 'completed' && !doNotService && (
                         <button
                           onClick={() => {
-                            const bDate = new Date(booking.start_time).toISOString().split('T')[0]
+                            const bDate = new Date(booking.start_time).toLocaleDateString('en-CA')
                             openBookingPanel(bDate >= minDate ? bDate : undefined)
                           }}
                           className="w-full py-2.5 bg-[#1E2A4A] text-white rounded-lg font-medium hover:bg-[#1E2A4A]/90"

@@ -86,7 +86,7 @@ function StandardBookContent({ config }: { config: SiteConfig }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString().split('T')[0]
+  const minDate = new Date(Date.now() + 24 * 60 * 60 * 1000).toLocaleDateString('en-CA')
 
   function update<K extends keyof typeof form>(key: K, value: (typeof form)[K]) {
     setForm((prev) => ({ ...prev, [key]: value }))

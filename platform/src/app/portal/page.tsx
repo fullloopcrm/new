@@ -184,12 +184,12 @@ export default function PortalHomePage() {
   // Date bounds
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  const minDate = tomorrow.toISOString().split('T')[0]
+  const minDate = tomorrow.toLocaleDateString('en-CA')
   const maxDateObj = new Date()
   maxDateObj.setDate(maxDateObj.getDate() + 60)
-  const maxDate = maxDateObj.toISOString().split('T')[0]
+  const maxDate = maxDateObj.toLocaleDateString('en-CA')
 
-  const isSameDay = (date: string) => date === new Date().toISOString().split('T')[0]
+  const isSameDay = (date: string) => date === new Date().toLocaleDateString('en-CA')
 
   async function fetchSlots(date: string, hours?: number) {
     if (!auth || isSameDay(date)) { setSlots([]); return }
@@ -835,7 +835,7 @@ export default function PortalHomePage() {
                     {activeTab === 'past' && (booking.status === 'completed' || booking.status === 'paid') && !doNotService && (
                       <button
                         onClick={() => {
-                          const bDate = new Date(booking.start_time).toISOString().split('T')[0]
+                          const bDate = new Date(booking.start_time).toLocaleDateString('en-CA')
                           startBooking(bDate >= minDate ? bDate : undefined)
                         }}
                         className="w-full py-2.5 bg-green-600 text-white rounded-lg font-medium text-sm"

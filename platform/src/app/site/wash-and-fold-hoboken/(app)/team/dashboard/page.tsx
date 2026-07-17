@@ -354,7 +354,7 @@ export default function TeamDashboardPage() {
 
   const addDateOff = () => {
     if (!newDateOff || !availabilityLoaded) return
-    const today = new Date().toISOString().split('T')[0]
+    const today = new Date().toLocaleDateString('en-CA')
     if (newDateOff < today) return
     if (!unavailableDates.includes(newDateOff)) {
       const updated = [...unavailableDates, newDateOff].sort()
@@ -724,7 +724,7 @@ export default function TeamDashboardPage() {
                   <input
                     type="date"
                     value={newDateOff}
-                    min={new Date().toISOString().split('T')[0]}
+                    min={new Date().toLocaleDateString('en-CA')}
                     onChange={(e) => setNewDateOff(e.target.value)}
                     className="flex-1 px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
                   />

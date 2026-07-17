@@ -79,7 +79,7 @@ export default function ReschedulePage() {
   const dates = Array.from({ length: 30 }, (_, i) => {
     const d = new Date()
     d.setDate(d.getDate() + i + 1)
-    return d.toISOString().split('T')[0]
+    return d.toLocaleDateString('en-CA')
   })
 
   const formatDateLabel = (dateStr: string) => {
