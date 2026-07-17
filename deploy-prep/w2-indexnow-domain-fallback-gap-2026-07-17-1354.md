@@ -18,7 +18,21 @@ Picked `POST /api/indexnow/route.ts` off last round's 7-item triage list (indexn
 
 **NOTICED:** none new this round from this fix — clean mirror, no design-decision-shaped side findings.
 
+## (2) Fresh-ground hunting beyond the known 7 — three ruled out, one dead-code finding, nothing new to fix this round
+
+Grepped every remaining `tenant.domain`/`tenant?.domain`/`domain_name`/`tenant.website_url` read site not already covered by prior rounds or last round's 7-item list. Investigated each candidate before touching anything (assumption-stacking discipline — verify the base before adding a floor):
+
+- **`src/lib/seo/backlinks.ts`** — false positive. `loadActiveFleet()` (lines ~125-148) already builds its own tenant_domains-first / tenants.domain-fallback resolution per tenant, explicitly matching tenant-lookup.ts's precedence (its own comment cites it). Every later `tenant.domain` reference in the file is reading the *already-resolved* `TenantFleetRow.domain` field, not the raw column. Correctly implemented, not a bug.
+- **`src/app/api/admin/businesses/[id]/site-export/route.ts`** — false positive. Already reads `tenant_domains` (primary flag, else first active row) first, falls back to `tenants.domain` only when no active tenant_domains row exists at all. Correct precedence, matches this session's pattern exactly.
+- **`src/app/api/admin/businesses/[id]/route.ts` DELETE handler** — investigated as a plausible new bug (Vercel-domain-detach-on-delete reads only `tenants.domain`/`domain_name`, never `tenant_domains`) but ruled out after tracing where Vercel domains actually get *attached*: `registerCustomDomain()` (vercel-domains.ts) is only ever called from `activate-tenant.ts`, keyed off `tenant.domain`/`domain_name` at activation time. `admin/websites` POST (the tenant_domains-only write path this whole bug class stems from) never calls Vercel at all — it's a pure DB insert. So a domain that lives only in tenant_domains was never Vercel-attached in the first place; the delete handler's `tenants.domain`/`domain_name`-only detach is consistent with the only place attachment actually happens, not a gap.
+- **`src/lib/selena-legacy-email.ts`** — real instance of the same defect shape (`formatHtmlReply()` builds the email signature site-link from `tenant.domain` only, no tenant_domains fallback), but **zero live callers**. The file's own header comment claims the email-monitor cron dispatches into it, but grepping `src/lib/email-monitor.ts` and `src/app/api/cron/email-monitor/*` for `handleInboundEmail`/`selena-legacy-email` turns up nothing — the only other reference in the whole repo is `postgrest-injection-routes.test.ts`'s file-path list (a security-scan inventory, not an invocation). Appears superseded by a newer non-"legacy" Selena path and never wired up, or wired up and since removed. Flagging as a NOTICED item (dead-code candidate) rather than fixing — no live blast radius, and fixing dead code isn't this bug class's fresh-ground track.
+- Admin/dashboard UI files (`admin/businesses/[id]/page.tsx`, `.../wizard/page.tsx`, `dashboard/websites/page.tsx`) read/write `tenants.domain`/`domain_name`/`website_url` directly — but that's the intentional editing surface for those legacy columns themselves (the "Domain configured" checklist, the domain input field), not a resolver-precedence bug. Whether the admin UI should also surface/edit tenant_domains rows directly is the same pre-existing UX gap already carried forward unnumbered below (admin can add+primary via API but there's no UI for it) — not a new finding.
+
+No new live bug surfaced this round beyond the (1) fix above. Six candidates remain open from last round's triage (unchanged, listed below).
+
 ## (3) NOTICED — not fixed, flagging for the leader/Jeff
+
+**New this round:** `src/lib/selena-legacy-email.ts`'s `handleInboundEmail`/`formatHtmlReply` appears to be dead code (no live callers found) — same tenant.domain-only defect shape as the fixed bugs this session, but worth a deliberate call on whether to delete it or find out why it stopped being wired up, rather than silently fixing a function nothing calls.
 
 Carried forward unchanged from the prior round (items 1-30). No new items this round.
 
