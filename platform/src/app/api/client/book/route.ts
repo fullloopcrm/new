@@ -287,6 +287,33 @@ export async function POST(request: Request) {
       propertyId = property?.id || null
     }
 
+    // Client may explicitly choose their cleaner in the "Choose your team"
+    // step (fed by GET /api/client/smart-schedule's tenant-scoped list) --
+    // body.cleaner_id/extra_cleaner_ids were parsed off the request but never
+    // read anywhere in this route; every self-booked booking silently landed
+    // with team_member_id: null regardless of what the client picked, always
+    // routed to admin for manual assignment instead. Re-validate against this
+    // tenant's active roster before trusting it -- same ownership gate PUT
+    // /api/client/reschedule/[id] already enforces for team_member_id.
+    const rawCleanerId = typeof body.cleaner_id === 'string' && body.cleaner_id ? body.cleaner_id : null
+    const rawExtraCleanerIds = Array.isArray(body.extra_cleaner_ids)
+      ? (body.extra_cleaner_ids as unknown[]).filter((x): x is string => typeof x === 'string' && x.length > 0)
+      : []
+    const candidateTeamMemberIds = Array.from(new Set([rawCleanerId, ...rawExtraCleanerIds].filter((x): x is string => !!x)))
+    let leadTeamMemberId: string | null = null
+    let extraTeamMemberIds: string[] = []
+    if (candidateTeamMemberIds.length > 0) {
+      const { data: validMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .eq('active', true)
+        .in('id', candidateTeamMemberIds)
+      const validIds = new Set((validMembers || []).map(m => m.id as string))
+      leadTeamMemberId = rawCleanerId && validIds.has(rawCleanerId) ? rawCleanerId : null
+      extraTeamMemberIds = rawExtraCleanerIds.filter(id => id !== leadTeamMemberId && validIds.has(id))
+    }
+
     // Create booking. self_book_dedup_key backstops the same-date check above
     // against a concurrent double-submit (see migration
     // 067_unique_self_book_dedup.sql) -- the SELECT count above is
@@ -299,7 +326,7 @@ export async function POST(request: Request) {
         tenant_id: tenant.id,
         client_id: clientId,
         property_id: propertyId,
-        team_member_id: null,
+        team_member_id: leadTeamMemberId,
         start_time: startTime,
         end_time: endTime,
         service_type: (body.service_type as string) || 'Standard Cleaning',
@@ -323,6 +350,20 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
     }
     if (error || !data) return NextResponse.json({ error: error?.message || 'Insert failed' }, { status: 500 })
+
+    // GET /api/bookings/:id/team and closeout-summary source the lead from
+    // booking_team_members, not bookings.team_member_id -- same
+    // booking_team_members-sync gap fixed at every other bookings.team_member_id
+    // write site this session (e.g. client/recurring's INITIAL-creation path).
+    if (leadTeamMemberId || extraTeamMemberIds.length > 0) {
+      const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = []
+      if (leadTeamMemberId) teamRows.push({ tenant_id: tenant.id, booking_id: data.id, team_member_id: leadTeamMemberId, is_lead: true, position: 1 })
+      extraTeamMemberIds.forEach((id, i) => teamRows.push({ tenant_id: tenant.id, booking_id: data.id, team_member_id: id, is_lead: false, position: i + 2 }))
+      const { error: teamErr } = await supabaseAdmin
+        .from('booking_team_members')  // tenant-scope-ok: row-scoped by unique join keys (booking_id, team_member_id)
+        .upsert(teamRows, { onConflict: 'booking_id,team_member_id' })
+      if (teamErr) console.error('client book booking_team_members insert failed:', teamErr.message)
+    }
 
     // Render admin/client emails + SMS with this booking's property address
     // (property ?? client.address) instead of the client's default address.
