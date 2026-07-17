@@ -99,15 +99,33 @@ export async function GET(request: Request) {
               telnyxPhone: tenant.telnyx_phone,
             }).catch(() => {})
 
-            await supabaseAdmin.from('admin_tasks').insert({
-              tenant_id: tenantId,
-              type: 'payment_overdue',
-              priority: 'high',
-              title: isEmergency ? `🚨 Urgent — Overdue payment — ${client.name || 'client'}` : `Overdue payment — ${client.name || 'client'}`,
-              description: `${isEmergency ? '🚨 EMERGENCY — ' : ''}Booking ${b.id} unpaid ${minsSinceAlert} min past 15-min alert.`,
-              related_type: 'booking',
-              related_id: b.id,
-            })
+            // Dedup: one open payment_overdue task per booking. This loop
+            // re-runs every ~5 min for the same booking while it stays in
+            // the 15-60 min alert window (throttled only by the client-nudge
+            // branch's 5-min payment_reminder_sent_at check above, which
+            // this escalate branch also updates but does not read) — without
+            // this check every pass created a fresh open admin_tasks row,
+            // same gap runNycMaidPaymentReminder's parallel path already
+            // guards against via its own booking_id dedup count.
+            const { count: existingTask } = await supabaseAdmin
+              .from('admin_tasks')
+              .select('id', { count: 'exact', head: true })
+              .eq('tenant_id', tenantId)
+              .eq('related_type', 'booking')
+              .eq('related_id', b.id)
+              .eq('type', 'payment_overdue')
+              .eq('status', 'open')
+            if (!existingTask) {
+              await supabaseAdmin.from('admin_tasks').insert({
+                tenant_id: tenantId,
+                type: 'payment_overdue',
+                priority: 'high',
+                title: isEmergency ? `🚨 Urgent — Overdue payment — ${client.name || 'client'}` : `Overdue payment — ${client.name || 'client'}`,
+                description: `${isEmergency ? '🚨 EMERGENCY — ' : ''}Booking ${b.id} unpaid ${minsSinceAlert} min past 15-min alert.`,
+                related_type: 'booking',
+                related_id: b.id,
+              })
+            }
             escalated++
           }
         }
