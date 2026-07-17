@@ -75,6 +75,8 @@ export type NotificationType =
   | 'referral_lead'
   | 'cleaner_application'
   | 'job_broadcast'
+  | 'time_off_request'
+  | 'payment_followup_cap'
 
 export async function notify({
   tenantId,

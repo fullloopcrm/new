@@ -112,7 +112,7 @@ export async function PUT(request: NextRequest) {
 
     await notify({
       tenantId: auth.tid,
-      type: 'check_in',
+      type: 'time_off_request',
       title: `Time Off — ${memberName}`,
       message: `${memberName} requested time off: ${dateList}`,
     }).catch(() => {})

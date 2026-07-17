@@ -137,7 +137,7 @@ export async function GET(request: Request) {
     if (capHit) {
       await notify({
         tenantId: tenant.id,
-        type: 'follow_up',
+        type: 'payment_followup_cap',
         title: `Payment follow-up cap reached (${MAX_SENDS_PER_RUN})`,
         message: `More than ${MAX_SENDS_PER_RUN} unpaid completed bookings in the last ${RECENCY_FLOOR_DAYS} days. Some were not texted this slot.`,
       }).catch(() => {})
