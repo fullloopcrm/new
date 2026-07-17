@@ -11,6 +11,7 @@ import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { sendEmail } from '@/lib/nycmaid/email'
 import { notify } from '@/lib/nycmaid/notify'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { nowNaiveET } from '@/lib/recurring'
 
 const ymd = (d: Date) => d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
 
@@ -1248,7 +1249,30 @@ async function handlePauseRecurring(input: { schedule_id: string; until_date?: s
     .eq('id', input.schedule_id)
     .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
-  return JSON.stringify({ ok: true, schedule_id: input.schedule_id, paused_until: input.until_date })
+
+  // Mirror the human-admin route (.../recurring-schedules/[id]/pause POST):
+  // pausing there also cancels any already-materialized booking that falls
+  // inside the pause window, because a schedule's next ~4 weeks are already
+  // generated ahead of time (cron/generate-recurring) -- setting the rule to
+  // 'paused' alone stops FUTURE generation but leaves those already-booked
+  // visits 'scheduled', so a cleaner would still show up during a window the
+  // client asked (via this exact tool) to pause. This handler only ever set
+  // the rule and skipped that cancellation entirely. No window (no
+  // until_date) means "paused indefinitely" -- nothing to bound a cancel to.
+  let cancelled = 0
+  if (input.until_date) {
+    const { data } = await supabaseAdmin
+      .from('bookings')
+      .update({ status: 'cancelled', cancelled_reason: 'schedule_paused' })
+      .eq('schedule_id', input.schedule_id)
+      .eq('tenant_id', tid)
+      .in('status', ['scheduled', 'pending', 'confirmed'])
+      .gte('start_time', nowNaiveET())
+      .lte('start_time', input.until_date + 'T23:59:59')
+      .select('id')
+    cancelled = data?.length || 0
+  }
+  return JSON.stringify({ ok: true, schedule_id: input.schedule_id, paused_until: input.until_date, bookings_cancelled: cancelled })
 }
 
 async function handleResumeRecurring(input: { schedule_id: string }, tid: string): Promise<string> {
@@ -1258,7 +1282,22 @@ async function handleResumeRecurring(input: { schedule_id: string }, tid: string
     .eq('id', input.schedule_id)
     .eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
-  return JSON.stringify({ ok: true, schedule_id: input.schedule_id, status: 'active' })
+
+  // Mirror the human-admin route's DELETE (resume): restore any bookings
+  // THIS handler's own pause path just started cancelling, whose date hasn't
+  // already passed. Without this, resuming via chat would leave those visits
+  // cancelled forever even though the client asked to resume service.
+  const { data: restored } = await supabaseAdmin
+    .from('bookings')
+    .update({ status: 'scheduled', cancelled_reason: null })
+    .eq('schedule_id', input.schedule_id)
+    .eq('tenant_id', tid)
+    .eq('status', 'cancelled')
+    .eq('cancelled_reason', 'schedule_paused')
+    .gte('start_time', nowNaiveET())
+    .select('id')
+
+  return JSON.stringify({ ok: true, schedule_id: input.schedule_id, status: 'active', bookings_restored: restored?.length || 0 })
 }
 
 async function handleCancelRecurring(input: { schedule_id: string; reason?: string }, tid: string): Promise<string> {
