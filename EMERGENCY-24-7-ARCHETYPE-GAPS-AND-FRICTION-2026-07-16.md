@@ -3017,3 +3017,92 @@ own file: no hits). Same "built, never wired" shape as `reviewRequestEmail`
 separate pass to find where booking-time displays are still using raw/
 UTC-implicit formatting instead of this already-correct utility, but out of
 scope for this timezone-*computation* fix specifically.
+
+## (71) New today, archetype depth — 3 per-tenant AI-bot clones missed item (70)'s sweep entirely, same day-boundary bug shape — NOW FIXED
+
+Item (70)'s sweep covered `src/lib/selena/core.ts` and
+`src/lib/selena-legacy*` (the shared, global bot files) but three tenants —
+`nyc-mobile-salon`, `wash-and-fold-nyc`, `wash-and-fold-hoboken` — each ship
+their *own* standalone `_lib/selena.ts` (pre-dating the global-code rule in
+`CLAUDE.md`'s "Known debt" list, same clone shape as their dashboard/admin
+pages). All three have the identical internal inconsistency core.ts had: their
+own `buildCalendarContext()` explicitly resolves "now" in
+`timeZone: 'America/New_York'`, but `handleCreateBooking`'s
+`todayStr = new Date().toLocaleDateString('en-CA')` (no `timeZone` option)
+compared against it used the server default instead. All 3 tenants are
+Eastern-time, so the fix hardcodes `'America/New_York'` (matching core.ts's
+own single-tenant precedent) rather than adding a `tenants.timezone` lookup
+these single-location files don't need.
+
+**Fixed** (`p1-w3`) — one-line change in each of the 3 files. 3 new tests (one
+per file, in each file's existing `*.create-booking-emergency-rate.test.ts`).
+
+**Methodology note, worth the whole fleet knowing:** this sandbox's own local
+TZ is `America/New_York` (confirmed via `Intl.DateTimeFormat().resolvedOptions().timeZone`
+and empirically). Checked out out item (70)'s pre-fix `core.ts` directly and
+ran its own day-boundary test against it: **it still passed** — the exact
+"buggy" `new Date().toLocaleDateString('en-CA')` line, with no `timeZone`
+option, renders correctly here because the parse step (`new Date(naiveStr)`,
+no `Z`) *and* the format step (`toLocaleDateString`, no `timeZone`) both fall
+back to the same runtime-local zone, and on this machine that zone happens to
+already be ET — a no-op round trip that hides the bug. Production (Vercel) is
+presumed UTC-default (the assumption item (70) and ~30 prior fixes this
+session were built on), where the round trip does NOT cancel out. This means
+any "mutation-verified RED" claim for a day-boundary test **on this sandbox**
+that didn't force a non-ET zone may not have actually proven what it claimed
+— item (70)'s own claimed 11/12 RED could not be reproduced for the one
+sub-case checked directly. Fix going forward, used in this item and item
+(72) below: `vi.stubEnv('TZ', 'UTC')` around the fake-timer boundary test
+genuinely forces the buggy code to fail here and the fix to pass regardless
+of it, closing the false-negative. Not going back to re-verify every prior
+item's day-boundary tests — out of scope for this pass — but flagging so
+future timezone-boundary tests use the stub rather than trust the sandbox's
+own local clock.
+
+`tsc --noEmit` clean, full suite 375/375 files, 1875/1875 tests, zero
+regressions (same pre-existing unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, noted since item 17).
+
+## (72) New today, fresh ground — `checkAvailability()`'s same-day gate and already-past-hours filter both used the server-default zone instead of the tenant's own, in the global multi-tenant availability engine — NOW FIXED
+
+Stepped back from the AI-bot family (items 70/71) to check whether the
+*other* production same-day determination — the public self-booking
+availability widget — had the identical class of bug. It did.
+`src/lib/availability.ts`'s `checkAvailability(tenantId, date, durationHours)`
+is the **global**, multi-tenant availability engine (not a per-tenant clone)
+backing every non-cloned tenant's self-booking widget across all 4
+continental US zones. It already takes `tenantId` and already calls
+`getSettings(tenantId)` — but its same-day gate (`date === today`, deciding
+whether `allow_same_day` requires manual confirmation) and its
+already-passed-hours filter (`slotStartMin <= nowMinutes`) both computed
+`today`/`nowMinutes` from `new Date()` with no timezone resolution at all,
+defaulting to the server runtime's zone. The comment sitting directly above
+this exact gate literally names the archetype: *"fatal for 24/7-emergency
+verticals (towing, restoration, emergency plumbing) that market
+same-day/around-the-clock service"* (from item F4, an earlier fix in this
+same file) — yet the gate meant to protect those verticals' same-day flow
+was itself timezone-blind. Worst case: during the evening window before a
+tenant's local midnight (UTC already rolled to the next day), the same-day
+confirmation gate could be silently skipped for a genuinely-same-day
+request — the exact emergency-call window items (70)/(71) already found
+broken for the AI-bot side — or, for any tenant west of Eastern, the
+already-past-hours filter could show/hide the wrong slots relative to the
+tenant's real local time of day, any time of day, not just evenings.
+
+**Fixed** (`p1-w3`) — `getSettings()` (`src/lib/settings.ts`) already does
+`select('*')` on `tenants`, so `tenant.timezone` was sitting in the
+already-fetched row, just never exposed on the `TenantSettings` return type.
+Added `timezone: string` to the interface (falls back to `'America/New_York'`,
+matching the DB default) — zero new queries. `checkAvailability()` now
+resolves both `today` and `nowMinutes` via `settings.timezone`, reordered to
+fetch settings before computing `today` since it now depends on it. 4 new
+tests (2 in the existing `availability.test.ts` same-day suite, matching its
+established F4-regression style — one proving the evening-ET same-day gate
+survives a UTC-rolled server clock, one proving a Pacific tenant's
+already-past-hours filter uses PT, not server-default, hours),
+mutation-verified with `vi.stubEnv('TZ', 'UTC')` per item (71)'s methodology
+note above — both confirmed RED under the original code with the stub, GREEN
+after the fix; existing 5 same-day/business-hours tests unaffected. `tsc
+--noEmit` clean, full suite 375/375 files, 1877/1877 tests, zero regressions
+(same pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, noted since item 17).
