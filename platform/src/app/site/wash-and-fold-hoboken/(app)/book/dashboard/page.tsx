@@ -14,13 +14,22 @@ interface Booking {
   price: number
   status: string
   recurring_type: string | null
-  cleaners: { name: string } | null
+  // GET /api/client/bookings embeds the assigned team member as
+  // `team_members` (`team_members!bookings_team_member_id_fkey(name)`) --
+  // `cleaners` is the nycmaid-standalone-era key and is never populated by
+  // this route. Keep both so a legacy caller shape still resolves.
+  team_members: { name: string } | null
+  cleaners?: { name: string } | null
   hourly_rate?: number
 }
 
 interface Slot {
   time: string
   available: boolean
+}
+
+function cleanerName(booking: Booking): string | undefined {
+  return booking.team_members?.name || booking.cleaners?.name
 }
 
 export default function ClientDashboardPage() {
@@ -281,7 +290,7 @@ export default function ClientDashboardPage() {
             <p className="text-sm text-gray-500 mb-1">Next Cleaning</p>
             <p className="text-2xl font-bold text-[#1E2A4A]">{getDaysUntil(nextBooking.start_time)}</p>
             <p className="text-gray-600 mt-1">{formatDate(nextBooking.start_time)}</p>
-            <p className="text-gray-600">{formatTime(nextBooking.start_time)} • {nextBooking.cleaners?.name || 'Cleaner TBD'}</p>
+            <p className="text-gray-600">{formatTime(nextBooking.start_time)} • {cleanerName(nextBooking) || 'Cleaner TBD'}</p>
 
             <div className="flex gap-3 mt-4">
               {canReschedule(nextBooking) && (
@@ -571,7 +580,7 @@ export default function ClientDashboardPage() {
                     <div className="flex-1 min-w-0">
                       <p className="font-semibold text-[#1E2A4A]">{formatDate(booking.start_time)}</p>
                       <p className="text-gray-600 text-sm">{formatTime(booking.start_time)} - {formatTime(booking.end_time)}</p>
-                      <p className="text-gray-500 text-sm">{booking.cleaners?.name || 'Cleaner TBD'}</p>
+                      <p className="text-gray-500 text-sm">{cleanerName(booking) || 'Cleaner TBD'}</p>
                     </div>
                     <div className="text-right flex flex-col items-end gap-1 ml-3">
                       <span className={`text-xs px-2 py-1 rounded-full font-medium ${statusColor}`}>
@@ -596,7 +605,7 @@ export default function ClientDashboardPage() {
                       </div>
                       <div>
                         <p className="text-gray-400 text-xs uppercase tracking-wide">Cleaner</p>
-                        <p className="text-[#1E2A4A] font-medium">{booking.cleaners?.name || 'To be assigned'}</p>
+                        <p className="text-[#1E2A4A] font-medium">{cleanerName(booking) || 'To be assigned'}</p>
                       </div>
                       <div>
                         <p className="text-gray-400 text-xs uppercase tracking-wide">Status</p>
