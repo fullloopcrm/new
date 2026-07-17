@@ -4318,3 +4318,74 @@ still correctly finds nothing) — `git apply` restored, GREEN. `tsc
 --noEmit` clean, full suite 393/393 files, 1942/1942 tests, zero
 regressions (same pre-existing, unrelated `tenant-scope` guard warning,
 not touched here).
+
+## (97) Archetype depth — items (86)/(89)'s "mirror the human path" reassignment-notify shape repeats on two more write paths PUT /api/bookings/[id] never sees — NOW FIXED
+
+Items (86)/(89) fixed `PUT /api/bookings/[id]` so a booking reassignment or
+unassignment texts both the outgoing and incoming tech, not just the
+incoming one. Two other places write `bookings.team_member_id` and never
+go through that route at all, so neither got the fix:
+
+- `PUT /api/bookings/[id]/team` (multi-tech lead/extras management) writes
+  `bookings.team_member_id` (the lead) directly. Its own header comment
+  claimed "lead is handled by the main `/api/bookings/[id]` PUT path on
+  `team_member_id` change" — false; this route never calls that path. A
+  lead swap here notified neither the outgoing nor the incoming lead (only
+  newly-added *extras* were ever notified, via the one `notifyTeamMember()`
+  loop that already existed).
+- `PUT /api/bookings/batch-update` — BookingsAdmin's own "apply to all
+  future bookings" series-edit path, and `BATCH_UPDATE_FIELDS` already
+  allowlists `team_member_id` for exactly this use (confirmed live:
+  `BookingsAdmin.tsx`'s series-edit branch sends
+  `team_member_id: form.cleaner_id || null` on every future booking in the
+  series). The old code only ever SMS'd the NEW tech, gated on
+  `notify_type === 'rescheduled'` — set by the caller only when the *time*
+  shifted, not when the tech did, so a pure reassignment with unchanged
+  times notified no one — and only for the FIRST booking in the batch. The
+  outgoing tech was never notified at all, for any booking in the series.
+
+**Fixed** — `[id]/team`'s lead swap now notifies both sides via the same
+`notifyTeamMember()` shape already used for extras (`job_assignment` /
+`job_cancelled`). `batch-update` now aggregates one SMS per affected
+outgoing/incoming tech across the whole batch (not one per booking, to
+match this route's own "sends ONE notification" design intent), fired
+whenever a booking's `team_member_id` actually changes — independent of
+`notify_type`.
+
+8 new tests across 2 files, mutation-verified (`git apply -R` both fixes,
+5/8 RED for the expected reason — missing `notify()`/`notifyTeamMember()`
+calls — the 3 no-op/first-time-assignment controls correctly stayed GREEN
+throughout; `git apply` restored, GREEN). `tsc --noEmit` clean, full suite
+395/395 files, 1950/1950 tests, zero regressions. Commit `9d8c5f82`.
+
+## (98) Fresh ground (cleaners/cleaner_id vocabulary thread, items 94-96, now closed) — the daily payment-followup cron chases refunded bookings for payment
+
+`finance/ar-aging` and `finance/reconcile-candidates` both already exclude
+`'refunded'` alongside `'paid'` from their own "still owes money" queries
+(`.not('payment_status', 'in', '(paid,refunded)')`). The daily payment
+follow-up cron — 8am/12pm/6pm ET SMS chase for unpaid completed jobs,
+link-based via Stripe — never got the same exclusion; it only skipped
+`payment_status` `paid`/`partial`. Selena's `approve_refund`/
+`process_refund` tools (`handleApproveRefund`, `handleProcessStripeRefund`
+in `selena/tools.ts`) — and the human equivalent — only ever touch
+`payment_status`/`notes`, never `bookings.payment_method`, so a booking
+flagged `refund_pending` or `refunded` still satisfied this cron's
+`payment_method IS NULL` guard and kept getting "your balance is still
+open, pay here 😊" SMS plus a live Stripe payment link every send slot,
+until someone manually noticed — the exact opposite of what a refund
+status means, and a real risk of asking an already-refunded client to pay
+a second time.
+
+**Fixed** — added `'refunded'`/`'refund_pending'` to the same `NOT IN`
+exclusion the two finance routes already use.
+
+3 new tests (no prior test coverage existed for this route at all),
+mutation-verified (`git apply -R` the fix, 2/3 RED for the expected reason
+— SMS sent to a refunded/refund_pending booking — the genuinely-still-
+unpaid control correctly stayed GREEN throughout; `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 396/396 files, 1953/1953 tests,
+zero regressions. Commit `cd53ea20`.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
