@@ -104,6 +104,16 @@ const isPublicRoute = createRouteMatcher([
   '/referral(.*)',          // Public referral pages
   '/api/portal(.*)',        // Portal API routes
   '/api/team-portal(.*)',   // Team portal API routes
+  '/api/uploads',           // File upload (team-portal photo upload's only
+                             // real caller, app/team/page.tsx); self-gates via
+                             // getPortalAuth() bearer token or, for admin/Clerk
+                             // callers, getTenantForRequest() — same
+                             // public-but-self-gated pattern as
+                             // /api/client-analytics. Missing this prefix meant
+                             // a team-portal member on the main host (no
+                             // admin_token cookie) 307'd to /sign-in before the
+                             // route's own portal-auth check ever ran, same H-01
+                             // shape as the /api/push gap above.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/referrals/track(.*)', // Referral click tracking

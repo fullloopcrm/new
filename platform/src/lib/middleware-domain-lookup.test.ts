@@ -68,3 +68,21 @@ describe('middleware.ts admin-impersonation bypass list — dashboard-fetched ro
     ).toBe(true)
   })
 })
+
+describe('middleware.ts public-route list — /api/uploads stays covered (H-01 class)', () => {
+  it('covers /api/uploads (team-portal photo upload, self-gated via getPortalAuth/getTenantForRequest)', () => {
+    const src = middlewareSource()
+    // app/team/page.tsx's handlePhotoUpload (POST /api/uploads' only real
+    // caller) sends a portal bearer token, not an admin_token cookie — the
+    // route itself checks getPortalAuth() before falling back to
+    // getTenantForRequest(), same as every other team-portal route. Without
+    // /api/uploads in isPublicRoute, a team member hitting it on the main
+    // host (no admin_token cookie) falls through to the /sign-in redirect
+    // before the route's own auth check ever runs.
+    expect(
+      src.includes(`'/api/uploads'`),
+      "middleware.ts isPublicRoute list no longer covers '/api/uploads' — " +
+        'team-portal photo upload requests on the main host will fall through to the /sign-in redirect.',
+    ).toBe(true)
+  })
+})
