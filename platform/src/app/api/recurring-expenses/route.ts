@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET() {
   try {
@@ -46,9 +47,9 @@ export async function POST(request: Request) {
         category: body.category || null,
         amount_cents: Number(body.amount_cents),
         frequency: body.frequency,
-        start_date: body.start_date || new Date().toISOString().slice(0, 10),
+        start_date: body.start_date || nowNaiveET().slice(0, 10),
         end_date: body.end_date || null,
-        next_due_date: body.next_due_date || body.start_date || new Date().toISOString().slice(0, 10),
+        next_due_date: body.next_due_date || body.start_date || nowNaiveET().slice(0, 10),
         notes: body.notes || null,
         active: body.active !== false,
       })

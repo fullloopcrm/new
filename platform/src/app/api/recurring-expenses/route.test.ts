@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
@@ -80,5 +80,45 @@ describe('POST /api/recurring-expenses — validation', () => {
     const res = await POST(postReq({ label: 'Insurance', amount_cents: 5000, frequency: 'monthly' }))
     const json = await res.json()
     expect(json.recurring_expense.tenant_id).toBe('tenant-A')
+  })
+
+  it('honors an explicit start_date/next_due_date', async () => {
+    const res = await POST(postReq({
+      label: 'Insurance', amount_cents: 5000, frequency: 'monthly',
+      start_date: '2026-07-05', next_due_date: '2026-08-05',
+    }))
+    const json = await res.json()
+    expect(json.recurring_expense.start_date).toBe('2026-07-05')
+    expect(json.recurring_expense.next_due_date).toBe('2026-08-05')
+  })
+
+  describe('start_date/next_due_date default -- ET calendar day, not true-UTC day', () => {
+    // 9pm EDT July 17 == 1am UTC July 18 -- cron/recurring-expenses' advance()
+    // (commit 91919561) trusts start_date as the ONLY true anchor and re-derives
+    // every future due date's day-of-month from it. If this default persists the
+    // wrong (UTC-rolled-over) day, that wrong anchor becomes PERMANENT for the
+    // life of the recurring expense -- the exact drift class 91919561 fixed,
+    // reintroduced one call site upstream.
+    const NOW = new Date('2026-07-18T01:00:00.000Z')
+    const realTZ = process.env.TZ
+
+    beforeEach(() => {
+      process.env.TZ = 'UTC'
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+    })
+
+    afterEach(() => {
+      if (realTZ === undefined) delete process.env.TZ
+      else process.env.TZ = realTZ
+      vi.useRealTimers()
+    })
+
+    it('defaults an omitted start_date to the real ET-today, not the already-rolled-over UTC day', async () => {
+      const res = await POST(postReq({ label: 'Insurance', amount_cents: 5000, frequency: 'monthly' }))
+      const json = await res.json()
+      expect(json.recurring_expense.start_date).toBe('2026-07-17')
+      expect(json.recurring_expense.next_due_date).toBe('2026-07-17')
+    })
   })
 })
