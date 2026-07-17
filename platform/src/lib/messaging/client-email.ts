@@ -62,6 +62,16 @@ export function confirmationEmail(tenant: TenantLike, booking: any): EmailOut {
     dateTime: flatDateTime(booking.start_time),
     teamMemberName: booking.team_members?.name || booking.cleaners?.name || 'Your pro',
     address: booking.clients?.address || undefined,
+    // bookingConfirmationEmail has always supported a price row (email-templates.ts
+    // TemplateData `price?: string`) but this non-nycmaid wiring never passed it --
+    // booking.price (cents) is present on every row this is called with (see
+    // client/recurring/route.ts's insert), so every non-nycmaid tenant's confirmed
+    // booking email silently omitted price even though the template already renders
+    // it when given one. Same price-transparency gap flagged against the
+    // booking-*received* email in EMERGENCY-24-7-ARCHETYPE-GAPS-AND-FRICTION, but
+    // that one's still an open product call (price may not be final pre-confirmation);
+    // this is a confirmed booking, so the price is definite and safe to show.
+    price: typeof booking.price === 'number' ? `$${(booking.price / 100).toFixed(2)}` : undefined,
   })
   return { subject: `Booking confirmed — ${tenant.name || 'Your booking'}`, html }
 }
