@@ -68,6 +68,7 @@ export type NotificationType =
   | 'quote_accepted'
   | 'quote_declined'
   | 'quote_expired'
+  | 'document_declined'
   | 'security'
   | 'error'
   | 'referral_lead'

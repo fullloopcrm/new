@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logDocEvent } from '@/lib/documents'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -27,7 +28,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: signer } = await supabaseAdmin
       .from('document_signers')
-      .select('id, document_id, tenant_id, status')
+      .select('id, document_id, tenant_id, status, name')
       .eq('public_token', token)
       .maybeSingle()
     if (!signer) return NextResponse.json({ error: 'Not found' }, { status: 404 })
@@ -36,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
     // Prevent re-opening a terminal-state document via decline.
     const { data: parent } = await supabaseAdmin
       .from('documents')
-      .select('status')
+      .select('status, title')
       .eq('id', signer.document_id)
       .maybeSingle()
     if (parent && ['voided', 'completed', 'expired', 'declined'].includes(parent.status)) {
@@ -66,6 +67,37 @@ export async function POST(request: Request, { params }: Params) {
       detail: { reason },
       ip_address: ip,
       user_agent: ua,
+    })
+
+    // Every other public accept/decline flow (quotes) alerts the tenant admin
+    // on decline — this route never did, for any document lifecycle event
+    // (consent, sign, decline, completion). A signer declining left the admin
+    // with no way to know short of manually checking the dashboard. Mirrors
+    // quotes/public/[token]/decline/route.ts's notify()+ownerAlert() pair.
+    const docTitle = parent?.title || 'Document'
+    try {
+      const { notify } = await import('@/lib/notify')
+      await notify({
+        tenantId: signer.tenant_id,
+        type: 'document_declined',
+        title: `${docTitle} declined`,
+        message: reason ? `Reason: ${reason}` : 'No reason given',
+        channel: 'email',
+        recipientType: 'admin',
+        metadata: { document_id: signer.document_id, signer_id: signer.id },
+      })
+    } catch (e) {
+      console.warn('notify document_declined failed', e)
+    }
+
+    const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+    await ownerAlert({
+      tenantId: signer.tenant_id,
+      subject: `Document declined — ${docTitle}`,
+      kicker: 'Document declined',
+      heading: `${docTitle} was declined`,
+      bodyHtml: `<p style="margin:0 0 12px">${escapeHtml(signer.name || 'The signer')} declined this document.</p>${reason ? `<p style="margin:0"><strong>Reason:</strong> ${escapeHtml(reason)}</p>` : '<p style="margin:0;color:#807B70">No reason given.</p>'}`,
+      sms: `${docTitle} declined by ${signer.name || 'the signer'}${reason ? `: ${reason}` : ''}.`,
     })
 
     return NextResponse.json({ ok: true })
