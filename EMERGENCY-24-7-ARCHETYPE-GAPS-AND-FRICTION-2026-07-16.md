@@ -1480,6 +1480,95 @@ test touches this route; one pre-existing, unrelated tenant-scope guard
 warning on `fixture/route.ts`, not touched, same precedent as items
 17/23/24/26/27/28/29/30/31/32/33/34).
 
+## (36) New today, archetype depth — the admin's own daily-summary digest never broke out emergency jobs — NOW FIXED
+
+`GET /api/cron/daily-summary` (runs at 8am; the one proactive owner-facing
+digest in the codebase — "Today's jobs: N / This week: N / Yesterday's
+revenue: $X") counted today's bookings but never checked `is_emergency` at
+all, so an owner's very first message of the day carried no signal that any
+of today's jobs are time-critical — same root pattern as items
+(20)/(24)/(26)/(29)/(30)/(32)/(34), just on the one *summary* surface none of
+those per-event alerts touch. Net effect: on a morning with 3 routine jobs
+and 1 same-day emergency, the digest read identically to a morning with 4
+routine jobs — the owner had to already know to go check the schedule for
+anything urgent; the one message designed to orient their whole day gave
+zero prioritization signal.
+
+**Fixed** (`p1-w3`) — added a second `count`-only query (`is_emergency: true`,
+same date window as the existing `todaysJobs` count) and appended `` (🚨 N
+emergency)`` to the "Today's jobs" line only when the count is nonzero (no
+copy/product call needed — this reuses the exact 🚨 convention every sibling
+alert in this doc already established, just surfaced as a count rather than
+a per-booking flag). Also added `emergencyJobsToday` to the notify()
+`metadata` payload alongside the existing `todaysJobs`/`yesterdayRevenue`/
+`upcomingSchedules` fields, in case a future admin-UI surface wants to read
+it structured rather than parse the message string. Team-member 3-day
+lookahead and the 30-day recurring-expiration warning (the digest's other
+two sections) were left untouched — deliberately out of scope, neither is an
+owner-facing urgency signal. Zero test files exist under any
+`src/app/api/cron/*` route in this repo (same precedent items
+18/20/22/32/34/35 already established) — relies on `tsc --noEmit` +
+full-suite verification. `tsc --noEmit` clean, full suite 355/355 files,
+1810/1810 tests, zero regressions (one pre-existing, unrelated tenant-scope
+guard warning on `fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35).
+
+## (37) New today, fresh ground outside the archetype — the operator's own primary booking CRUD routes never checked sms_consent, missed by every prior sweep — NOW FIXED
+
+Continuation of the codebase-wide TCPA compliance sweep begun by items
+(19)/(21)/(23)/(31)/(33) (that convention: every real client-SMS call site
+gates on `sms_consent !== false`, matching what the STOP-reply webhook
+actually writes). Every prior pass audited *client-initiated* SMS sends
+(booking widget, portal self-book, self-serve reschedule, running-late) —
+none had traced the *operator/admin*-initiated equivalents, even though
+they're arguably higher-volume in practice (an admin/dispatcher creating,
+editing, or cancelling a booking on a client's behalf, including phone-in
+bookings). Found three real call sites, all using the same bare
+`@/lib/sms`-wrapper pattern the prior sweep's audited sites used before their
+fix (no built-in consent logic):
+
+- `POST /api/bookings` — the admin/agent booking-create route (the same
+  route items (6)/(7) already established as BookingsAdmin.tsx's own manual
+  create path, including "Emergency / Same-Day") fires a client
+  booking-confirmation SMS on every create; `clients` select never fetched
+  `sms_consent`.
+- `PUT /api/bookings/[id]` — TWO separate client-facing SMS sends on this one
+  route: booking-confirmed (on `status` transitioning to `scheduled`) and
+  rescheduled (on `start_time` changing). Neither checked `sms_consent`.
+- `DELETE /api/bookings/[id]` — the operator-initiated cancel path (the
+  admin-side mirror of item (17)'s already-fixed *tech*-notify gap on this
+  same transition) fires a client cancellation SMS with no consent check
+  either.
+- `POST /api/bookings/batch` — the bulk/recurring-series create route (first
+  row only, matching its own existing "notifications sent ONLY for the first
+  row" doc comment) has the identical booking-confirmation SMS gap; its
+  `clients(*)` select-star already carried `sms_consent` on the raw row, it
+  was just never read.
+
+Deliberately checked and left alone, not the same gap: `POST
+/api/client/recurring` (the client-portal's own recurring-booking creation)
+routes its confirmation through `sendClientSMS()` (`src/lib/nycmaid/
+client-contacts.ts`), a wrapper that already threads `recipientType`/
+`recipientId` into a consent-aware `sendSMS()` internally — confirmed by
+reading the wrapper directly before ruling it out, same "verify before
+excluding" method items (19)/(31) used.
+
+**Fixed** (`p1-w3`) — all four sites gated on `sms_consent !== false`, adding
+the field to each route's `clients(...)` select (or, for the batch route,
+widening the existing `clients(*)`-sourced local type cast, since the raw
+column was already present). No wording/product decision needed, matching
+every prior item in this compliance sweep. 8 new tests across 3 files
+(`bookings/route.sms-consent.test.ts`,
+`bookings/[id]/route.sms-consent.test.ts` — covering both the PUT
+confirmation path and the DELETE cancellation path — and
+`bookings/batch/route.sms-consent.test.ts`), mutation-verified per site
+(reverted each fix individually, every opted-out test went RED reproducing
+the exact still-sends symptom, positive controls unaffected, restored).
+`tsc --noEmit` clean, full suite 355/355 files, 1810/1810 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
