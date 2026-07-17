@@ -22,16 +22,16 @@
 3. **Tenant differences come from config/data**, resolved server-side (`getTenantForRequest`, tenant row, `getSettings`). Not from forked files.
 4. **The `/site/<tenant>` tree is for public marketing + customer/cleaner portals only** — never operator tooling.
 
-### Known debt (migrate to global, do NOT extend)
+### Known debt (resolved)
 
-These predate the rule and VIOLATE it — they are full per-tenant operator clones:
-- `src/app/site/wash-and-fold-nyc/(app)/admin/*` + `/dashboard/*` — ~22 cloned pages
-- `src/app/site/wash-and-fold-hoboken/(app)/admin/*` + `/dashboard/*` — ~22 cloned pages
-- `src/app/site/the-florida-maid/clients/dashboard` — 1 client dashboard
-
-Cutover required: repoint these tenants' operators to the global `/dashboard` + `/admin` (they currently use their own `(app)/login`), verify, THEN delete the clones. Do not delete before the auth/routing cutover — it would dark a live tenant's admin.
-
-Until migrated, **do not add features to these clones.** Build in global only.
+The wash-and-fold-nyc and wash-and-fold-hoboken per-tenant operator admin/dashboard
+clones this section used to list were deleted in the same commit that added this
+rule (`a1cea0ba`, 2026-06-29) — verified via `git log --all` and confirmed no
+`src/app/site/*/​(app)/admin` or `/dashboard` directory currently exists outside the
+allowed customer/cleaner `book/dashboard` + `team/dashboard` paths.
+`src/app/site/the-florida-maid/clients/dashboard` was never a violation — it's a
+client-facing "My Bookings" page (the allowed customer-portal category above), not
+an operator admin clone; it was mislabeled here by mistake.
 
 ## Platform Messaging (admin ↔ tenant owner)
 
