@@ -4469,6 +4469,64 @@ apply -R` the fix, both RED for the expected reason (0 notify calls instead
 of 1) — `git apply` restored, GREEN. `tsc --noEmit` clean, full suite
 398/398 files, 1960/1960 tests, zero regressions. Commit `8a001ea9`.
 
+## (101) Archetype depth — item (1)'s price-transparency thread, continued: the CONFIRMED-booking email (not just the received one) was price-blind for every non-nycmaid tenant — NOW FIXED
+
+Item (1)'s follow-up left the booking-*received* email's missing price field
+an open product call (price isn't necessarily final before a job is
+confirmed). Tracing the same price-transparency thread one step further
+today found a cleaner, non-ambiguous instance of the same gap on the
+CONFIRMED side: `client-email.ts`'s `confirmationEmail()` — the path every
+non-nycmaid tenant's `client/recurring/route.ts` confirmation email goes
+through — never passed `booking.price` to `bookingConfirmationEmail`, even
+though that template (`email-templates.ts`) has always declared and
+rendered an optional `price` row (confirmed live: the sibling nycmaid
+template already shows pricing detail on its own confirmation email).
+`booking.price` (cents) is present on every row this function is called
+with. Unlike the received email, a confirmed booking's price is definite —
+this isn't a product question, it's a plain wiring gap.
+
+**Fixed** — `confirmationEmail()` now formats `booking.price` as a dollar
+string and passes it through when present; nycmaid's own template/routing
+is untouched (early-return branch, never reaches the shared path).
+
+3 new tests, mutation-verified (`git apply -R` the fix, 1/3 RED for the
+expected reason — missing price row — the no-price and nycmaid-routing
+controls correctly stayed GREEN throughout; `git apply` restored, GREEN).
+`tsc --noEmit` clean, full suite 399/399 files, 1963/1963 tests, zero
+regressions. Commit `464e6dc7`.
+
+## (102) Fresh ground, new bug class (email-side opt-out parity gap, distinct from every prior thread) — Resend's `email.complained` spam-complaint event had zero handling — NOW FIXED
+
+SMS already has a complete opt-out loop: a client or team member replying
+STOP persists `sms_consent: false` (confirmed shipped this session,
+`webhooks/telnyx`'s `route.stop-start-team.test.ts`), and `/api/unsubscribe`'s
+signed link gives email the same guarantee when a client clicks unsubscribe.
+Resend also emits an `email.complained` event — verified against Resend's
+published webhook event list: fires when "the email was successfully
+delivered, but the recipient marked it as spam" — but
+`webhooks/resend/route.ts`'s type switch only ever handled
+`email.delivered`/`email.opened`/`email.bounced`; `email.complained` fell
+through to the generic `else { return ok: true }` and did nothing at all.
+A recipient marking one campaign email as spam kept receiving every future
+campaign from that tenant — real sender-reputation/deliverability risk on
+top of the compliance gap — until a human happened to notice. Same shape as
+the SMS STOP-persistence bug already fixed this session, just on the email
+side, and never closed there.
+
+**Fixed** — `email.complained` now marks the `campaign_recipients` row
+`'complained'` and mirrors `/api/unsubscribe`'s opt-out write: sets
+`clients.email_marketing_opt_out` (+`_opted_out_at`) and logs to
+`marketing_opt_out_log` with `method: 'spam_complaint'`, so a spam
+complaint has the same effect as clicking unsubscribe.
+
+2 new tests, mutation-verified (`git apply -R` the fix, both RED for the
+expected reason — opt-out never written / status left `'delivered'` —
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 400/400
+files, 1965/1965 tests, zero regressions. Commit `8454eae0`. (A pre-existing,
+unrelated tenant-scope guard warning on `src/app/api/fixture/route.ts`
+appeared in this run's output — untouched by this change, not investigated
+further as out of lane.)
+
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
