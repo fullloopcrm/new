@@ -4739,3 +4739,90 @@ clean, full suite 403/403 files, 1978/1978 tests, zero regressions. Commit
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (109) Archetype depth — H-01 class repeats a ninth time: `POST /api/email/monitor` was never reachable from its own cron — NOW FIXED
+
+The cron trigger for IMAP Zelle/Venmo payment monitoring
+(`/api/cron/email-monitor`, already public) makes a real server-to-server
+HTTP `fetch()` — not a function call — to `/api/email/monitor` with an
+`Authorization: Bearer CRON_SECRET` header. That fetch has no `admin_token`
+cookie and no Clerk session, so it re-enters the same middleware. The route
+self-gates via its own `authorize()` (`CRON_SECRET` bearer OR
+`ELCHAPO_MONITOR_KEY` body key), same public-but-self-gated shape as
+`/api/uploads`, `/api/push/subscribe`, and `/api/internal/deploy-hook`
+before it.
+
+Without `/api/email/monitor` in `isPublicRoute`, every one-minute tick
+307'd to `/sign-in` before `authorize()` ever ran. `fetch()` follows the
+redirect, gets the sign-in page's HTML back instead of JSON, `res.json()`
+throws and is swallowed by the caller's `.catch(() => ({}))` — so the
+cron's own health-check marker still got written every minute, masking
+that the actual IMAP payment-matching work silently never ran for any
+tenant with `email_monitor_enabled`.
+
+**Fixed** — added `/api/email/monitor` to `isPublicRoute`, same self-gated
+precedent as the three fixes above.
+
+1 new test in `middleware-domain-lookup.test.ts` (source-reading guard,
+same pattern as the existing `isPublicRoute` guards), mutation-verified
+(`git apply -R` the fix, RED for the expected reason — `isPublicRoute` no
+longer covers `/api/email/monitor` — `git apply` restored, GREEN). `tsc
+--noEmit` clean, full suite 403/403 files, 1979/1979 tests, zero
+regressions. Commit `d5e9cf1f`.
+
+## (110) Fresh ground — item (108)'s flagged follow-up closed: no admin notification when a document finishes signing (completion) — NOW FIXED
+
+Item (108) fixed the decline case and explicitly scoped out
+sign/consent/completion as "the same shape and worth a follow-up." Read
+`sign/route.ts`'s `allDone` branch directly: it calls `finalizeDocument()`
+(flattens the signed PDF) and `sendCompletionCopies()` (emails each
+*signer* a receipt), but nothing ever told the tenant *admin* the document
+completed — the last of the four document lifecycle events
+(consent/sign/decline/completion) with zero admin-facing signal. Same
+business weight as item (108)'s reasoning: a fully-signed contract is a
+closed deal an admin should hear about immediately, not discover by
+manually checking the dashboard. Confirmed no other call site covers this
+(grepped the whole `documents` route tree for `notify(`/`ownerAlert(`
+again post-item-108 — only `decline/route.ts` has it).
+
+**Fixed** — added `notifyOwnerDocumentCompleted()` to `sign/route.ts`,
+called from the `allDone` branch alongside the existing
+`sendCompletionCopies()` call. Mirrors
+`quotes/public/[token]/accept/route.ts`'s `notify()`+`ownerAlert()` pair on
+its own positive-outcome event, same precedent item (108) used for
+decline. Added `'document_completed'` to `notify.ts`'s `NotificationType`
+union.
+
+3 new tests in `route.notify-completed.test.ts`: fires both alerts with
+the signer roster + title, still fires with a generic message when no
+signer has a name, and a source-reading guard confirming the `allDone`
+branch actually calls the new helper (the full POST handler mixes in
+pdf-lib/storage/email — impractical to drive end-to-end per its own
+top-of-file "heaviest route in this family" comment — so the helper is
+exported and tested directly, with the guard test catching regressions in
+the wiring itself, same technique as `middleware-domain-lookup.test.ts`'s
+`isPublicRoute` guards). Mutation-verified (`git apply -R` the fix, all 3
+RED for the expected reason — function undefined / wiring guard failed —
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 404/404
+files, 1982/1982 tests, zero regressions. Commit `cb100f3d`.
+
+Archetype-depth lane this round: extensive H-01-class search (every
+`cron/route.ts` internal fetch call, every top-level `/api/*` directory not
+covered by `isPublicRoute` or the admin-impersonation bypass list) turned
+up zero live findings this round. Two candidates looked promising and were
+run to ground, then correctly ruled out (same discipline as commit
+`c096a4bb`'s false-positive catch): `app/apply/[slug]/page.tsx` (and its
+`/api/tenants/public` fetch) is confirmed unreachable in production — killed
+with a 410 on the main host by `KILLED_ROUTES`, and superseded by
+`/site/<tenant>/apply` on every tenant domain (subdomain/custom-domain
+requests never even reach the `isPublicRoute` gate — they're
+rewritten to `/site/...` earlier in the middleware); and
+`/api/announcements/unread` has zero real callers — grepped every `.tsx`
+in the app and the only client-side announcement fetch
+(`dashboard/announcement-banner.tsx`) actually hits `/api/changelog`
+(already covered), not this route. Neither is a live bug worth carrying
+forward.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
