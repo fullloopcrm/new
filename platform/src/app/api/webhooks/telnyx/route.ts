@@ -12,6 +12,33 @@ import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
 export const maxDuration = 60
 
+// clients.phone and team_members.phone have no uniqueness constraint
+// (idx_clients_tenant_phone is a plain index, not unique — duplicate phone
+// rows are a demonstrated, recurring shape in this codebase, not
+// hypothetical). Every phone lookup below used to call `.single()` directly,
+// which THROWS on 2+ matches — same failure mode already fixed for the
+// tenant lookup further down (a mis-seeded row took SMS down during a
+// cutover test). Since none of those call sites checked the returned error,
+// a duplicate phone silently nulled the result: STOP/START/confirmation
+// replies from a client with any duplicate phone row did nothing at all.
+async function findByPhone(
+  table: 'clients' | 'team_members',
+  tenantId: string,
+  phone: string
+): Promise<{ id: string; name: string } | null> {
+  const { data } = await supabaseAdmin
+    .from(table)
+    .select('id, name')
+    .eq('tenant_id', tenantId)
+    .eq('phone', phone)
+    .order('id', { ascending: true })
+    .limit(2)
+  if (data && data.length > 1) {
+    console.error(`[telnyx webhook] phone ${phone} matches ${data.length} rows in ${table} for tenant ${tenantId} — dedupe needed; using id=${data[0].id}`)
+  }
+  return data?.[0] ?? null
+}
+
 // Handle inbound SMS + delivery status from Telnyx
 export async function POST(request: Request) {
   const rawBody = await request.text()
@@ -151,12 +178,7 @@ export async function POST(request: Request) {
     // ============================================
     if (['STOP', 'UNSUBSCRIBE', 'QUIT', 'CANCEL'].includes(normalizedText)) {
       // Find client by phone
-      const { data: client } = await supabaseAdmin
-        .from('clients')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const client = await findByPhone('clients', tenantId, from)
 
       if (client) {
         // Set sms_opt_out on client
@@ -178,12 +200,7 @@ export async function POST(request: Request) {
       }
 
       // Also check team members
-      const { data: member } = await supabaseAdmin
-        .from('team_members')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const member = await findByPhone('team_members', tenantId, from)
 
       if (member) {
         await supabaseAdmin.from('notifications').insert({
@@ -233,12 +250,7 @@ export async function POST(request: Request) {
     // START/UNSTOP — Re-enable SMS consent
     // ============================================
     if (['START', 'UNSTOP', 'SUBSCRIBE'].includes(normalizedText)) {
-      const { data: client } = await supabaseAdmin
-        .from('clients')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const client = await findByPhone('clients', tenantId, from)
 
       if (client) {
         await supabaseAdmin
@@ -286,12 +298,7 @@ export async function POST(request: Request) {
     // CONFIRMATION RESPONSES — YES/CONFIRM/OK
     // ============================================
     if (['YES', 'CONFIRM', 'CONFIRMED', 'OK', 'Y', 'SI'].includes(normalizedText)) {
-      const { data: client } = await supabaseAdmin
-        .from('clients')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const client = await findByPhone('clients', tenantId, from)
 
       if (client) {
         // Find their next upcoming booking and confirm it
@@ -345,12 +352,7 @@ export async function POST(request: Request) {
       }
 
       // Check if it's a team member confirming
-      const { data: member } = await supabaseAdmin
-        .from('team_members')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const member = await findByPhone('team_members', tenantId, from)
 
       if (member) {
         // Find their next unconfirmed job
@@ -417,12 +419,7 @@ export async function POST(request: Request) {
       const rating = parseInt(text.trim(), 10)
 
       // Find client by phone
-      const { data: ratingClient } = await supabaseAdmin
-        .from('clients')
-        .select('id, name')
-        .eq('tenant_id', tenantId)
-        .eq('phone', from)
-        .single()
+      const ratingClient = await findByPhone('clients', tenantId, from)
 
       if (ratingClient) {
         // Find recently completed booking with [FOLLOWUP_SENT] in notes (last 48hrs)
@@ -519,19 +516,8 @@ export async function POST(request: Request) {
     // ============================================
     // GENERAL INBOUND SMS — Log, notify admin, chatbot
     // ============================================
-    const { data: client } = await supabaseAdmin
-      .from('clients')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .eq('phone', from)
-      .single()
-
-    const { data: member } = await supabaseAdmin
-      .from('team_members')
-      .select('id, name')
-      .eq('tenant_id', tenantId)
-      .eq('phone', from)
-      .single()
+    const client = await findByPhone('clients', tenantId, from)
+    const member = await findByPhone('team_members', tenantId, from)
 
     const senderName = client?.name || member?.name || from
 
