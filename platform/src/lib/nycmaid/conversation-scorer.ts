@@ -1,6 +1,7 @@
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
+import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 
 /**
  * Post-conversation quality scorer.
@@ -263,9 +264,19 @@ IMPROVEMENTS: [bullet list of specific suggestions]`,
       ? improvementsMatch[1].split(/[-•]\s*/).filter(s => s.trim().length > 3).map(s => s.trim())
       : []
 
-    // Save the self-review to yinez_memory
+    // Save the self-review to yinez_memory. tenant_id stamped explicitly
+    // (from the convo row already loaded above, falling back to nycmaid for
+    // legacy null rows) — an unstamped insert falls back to yinez_memory's
+    // column DEFAULT ('nycmaid', the same rollout safety net from
+    // 2026_05_09_tenant_id_core.sql as sms_conversation_messages), mis-tagging
+    // every OTHER tenant's self-review as nycmaid's and hiding it from that
+    // tenant's own tenant-scoped yinez_memory reads (selena/agent.ts,
+    // selena/tools.ts recall). Same P2 write-side-siblings class fixed on the
+    // sms_conversation_messages inserts across chat/yinez/admin-chat/selena/
+    // sms/webhooks (deploy-prep/idor-remediation-status.md).
     const { data: convoData } = await supabaseAdmin.from('sms_conversations').select('client_id').eq('id', conversationId).single()
     const { error: memErr } = await supabaseAdmin.from('yinez_memory').insert({
+      tenant_id: (convo?.tenant_id as string) || NYCMAID_TENANT_ID,
       client_id: convoData?.client_id || null,
       type: 'self_review',
       content: `Score: ${aiScore}/100. ${review}${improvements.length > 0 ? ' Improvements: ' + improvements.join('; ') : ''}`,
