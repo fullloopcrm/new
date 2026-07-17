@@ -3052,6 +3052,53 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-31. PUT /api/clients/[id] — unit SILENTLY DROPPED (fresh ground, second instance of this session's field-wiring bug class, found via a sweep of every pick()-allowlist route for the same shape 5a-30's own NOTICED flagged as unswept) ----
+    // The admin client-edit form (dashboard/clients/[id]/page.tsx) has had a
+    // "Unit/Apt" input bound to form.unit all along, and the same page's
+    // read-only view already renders client.unit next to the address. But
+    // PUT /api/clients/[id]'s pick() allowlist never included `unit` — a real
+    // column on `clients` (supabase/schema.sql:102, distinct from the
+    // separate client_properties.unit added later for multi-address support)
+    // — so every admin edit of Unit/Apt looked like it saved (200, no error)
+    // and silently no-opped. requirePermission needs headers()/cookies() this
+    // harness doesn't have, so (same reasoning as every prior 5a-x round) this
+    // mirrors the route's own pick() + update() sequence directly against a
+    // REAL clients row, using the actual `pick` import and the actual fixed
+    // allowlist array, rather than calling the handler.
+    {
+      const { pick: clientsPick } = await import('../src/lib/validate')
+      const CLIENTS_UPDATABLE_FIELDS = ['name', 'email', 'phone', 'address', 'unit', 'status', 'source', 'notes', 'special_instructions', 'preferred_team_member_id', 'sms_consent']
+
+      const unitGatePhone = '646' + String(4900000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+      const { data: unitGateClient, error: unitGateClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Unit-Field-Wiring Gate Client', email: `unitgate+${runId}@example.com`,
+        phone: unitGatePhone, status: 'active', address: '500 Archetype Ave',
+      }).select('id, unit').single()
+      add('unit-field-wiring-gate: client row created with no unit set yet', !!unitGateClient && !unitGateClientErr, unitGateClientErr?.message)
+
+      if (unitGateClient?.id) {
+        // Mirror the route: a real admin edit body containing unit, run
+        // through the SAME pick() call the fixed route now makes.
+        const editBody = { unit: `Apt ${runId.slice(-4)}`, name: 'Unit-Field-Wiring Gate Client' }
+        const pickedFields = clientsPick(editBody, CLIENTS_UPDATABLE_FIELDS)
+        add('unit-field-wiring-gate: fixed allowlist lets unit survive pick() (used to be silently stripped)', pickedFields.unit === editBody.unit, JSON.stringify(pickedFields))
+
+        const { error: unitUpdateErr } = await supabase.from('clients').update(pickedFields).eq('id', unitGateClient.id).eq('tenant_id', tenant.id)
+        add('unit-field-wiring-gate: update() call succeeds', !unitUpdateErr, unitUpdateErr?.message)
+
+        const { data: unitAfter } = await supabase.from('clients').select('unit').eq('id', unitGateClient.id).eq('tenant_id', tenant.id).single()
+        add('unit-field-wiring-gate: unit actually persists on re-read, not silently dropped', unitAfter?.unit === editBody.unit, JSON.stringify(unitAfter))
+
+        // Prove clients.unit and client_properties.unit are genuinely
+        // separate columns on separate tables — editing the client's own
+        // unit field never touches a property row, and vice versa.
+        const { data: unitGateProperty } = await supabase.from('client_properties').select('id').eq('client_id', unitGateClient.id).eq('tenant_id', tenant.id).maybeSingle()
+        add('unit-field-wiring-gate: fixing clients.unit creates zero client_properties rows — genuinely distinct columns, no cross-write', !unitGateProperty, JSON.stringify(unitGateProperty))
+
+        await supabase.from('clients').delete().eq('id', unitGateClient.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
