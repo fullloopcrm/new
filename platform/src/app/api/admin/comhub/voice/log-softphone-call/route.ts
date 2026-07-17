@@ -46,6 +46,24 @@ export async function POST(req: NextRequest) {
   const threadId = tId as string
 
   if (body.status === 'started') {
+    // comhub_active_calls.customer_call_id is UNIQUE across the whole table
+    // (not scoped per-tenant), and upsert's ON CONFLICT target can't carry an
+    // extra tenant_id filter. Without this check, any authenticated admin
+    // (of any tenant) POSTing a telnyx_call_id that collides with another
+    // tenant's live call row -- the softphone's own call.id is client-
+    // generated, and this endpoint has no server-side proof it's real --
+    // would silently overwrite that row's tenant_id/thread/contact, hijacking
+    // the other tenant's in-progress call thread. Reject the collision
+    // instead of clobbering.
+    const { data: existing } = await supabaseAdmin
+      .from('comhub_active_calls')
+      .select('tenant_id')
+      .eq('customer_call_id', body.telnyx_call_id)
+      .maybeSingle()
+    if (existing && existing.tenant_id !== tenantId) {
+      return NextResponse.json({ error: 'call id already in use by another tenant' }, { status: 409 })
+    }
+
     await supabaseAdmin
       .from('comhub_active_calls')
       .upsert(
