@@ -120,7 +120,14 @@ function hasConflict(
  * Returns all slots, with preferred pockets (8am, 12pm, 4pm) first.
  */
 export async function checkAvailability(date: string, durationHours: number = 2): Promise<AvailabilityResult> {
-  const today = new Date().toLocaleDateString('en-CA')
+  // `date` is a plain YYYY-MM-DD calendar date the client picked (ET, the
+  // business's timezone). Without `timeZone: 'America/New_York'` here,
+  // `today` reads the SERVER's local calendar (UTC on Vercel), which runs a
+  // full day ahead of ET for ~4-5h every evening (8pm-midnight ET) -- during
+  // that window this silently let a genuine same-day (ET) booking through
+  // without the same-day-confirmation gate, and could also wrongly flag a
+  // real next-day booking as same-day.
+  const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   if (date === today) {
     return { slots: [], sameDay: true, message: 'Same-day bookings require confirmation' }
   }

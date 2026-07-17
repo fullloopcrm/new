@@ -616,13 +616,22 @@ function parseTime(time: string): { hours: number; minutes: number } | null {
   return { hours, minutes }
 }
 
-function buildCalendarContext(): string {
+// Exported for the naive-ET-vs-UTC boundary regression test -- not used
+// outside this module otherwise.
+export function buildCalendarContext(): string {
+  // Every `toLocaleDateString` call here needs `timeZone: 'America/New_York'`
+  // -- without it, the server's local calendar (UTC on Vercel) is used, which
+  // runs a full day ahead of ET for ~4-5h every evening (8pm-midnight ET).
+  // Selena resolves customer phrases like "this Wednesday" against this
+  // calendar text, so during that window every relative-date request the AI
+  // resolves is silently off by a day.
   const now = new Date()
-  const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })
+  const tz = { timeZone: 'America/New_York' }
+  const fullDate = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric', ...tz })
   const days: string[] = []
   for (let i = 0; i < 14; i++) {
     const d = new Date(now.getTime() + i * 24 * 60 * 60 * 1000)
-    days.push(`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} = ${d.toLocaleDateString('en-CA')}`)
+    days.push(`${d.toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric', ...tz })} = ${d.toLocaleDateString('en-CA', tz)}`)
   }
   return `\n\nToday is ${fullDate}.\nCALENDAR:\n${days.join('\n')}\nUse this to resolve "this Wednesday" etc.`
 }

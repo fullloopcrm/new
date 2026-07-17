@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
+import { naiveETDayRange } from '@/lib/dates'
 
 export async function POST(request: Request) {
   const { auth, error: permError } = await requirePortalPermission(request, 'jobs.claim')
@@ -21,14 +22,19 @@ export async function POST(request: Request) {
   // member that start today.
   const cap = member?.max_jobs_per_day
   if (cap && cap > 0) {
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
+    // bookings.start_time is naive-ET (no tz). `new Date().setHours(0,0,0,0)`
+    // read the SERVER's local calendar (UTC on Vercel), which runs a full
+    // calendar day ahead of ET for ~4-5h every evening (8pm-midnight ET) --
+    // during that window the cap window silently shifted to tomorrow's ET
+    // date, letting a member blow past today's cap (or get blocked on
+    // tomorrow's count while claiming a same-day job).
+    const { start: dayStart, end: dayEnd } = naiveETDayRange(new Date(), 0)
     const { count } = await tenantDb(auth.tid)
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('team_member_id', auth.id)
-      .gte('start_time', dayStart.toISOString())
-      .lt('start_time', dayEnd.toISOString())
+      .gte('start_time', dayStart)
+      .lte('start_time', dayEnd)
       .not('status', 'eq', 'cancelled')
     if ((count ?? 0) >= cap) {
       return NextResponse.json({ error: `Daily job limit reached (${cap})` }, { status: 409 })

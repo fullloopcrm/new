@@ -44,6 +44,7 @@ function chain(table: string) {
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
     gte: (col: string, val: unknown) => { filters.push((r) => (r[col] as string) >= (val as string)); return c },
     lt: (col: string, val: unknown) => { filters.push((r) => (r[col] as string) < (val as string)); return c },
+    lte: (col: string, val: unknown) => { filters.push((r) => (r[col] as string) <= (val as string)); return c },
     not: (col: string, _op: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
     single: async () => ({ data: matched()[0] ?? null, error: null }),
     maybeSingle: async () => ({ data: matched()[0] ?? null, error: null }),
