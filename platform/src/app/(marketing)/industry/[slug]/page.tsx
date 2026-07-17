@@ -17,6 +17,14 @@ import LiveProofBand from "@/components/LiveProofBand";
 import { RelatedLinksHub } from "@/components/marketing/SeoSection";
 
 // ---------------------------------------------------------------------------
+// ISR — long-tail SEO content, doesn't change hour to hour. Explicit 30-day
+// revalidate matches every sibling long-tail route ([combo]/page.tsx, etc.)
+// instead of inheriting the 1h clock from getCaseStudyStats() below, which is
+// tuned for the homepage's live-stats ticker, not 51 static industry pages.
+// ---------------------------------------------------------------------------
+export const revalidate = 2592000;
+
+// ---------------------------------------------------------------------------
 // Static params — generates all 51 industry pages at build time
 // ---------------------------------------------------------------------------
 export function generateStaticParams() { return [] }

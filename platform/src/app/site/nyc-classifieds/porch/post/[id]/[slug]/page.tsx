@@ -4,6 +4,15 @@ import { buildMetadata } from '@/app/site/nyc-classifieds/_lib/seo'
 import { safeJsonLd } from '@/lib/json-ld-safe'
 import PorchPostClient from './PorchPostClient'
 
+// ---------------------------------------------------------------------------
+// ISR — matches every sibling classifieds route (porch/[borough], porch/
+// [borough]/[neighborhood], [borough]/[slug], all 2592000). The visible post
+// content/replies are fetched client-side by PorchPostClient on mount; this
+// server fetch only feeds generateMetadata()/JSON-LD, which doesn't need
+// minute-level freshness.
+// ---------------------------------------------------------------------------
+export const revalidate = 2592000
+
 interface PostData {
   title?: string
   body?: string
@@ -20,7 +29,7 @@ async function fetchPost(id: string): Promise<PostData | null> {
   const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || 'https://thenycclassifieds.com'
   try {
     // Try the single-post endpoint first (includes replies)
-    const res = await fetch(`${siteUrl}/api/porch/${id}`, { next: { revalidate: 60 } })
+    const res = await fetch(`${siteUrl}/api/porch/${id}`, { next: { revalidate: 2592000 } })
     if (res.ok) {
       const data = await res.json()
       if (data.post) {
@@ -28,7 +37,7 @@ async function fetchPost(id: string): Promise<PostData | null> {
       }
     }
     // Fallback to list endpoint
-    const res2 = await fetch(`${siteUrl}/api/porch?post_id=${id}`, { next: { revalidate: 60 } })
+    const res2 = await fetch(`${siteUrl}/api/porch?post_id=${id}`, { next: { revalidate: 2592000 } })
     if (!res2.ok) return null
     const data2 = await res2.json()
     return data2.posts?.[0] || data2.post || null

@@ -53,6 +53,14 @@ function SectionBlock({ section, alt }: { section: LocationSection; alt: boolean
 }
 
 // ---------------------------------------------------------------------------
+// ISR — long-tail SEO content, doesn't change hour to hour. Explicit 30-day
+// revalidate matches every sibling long-tail route ([combo]/page.tsx, etc.)
+// instead of inheriting the 1h clock from getCaseStudyStats() below, which is
+// tuned for the homepage's live-stats ticker, not 400 static metro pages.
+// ---------------------------------------------------------------------------
+export const revalidate = 2592000;
+
+// ---------------------------------------------------------------------------
 // Static params — generates all 400+ location pages at build time
 // ---------------------------------------------------------------------------
 export function generateStaticParams() { return [] }
