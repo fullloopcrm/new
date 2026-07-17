@@ -64,6 +64,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const oldDate = fmtDate(oldBooking.start_time, tz)
   const oldTime = fmtTime(oldBooking.start_time, tz)
 
+  // Check-then-act, not atomic: `oldBooking` above is a stale snapshot -- an
+  // admin/cleaner can move this booking to a terminal state (checked in,
+  // completed, cancelled) between that read and this write. Without
+  // re-asserting the pre-read status in THIS update's own WHERE, a client's
+  // in-flight reschedule would silently clobber whatever just happened (e.g.
+  // moving the start_time on a job a cleaner just checked into). Same fix
+  // already applied to the sibling PUT /api/portal/bookings/[id].
   const { data: updated, error } = await supabaseAdmin
     .from('bookings')
     .update({
@@ -73,9 +80,16 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     })
     .eq('id', id)
     .eq('tenant_id', tenant.id)
+    .eq('status', oldBooking.status)
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
-    .single()
-  if (error || !updated) return NextResponse.json({ error: error?.message || 'Update failed' }, { status: 500 })
+    .maybeSingle()
+  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!updated) {
+    return NextResponse.json(
+      { error: 'This booking changed status concurrently — refresh instead of editing' },
+      { status: 409 },
+    )
+  }
 
   // Async fan-out — never block the response on notification failures.
   void (async () => {
