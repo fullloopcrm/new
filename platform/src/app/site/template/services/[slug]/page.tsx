@@ -81,19 +81,21 @@ export default async function ServicePage({ params }: Props) {
   const { slug } = await params
   const service = getServiceByUrlSlug(slug)
   if (!service) notFound()
-  const biz = buildBusiness(await getSiteConfig())
+  const config = await getSiteConfig()
+  const brand = toBrand(config)
+  const biz = buildBusiness(config)
 
-  const content = serviceContent(service)
+  const content = serviceContent(service, brand)
   const baseFaqs = serviceFAQs(service)
-  const rich = getServiceRichContent(service.slug)
-  const common = commonServiceFAQs(service)
+  const rich = getServiceRichContent(service.slug, brand)
+  const common = commonServiceFAQs(service, brand)
   // Combine rich FAQs + common FAQs to hit 25, deduplicating by question
   const richFaqs = rich?.faqs.length ? rich.faqs : baseFaqs
   const seen = new Set(richFaqs.map(f => f.question))
   const combined = [...richFaqs, ...common.filter(f => !seen.has(f.question))]
   const faqs = combined.slice(0, 25)
   const otherServices = SERVICES.filter(s => s.slug !== service.slug)
-  const servicePhoto = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[service.slug] || 'mop', service.slug)
+  const servicePhoto = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[service.slug] || 'mop', service.slug, brand)
 
   return (
     <>
@@ -118,8 +120,8 @@ export default async function ServicePage({ params }: Props) {
                 <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                   Self Booking $10 OFF
                 </Link>
-                <a href="sms:5555555555" className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
-                  Text 555.555.5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
+                  Text {config.contact.phone}
                 </a>
               </div>
             </div>
@@ -150,8 +152,8 @@ export default async function ServicePage({ params }: Props) {
                   <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">{service.duration}</p>
                   <p className="text-[rgb(var(--brand-rgb)/0.6)] text-xs mt-1">Pay only for time worked &middot; No upfront cost</p>
                 </div>
-                <a href="sms:5555555555" className="block text-center bg-[var(--accent)] text-[var(--brand)] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                  Text (555) 555-5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="block text-center bg-[var(--accent)] text-[var(--brand)] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                  Text {config.contact.phone}
                 </a>
               </div>
             </div>
@@ -170,7 +172,7 @@ export default async function ServicePage({ params }: Props) {
             sizes="100vw"
             className="object-cover"
           />
-          <figcaption className="sr-only">{servicePhoto.caption} — {service.name} by Your Business</figcaption>
+          <figcaption className="sr-only">{servicePhoto.caption} — {service.name} by {brand.name}</figcaption>
         </figure>
       </section>
 
@@ -197,8 +199,8 @@ export default async function ServicePage({ params }: Props) {
                   <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                     Self Booking $10 OFF
                   </Link>
-                  <a href="sms:5555555555" className="bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                    Text 555.555.5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
+                    Text {config.contact.phone}
                   </a>
                 </div>
               </div>
@@ -255,8 +257,8 @@ export default async function ServicePage({ params }: Props) {
                   <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                     Self Booking $10 OFF
                   </Link>
-                  <a href="sms:5555555555" className="bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                    Text 555.555.5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
+                    Text {config.contact.phone}
                   </a>
                 </div>
               </div>
@@ -291,8 +293,8 @@ export default async function ServicePage({ params }: Props) {
                 <div className="w-10 h-[3px] bg-[var(--accent)] mb-5" />
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide leading-tight mb-4">{rich.whenToBook.title}</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">If any of these apply to you, a professional {service.name.toLowerCase()} is the move. Text us and we&apos;ll get you on the schedule.</p>
-                <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                  Text (555) 555-5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                  Text {config.contact.phone}
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -403,8 +405,8 @@ export default async function ServicePage({ params }: Props) {
               <div className="bg-gray-50 rounded-xl p-6 text-center">
                 <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-1">{service.priceRange}</p>
                 <p className="text-gray-500 text-sm mb-4">{service.duration}</p>
-                <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                  Text (555) 555-5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-8 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                  Text {config.contact.phone}
                 </a>
               </div>
             </div>
@@ -419,7 +421,7 @@ export default async function ServicePage({ params }: Props) {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book in 3 Simple Steps</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { n: '01', t: 'Text Us', d: 'Reach us at (555) 555-5555 with your address, preferred date, and any special requests.' },
+              { n: '01', t: 'Text Us', d: `Reach us at ${config.contact.phone} with your address, preferred date, and any special requests.` },
               { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
               { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
             ].map(s => (
@@ -431,8 +433,8 @@ export default async function ServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-              Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+              Text {config.contact.phone}
             </a>
           </div>
         </div>
@@ -515,7 +517,7 @@ export default async function ServicePage({ params }: Props) {
       </section>
 
       <FAQSection faqs={faqs} title={`${service.name} — Frequently Asked Questions`} columns={2} />
-      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — trusted by thousands of New Yorkers." />
+      <CTABlock title={`Book ${service.name} Today`} subtitle="Text us — trusted by thousands of New Yorkers." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
     </>
   )
 }

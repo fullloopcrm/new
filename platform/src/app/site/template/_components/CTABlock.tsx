@@ -1,6 +1,13 @@
 import Link from 'next/link'
 
-export default function CTABlock({ title, subtitle }: { title?: string; subtitle?: string }) {
+interface CTABlockProps {
+  title?: string
+  subtitle?: string
+  phone: string
+  phoneDigits: string
+}
+
+export default function CTABlock({ title, subtitle, phone, phoneDigits }: CTABlockProps) {
   return (
     <section className="bg-[var(--accent)] py-20">
       <div className="max-w-4xl mx-auto px-4 flex flex-col md:flex-row items-center justify-between gap-8">
@@ -24,8 +31,8 @@ export default function CTABlock({ title, subtitle }: { title?: string; subtitle
           <Link href="/book/new" className="bg-[var(--brand)] text-white px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
             Self Booking $10 OFF
           </Link>
-          <a href="sms:5555555555" className="border-2 border-[var(--brand)] text-[var(--brand)] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)] hover:text-white transition-colors">
-            Text 555.555.5555
+          <a href={`sms:${phoneDigits}`} className="border-2 border-[var(--brand)] text-[var(--brand)] px-8 py-3.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)] hover:text-white transition-colors">
+            Text {phone}
           </a>
         </div>
       </div>

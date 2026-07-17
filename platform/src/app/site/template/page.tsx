@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import type { SiteConfig } from '@/app/site/template/_config/types'
 import Link from 'next/link'
 import { homepageContent } from '@/app/site/template/_lib/seo/content'
 import { homepageSchemas, faqSchema, buildBusiness } from '@/app/site/template/_lib/seo/schema'
@@ -59,18 +60,21 @@ export async function generateMetadata(): Promise<Metadata> {
   }
 }
 
-const testimonials = [
-  { text: 'We just had our apartment painted and needed a deep clean to get rid of loads of dust. Your Business sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!', name: 'Julie Salamon', location: 'New York' },
-  { text: 'Best cleaning service I\'ve used in the 20 years I\'ve lived in NYC! Consistently efficient, thorough...', name: 'Courtney Gamble', location: 'New York' },
-  { text: 'After trying three different cleaning companies in NYC, Your Business is hands down the most affordable and thorough.', name: 'Jenna M', location: 'New York' },
-]
+export function testimonials(config: SiteConfig) {
+  return [
+    { text: `We just had our apartment painted and needed a deep clean to get rid of loads of dust. ${config.identity.name} sent a wonderful cleaner who was prompt, professional and did an amazing job. Highly recommend!!!`, name: 'Julie Salamon', location: 'New York' },
+    { text: 'Best cleaning service I\'ve used in the 20 years I\'ve lived in NYC! Consistently efficient, thorough...', name: 'Courtney Gamble', location: 'New York' },
+    { text: `After trying three different cleaning companies in NYC, ${config.identity.name} is hands down the most affordable and thorough.`, name: 'Jenna M', location: 'New York' },
+  ]
+}
 
-const homepageFAQs = [
+export function homepageFAQs(config: SiteConfig) {
+  return [
   // Pricing & Booking
   { question: 'How much does house cleaning cost in NYC?', answer: 'Our house cleaning services start at $59/hour when you provide supplies (recurring: 10% off weekly, 5% off biweekly/monthly), or $69/hour when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly). Same-day and emergency service is $89/hour. Final cost depends on home size and service type.' },
   { question: 'Do you charge by the hour or a flat rate?', answer: 'We charge by the hour. This keeps pricing fair — you only pay for the time your space actually needs. No inflated flat-rate quotes.' },
   { question: 'Is there a minimum number of hours?', answer: 'Yes — a 2-hour minimum on all bookings, first-time cleanings included. Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts; a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
-  { question: 'How do I book a cleaning?', answer: 'Text (555) 555-5555. We typically schedule within 24-48 hours, with same-day availability for urgent requests.' },
+  { question: 'How do I book a cleaning?', answer: `Text ${config.contact.phone}. We typically schedule within 24-48 hours, with same-day availability for urgent requests.` },
   { question: 'Do you offer same-day cleaning?', answer: 'Yes. Same-day and emergency cleaning is available at $89/hour. We dispatch a professional cleaner to your door within hours.' },
   { question: 'What payment methods do you accept?', answer: 'We accept credit cards, debit cards, Apple Pay, and Cash App through our secure online payment link, plus cash. You can also pay securely online through our payment portal.' },
   { question: 'Do I need to tip my cleaner?', answer: 'Tipping is never required but always appreciated. If you feel your cleaner did a great job, a tip is a wonderful way to show it.' },
@@ -103,7 +107,7 @@ const homepageFAQs = [
   { question: 'How far in advance should I book?', answer: 'We recommend booking 2-3 days in advance for regular cleanings. For same-day service, contact us as early as possible and we will do our best to accommodate.' },
   { question: 'What is your cancellation policy?', answer: 'First-time and one-time services cannot be cancelled or rescheduled once confirmed. Recurring services (weekly, bi-weekly, monthly) require 7 days notice to reschedule, and cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t take payment upfront — we hold your spot on our busy schedule, turning away other clients. Late cancellations directly affect our team members who depend on this income.' },
   { question: 'Can I reschedule my cleaning?', answer: 'Recurring clients can reschedule with 7 days notice. First-time and one-time services cannot be rescheduled. We hold your spot without collecting payment upfront and turn away other clients to do so — rescheduling leaves our cleaners without the income they were counting on.' },
-  { question: 'What days and hours are you available?', answer: 'Our office is open Monday through Saturday 7am–7pm. Our sales and booking line is available 24/7 — text (555) 555-5555 anytime.' },
+  { question: 'What days and hours are you available?', answer: `Our office is open Monday through Saturday 7am–7pm. Our sales and booking line is available 24/7 — text ${config.contact.phone} anytime.` },
   { question: 'Do you clean on weekends?', answer: 'Yes, we offer Saturday appointments from 7am–7pm. Sunday availability may be limited — contact us to check.' },
   { question: 'Do you offer recurring cleaning schedules?', answer: 'Yes. We offer weekly, bi-weekly, and monthly recurring cleaning. Recurring clients get priority scheduling and a consistent cleaner.' },
 
@@ -123,7 +127,7 @@ const homepageFAQs = [
   { question: 'What if I am not happy with the cleaning?', answer: 'Your satisfaction is guaranteed. If you are not happy with any aspect of the clean, contact us within 24 hours and we will send someone back to make it right at no extra charge.' },
   { question: 'How do you maintain quality?', answer: 'We use detailed checklists, conduct regular quality reviews, and only work with experienced, vetted cleaners. Every clean is held to the same high standard.' },
   { question: 'Do you have reviews I can read?', answer: 'Yes! We have a 5.0-star rating from 27 verified clients. You can read all reviews on our Reviews page.' },
-  { question: 'How long have you been in business?', answer: 'Your Business has been serving the New York City metro area since 2018. We have cleaned thousands of homes and built a loyal client base through consistent quality.' },
+  { question: 'How long have you been in business?', answer: `${config.identity.name} has been serving the New York City metro area since 2018. We have cleaned thousands of homes and built a loyal client base through consistent quality.` },
 
   // Special Situations
   { question: 'Can you clean if I have pets?', answer: 'Absolutely. We love pets! Just let us know so we can plan accordingly. We are experienced with homes that have dogs, cats, and other animals.' },
@@ -134,8 +138,9 @@ const homepageFAQs = [
 
   // Referral & Extras
   { question: 'Do you have a referral program?', answer: 'Yes! Refer a friend and earn 10% commission on every cleaning they book — not just the first one. It is recurring income for as long as they stay a client. Sign up on our Referral Program page.' },
-  { question: 'How do I contact you?', answer: 'Text (555) 555-5555, or email hi@example.com. Texting is the fastest way to reach us.' },
-]
+  { question: 'How do I contact you?', answer: `Text ${config.contact.phone}, or email ${config.contact.email}. Texting is the fastest way to reach us.` },
+  ]
+}
 
 export default async function HomePage() {
   const siteConfig = await getSiteConfig()
@@ -156,8 +161,10 @@ export default async function HomePage() {
     return <GenericHome config={siteConfig} />
   }
 
-  const schemas = [...homepageSchemas(buildBusiness(siteConfig)), faqSchema(homepageFAQs)]
-  const homepagePhoto = pickLifestylePhoto('homepage')
+  const faqs = homepageFAQs(siteConfig)
+  const clientTestimonials = testimonials(siteConfig)
+  const schemas = [...homepageSchemas(buildBusiness(siteConfig)), faqSchema(faqs)]
+  const homepagePhoto = pickLifestylePhoto('homepage', toBrand(siteConfig))
 
   return (
     <>
@@ -203,7 +210,7 @@ export default async function HomePage() {
               Self Booking $10 OFF
             </Link>
             <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-flex items-center gap-2 bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
-              Text 555.555.5555
+              Text {siteConfig.contact.phone}
             </a>
           </div>
 
@@ -239,13 +246,13 @@ export default async function HomePage() {
         <figure className="relative aspect-[21/9] w-full overflow-hidden max-h-[560px]">
           <Image
             src={homepagePhoto.src}
-            alt={`${homepagePhoto.alt} — Your Business`}
+            alt={`${homepagePhoto.alt} — ${siteConfig.identity.name}`}
             fill
             priority
             sizes="100vw"
             className="object-cover"
           />
-          <figcaption className="sr-only">{homepagePhoto.caption} — Your Business service homepage</figcaption>
+          <figcaption className="sr-only">{homepagePhoto.caption} — {siteConfig.identity.name} service homepage</figcaption>
         </figure>
       </section>
 
@@ -258,7 +265,7 @@ export default async function HomePage() {
             {/* Left — story */}
             <div>
               <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">New York City&apos;s Trusted Home Cleaning Company Since 2018</p>
-              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-4">Welcome to Your Business</h2>
+              <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-4">Welcome to {siteConfig.identity.name}</h2>
               <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
               <p className="text-gray-600 text-lg leading-relaxed mb-5">
                 We&apos;re a small, dedicated cleaning company that treats every home like our own. No apps, no algorithms, no random strangers — just experienced, professional cleaners who show up on time, do beautiful work, and earn your trust visit after visit.
@@ -280,7 +287,7 @@ export default async function HomePage() {
                   Self Booking $10 OFF
                 </Link>
                 <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                  Text 555.555.5555
+                  Text {siteConfig.contact.phone}
                 </a>
                 <Link href="/about" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
                   Learn more &rarr;
@@ -291,7 +298,7 @@ export default async function HomePage() {
             {/* Right — at a glance + quick stats */}
             <div className="space-y-6">
               <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-2xl p-8">
-                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">Your Business at a Glance</h3>
+                <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-5">{siteConfig.identity.name} at a Glance</h3>
                 <div className="grid grid-cols-2 gap-6">
                   <div>
                     <p className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide">2018</p>
@@ -339,7 +346,7 @@ export default async function HomePage() {
       {/* Pricing Deep Dive */}
       <section className="py-20 bg-[var(--accent)]">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-3 text-center">Your Business Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
+          <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-3 text-center">{siteConfig.identity.name} Service Pricing Explained — Hourly Rates, Average Costs &amp; What to Expect</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">How Much Does House Cleaning Cost in New York City?</h2>
           <p className="text-[rgb(var(--brand-rgb)/0.7)] text-center max-w-3xl mx-auto mb-14">
             We keep it simple: flat hourly rates, no hidden fees, no contracts. Choose the option that fits your situation. Every tier includes the same professional, <Link href="/about" className="text-[var(--brand)] font-semibold underline underline-offset-2">background-checked cleaners</Link> — the only difference is who brings the supplies. See our full <Link href="/pricing" className="text-[var(--brand)] font-semibold underline underline-offset-2">pricing page</Link> for more details.
@@ -488,7 +495,7 @@ export default async function HomePage() {
 
           {/* Quick comparison + CTA */}
           <div className="bg-white border border-gray-200 rounded-2xl p-8 text-center">
-            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">How Your Business Pricing Compares to the Industry</h3>
+            <h3 className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide mb-2">How {siteConfig.identity.name} Pricing Compares to the Industry</h3>
             <p className="text-gray-500 text-sm max-w-2xl mx-auto mb-6">
               Most NYC cleaning companies charge $79–$120/hr or use opaque flat-rate quotes that hide the true cost. We publish our rates, charge by the hour, and never surprise you with add-on fees. What you see is what you pay.
             </p>
@@ -498,7 +505,7 @@ export default async function HomePage() {
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-gray-400 tracking-wide">$79–$120/hr</p>
               </div>
               <div className="bg-[var(--surface)] border border-[rgb(var(--accent-rgb)/0.3)] rounded-xl p-4">
-                <p className="text-xs text-[var(--accent)] font-semibold tracking-wide uppercase mb-1">Your Business</p>
+                <p className="text-xs text-[var(--accent)] font-semibold tracking-wide uppercase mb-1">{siteConfig.identity.name}</p>
                 <p className="font-[family-name:var(--font-bebas)] text-2xl text-[var(--brand)] tracking-wide">$59–$89/hr</p>
               </div>
               <div className="bg-gray-50 rounded-xl p-4">
@@ -511,7 +518,7 @@ export default async function HomePage() {
                 Self Booking $10 OFF
               </Link>
               <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                Text 555.555.5555
+                Text {siteConfig.contact.phone}
               </a>
               <Link href="/pricing" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4 text-sm">
                 View pricing &rarr;
@@ -539,7 +546,7 @@ export default async function HomePage() {
                   <span className="text-white text-lg font-bold">M</span>
                 </div>
                 <div>
-                  <span className="text-gray-900 font-semibold text-base sm:text-lg">Your Business Reviews</span>
+                  <span className="text-gray-900 font-semibold text-base sm:text-lg">{siteConfig.identity.name} Reviews</span>
                   <p className="text-gray-400 text-xs">Verified Client Reviews</p>
                 </div>
               </div>
@@ -567,19 +574,19 @@ export default async function HomePage() {
                   { name: 'Fanny K.', time: '2 weeks ago', text: 'Amazing cleaner and customer service, should\'ve called this company sooner.', initial: 'F', color: 'bg-violet-400' },
                   { name: 'Jessica Pace', time: '3 weeks ago', text: 'Ines Enriquez was incredible. Loved this job. Worth every penny.', initial: 'J', color: 'bg-cyan-400' },
                   { name: 'Gerianne Perez', time: '3 weeks ago', text: 'Karina was absolutely incredible! She was so thorough, fast, efficient, and left my apartment looking better than I could\'ve imagined.', initial: 'G', color: 'bg-lime-500' },
-                  { name: 'Marisa Akson', time: '3 weeks ago', text: 'I was in a stressful situation after another cleaning company canceled on me last minute, and Your Business was able to fit me in right away. The cleaner was thorough, friendly, and did an amazing job.', initial: 'M', color: 'bg-fuchsia-400' },
+                  { name: 'Marisa Akson', time: '3 weeks ago', text: `I was in a stressful situation after another cleaning company canceled on me last minute, and ${siteConfig.identity.name} was able to fit me in right away. The cleaner was thorough, friendly, and did an amazing job.`, initial: 'M', color: 'bg-fuchsia-400' },
                   { name: 'David Rold', time: '4 weeks ago', text: 'Fantastic service! On time and very thorough', initial: 'D', color: 'bg-yellow-500' },
                   { name: 'Ashley Austin', time: '4 weeks ago', text: 'Gloria my cleaner was really great! She deep cleaned very well, and the company made sure they got me in a same day fast request!', initial: 'A', color: 'bg-red-400' },
                   { name: 'Jordan Chacon', time: '5 weeks ago', text: 'Gloria was amazing! This was our first time using this service and it definitely won\'t be the last. I don\'t think I\'ve ever seen my fridge this clean before!!', initial: 'J', color: 'bg-green-400' },
                   { name: 'Giana Horigan', time: '5 weeks ago', text: 'Karina just came and cleaned our whole apartment and it was spotless! The rate was a lot better than other cleaning services I have used for a deep clean.', initial: 'G', color: 'bg-blue-500' },
                   { name: 'Shannon Atran', time: '6 weeks ago', text: 'Karina was incredible. She was extremely meticulous and left my apt spotless. 10/10; will definitely use again.', initial: 'S', color: 'bg-orange-500' },
                   { name: 'Lindsey Hill', time: '7 weeks ago', text: 'Awesome cleaners and very responsive. I\'ve used them for several months now for my 3 bed 3 bath walk up in Hell\'s Kitchen. Karina is my cleaner. She is so sweet and warm and lovely.', initial: 'L', color: 'bg-pink-500' },
-                  { name: 'Brad Lieberman', time: '9 weeks ago', text: 'Jeff is a real gem. Super communicative easy going and responsive. In a city with a lot of fly by night operations, Your Business is the real deal.', initial: 'B', color: 'bg-teal-500' },
-                  { name: 'Kelly Gay', time: '13 weeks ago', text: 'What a gift to have found Your Business and Jeff, the owner! The cleaner did a wonderful job — thorough, detail-oriented, and left everything spotless.', initial: 'K', color: 'bg-pink-400' },
+                  { name: 'Brad Lieberman', time: '9 weeks ago', text: `Jeff is a real gem. Super communicative easy going and responsive. In a city with a lot of fly by night operations, ${siteConfig.identity.name} is the real deal.`, initial: 'B', color: 'bg-teal-500' },
+                  { name: 'Kelly Gay', time: '13 weeks ago', text: `What a gift to have found ${siteConfig.identity.name} and Jeff, the owner! The cleaner did a wonderful job — thorough, detail-oriented, and left everything spotless.`, initial: 'K', color: 'bg-pink-400' },
                   { name: 'Mona Abdel-Misih', time: '17 weeks ago', text: 'Needed a deep clean before moving in. It was amazing to place a phone call and have someone show up the next day. Highly recommend!', initial: 'M', color: 'bg-orange-400' },
                   { name: 'Ricky Foschi', time: '9 weeks ago', text: 'The services was amazing from beginning to end. Not just in quality but also in attitude. Karina was incredibly thorough.', initial: 'R', color: 'bg-green-500' },
                   { name: 'Natalie Pita', time: '9 weeks ago', text: 'Fantastic experience. Price is affordable for great service. I\'ve been more than happy each time, and staff is very friendly.', initial: 'N', color: 'bg-teal-400' },
-                  { name: 'Alexandra Spieth', time: '20 weeks ago', text: 'Have used Your Business twice and have had a great experience both times. Maria was thorough, prompt, and awesome. Highly recommend!', initial: 'A', color: 'bg-purple-400' },
+                  { name: 'Alexandra Spieth', time: '20 weeks ago', text: `Have used ${siteConfig.identity.name} twice and have had a great experience both times. Maria was thorough, prompt, and awesome. Highly recommend!`, initial: 'A', color: 'bg-purple-400' },
                   { name: 'Ella Sultan', time: '8 weeks ago', text: 'Fantastic job! Super fast and easy communication and was booked a day before. Will be using them again and recommending to friends :)', initial: 'E', color: 'bg-blue-400' },
                   { name: 'Kelsey Wheeler', time: '9 weeks ago', text: 'Great experience. Texted the number on their website on Saturday and had a deep cleaning scheduled for that following Monday at 9am.', initial: 'K', color: 'bg-indigo-400' },
                   { name: 'Will Gags', time: '19 weeks ago', text: 'Maria is the grandmother you didn\'t know you needed. Couldn\'t recommend a more trustworthy and tidy business.', initial: 'W', color: 'bg-rose-400' },
@@ -631,7 +638,7 @@ export default async function HomePage() {
         <div className="max-w-7xl mx-auto px-4 grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
           <div>
             <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">Insured Up To $1,000,000 NYC Cleaning Company</p>
-            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust Your Business</h2>
+            <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide leading-tight mb-6">Why Thousands of New Yorkers Trust {siteConfig.identity.name}</h2>
             <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <p className="text-gray-600 text-lg leading-relaxed mb-4">
               We provide personalized, hourly <Link href="/pricing" className="text-[var(--brand)] underline underline-offset-2">cleaning service pricing</Link> for each unique space — ensuring high-quality cleaning tailored to your needs. No contracts, no hidden fees, no surprises.
@@ -644,7 +651,7 @@ export default async function HomePage() {
                 Self Booking $10 OFF
               </Link>
               <a href={`sms:${siteConfig.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                Text 555.555.5555
+                Text {siteConfig.contact.phone}
               </a>
             </div>
           </div>
@@ -677,11 +684,11 @@ export default async function HomePage() {
         <div className="max-w-4xl mx-auto px-4 text-center">
           <p className="text-xs font-semibold text-[rgb(var(--brand-rgb)/0.5)] tracking-[0.25em] uppercase mb-6">Real NYC Cleaning Service Reviews From Verified Customers</p>
           <p className="font-[family-name:var(--font-bebas)] text-2xl md:text-3xl text-[var(--brand)] tracking-wide leading-relaxed mb-6">
-            &ldquo;{testimonials[0].text}&rdquo;
+            &ldquo;{clientTestimonials[0].text}&rdquo;
           </p>
-          <p className="text-[rgb(var(--brand-rgb)/0.7)] font-medium tracking-wide">&mdash; {testimonials[0].name}, {testimonials[0].location}</p>
+          <p className="text-[rgb(var(--brand-rgb)/0.7)] font-medium tracking-wide">&mdash; {clientTestimonials[0].name}, {clientTestimonials[0].location}</p>
           <div className="mt-8">
-            <Link href="/reviews" className="text-[var(--brand)] font-semibold text-sm tracking-wide hover:underline underline-offset-4">Read All Your Business Service Reviews &rarr;</Link>
+            <Link href="/reviews" className="text-[var(--brand)] font-semibold text-sm tracking-wide hover:underline underline-offset-4">Read All {siteConfig.identity.name} Service Reviews &rarr;</Link>
           </div>
         </div>
       </section>
@@ -689,8 +696,8 @@ export default async function HomePage() {
       {/* Why Clients Choose Us */}
       <section className="py-20">
         <div className="max-w-7xl mx-auto px-4">
-          <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes Your Business Different From Other NYC Cleaning Services</p>
-          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">Why Clients Choose Your Business Over Every Other Cleaning Company</h2>
+          <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3 text-center">What Makes {siteConfig.identity.name} Different From Other NYC Cleaning Services</p>
+          <h2 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl text-[var(--brand)] tracking-wide text-center mb-4">Why Clients Choose {siteConfig.identity.name} Over Every Other Cleaning Company</h2>
           <p className="text-gray-500 text-center max-w-3xl mx-auto mb-14">
             No money upfront — you pay only after your cleaning is complete. Flat <Link href="/pricing" className="text-[var(--brand)] underline underline-offset-2">hourly pricing</Link> with no surprise fees. Experienced, professional cleaners — not random gig workers. <Link href="/services/weekly-maid-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">Weekly</Link> and <Link href="/services/bi-weekly-cleaning-service-in-nyc" className="text-[var(--brand)] underline underline-offset-2">bi-weekly recurring service</Link> available. No contracts — stay because you&apos;re happy.
           </p>
@@ -772,7 +779,7 @@ export default async function HomePage() {
             <Link href="/careers" className="text-[var(--brand)] font-semibold text-sm hover:underline underline-offset-4">Join Our Cleaning Team &rarr;</Link>
           </div>
           <div>
-            <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">The Ideal Your Business Service Client</p>
+            <p className="text-xs font-semibold text-gray-400 tracking-[0.2em] uppercase mb-3">The Ideal {siteConfig.identity.name} Service Client</p>
             <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-[var(--brand)] tracking-wide mb-6">Who We&apos;re Best For</h2>
             <div className="w-12 h-[2px] bg-[var(--accent)] mb-6" />
             <ul className="space-y-4">
@@ -1047,7 +1054,7 @@ export default async function HomePage() {
           <p className="text-xs font-semibold text-gray-400 tracking-[0.25em] uppercase mb-3">Earn Passive Income With Our NYC Cleaning Referral Program</p>
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide mb-4">Get Paid 10% Every Time Your Referral Books a Cleaning</h2>
           <p className="text-gray-500 max-w-2xl mx-auto mb-8">
-            Refer friends, family, or neighbors to Your Business and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
+            Refer friends, family, or neighbors to {siteConfig.identity.name} and earn 10% recurring commission on every cleaning they book — not just the first. Paid via Zelle or Apple Cash after each completed visit. No limit on referrals, no cap on earnings.
           </p>
           <Link href="/get-paid-for-cleaning-referrals-every-time-they-are-serviced" target="_blank" className="inline-block bg-[var(--brand)] text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
             Join the Referral Program &rarr;
@@ -1056,9 +1063,9 @@ export default async function HomePage() {
       </section>
 
       {/* FAQ */}
-      <FAQSection faqs={homepageFAQs} title="NYC House Cleaning Service — Frequently Asked Questions &amp; Answers" columns={2} />
+      <FAQSection faqs={faqs} title="NYC House Cleaning Service — Frequently Asked Questions &amp; Answers" columns={2} />
 
-      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by thousands of New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey." />
+      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by thousands of New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey." phone={siteConfig.contact.phone} phoneDigits={siteConfig.contact.phoneDigits} />
     </>
   )
 }

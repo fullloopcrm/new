@@ -209,7 +209,9 @@ function coordinatorJobPostingSchema(biz: ReturnType<typeof buildBusiness>) {
   }
 }
 
-const faqs = [
+function careerFaqs(url: string) {
+  const applyHost = url.replace(/^https?:\/\//, '')
+  return [
   {
     question: 'How much will I actually earn?',
     questionEs: '¿Cuánto voy a ganar realmente?',
@@ -263,14 +265,17 @@ const faqs = [
   {
     question: 'How do I apply?',
     questionEs: '¿Cómo aplico?',
-    answer: 'Go to example.com/apply/operations-coordinator. Fill out the short form, upload a photo of yourself and a 60-second selfie video. If you\'re bilingual, speak in both English and Spanish in the video. We review applications within 48 hours.',
+    answer: `Go to ${applyHost}/apply/operations-coordinator. Fill out the short form, upload a photo of yourself and a 60-second selfie video. If you're bilingual, speak in both English and Spanish in the video. We review applications within 48 hours.`,
   },
-]
+  ]
+}
 
 export default async function OperationsCoordinatorPage() {
-  const biz = buildBusiness(await getSiteConfig())
+  const config = await getSiteConfig()
+  const biz = buildBusiness(config)
   const careerUrl = `${biz.url}/careers/operations-coordinator`
   const { title: pageTitle, description: pageDescription } = coordinatorMeta(biz.name)
+  const faqs = careerFaqs(biz.url)
   return (
     <>
       <JsonLd data={[
@@ -313,7 +318,7 @@ export default async function OperationsCoordinatorPage() {
             Operations Admin — 10% Per Job, Averaged ~$40/hr Last Month
           </h1>
           <p className="text-blue-200/80 text-lg max-w-3xl leading-relaxed mb-3">
-            Your Business &mdash; New York City | Long Island | New Jersey
+            {biz.name} &mdash; New York City | Long Island | New Jersey
           </p>
           <p className="text-blue-200/60 max-w-3xl leading-relaxed mb-4">
             You own the calendar, the cleaners, and the collections. Jobs are sold and scheduled &mdash; your job is to make sure every cleaning runs, every client is happy, and every payment comes in. You get paid 10% of every completed job, same way the cleaners get paid &mdash; per job, via Zelle, within minutes of completion.
@@ -336,8 +341,8 @@ export default async function OperationsCoordinatorPage() {
             <Link href="/apply/operations-coordinator" data-track="coord-hero-apply" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Apply Now
             </Link>
-            <a href="sms:5555555555" data-track="coord-hero-text" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
-              or Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} data-track="coord-hero-text" className="text-blue-200/70 font-medium text-lg py-4 hover:text-white transition-colors underline underline-offset-4">
+              or Text {config.contact.phone}
             </a>
           </div>
         </div>
@@ -745,8 +750,8 @@ export default async function OperationsCoordinatorPage() {
             <Link href="/apply/operations-coordinator" data-track="coord-bottom-apply" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
               Apply Now
             </Link>
-            <a href="sms:5555555555" data-track="coord-bottom-text" className="text-[rgb(var(--brand-rgb)/0.6)] font-medium text-sm hover:text-[var(--brand)] transition-colors underline underline-offset-4">
-              or Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} data-track="coord-bottom-text" className="text-[rgb(var(--brand-rgb)/0.6)] font-medium text-sm hover:text-[var(--brand)] transition-colors underline underline-offset-4">
+              or Text {config.contact.phone}
             </a>
           </div>
         </section>

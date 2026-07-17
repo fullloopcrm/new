@@ -90,7 +90,7 @@ export default async function SlugPage({ params }: Props) {
   if (area) {
     const content = areaContent(area, brand)
     const neighborhoods = getNeighborhoodsByArea(area.slug)
-    const areaPhoto = pickLifestylePhoto(area.slug)
+    const areaPhoto = pickLifestylePhoto(area.slug, brand)
 
     return (
       <>
@@ -119,8 +119,8 @@ export default async function SlugPage({ params }: Props) {
                   <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
                     Self Booking $10 OFF
                   </Link>
-                  <a href="sms:5555555555" className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
-                    Text 555.555.5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
+                    Text {config.contact.phone}
                   </a>
                 </div>
               </div>
@@ -145,8 +145,8 @@ export default async function SlugPage({ params }: Props) {
                     <p className="font-[family-name:var(--font-bebas)] text-xl text-[var(--brand)] tracking-wide">Same Rate Everywhere</p>
                     <p className="text-[rgb(var(--brand-rgb)/0.6)] text-xs mt-1">No travel fees &middot; No surge pricing</p>
                   </div>
-                  <a href="sms:5555555555" className="block text-center bg-[var(--accent)] text-[var(--brand)] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                    Text (555) 555-5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="block text-center bg-[var(--accent)] text-[var(--brand)] px-6 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                    Text {config.contact.phone}
                   </a>
                 </div>
               </div>
@@ -165,7 +165,7 @@ export default async function SlugPage({ params }: Props) {
               sizes="100vw"
               className="object-cover"
             />
-            <figcaption className="sr-only">{areaPhoto.caption} — {area.name} cleaning service by Your Business</figcaption>
+            <figcaption className="sr-only">{areaPhoto.caption} — {area.name} cleaning service by {brand.name}</figcaption>
           </figure>
         </section>
 
@@ -181,8 +181,8 @@ export default async function SlugPage({ params }: Props) {
                 <div className="w-10 h-[3px] bg-[var(--accent)] mb-5" />
                 <h2 className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-[var(--brand)] tracking-wide leading-tight mb-4">{area.name} Neighborhoods We Serve</h2>
                 <p className="text-gray-500 leading-relaxed mb-6">Every neighborhood below gets the same rates, the same quality, and the same background-checked cleaners. Click any neighborhood to see services available in your area.</p>
-                <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                  Text (555) 555-5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                  Text {config.contact.phone}
                 </a>
               </div>
               <div className="lg:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -237,7 +237,7 @@ export default async function SlugPage({ params }: Props) {
             <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {area.name} Cleaning in 3 Steps</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { n: '01', t: 'Text Us', d: `Reach us at (555) 555-5555 with your ${area.name} address, preferred date, and any special requests.` },
+                { n: '01', t: 'Text Us', d: `Reach us at ${config.contact.phone} with your ${area.name} address, preferred date, and any special requests.` },
                 { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
                 { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
               ].map(s => (
@@ -249,14 +249,14 @@ export default async function SlugPage({ params }: Props) {
               ))}
             </div>
             <div className="flex justify-center mt-10">
-              <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                Text (555) 555-5555
+              <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                Text {config.contact.phone}
               </a>
             </div>
           </div>
         </section>
 
-        <CTABlock title={`Book Your ${area.name} Cleaning Today`} subtitle={`Text us — serving every ${area.name} neighborhood at the same flat hourly rate.`} />
+        <CTABlock title={`Book Your ${area.name} Cleaning Today`} subtitle={`Text us — serving every ${area.name} neighborhood at the same flat hourly rate.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
       </>
     )
   }
@@ -266,8 +266,8 @@ export default async function SlugPage({ params }: Props) {
   if (neighborhood) {
     const neighborhoodArea = getArea(neighborhood.area)!
     const content = neighborhoodContent(neighborhood, neighborhoodArea, brand)
-    const baseFaqs = neighborhoodFAQs(neighborhood, neighborhoodArea)
-    const common = commonServiceFAQs(SERVICES[0])
+    const baseFaqs = neighborhoodFAQs(neighborhood, neighborhoodArea, brand)
+    const common = commonServiceFAQs(SERVICES[0], brand)
     const seen = new Set(baseFaqs.map(f => f.question))
     const combined = [...baseFaqs, ...common.filter(f => !seen.has(f.question))]
     const faqs = combined.slice(0, 25)
@@ -278,7 +278,7 @@ export default async function SlugPage({ params }: Props) {
       const n = getNeighborhood(s)
       return n ? n.name : s.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
     })
-    const neighborhoodPhoto = pickLifestylePhoto(neighborhood.slug)
+    const neighborhoodPhoto = pickLifestylePhoto(neighborhood.slug, brand)
 
     return (
       <>
@@ -304,11 +304,11 @@ export default async function SlugPage({ params }: Props) {
             </div>
             {/* CTA row */}
             <div className="flex flex-col sm:flex-row items-center justify-center gap-4 mb-12">
-              <a href="sms:5555555555" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-                Text (555) 555-5555
+              <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
+                Text {config.contact.phone}
               </a>
-              <a href="sms:5555555555" className="text-[var(--brand)] font-semibold py-4 hover:underline underline-offset-4">
-                or Text (555) 555-5555
+              <a href={`sms:${config.contact.phoneDigits}`} className="text-[var(--brand)] font-semibold py-4 hover:underline underline-offset-4">
+                or Text {config.contact.phone}
               </a>
             </div>
           </div>
@@ -347,7 +347,7 @@ export default async function SlugPage({ params }: Props) {
               sizes="100vw"
               className="object-cover"
             />
-            <figcaption className="sr-only">{neighborhoodPhoto.caption} — {neighborhood.name}, {neighborhoodArea.name} cleaning service by Your Business</figcaption>
+            <figcaption className="sr-only">{neighborhoodPhoto.caption} — {neighborhood.name}, {neighborhoodArea.name} cleaning service by {brand.name}</figcaption>
           </figure>
         </section>
 
@@ -379,11 +379,11 @@ export default async function SlugPage({ params }: Props) {
                   ))}
                 </div>
                 <div className="flex flex-wrap items-center gap-4">
-                  <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                    Text (555) 555-5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                    Text {config.contact.phone}
                   </a>
-                  <a href="sms:5555555555" className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
-                    or Text (555) 555-5555
+                  <a href={`sms:${config.contact.phoneDigits}`} className="text-[var(--brand)] font-semibold hover:underline underline-offset-4">
+                    or Text {config.contact.phone}
                   </a>
                 </div>
               </div>
@@ -507,7 +507,7 @@ export default async function SlugPage({ params }: Props) {
             <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {neighborhood.name} Cleaning in 3 Steps</p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               {[
-                { n: '01', t: 'Text Us', d: `Reach us at (555) 555-5555 with your ${neighborhood.name} address, preferred date, and any special requests.` },
+                { n: '01', t: 'Text Us', d: `Reach us at ${config.contact.phone} with your ${neighborhood.name} address, preferred date, and any special requests.` },
                 { n: '02', t: 'We Confirm', d: 'We match you with a background-checked, insured cleaner and lock in your appointment — usually within the hour.' },
                 { n: '03', t: 'Pay After', d: 'Your cleaner arrives on time, does the work, and you pay only after the cleaning is complete. No deposits ever.' },
               ].map(s => (
@@ -519,8 +519,8 @@ export default async function SlugPage({ params }: Props) {
               ))}
             </div>
             <div className="flex justify-center mt-10">
-              <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-                Text (555) 555-5555
+              <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                Text {config.contact.phone}
               </a>
             </div>
           </div>
@@ -539,7 +539,7 @@ export default async function SlugPage({ params }: Props) {
         )}
 
         <FAQSection faqs={faqs} title={`${neighborhood.name} Cleaning — Frequently Asked Questions`} columns={2} />
-        <CTABlock title={`Book Your ${neighborhood.name} Cleaning Today`} subtitle={`Text us — same rates, same quality across all of ${neighborhoodArea.name}.`} />
+        <CTABlock title={`Book Your ${neighborhood.name} Cleaning Today`} subtitle={`Text us — same rates, same quality across all of ${neighborhoodArea.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
       </>
     )
   }

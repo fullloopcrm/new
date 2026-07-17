@@ -3,6 +3,7 @@ import { AREAS } from '@/app/site/template/_lib/seo/data/areas'
 import { SERVICES } from '@/app/site/template/_lib/seo/services'
 import { BLOG_POSTS } from '@/app/site/template/_lib/seo/blog-data'
 import { pickLifestylePhoto, pickTeamPhoto, pickPhotoByCategory, type PhotoCategory } from '@/app/site/template/_lib/seo/photos'
+import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { VA_SERVICES } from '@/app/site/template/_data/va-services'
@@ -29,6 +30,7 @@ const SERVICE_PHOTO_CATEGORY: Record<string, PhotoCategory> = {
 
 export async function GET() {
   const config = await getSiteConfig()
+  const brand = toBrand(config)
   const BASE_URL = config.identity.url.replace(/\/+$/, '')
   const absoluteImageUrl = (path: string): string => `${BASE_URL}${path}`
   const now = new Date().toISOString()
@@ -104,7 +106,7 @@ ${genUrls
   const urls: { loc: string; lastmod: string; changefreq: string; priority: string; images?: ImageEntry[] }[] = []
 
   // Homepage
-  const homepagePhoto = pickLifestylePhoto('homepage')
+  const homepagePhoto = pickLifestylePhoto('homepage', brand)
   urls.push({
     loc: BASE_URL,
     lastmod: now,
@@ -144,7 +146,7 @@ ${genUrls
 
   // Area pages
   for (const area of AREAS) {
-    const photo = pickLifestylePhoto(area.slug)
+    const photo = pickLifestylePhoto(area.slug, brand)
     urls.push({
       loc: `${BASE_URL}/${area.urlSlug}`,
       lastmod: now,
@@ -156,7 +158,7 @@ ${genUrls
 
   // Service pages
   for (const service of SERVICES) {
-    const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[service.slug] || 'mop', service.slug)
+    const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[service.slug] || 'mop', service.slug, brand)
     urls.push({
       loc: `${BASE_URL}/services/${service.urlSlug}`,
       lastmod: now,
@@ -168,7 +170,7 @@ ${genUrls
 
   // Neighborhood pages
   for (const n of ALL_NEIGHBORHOODS) {
-    const photo = pickLifestylePhoto(n.slug)
+    const photo = pickLifestylePhoto(n.slug, brand)
     urls.push({
       loc: `${BASE_URL}/${n.urlSlug}`,
       lastmod: now,
@@ -180,7 +182,7 @@ ${genUrls
 
   // Blog posts
   for (const post of BLOG_POSTS) {
-    const photo = pickLifestylePhoto(post.slug)
+    const photo = pickLifestylePhoto(post.slug, brand)
     urls.push({
       loc: `${BASE_URL}/blog/${post.slug}`,
       lastmod: post.date,
@@ -192,7 +194,7 @@ ${genUrls
 
   // Neighborhood job pages
   for (const n of ALL_NEIGHBORHOODS) {
-    const photo = pickTeamPhoto(n.slug)
+    const photo = pickTeamPhoto(n.slug, brand)
     urls.push({
       loc: `${BASE_URL}/careers/${n.slug}`,
       lastmod: now,
@@ -205,7 +207,7 @@ ${genUrls
   // Neighborhood × Service cross pages
   for (const n of ALL_NEIGHBORHOODS) {
     for (const s of SERVICES) {
-      const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[s.slug] || 'mop', `${n.slug}-${s.slug}`)
+      const photo = pickPhotoByCategory(SERVICE_PHOTO_CATEGORY[s.slug] || 'mop', `${n.slug}-${s.slug}`, brand)
       urls.push({
         loc: `${BASE_URL}/${n.urlSlug}/${s.slug}`,
         lastmod: now,

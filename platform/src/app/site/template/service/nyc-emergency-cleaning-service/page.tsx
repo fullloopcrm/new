@@ -164,13 +164,15 @@ const emergencyTypes = [
   },
 ]
 
-const process = [
-  { step: '1', title: 'Text Us', description: 'Text (555) 555-5555 and describe the situation. We\'ll ask what happened, when it happened, and the scope of damage. Be honest about severity — it helps us send the right team with the right equipment.' },
+function emergencyProcess(phone: string) {
+  return [
+  { step: '1', title: 'Text Us', description: `Text ${phone} and describe the situation. We'll ask what happened, when it happened, and the scope of damage. Be honest about severity — it helps us send the right team with the right equipment.` },
   { step: '2', title: 'Assessment', description: 'We assess the situation — in person if possible, or by phone/video for faster response. We\'ll give you an honest estimate of time, cost, and what to expect. No surprises.' },
   { step: '3', title: 'Response', description: 'Our team arrives with professional-grade equipment — HEPA vacuums, industrial dehumidifiers, commercial cleaning agents, PPE, and specialized tools for the specific emergency type.' },
   { step: '4', title: 'Cleanup', description: 'Systematic cleanup following industry protocols. We document everything for your insurance claim. For water damage, we monitor moisture levels. For biohazard, we follow OSHA bloodborne pathogen standards.' },
   { step: '5', title: 'Verification', description: 'We walk through the space with you, verify all affected areas are clean, and provide documentation of work performed for your insurance company or landlord.' },
-]
+  ]
+}
 
 const faqData = [
   { q: 'How fast can you respond to an emergency?', a: 'We aim to respond within 2–4 hours for emergencies in Manhattan and within 4–6 hours for outer boroughs. Response time depends on the time of day, current team availability, and your location. For true emergencies (active flooding, biohazard), we prioritize same-day response.' },
@@ -207,7 +209,9 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function EmergencyCleaningPage() {
   await requireCleaningTenant()
-  const biz = buildBusiness(await getSiteConfig())
+  const config = await getSiteConfig()
+  const biz = buildBusiness(config)
+  const process = emergencyProcess(config.contact.phone)
   const faqSchema = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -287,11 +291,11 @@ export default async function EmergencyCleaningPage() {
           <h1 className="font-[family-name:var(--font-bebas)] text-4xl md:text-5xl lg:text-7xl text-white tracking-wide leading-[0.95] mb-6">Emergency Cleaning Service in NYC</h1>
           <p className="text-white/60 text-lg max-w-3xl mx-auto mb-8">Flooding, fire damage, sewage, biohazard, mold — when disaster hits your apartment, you need professionals who respond fast and know what they&apos;re doing. We&apos;ve handled hundreds of emergency cleanups across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4">
-            <a href="sms:5555555555" className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
-              Text Now — (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="bg-red-600 text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-red-700 transition-colors">
+              Text Now — {config.contact.phone}
             </a>
-            <a href="sms:5555555555" className="text-white font-semibold text-lg hover:underline underline-offset-4">
-              or Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="text-white font-semibold text-lg hover:underline underline-offset-4">
+              or Text {config.contact.phone}
             </a>
           </div>
         </div>
@@ -384,8 +388,8 @@ export default async function EmergencyCleaningPage() {
         <div className="bg-red-600 rounded-xl p-8 md:p-10 mb-20 text-center">
           <h2 className="font-[family-name:var(--font-bebas)] text-3xl text-white tracking-wide mb-2">Dealing With an Emergency Right Now?</h2>
           <p className="text-red-100 mb-6">Don&apos;t wait. Our team is available 24/7 for emergency response across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester &amp; New Jersey.</p>
-          <a href="sms:5555555555" className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
-            Text (555) 555-5555
+          <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-white text-red-600 px-10 py-4 rounded-lg font-bold text-lg hover:bg-red-50 transition-colors">
+            Text {config.contact.phone}
           </a>
         </div>
 
@@ -496,7 +500,7 @@ export default async function EmergencyCleaningPage() {
         </section>
       </div>
 
-      <CTABlock title="Emergency? Call Now — We're Here 24/7" />
+      <CTABlock title="Emergency? Call Now — We're Here 24/7" phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
     </>
   )
 }

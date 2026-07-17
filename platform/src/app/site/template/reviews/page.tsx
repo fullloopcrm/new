@@ -71,7 +71,7 @@ export default async function ReviewsPage() {
           </div>
         </div>
 
-        <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Trusted by New Yorkers since 2018. Text us to schedule your first cleaning." />
+        <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Trusted by New Yorkers since 2018. Text us to schedule your first cleaning." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
       </>
     )
   }

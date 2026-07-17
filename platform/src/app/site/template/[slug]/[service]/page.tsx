@@ -72,15 +72,17 @@ export default async function NeighborhoodServicePage({ params }: Props) {
   const neighborhood = getNeighborhoodByUrlSlug(slug)
   const service = getService(serviceSlug)
   if (!neighborhood || !service) notFound()
-  const biz = buildBusiness(await getSiteConfig())
+  const config = await getSiteConfig()
+  const brand = toBrand(config)
+  const biz = buildBusiness(config)
 
   const area = getArea(neighborhood.area)!
-  const content = neighborhoodServiceContent(neighborhood, service, area)
+  const content = neighborhoodServiceContent(neighborhood, service, area, brand)
 
   // Build 25 FAQs: neighborhood-specific + service-specific + common (deduplicated)
-  const nFaqs = neighborhoodFAQs(neighborhood, area)
+  const nFaqs = neighborhoodFAQs(neighborhood, area, brand)
   const sFaqs = serviceFAQs(service)
-  const cFaqs = commonServiceFAQs(service)
+  const cFaqs = commonServiceFAQs(service, brand)
   const seen = new Set<string>()
   const allFaqs: { question: string; answer: string }[] = []
   for (const f of [...nFaqs, ...sFaqs, ...cFaqs]) {
@@ -99,6 +101,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
   const serviceNeighborhoodPhoto = pickPhotoByCategory(
     SERVICE_PHOTO_CATEGORY[service.slug] || 'mop',
     `${neighborhood.slug}-${service.slug}`,
+    brand,
   )
 
   return (
@@ -124,8 +127,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             <Link href="/book/new" className="bg-[var(--accent)] text-[var(--brand)] px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
               Self Booking $10 OFF
             </Link>
-            <a href="sms:5555555555" className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
-              Text 555.555.5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="bg-white/10 border border-white/30 text-white px-8 py-3.5 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-white/20 transition-colors">
+              Text {config.contact.phone}
             </a>
           </div>
         </div>
@@ -219,8 +222,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
                     <p className="text-gray-400 text-xs mt-1">Duration</p>
                   </div>
                 </div>
-                <a href="sms:5555555555" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors w-full">
-                  Text (555) 555-5555
+                <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-6 py-3 rounded-lg font-bold text-xs tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors w-full">
+                  Text {config.contact.phone}
                 </a>
               </div>
             </div>
@@ -331,7 +334,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
           <p className="font-[family-name:var(--font-bebas)] text-3xl md:text-4xl text-white tracking-wide text-center mb-12">Book {service.name} in {neighborhood.name} — 3 Steps</p>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
-              { n: '01', t: 'Text Us', d: `Reach us at (555) 555-5555 with your ${neighborhood.name} address and tell us you need ${service.name.toLowerCase()}.` },
+              { n: '01', t: 'Text Us', d: `Reach us at ${config.contact.phone} with your ${neighborhood.name} address and tell us you need ${service.name.toLowerCase()}.` },
               { n: '02', t: 'We Confirm', d: `We match you with a cleaner experienced in ${service.name.toLowerCase()} for ${neighborhood.name} homes and lock in your appointment.` },
               { n: '03', t: 'Pay After', d: `Your cleaner arrives on time, completes the ${service.name.toLowerCase()}, and you pay only when you're satisfied. No deposits.` },
             ].map(s => (
@@ -343,8 +346,8 @@ export default async function NeighborhoodServicePage({ params }: Props) {
             ))}
           </div>
           <div className="flex justify-center mt-10">
-            <a href="sms:5555555555" className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-              Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--accent)] text-[var(--brand)] px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+              Text {config.contact.phone}
             </a>
           </div>
         </div>
@@ -363,7 +366,7 @@ export default async function NeighborhoodServicePage({ params }: Props) {
       )}
 
       <FAQSection faqs={faqs} title={`${service.name} in ${neighborhood.name} — Frequently Asked Questions`} columns={2} />
-      <CTABlock title={`Book ${service.name} in ${neighborhood.name}`} subtitle={`Text us — flat hourly rates across all of ${area.name}.`} />
+      <CTABlock title={`Book ${service.name} in ${neighborhood.name}`} subtitle={`Text us — flat hourly rates across all of ${area.name}.`} phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
     </>
   )
 }

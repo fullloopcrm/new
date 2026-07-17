@@ -206,14 +206,14 @@ const serviceH1Templates = [
   (n: Neighborhood, s: Service) => `${s.name} for ${n.name} Homes`,
 ]
 
-export function neighborhoodServiceContent(neighborhood: Neighborhood, service: Service, area: Area) {
+export function neighborhoodServiceContent(neighborhood: Neighborhood, service: Service, area: Area, brand: BrandContext = DEFAULT_BRAND) {
   const seed = `${neighborhood.slug}-${service.slug}`
-  const intro = pick(serviceIntroTemplates, seed)(neighborhood, service)
+  const intro = pick(serviceIntroTemplates, seed)(neighborhood, service).replace(/Your Business/g, brand.name)
   const h1 = pick(serviceH1Templates, seed, 1)(neighborhood, service)
 
   return {
     title: `${h1} | ${area.name}`,
-    metaDescription: `${service.name} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (555) 555-5555`,
+    metaDescription: `${service.name} in ${neighborhood.name}, ${area.name}. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${brand.phone}`,
     h1,
     intro,
     whyUs: [
@@ -228,10 +228,10 @@ export function neighborhoodServiceContent(neighborhood: Neighborhood, service: 
 
 // ============ SERVICE PAGES ============
 
-export function serviceContent(service: Service) {
+export function serviceContent(service: Service, brand: BrandContext = DEFAULT_BRAND) {
   return {
     title: `${service.name} Services | NYC, Long Island, Westchester & NJ`,
-    metaDescription: `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. (555) 555-5555`,
+    metaDescription: `Professional ${service.name.toLowerCase()} across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & NJ. ${service.features.slice(0, 2).join(', ')} & more. ${service.priceRange}. 5.0★ Rated. ${brand.phone}`,
     h1: `${service.name} Services`,
     intro: service.description,
   }
@@ -927,13 +927,16 @@ const defaultRichContent: ServiceRichContent = {
   faqs: [],
 }
 
-export function getServiceRichContent(slug: string): ServiceRichContent | null {
-  return richContentMap[slug] || null
+export function getServiceRichContent(slug: string, brand: BrandContext = DEFAULT_BRAND): ServiceRichContent | null {
+  const content = richContentMap[slug]
+  if (!content) return null
+  if (brand.phone === DEFAULT_BRAND.phone) return content
+  return JSON.parse(JSON.stringify(content).replace(/\(555\) 555-5555/g, brand.phone)) as ServiceRichContent
 }
 
 // ============ FAQ CONTENT ============
 
-export function neighborhoodFAQs(neighborhood: Neighborhood, area: Area): { question: string; answer: string }[] {
+export function neighborhoodFAQs(neighborhood: Neighborhood, area: Area, brand: BrandContext = DEFAULT_BRAND): { question: string; answer: string }[] {
   return [
     {
       question: `How much does house cleaning cost in ${neighborhood.name}?`,
@@ -949,7 +952,7 @@ export function neighborhoodFAQs(neighborhood: Neighborhood, area: Area): { ques
     },
     {
       question: `How do I book a cleaning in ${neighborhood.name}?`,
-      answer: `You can book online through our website, text us at (555) 555-5555. We typically can schedule within 24-48 hours, with same-day availability for urgent requests.`,
+      answer: `You can book online through our website, text us at ${brand.phone}. We typically can schedule within 24-48 hours, with same-day availability for urgent requests.`,
     },
     {
       question: `What cleaning services do you offer in ${neighborhood.name}?`,
@@ -980,11 +983,11 @@ export function serviceFAQs(service: Service): { question: string; answer: strin
 }
 
 // Common FAQs that apply to any service — used to pad to 25 total
-export function commonServiceFAQs(service: Service): { question: string; answer: string }[] {
+export function commonServiceFAQs(service: Service, brand: BrandContext = DEFAULT_BRAND): { question: string; answer: string }[] {
   return [
     { question: 'Are your cleaners background-checked?', answer: 'Yes. Every cleaner on our team undergoes a comprehensive background check before their first assignment. We also carry general liability insurance and bonding for your protection. You can trust that the person entering your home has been fully vetted.' },
     { question: 'Do I need to be home during the cleaning?', answer: 'No. Many clients leave a key, provide a door code, or arrange access through their doorman or building management. You\'re welcome to be home or away — whatever is most comfortable. We\'ll text you when we arrive and when we\'re done.' },
-    { question: 'How do I book a cleaning?', answer: 'Text (555) 555-5555. Tell us your address, preferred date, and any special requests. We\'ll confirm your appointment and match you with a cleaner, usually within the hour.' },
+    { question: 'How do I book a cleaning?', answer: `Text ${brand.phone}. Tell us your address, preferred date, and any special requests. We'll confirm your appointment and match you with a cleaner, usually within the hour.` },
     { question: 'What areas do you serve?', answer: 'We serve Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and northern New Jersey (Hudson and close-in Bergen). Same rates everywhere — no travel surcharges regardless of location.' },
     { question: 'Do I pay before or after the cleaning?', answer: 'After. We never charge upfront or take deposits. You pay only after the cleaning is complete, before the cleaner leaves. We accept credit/debit card, Apple Pay, and Cash App through our secure online payment link, plus cash.' },
     { question: 'What if I\'m not satisfied with the cleaning?', answer: 'Let us know within 24 hours and we\'ll send a cleaner back to address any issues at no additional cost. We stand behind our work — your satisfaction is non-negotiable.' },
@@ -993,14 +996,14 @@ export function commonServiceFAQs(service: Service): { question: string; answer:
     { question: 'How far in advance do I need to book?', answer: 'We recommend booking 3–5 days ahead for the best availability. For same-day service, text us as early as possible — morning requests before 10am have the best chance of afternoon availability.' },
     { question: `Is ${service.name.toLowerCase()} available on weekends?`, answer: 'We offer service Monday through Friday 8am–6pm and Saturday 9am–4pm. Saturday slots fill up fast, so book early if you prefer weekend service. We do not offer Sunday service.' },
     { question: 'What payment methods do you accept?', answer: 'We accept credit/debit card, Apple Pay, and Cash App (via Stripe), plus cash. Payment is collected after the cleaning is complete, before the cleaner leaves. No deposits, no pre-authorization holds.' },
-    { question: 'Are you licensed and insured?', answer: 'Yes. Your Business is a fully licensed cleaning company with general liability insurance and bonding. Every cleaner is covered while working in your home. We can provide proof of insurance upon request.' },
+    { question: 'Are you licensed and insured?', answer: `Yes. ${brand.name} is a fully licensed cleaning company with general liability insurance and bonding. Every cleaner is covered while working in your home. We can provide proof of insurance upon request.` },
     { question: 'Do you offer eco-friendly or green cleaning?', answer: 'Yes. If you prefer eco-friendly, plant-based, or hypoallergenic products, just let us know when booking. At $69/hr we can bring green products; at $59/hr you provide your preferred products and we\'ll use them.' },
     { question: `Can I combine ${service.name.toLowerCase()} with other services?`, answer: `Absolutely. Many clients combine services — for example, a deep clean followed by weekly maintenance, or a move-out clean with post-construction cleanup. Let us know what you need and we'll create a custom plan.` },
     { question: 'What if I need to cancel or reschedule?', answer: 'First-time and one-time services cannot be cancelled or rescheduled once confirmed. Recurring services require 7 days notice to reschedule, and cancellations are only permitted if discontinuing the service entirely with 7 days notice. We don\'t take payment upfront — we hold your spot on our busy schedule, turning away other clients. Late changes directly affect our team members who depend on this income.' },
     { question: 'Do you clean apartments, houses, or both?', answer: 'Both. We clean apartments (studios through 4+ bedrooms), townhouses, brownstones, single-family homes, lofts, and penthouses. The hourly rate is the same regardless of home type.' },
     { question: 'How do you handle pets during cleaning?', answer: 'We\'re pet-friendly. If you have pets, let us know when booking so we can match you with a pet-comfortable cleaner. We ask that aggressive animals be secured in a separate room during the cleaning for everyone\'s safety.' },
-    { question: 'Do you offer gift certificates?', answer: 'Yes — cleaning makes a great gift. Text us at (555) 555-5555 to purchase a gift certificate in any amount. We\'ll send a digital certificate that the recipient can redeem for any service.' },
+    { question: 'Do you offer gift certificates?', answer: `Yes — cleaning makes a great gift. Text us at ${brand.phone} to purchase a gift certificate in any amount. We'll send a digital certificate that the recipient can redeem for any service.` },
     { question: 'What happens if something is damaged during cleaning?', answer: 'We carry general liability insurance specifically for this reason. If a cleaner accidentally damages something in your home, report it within 24 hours and we\'ll work with you to resolve it through our insurance coverage.' },
-    { question: 'Do you have a referral program?', answer: 'Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit example.com/referral or text us for details. It\'s one of the most generous referral programs in NYC cleaning.' },
+    { question: 'Do you have a referral program?', answer: `Yes. Refer a friend and earn money every time they book a cleaning — not just the first time. Visit ${brand.url}/referral or text us for details. It's one of the most generous referral programs in NYC cleaning.` },
   ]
 }

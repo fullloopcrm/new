@@ -3,6 +3,8 @@
 // All photos by Tima Miroshnichenko (https://www.pexels.com/@tima-miroshnichenko).
 // Pexels license: free to use commercially, no attribution required, but we include it anyway.
 
+import { type BrandContext, DEFAULT_BRAND } from './brand'
+
 export type PhotoPool = 'lifestyle' | 'team'
 export type PhotoCategory = 'mop' | 'dust' | 'kitchen' | 'bathroom' | 'window' | 'bed' | 'vacuum' | 'team' | 'interior'
 
@@ -309,16 +311,29 @@ function hash(seed: string): number {
   return Math.abs(h)
 }
 
-export function pickLifestylePhoto(seed: string): SitePhoto {
-  return LIFESTYLE_PHOTOS[hash(seed) % LIFESTYLE_PHOTOS.length]
+// Photo alt/caption text is AUTO-GENERATED (see file header) with a
+// "Your Business" placeholder baked into the source strings — rebrand at
+// read time (same pattern as content.ts's neighborhoodContent()) rather
+// than hand-editing the generated data.
+function rebrand(photo: SitePhoto, brand: BrandContext): SitePhoto {
+  if (!photo.alt.includes('Your Business') && !photo.caption.includes('Your Business')) return photo
+  return {
+    ...photo,
+    alt: photo.alt.replace(/Your Business/g, brand.name),
+    caption: photo.caption.replace(/Your Business/g, brand.name),
+  }
 }
 
-export function pickTeamPhoto(seed: string): SitePhoto {
-  return TEAM_PHOTOS[hash(seed + 'team') % TEAM_PHOTOS.length]
+export function pickLifestylePhoto(seed: string, brand: BrandContext = DEFAULT_BRAND): SitePhoto {
+  return rebrand(LIFESTYLE_PHOTOS[hash(seed) % LIFESTYLE_PHOTOS.length], brand)
 }
 
-export function pickPhotoByCategory(category: PhotoCategory, seed: string): SitePhoto {
+export function pickTeamPhoto(seed: string, brand: BrandContext = DEFAULT_BRAND): SitePhoto {
+  return rebrand(TEAM_PHOTOS[hash(seed + 'team') % TEAM_PHOTOS.length], brand)
+}
+
+export function pickPhotoByCategory(category: PhotoCategory, seed: string, brand: BrandContext = DEFAULT_BRAND): SitePhoto {
   const matches = PHOTOS.filter(p => p.category === category)
-  if (matches.length === 0) return pickLifestylePhoto(seed)
-  return matches[hash(seed + category) % matches.length]
+  if (matches.length === 0) return pickLifestylePhoto(seed, brand)
+  return rebrand(matches[hash(seed + category) % matches.length], brand)
 }

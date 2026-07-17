@@ -15,16 +15,18 @@ import { getSeoOverride } from '@/lib/seo/overrides'
 const allNeighborhoods = AREAS.flatMap(a => getNeighborhoodsByArea(a.slug))
 const totalNeighborhoods = allNeighborhoods.length
 
-const areaFAQs = [
-  { question: 'What areas does Your Business serve?', answer: `We serve ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Same rates and same quality everywhere.` },
-  { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
-  { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available in all neighborhoods we serve.' },
-  { question: 'Do you serve areas outside of these neighborhoods?', answer: 'We may. If you don\'t see your neighborhood listed, text (555) 555-5555 and we\'ll let you know. We\'re always expanding.' },
-  { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },
-  { question: 'How quickly can you schedule a cleaning in my area?', answer: 'We typically schedule within 24–48 hours for standard service. Same-day cleaning is available in most areas — text (555) 555-5555 for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).' },
-  { question: 'Do your cleaners use public transit or drive?', answer: 'It depends on the area. In Manhattan, Brooklyn, Queens, and the Bronx, many of our cleaners use public transit. For Staten Island, Long Island, Westchester, and New Jersey, cleaners typically drive.' },
-  { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
-]
+function areaFAQs(brand: { name: string; phone: string }) {
+  return [
+    { question: `What areas does ${brand.name} serve?`, answer: `We serve ${totalNeighborhoods}+ neighborhoods across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island (Nassau and western Suffolk), Westchester County, and Northern New Jersey (Hudson and close-in Bergen). Same rates and same quality everywhere.` },
+    { question: 'Do you charge extra for certain neighborhoods?', answer: 'No. Our rates are the same regardless of neighborhood or borough — $59/hr with your supplies (recurring: 10% off weekly, 5% off biweekly/monthly), $69/hr when we bring everything (recurring: 20% off weekly, 10% off biweekly/monthly), and $89/hr for same-day emergency service. No travel fees, no surge pricing.' },
+    { question: 'Are all services available in every area?', answer: 'Yes. Every service we offer — deep cleaning, regular cleaning, move-in/out, post-renovation, Airbnb, office, same-day — is available in all neighborhoods we serve.' },
+    { question: 'Do you serve areas outside of these neighborhoods?', answer: `We may. If you don't see your neighborhood listed, text ${brand.phone} and we'll let you know. We're always expanding.` },
+    { question: 'Do I get the same cleaner in my area?', answer: 'Yes. For recurring clients, we assign a dedicated cleaner who lives near your area so they can arrive consistently and on time.' },
+    { question: 'How quickly can you schedule a cleaning in my area?', answer: `We typically schedule within 24–48 hours for standard service. Same-day cleaning is available in most areas — text ${brand.phone} for availability. A 2-hour minimum applies (first-time cleanings included). Bookings with 2 or more cleaners require 48 hours notice, carry a 4-hour minimum, and receive no discounts — a multi-cleaner booking with under 48 hours notice is billed at same-day / emergency pricing ($89/hr).` },
+    { question: 'Do your cleaners use public transit or drive?', answer: 'It depends on the area. In Manhattan, Brooklyn, Queens, and the Bronx, many of our cleaners use public transit. For Staten Island, Long Island, Westchester, and New Jersey, cleaners typically drive.' },
+    { question: 'What if I\'m on the border of two neighborhoods?', answer: 'We serve the entire area, not just specific blocks. If you\'re near any of our listed neighborhoods, we cover your location. Just give us your address and we\'ll confirm.' },
+  ]
+}
 
 function areasMeta(brand: { name: string; phone: string }) {
   const title = `Service Areas — ${totalNeighborhoods}+ Neighborhoods in NYC, Long Island, Westchester & NJ | ${brand.name}`
@@ -66,9 +68,11 @@ export async function generateMetadata(): Promise<Metadata> {
 
 export default async function AreasIndexPage() {
   await requireCleaningTenant()
-  const biz = buildBusiness(await getSiteConfig())
+  const config = await getSiteConfig()
+  const biz = buildBusiness(config)
   const areasUrl = `${biz.url}/service-areas`
   const { title: pageTitle, description: pageDescription } = areasMeta({ name: biz.name, phone: biz.phoneDisplay })
+  const faqs = areaFAQs({ name: biz.name, phone: biz.phoneDisplay })
   return (
     <>
       <JsonLd data={[
@@ -90,7 +94,7 @@ export default async function AreasIndexPage() {
           { name: 'Service Areas', url: areasUrl },
         ]),
         areaItemListSchema(biz),
-        faqSchema(areaFAQs),
+        faqSchema(faqs),
       ]} />
 
       {/* Hero */}
@@ -194,7 +198,7 @@ export default async function AreasIndexPage() {
           <div className="w-10 h-[2px] bg-[var(--accent)] mb-8" />
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-x-8 gap-y-3">
-            {areaFAQs.map((faq, i) => (
+            {faqs.map((faq, i) => (
               <details key={i} className="group border border-gray-200 rounded-xl overflow-hidden">
                 <summary className="flex items-center justify-between p-5 cursor-pointer hover:bg-gray-50 transition-colors">
                   <h2 className="font-semibold text-[var(--brand)] text-sm text-left pr-4">{faq.question}</h2>
@@ -215,17 +219,17 @@ export default async function AreasIndexPage() {
             We&apos;re always expanding. Text us with your address and we&apos;ll let you know if we cover your area — we probably do.
           </p>
           <div className="flex flex-col sm:flex-row items-center justify-center gap-5">
-            <a href="sms:5555555555" className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
-              Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="bg-[var(--brand)] text-white px-10 py-4 rounded-lg font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors">
+              Text {config.contact.phone}
             </a>
-            <a href="sms:5555555555" className="text-[var(--brand)] font-semibold underline underline-offset-4 hover:no-underline">
-              or Text (555) 555-5555
+            <a href={`sms:${config.contact.phoneDigits}`} className="text-[var(--brand)] font-semibold underline underline-offset-4 hover:no-underline">
+              or Text {config.contact.phone}
             </a>
           </div>
         </section>
       </div>
 
-      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." />
+      <CTABlock title="Book Your NYC Cleaning Service Today" subtitle="Text us — trusted by New Yorkers across Manhattan, Brooklyn, Queens, the Bronx, Staten Island, Long Island, Westchester & New Jersey." phone={config.contact.phone} phoneDigits={config.contact.phoneDigits} />
     </>
   )
 }
