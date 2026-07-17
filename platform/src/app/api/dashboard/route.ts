@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { hasPermission } from '@/lib/rbac'
 import { overridesFor } from '@/lib/require-permission'
+import { toNaiveET } from '@/lib/dates'
 
 interface BookingRow {
   price: number | null
@@ -76,7 +77,10 @@ export async function GET() {
     const fourteenDaysOut = `${ymd(fourteenDaysOutObj)}T00:00:00`
     const startOfYear = `${ty}-01-01T00:00:00`
     const endOfYear = `${ty}-12-31T23:59:59`
-    const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
+    // One boundary that slipped through the naive-ET sweep above: this is
+    // compared against bookings.start_time (naive-ET), so it needs the same
+    // wall-clock-string treatment, not a raw toISOString() instant.
+    const thirtyDaysAgo = toNaiveET(new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000))
     // clients.created_at is TIMESTAMPTZ (unlike bookings.start_time) -- a
     // true-UTC ISO instant is the correct comparison type for it, so this
     // one keeps the original server-local-month Date object rather than the
@@ -166,7 +170,7 @@ export async function GET() {
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .in('status', ['completed', 'paid'])
-        .gte('start_time', thirtyDaysAgo.toISOString()),
+        .gte('start_time', thirtyDaysAgo),
       supabaseAdmin
         .from('bookings')
         .select('id', { count: 'exact', head: true })

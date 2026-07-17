@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
+import { toNaiveET } from '@/lib/dates'
 
 async function verifyAdmin() {
   const cookieStore = await cookies()
@@ -110,7 +111,11 @@ export async function POST() {
 
   // 5. BOOKING PIPELINE
   try {
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    // bookings.start_time/end_time are naive-ET TIMESTAMP columns (no tz);
+    // boundaries compared against them must be naive-ET strings, not
+    // real-UTC .toISOString() (see toNaiveET doc comment in @/lib/dates).
+    // Same fix already landed on the cron/system-check sibling of this check.
+    const fourHoursAgo = toNaiveET(new Date(Date.now() - 4 * 60 * 60 * 1000))
     const { count: stuck } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
@@ -121,7 +126,7 @@ export async function POST() {
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .lt('start_time', new Date().toISOString())
+      .lt('start_time', toNaiveET(new Date()))
 
     const msgs: string[] = []
     if ((stuck || 0) > 0) msgs.push(`${stuck} stuck in_progress`)
@@ -182,13 +187,14 @@ export async function POST() {
 
   // 8. PAYMENTS
   try {
-    const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+    // bookings.end_time is naive-ET; see the naive-ET note above.
+    const oneDayAgoNaiveET = toNaiveET(new Date(Date.now() - 24 * 60 * 60 * 1000))
     const { count: unpaid } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('payment_status', 'unpaid')
       .eq('status', 'completed')
-      .lt('end_time', oneDayAgo)
+      .lt('end_time', oneDayAgoNaiveET)
 
     checks.push({
       name: 'Payment Pipeline',

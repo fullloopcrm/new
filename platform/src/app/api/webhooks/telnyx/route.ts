@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx, isWebhookVerifyDisabled } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 60
 
@@ -305,7 +306,11 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('client_id', client.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // bookings.start_time is naive-ET (no tz); a real-UTC toISOString()
+          // lower bound silently excludes tonight's still-upcoming booking
+          // during the evening ET window (UTC already on the next calendar
+          // day), so a client's "YES" reply finds no booking to confirm.
+          .gte('start_time', toNaiveET(new Date()))
           .order('start_time', { ascending: true })
           .limit(1)
           .single()
@@ -382,7 +387,8 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('team_member_id', member.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          // see naive-ET note on the client-confirm branch above.
+          .gte('start_time', toNaiveET(new Date()))
           .order('start_time', { ascending: true })
           .limit(1)
           .single()

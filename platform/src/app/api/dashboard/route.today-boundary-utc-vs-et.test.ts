@@ -86,4 +86,28 @@ describe('GET /api/dashboard — today boundary must use ET, not server-local', 
     const ids = (body.todayJobs as Row[]).map((b) => b.id)
     expect(ids).toContain('bk-tonight')
   })
+
+  it('still counts a completed job just inside the trailing-30-day ET window in stats.completed', async () => {
+    // thirtyDaysAgo real instant = 2025-12-07T00:30:00.000Z. This job's naive-ET
+    // start_time (2025-12-06T21:00:00, 9pm ET Dec 6) is genuinely inside the
+    // last 30 days (true UTC instant Dec 7 02:00Z), but a raw toISOString()
+    // lower bound string-compares "2025-12-06..." < "2025-12-07..." and drops it.
+    DB.bookings.push({
+      id: 'bk-30d-boundary',
+      tenant_id: TENANT,
+      start_time: '2025-12-06T21:00:00',
+      end_time: '2025-12-06T22:00:00',
+      status: 'completed',
+      payment_status: 'paid',
+      price: 100,
+      partial_payment_cents: 0,
+      clients: null,
+      team_members: null,
+    })
+
+    const res = await GET()
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.stats.completed).toBe(1)
+  })
 })

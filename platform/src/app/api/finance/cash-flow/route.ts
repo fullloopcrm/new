@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { toNaiveET } from '@/lib/dates'
 
 function weekKey(d: Date): string {
   const monday = new Date(d)
@@ -35,7 +36,11 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id, price, start_time, payment_status, partial_payment_cents')
       .eq('tenant_id', tenantId)
-      .gte('start_time', now.toISOString())
+      // bookings.start_time is naive-ET (no tz); a real-UTC toISOString()
+      // lower bound silently excludes still-upcoming bookings later tonight
+      // during the evening ET window (same class fixed elsewhere this
+      // session), undercounting near-term inflows in the forecast.
+      .gte('start_time', toNaiveET(now))
       .lte('start_time', endTs)
       .not('status', 'in', '(cancelled,no_show)')
 

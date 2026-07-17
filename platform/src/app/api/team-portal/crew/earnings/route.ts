@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePortalPermission, scopedMemberIds } from '@/lib/team-portal-auth'
+import { toNaiveET } from '@/lib/dates'
 
 // Crew earnings roll-up — the most sensitive portal permission (pay visibility).
 // Gated on earnings.view_crew, which defaults ON only for manager. Scoped to the
@@ -37,7 +38,13 @@ export async function GET(request: Request) {
       // gross trailing-30-day earnings figure), so no team_member_paid trap
       // to guard against -- just widen the status filter.
       .in('status', ['completed', 'paid'])
-      .gte('start_time', since.toISOString()),
+      // bookings.start_time is stored naive-ET (no tz) -- exactly what was typed
+      // in. since.toISOString() is a true-UTC clock reading; string-compared
+      // against the naive-ET column that shifts the 30-day cutoff by the
+      // EST/EDT offset, silently dropping real worked jobs from the trailing
+      // window near the boundary (same class already fixed on the sibling
+      // crew/schedule route). Use the naive-ET wall-clock equivalent instead.
+      .gte('start_time', toNaiveET(since)),
   ])
 
   // Per-member hourly fallback (dollars/hour). booking.pay_rate overrides it.
