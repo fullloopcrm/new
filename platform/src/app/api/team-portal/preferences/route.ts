@@ -11,7 +11,7 @@ export async function GET(request: NextRequest) {
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('notes')
+    .select('notification_preferences, sms_consent')
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -31,19 +31,18 @@ export async function GET(request: NextRequest) {
     sms_consent: true,
   }
 
-  if (member?.notes) {
-    try {
-      const parsed = JSON.parse(member.notes)
-      if (parsed.notification_preferences) {
-        defaults.notification_preferences = {
-          ...defaults.notification_preferences,
-          ...parsed.notification_preferences,
-        }
-      }
-      if (parsed.sms_consent !== undefined) {
-        defaults.sms_consent = parsed.sms_consent
-      }
-    } catch { /* not JSON */ }
+  // These are real columns (migrations/013_full_parity.sql), the same ones
+  // notifyTeamMember() (src/lib/notify-team-member.ts) reads to decide
+  // whether to actually send — NOT the `notes` field. Merge onto the
+  // defaults so an unset column still returns the full default shape.
+  if (member?.notification_preferences) {
+    defaults.notification_preferences = {
+      ...defaults.notification_preferences,
+      ...member.notification_preferences,
+    }
+  }
+  if (member?.sms_consent !== undefined && member?.sms_consent !== null) {
+    defaults.sms_consent = member.sms_consent
   }
 
   return NextResponse.json(defaults)
@@ -58,27 +57,31 @@ export async function PUT(request: NextRequest) {
 
   const { notification_preferences, sms_consent } = await request.json()
 
-  // Get current notes
+  // Get the current real column (not `notes` — see GET's comment) so a
+  // partial PUT merges onto whatever's already saved instead of clobbering it.
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('notes')
+    .select('notification_preferences')
     .eq('id', auth.id)
     .eq('tenant_id', auth.tid)
     .single()
 
-  let notesObj: Record<string, unknown> = {}
-  if (member?.notes) {
-    try { notesObj = JSON.parse(member.notes) } catch { notesObj = { text: member.notes } }
+  const updates: Record<string, unknown> = {}
+  if (notification_preferences) {
+    updates.notification_preferences = {
+      ...(member?.notification_preferences || {}),
+      ...notification_preferences,
+    }
   }
+  if (sms_consent !== undefined) updates.sms_consent = sms_consent
 
-  if (notification_preferences) notesObj.notification_preferences = notification_preferences
-  if (sms_consent !== undefined) notesObj.sms_consent = sms_consent
-
-  await supabaseAdmin
-    .from('team_members')
-    .update({ notes: JSON.stringify(notesObj) })
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
+  if (Object.keys(updates).length > 0) {
+    await supabaseAdmin
+      .from('team_members')
+      .update(updates)
+      .eq('id', auth.id)
+      .eq('tenant_id', auth.tid)
+  }
 
   return NextResponse.json({ success: true })
 }
