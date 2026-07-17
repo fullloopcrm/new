@@ -61,12 +61,14 @@ export default function TeamCoverageMap({ serviceArea }: { serviceArea: ServiceA
   useEffect(() => {
     let alive = true
     Promise.all([
-      fetch('/api/team-members').then((r) => (r.ok ? r.json() : [])).catch(() => []),
-      fetch('/api/clients').then((r) => (r.ok ? r.json() : [])).catch(() => []),
-    ]).then(([m, c]) => {
+      fetch('/api/team').then((r) => (r.ok ? r.json() : { team: [] })).catch(() => ({ team: [] })),
+      fetch('/api/clients').then((r) => (r.ok ? r.json() : { clients: [] })).catch(() => ({ clients: [] })),
+    ]).then(([teamRes, clientsRes]) => {
       if (!alive) return
+      const m = teamRes?.team
+      const c = clientsRes?.clients
       setMembers(
-        (Array.isArray(m) ? m : []).filter((x: any) => x.active).map((x: any) => ({
+        (Array.isArray(m) ? m : []).filter((x: any) => x.status !== 'inactive').map((x: any) => ({
           id: x.id, name: x.name,
           lat: x.home_latitude != null ? Number(x.home_latitude) : null,
           lng: x.home_longitude != null ? Number(x.home_longitude) : null,
