@@ -16,6 +16,15 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of ['name','legal_name','ein','entity_type','address','city','state','zip','fiscal_year_start','active']) {
       if (k in body) updates[k] = body[k]
     }
+    // Deactivating via PATCH reaches the exact same state DELETE blocks for
+    // the default entity (getDefaultEntityId() has no active filter, so
+    // invoices/expenses/bank-accounts would keep silently posting to it
+    // even after it vanishes from every active-entity picker) — same guard.
+    if (updates.active === false) {
+      const { data: ent } = await supabaseAdmin
+        .from('entities').select('is_default').eq('tenant_id', tenantId).eq('id', id).single()
+      if (ent?.is_default) return NextResponse.json({ error: 'Cannot archive the default entity. Set another as default first.' }, { status: 400 })
+    }
     if (body.make_default) {
       await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
       updates.is_default = true
