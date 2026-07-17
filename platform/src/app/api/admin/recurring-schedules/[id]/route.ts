@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Single recurring schedule: view / edit / cancel. Tenant-scoped, admin-only,
 // client comms suppressed (see ../route.ts header). Cancelling a series cancels
@@ -53,6 +54,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+
+    // Same guard as POST ../route.ts — reassigning a series to a terminated
+    // member would keep re-materializing them onto every future occurrence
+    // via the generate-recurring cron.
+    const [terminatedId] = await getTerminatedTeamMemberIds(tenantId, [teamMemberId])
+    if (terminatedId) {
+      return NextResponse.json({ error: `Cannot assign terminated team member: ${terminatedId}` }, { status: 400 })
+    }
   }
 
   const updatePayload: Record<string, unknown> = { updated_at: new Date().toISOString() }

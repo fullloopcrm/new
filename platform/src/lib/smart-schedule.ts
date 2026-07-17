@@ -20,6 +20,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { geocodeAddress, calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { worksScheduledDay, slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export interface TeamMemberScore {
   id: string
@@ -146,10 +147,33 @@ export async function scoreTeamForBooking(opts: {
   const slotEndMin = slotStartMin + durationHours * 60
   const BUFFER = 60
 
+  // HR termination is tracked separately from team_members.status/active (see
+  // getTerminatedTeamMemberIds) — a fired member's row is neither deleted nor
+  // flipped to status='inactive', so without this check every caller of this
+  // function (admin/client smart-schedule suggestions, client/book's auto-
+  // suggest, and the generate-recurring cron's smart-assign path) could score
+  // and pick a terminated employee for a NEW future booking. Fixed once here so
+  // every caller inherits it instead of re-implementing the check per route.
+  const terminatedIds = new Set(
+    await getTerminatedTeamMemberIds(tenantId, (allMembers || []).map((m) => m.id as string))
+  )
+
   const scores: TeamMemberScore[] = []
 
   for (const member of allMembers || []) {
     const isPreferred = member.id === preferredMemberId
+
+    if (terminatedIds.has(member.id)) {
+      scores.push({
+        id: member.id, name: member.name, score: -1, available: false,
+        conflict: 'No longer employed',
+        home_by: (member.home_by_time as string) || 'No limit',
+        zone_match: false, has_car: Boolean(member.has_car),
+        is_preferred: isPreferred,
+        day_jobs: [], reason: 'terminated',
+      })
+      continue
+    }
 
     // Day-of-week availability — canonical resolver (handles numeric + name formats;
     // no/all-off days = NOT available). See day-availability.worksScheduledDay.

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -132,6 +133,16 @@ export async function POST(request: Request) {
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (!memberRow) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+
+    // Same guard as POST/PUT bookings and the job-session routes (53e83ee4) —
+    // a terminated member must not become a NEW standing assignment. Unlike
+    // those routes this creates a recurring commitment the generate-recurring
+    // cron would keep re-materializing every week, so it needs the same guard
+    // as the cron's own binary-lock path.
+    const [terminatedId] = await getTerminatedTeamMemberIds(tenantId, [teamMemberId])
+    if (terminatedId) {
+      return NextResponse.json({ error: `Cannot assign terminated team member: ${terminatedId}` }, { status: 400 })
+    }
   }
 
   // A caller-supplied property_id must belong to THIS client + tenant —

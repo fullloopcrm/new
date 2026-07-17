@@ -7,6 +7,7 @@ import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -107,6 +108,18 @@ export async function GET(request: Request) {
         .single()
       mem = data
     }
+    // HR termination never touches team_members.status/active (deliberately —
+    // see hr.ts), so a fired member's schedule.team_member_id would otherwise
+    // keep auto-generating them onto NEW future bookings, weekly, forever,
+    // straight into `bookings` via supabaseAdmin — bypassing POST /api/bookings'
+    // own terminated-crew guard entirely since this cron writes the table
+    // directly. Same bug class as the primary/project booking flows already
+    // guarded (53e83ee4); this generator was the one live write path that
+    // still had nothing. Binary-lock path only — the smart-assign path below
+    // inherits this from scoreTeamForBooking's own terminated filter.
+    const memberTerminated = schedule.team_member_id
+      ? (await getTerminatedTeamMemberIds(schedule.tenant_id, [schedule.team_member_id])).length > 0
+      : false
     const startMinForDate = (d: Date): number => {
       if (schedule.preferred_time) {
         const [h, m] = String(schedule.preferred_time).split(':').map(Number)
@@ -118,6 +131,7 @@ export async function GET(request: Request) {
     }
     const memberCanTake = (d: Date): boolean => {
       if (!schedule.team_member_id || !mem) return false
+      if (memberTerminated) return false
       const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
       if (Array.isArray(mem.unavailable_dates) && mem.unavailable_dates.includes(dateStr)) return false
       if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr)) return false
@@ -192,7 +206,9 @@ export async function GET(request: Request) {
         const canTake = memberCanTake(d)
         assignedId = canTake ? schedule.team_member_id : null
         if (!assignedId && schedule.team_member_id) {
-          unassignedNote = `[Auto: ${mem?.name || 'assigned member'} unavailable this date — needs reassignment]`
+          unassignedNote = memberTerminated
+            ? `[Auto: ${mem?.name || 'assigned member'} no longer employed — needs reassignment]`
+            : `[Auto: ${mem?.name || 'assigned member'} unavailable this date — needs reassignment]`
         }
       }
 

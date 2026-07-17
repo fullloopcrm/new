@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyPortalToken } from '../../portal/auth/token'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // GET /api/client/preferred-cleaner
 // Auth: client portal Bearer token (same as /api/portal/*) — identifies the
@@ -76,6 +77,15 @@ export async function PUT(request: Request) {
       .eq('tenant_id', client.tenant_id)
       .single()
     if (!member || member.active === false) {
+      return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
+    }
+
+    // HR termination never touches team_members.active (deliberately — see
+    // hr.ts), so without this a client could set — and smart-schedule would
+    // then keep favoring (+200 score, "Client's preferred tech") — a team
+    // member who no longer works here at all.
+    const [terminatedId] = await getTerminatedTeamMemberIds(client.tenant_id, [body.preferred_cleaner_id])
+    if (terminatedId) {
       return NextResponse.json({ error: 'Cleaner not available' }, { status: 400 })
     }
   }

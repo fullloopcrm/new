@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Per-occurrence exception for a recurring series: skip / move / reassign ONE
 // date without disturbing the rest of the series. Records the exception (so the
@@ -44,6 +45,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .eq('tenant_id', tenantId)
       .maybeSingle()
     if (!member) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+
+    // Same guard as ../route.ts PUT — a per-occurrence reassign is also
+    // recorded into recurring_exceptions and honored on every future
+    // regeneration of this date, not just the immediate booking.
+    const [terminatedId] = await getTerminatedTeamMemberIds(tenantId, [new_team_member_id])
+    if (terminatedId) {
+      return NextResponse.json({ error: `Cannot assign terminated team member: ${terminatedId}` }, { status: 400 })
+    }
   }
 
   // Confirm the schedule belongs to this tenant; pull duration for move end-time.
