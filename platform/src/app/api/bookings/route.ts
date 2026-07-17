@@ -9,6 +9,7 @@ import { checkMemberDayOff } from '@/lib/availability'
 import { slotWithinHours, hoursWindowForDate } from '@/lib/day-availability'
 import { timestampToMin } from '@/lib/cleaner-availability'
 import { notify } from '@/lib/notify'
+import { notifyTeamMember } from '@/lib/notify-team-member'
 import { sendSMS } from '@/lib/sms'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { teamSmsTemplates } from '@/lib/messaging/team-sms-resolver'
@@ -317,14 +318,28 @@ export async function POST(request: Request) {
         }).catch(err => console.error('Client confirmation SMS error:', err))
       }
 
-      // Team member assignment SMS
-      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
-        sendSMS({
-          to: data.team_members.phone,
-          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, pay_rate: data.pay_rate, is_emergency: data.is_emergency, clients: data.clients, team_members: data.team_members }),
-          telnyxApiKey: tenantData.telnyx_api_key,
-          telnyxPhone: tenantData.telnyx_phone,
-        }).catch(err => console.error('Team assignment SMS error:', err))
+      // Team member assignment — routed through notifyTeamMember(), the
+      // module items (53)/(54)/(56)/(58)/(60)/(62) established as the one
+      // true channel for team-member notifications, instead of a raw
+      // sendSMS() call. That raw call had no push leg at all (a push-only
+      // tech got zero notice of a brand-new assignment), no in-app
+      // notification row, no quiet-hours check, and — unlike the client SMS
+      // block two lines above it — no sms_consent gate, the item (48) sweep
+      // never reached because this call site predates it.
+      if (data.team_member_id) {
+        await notifyTeamMember({
+          tenantId,
+          teamMemberId: data.team_member_id,
+          type: 'job_assignment',
+          title: data.is_emergency ? '🚨 New Emergency Job Assigned' : 'New Job Assigned',
+          message: `${data.clients?.name || 'Client'} on ${date} at ${time}`,
+          bookingId: data.id,
+          smsMessage: tenantData
+            ? teamSmsTemplates(tenantData).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, pay_rate: data.pay_rate, is_emergency: data.is_emergency, clients: data.clients, team_members: data.team_members })
+            : undefined,
+          skipEmail: true,
+          isEmergency: !!data.is_emergency,
+        }).catch(err => console.error('Team assignment notify error:', err))
       }
     } catch (notifErr) {
       console.error('Booking notification error:', notifErr)
