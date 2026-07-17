@@ -6315,3 +6315,92 @@ value.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (138) `invoices.status = 'refunded'` fully declared, never written
+
+CHECK constraint on `invoices.status` names `'refunded'` as a valid value,
+the invoices list page's `STATUS_COLORS` map already has a badge for it,
+`invoice_activity`'s `event_type` union already includes it, and
+`DELETE /api/invoices/[id]`'s own error message already tells the caller to
+"refund first" — but grepping every insert/update site under
+`src/app/api/invoices/**` and `src/app/api/webhooks/stripe/**` found zero
+code paths that ever set `status: 'refunded'`. A paid invoice that needed
+reversing (Zelle/cash/check returned outside Stripe, or just closing out
+manually) had no route to do it through — the only escape hatch was voiding,
+which is a different lifecycle state with a different meaning (never
+collected vs. collected-then-returned) and the DELETE route's own guard
+explicitly refuses that substitution.
+
+**Fixed** — added `POST /api/invoices/[id]/refund`: reverses the payment
+rows that funded `amount_paid_cents` (`status → 'refunded'`), flips the
+invoice to `status:'refunded'` with `amount_paid_cents:0` (the recompute
+trigger on `payments` only ever drives status to `paid`/`partial`, never
+`refunded`, so the explicit invoice write is required regardless of that
+trigger), logs an `invoice_activity` row, and posts the GL reversal via the
+same `postRefundToLedger()` the Stripe webhook path already uses. Wired a
+"Refund" button on the invoice detail page (shown once anything is paid and
+the invoice isn't already void/refunded) and added the missing `Refunded`
+tab to the list page's status filter — same "badge existed, filter option
+didn't" gap as (136)'s prospects `Cancelled` filter.
+
+7 new tests (`route.test.ts` — zero prior coverage): flips invoice +
+payment + writes activity on a full refund; posts the ledger reversal;
+rejects an invoice with nothing paid; rejects double-refunding an
+already-refunded invoice; rejects refunding a voided invoice; 404s on an
+unknown id. `tsc --noEmit` clean.
+
+## (139) Continuing (138)'s surface — Stripe-initiated refunds never touched the invoice/payment row either
+
+The `charge.refunded` Stripe webhook handler already called
+`postRefundToLedger()` on a refund, so the GL was correctly reversed — but
+exactly like (138), it never touched the linked invoice or payment row.
+A customer refunded directly through Stripe (not through the new (138)
+route) left the invoice permanently stuck at `'paid'`, no `Refunded` badge,
+invisible to the new filter tab, and `amount_paid_cents` still showing the
+refunded money as collected — silent state drift between the ledger (source
+of financial truth) and the invoice UI (what an operator actually looks at).
+
+**Fixed** — on a full-charge refund only (`charge.amount_refunded >=
+charge.amount`; a partial refund of one charge has no clean single-payment-
+row representation and is intentionally left to the ledger, same reasoning
+as (138)'s void/refund distinction), the webhook now calls a new
+`markInvoicePaymentRefunded()` in `lib/invoice.ts`: flips the funding
+payment row to `refunded`, recomputes the invoice's remaining paid total
+from `payments` directly, and flips the invoice to `refunded` only if that
+total is now zero (so a second, still-active payment on the same invoice
+correctly blocks the flip). `tenantFromPaymentIntent()` extended to also
+return `paymentId`/`invoiceId` so the webhook has what it needs without a
+second round-trip query.
+
+**Caught and fixed a real bug in my own first pass before landing this**:
+the initial version decided whether to flip the invoice by re-reading
+`invoices.amount_paid_cents` after marking the payment refunded, trusting
+that a real Postgres trigger (`invoices_recompute_paid`, migration
+`027_invoices.sql`) had already zeroed it as a side effect of the payment
+update. That trigger is real and does fire synchronously against a live
+Supabase connection — but `fake-supabase.ts` (this repo's test double) does
+not simulate DB triggers at all, so the new test went RED
+(`expected 'paid' to be 'refunded'`) the moment it ran: the invoice's
+`amount_paid_cents` never actually left the fake's seeded 20000, so the
+zero-check never fired and the flip never happened. Rewrote the function to
+recompute the paid total explicitly from a fresh `SUM` over `payments`
+instead of depending on the trigger's invisible side effect — same
+result in production, but no longer silently coupled to a side channel
+this file never mentions, and now actually verifiable in tests. Lesson for
+the pattern: a fix that "should work in prod" because of a DB trigger the
+test double doesn't model is unverified, not done, until the test that
+exercises it actually goes green.
+
+4 new tests (`route.refund-invoice-flip.test.ts`): flips invoice + payment
++ writes activity on a full-charge refund; still posts the ledger reversal
+(pre-existing behavior, unaffected); leaves the invoice/payment alone on a
+partial refund of a single charge; does not touch anything when the
+payment intent has no linked `invoice_id` (a booking-only payment, most
+Stripe traffic today). `tsc --noEmit` clean, full suite 434/434 files,
+2082/2082 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not touched
+here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
