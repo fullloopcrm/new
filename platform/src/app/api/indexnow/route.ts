@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import { safeEqual } from '@/lib/timing-safe-equal'
 
 export async function GET(request: NextRequest) {
@@ -56,11 +57,19 @@ export async function POST(request: NextRequest) {
     .eq('id', tenantId)
     .single()
 
-  if (!tenant?.domain) return NextResponse.json({ error: 'Tenant has no domain configured' }, { status: 400 })
-  const indexnowKey = (tenant.selena_config as Record<string, unknown> | null)?.indexnow_key as string | undefined
+  // tenant_domains FIRST, tenants.domain fallback — same precedence as
+  // tenantSiteUrl()/resolveOrigin()'s other callers. Previously read
+  // tenant.domain only, so a tenant whose custom domain lives only in
+  // tenant_domains (added via admin/websites) submitted IndexNow pings for
+  // the wrong host, and its own /api/indexnow ownership-verification
+  // callback (which resolves the tenant from the request host) would never
+  // see a matching key.
+  const domain = (await getPrimaryTenantDomain(tenantId)) || tenant?.domain
+  if (!domain) return NextResponse.json({ error: 'Tenant has no domain configured' }, { status: 400 })
+  const indexnowKey = (tenant?.selena_config as Record<string, unknown> | null)?.indexnow_key as string | undefined
   if (!indexnowKey) return NextResponse.json({ error: 'Tenant missing selena_config.indexnow_key' }, { status: 400 })
 
-  const host = tenant.domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
+  const host = domain.replace(/^https?:\/\//, '').replace(/\/$/, '')
   try {
     const res = await fetch('https://api.indexnow.org/indexnow', {
       method: 'POST',
