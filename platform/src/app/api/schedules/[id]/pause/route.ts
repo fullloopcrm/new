@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
+import { toNaiveET } from '@/lib/dates'
 
 // POST — pause until date. Cancels any bookings within the pause window and
 // notifies the client via SMS if tenant has Telnyx configured.
@@ -30,7 +31,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       return NextResponse.json({ error: error?.message || 'Schedule not found' }, { status: 404 })
     }
 
-    const now = new Date().toISOString()
+    // start_time is a naive-ET TIMESTAMP (no tz); a real-UTC .toISOString()
+    // cutoff is shifted later by the EST/EDT offset, silently leaving the
+    // next ~4-5h of bookings 'scheduled' every evening ET even though the
+    // schedule was just paused for that window -- same class already fixed
+    // on the sibling admin/recurring-schedules + schedules/[id] routes
+    // (d69ae7e1), missed here.
+    const now = toNaiveET(new Date())
     const pauseEnd = `${paused_until}T23:59:59`
 
     const { data: cancelled } = await supabaseAdmin
