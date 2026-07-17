@@ -35,6 +35,9 @@ export async function POST(request: Request) {
     if (!body.label || !body.amount_cents || !body.frequency) {
       return NextResponse.json({ error: 'label, amount_cents, frequency required' }, { status: 400 })
     }
+    if (!['daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'].includes(body.frequency)) {
+      return NextResponse.json({ error: 'Invalid frequency' }, { status: 400 })
+    }
     const { data, error } = await supabaseAdmin
       .from('recurring_expenses')
       .insert({

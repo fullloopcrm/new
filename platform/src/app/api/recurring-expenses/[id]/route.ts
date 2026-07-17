@@ -12,6 +12,9 @@ export async function PATCH(request: Request, { params }: Params) {
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
+    if ('frequency' in body && !['daily', 'weekly', 'biweekly', 'monthly', 'quarterly', 'yearly'].includes(body.frequency)) {
+      return NextResponse.json({ error: 'Invalid frequency' }, { status: 400 })
+    }
     const updates: Record<string, unknown> = {}
     const fields = ['label', 'category', 'amount_cents', 'frequency', 'start_date', 'end_date', 'next_due_date', 'notes', 'active']
     for (const f of fields) if (f in body) updates[f] = body[f]
