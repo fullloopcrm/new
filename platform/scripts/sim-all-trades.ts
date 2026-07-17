@@ -1760,6 +1760,57 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
             add('batch-update: service_type correction also propagates across the whole series (allowlist gap fixed this round)', (seriesAfter || []).every(b => b.service_type === 'Deep Clean (reassigned)'), JSON.stringify(seriesAfter))
           }
         }
+
+        // ---- 5a-8. RECURRING-SCHEDULE REGENERATE — TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+        // POST /api/admin/recurring-schedules/[id]/regenerate is the atomic
+        // "pattern changed" path BookingsAdmin.tsx's saveBooking() calls when an
+        // admin edits BOTH a recurring series' pattern (day/frequency) AND its
+        // assignee in the same "apply to all future bookings" save -- one call
+        // rewrites the schedule rule and hard-replaces every future booking in
+        // the series. Every sibling recurring-schedule route (POST, PUT [id],
+        // POST [id]/exception) already gated team_member_id/cleaner_id on
+        // getTerminatedTeamMemberIds; this one only checked tenant ownership,
+        // so this exact path could silently reassign a WHOLE regenerated series
+        // onto a let-go worker. Fixed this round (same guard, same place as the
+        // sibling routes). requirePermission needs headers()/cookies() this
+        // harness doesn't have, so this mirrors the route's own guarded write
+        // sequence directly, same reasoning as 5a-4/5a-6/5a-7 above.
+        if (helper?.id) {
+          const { data: regenSchedule } = await supabase.from('recurring_schedules').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, team_member_id: replacement.id,
+            recurring_type: 'weekly', day_of_week: 2, preferred_time: '09:00:00', duration_hours: 2,
+            hourly_rate: 55, status: 'active',
+          }).select('id').single()
+          add('regenerate: fresh recurring_schedules row seeded for the pattern-change probe', !!regenSchedule)
+
+          if (regenSchedule) {
+            const regenDates = [projectDaysFromNow(14, 9), projectDaysFromNow(21, 9)].map(d => d.slice(0, 10))
+
+            // Blocked attempt: admin changes the pattern AND reassigns to the
+            // just-terminated worker in the same save.
+            const regenBlockedIds = await getTerminatedTeamMemberIds(tenant.id, [worker.id])
+            add('regenerate: pattern-change + reassignment to the terminated worker is caught by the guard (would 400, no rule update, no regenerated bookings)', regenBlockedIds.includes(worker.id), JSON.stringify(regenBlockedIds))
+
+            const { data: scheduleUnchanged } = await supabase.from('recurring_schedules').select('team_member_id').eq('id', regenSchedule.id).single()
+            add('regenerate: blocked attempt never touched the schedule rule — still the original replacement assignee', scheduleUnchanged?.team_member_id === replacement.id, scheduleUnchanged?.team_member_id)
+
+            // CONTROL: same pattern-change save, reassigned to the active helper
+            // instead — proves the real end-to-end regenerate write (rule update
+            // + future-booking delete + re-insert) still succeeds for a
+            // legitimate reassignment.
+            const regenAllowedIds = await getTerminatedTeamMemberIds(tenant.id, [helper.id])
+            add('regenerate: CONTROL — the active helper is not flagged terminated', regenAllowedIds.length === 0, JSON.stringify(regenAllowedIds))
+
+            await supabase.from('recurring_schedules').update({ team_member_id: helper.id, day_of_week: 2 }).eq('id', regenSchedule.id)
+            const regenRows = regenDates.map(date => ({
+              tenant_id: tenant.id, client_id: job?.client_id || null, schedule_id: regenSchedule.id,
+              team_member_id: helper.id, start_time: `${date}T09:00:00`, end_time: `${date}T11:00:00`,
+              status: 'scheduled', service_type: 'Recurring maintenance visit',
+            }))
+            const { data: regenInserted, error: regenInsErr } = await supabase.from('bookings').insert(regenRows).select('id, team_member_id')
+            add('regenerate: CONTROL — corrected pattern-change regenerates the series onto the active helper, every new booking stamped correctly', !regenInsErr && (regenInserted || []).length === 2 && (regenInserted || []).every(r => r.team_member_id === helper.id), regenInsErr?.message || JSON.stringify(regenInserted))
+          }
+        }
       }
     }
 
