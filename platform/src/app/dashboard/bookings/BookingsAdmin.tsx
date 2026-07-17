@@ -38,7 +38,7 @@ interface Booking {
   recurring_type: string | null
   schedule_id: string | null
   actual_hours: number | null
-  cleaner_pay: number | null
+  team_member_pay: number | null
   check_in_time: string | null
   fifteen_min_alert_time: string | null
   check_out_time: string | null
@@ -46,8 +46,8 @@ interface Booking {
   check_out_location: Record<string, unknown> | null
   clients: { id: string; name: string; phone: string; address: string } | null
   cleaners: { id: string; name: string } | null
-  cleaner_paid: boolean | null
-  cleaner_paid_at: string | null
+  team_member_paid: boolean | null
+  team_member_paid_at: string | null
   cleaner_pay_rate: number | null
   walkthrough_video_url: string | null
   final_video_url: string | null
@@ -184,8 +184,8 @@ function BookingsPage() {
     discount_enabled: false, discount_percent: 10,
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
-    actual_hours: null as number | null, cleaner_pay: null as number | null,
-    cleaner_paid: false,
+    actual_hours: null as number | null, team_member_pay: null as number | null,
+    team_member_paid: false,
     team_size: 1,
     extra_cleaner_ids: [] as string[],
     max_hours: null as number | null,
@@ -563,12 +563,12 @@ function BookingsPage() {
   // Close-out: jobs needing attention (in_progress/completed with payment or cleaner pay pending)
   const closeOutJobs = bookings.filter(b =>
     (b.status === 'in_progress' || b.status === 'completed') &&
-    (b.payment_status !== 'paid' || !b.cleaner_paid)
+    (b.payment_status !== 'paid' || !b.team_member_paid)
   ).sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
 
   // Also show recently completed & fully closed (last 7 days) for reference
   const recentlyClosedJobs = bookings.filter(b => {
-    if (b.status !== 'completed' || b.payment_status !== 'paid' || !b.cleaner_paid) return false
+    if (b.status !== 'completed' || b.payment_status !== 'paid' || !b.team_member_paid) return false
     const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7)
     return new Date(b.start_time) >= sevenDaysAgo
   }).sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
@@ -645,8 +645,8 @@ function BookingsPage() {
       repeat_end_date: endDate3.toISOString().split('T')[0],
       custom_interval: 3,
       actual_hours: booking.actual_hours,
-      cleaner_pay: booking.cleaner_pay,
-      cleaner_paid: !!(booking as any).cleaner_paid,
+      team_member_pay: booking.team_member_pay,
+      team_member_paid: !!(booking as any).team_member_paid,
       team_size: (booking as any).team_size || 1,
       extra_cleaner_ids: [],
       max_hours: (booking as any).max_hours ?? null,
@@ -1545,7 +1545,7 @@ function BookingsPage() {
                           </button>
                           <div className="text-right">
                             <p className="text-[#1E2A4A] font-bold text-lg">${(b.price / 100).toFixed(0)}</p>
-                            {b.cleaner_pay ? <p className="text-gray-400 text-xs">Pay: ${(Number(b.cleaner_pay) / 100).toFixed(2)}</p> : null}
+                            {b.team_member_pay ? <p className="text-gray-400 text-xs">Pay: ${(Number(b.team_member_pay) / 100).toFixed(2)}</p> : null}
                           </div>
                         </div>
                         {/* Close out controls */}
@@ -1615,15 +1615,15 @@ function BookingsPage() {
                           {/* Cleaner Paid */}
                           <button
                             disabled={isSaving}
-                            onClick={() => handleCloseOutUpdate(b.id, { cleaner_paid: !b.cleaner_paid })}
+                            onClick={() => handleCloseOutUpdate(b.id, { team_member_paid: !b.team_member_paid })}
                             className={'flex items-center gap-2 px-3 py-2 rounded-lg text-sm font-medium transition-all border ' +
-                              (b.cleaner_paid
+                              (b.team_member_paid
                                 ? 'bg-green-50 border-green-200 text-green-700'
                                 : 'bg-gray-50 border-gray-200 text-gray-500 hover:border-green-300 hover:bg-green-50/50')}
                           >
                             <span className={'w-5 h-5 rounded-full border-2 flex items-center justify-center flex-shrink-0 ' +
-                              (b.cleaner_paid ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
-                              {b.cleaner_paid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
+                              (b.team_member_paid ? 'border-green-500 bg-green-500' : 'border-gray-300')}>
+                              {b.team_member_paid && <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" /></svg>}
                             </span>
                             Team Paid
                           </button>
@@ -2012,7 +2012,7 @@ function BookingsPage() {
                     <div className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center gap-2 flex-wrap">
                       <span>Check-out:</span>
                       <input type="datetime-local" value={editCheckOutVal} onChange={(e) => setEditCheckOutVal(e.target.value)} className="bg-white border border-green-200 rounded px-1 py-0.5 text-xs" />
-                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, cleaner_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, cleaner_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, cleaner_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
+                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_member_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
                       <button type="button" onClick={() => setEditCheckOutVal(null)} className="px-2 py-0.5 border border-green-300 rounded text-[10px]">Cancel</button>
                     </div>
                   )
@@ -2027,7 +2027,7 @@ function BookingsPage() {
                     ) : (
                       <div className="flex-1 flex gap-1.5">
                         <button type="button" onClick={() => setConfirmCheckout(false)} className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs">Cancel</button>
-                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, cleaner_pay: cleanerPay, cleaner_id: form.cleaner_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, cleaner_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, cleaner_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
+                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay, cleaner_id: form.cleaner_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_member_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, team_member_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
                       </div>
                     )}
                   </div>
@@ -2161,15 +2161,15 @@ function BookingsPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Hours</label>
-                    <input type="number" step="0.5" min="0" value={form.actual_hours ?? ''} onChange={(e) => { const hrs = e.target.value ? parseFloat(e.target.value) : null; const cr = cleaners.find(c => c.id === form.cleaner_id)?.hourly_rate || 25; setForm({ ...form, actual_hours: hrs, cleaner_pay: hrs ? Math.round(hrs * cr * 100) : null }) }} placeholder="—" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                    <input type="number" step="0.5" min="0" value={form.actual_hours ?? ''} onChange={(e) => { const hrs = e.target.value ? parseFloat(e.target.value) : null; const cr = cleaners.find(c => c.id === form.cleaner_id)?.hourly_rate || 25; setForm({ ...form, actual_hours: hrs, team_member_pay: hrs ? Math.round(hrs * cr * 100) : null }) }} placeholder="—" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Team Pay</label>
-                    <input type="number" step="0.01" min="0" value={form.cleaner_pay != null ? (form.cleaner_pay / 100).toFixed(2) : ''} onChange={(e) => setForm({ ...form, cleaner_pay: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })} placeholder="auto" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                    <input type="number" step="0.01" min="0" value={form.team_member_pay != null ? (form.team_member_pay / 100).toFixed(2) : ''} onChange={(e) => setForm({ ...form, team_member_pay: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })} placeholder="auto" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Team Paid</label>
-                    <select value={form.cleaner_paid ? 'paid' : 'not_paid'} onChange={(e) => setForm({ ...form, cleaner_paid: e.target.value === 'paid' })} className={'w-full px-2 py-1.5 border rounded-lg text-sm ' + (form.cleaner_paid ? 'border-green-300 text-green-700 bg-green-50' : 'border-green-300 text-[#1E2A4A] bg-white')}>
+                    <select value={form.team_member_paid ? 'paid' : 'not_paid'} onChange={(e) => setForm({ ...form, team_member_paid: e.target.value === 'paid' })} className={'w-full px-2 py-1.5 border rounded-lg text-sm ' + (form.team_member_paid ? 'border-green-300 text-green-700 bg-green-50' : 'border-green-300 text-[#1E2A4A] bg-white')}>
                       <option value="not_paid">No</option><option value="paid">Yes</option>
                     </select>
                   </div>

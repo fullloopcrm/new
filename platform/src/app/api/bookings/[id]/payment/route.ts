@@ -21,7 +21,16 @@ export async function PATCH(
     if (payment_method) update.payment_method = payment_method
     if (tip_amount !== undefined) update.tip_amount = tip_amount
     if (actual_hours !== undefined) update.actual_hours = actual_hours
-    if (team_pay !== undefined) update.team_pay = team_pay
+    if (team_pay !== undefined) {
+      update.team_pay = team_pay
+      // Mirror onto team_member_pay -- the amount field every finance/payroll
+      // report actually sums (payroll-prep, payroll, pnl, cleaner-income,
+      // tax-export, summary all read team_member_pay; none read team_pay).
+      // team_paid already mirrors onto team_member_paid below; the amount
+      // itself never did, so a job whose pay was only ever recorded through
+      // this page showed $0/null everywhere payroll actually looks.
+      update.team_member_pay = team_pay
+    }
     if (team_paid !== undefined) {
       update.team_paid = team_paid
       // Mirror onto team_member_paid/team_member_paid_at — the fields

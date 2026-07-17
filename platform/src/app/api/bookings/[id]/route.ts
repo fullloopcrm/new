@@ -53,7 +53,7 @@ export async function PUT(
     const { tenantId } = tenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price'])
+    const fields = pick(body, ['client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'team_member_pay', 'team_member_paid', 'discount_enabled', 'price'])
 
     // client_id/team_member_id are caller-supplied; verify each belongs to this
     // tenant before writing it — the response (and every later GET) joins
@@ -79,6 +79,34 @@ export async function PUT(
         .single()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Invalid team_member_id' }, { status: 404 })
+      }
+    }
+
+    // team_member_paid is what GET /api/finance/payroll's claim excludes on
+    // (already-settled-out-of-band) and what the payout ledger is keyed
+    // against -- flipping it true here (e.g. dashboard/bookings' "Team Paid"
+    // toggle recording a manual/cash payment) needs the same paid_at
+    // bookkeeping every other paid-flag flip in this codebase gets.
+    if (fields.team_member_paid === true) {
+      fields.team_member_paid_at = new Date().toISOString()
+    }
+    // Never let this general-purpose toggle unset team_member_paid once a
+    // real payout row exists on file (POST /api/admin/bookings/[id]/cleaner-payout,
+    // Stripe auto-payout, team-portal checkout) -- same "forward-only" policy
+    // as PATCH .../payment's team_paid->team_member_paid mirror: that payout
+    // record is the actual settlement; an accidental un-toggle here re-opens
+    // the booking to bulk payroll's claim query and pays it a second time.
+    if (fields.team_member_paid === false) {
+      const { count } = await supabaseAdmin
+        .from('team_member_payouts')
+        .select('id', { count: 'exact', head: true })
+        .eq('tenant_id', tenantId)
+        .eq('booking_id', id)
+      if ((count || 0) > 0) {
+        return NextResponse.json(
+          { error: 'This job has a real payout on file and cannot be marked unpaid here.' },
+          { status: 409 }
+        )
       }
     }
 

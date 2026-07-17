@@ -12,6 +12,14 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * or a manual cleaner-payout, an unintentional double-pay door parallel to
  * the one the team_member_paid field was originally built to close. Fixed
  * by mirroring team_paid:true onto team_member_paid/team_member_paid_at.
+ *
+ * The boolean mirror above left the AMOUNT unmirrored: every finance/payroll
+ * report (payroll-prep, payroll, pnl, cleaner-income, tax-export, summary)
+ * sums team_member_pay, never team_pay — this route only ever wrote team_pay.
+ * A job whose pay was entered/edited only through this page showed $0/null
+ * everywhere payroll actually looks, even after "Mark Team Paid". Fixed by
+ * mirroring team_pay onto team_member_pay too, alongside the existing
+ * boolean mirror.
  */
 
 const TENANT_A = 'aaaaaaaa-0000-0000-0000-00000000000a'
@@ -98,5 +106,21 @@ describe('PATCH /api/bookings/[id]/payment — team_paid mirrors onto team_membe
     expect(res.status).toBe(200)
     expect(DB.bookings[0].team_paid).toBe(false)
     expect(DB.bookings[0].team_member_paid).toBe(true) // not clobbered
+  })
+})
+
+describe('PATCH /api/bookings/[id]/payment — team_pay mirrors onto team_member_pay', () => {
+  it('setting team_pay also writes team_member_pay (the field payroll actually sums)', async () => {
+    const res = await PATCH(req({ team_pay: 15000 }), { params: Promise.resolve({ id: BOOKING_ID }) })
+    expect(res.status).toBe(200)
+    expect(DB.bookings[0].team_pay).toBe(15000)
+    expect(DB.bookings[0].team_member_pay).toBe(15000)
+  })
+
+  it('does not touch team_member_pay when team_pay is not in the request', async () => {
+    DB.bookings[0].team_member_pay = 9000 // e.g. already computed via another path
+    const res = await PATCH(req({ payment_status: 'paid' }), { params: Promise.resolve({ id: BOOKING_ID }) })
+    expect(res.status).toBe(200)
+    expect(DB.bookings[0].team_member_pay).toBe(9000) // untouched
   })
 })
