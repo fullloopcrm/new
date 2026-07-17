@@ -50,3 +50,46 @@ export function minutesSince(ts: string): number {
   if (!start) return 0
   return Math.max(0, (Date.now() - start.getTime()) / (1000 * 60))
 }
+
+/**
+ * ET calendar-day parts (year/month/day) for a given instant. Use this
+ * instead of `date.getFullYear()/getMonth()/getDate()`, which read the
+ * SERVER's local calendar (UTC on Vercel) -- a full day ahead of ET for
+ * ~4-5h every evening.
+ */
+export function etYMD(date: Date): { y: number; m: number; d: number } {
+  const [y, m, d] = date.toLocaleDateString('en-CA', { timeZone: 'America/New_York' }).split('-').map(Number)
+  return { y, m, d }
+}
+
+/**
+ * ET's actual UTC offset (in minutes, negative) covering the given instant --
+ * -300 for EST, -240 for EDT. Needed because ET isn't a fixed offset;
+ * DST flips it twice a year.
+ */
+function etUtcOffsetMinutes(at: Date): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    timeZoneName: 'shortOffset',
+  }).formatToParts(at)
+  const tzName = parts.find((p) => p.type === 'timeZoneName')?.value || 'GMT-5'
+  const match = tzName.match(/GMT([+-]\d+)/)
+  return match ? parseInt(match[1], 10) * 60 : -300
+}
+
+/**
+ * True UTC instant for ET midnight of the given ET calendar date. Needed for
+ * boundary comparisons against TIMESTAMPTZ columns (created_at, payment_date,
+ * etc) -- unlike bookings.start_time's naive-ET TIMESTAMP columns (which take
+ * a naive ET wall-clock string), an aware column needs a real UTC instant,
+ * and using it needs the actual EST/EDT offset for that date rather than a
+ * fixed -5h assumption.
+ */
+export function etMidnightUtc(year: number, month: number, day: number): Date {
+  // Guess offset using a UTC anchor within the same calendar day for either
+  // offset (05:00 UTC is ET midnight under EST; still Jan/Feb-plausible for
+  // offset detection since DST doesn't change within a few hours of this
+  // anchor).
+  const offsetMinutes = etUtcOffsetMinutes(new Date(Date.UTC(year, month - 1, day, 5, 0, 0)))
+  return new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMinutes * 60 * 1000)
+}
