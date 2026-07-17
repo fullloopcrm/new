@@ -53,4 +53,18 @@ describe('middleware.ts admin-impersonation bypass list — dashboard-fetched ro
       ).toBe(true)
     }
   })
+
+  it('covers /api/push (H-01 class — the AdminSidebar/DashboardHeader push-notification toggle)', () => {
+    const src = middlewareSource()
+    // POST /api/push/subscribe's role:'admin' branch (the default) calls
+    // getTenantForRequest() same as every route above. Its only live
+    // dashboard caller is <PushPrompt role="admin" /> in AdminSidebar.tsx /
+    // DashboardHeader.tsx on nyc-mobile-salon, wash-and-fold-nyc, and
+    // wash-and-fold-hoboken.
+    expect(
+      src.includes(`p.startsWith('/api/push')`),
+      "middleware.ts admin-impersonation bypass list no longer covers '/api/push' — " +
+        'admin-impersonated requests to the push-notification toggle will fall through to the /sign-in redirect.',
+    ).toBe(true)
+  })
 })

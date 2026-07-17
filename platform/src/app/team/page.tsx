@@ -610,7 +610,11 @@ export default function TeamHomePage() {
       const formData = new FormData()
       formData.append('file', compressed)
       formData.append('folder', 'avatars')
-      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
+      const res = await fetch('/api/uploads', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${auth.token}` },
+        body: formData,
+      })
       if (res.ok) {
         const data = await res.json()
         const saveRes = await fetch(`/api/team/${auth.member.id}`, {

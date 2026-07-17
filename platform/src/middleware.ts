@@ -306,7 +306,14 @@ export default async function middleware(req: NextRequest) {
           // admin-impersonated request to any of them fell through to the
           // /sign-in redirect below instead of running.
           p.startsWith('/api/booking-notes') || p.startsWith('/api/projects') ||
-          p.startsWith('/api/permissions') || p.startsWith('/api/ai')) {
+          p.startsWith('/api/permissions') || p.startsWith('/api/ai') ||
+          // Same H-01 class again: the "admin" role branch of
+          // POST /api/push/subscribe (the notification-bell toggle in
+          // AdminSidebar/DashboardHeader on nyc-mobile-salon and the two
+          // wash-and-fold-* tenant-dashboard clones) resolves tenant via
+          // getTenantForRequest() same as every route above, but /api/push
+          // had no prefix here either.
+          p.startsWith('/api/push')) {
         return
       }
     }

@@ -2,17 +2,28 @@ import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getPortalAuth } from '@/lib/team-portal-auth'
 
 const MAX_SIZE = 5 * 1024 * 1024 // 5MB
 const ALLOWED_TYPES = ['image/jpeg', 'image/png', 'image/webp', 'application/pdf']
 
 export async function POST(request: NextRequest) {
-  let tenant
-  try {
-    tenant = await getTenantForRequest()
-  } catch (err) {
-    if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+  // Team-portal callers (e.g. the team-member photo-upload in app/team/page.tsx)
+  // carry a PIN-portal bearer token, never a Clerk session or admin_token
+  // cookie — getTenantForRequest() only recognizes the latter two, so a portal
+  // token must be checked first or every portal upload 401s unconditionally.
+  let tenantId: string
+  const portalAuth = getPortalAuth(request)
+  if (portalAuth) {
+    tenantId = portalAuth.tid
+  } else {
+    try {
+      const tenant = await getTenantForRequest()
+      tenantId = tenant.tenantId
+    } catch (err) {
+      if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    }
   }
 
   const formData = await request.formData()
@@ -26,7 +37,7 @@ export async function POST(request: NextRequest) {
   const rawExt = (file.name.split('.').pop() || 'bin').toLowerCase()
   const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'bin'
   const safeFolder = String(folder).replace(/[^a-zA-Z0-9_-]/g, '') || 'general'
-  const path = `${tenant.tenantId}/${safeFolder}/${Date.now()}-${randomBytes(8).toString('hex')}.${ext}`
+  const path = `${tenantId}/${safeFolder}/${Date.now()}-${randomBytes(8).toString('hex')}.${ext}`
 
   const buffer = Buffer.from(await file.arrayBuffer())
 
