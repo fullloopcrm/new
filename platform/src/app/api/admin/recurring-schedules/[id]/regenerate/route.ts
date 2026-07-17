@@ -171,15 +171,29 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
   // 4. New rows are in; now retire the old future ones by exact id (never hits
-  // the rows we just created).
+  // the rows we just created). A single multi-row DELETE is atomic in
+  // Postgres: if ANY old row has since picked up a payment (payments.booking_id
+  // has no ON DELETE action — same RESTRICT case as booking-delete-guard.ts —
+  // e.g. a deposit collected via /api/payments/link, which never checks
+  // booking status), the whole DELETE is rejected and every old row survives.
+  // The new rows from step 3 are already committed, so a swallowed error here
+  // used to leave duplicate old+new bookings on the calendar while still
+  // reporting `success: true` — exactly the double-booking outcome this
+  // route's own atomic-claim step was written to prevent. Surface it instead.
   let removedCount = 0
   if (oldIds.length > 0) {
-    const { data: removed } = await supabaseAdmin
+    const { data: removed, error: delErr } = await supabaseAdmin
       .from('bookings')
       .delete()
       .eq('tenant_id', tenantId)
       .in('id', oldIds)
       .select('id')
+    if (delErr) {
+      return NextResponse.json({
+        error: 'New bookings were created, but one or more of the old series bookings could not be removed (likely because a payment was already collected against it) — the calendar now has both old and new bookings for this series. Cancel the affected old booking(s) manually.',
+        bookings_created: created?.length || 0,
+      }, { status: 409 })
+    }
     removedCount = removed?.length || 0
   }
 
