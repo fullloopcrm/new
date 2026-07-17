@@ -18,11 +18,17 @@ import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { decryptSecret } from '@/lib/secret-crypto'
 import Stripe from 'stripe'
 
-function getStripe(): Stripe {
-  if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
-  return new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
+// Webhook signature verification and the platform's own subscription-billing
+// customer lookup always use the platform key (no arg). Cleaner Connect
+// payouts below use the tenant's own key when set — see payment-processor.ts
+// and stripe-status.ts for the same convention.
+function getStripe(key?: string | null): Stripe {
+  const apiKey = key ? decryptSecret(key) : process.env.STRIPE_SECRET_KEY
+  if (!apiKey) throw new Error('Stripe not configured')
+  return new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 }
 
 // Looks up a tenant for a Full Loop subscription-billing webhook. Prefers the
@@ -410,7 +416,7 @@ export async function POST(request: Request) {
       // Look up booking + cleaner + tenant for tip math
       const { data: booking } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone)')
+        .select('id, client_id, team_member_id, hourly_rate, pay_rate, team_member_pay, actual_hours, price, team_members!bookings_team_member_id_fkey(name, phone, pay_rate, stripe_account_id, preferred_language), clients(name, phone, address), tenants(name, telnyx_api_key, telnyx_phone, stripe_api_key)')
         .eq('id', bookingId)
         .eq('tenant_id', tenantId)
         .single()
@@ -422,7 +428,7 @@ export async function POST(request: Request) {
 
       const tm = booking.team_members as unknown as { name?: string; phone?: string; stripe_account_id?: string; preferred_language?: string } | null
       const client = booking.clients as unknown as { name?: string; phone?: string; address?: string | null } | null
-      const tenant = booking.tenants as unknown as { name?: string; telnyx_api_key?: string; telnyx_phone?: string } | null
+      const tenant = booking.tenants as unknown as { name?: string; telnyx_api_key?: string; telnyx_phone?: string; stripe_api_key?: string | null } | null
 
       const amountCents = session.amount_total || 0
       const hours = booking.actual_hours || (booking.price && booking.hourly_rate ? booking.price / 100 / booking.hourly_rate : null)
@@ -515,7 +521,13 @@ export async function POST(request: Request) {
           const cleanerHours = Math.max(0.5, cleanerPaidHours((hours || 0) * 60))
           const cleanerBaseCents = storedPay && storedPay > 0 ? storedPay : Math.round(cleanerHours * cleanerRate * 100)
           const cleanerCents = cleanerBaseCents + tipCents
-          const transfer = await stripe.transfers.create({
+          // The Connect sub-account (tm.stripe_account_id) was created under
+          // the TENANT's own Stripe account when tenant.stripe_api_key is
+          // set (see team-members/[id]/stripe-onboard) — must transfer from
+          // that same account, not the platform's, or Stripe returns
+          // resource-not-found and the cleaner never gets auto-paid.
+          const stripeForPayout = getStripe(tenant?.stripe_api_key)
+          const transfer = await stripeForPayout.transfers.create({
             amount: cleanerCents,
             currency: 'usd',
             destination: tm.stripe_account_id,
@@ -526,7 +538,7 @@ export async function POST(request: Request) {
           // funds land immediately, not on the standard Connect schedule. The
           // transfer already landed; a failed instant payout is non-fatal.
           if (isNycMaid(tenantId)) {
-            await stripe.payouts.create(
+            await stripeForPayout.payouts.create(
               { amount: cleanerCents, currency: 'usd', method: 'instant' },
               { stripeAccount: tm.stripe_account_id },
             ).catch((err) => console.error('[stripe] NYC Maid instant payout failed (transfer landed):', err))
