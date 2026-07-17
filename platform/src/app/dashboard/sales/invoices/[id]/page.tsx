@@ -156,6 +156,18 @@ export default function InvoiceDetailPage() {
     setMsg('Invoice voided'); load()
   })
 
+  const refundInv = () => doAction('refund', async () => {
+    if (!confirm(`Refund ${formatCents(invoice?.amount_paid_cents || 0)}? This marks the invoice refunded and reverses it in the ledger.`)) return
+    const reason = prompt('Refund reason (optional):') || ''
+    const res = await fetch(`/api/invoices/${id}/refund`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ reason }),
+    })
+    const data = await res.json()
+    if (!res.ok) throw new Error(data.error || 'Failed')
+    setMsg(`Refunded ${formatCents(data.refunded_cents)}`); load()
+  })
+
   const delDraft = () => doAction('delete', async () => {
     if (!confirm('Delete this draft invoice?')) return
     const res = await fetch(`/api/invoices/${id}?hard=1`, { method: 'DELETE' })
@@ -172,6 +184,7 @@ export default function InvoiceDetailPage() {
   const canSend = !['void', 'refunded'].includes(invoice.status)
   const canRecord = !['paid', 'void', 'refunded'].includes(invoice.status)
   const canVoid = !['paid', 'void', 'refunded'].includes(invoice.status) && invoice.status !== 'draft'
+  const canRefund = !['void', 'refunded'].includes(invoice.status) && (invoice.amount_paid_cents || 0) > 0
   const canDelete = invoice.status === 'draft' && (invoice.amount_paid_cents || 0) === 0
 
   return (
@@ -229,6 +242,12 @@ export default function InvoiceDetailPage() {
         {publicUrl && (
           <button onClick={copyLink} className="px-3 py-1.5 text-xs font-medium rounded bg-white border border-slate-300 hover:bg-slate-50">
             Copy public link
+          </button>
+        )}
+        {canRefund && (
+          <button onClick={refundInv} disabled={!!busy}
+            className="px-3 py-1.5 text-xs font-medium rounded bg-white border border-red-200 text-red-600 hover:bg-red-50">
+            {busy === 'refund' ? 'Refunding…' : 'Refund'}
           </button>
         )}
         {canDelete && (

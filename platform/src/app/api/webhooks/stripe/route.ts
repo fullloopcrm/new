@@ -16,6 +16,7 @@ import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, postChargebackReversalToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { markInvoicePaymentRefunded } from '@/lib/invoice'
 import Stripe from 'stripe'
 import { escapeHtml } from '@/lib/escape-html'
 
@@ -616,6 +617,20 @@ export async function POST(request: Request) {
           // Fallback when the refunds list isn't expanded on the event.
           await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
             .catch(err => console.error('[stripe] refund post failed:', err))
+        }
+
+        // The ledger posting above only reverses the GL entry — it never
+        // touched the invoice/payment records, so an invoice paid via Stripe
+        // stayed 'paid' forever even after a full refund. Flip it here on a
+        // full-charge refund only (partial refund of one charge has no clean
+        // representation on a single payment row — left to the ledger).
+        if (resolved.invoiceId && resolved.paymentId && charge.amount_refunded >= charge.amount) {
+          await markInvoicePaymentRefunded({
+            tenantId: resolved.tenantId,
+            invoiceId: resolved.invoiceId,
+            paymentId: resolved.paymentId,
+            reason: 'Stripe refund',
+          }).catch(err => console.error('[stripe] invoice refund flip failed:', err))
         }
       }
       break

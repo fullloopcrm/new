@@ -38,6 +38,7 @@ const TABS = [
   { value: 'paid', label: 'Paid' },
   { value: 'overdue', label: 'Overdue' },
   { value: 'void', label: 'Void' },
+  { value: 'refunded', label: 'Refunded' },
 ]
 
 function formatCents(cents: number): string {
