@@ -10,6 +10,7 @@ import {
   type QuoteLineItem,
   type QuoteTotals,
 } from './quote'
+import { etToday, formatNaiveET, parseNaiveET, addCalendarDays, daysInCalendarMonth } from './recurring'
 
 export type InvoiceLineItem = QuoteLineItem
 export type InvoiceTotals = QuoteTotals
@@ -20,11 +21,20 @@ export function generateInvoicePublicToken(): string {
 }
 
 export async function generateInvoiceNumber(tenantId: string): Promise<string> {
-  const now = new Date()
-  const yyyy = now.getUTCFullYear()
-  const mm = String(now.getUTCMonth() + 1).padStart(2, '0')
-  const monthStart = new Date(Date.UTC(yyyy, now.getUTCMonth(), 1))
-  const nextMonth = new Date(Date.UTC(yyyy, now.getUTCMonth() + 1, 1))
+  // yyyy/mm reads the SERVER's UTC calendar month, not ET -- an invoice
+  // generated in the evening ET on the last day of any month (e.g. Jul 31
+  // 9pm ET = Aug 1 UTC) got numbered into the WRONG, not-yet-arrived month
+  // (INV-202608-0001 while every other system still says July), and its
+  // sequence count restarted early since the window compared against real
+  // UTC-Aug created_at rows instead of the July ones that actually exist so
+  // far. Same day/month-boundary class as this session's other UTC-vs-ET
+  // finds (see recurring.ts's etToday()/parseNaiveET() headers).
+  const monthStartCal = { ...etToday(), day: 1 }
+  const nextMonthStartCal = addCalendarDays(monthStartCal, daysInCalendarMonth(monthStartCal))
+  const monthStart = parseNaiveET(formatNaiveET(monthStartCal))
+  const nextMonth = parseNaiveET(formatNaiveET(nextMonthStartCal))
+  const yyyy = monthStartCal.year
+  const mm = String(monthStartCal.month + 1).padStart(2, '0')
 
   const { count } = await supabaseAdmin
     .from('invoices')
