@@ -10,6 +10,7 @@ import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import TrustBadges from '@/app/site/template/_components/TrustBadges'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 const emergencyTypes = [
   {
@@ -187,13 +188,18 @@ const faqData = [
 export async function generateMetadata(): Promise<Metadata> {
   const brand = toBrand(await getSiteConfig())
   const url = `${brand.url}/service/nyc-emergency-cleaning-service`
+  const override = await getSeoOverride(url)
+  const title = override?.title || `Emergency Cleaning Service NYC — 24/7 Response | ${brand.name}`
+  const description = override?.description || `NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text ${brand.phone}.`
+  const ogTitle = override?.title || `Emergency Cleaning Service NYC | ${brand.name}`
+  const ogDescription = override?.description || 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.'
   return {
-    title: `Emergency Cleaning Service NYC — 24/7 Response | ${brand.name}`,
-    description: `NYC emergency cleaning — water damage, fire, sewage, biohazard & mold. 24/7 rapid response with pro equipment. What to do, what not to do. Text ${brand.phone}.`,
+    title,
+    description,
     alternates: { canonical: url },
     openGraph: {
-      title: `Emergency Cleaning Service NYC | ${brand.name}`,
-      description: 'Rapid-response emergency cleaning across NYC. Water damage, fire, biohazard & more. Available 24/7.',
+      title: ogTitle,
+      description: ogDescription,
       url,
     },
   }

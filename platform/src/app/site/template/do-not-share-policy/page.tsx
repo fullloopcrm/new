@@ -4,12 +4,14 @@ import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
 import { doNotSellDoc } from '@/app/site/template/_lib/legal'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const override = await getSeoOverride(`${config.identity.url}/do-not-share-policy`)
   return {
-    title: `Do Not Sell or Share My Personal Information | ${config.identity.name}`,
-    description: `California residents: how to opt out of the sale or sharing of your personal information with ${config.identity.name}.`,
+    title: override?.title || `Do Not Sell or Share My Personal Information | ${config.identity.name}`,
+    description: override?.description || `California residents: how to opt out of the sale or sharing of your personal information with ${config.identity.name}.`,
     alternates: { canonical: '/do-not-share-policy' },
   }
 }

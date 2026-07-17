@@ -4,12 +4,14 @@ import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
 import { refundDoc } from '@/app/site/template/_lib/legal'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const override = await getSeoOverride(`${config.identity.url}/refund-policy`)
   return {
-    title: `Refund Policy | ${config.identity.name}`,
-    description: `${config.identity.name}'s satisfaction, re-service, cancellation, and refund policy.`,
+    title: override?.title || `Refund Policy | ${config.identity.name}`,
+    description: override?.description || `${config.identity.name}'s satisfaction, re-service, cancellation, and refund policy.`,
     alternates: { canonical: '/refund-policy' },
   }
 }

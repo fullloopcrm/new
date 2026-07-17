@@ -6,6 +6,7 @@ import { VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { CITIES, STATES } from '@/app/site/template/_data/us-locations'
 import type { Section } from '@/app/site/template/_lib/va-content'
 import VASeoPage, { type RelatedGroup } from '@/app/site/template/_components/VASeoPage'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export const dynamic = 'force-dynamic'
 
@@ -13,11 +14,12 @@ export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
   if (!industryProfile(config.industry).isVirtualAssistant) return {}
   const url = `${config.identity.url.replace(/\/+$/, '')}/virtual-assistant-services`
+  const override = await getSeoOverride(url)
   return {
-    title: `Virtual Assistant Services — From $8/hr | ${config.identity.name}`,
-    description: `Every virtual assistant service: call answering, admin, CRM management, email, customer support, and more. Real English-speaking, American-owned assistants from $8/hour.`,
+    title: override?.title || `Virtual Assistant Services — From $8/hr | ${config.identity.name}`,
+    description: override?.description || `Every virtual assistant service: call answering, admin, CRM management, email, customer support, and more. Real English-speaking, American-owned assistants from $8/hour.`,
     alternates: { canonical: url },
-    openGraph: { title: 'Virtual Assistant Services', description: 'From $8/hour. American-owned, English-speaking assistants.', url, type: 'website' },
+    openGraph: { title: override?.title || 'Virtual Assistant Services', description: override?.description || 'From $8/hour. American-owned, English-speaking assistants.', url, type: 'website' },
   }
 }
 

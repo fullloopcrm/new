@@ -7,6 +7,7 @@ import { getVAServiceBySlug, VA_SERVICES } from '@/app/site/template/_data/va-se
 import { CITIES } from '@/app/site/template/_data/us-locations'
 import { serviceSections, type Section } from '@/app/site/template/_lib/va-content'
 import VASeoPage, { type RelatedGroup } from '@/app/site/template/_components/VASeoPage'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 interface Props {
   params: Promise<{ service: string }>
@@ -24,11 +25,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const config = await getSiteConfig()
   if (!service || !industryProfile(config.industry).isVirtualAssistant) return {}
   const url = `${config.identity.url.replace(/\/+$/, '')}/virtual-assistant-services/${service.slug}`
+  const override = await getSeoOverride(url)
   return {
-    title: `${service.name} Virtual Assistant — From $8/hr | ${config.identity.name}`,
-    description: `Hire a ${service.shortName.toLowerCase()} virtual assistant from $8/hour. ${service.tagline} Real English-speaking assistants, American-owned, 24/7. Serving the entire U.S.`,
+    title: override?.title || `${service.name} Virtual Assistant — From $8/hr | ${config.identity.name}`,
+    description: override?.description || `Hire a ${service.shortName.toLowerCase()} virtual assistant from $8/hour. ${service.tagline} Real English-speaking assistants, American-owned, 24/7. Serving the entire U.S.`,
     alternates: { canonical: url },
-    openGraph: { title: `${service.name} Virtual Assistant`, description: service.tagline, url, type: 'website' },
+    openGraph: { title: override?.title || `${service.name} Virtual Assistant`, description: override?.description || service.tagline, url, type: 'website' },
   }
 }
 

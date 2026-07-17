@@ -4,12 +4,14 @@ import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
 import { termsDoc } from '@/app/site/template/_lib/legal'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const override = await getSeoOverride(`${config.identity.url}/terms-conditions`)
   return {
-    title: `Terms & Conditions | ${config.identity.name}`,
-    description: `The terms that govern ${config.identity.name}'s website and services.`,
+    title: override?.title || `Terms & Conditions | ${config.identity.name}`,
+    description: override?.description || `The terms that govern ${config.identity.name}'s website and services.`,
     alternates: { canonical: '/terms-conditions' },
   }
 }

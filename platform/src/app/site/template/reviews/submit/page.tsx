@@ -5,17 +5,22 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import ReviewForm from './ReviewForm'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = toBrand(await getSiteConfig())
+  const url = `${brand.url}/reviews/submit`
+  const override = await getSeoOverride(url)
+  const title = override?.title || `Leave a Review | ${brand.name}`
+  const description = override?.description || `Share your experience with ${brand.name}. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.`
   return {
-    title: `Leave a Review | ${brand.name}`,
-    description: `Share your experience with ${brand.name}. Your honest feedback helps other New Yorkers find trusted, reliable cleaning services.`,
+    title,
+    description,
     alternates: { canonical: '/reviews/submit' },
     openGraph: {
-      title: `Leave a Review | ${brand.name}`,
-      description: `Share your experience with ${brand.name} cleaning service.`,
-      url: `${brand.url}/reviews/submit`,
+      title,
+      description,
+      url,
     },
   }
 }

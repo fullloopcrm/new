@@ -3,19 +3,22 @@ import Link from 'next/link'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { blogPosts } from '@/app/site/template/_lib/content/longform'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
   const p = industryProfile(config.industry)
-  const title = `${config.identity.name} Blog — ${p.serviceLabel} Tips & Guides`
-  const description = `Practical guides and honest advice about ${p.serviceNoun}: how to choose a company, what to expect, pricing, and more — from ${config.identity.name}.`
+  const url = `${config.identity.url}/blog`
+  const override = await getSeoOverride(url)
+  const title = override?.title || `${config.identity.name} Blog — ${p.serviceLabel} Tips & Guides`
+  const description = override?.description || `Practical guides and honest advice about ${p.serviceNoun}: how to choose a company, what to expect, pricing, and more — from ${config.identity.name}.`
   return {
     title,
     description,
-    alternates: { canonical: `${config.identity.url}/blog` },
-    openGraph: { title, description, url: `${config.identity.url}/blog` },
+    alternates: { canonical: url },
+    openGraph: { title, description, url },
   }
 }
 

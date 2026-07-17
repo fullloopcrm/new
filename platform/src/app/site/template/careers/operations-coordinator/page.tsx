@@ -4,6 +4,7 @@ import { organizationSchema, webSiteSchema, webPageSchema, breadcrumbSchema, faq
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 
 function coordinatorMeta(brandName: string) {
@@ -15,7 +16,10 @@ function coordinatorMeta(brandName: string) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
-  const { title: pageTitle, description: pageDescription } = coordinatorMeta(config.identity.name)
+  const defaults = coordinatorMeta(config.identity.name)
+  const override = await getSeoOverride(`${config.identity.url}/careers/operations-coordinator`)
+  const pageTitle = override?.title || defaults.title
+  const pageDescription = override?.description || defaults.description
   return {
     title: pageTitle,
     description: pageDescription,

@@ -4,12 +4,14 @@ import { breadcrumbSchema } from '@/app/site/template/_lib/seo/schema'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import LegalDoc from '@/app/site/template/_components/LegalDoc'
 import { privacyPolicyDoc } from '@/app/site/template/_lib/legal'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
+  const override = await getSeoOverride(`${config.identity.url}/privacy-policy`)
   return {
-    title: `Privacy Policy | ${config.identity.name}`,
-    description: `How ${config.identity.name} collects, uses, shares, and protects your information. We do not sell your personal data.`,
+    title: override?.title || `Privacy Policy | ${config.identity.name}`,
+    description: override?.description || `How ${config.identity.name} collects, uses, shares, and protects your information. We do not sell your personal data.`,
     alternates: { canonical: '/privacy-policy' },
   }
 }

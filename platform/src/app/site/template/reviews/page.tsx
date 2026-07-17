@@ -9,17 +9,22 @@ import ReviewsList from './ReviewsList'
 import { getSiteConfig } from '@/app/site/template/_config/load'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import { reviewsContent } from '@/app/site/template/_lib/content/longform'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 export const dynamic = 'force-dynamic'
 
 export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
   const c = reviewsContent(config)
+  const url = `${config.identity.url}/reviews`
+  const override = await getSeoOverride(url)
+  const title = override?.title || c.title
+  const description = override?.description || c.metaDescription
   return {
-    title: c.title,
-    description: c.metaDescription,
-    alternates: { canonical: `${config.identity.url}/reviews` },
-    openGraph: { title: c.title, description: c.metaDescription, url: `${config.identity.url}/reviews` },
+    title,
+    description,
+    alternates: { canonical: url },
+    openGraph: { title, description, url },
   }
 }
 

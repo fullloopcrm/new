@@ -10,6 +10,7 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import JsonLd from '@/app/site/template/_components/JsonLd'
 import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import CTABlock from '@/app/site/template/_components/CTABlock'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 const allNeighborhoods = AREAS.flatMap(a => getNeighborhoodsByArea(a.slug))
 const totalNeighborhoods = allNeighborhoods.length
@@ -33,7 +34,10 @@ function areasMeta(brand: { name: string; phone: string }) {
 
 export async function generateMetadata(): Promise<Metadata> {
   const brand = toBrand(await getSiteConfig())
-  const { title, description } = areasMeta(brand)
+  const defaults = areasMeta(brand)
+  const override = await getSeoOverride(`${brand.url}/service-areas`)
+  const title = override?.title || defaults.title
+  const description = override?.description || defaults.description
   return {
     title,
     description,

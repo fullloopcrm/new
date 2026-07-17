@@ -7,6 +7,7 @@ import Breadcrumbs from '@/app/site/template/_components/Breadcrumbs'
 import FAQSection from '@/app/site/template/_components/FAQSection'
 import CTABlock from '@/app/site/template/_components/CTABlock'
 import ReferralSignupForm from '@/app/site/template/_components/ReferralSignupForm'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 const PATH = '/get-paid-for-cleaning-referrals-every-time-they-are-serviced'
 
@@ -14,13 +15,18 @@ export async function generateMetadata(): Promise<Metadata> {
   const config = await getSiteConfig()
   const name = config.identity.name
   const canonical = `${config.identity.url}${PATH}`
+  const override = await getSeoOverride(canonical)
+  const title = override?.title || `Get Paid for Cleaning Referrals | Earn 10% Commission | ${name}`
+  const description = override?.description || `Earn 10% commission every time your referral books a cleaning. Recurring income, fast payouts via Zelle or Apple Cash. ${config.contact.phone}`
+  const ogTitle = override?.title || `Get Paid for Cleaning Referrals | ${name}`
+  const ogDescription = override?.description || 'Earn 10% commission every time someone you refer books a cleaning. Recurring income, fast payouts.'
   return {
-    title: `Get Paid for Cleaning Referrals | Earn 10% Commission | ${name}`,
-    description: `Earn 10% commission every time your referral books a cleaning. Recurring income, fast payouts via Zelle or Apple Cash. ${config.contact.phone}`,
+    title,
+    description,
     alternates: { canonical },
     openGraph: {
-      title: `Get Paid for Cleaning Referrals | ${name}`,
-      description: 'Earn 10% commission every time someone you refer books a cleaning. Recurring income, fast payouts.',
+      title: ogTitle,
+      description: ogDescription,
       url: canonical,
     },
   }

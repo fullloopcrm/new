@@ -7,6 +7,7 @@ import { getLocationBySlug } from '@/app/site/template/_data/us-locations'
 import { getVAServiceBySlug, VA_SERVICES } from '@/app/site/template/_data/va-services'
 import { geoSections, type Section } from '@/app/site/template/_lib/va-content'
 import VASeoPage, { type RelatedGroup } from '@/app/site/template/_components/VASeoPage'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 interface Props {
   params: Promise<{ location: string; service: string }>
@@ -26,9 +27,10 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   if (!loc || !service || !industryProfile(config.industry).isVirtualAssistant) return {}
   const where = loc.type === 'state' ? loc.name : `${loc.shortName}, ${loc.stateCode}`
   const url = `${config.identity.url.replace(/\/+$/, '')}/virtual-assistant/${loc.slug}/${service.slug}`
+  const override = await getSeoOverride(url)
   return {
-    title: `${service.name} in ${where} — Virtual Assistant From $8/hr | ${config.identity.name}`,
-    description: `${service.shortName} from a real, English-speaking virtual assistant serving ${where}. American-owned, from $8/hour, 24/7.`,
+    title: override?.title || `${service.name} in ${where} — Virtual Assistant From $8/hr | ${config.identity.name}`,
+    description: override?.description || `${service.shortName} from a real, English-speaking virtual assistant serving ${where}. American-owned, from $8/hour, 24/7.`,
     alternates: { canonical: url },
     // NOINDEX by default: the geo×service combos are near-duplicate at national
     // scale. Kept crawlable (follow) for internal linking; promote to indexed
