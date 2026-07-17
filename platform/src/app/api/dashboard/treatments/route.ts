@@ -6,6 +6,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const APPLICATION_METHODS = ['spray', 'bait', 'dust', 'granular', 'fog', 'injection', 'other']
 
@@ -103,7 +104,12 @@ export async function POST(req: NextRequest) {
         booking_id: body.booking_id || null,
         client_id: body.client_id || null,
         team_member_id: body.team_member_id || null,
-        application_date: body.application_date || new Date().toISOString().slice(0, 10),
+        // No explicit date -> today, but "today" must be the ET calendar
+        // date (what the applicator means by "today"), not the true-UTC day
+        // -- logging a treatment in the evening ET otherwise silently dated
+        // it tomorrow, which then shifts warranty_expires_on a day late too
+        // (same naive-ET/true-UTC class as this session's other fixes).
+        application_date: body.application_date || nowNaiveET().slice(0, 10),
         service_address: body.service_address?.trim() || null,
         target_pest: targetPest,
         product_name: productName,

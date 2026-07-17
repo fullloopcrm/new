@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { NextRequest } from 'next/server'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
@@ -107,5 +107,38 @@ describe('POST /api/dashboard/treatments — validation', () => {
     const json = await res.json()
     expect(json.log.reservice_of_log_id).toBe('log-A1')
     expect(json.log.is_reservice).toBe(true)
+  })
+
+  it('honors an explicit application_date', async () => {
+    const res = await POST(postReq({ target_pest: 'ant', product_name: 'X', application_date: '2026-07-05' }))
+    const json = await res.json()
+    expect(json.log.application_date).toBe('2026-07-05')
+  })
+
+  describe('application_date default -- ET calendar day, not true-UTC day', () => {
+    // 9:00 PM EDT July 17 -- already 1:00 AM UTC July 18 (UTC's calendar day
+    // has rolled over to the 18th, but the real ET calendar day is still the
+    // 17th). Forces TZ=UTC to simulate Vercel's runtime, same technique as
+    // this session's other day-boundary tests (e.g. finance/expenses).
+    const NOW = new Date('2026-07-18T01:00:00.000Z')
+    const realTZ = process.env.TZ
+
+    beforeEach(() => {
+      process.env.TZ = 'UTC'
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+    })
+
+    afterEach(() => {
+      if (realTZ === undefined) delete process.env.TZ
+      else process.env.TZ = realTZ
+      vi.useRealTimers()
+    })
+
+    it('defaults an omitted application_date to the real ET-today, not the already-rolled-over UTC day', async () => {
+      const res = await POST(postReq({ target_pest: 'ant', product_name: 'X' }))
+      const json = await res.json()
+      expect(json.log.application_date).toBe('2026-07-17')
+    })
   })
 })
