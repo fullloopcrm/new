@@ -7,6 +7,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
+import { etHour, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -50,16 +51,14 @@ export async function GET(request: Request) {
 
     try {
       // ============================================
-      // DAY-BASED REMINDERS — send at 8am (per server TZ)
+      // DAY-BASED REMINDERS — send at 8am ET
       // 3 days before + 1 day before
       // ============================================
-      if (now.getHours() === 8) {
+      if (etHour(now) === 8) {
         for (const daysOut of reminderDays) {
-          const target = new Date(now)
-          target.setDate(target.getDate() + daysOut)
-          target.setHours(0, 0, 0, 0)
-          const targetEnd = new Date(target)
-          targetEnd.setHours(23, 59, 59, 999)
+          const targetET = addCalendarDays(etToday(), daysOut)
+          const targetStart = formatNaiveET(targetET)
+          const targetEnd = formatNaiveET(targetET, 23, 59, 59)
           const label = daysOut === 1 ? 'tomorrow' : `in ${daysOut} days`
           const emailType = `reminder_${daysOut}day`
 
@@ -68,8 +67,8 @@ export async function GET(request: Request) {
             .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
-            .gte('start_time', target.toISOString())
-            .lte('start_time', targetEnd.toISOString())
+            .gte('start_time', targetStart)
+            .lte('start_time', targetEnd)
             .limit(500)
             .returns<BookingWithClientAndTeam[]>()
 
@@ -330,22 +329,20 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // THANK YOU EMAIL — 3 days after first booking (8am only)
+      // THANK YOU EMAIL — 3 days after first booking (8am ET only)
       // ============================================
-      if (now.getHours() === 8) {
-        const threeDaysAgo = new Date(now)
-        threeDaysAgo.setDate(threeDaysAgo.getDate() - 3)
-        threeDaysAgo.setHours(0, 0, 0, 0)
-        const threeDaysAgoEnd = new Date(threeDaysAgo)
-        threeDaysAgoEnd.setHours(23, 59, 59, 999)
+      if (etHour(now) === 8) {
+        const threeDaysAgoET = addCalendarDays(etToday(), -3)
+        const threeDaysAgoStart = formatNaiveET(threeDaysAgoET)
+        const threeDaysAgoEnd = formatNaiveET(threeDaysAgoET, 23, 59, 59)
 
         const { data: completedBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, service_type, clients(name, email)')
           .eq('tenant_id', tenantId)
           .in('status', ['completed', 'paid'])
-          .gte('end_time', threeDaysAgo.toISOString())
-          .lte('end_time', threeDaysAgoEnd.toISOString())
+          .gte('end_time', threeDaysAgoStart)
+          .lte('end_time', threeDaysAgoEnd)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingWithThankYou[]>()
 
@@ -373,7 +370,7 @@ export async function GET(request: Request) {
             .eq('tenant_id', tenantId)
             .eq('client_id', booking.client_id)
             .in('status', ['completed', 'paid'])
-            .lt('end_time', threeDaysAgo.toISOString())
+            .lt('end_time', threeDaysAgoStart)
 
           if ((count || 0) === 0) {
             await notify({
@@ -394,9 +391,9 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // UNPAID TEAM ALERTS — 8am, completed 2+ days ago with unpaid team
+      // UNPAID TEAM ALERTS — 8am ET, completed 2+ days ago with unpaid team
       // ============================================
-      if (now.getHours() === 8) {
+      if (etHour(now) === 8) {
         const twoDaysAgo = new Date(now)
         twoDaysAgo.setDate(twoDaysAgo.getDate() - 2)
 
@@ -424,9 +421,9 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // PENDING BOOKING ALERTS — 8am and 2pm, unassigned bookings
+      // PENDING BOOKING ALERTS — 8am and 2pm ET, unassigned bookings
       // ============================================
-      if (now.getHours() === 8 || now.getHours() === 14) {
+      if (etHour(now) === 8 || etHour(now) === 14) {
         const { data: pendingBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, clients(name)')
@@ -468,20 +465,22 @@ export async function GET(request: Request) {
         }
       }
       // ============================================
-      // 8PM DAILY OPS RECAP — today's jobs + financials + tomorrow preview
+      // 8PM ET DAILY OPS RECAP — today's jobs + financials + tomorrow preview
       // ============================================
-      if (now.getHours() === 20) {
-        const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
-        const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
-        const tomorrowStart = new Date(now); tomorrowStart.setDate(tomorrowStart.getDate() + 1); tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart); tomorrowEnd.setHours(23, 59, 59, 999)
+      if (etHour(now) === 20) {
+        const todayET = etToday()
+        const tomorrowET = addCalendarDays(todayET, 1)
+        const todayStart = formatNaiveET(todayET)
+        const todayEnd = formatNaiveET(todayET, 23, 59, 59)
+        const tomorrowStart = formatNaiveET(tomorrowET)
+        const tomorrowEnd = formatNaiveET(tomorrowET, 23, 59, 59)
 
         const { data: todayBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, start_time, end_time, price, payment_status, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', todayStart.toISOString())
-          .lte('start_time', todayEnd.toISOString())
+          .gte('start_time', todayStart)
+          .lte('start_time', todayEnd)
           .neq('status', 'cancelled')
           .order('start_time')
           .limit(500)
@@ -490,8 +489,8 @@ export async function GET(request: Request) {
           .from('bookings')
           .select('id, start_time, end_time, price, service_type, clients(name), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStart)
+          .lte('start_time', tomorrowEnd)
           .in('status', ['scheduled', 'confirmed'])
           .order('start_time')
           .limit(500)
@@ -540,9 +539,9 @@ export async function GET(request: Request) {
       }
 
       // ============================================
-      // 9PM NIGHTLY DIGEST — summary of all notifications sent today
+      // 9PM ET NIGHTLY DIGEST — summary of all notifications sent today
       // ============================================
-      if (now.getHours() === 21) {
+      if (etHour(now) === 21) {
         const todayStart = new Date(now); todayStart.setHours(0, 0, 0, 0)
         const todayEnd = new Date(now); todayEnd.setHours(23, 59, 59, 999)
 
