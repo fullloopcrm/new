@@ -185,17 +185,25 @@ async function enrichOne(issue: Issue, knowledge: { block: string; facts: string
 
   const gate = evaluateEnrichment(block, { query, existing, knowledge: knowledge.block, facts: knowledge.facts })
   if (!gate.pass) {
+    // Match by target_url, not issue_id — seo_run_detection() wipes and reissues
+    // seo_issues with fresh UUIDs daily, so issue.id is brand-new every run and
+    // would never match a prior day's still-'proposed' row, silently no-op'ing
+    // this update and leaving a stale, no-longer-reproducible draft sitting in
+    // review as if it were still current.
     await supabaseAdmin
       .from('seo_changes')
       .update({ status: 'rejected', rationale: `enrichment gate: ${gate.reasons.join('; ')}` })
-      .eq('issue_id', issue.id)
+      .eq('target_url', url)
       .eq('field', 'enrichment')
       .eq('status', 'proposed')
     return 'rejected'
   }
 
-  // Idempotent: clear any prior proposal for this issue, then store the draft.
-  await supabaseAdmin.from('seo_changes').delete().eq('issue_id', issue.id).eq('field', 'enrichment').eq('status', 'proposed')
+  // Supersede by (url, field), not just issue_id — same daily-reissue gap: a
+  // still-pending enrichment proposal from yesterday's now-deleted issue would
+  // otherwise survive as an orphaned duplicate with a stale before/after
+  // snapshot instead of being cleanly replaced by this one.
+  await supabaseAdmin.from('seo_changes').delete().eq('target_url', url).eq('field', 'enrichment').eq('status', 'proposed')
   await supabaseAdmin.from('seo_changes').insert({
     issue_id: issue.id,
     property: issue.property,
