@@ -102,10 +102,16 @@ export async function PUT(request: Request) {
 
     const first = results[0].data
     if (first) {
-      const [dp, tp] = first.start_time.split('T')
-      const [y, m, d] = dp.split('-').map(Number)
-      const [h, min] = (tp || '00:00').split(':').map(Number)
-      const bookingDate = new Date(y, m - 1, d, h, min).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      // item (117)'s own flagged-but-deferred instance: this reconstructed a
+      // Date from start_time's raw UTC numeric components and rendered it
+      // with no timeZone option, silently displaying the UTC calendar date
+      // instead of the tenant's own — same bug class as (70)/(115)/(117),
+      // just in a file that route's sweep didn't reach. Parse as a real
+      // instant and render in the tenant's own zone instead.
+      const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
+        timeZone: tenant.tenant?.timezone || 'America/New_York',
+        weekday: 'short', month: 'short', day: 'numeric',
+      })
       const clientName = first.clients?.name || 'Client'
 
       await supabaseAdmin.from('notifications').insert({

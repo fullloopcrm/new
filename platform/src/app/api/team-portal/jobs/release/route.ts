@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
 import { sendPushToTenantAdmins } from '@/lib/push'
@@ -48,14 +49,25 @@ export async function POST(request: Request) {
   // happened. Mirrors running-late's existing tech-triggered admin-push
   // convention; escalates wording for a same-day emergency the same way
   // schedule-monitor's unassigned check already does.
-  const { data: member } = await db
-    .from('team_members')
-    .select('name')
-    .eq('id', auth.id)
-    .maybeSingle<{ name: string | null }>()
+  // Same UTC-implicit rendering bug item (70)/(115)/(117) already fixed
+  // elsewhere — this admin push (added after that sweep) rendered with no
+  // timeZone option, showing the server's default zone instead of the
+  // tenant's own. Directly archetype-relevant: a same-day emergency release
+  // mid-shift is exactly the case where the wrong hour/date is most costly.
+  // tenants has no tenant_id column (it IS the tenant row) — tenantDb's
+  // wrapper would auto-append a nonexistent-column filter, so this one
+  // query must go through supabaseAdmin directly, same rule tenant-db.ts's
+  // own header comment documents.
+  const [{ data: member }, { data: tenantRow }] = await Promise.all([
+    db.from('team_members').select('name').eq('id', auth.id).maybeSingle<{ name: string | null }>(),
+    supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).maybeSingle<{ timezone: string | null }>(),
+  ])
   const clientName = data.clients?.name || 'a client'
   const when = data.start_time
-    ? new Date(data.start_time).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+    ? new Date(data.start_time).toLocaleString('en-US', {
+        timeZone: tenantRow?.timezone || 'America/New_York',
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      })
     : ''
   sendPushToTenantAdmins(
     auth.tid,
