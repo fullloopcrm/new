@@ -48,7 +48,7 @@ interface Booking {
   notes: string | null
   client_id: string
   team_member_id: string
-  worker_token: string | null
+  team_member_token: string | null
   hourly_rate: number | null
   recurring_type: string | null
   schedule_id: string | null
@@ -1191,8 +1191,8 @@ function BookingsPage() {
   }
 
   const copyTeamLink = () => {
-    if (editingBooking?.worker_token) {
-      navigator.clipboard.writeText(window.location.origin + '/team/' + editingBooking.worker_token)
+    if (editingBooking?.team_member_token) {
+      navigator.clipboard.writeText(window.location.origin + '/team/' + editingBooking.team_member_token)
       setCopied(true); setTimeout(() => setCopied(false), 2000)
     }
   }
@@ -1976,7 +1976,7 @@ function BookingsPage() {
                 )}
               </div>
             </div>
-            {editingBooking.worker_token && (
+            {editingBooking.team_member_token && (
               <button type="button" onClick={copyTeamLink} className="text-xs text-[#1E2A4A]/50 hover:text-[#1E2A4A] mb-2 block">{copied ? 'Copied!' : 'Copy team link'}</button>
             )}
 
