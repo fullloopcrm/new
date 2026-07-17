@@ -119,4 +119,22 @@ describe('middleware.ts public-route list — /api/uploads stays covered (H-01 c
         "Vercel's deploy webhook will fall through to the /sign-in redirect and never re-alias carrying domains.",
     ).toBe(true)
   })
+
+  it('covers /api/email/monitor (IMAP payment-monitor cron target, self-gated via its own CRON_SECRET/ELCHAPO_MONITOR_KEY check)', () => {
+    const src = middlewareSource()
+    // /api/cron/email-monitor (already public via /api/cron(.*)) makes a real
+    // server-to-server HTTP fetch — not a function call — to
+    // /api/email/monitor with an Authorization: Bearer CRON_SECRET header.
+    // That fetch has no admin_token cookie and no Clerk session, so it
+    // re-enters this same middleware. Without this entry, it 307s to
+    // /sign-in before the route's own authorize() check ever runs; fetch()
+    // follows the redirect and the caller's .catch(() => ({})) swallows the
+    // resulting JSON-parse failure, so the cron looked healthy while the
+    // actual IMAP payment-matching work silently never ran.
+    expect(
+      src.includes(`'/api/email/monitor'`),
+      "middleware.ts isPublicRoute list no longer covers '/api/email/monitor' — " +
+        'the email-monitor cron\'s internal fetch will fall through to the /sign-in redirect and IMAP payment matching will silently stop running.',
+    ).toBe(true)
+  })
 })

@@ -138,6 +138,29 @@ const isPublicRoute = createRouteMatcher([
                              // re-alias step silently never fired on any
                              // production deploy, same H-01 shape as those
                              // two fixes.
+  '/api/email/monitor',     // IMAP payment-monitor cron target. The cron
+                             // route itself is /api/cron/email-monitor
+                             // (already public via /api/cron(.*)), but that
+                             // route's handler makes a real server-to-server
+                             // HTTP fetch (not a function call) to
+                             // /api/email/monitor with an Authorization:
+                             // Bearer CRON_SECRET header — a fresh request
+                             // that has no admin_token cookie and no Clerk
+                             // session, so it re-enters this same middleware.
+                             // The route self-gates via its own authorize()
+                             // (CRON_SECRET bearer OR ELCHAPO_MONITOR_KEY
+                             // body key), same public-but-self-gated shape as
+                             // /api/uploads, /api/push/subscribe, and
+                             // /api/internal/deploy-hook above. Without this
+                             // entry, every one-minute tick 307'd to
+                             // /sign-in before authorize() ever ran — fetch()
+                             // follows the redirect, gets the sign-in page's
+                             // HTML back instead of JSON, res.json() throws
+                             // and is swallowed by the caller's .catch(() =>
+                             // ({})) — so the cron's own health-check marker
+                             // still got written every minute, masking that
+                             // the actual IMAP Zelle/Venmo payment-matching
+                             // work silently never ran for any tenant.
   '/api/leads',             // Lead capture from onboarding
   '/api/leads/visits(.*)',  // Visit tracking pixel
   '/api/referrals/track(.*)', // Referral click tracking
