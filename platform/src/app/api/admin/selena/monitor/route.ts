@@ -74,7 +74,7 @@ export async function GET(request: NextRequest) {
     let errorQuery = supabaseAdmin
       .from('notifications')
       .select('id, type, title, message, created_at, tenant_id')
-      .in('type', ['selena_error', 'escalation', 'review_received'])
+      .in('type', ['selena_error', 'escalation', 'review_received', 'callback_requested', 'client_issue'])
       .order('created_at', { ascending: false })
       .limit(20)
     if (tenantId) errorQuery = errorQuery.eq('tenant_id', tenantId)

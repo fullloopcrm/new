@@ -1647,7 +1647,7 @@ async function handleRequestCallback(input: Record<string, unknown>, conversatio
     const lockUntil = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString()
     await supabaseAdmin
       .from('sms_conversations')
-      .update({ escalation_locked_until: lockUntil })
+      .update({ escalation_locked_until: lockUntil, outcome: 'escalated' })
       .eq('id', conversationId)
       .eq('tenant_id', tid)
       .then(() => {}, () => {})
