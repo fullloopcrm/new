@@ -177,7 +177,7 @@ export async function GET(request: Request) {
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+          .select('id, client_id, start_time, service_type, clients(name, phone, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
           .gte('start_time', tomorrowStart.toISOString())
@@ -187,7 +187,11 @@ export async function GET(request: Request) {
 
         for (const booking of tomorrowBookings || []) {
           const client = booking.clients
-          if (!client?.phone) continue
+          // Day-before confirmation SMS never checked sms_consent (STOP
+          // compliance) or do_not_service — same gate every other client
+          // SMS fan-out in this cron class enforces (the team-member confirm
+          // block above already has its own terminated-crew guard).
+          if (!client?.phone || client.sms_consent === false || client.do_not_service) continue
 
           // Check if already sent confirmation for this booking
           const { data: alreadySent } = await supabaseAdmin

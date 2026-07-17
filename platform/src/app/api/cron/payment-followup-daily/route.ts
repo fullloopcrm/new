@@ -85,7 +85,7 @@ export async function GET(request: Request) {
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, price, end_time, clients(name, phone)')
+      .select('id, client_id, price, end_time, clients(name, phone, sms_consent, do_not_service)')
       .eq('tenant_id', tenant.id)
       .eq('status', 'completed')
       .gt('price', 0)
@@ -99,8 +99,11 @@ export async function GET(request: Request) {
 
     for (const booking of unpaid || []) {
       if (sent >= MAX_SENDS_PER_RUN) { capHit = true; break }
-      const client = booking.clients as unknown as { name?: string; phone?: string } | null
-      if (!booking.client_id || !client?.phone) continue
+      const client = booking.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
+      // Real-money payment-chase SMS never checked sms_consent (STOP
+      // compliance) or do_not_service — same TCPA-exposure gap the sibling
+      // cron/payment-reminder's +15min nudge had before its own fix.
+      if (!booking.client_id || !client?.phone || client.sms_consent === false || client.do_not_service) continue
 
       // Per-slot idempotency: already chased this booking this slot?
       const { count } = await supabaseAdmin

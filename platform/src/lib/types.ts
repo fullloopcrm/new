@@ -41,6 +41,7 @@ export type ClientNamePhoneEmail = Pick<ClientRecord, 'name' | 'phone' | 'email'
 export type ClientNamePhoneAddress = Pick<ClientRecord, 'name' | 'phone' | 'address'> | null
 export type ClientNamePhoneEmailConsent = Pick<ClientRecord, 'name' | 'phone' | 'email' | 'sms_consent' | 'do_not_service'> | null
 export type ClientNameEmailConsent = Pick<ClientRecord, 'name' | 'email' | 'sms_consent' | 'do_not_service'> | null
+export type ClientNamePhoneConsent = Pick<ClientRecord, 'name' | 'phone' | 'sms_consent' | 'do_not_service'> | null
 
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
 export type TeamMemberNamePhone = Pick<TeamMemberRecord, 'name' | 'phone'> | null
@@ -116,7 +117,7 @@ export interface BookingTomorrowConfirm {
   client_id: string | null
   start_time: string
   service_type: string | null
-  clients: ClientNamePhone
+  clients: ClientNamePhoneConsent
   team_members: TeamMemberName
 }
 
