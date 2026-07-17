@@ -3527,6 +3527,71 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-40. tenants.{stripe,telnyx,resend,imap,anthropic,indexnow,telegram}_* + google_tokens — VENDOR-SECRET/OAUTH-TOKEN REDACTION PROBE (fresh-ground continuation of 5a-39's now-closed bookings.team_member_token/worker_token thread; this round's new bug class is the same "credential-shaped value shipped to the browser via select('*')" shape, but a FOURTH table (tenants) and, unlike the prior 3 rounds' internal PINs/tokens, live THIRD-PARTY API credentials — a real Stripe secret key, Telnyx/Resend API keys, IMAP password, and a Google OAuth access/refresh-token pair with long-lived access to the tenant's real Google Business Profile) ----
+    // GET /api/admin/tenants/[id] (read-only tenant summary) and GET
+    // /api/admin/businesses/[id] (the onboarding edit form) both did
+    // `select('*')` on `tenants` and returned the row to the admin's browser
+    // unredacted. Grepping every consumer of both routes found the safe
+    // redaction boundary differs per route: admin/tenants/[id]/page.tsx never
+    // reads a raw secret (only two truthy checks), so every
+    // ENCRYPTED_TENANT_FIELDS value + google_tokens is now stripped there,
+    // replaced with has_resend_api_key/has_telnyx_api_key booleans;
+    // admin/businesses/[id]/page.tsx's edit form legitimately prefills most of
+    // those same fields into editable inputs (confirmed real consumers,
+    // stripe_api_key/telnyx_api_key/resend_api_key/imap_pass/
+    // anthropic_api_key/indexnow_key/telegram_bot_token — same
+    // "stripping would blank the field and risk wiping the key on next save"
+    // tradeoff /api/settings/route.ts's own NEVER_RETURNED_FIELDS comment
+    // documents avoiding), so only the two fields with a genuinely zero
+    // read-back consumer (google_tokens — the one usage site only ever
+    // truthy-checked `.refresh_token` for a "connected" badge — and
+    // telegram_webhook_secret, unread anywhere) are stripped there.
+    //
+    // This tenant is a fresh throwaway created earlier in this same run
+    // (P1.3 SELL), not a real tenant with real vendor keys already
+    // configured — grepped, nothing else in this file reads
+    // stripe_api_key/telnyx_api_key/resend_api_key/imap_pass/
+    // anthropic_api_key/indexnow_key/telegram_bot_token/
+    // telegram_webhook_secret/google_tokens on it downstream, so writing a
+    // probe value to two of the lowest-blast-radius fields (indexnow_key,
+    // google_tokens — neither gates money movement or messaging the way
+    // stripe/telnyx/resend do) and restoring them afterward is safe.
+    {
+      const { data: tenantBeforeProbe } = await supabase.from('tenants').select('indexnow_key, google_tokens').eq('id', tenant.id).single()
+
+      const liveIndexnowKey = 'indexnow_live_probe_' + tenant.id.slice(0, 8)
+      const liveGoogleTokens = { access_token: 'ya29.probe', refresh_token: 'gtok_live_probe_' + tenant.id.slice(0, 8), expires_at: Date.parse('2026-01-01') }
+      const { error: secretSeedErr } = await supabase.from('tenants').update({
+        indexnow_key: liveIndexnowKey, google_tokens: liveGoogleTokens,
+      }).eq('id', tenant.id)
+      add('vendor-secret probe: tenants.indexnow_key/google_tokens genuinely round-trip a write (not a schema-cache mirage)', !secretSeedErr, secretSeedErr?.message)
+
+      const { data: tenantRow } = await supabase.from('tenants').select('*').eq('id', tenant.id).single()
+      if (tenantRow) {
+        add('vendor-secret probe: the written indexnow_key/google_tokens are present on a fresh select(*) (proves the redaction fixes have a real value to strip)', tenantRow.indexnow_key === liveIndexnowKey && tenantRow.google_tokens?.refresh_token === liveGoogleTokens.refresh_token, JSON.stringify({ indexnow_key: tenantRow.indexnow_key, google_tokens: tenantRow.google_tokens }))
+
+        const { ENCRYPTED_TENANT_FIELDS } = await import('../src/lib/secret-crypto')
+        const { omit } = await import('../src/lib/validate')
+
+        // Mirrors GET /api/admin/tenants/[id]'s redaction exactly.
+        const safeTenantView = omit(tenantRow, [...ENCRYPTED_TENANT_FIELDS, 'google_tokens'])
+        add('vendor-secret probe: admin/tenants/[id]-shaped redaction strips every ENCRYPTED_TENANT_FIELDS value + google_tokens from a real row', safeTenantView && ENCRYPTED_TENANT_FIELDS.every((f) => !(f in safeTenantView)) && !('google_tokens' in safeTenantView), JSON.stringify(safeTenantView && Object.keys(safeTenantView).filter((k) => (ENCRYPTED_TENANT_FIELDS as readonly string[]).includes(k) || k === 'google_tokens')))
+        add('vendor-secret probe: admin/tenants/[id]-shaped redaction leaves non-secret columns (id, name) untouched', safeTenantView?.id === tenantRow.id && safeTenantView?.name === tenantRow.name, JSON.stringify({ id: safeTenantView?.id, name: safeTenantView?.name }))
+
+        // Mirrors GET /api/admin/businesses/[id]'s narrower redaction — only
+        // google_tokens/telegram_webhook_secret, since that route's edit form
+        // legitimately needs the rest raw.
+        const safeBusinessView = omit(tenantRow, ['google_tokens', 'telegram_webhook_secret'])
+        add('vendor-secret probe: admin/businesses/[id]-shaped redaction strips google_tokens but leaves indexnow_key (this route legitimately returns it raw for the edit form)', safeBusinessView && !('google_tokens' in safeBusinessView) && safeBusinessView.indexnow_key === liveIndexnowKey, JSON.stringify({ google_tokens: safeBusinessView?.google_tokens, indexnow_key: safeBusinessView?.indexnow_key }))
+      }
+
+      // Restore — this tenant is shared by every later phase in this run.
+      await supabase.from('tenants').update({
+        indexnow_key: tenantBeforeProbe?.indexnow_key ?? null,
+        google_tokens: tenantBeforeProbe?.google_tokens ?? null,
+      }).eq('id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
