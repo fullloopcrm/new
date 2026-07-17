@@ -45,6 +45,13 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, flipped: 0 })
   }
 
+  const tenantIds = [...new Set(candidates.map((b) => b.tenant_id))]
+  const { data: tenantRows } = await supabaseAdmin
+    .from('tenants')
+    .select('id, timezone')
+    .in('id', tenantIds)
+  const tzByTenant = new Map((tenantRows || []).map((t) => [t.id, t.timezone || 'America/New_York']))
+
   let flipped = 0
   const errors: string[] = []
 
@@ -59,12 +66,16 @@ export async function GET(request: Request) {
       const client = b.clients as unknown as { name: string } | null
       const member = b.team_members as unknown as { name: string } | null
       const isEmergency = !!(b as { is_emergency?: boolean | null }).is_emergency
+      const when = new Date(b.start_time).toLocaleString('en-US', {
+        timeZone: tzByTenant.get(b.tenant_id) || 'America/New_York',
+        month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
+      })
 
       await notify({
         tenantId: b.tenant_id,
         type: 'late_check_in',
         title: isEmergency ? '🚨 Urgent no-show detected' : 'No-show detected',
-        message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${client?.name || 'Client'} booking at ${new Date(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
+        message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${client?.name || 'Client'} booking at ${when} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
         bookingId: b.id,
       }).catch(() => {})
 
