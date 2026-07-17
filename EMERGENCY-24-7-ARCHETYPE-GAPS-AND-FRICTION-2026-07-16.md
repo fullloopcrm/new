@@ -5338,3 +5338,60 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (118) Fresh ground, new bug class (destructive-operation data-integrity gap, distinct from every timezone/notify-type thread this session) — `DELETE /api/cleaners/[id]` erased historical payroll/tax attribution AND silently orphaned live client bookings — NOW FIXED
+
+`DELETE /api/cleaners/[id]` (this codebase's actual functional team-member
+deletion endpoint — its own header comment already flags `/api/team/[id]`'s
+parallel DELETE as the lesser one; `team.edit`'s PUT there even routes
+through this file for the pin field) nulled `bookings.team_member_id` on
+**every** booking that ever referenced the deleted team member, with no
+status filter and no notification. Two distinct bugs in that one line:
+
+1. **Historical data loss.** `finance/tax-export`, `finance/cleaner-income`,
+   and `finance/payroll-prep` all key their reports off `team_member_id`
+   (tax-export literally groups 1099 rows by it, falling back to an
+   `'unknown'` bucket when null). Deleting a team member — overwhelmingly
+   because they left the company, i.e. exactly the moment their final
+   payroll/1099 export matters most — silently wiped their `team_member_id`
+   off every completed/paid booking they ever did, erasing that
+   attribution from every past finance report the moment it's needed.
+2. **Silent live-booking orphaning.** The same unconditional null also hit
+   `scheduled`/`confirmed`/`in_progress` bookings — a client with a job on
+   the books for tomorrow, expecting a specific tech, would silently lose
+   that assignment with zero notice to admin or client, discoverable only
+   when no one shows up. Same "declared state change, nobody told" shape as
+   nearly every prior item in this doc, just triggered by a delete instead
+   of a status transition.
+
+**Fixed** — narrowed the `team_member_id`-nulling update to only
+`pending`/`scheduled`/`confirmed`/`in_progress` bookings (no completed-work
+history to preserve there); `completed`/`paid`/`cancelled`/`no_show`
+bookings now keep their `team_member_id` intact. `suggested_team_member_id`
+(an AI-suggestion field, not an actual assignment) and
+`recurring_schedules.team_member_id` (forward-looking template data, not a
+historical record) still clear unconditionally — neither has payroll
+significance. Added a `notify()` admin alert naming how many upcoming
+bookings lost their assignment and need a human to reassign them, firing
+only when that count is nonzero.
+
+Noticed, not fixed: `/api/team/[id]`'s own DELETE does a raw
+`.delete()` with none of this route's pre-nulling logic at all — either
+it's genuinely unreachable from any current UI (no frontend caller found
+for either DELETE endpoint in this pass) or it would hard-fail on the FK
+today. Couldn't confirm which without a live DB schema check (the base
+`bookings` table predates this repo's tracked `migrations/` and isn't
+defined there), and this worker's reconcile-gate token is absent this
+session — left alone rather than guess at unverified DB behavior.
+
+3 new tests (`route.delete-history.test.ts`), mutation-verified (`git apply
+-R` the fix, both status-filter and notify-count assertions RED for the
+expected reason — no status filter existed at all, notify() never called —
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 417/417
+files, 2013/2013 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not touched
+here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
