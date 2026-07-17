@@ -44,7 +44,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, hourly_rate, team_member_id, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+        .select('id, start_time, hourly_rate, team_member_id, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -67,14 +67,17 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberConsent = (booking.team_members as any)?.sms_consent
         const templates = teamSmsTemplates(tenant)
         // Same admin-blindness class as items (20)/(24)/(26)/(29)/(30): a
         // same-day emergency job running late to check-in is a different
         // severity of problem than a routine one, but the alert was identical.
         const isEmergency = !!(booking as any).is_emergency
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — gated on sms_consent, same item-48 convention
+        // as every other team-member send site (default-opt-in: only a
+        // recorded `false` blocks the text).
+        if (teamLateOn && memberPhone && memberConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: templates.lateCheckInCleaner(booking as any),
@@ -121,7 +124,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, hourly_rate, team_member_id, fifteen_min_alert_time, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin)')
+        .select('id, start_time, hourly_rate, team_member_id, fifteen_min_alert_time, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, pin, sms_consent)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -143,11 +146,12 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberConsent = (booking.team_members as any)?.sms_consent
         const templates = teamSmsTemplates(tenant)
         const isEmergency = !!(booking as any).is_emergency
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — gated on sms_consent, same as the check-in leg above.
+        if (teamLateOn && memberPhone && memberConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: templates.lateCheckOutCleaner(booking as any),
