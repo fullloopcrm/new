@@ -6129,3 +6129,93 @@ clean, full suite 430/430 files, 2063/2063 tests, zero regressions.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (134) New fresh-ground surface — the monthly-close page's `reopened` status was fully built on both ends and never actually connected: the API silently collapsed it back to `open` — NOW FIXED
+
+Picked a different subsystem than 128-133's tenant-facing tables: the
+finance/accounting monthly-close feature (`accounting_periods`, migration
+`035_close_audit.sql`). Its `status` CHECK constraint declares four values —
+`open`, `in_review`, `locked`, `reopened` — and the close page
+(`/dashboard/finance/close`) is built end-to-end for all four: a TypeScript
+union type includes `'reopened'`, `STATUS_COLORS` gives it its own blue
+badge, and clicking "Reopen" on a locked period sends
+`PATCH /api/finance/periods/[id]` with `status: 'reopened'`. But the route
+(`src/app/api/finance/periods/[id]/route.ts`) treated `'reopened'` and
+`'open'` as the same branch and always wrote `status: 'open'` to the row —
+so the literal string `'reopened'` was never persisted, the blue badge could
+never render, and a period that had just been locked and reopened looked
+identical to a period that was never closed at all. The audit trail columns
+(`reopened_at`/`reopened_by`/`reopened_reason`) WERE being written correctly
+and were even selected back by the GET route (`select('*')`) — just never
+displayed anywhere, so that data existed but was invisible. Same
+declared-value-never-written root cause as (130)-(133), different table and
+different subsystem (finance/accounting rather than a tenant-facing
+applicant/waitlist table).
+
+Checked for fallout before changing the persisted value: the only other
+consumer of `accounting_periods.status` is the `check_period_lock` trigger
+that blocks journal entries, and it matches on `status = 'locked'`
+exclusively — a period moving from `'open'` to `'reopened'` (still
+not-`'locked'`) doesn't affect it. No dashboard or API elsewhere aggregates
+periods by status, so there was no other code silently relying on
+`'reopened'` collapsing into `'open'`.
+
+**Fixed** — split the PATCH route's branch: a `'reopened'` request now
+persists `status: 'reopened'` literally (still stamping
+`reopened_at`/`reopened_by`/`reopened_reason` from the authenticated
+session, unchanged from before); an explicit `'open'` request (not sent by
+the current UI, but accepted by the route) now just sets `status: 'open'`
+without also stamping the reopen audit columns, since it isn't a reopen
+event. Also surfaced the previously-invisible audit data: the close page now
+shows a small "Reopened {date} — {reason}" banner in the expanded period
+panel whenever `status === 'reopened'`, using data the GET route was already
+returning.
+
+3 new tests (`route.status-persistence.test.ts`): a `reopened` PATCH
+persists the literal status and reason instead of collapsing to `open`; an
+explicit `open` PATCH still works; a `notes`-only PATCH updates notes
+without touching status (isolation-verified — the mock store only applies
+whatever `updates` object the route builds, so a wrong branch would leave
+`status` unpersisted or persist `open`, and the test would catch either).
+`tsc --noEmit` clean, full suite 431/431 files, 2066/2066 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (135) Continuing (134)'s surface — the same close page had a second declared-but-dead field: `notes`, writable by the API since day one, with zero UI to ever set it
+
+While fixing (134) on `/dashboard/finance/close`, noticed the `Period` type
+already destructures `notes` from the API response but the page never
+renders or edits it anywhere. The PATCH route has supported
+`if ('notes' in body) updates.notes = body.notes` since the route existed —
+a fully working write path with no caller. An admin doing a monthly close
+who wants to leave a note for next month (e.g. "AR aging still off, chase
+in April") had no way to do it short of a raw DB edit — same
+declared-but-unreachable shape as (134), one field over on the same table.
+
+**Fixed** — added a "Notes" textarea to the expanded period panel (below the
+reopened-banner from (134), above the checklist) with an explicit "Save
+note" button, disabled until the draft actually differs from the saved
+value. Reuses the existing PATCH route unchanged — no new backend code.
+Local draft state is keyed by period id so switching between expanded
+periods doesn't bleed one period's unsaved text into another's.
+
+Covered by the same (134) test file: the `notes`-only PATCH test doubles as
+this item's backend coverage (no separate frontend test framework wired for
+this page — matches the existing close page having zero prior test
+coverage of its own, noted but not addressed here). `tsc --noEmit` clean,
+full suite 431/431 files, 2066/2066 tests, zero regressions.
+
+Noticed, not fixed: the close page's "Reopen" flow still uses a native
+`window.prompt()` for the reopen reason instead of an in-page input — a
+pre-existing UX rough edge, not part of either fix above. Also, the
+`/dashboard/finance/close` page itself has no test coverage of its own
+(only the API route does) — same gap as `/dashboard/cleaners` noted in
+(132), not this round's scope.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.

@@ -11,6 +11,8 @@ type Period = {
   status: 'open' | 'in_review' | 'locked' | 'reopened'
   checklist: Record<string, boolean>
   locked_at: string | null
+  reopened_at: string | null
+  reopened_reason: string | null
   notes: string | null
   entities: { name: string } | null
 }
@@ -46,6 +48,7 @@ export default function FinanceClosePage() {
   const [err, setErr] = useState('')
   const [msg, setMsg] = useState('')
   const [expanded, setExpanded] = useState<string | null>(null)
+  const [notesDraft, setNotesDraft] = useState<Record<string, string>>({})
 
   const load = useCallback(() => {
     setLoading(true)
@@ -76,6 +79,18 @@ export default function FinanceClosePage() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ checklist: next }),
     })
+    load()
+  }
+
+  async function saveNotes(period: Period) {
+    const notes = notesDraft[period.id] ?? period.notes ?? ''
+    setErr(''); setMsg('')
+    const res = await fetch(`/api/finance/periods/${period.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes }),
+    })
+    if (!res.ok) { setErr((await res.json()).error || 'Failed'); return }
+    setMsg('Note saved')
     load()
   }
 
@@ -143,6 +158,27 @@ export default function FinanceClosePage() {
                 </div>
                 {open && (
                   <div className="px-5 py-4 border-t border-slate-200 space-y-3">
+                    {p.status === 'reopened' && p.reopened_at && (
+                      <div className="rounded-lg bg-blue-50 border border-blue-100 px-3 py-2 text-xs text-blue-700">
+                        Reopened {new Date(p.reopened_at).toLocaleDateString()}
+                        {p.reopened_reason ? ` — ${p.reopened_reason}` : ''}
+                      </div>
+                    )}
+                    <div>
+                      <label className="mb-1 block text-xs font-medium text-slate-500">Notes</label>
+                      <textarea
+                        value={notesDraft[p.id] ?? p.notes ?? ''}
+                        onChange={(e) => setNotesDraft((d) => ({ ...d, [p.id]: e.target.value }))}
+                        rows={2}
+                        placeholder="Anything worth flagging about this close…"
+                        className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-700 outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500"
+                      />
+                      <button
+                        onClick={() => saveNotes(p)}
+                        disabled={(notesDraft[p.id] ?? p.notes ?? '') === (p.notes ?? '')}
+                        className="mt-1 px-2.5 py-1 text-xs font-medium rounded bg-white border border-slate-300 hover:bg-slate-50 disabled:opacity-40"
+                      >Save note</button>
+                    </div>
                     {CHECKLIST_ITEMS.map(item => (
                       <label key={item.key} className="flex items-start gap-2 text-sm">
                         <input

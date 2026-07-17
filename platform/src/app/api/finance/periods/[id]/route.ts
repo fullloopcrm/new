@@ -29,11 +29,17 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.status = 'locked'
       updates.locked_at = now
       updates.locked_by = actorId
-    } else if (body.status === 'reopened' || body.status === 'open') {
-      updates.status = 'open'
+    } else if (body.status === 'reopened') {
+      // The CHECK constraint declares 'reopened' as its own status value,
+      // distinct from 'open' — persist it literally so a period that was
+      // locked-then-reopened stays visually and queryably distinct from one
+      // that was never locked, instead of collapsing back to plain 'open'.
+      updates.status = 'reopened'
       updates.reopened_at = now
       updates.reopened_by = actorId
       updates.reopened_reason = body.reopened_reason || null
+    } else if (body.status === 'open') {
+      updates.status = 'open'
     } else if (body.status === 'in_review') {
       updates.status = 'in_review'
     }
