@@ -76,7 +76,7 @@ export async function notifyCleaner(opts: NotifyCleanerOptions): Promise<Deliver
 
   // 2. Fetch cleaner info + preferences
   const { data: cleaner } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('name, email, phone, sms_consent, notification_preferences')
     .eq('id', opts.cleanerId)
     .single()
