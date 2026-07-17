@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantSiteUrl } from '@/lib/tenant-site'
 
 export const maxDuration = 300
 
@@ -31,6 +32,17 @@ export async function GET(request: Request) {
       if (!settings.chatbot_enabled) continue
       if (!settings.review_followup_enabled) continue
       if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
+
+      // tenant_domains FIRST, tenants.domain FALLBACK, slug subdomain LAST —
+      // same precedence as tenantSiteUrl()'s every other caller. Previously
+      // built this URL from tenant.domain (legacy) only, so a tenant whose
+      // real custom domain lived only in tenant_domains (the normal state —
+      // admin/websites writes tenant_domains only) sent every review-request
+      // SMS with a link to the internal carrying subdomain instead of their
+      // own brand, mirroring the resolver-precedence class fixed elsewhere
+      // this session (client-sms brand.ts, site-readiness.ts, invoice/quote/
+      // document send links).
+      const reviewBaseUrl = await tenantSiteUrl(tenant)
 
       // Find bookings completed (checked out) within the per-tenant
       // review_followup_delay_hours window. Cron runs every 30 min, so we
@@ -72,13 +84,10 @@ export async function GET(request: Request) {
         const firstName = client.name?.split(' ')[0] || 'there'
 
         // Build review link — prefer the tenant's configured Google review
-        // URL, then custom domain, then subdomain. Tenants with a real
-        // Google review link send clients straight to a 5-star post on the
-        // platform's listing.
-        const reviewUrl = settings.google_review_link
-          || (tenant.domain
-            ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
-            : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
+        // URL, then reviewBaseUrl (see precedence above). Tenants with a
+        // real Google review link send clients straight to a 5-star post
+        // on the platform's listing.
+        const reviewUrl = settings.google_review_link || `${reviewBaseUrl}/reviews/submit`
 
         try {
           await sendSMS({
@@ -117,10 +126,7 @@ export async function GET(request: Request) {
         .lte('completed_at', twoHoursAgo.toISOString())
         .limit(200)
 
-      const jobReviewUrl = settings.google_review_link
-        || (tenant.domain
-          ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
-          : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
+      const jobReviewUrl = settings.google_review_link || `${reviewBaseUrl}/reviews/submit`
 
       for (const job of doneJobs || []) {
         const { count: already } = await supabaseAdmin
