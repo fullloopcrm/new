@@ -11,10 +11,22 @@ export async function GET(request: NextRequest) {
   const dateFrom = url.searchParams.get('date_from')
   const dateTo = url.searchParams.get('date_to')
 
+  // bookings.start_time is stored naive-ET (no tz, literally what was typed
+  // in). The old `new Date().getFullYear()/getMonth()` read the SERVER's
+  // local calendar (UTC on Vercel), a full day ahead of ET for ~4-5h every
+  // evening -- misplacing the default month's first/last-day boundary
+  // against the naive-ET column during that window.
+  const pad = (n: number) => String(n).padStart(2, '0')
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const [ty, tm] = todayStr.split('-').map(Number)
+  const monthStartObj = new Date(Date.UTC(ty, tm - 1, 1))
+  const monthEndObj = new Date(Date.UTC(ty, tm, 0))
+  const monthStartStr = `${monthStartObj.getUTCFullYear()}-${pad(monthStartObj.getUTCMonth() + 1)}-${pad(monthStartObj.getUTCDate())}T00:00:00`
+  const monthEndStr = `${monthEndObj.getUTCFullYear()}-${pad(monthEndObj.getUTCMonth() + 1)}-${pad(monthEndObj.getUTCDate())}T23:59:59`
+
   // Default to current month if no dates
-  const now = new Date()
-  const from = dateFrom || new Date(now.getFullYear(), now.getMonth(), 1).toISOString()
-  const to = dateTo || new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59).toISOString()
+  const from = dateFrom || monthStartStr
+  const to = dateTo || monthEndStr
 
   let query = supabaseAdmin
     .from('bookings')
