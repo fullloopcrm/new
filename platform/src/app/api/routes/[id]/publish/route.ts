@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { sendSMS } from '@/lib/sms'
 import { googleMapsDirectionsUrl, formatDistanceMiles, formatDuration, type RouteStop } from '@/lib/route-optimizer'
 import { decryptSecret } from '@/lib/secret-crypto'
@@ -26,6 +27,17 @@ export async function POST(_request: Request, { params }: Params) {
     const tm = route.team_members as { id: string; name: string | null; phone: string | null } | null
     if (!tm || !tm.phone) {
       return NextResponse.json({ error: 'Route has no team member with phone number' }, { status: 400 })
+    }
+
+    // POST/PATCH now block assigning a terminated team member to a route, but a
+    // route assigned while the driver was still active can sit in 'draft' for
+    // days before publish -- and publish is the action that actually texts a
+    // full day's client names/addresses to that phone number. Re-check at
+    // send time, not just at assignment time, same reasoning as the
+    // team-portal token check (a termination doesn't retroactively unassign).
+    const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [tm.id])
+    if (terminatedIds.length > 0) {
+      return NextResponse.json({ error: 'This team member is no longer active and cannot be sent a route.' }, { status: 400 })
     }
 
     const { data: tenant } = await supabaseAdmin

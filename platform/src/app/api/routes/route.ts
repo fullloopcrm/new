@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export async function GET(request: Request) {
   try {
@@ -70,6 +71,16 @@ export async function POST(request: Request) {
         .maybeSingle()
       if (!tm) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      // Same gap this class of bug has hit on every other assignment surface
+      // (booking create, recurring-schedule, client-portal, staged-import):
+      // ownership alone doesn't rule out a team member the business already
+      // let go. A dispatch route hands the driver a full day's client
+      // names/addresses via SMS at publish time, so this is worth blocking
+      // at create too, not just at publish.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [body.team_member_id as string])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
       }
       teamMemberId = body.team_member_id
       if (!startLat || !startLng) {

@@ -4,6 +4,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -59,6 +60,13 @@ export async function PATCH(request: Request, { params }: Params) {
         .eq('id', updates.team_member_id as string)
         .maybeSingle()
       if (!tm) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      // Same class of gap this route's own POST-side comment above flags for
+      // the FK check: reassigning a route to a team member the business
+      // already let go was never blocked here either.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [updates.team_member_id as string])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
+      }
     }
 
     if ('stops' in body && Array.isArray(body.stops)) {
