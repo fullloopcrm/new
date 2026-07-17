@@ -7160,3 +7160,95 @@ flagged).
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (158) New fresh-ground surface, different bug class from every prior thread — bank-import's fingerprint dedup silently and permanently drops legitimate transactions instead of writing the schema's own declared 'duplicate' status
+
+`bank_transactions.status` (`032_ledger.sql`) is declared with six values —
+`'pending','categorized','matched','posted','ignored','duplicate'` — and
+`'duplicate'` was permanently unreachable, the same declared-value-never-
+written shape as items (130)-(151), just on a write path that actively
+throws the data away instead of merely never advancing it.
+
+`POST /api/finance/bank-import` fingerprints every parsed row as
+`sha256(date|amount_cents|normalized_description)` with no per-instance
+disambiguator, then filters anything matching an existing fingerprint (in
+`bank_transactions` or earlier in the same file) **out of the insert
+entirely** — `accepted = toInsert.filter(r => !r.duplicate)`, only the
+non-duplicates ever get written. Two genuinely different transactions that
+happen to share a date, amount, and normalized description — two identical
+$15 Uber rides the same day, two same-amount Venmo payments from different
+clients, a recurring same-day charge — collide on that fingerprint and the
+second one is silently, permanently discarded. No row, no audit trail: the
+UI (`dashboard/finance/import`) only ever showed an aggregate "Duplicates
+skipped: N" count with zero way to see which transactions were dropped or
+recover one that was a false positive. Real money movement vanishes from
+the books with no trace, through a path that has nothing to do with the
+(152)-(157) revenue-posting/race threads — this is data loss at import
+time, before any of that machinery runs.
+
+Fixing the drop alone wasn't enough: `idx_bank_txns_account_fp`, a **plain**
+`UNIQUE INDEX` on `(bank_account_id, fingerprint)`, would reject inserting a
+flagged-duplicate row outright, since by definition it shares a fingerprint
+with the row it duplicates. The declared enum value was blocked twice over
+— once by the app silently dropping the row, once by the schema's own
+uniqueness guarantee rejecting it if the app ever tried.
+
+**Fixed** — new migration
+`2026_07_17_bank_txn_duplicate_status_writable.sql` (file-only, not
+applied) narrows `idx_bank_txns_account_fp` to a **partial** unique index,
+`WHERE status <> 'duplicate'`: the real guarantee it exists for (no two
+*accepted* rows ever share a fingerprint on the same account) is unchanged,
+but a flagged-duplicate row can now coexist with the original instead of
+being rejected. `bank-import/route.ts` now inserts every detected row —
+duplicates flagged with `status:'duplicate'` instead of excluded from the
+insert. `bank-transactions/[id]/route.ts`'s PATCH gets a guard mirroring
+(153)'s matched/posted check — categorizing a `'duplicate'` row directly is
+rejected (`Already duplicate`), since silently treating a probable
+double-import as a real transaction would reintroduce a double-count risk —
+plus a new `status:'restore'` action, the only sanctioned way out, flipping
+`'duplicate'` back to `'pending'` for normal review.
+
+5 new tests: `route.duplicate-write.test.ts` (2) — an intra-file fingerprint
+collision within one uploaded file is written as a `status:'duplicate'` row
+alongside the accepted one, not dropped; a cross-import collision against an
+already-accepted row from a prior import is written as `status:'duplicate'`
+too. `route.status-guard.test.ts` (+3) — categorizing a flagged duplicate
+directly is rejected; `status:'restore'` flips a duplicate back to pending;
+restoring a transaction that was never flagged as a duplicate is rejected
+(`Cannot restore a pending transaction`). Mutation-verified — reverted both
+route diffs via `git apply -R`, reran all 5 new assertions, all failed for
+the right reason (200 instead of 400, `undefined`/`0` instead of the
+expected duplicate-row counts), reapplied and confirmed GREEN. `tsc --noEmit`
+clean. Full repo suite: 450/450 files, 2136/2136 tests, zero regressions.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (159) Continuing (158)'s surface — the transactions review UI had no idea 'duplicate' existed either
+
+Same shape as (153)'s continuation of (152): the write path now produces
+`status:'duplicate'` rows, but `dashboard/finance/transactions/page.tsx`
+had no branch for that status at all. `TABS` only listed
+pending/posted/ignored/all, so a duplicate-flagged row was invisible under
+every named tab and only reachable via "All" — where it fell into the
+generic editable branch (active categorize `<select>`, no "ignore" button
+since that's gated on `status === 'pending'`), which (158)'s new PATCH guard
+would now reject on click with `Already duplicate` — a dead-end control,
+identical to (153)'s pre-fix `'matched'` gap. It was also uncounted in the
+page's own summary line.
+
+**Fixed** — added a `'Duplicates'` tab; a read-only display branch (grey
+text, "Possible duplicate — matches another imported transaction") mirroring
+how `'matched'` is already handled, replacing the now-dead-ended categorize
+control; a "not a duplicate — restore" button wired to (158)'s new
+`status:'restore'` PATCH action; and a duplicates count added to the summary
+line alongside pending/posted/matched/ignored.
+
+No new tests — this is display wiring onto (158)'s already-tested
+`status:'restore'` API action, not new business logic. Verified with
+`tsc --noEmit` (clean) and the full suite (450/450 files, 2136/2136 tests,
+zero regressions) only; not visually exercised in a browser this round
+(non-interactive worker session, no dev server driven this round).
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
