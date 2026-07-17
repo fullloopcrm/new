@@ -3893,3 +3893,105 @@ one-line addition, the `client_issue` case went RED — 0 calls instead of
 1903/1903 tests, zero regressions (same pre-existing, unrelated
 `tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
 touched here).
+
+## (90) New today, archetype depth — the two internal AI copilots (`admin/ai-chat`, `ai/assistant`) computed "today" in the wrong zone, both for their own system prompt and their `get_schedule_summary` tool's default date
+
+Same day-boundary bug shape as items (70)-(75)/(78)/(85)/(88), a pair of
+routes none of those sweeps touched — they're neither same-day/emergency
+determinations nor client-facing date pickers nor an operator's team-member
+edit; they're the two Claude-backed CRM copilots (`POST /api/admin/ai-chat`
+and `POST /api/ai/assistant`) an admin chats with to ask things like
+"what's on today's schedule?". Both had the identical two-part bug:
+
+1. `get_schedule_summary`'s tool handler defaulted a missing `date` input to
+   `new Date().toISOString().split('T')[0]` — the server/UTC "today" — then
+   used that string to build the `start_time` range filter (`${date}T00:00:00`
+   .. `${dateTo}T23:59:59`) against `bookings.start_time`, a naive-ET column.
+   On Vercel (UTC-default), any tenant already ticks past UTC midnight by
+   the multi-hour evening window items (70)-(73) established — so an admin
+   asking "what do I have today" in that window silently got tomorrow's
+   bookings instead, an entirely wrong day's schedule, not just an
+   off-by-one filter edge.
+2. Each system prompt's own "Today is ..." line — the one piece of date
+   context the model is explicitly given to interpret relative requests
+   ("book something for today/tomorrow") — resolved from a **different**
+   zone than the tool default it's supposed to agree with:
+   `admin/ai-chat` hardcoded `America/New_York` regardless of which
+   tenant was asking (wrong for any non-ET tenant, always, not just
+   evenings); `ai/assistant` passed no `timeZone` at all, i.e. the server
+   runtime's own default (UTC on Vercel) — worse than its sibling, since it
+   drifted for every tenant including ET ones, every day, not just the
+   evening window.
+
+Neither file had ever read `tenants.timezone` (`TenantSettings.timezone`,
+the column `availability.ts`/`cleaners/[id]` already established as the
+canonical source, per its own doc comment: "Same-day/emergency date
+comparisons must resolve 'today' in this zone... see item (70)") despite
+both already having the tenant row in scope (`getTenantForRequest()`
+returns `{ tenant }`, a `.select('*')` row) — the fix needed zero new
+DB round-trips, only a value already sitting unread.
+
+**Fixed** (`p1-w3`) — both files now compute
+`const tz = tenant.timezone || 'America/New_York'` once in `POST`, thread
+it into `executeTool()` as a new parameter (used for the `get_schedule_summary`
+default via `new Date().toLocaleDateString('en-CA', { timeZone: tz })`,
+the same `availability.ts`/item-(88) convention), and pass it into the
+system prompt's `toLocaleDateString(..., { timeZone: tz })` call instead of
+a hardcoded/absent zone. 4 new tests across 2 files
+(`src/app/api/admin/ai-chat/route.test.ts`, `src/app/api/ai/assistant/route.test.ts`),
+each mocking the Anthropic client to return a `get_schedule_summary`
+tool-use turn with no `date` input and asserting the resulting
+`bookings` query's `gte`/`lte` filters land on the tenant-local date at an
+evening-ET-but-next-day-UTC timestamp (plus a Pacific-tenant case on the
+`ai/assistant` side, and a no-timezone-set fallback on `admin/ai-chat`).
+Mutation-verified (reverted both `toLocaleDateString('en-CA', ...)` lines
+back to `toISOString().split('T')[0]`, all 4 new tests RED — captured date
+one day ahead of expected — restored, GREEN). `tsc --noEmit` clean, full
+suite 386/386 files, 1907/1907 tests, zero regressions (same pre-existing,
+unrelated `tenant-scope` guard warning on `src/app/api/fixture/route.ts`,
+not touched here).
+
+## (91) New today, fresh ground — `notify.ts`'s own declared `NotificationType` union has listed `expense_added` and `payroll_paid` since its beginning, and the admin docs advertise both as supported — neither has ever been fired
+
+Found applying the "declared-type sweep" method (items (63)/(66)/(67)/(68)/(89))
+to a subsystem none of those sweeps covered — finance, not quotes/bookings.
+`src/app/admin/docs/page.tsx`'s own "Notification Types" reference (the
+in-product documentation an admin reads to understand what the system
+notifies on) lists `expense_added` and `payroll_paid` among the types the
+platform supports, and `lib/notify.ts`'s `NotificationType` union has
+declared both since the file's own beginning — but a full-codebase sweep
+of every `notify({ type: '...' })` call site found zero call sites for
+either, anywhere. Concretely:
+
+- `POST /api/finance/expenses` inserts the row, writes an `audit()` log
+  entry, and returns 201 — `expense_added` never fires. An expense recorded
+  by any team member (not just the owner) leaves no trace in the owner's
+  own in-app notifications feed.
+- `POST /api/finance/payroll` inserts the `payroll_payments` row, posts it
+  to the ledger (`postPayrollToLedger`), and marks the related bookings
+  paid — `payroll_paid` never fires either, the one step of running payroll
+  that's supposed to be admin-visible per the docs' own claim.
+
+Both routes already document their own audit/ledger side effects in
+comments; neither ever mentioned notifications, suggesting the declared
+type was added to the union (and the docs) when the feature was designed,
+then the actual `notify()` call was never wired at either site — the same
+originate-then-never-wire shape as items (63)/(66)/(67)/(68), just in a
+part of the codebase that sweep never reached.
+
+**Fixed** (`p1-w3`) — added a `notify()` call (dynamic-imported, try/catch
++ `console.warn` on failure, matching item (67)'s
+`quotes/[id]/send` precedent so a notification failure never blocks the
+underlying financial write) to both routes: `expense_added` after the
+`expenses` insert (`recipientType: 'admin'`, message includes category +
+dollar amount), `payroll_paid` after the `payroll_payments` insert
+(message includes dollar amount + method). 2 new tests
+(`src/app/api/finance/expenses/route.notify-type.test.ts`,
+`src/app/api/finance/payroll/route.notify-type.test.ts`), each asserting
+`notify()` fires exactly once with the right `type`/`tenantId`/`recipientType`
+and a message containing the dollar amount. Mutation-verified (reverted
+both new `notify()` blocks, both new tests RED — 0 calls instead of 1 —
+restored, GREEN). `tsc --noEmit` clean, full suite 388/388 files,
+1909/1909 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
+touched here).

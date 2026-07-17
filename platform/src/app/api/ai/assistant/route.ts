@@ -22,7 +22,7 @@ const TOOL_PERMISSIONS: Partial<Record<string, Permission>> = {
   get_revenue_stats: 'finance.view',
 }
 
-function buildSystemPrompt(tenantName: string, industry: string) {
+function buildSystemPrompt(tenantName: string, industry: string, tz: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
 You have tools to query and modify the database. Use them to answer questions and take actions.
 
@@ -30,7 +30,7 @@ Key rules:
 - Always confirm before destructive actions (cancelling, deleting)
 - When updating multiple bookings, state how many will be affected and ask for confirmation
 - Use short, direct responses — this is a chat widget, not an essay
-- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
 - Prices are stored in cents. Display as dollars.
 - When you find results, format them concisely — use bullet points or short lists
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
@@ -184,7 +184,8 @@ async function executeTool(
   input: Record<string, unknown>,
   tenantId: string,
   role: string,
-  overrides: ReturnType<typeof overridesFor>
+  overrides: ReturnType<typeof overridesFor>,
+  tz: string
 ): Promise<string> {
   const requiredPermission = TOOL_PERMISSIONS[name]
   if (requiredPermission && !hasPermission(role, requiredPermission, overrides)) {
@@ -307,7 +308,7 @@ async function executeTool(
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      const date = (input.date as string) || new Date().toLocaleDateString('en-CA', { timeZone: tz })
       const dateTo = (input.date_to as string) || date
 
       const { data, error } = await supabaseAdmin
@@ -407,7 +408,11 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'messages array required' }, { status: 400 })
     }
 
-    const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service')
+    // tenants.timezone, auto-derived from ZIP at creation, default America/New_York
+    // — "Today is" and get_schedule_summary's default date must resolve in the
+    // tenant's own zone, not the server runtime's default. Same bug shape as item (70).
+    const tz = tenant.timezone || 'America/New_York'
+    const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service', tz)
 
     let currentMessages = [...messages]
     let maxIterations = 10
@@ -432,7 +437,7 @@ export async function POST(request: Request) {
         const toolResults = []
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(block.name, block.input as Record<string, unknown>, tenantId, role, overrides)
+            const result = await executeTool(block.name, block.input as Record<string, unknown>, tenantId, role, overrides, tz)
             toolResults.push({
               type: 'tool_result' as const,
               tool_use_id: block.id,

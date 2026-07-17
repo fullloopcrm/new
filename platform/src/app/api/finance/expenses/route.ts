@@ -80,6 +80,26 @@ export async function POST(request: Request) {
 
     await audit({ tenantId, action: 'expense.created', entityType: 'expense', entityId: data.id, details: { category: data.category, amount: data.amount } })
 
+    // notify.ts's own NotificationType union has declared 'expense_added' for
+    // exactly this event since notify.ts's beginning (and it's listed in the
+    // admin docs' own "Notification Types" reference) — no call site here
+    // ever used it. Same declared-but-never-fired class as items
+    // (63)/(66)/(67)/(68).
+    try {
+      const { notify } = await import('@/lib/notify')
+      await notify({
+        tenantId,
+        type: 'expense_added',
+        title: `Expense added: ${data.category}`,
+        message: `$${(data.amount / 100).toFixed(2)}${data.description ? ` — ${data.description}` : ''}`,
+        channel: 'email',
+        recipientType: 'admin',
+        metadata: { expense_id: data.id },
+      })
+    } catch (e) {
+      console.warn('notify expense_added failed', e)
+    }
+
     return NextResponse.json({ expense: data }, { status: 201 })
   } catch (e) {
     if (e instanceof AuthError) {

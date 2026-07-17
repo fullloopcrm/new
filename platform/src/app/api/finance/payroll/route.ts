@@ -95,6 +95,27 @@ export async function POST(request: Request) {
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 
+    // notify.ts's own NotificationType union has declared 'payroll_paid' for
+    // exactly this event since notify.ts's beginning (and it's listed in the
+    // admin docs' own "Notification Types" reference) — no call site here
+    // ever used it, so a payroll run left zero trace in the admin's in-app
+    // notifications feed. Same declared-but-never-fired class as items
+    // (63)/(66)/(67)/(68).
+    try {
+      const { notify } = await import('@/lib/notify')
+      await notify({
+        tenantId,
+        type: 'payroll_paid',
+        title: 'Payroll paid',
+        message: `$${(Number(amount) || 0).toFixed(2)} paid${method ? ` via ${method}` : ''}`,
+        channel: 'email',
+        recipientType: 'admin',
+        metadata: { payroll_payment_id: data?.id, team_member_id },
+      })
+    } catch (e) {
+      console.warn('notify payroll_paid failed', e)
+    }
+
     // Mark related bookings as paid
     await supabaseAdmin
       .from('bookings')

@@ -177,7 +177,8 @@ async function executeTool(
   name: string,
   input: Record<string, unknown>,
   role: string,
-  overrides: ReturnType<typeof overridesFor>
+  overrides: ReturnType<typeof overridesFor>,
+  tz: string
 ): Promise<string> {
   const scope = <T extends { eq: (col: string, val: string) => T }>(q: T): T => q.eq('tenant_id', tenantId)
 
@@ -303,7 +304,7 @@ async function executeTool(
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      const date = (input.date as string) || new Date().toLocaleDateString('en-CA', { timeZone: tz })
       const dateTo = (input.date_to as string) || date
       const { data, error } = await supabaseAdmin
         .from('bookings')
@@ -430,6 +431,11 @@ export async function POST(request: Request) {
 
     const businessName = tenant.name || 'the business'
     const industry = tenant.industry || 'services'
+    // tenants.timezone, auto-derived from ZIP at creation, default America/New_York
+    // — "Today is" and the get_schedule_summary default date must resolve in the
+    // tenant's own zone, not a hardcoded one, or a non-ET tenant's admin asking
+    // "what's on today" gets the wrong day. Same bug shape as item (70).
+    const tz = tenant.timezone || 'America/New_York'
     const SYSTEM_PROMPT = `You are the ${businessName} AI assistant — a CRM copilot for managing a ${industry} business.
 You have tools to query and modify the database. Use them to answer questions and take actions.
 
@@ -437,7 +443,7 @@ Key rules:
 - Always confirm before destructive actions (cancelling, deleting).
 - When updating multiple bookings, state how many will be affected and ask for confirmation.
 - Use short, direct responses — this is a chat widget, not an essay.
-- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
+- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}.
 - Prices are stored in cents. Display as dollars.
 - Format results concisely — bullet points or short lists.
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
@@ -467,7 +473,7 @@ Key rules:
         const toolResults: Anthropic.Messages.ToolResultBlockParam[] = []
         for (const block of response.content) {
           if (block.type === 'tool_use') {
-            const result = await executeTool(tenantId, block.name, block.input as Record<string, unknown>, role, overrides)
+            const result = await executeTool(tenantId, block.name, block.input as Record<string, unknown>, role, overrides, tz)
             toolResults.push({
               type: 'tool_result',
               tool_use_id: block.id,
