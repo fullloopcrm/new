@@ -8,6 +8,10 @@ import {
   nextOccurrenceDates,
   nowNaiveET,
   parseNaiveET,
+  etToday,
+  addCalendarDays,
+  calendarDayOfWeek,
+  formatNaiveET,
   type RecurringType,
 } from './recurring'
 
@@ -484,5 +488,54 @@ describe('parseNaiveET — inverse of nowNaiveET', () => {
     const correct = parseNaiveET(naive)
     const misreadAsUtc = new Date(`${naive}Z`)
     expect(correct.getTime() - misreadAsUtc.getTime()).toBe(4 * 60 * 60 * 1000)
+  })
+})
+
+describe('etToday / addCalendarDays / calendarDayOfWeek / formatNaiveET — day-boundary counterpart of nowNaiveET', () => {
+  // bookings/stats and team-portal/earnings built day/week/month/year range
+  // boundaries with `new Date(now.getFullYear(), now.getMonth(), now.getDate())`
+  // -- the SERVER's local (UTC on Vercel) calendar, not the ET calendar
+  // start_time/end_time actually live in. These helpers build the boundary
+  // directly in ET instead.
+
+  it('etToday matches the date portion of nowNaiveET', () => {
+    const today = etToday()
+    const expected = nowNaiveET().slice(0, 10)
+    expect(formatNaiveET(today)).toBe(`${expected}T00:00:00`)
+  })
+
+  it('addCalendarDays rolls over month/year boundaries correctly', () => {
+    expect(addCalendarDays({ year: 2026, month: 0, day: 31 }, 1)).toEqual({ year: 2026, month: 1, day: 1 })
+    expect(addCalendarDays({ year: 2026, month: 11, day: 31 }, 1)).toEqual({ year: 2027, month: 0, day: 1 })
+    // Day 0 of next month = last day of this month (used for month-end boundaries).
+    expect(addCalendarDays({ year: 2026, month: 1, day: 1 }, -1)).toEqual({ year: 2026, month: 0, day: 31 })
+  })
+
+  it('addCalendarDays is unaffected by DST (pure calendar math, no real instant read back)', () => {
+    // 2026-03-08 is the US spring-forward date; a naive 24h-based approach
+    // could slip by an hour here, but this is component-based, not instant-based.
+    expect(addCalendarDays({ year: 2026, month: 2, day: 7 }, 1)).toEqual({ year: 2026, month: 2, day: 8 })
+  })
+
+  it('calendarDayOfWeek matches known dates', () => {
+    // 2026-07-17 is a Friday.
+    expect(calendarDayOfWeek({ year: 2026, month: 6, day: 17 })).toBe(5)
+    // 2026-01-01 is a Thursday.
+    expect(calendarDayOfWeek({ year: 2026, month: 0, day: 1 })).toBe(4)
+  })
+
+  it('formatNaiveET pads month/day/time and is 0-indexed on month', () => {
+    expect(formatNaiveET({ year: 2026, month: 0, day: 5 }, 9, 5, 0)).toBe('2026-01-05T09:05:00')
+  })
+
+  it('formatNaiveET(etToday()) round-trips (via parseNaiveET) to real midnight in America/New_York, not midnight UTC', () => {
+    // Guards the exact mistake this helper class exists to avoid: building
+    // day/month boundaries from the server's local (UTC on Vercel) calendar
+    // and filtering a naive-ET column with them.
+    const midnightET = parseNaiveET(formatNaiveET(etToday()))
+    const hour = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'America/New_York', hour: '2-digit', hour12: false,
+    }).formatToParts(midnightET).find(p => p.type === 'hour')?.value
+    expect(hour === '00' || hour === '24').toBe(true)
   })
 })

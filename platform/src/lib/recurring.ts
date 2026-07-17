@@ -274,6 +274,56 @@ export function parseNaiveET(naive: string): Date {
   return new Date(guess.getTime() - offsetMs)
 }
 
+export interface CalendarDate {
+  year: number
+  month: number // 0-indexed, matches Date.getMonth()
+  day: number
+}
+
+/**
+ * ET-calendar "today" (month 0-indexed, matching Date.getMonth()) -- the ET
+ * wall-clock date bookings.start_time/end_time's naive-ET convention (see
+ * nowNaiveET above) actually lives in.
+ *
+ * Call sites building day/week/month/year range boundaries for those columns
+ * with `new Date(now.getFullYear(), now.getMonth(), now.getDate())` were
+ * reading the SERVER's local calendar (UTC on Vercel), not ET -- silently
+ * shifting every boundary by the ET/UTC gap (4h EDT / 5h EST), the
+ * day-boundary counterpart of the instant-"now" bug nowNaiveET() fixes.
+ * Combine with addCalendarDays() and formatNaiveET() to build the boundary.
+ */
+export function etToday(): CalendarDate {
+  const [year, month, day] = nowNaiveET().slice(0, 10).split('-').map(Number)
+  return { year, month: month - 1, day }
+}
+
+/**
+ * Add (or subtract) whole calendar days to a CalendarDate, normalizing
+ * month/year rollover. Pure calendar arithmetic via Date.UTC -- no timezone
+ * or DST is involved since no real instant is ever read back out.
+ */
+export function addCalendarDays(date: CalendarDate, deltaDays: number): CalendarDate {
+  const d = new Date(Date.UTC(date.year, date.month, date.day + deltaDays))
+  return { year: d.getUTCFullYear(), month: d.getUTCMonth(), day: d.getUTCDate() }
+}
+
+/**
+ * Day of week (0=Sun..6=Sat) for a CalendarDate. Pure calendar arithmetic,
+ * same caveat as addCalendarDays.
+ */
+export function calendarDayOfWeek(date: CalendarDate): number {
+  return new Date(Date.UTC(date.year, date.month, date.day)).getUTCDay()
+}
+
+/**
+ * Formats a CalendarDate + time-of-day as the naive 'YYYY-MM-DDTHH:MM:SS'
+ * string bookings.start_time/end_time use (see nowNaiveET above).
+ */
+export function formatNaiveET(date: CalendarDate, hour = 0, minute = 0, second = 0): string {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.year}-${pad(date.month + 1)}-${pad(date.day)}T${pad(hour)}:${pad(minute)}:${pad(second)}`
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string

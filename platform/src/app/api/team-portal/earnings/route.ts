@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
+import { nowNaiveET, etToday, addCalendarDays, calendarDayOfWeek, formatNaiveET } from '@/lib/recurring'
 
 // Round to half hour with 10-min grace: under 10 min past = round down, 10+ min = round up
 const roundToHalfHour = (hours: number) => {
@@ -38,9 +39,15 @@ export async function GET(request: NextRequest) {
       ? b.team_member_pay / 100
       : hours * (b.pay_rate || hourlyRate)
 
-  const now = new Date()
-  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000)
+  // start_time/end_time are naive-ET (computeNaiveVisitWindow's documented
+  // convention). Boundaries built from `new Date(now.getFullYear(),
+  // now.getMonth(), now.getDate())` read the SERVER's UTC calendar instead,
+  // silently shifting every day/week/month/year cutoff by the ET/UTC gap
+  // (4-5h) -- the day-boundary counterpart of the instant-"now" bug
+  // nowNaiveET() fixes (see its header).
+  const today = etToday()
+  const todayStartET = formatNaiveET(today)
+  const todayEndET = formatNaiveET(addCalendarDays(today, 1))
 
   // Today's potential earnings (scheduled hours for today)
   const { data: todayJobs } = await supabaseAdmin
@@ -48,8 +55,8 @@ export async function GET(request: NextRequest) {
     .select('id, start_time, end_time, status, pay_rate, team_member_pay')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
-    .gte('start_time', todayStart.toISOString())
-    .lt('start_time', todayEnd.toISOString())
+    .gte('start_time', todayStartET)
+    .lt('start_time', todayEndET)
     .neq('status', 'cancelled')
 
   let todayPotentialHours = 0
@@ -63,12 +70,12 @@ export async function GET(request: NextRequest) {
   }
 
   // Weekly earnings (Mon-Sun)
-  const dayOfWeek = now.getDay()
+  const dayOfWeek = calendarDayOfWeek(today)
   const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-  const weekStart = new Date(todayStart)
-  weekStart.setDate(weekStart.getDate() + mondayOffset)
-  const weekEnd = new Date(weekStart)
-  weekEnd.setDate(weekEnd.getDate() + 7)
+  const weekStart = addCalendarDays(today, mondayOffset)
+  const weekEnd = addCalendarDays(weekStart, 7)
+  const weekStartET = formatNaiveET(weekStart)
+  const weekEndET = formatNaiveET(weekEnd)
 
   const { data: weekJobs } = await supabaseAdmin
     .from('bookings')
@@ -76,8 +83,8 @@ export async function GET(request: NextRequest) {
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', weekStart.toISOString())
-    .lt('start_time', weekEnd.toISOString())
+    .gte('start_time', weekStartET)
+    .lt('start_time', weekEndET)
     .order('start_time', { ascending: false })
 
   let weeklyPay = 0
@@ -97,8 +104,10 @@ export async function GET(request: NextRequest) {
   })
 
   // Monthly earnings
-  const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-  const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+  const monthStartET = formatNaiveET({ ...today, day: 1 })
+  // Day 0 of next month = last day of this month.
+  const monthEnd = addCalendarDays({ year: today.year, month: today.month + 1, day: 1 }, -1)
+  const monthEndET = formatNaiveET(monthEnd, 23, 59, 59)
 
   const { data: monthJobs } = await supabaseAdmin
     .from('bookings')
@@ -106,8 +115,8 @@ export async function GET(request: NextRequest) {
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', monthStart.toISOString())
-    .lte('start_time', monthEnd.toISOString())
+    .gte('start_time', monthStartET)
+    .lte('start_time', monthEndET)
     .order('start_time', { ascending: false })
 
   let monthlyPay = 0
@@ -127,7 +136,8 @@ export async function GET(request: NextRequest) {
   })
 
   // Year-to-date earnings
-  const yearStart = new Date(now.getFullYear(), 0, 1)
+  const yearStartET = formatNaiveET({ year: today.year, month: 0, day: 1 })
+  const nowET = nowNaiveET()
 
   const { data: yearJobs } = await supabaseAdmin
     .from('bookings')
@@ -135,8 +145,8 @@ export async function GET(request: NextRequest) {
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
     .in('status', ['completed', 'paid'])
-    .gte('start_time', yearStart.toISOString())
-    .lte('start_time', now.toISOString())
+    .gte('start_time', yearStartET)
+    .lte('start_time', nowET)
     .order('start_time', { ascending: false })
 
   let yearlyPay = 0
