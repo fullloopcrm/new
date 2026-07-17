@@ -59,18 +59,24 @@ export async function GET(request: Request) {
         if (!member?.phone) continue
 
         // Check if team member already confirmed this job. Scoped to the
-        // CURRENT start_time: a reschedule keeps the same booking_id, so a
+        // CURRENT start_time (a reschedule keeps the same booking_id, so a
         // stale confirmation of a since-changed slot must not silence the
-        // resend for the new one.
+        // resend for the new one) AND the CURRENT team_member_id — a
+        // reassign (team-portal/jobs/reassign) also keeps the same
+        // booking_id and leaves start_time untouched, so without this check
+        // a confirmation from the PREVIOUS assignee would silently cover
+        // the newly-assigned member, who never gets asked and whose
+        // non-confirmation can never trigger the 3-attempt admin escalation.
         const { data: confirmed } = await supabaseAdmin
           .from('notifications')
           .select('id, metadata')
           .eq('tenant_id', tenantId)
           .eq('booking_id', booking.id)
           .eq('type', 'team_confirmed')
-        const confirmedThisSlot = (confirmed || []).some(
-          (n) => (n.metadata as { confirmed_start_time?: string } | null)?.confirmed_start_time === booking.start_time
-        )
+        const confirmedThisSlot = (confirmed || []).some((n) => {
+          const meta = n.metadata as { confirmed_start_time?: string; team_member_id?: string } | null
+          return meta?.confirmed_start_time === booking.start_time && meta?.team_member_id === booking.team_member_id
+        })
         if (confirmedThisSlot) continue
 
         // Check when we last sent a confirmation request for this booking
