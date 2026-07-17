@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 300
 
@@ -26,8 +27,15 @@ export async function GET(request: Request) {
     .limit(1000)
 
   const now = new Date()
-  const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 60 * 60 * 1000)
+  // bookings.start_time/end_time are naive-ET TIMESTAMP (no tz) -- their
+  // parsed digits are ET wall-clock, not a real UTC instant, so boundaries
+  // compared against them need the same naive-ET-as-local-digits encoding
+  // (nowNaiveET below), not real-UTC arithmetic off `now`. notifications
+  // .created_at is TIMESTAMPTZ (aware), so thirtyDaysAgoNotif correctly
+  // stays real-UTC.
+  const nowNaiveET = new Date(toNaiveET(now))
+  const thirtyDaysAgo = new Date(nowNaiveET.getTime() - 30 * 24 * 60 * 60 * 1000)
+  const ninetyDaysAgo = new Date(nowNaiveET.getTime() - 90 * 24 * 60 * 60 * 1000)
   const thirtyDaysAgoNotif = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
 
   for (const tenant of tenants || []) {
@@ -81,7 +89,7 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .eq('client_id', client.id)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', now.toISOString())
+          .gte('start_time', toNaiveET(now))
 
         if ((upcomingCount || 0) > 0) { skipped++; continue }
 
