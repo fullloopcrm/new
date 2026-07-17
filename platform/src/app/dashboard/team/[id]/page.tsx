@@ -32,6 +32,15 @@ type Booking = {
   check_out_time: string | null
 }
 
+type Rating = {
+  id: string
+  service_rating: number | null
+  cleaner_rating: number | null
+  feedback: string | null
+  created_at: string
+  clients: { name: string } | null
+}
+
 type WorkingHourEntry = { start: string; end: string } | null
 type WorkingHours = Record<number, WorkingHourEntry>
 type TimeOffEntry = { start: string; end: string; reason?: string }
@@ -100,6 +109,7 @@ export default function TeamMemberDetailPage() {
   const router = useRouter()
   const [member, setMember] = useState<TeamMember | null>(null)
   const [bookings, setBookings] = useState<Booking[]>([])
+  const [ratings, setRatings] = useState<Rating[]>([])
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState<Partial<TeamMember>>({})
   const [saving, setSaving] = useState(false)
@@ -138,6 +148,10 @@ export default function TeamMemberDetailPage() {
     fetch(`/api/bookings?team_member_id=${id}`)
       .then((r) => r.json())
       .then((data) => setBookings(data.bookings || []))
+      .catch(() => {})
+    fetch(`/api/team/${id}/ratings`)
+      .then((r) => r.json())
+      .then((data) => setRatings(data.ratings || []))
       .catch(() => {})
   }, [id])
 
@@ -628,6 +642,31 @@ export default function TeamMemberDetailPage() {
               </div>
             )}
           </div>
+
+          {/* Client Feedback Section — SMS-collected ratings/feedback text (nycmaid-parity flow) */}
+          {ratings.length > 0 && (
+            <div className="border border-slate-200 rounded-lg p-6">
+              <h3 className="font-semibold text-slate-900 mb-4">Client Feedback</h3>
+              <div className="space-y-2">
+                {ratings.map((r) => (
+                  <div key={r.id} className="p-3 rounded-lg border border-slate-200">
+                    <div className="flex items-center justify-between">
+                      <p className="text-sm font-medium">{r.clients?.name || 'Client'}</p>
+                      <div className="flex items-center gap-2">
+                        {r.service_rating != null && (
+                          <span className="text-yellow-500 text-xs">
+                            {'★'.repeat(r.service_rating)}{'☆'.repeat(5 - r.service_rating)}
+                          </span>
+                        )}
+                        <span className="text-xs text-slate-400">{new Date(r.created_at).toLocaleDateString()}</span>
+                      </div>
+                    </div>
+                    {r.feedback && <p className="text-sm text-slate-400 mt-1">{r.feedback}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
         <div className="space-y-6">

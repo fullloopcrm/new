@@ -16,6 +16,16 @@ type Review = {
   clients: { name: string } | null
 }
 
+type ReviewCredit = {
+  id: string
+  credit_amount: number
+  status: 'pending' | 'verified' | 'paid'
+  proof_url: string | null
+  created_at: string
+  paid_at: string | null
+  clients: { name: string } | null
+}
+
 const statusTabs = [
   { value: '', label: 'All' },
   { value: 'collected', label: 'Collected' },
@@ -30,6 +40,8 @@ export default function ReviewsPage() {
   const [requesting, setRequesting] = useState(false)
   const [statusFilter, setStatusFilter] = useState('')
   const [search, setSearch] = useState('')
+  const [credits, setCredits] = useState<ReviewCredit[]>([])
+  const [updatingCreditId, setUpdatingCreditId] = useState('')
 
   const tenantSettings = useTenantSettings()
   const [reviewsPanelOpen, setReviewsPanelOpen] = useState(false)
@@ -66,7 +78,22 @@ export default function ReviewsPage() {
   useEffect(() => {
     fetch('/api/reviews').then((r) => r.json()).then((data) => setReviews(data.reviews || []))
     fetch('/api/clients').then((r) => r.json()).then((data) => setClients(data.clients || []))
+    fetch('/api/client-reviews').then((r) => r.json()).then((data) => setCredits(data.credits || []))
   }, [])
+
+  async function updateCreditStatus(id: string, status: ReviewCredit['status']) {
+    setUpdatingCreditId(id)
+    const res = await fetch(`/api/client-reviews/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    if (res.ok) {
+      const { credit } = await res.json()
+      setCredits((prev) => prev.map((c) => (c.id === id ? credit : c)))
+    }
+    setUpdatingCreditId('')
+  }
 
   async function requestReview() {
     if (!requestClient) return
@@ -254,6 +281,50 @@ export default function ReviewsPage() {
           </button>
         </div>
       </div>
+
+      {/* REVIEW CREDITS — $10 write-a-review incentive owed to clients (nycmaid-parity flow) */}
+      {credits.length > 0 && (
+        <div className="border border-slate-200 rounded-lg p-5 mb-6">
+          <h3 className="font-semibold text-sm text-slate-900 mb-3">
+            Review Credits
+            <span className="ml-2 text-xs font-normal text-slate-400">
+              {credits.filter(c => c.status !== 'paid').length} awaiting payout
+            </span>
+          </h3>
+          <div className="space-y-2">
+            {credits.map((c) => (
+              <div key={c.id} className="flex items-center justify-between border border-slate-100 rounded-lg px-3 py-2">
+                <div>
+                  <p className="text-sm text-slate-900">{c.clients?.name || 'Client'} <span className="text-slate-400">— ${c.credit_amount}</span></p>
+                  <p className="text-xs text-slate-400">
+                    {new Date(c.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                    {c.proof_url && <> · <a href={c.proof_url} target="_blank" rel="noreferrer" className="underline">proof</a></>}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`text-[10px] px-2 py-0.5 rounded font-medium ${
+                    c.status === 'paid' ? 'bg-green-50 text-green-700' :
+                    c.status === 'verified' ? 'bg-blue-50 text-blue-700' :
+                    'bg-slate-100 text-slate-500'
+                  }`}>{c.status}</span>
+                  {c.status === 'pending' && (
+                    <button onClick={() => updateCreditStatus(c.id, 'verified')} disabled={updatingCreditId === c.id}
+                      className="text-xs px-2 py-1 rounded border border-slate-200 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+                      Verify
+                    </button>
+                  )}
+                  {c.status === 'verified' && (
+                    <button onClick={() => updateCreditStatus(c.id, 'paid')} disabled={updatingCreditId === c.id}
+                      className="text-xs px-2 py-1 rounded bg-teal-600 text-white hover:bg-teal-700 disabled:opacity-50">
+                      Mark Paid
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* SEARCH */}
       <div className="mb-4">
