@@ -2096,7 +2096,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
-    // ---- 5a-17. GDPR PURGE — client_contacts LEFT OUT OF THE ANONYMIZE SET (fresh ground, first archetype coverage of a bug class outside terminated-crew/consent/RBAC: the right-to-be-forgotten workflow's own purge step) ----
+    // ---- 5a-17. GDPR PURGE — client_contacts + quotes LEFT OUT OF THE ANONYMIZE SET (fresh ground, first archetype coverage of a bug class outside terminated-crew/consent/RBAC: the right-to-be-forgotten workflow's own purge step) ----
     // purgeDueDeletions() (src/lib/gdpr-deletion.ts) anonymized clients,
     // client_sms_messages, and invoices on a due request, but never touched
     // client_contacts — the actual fan-out source every outbound client
@@ -2109,7 +2109,10 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     // client_contacts (name/phone_e164/email) and forces
     // receives_sms/receives_email off; email gets a placeholder rather than
     // null because the table's own contact_has_channel CHECK constraint
-    // requires phone_e164 OR email non-null.
+    // requires phone_e164 OR email non-null. Also found `quotes` carrying the
+    // identical denormalized contact-snapshot shape as invoices
+    // (contact_name/contact_email/contact_phone/service_address) and equally
+    // unpurged — fixed in the same pass.
     //
     // Calling the real requestDeletion/purgeDueDeletions functions directly
     // (not a route) — neither needs request/header context, unlike every
@@ -2130,6 +2133,16 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         email: `gdpr+${runId}@example.com`, is_primary: true, receives_sms: true, receives_email: true,
       }).select('id').single()
       add('gdpr-purge: real client_contacts row created (the actual sendClientSMS/sendClientEmail fan-out source)', !!gdprContact && !gdprContactErr, gdprContactErr?.message)
+
+      // quotes carries the identical denormalized contact-snapshot shape as
+      // invoices (contact_name/contact_email/contact_phone/service_address)
+      // — found alongside the client_contacts gap, fixed in the same round.
+      const { data: gdprQuote, error: gdprQuoteErr } = await supabase.from('quotes').insert({
+        tenant_id: tenant.id, client_id: gdprClient?.id, quote_number: `GDPR-${runId}`,
+        contact_name: 'GDPR Purge Client', contact_email: `gdpr+${runId}@example.com`,
+        contact_phone: '+15551230000', service_address: '1 Purge St', total_cents: 5000,
+      }).select('id').single()
+      add('gdpr-purge: real quotes row created with a contact snapshot', !!gdprQuote && !gdprQuoteErr, gdprQuoteErr?.message)
 
       // CONTROL client: also requests deletion but its grace period is left
       // at the real 30-day default (not due) — must survive the sweep
@@ -2159,6 +2172,11 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
 
         const { data: contactAfter } = await supabase.from('client_contacts').select('name, phone_e164, email, receives_sms, receives_email').eq('id', gdprContact.id).single()
         add('gdpr-purge: BLOCKED case fixed — client_contacts name/phone/email redacted and both channel flags forced off', contactAfter?.name === 'Deleted User' && contactAfter?.phone_e164 === null && contactAfter?.email !== `gdpr+${runId}@example.com` && contactAfter?.receives_sms === false && contactAfter?.receives_email === false, JSON.stringify(contactAfter))
+
+        if (gdprQuote?.id) {
+          const { data: quoteAfter } = await supabase.from('quotes').select('contact_name, contact_email, contact_phone, service_address, total_cents').eq('id', gdprQuote.id).single()
+          add('gdpr-purge: BLOCKED case fixed — quotes contact snapshot redacted, money total preserved', quoteAfter?.contact_name === null && quoteAfter?.contact_email === null && quoteAfter?.contact_phone === null && quoteAfter?.total_cents === 5000, JSON.stringify(quoteAfter))
+        }
 
         if (gdprControlContact?.id) {
           const { data: controlContactAfter } = await supabase.from('client_contacts').select('name, phone_e164, receives_sms').eq('id', gdprControlContact.id).single()
