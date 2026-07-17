@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from './supabase'
 import { verifyToken } from '@/app/api/team-portal/auth/token'
 import { tenantServesSite } from './tenant-status'
+import { getTerminatedTeamMemberIds } from './hr'
 import {
   hasPortalPermission,
   type PortalPermission,
@@ -53,6 +54,21 @@ export async function requirePortalPermission(
     .eq('tenant_id', auth.tid)
     .single()
   if (!member || member.status !== 'active') {
+    return { auth: null, error: NextResponse.json({ error: 'Account inactive' }, { status: 401 }) }
+  }
+
+  // The "instant revocation" check above only reads team_members.status, which
+  // HR termination never touches -- PATCH /api/dashboard/hr/[id] (the real
+  // termination action) writes hr_status='terminated' to hr_employee_profiles
+  // only. Without this, a fired worker's existing bearer token (up to 24h
+  // life) kept full portal access -- claim jobs, check in/out (and get paid),
+  // reassign crew -- and PIN login (team-portal/auth/route.ts) let them keep
+  // minting fresh tokens indefinitely, since it also only checked
+  // team_members.status. Same guard used to block terminated crew from being
+  // ASSIGNED (86b797ad, ca14a7fe); this closes the other side -- their OWN
+  // continued access.
+  const terminated = await getTerminatedTeamMemberIds(auth.tid, [auth.id])
+  if (terminated.length > 0) {
     return { auth: null, error: NextResponse.json({ error: 'Account inactive' }, { status: 401 }) }
   }
 

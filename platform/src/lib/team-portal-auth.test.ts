@@ -71,6 +71,7 @@ function requestWithToken(token?: string): Request {
 
 beforeEach(() => {
   handlers = {}
+  handlers.hr_employee_profiles = () => []
   verifyToken.mockReset()
 })
 
@@ -125,6 +126,36 @@ describe('requirePortalPermission', () => {
     const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
     expect(result.auth).toBeNull()
     expect(result.error!.status).toBe(401)
+  })
+
+  it('returns 401 "Account inactive" when the member is HR-terminated even though team_members.status is still active', async () => {
+    // PATCH /api/dashboard/hr/[id] (the real termination action) only ever
+    // writes hr_status='terminated' to hr_employee_profiles -- it never
+    // touches team_members.status. Without this check a fired worker's
+    // existing token (or a fresh PIN login) kept full portal access.
+    verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
+    handlers.team_members = () => ({ status: 'active' })
+    handlers.hr_employee_profiles = () => [{ team_member_id: 'm-1' }]
+
+    const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
+    expect(result.auth).toBeNull()
+    const body = await result.error!.json()
+    expect(result.error!.status).toBe(401)
+    expect(body.error).toBe('Account inactive')
+  })
+
+  it('WRONG-TENANT PROBE: a terminated-member row from a different tenant does not block this tenant\'s member', async () => {
+    verifyToken.mockReturnValue({ id: 'm-1', tid: 't-1', role: 'worker' })
+    handlers.team_members = () => ({ status: 'active' })
+    handlers.tenants = () => ({ selena_config: null })
+    // getTerminatedTeamMemberIds filters hr_employee_profiles by tenant_id --
+    // a same-id termination row under another tenant must not leak across.
+    handlers.hr_employee_profiles = (eqs) =>
+      eqs.tenant_id === 't-1' ? [] : [{ team_member_id: 'm-1' }]
+
+    const result = await requirePortalPermission(requestWithToken('tok'), 'jobs.view_own')
+    expect(result.error).toBeNull()
+    expect(result.auth).toEqual({ id: 'm-1', tid: 't-1', role: 'worker' })
   })
 
   it('WRONG-TENANT PROBE: an active member id from a different tenant is not treated as this tenant\'s member', async () => {

@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { createToken } from './token'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}))
@@ -49,6 +50,16 @@ export async function POST(request: Request) {
     .single()
 
   if (!member) {
+    return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
+  }
+
+  // team_members.status alone doesn't reflect HR termination (that writes
+  // hr_status='terminated' to hr_employee_profiles, never this row) -- without
+  // this check a fired worker could keep minting fresh portal tokens by PIN
+  // forever, not just ride out an existing one. Same guard as
+  // requirePortalPermission's per-request re-check (team-portal-auth.ts).
+  const terminated = await getTerminatedTeamMemberIds(tenant.id, [member.id])
+  if (terminated.length > 0) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
   }
 
