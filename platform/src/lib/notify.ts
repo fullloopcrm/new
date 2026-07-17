@@ -140,9 +140,17 @@ export async function notify({
   let phone: string | null = null
 
   if (recipientId && recipientType === 'client') {
-    const { data } = await supabaseAdmin.from('clients').select('email, phone').eq('id', recipientId).single()
+    const { data } = await supabaseAdmin.from('clients').select('email, phone, sms_consent').eq('id', recipientId).single()
     email = data?.email || null
-    phone = data?.phone || null
+    // sms_consent===false means the client texted STOP (TCPA opt-out, set
+    // tenant-wide by webhooks/telnyx). notify() is the shared dispatcher for
+    // booking_confirmed/reminder/cancelled, payment_received, review_request,
+    // quote_sent/viewed/accepted/declined/expired, follow_up, etc. (55
+    // importers) — treating the client as unreachable by SMS here closes the
+    // gap for all of them at once, the same way the per-route sms_consent
+    // checks already added elsewhere this session close it for routes that
+    // call sendSMS() directly instead of going through notify().
+    phone = data?.sms_consent === false ? null : (data?.phone || null)
   } else if (recipientId && recipientType === 'team_member') {
     const { data } = await supabaseAdmin.from('team_members').select('email, phone').eq('id', recipientId).single()
     email = data?.email || null

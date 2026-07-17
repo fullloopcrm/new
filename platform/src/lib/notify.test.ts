@@ -271,3 +271,67 @@ describe('notify — email/SMS fallback', () => {
     expect(sendSMSMock).not.toHaveBeenCalled()
   })
 })
+
+describe('notify — client sms_consent gate', () => {
+  it('never SMSes a client who has sms_consent===false — falls back to email instead when one is on file', async () => {
+    tableData['clients'] = { email: 'client@example.com', phone: '+15551112222', sms_consent: false }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'booking_reminder', title: 'Reminder', message: 'see you soon',
+      recipientType: 'client', recipientId: 'client-1', channel: 'sms',
+    })
+    // Opted-out client has no reachable phone from notify()'s perspective, so
+    // the primary sms channel treats them as unroutable and falls back to
+    // email (same fallback path a genuinely phone-less client would hit) --
+    // never sms, regardless of the requested channel.
+    expect(r).toEqual({ success: true })
+    expect(sendSMSMock).not.toHaveBeenCalled()
+    expect(sendEmailMock).toHaveBeenCalledTimes(1)
+    const sentUpdate = calls.find((c) => c.table === 'notifications' && c.op === 'update' && (c.payload as { status: string }).status === 'sent')
+    expect((sentUpdate!.payload as { metadata: { _fallback: string } }).metadata._fallback).toBe('email')
+  })
+
+  it('never SMSes a client who has sms_consent===false and has no email either — skipped, not sent', async () => {
+    tableData['clients'] = { email: null, phone: '+15551112222', sms_consent: false }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'booking_reminder', title: 'Reminder', message: 'see you soon',
+      recipientType: 'client', recipientId: 'client-1', channel: 'sms',
+    })
+    expect(r).toEqual({ success: false, error: 'No phone number for recipient' })
+    expect(sendSMSMock).not.toHaveBeenCalled()
+    const update = calls.find((c) => c.table === 'notifications' && c.op === 'update')
+    expect((update!.payload as { status: string }).status).toBe('skipped')
+  })
+
+  it('never falls back to SMS for an opted-out client when the primary email channel fails', async () => {
+    sendEmailMock.mockRejectedValue(new Error('bounced'))
+    tableData['clients'] = { email: 'client@example.com', phone: '+15551112222', sms_consent: false }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'new_client', title: 'Hi', message: 'welcome',
+      recipientType: 'client', recipientId: 'client-1',
+    })
+    // Without the gate this would fall back to SMS per the email->sms
+    // fallback path above; sms_consent:false must block that too.
+    expect(r).toEqual({ success: false, error: 'bounced' })
+    expect(sendSMSMock).not.toHaveBeenCalled()
+  })
+
+  it('still sends SMS to a client with sms_consent===true or unset (existing clients, no explicit opt-out)', async () => {
+    tableData['clients'] = { email: 'client@example.com', phone: '+15551112222', sms_consent: true }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'booking_reminder', title: 'Reminder', message: 'see you soon',
+      recipientType: 'client', recipientId: 'client-1', channel: 'sms',
+    })
+    expect(r).toEqual({ success: true })
+    expect(sendSMSMock).toHaveBeenCalledTimes(1)
+  })
+
+  it('does not gate SMS to a team member on sms_consent (client-only opt-out column)', async () => {
+    tableData['team_members'] = { email: null, phone: '+15559876543' }
+    const r = await notify({
+      tenantId: TENANT_ID, type: 'team_member_added', title: 'Welcome', message: 'hi',
+      recipientType: 'team_member', recipientId: 'tm-1', channel: 'sms',
+    })
+    expect(r).toEqual({ success: true })
+    expect(sendSMSMock).toHaveBeenCalledTimes(1)
+  })
+})
