@@ -6,7 +6,7 @@ import { guessZoneFromAddress, zoneRequiresCar } from '@/lib/service-zones'
 import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
-import { nowNaiveET } from '@/lib/recurring'
+import { nowNaiveET, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 300
 
@@ -26,11 +26,18 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
-  const now = new Date()
-  const endDate = new Date(now); endDate.setDate(endDate.getDate() + 14)
-  const pad = (n: number) => String(n).padStart(2, '0')
-  const toDateStr = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
-  const todayStr = toDateStr(now)
+  // bookings.start_time is naive-ET (see lib/recurring's nowNaiveET header).
+  // `new Date()` + getFullYear()/getMonth()/getDate() reads the SERVER's local
+  // calendar (UTC on Vercel), not ET -- during the ET-evening/UTC-already-
+  // tomorrow window (~8pm-midnight ET) that silently rolled todayStr to
+  // tomorrow's date, excluding the rest of tonight's real bookings from the
+  // 14-day monitored window (line below), from the no-show check's lower
+  // bound, and incorrectly auto-resolving today's still-open issues as
+  // "past-dated" at the stale-issue reconcile below. etToday() anchors on the
+  // real ET calendar date instead.
+  const todayCal = etToday()
+  const todayStr = formatNaiveET(todayCal).slice(0, 10)
+  const endDateStr = formatNaiveET(addCalendarDays(todayCal, 14)).slice(0, 10)
   let totalIssues = 0
 
   const { data: tenants } = await supabaseAdmin.from('tenants').select('id, name').eq('status', 'active').limit(1000)
@@ -45,7 +52,7 @@ export async function GET(request: Request) {
         .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
-        .lte('start_time', toDateStr(endDate) + 'T23:59:59')
+        .lte('start_time', endDateStr + 'T23:59:59')
         .in('status', ['scheduled', 'pending', 'confirmed'])
         .limit(500)
 
