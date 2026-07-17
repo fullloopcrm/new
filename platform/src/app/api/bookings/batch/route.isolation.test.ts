@@ -103,6 +103,46 @@ describe('bookings/batch POST — FK-injection guard (client_id / team_member_id
   })
 })
 
+describe('bookings/batch POST — property_id, max_hours, team_size, pay_rate persist', () => {
+  const PROPERTY_A = 'property-a'
+  const FOREIGN_PROPERTY = 'property-foreign'
+
+  it('property_id, max_hours, team_size, and pay_rate all persist (previously silently dropped by the row-builder)', async () => {
+    fake._seed('client_properties', [{ id: PROPERTY_A, tenant_id: A_ID, client_id: CLIENT_A, address: '1 Main St' }])
+    const res = await POST(req([
+      {
+        client_id: CLIENT_A, property_id: PROPERTY_A,
+        start_time: '2026-08-09T10:00:00', end_time: '2026-08-09T12:00:00', status: 'pending',
+        max_hours: 4, team_size: 3, pay_rate: 35,
+      },
+    ]))
+    expect(res.status).toBe(200)
+    const row = fake._all('bookings').find((b) => b.client_id === CLIENT_A && b.tenant_id === A_ID)!
+    expect(row.property_id).toBe(PROPERTY_A)
+    expect(row.max_hours).toBe(4)
+    expect(row.team_size).toBe(3)
+    expect(row.pay_rate).toBe(35)
+  })
+
+  it('team_size is clamped into [1, 8] instead of trusting an out-of-range caller value verbatim', async () => {
+    const res = await POST(req([
+      { client_id: CLIENT_A, start_time: '2026-08-10T10:00:00', end_time: '2026-08-10T12:00:00', status: 'pending', team_size: 99 },
+    ]))
+    expect(res.status).toBe(200)
+    const row = fake._all('bookings').find((b) => b.client_id === CLIENT_A && b.tenant_id === A_ID && b.start_time === '2026-08-10T10:00:00')!
+    expect(row.team_size).toBe(8)
+  })
+
+  it("rejects a batch containing a property_id belonging to another tenant", async () => {
+    fake._seed('client_properties', [{ id: FOREIGN_PROPERTY, tenant_id: B_ID, client_id: 'client-b', address: '2 Other St' }])
+    const res = await POST(req([
+      { client_id: CLIENT_A, property_id: FOREIGN_PROPERTY, start_time: '2026-08-11T10:00:00', end_time: '2026-08-11T12:00:00', status: 'pending' },
+    ]))
+    expect(res.status).toBe(404)
+    expect(fake._all('bookings').some((b) => b.property_id === FOREIGN_PROPERTY)).toBe(false)
+  })
+})
+
 describe('LEAK CONTROL', () => {
   it("reading bookings by client_id ALONE (no tenant_id filter) WOULD return both tenants' rows for the same client_id — proves the route's tenantDb scoping above is load-bearing", async () => {
     await POST(req([

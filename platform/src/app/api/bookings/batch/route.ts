@@ -60,12 +60,29 @@ export async function POST(request: Request) {
     }
   }
 
+  // Same FK-injection guard, extended to property_id: BookingsAdmin.tsx's
+  // create form sends it on every batch row (multi-address clients), but
+  // client_properties is deny-all RLS (service-role only) with no join back
+  // in this route's response -- without this check a foreign tenant's
+  // property_id would still get silently attached to this tenant's booking.
+  const propertyIds = [...new Set(bookingInputs.map(b => b.property_id).filter(Boolean))] as string[]
+  if (propertyIds.length > 0) {
+    const { data: ownedProperties } = (await db.from('client_properties').select('id').in('id', propertyIds)) as {
+      data: { id: string }[] | null
+    }
+    const owned = new Set((ownedProperties || []).map(p => p.id))
+    if (propertyIds.some(id => !owned.has(id))) {
+      return NextResponse.json({ error: 'Property not found' }, { status: 404 })
+    }
+  }
+
   const rows = bookingInputs.map(b => {
     const token = generateToken()
     const tokenExpires = new Date(b.start_time as string)
     tokenExpires.setHours(tokenExpires.getHours() + 24)
     return {
       client_id: b.client_id,
+      property_id: b.property_id || null,
       team_member_id: b.team_member_id || b.team_member_id || null,
       start_time: b.start_time,
       end_time: b.end_time,
@@ -79,6 +96,8 @@ export async function POST(request: Request) {
       token_expires_at: tokenExpires.toISOString(),
       status: (b.status as string) || 'scheduled',
       pay_rate: b.pay_rate || null,
+      team_size: Math.max(1, Math.min(8, Number(b.team_size) || 1)),
+      max_hours: (b.max_hours as number | null | undefined) ?? null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
     }
   })

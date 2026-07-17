@@ -95,6 +95,22 @@ describe('POST /api/bookings — emergency-booking fields persist', () => {
     expect(body.booking.is_emergency).toBe(true)
   })
 
+  it("an emergency create's per-job pay_rate persists (validate()'s allowlist had no pay-rate field at all, under any name, until now)", async () => {
+    const req = new Request('http://x/api/bookings', {
+      method: 'POST',
+      body: JSON.stringify({
+        client_id: CLIENT_A,
+        start_time: '2026-08-12T10:00:00.000Z',
+        pay_rate: 45,
+        force: true,
+      }),
+    })
+    const res = await POST(req)
+    expect(res.status).toBe(201)
+    const body = await res.json()
+    expect(body.booking.pay_rate).toBe(45)
+  })
+
   it('a normal (non-emergency) create omitting these fields still works — no regression, price/hourly_rate default to whatever the DB/insert leaves them', async () => {
     const req = new Request('http://x/api/bookings', {
       method: 'POST',

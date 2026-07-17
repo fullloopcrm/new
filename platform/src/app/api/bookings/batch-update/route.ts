@@ -8,9 +8,9 @@ import { notify } from '@/lib/notify'
 import { pick } from '@/lib/validate'
 
 const BATCH_UPDATE_FIELDS = [
-  'client_id', 'team_member_id', 'service_type_id', 'start_time', 'end_time',
-  'notes', 'special_instructions', 'status', 'hourly_rate', 'pay_rate',
-  'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
+  'client_id', 'team_member_id', 'service_type_id', 'service_type', 'recurring_type',
+  'start_time', 'end_time', 'notes', 'special_instructions', 'status', 'hourly_rate',
+  'pay_rate', 'actual_hours', 'team_pay', 'team_paid', 'discount_enabled', 'price',
 ]
 
 /**

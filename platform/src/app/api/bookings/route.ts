@@ -116,6 +116,7 @@ export async function POST(request: Request) {
       special_instructions: { type: 'string', max: 2000 },
       price: { type: 'number', min: 0 },
       hourly_rate: { type: 'number', min: 0 },
+      pay_rate: { type: 'number', min: 0 },
       is_emergency: { type: 'boolean' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })

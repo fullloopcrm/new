@@ -1011,7 +1011,7 @@ function BookingsPage() {
           service_type: createForm.service_type, price: calculatePrice(),
           hourly_rate: createForm.hourly_rate, recurring_type: recurringType,
           notes: createForm.notes || null, skip_email: true, is_emergency: true,
-          status: 'available', cleaner_pay_rate: createForm.cleaner_pay_rate,
+          status: 'available', pay_rate: createForm.cleaner_pay_rate,
           max_hours: createForm.max_hours,
           force: true,
         })
@@ -1069,14 +1069,33 @@ function BookingsPage() {
         notes: createForm.notes || null,
         status: createForm.status,
         team_size: createForm.team_size,
-        extra_cleaner_ids: createForm.extra_cleaner_ids,
+        pay_rate: createForm.cleaner_pay_rate,
         max_hours: createForm.max_hours,
       }))
 
-      await fetch('/api/bookings/batch', {
+      const batchRes = await fetch('/api/bookings/batch', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ bookings })
       })
+
+      // Extra crew (multi-tech jobs) can't be set on the batch insert itself
+      // (booking_team_members needs the new booking's id first) -- same
+      // lead+extras+team_size write the edit path already does via this
+      // endpoint (see handleSubmit above), just run once per created booking.
+      if (batchRes.ok && createForm.team_size > 1) {
+        const { bookings: created } = await batchRes.json()
+        for (const created_booking of (created || []) as { id: string }[]) {
+          await fetch(`/api/bookings/${created_booking.id}/team`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              lead_id: createForm.cleaner_id || null,
+              extra_team_member_ids: createForm.extra_cleaner_ids,
+              team_size: createForm.team_size,
+            })
+          })
+        }
+      }
     }
     setShowCreateModal(false); loadBookings(); setSaving(false)
   }

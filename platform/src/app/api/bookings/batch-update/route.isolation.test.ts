@@ -67,4 +67,24 @@ describe('bookings/batch-update PUT — tenantDb isolation', () => {
     const bBooking = fake._all('bookings').find((r) => r.id === B_ONLY_ID)!
     expect(bBooking.notes).toBe('B-only note')
   })
+
+  it("series edit's service_type and recurring_type actually persist (BookingsAdmin's 'apply to all future bookings' path)", async () => {
+    // BookingsAdmin.tsx sends these exact keys on every non-pattern-change
+    // series edit (src/app/dashboard/bookings/BookingsAdmin.tsx:912,914) —
+    // both are real bookings columns (supabase/schema.sql:141,148), but
+    // BATCH_UPDATE_FIELDS previously allowlisted only service_type_id, and
+    // never listed recurring_type at all, so pick() silently dropped both.
+    const req = new Request('http://x', {
+      method: 'PUT',
+      body: JSON.stringify({
+        updates: [{ id: SHARED_ID, data: { service_type: 'Deep Cleaning', recurring_type: 'Bi-Weekly' } }],
+      }),
+    })
+    const res = await PUT(req)
+    expect(res.status).toBe(200)
+
+    const aBooking = fake._all('bookings').find((r) => r.tenant_id === A_ID)!
+    expect(aBooking.service_type).toBe('Deep Cleaning')
+    expect(aBooking.recurring_type).toBe('Bi-Weekly')
+  })
 })
