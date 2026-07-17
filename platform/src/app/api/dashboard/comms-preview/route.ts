@@ -6,9 +6,8 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
-import { getPrimaryTenantDomain } from '@/lib/domains'
 
 export async function GET(request: Request) {
   try {
@@ -16,7 +15,7 @@ export async function GET(request: Request) {
     const sendTo = new URL(request.url).searchParams.get('send')
     const { data: t } = await supabaseAdmin
       .from('tenants')
-      .select('name, phone, email, address, logo_url, primary_color, resend_api_key, email_from, domain')
+      .select('name, slug, phone, email, address, logo_url, primary_color, resend_api_key, email_from')
       .eq('id', tenantId)
       .single()
 
@@ -56,12 +55,7 @@ export async function GET(request: Request) {
     if (sendTo) {
       const apiKey = t?.resend_api_key ? decryptSecret(t.resend_api_key) : null
       if (!apiKey) return new Response(JSON.stringify({ error: 'Tenant has no Resend key configured' }), { status: 400, headers: { 'Content-Type': 'application/json' } })
-      // tenant_domains FIRST, tenants.domain fallback -- same precedence as
-      // every other domain-fallback call site. Only fires when email_from
-      // is unset, but must not skip a custom domain that lives only in
-      // tenant_domains and land on the generic default instead.
-      const emailDomain = (await getPrimaryTenantDomain(tenantId)) || t?.domain
-      const from = t?.email_from || `hello@${emailDomain || 'fullloopcrm.com'}`
+      const from = tenantSender(t)
       const sent: string[] = []
       for (const v of variants.slice(0, 1)) {
         await sendEmail({ to: sendTo, subject: `${brand.name} — your proposal is ready`, html: v.html, from, resendApiKey: apiKey })

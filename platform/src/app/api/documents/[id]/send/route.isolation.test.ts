@@ -24,7 +24,7 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 vi.mock('@/lib/tenant-query', () => ({ AuthError: class AuthError extends Error { status = 401 } }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}) }))
+vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => {}), tenantSender: vi.fn() }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: (s: string) => s }))
 vi.mock('@/lib/documents', () => ({
   DOCUMENTS_BUCKET: 'docs',

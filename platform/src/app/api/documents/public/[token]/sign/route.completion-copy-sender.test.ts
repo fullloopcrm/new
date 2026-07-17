@@ -25,7 +25,10 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 type SendEmailArgs = { to: string; from?: string; resendApiKey?: string | null; attachments?: unknown[] }
 const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (_args: SendEmailArgs) => ({})) }))
-vi.mock('@/lib/email', () => ({ sendEmail }))
+vi.mock('@/lib/email', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/email')>('@/lib/email')
+  return { ...actual, sendEmail }
+})
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({})) }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 9 })) }))
 vi.mock('@/lib/documents', () => ({
@@ -73,6 +76,7 @@ function chainable(result: { data: unknown; error: unknown }) {
 
 const TENANT: {
   name: string
+  slug: string
   domain: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
@@ -80,6 +84,7 @@ const TENANT: {
   email_from: string | null
 } = {
   name: 'Acme Cleaning',
+  slug: 'acme-cleaning',
   domain: 'acme.example.com',
   telnyx_api_key: null,
   telnyx_phone: null,
@@ -213,15 +218,18 @@ describe("POST /api/documents/public/[token]/sign — completion-copy receipt us
 })
 
 /**
- * fromEmail domain-fallback bug-class probe: sendCompletionCopies's
- * fromEmail fallback (fires only when email_from is unset) read
- * tenant.domain directly and never consulted tenant_domains, same bug as the
- * 13 other mirrors closed this session. Fixed by resolving through
- * getPrimaryTenantDomain() first, same precedence as the sign-link baseUrl a
- * few lines up in this same function.
+ * fromEmail bug-class probe: sendCompletionCopies's fromEmail fallback
+ * (fires only when email_from is unset) was built from `docs@${tenant.domain
+ * || 'fullloopcrm.com'}` — NOT a tenant_domains-resolver-precedence gap, a
+ * distinct bug: a tenant's site domain is never verified with Resend for
+ * SENDING (only tenants.email_from, paired with the admin-configured
+ * tenants.resend_domain verification flow, is). Using any resolved site
+ * domain here would break deliverability on the single highest-stakes email
+ * in the whole signing flow. Fixed via tenantSender(), the established
+ * helper every other notify path already routes through.
  */
-describe('POST /api/documents/public/[token]/sign — sendCompletionCopies fromEmail domain-fallback bug-class probe', () => {
-  it('domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+describe('POST /api/documents/public/[token]/sign — sendCompletionCopies fromEmail bug-class probe', () => {
+  it('fromEmail uses tenantSender(): no email_from set — falls back to the tenant-identified platform apex, NOT any tenant_domains/tenants.domain value', async () => {
     currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
     tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
     const { POST } = await import('./route')
@@ -231,12 +239,12 @@ describe('POST /api/documents/public/[token]/sign — sendCompletionCopies fromE
     )
     expect(res.status).toBe(200)
     const call = sendEmail.mock.calls[0][0]
-    expect(call.from).toBe('docs@custom.example.com')
+    expect(call.from).toBe('Acme Cleaning <acme-cleaning@fullloopcrm.com>')
   })
 
-  it('falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
-    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
-    tenantDomainsRows = []
+  it('fromEmail uses tenant.email_from when set, ignoring tenant_domains/tenants.domain entirely', async () => {
+    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: 'docs@acme-verified.com' } }
+    tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
     const { POST } = await import('./route')
     const res = await POST(
       fakeRequest({ signature_png: 'data:image/png;base64,' + 'a'.repeat(120), signature_name: 'Sig One', field_values: [] }),
@@ -244,22 +252,6 @@ describe('POST /api/documents/public/[token]/sign — sendCompletionCopies fromE
     )
     expect(res.status).toBe(200)
     const call = sendEmail.mock.calls[0][0]
-    expect(call.from).toBe('docs@fullloopcrm.com')
-  })
-
-  it("wrong-tenant probe: another tenant's tenant_domains row never leaks into this tenant's receipt from-address", async () => {
-    currentDoc = { ...DOC, tenants: { ...TENANT, domain: null, email_from: null } }
-    tenantDomainsRows = [
-      { tenant_id: 'tid-a', domain: 'acme-real.example.com', is_primary: true, active: true },
-      { tenant_id: 'tid-b', domain: 'other-tenant.example.com', is_primary: true, active: true },
-    ]
-    const { POST } = await import('./route')
-    const res = await POST(
-      fakeRequest({ signature_png: 'data:image/png;base64,' + 'a'.repeat(120), signature_name: 'Sig One', field_values: [] }),
-      { params: Promise.resolve({ token: 'tok-1' }) }
-    )
-    expect(res.status).toBe(200)
-    const call = sendEmail.mock.calls[0][0]
-    expect(call.from).toBe('docs@acme-real.example.com')
+    expect(call.from).toBe('docs@acme-verified.com')
   })
 })

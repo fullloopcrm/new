@@ -6,12 +6,11 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { tenantSiteUrl } from '@/lib/tenant-site'
-import { getPrimaryTenantDomain } from '@/lib/domains'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -50,11 +49,6 @@ export async function POST(request: Request, { params }: Params) {
 
     const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant.domain, slug: tenant.slug })
     const quoteUrl = `${baseUrl}/quote/${quote.public_token}`
-    // tenant_domains FIRST, tenants.domain fallback — same precedence as
-    // tenantSiteUrl() above. Only used when email_from isn't set, but when it
-    // fires it must not skip a custom domain that lives only in
-    // tenant_domains and land on the generic default instead.
-    const emailDomain = (await getPrimaryTenantDomain(tenantId)) || tenant.domain
 
     const toEmail = body.to_email || quote.contact_email
     const toPhone = body.to_phone || quote.contact_phone
@@ -66,7 +60,7 @@ export async function POST(request: Request, { params }: Params) {
       try {
         const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
         if (!apiKey) throw new Error('No Resend API key configured for tenant')
-        const fromEmail = tenant.email_from || `quotes@${emailDomain || 'fullloopcrm.com'}`
+        const fromEmail = tenantSender(tenant)
         const greeting = quote.contact_name ? `Hi ${quote.contact_name},` : 'Hi there,'
         const validLine = quote.valid_until
           ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US')}.</p>` : ''

@@ -14,11 +14,10 @@ import {
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { escapeHtml } from '@/lib/escape-html'
-import { sendEmail } from '@/lib/email'
+import { sendEmail, tenantSender } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
-import { getPrimaryTenantDomain } from '@/lib/domains'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -244,7 +243,7 @@ type CompletionSigner = { id: string; name: string; email: string | null; role?:
 async function sendCompletionCopies(
   doc: { id: string; tenant_id: string; title: string },
   signers: CompletionSigner[],
-  tenant: { domain: string | null; resend_api_key: string | null; email_from: string | null } | null
+  tenant: { name: string | null; slug: string | null; resend_api_key: string | null; email_from: string | null } | null
 ) {
   const recipients = signers.filter(s => s.email)
   if (recipients.length === 0) return
@@ -256,12 +255,7 @@ async function sendCompletionCopies(
   const completedAt = new Date().toLocaleString('en-US')
   const roster = signers.map(s => `${escapeHtml(s.name)}${s.email ? ` (${escapeHtml(s.email)})` : ''}`).join(', ')
   const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-  // tenant_domains FIRST, tenants.domain fallback -- same precedence as
-  // tenantSiteUrl(). Only fires when email_from is unset, but must not skip
-  // a custom domain that lives only in tenant_domains and land on the
-  // generic default instead.
-  const emailDomain = (await getPrimaryTenantDomain(doc.tenant_id)) || tenant?.domain
-  const fromEmail = tenant?.email_from || `docs@${emailDomain || 'fullloopcrm.com'}`
+  const fromEmail = tenantSender(tenant)
 
   for (const s of recipients) {
     const html = `
@@ -475,12 +469,7 @@ async function sendSigningInviteToSigner(
 
   const telnyxKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
   const resendKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-  // tenant_domains FIRST, tenants.domain fallback -- same precedence as
-  // tenantSiteUrl() above. Only fires when email_from is unset, but must not
-  // skip a custom domain that lives only in tenant_domains and land on the
-  // generic default instead.
-  const emailDomain = (await getPrimaryTenantDomain(doc.tenant_id)) || tenant.domain
-  const fromEmail = tenant.email_from || `docs@${emailDomain || 'fullloopcrm.com'}`
+  const fromEmail = tenantSender(tenant)
 
   if (next.email && resendKey) {
     try {

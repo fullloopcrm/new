@@ -23,7 +23,7 @@ vi.mock('@/lib/documents', () => ({
   sha256Hex: vi.fn(),
 }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: vi.fn(() => 'secret') }))
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn() }))
+vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(), tenantSender: vi.fn() }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn() }))
 
 function fakeRequest(body: Record<string, unknown> = {}, ip = '1.2.3.4') {

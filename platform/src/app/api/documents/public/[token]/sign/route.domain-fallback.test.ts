@@ -10,10 +10,21 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
  * through tenantSiteUrl(). (sendCompletionCopies's OWN fromEmail-fallback
  * mirror of this same bug is covered separately, in
  * route.completion-copy-sender.test.ts.)
+ *
+ * fromEmail's fallback (fires when email_from is unset) is a DIFFERENT bug
+ * shape, not a tenant_domains-resolver-precedence gap: `docs@${tenant.domain
+ * || 'fullloopcrm.com'}` was already wrong even with a resolved domain,
+ * because a tenant's site domain is never verified with Resend for SENDING
+ * -- only tenants.email_from (paired with the admin-configured
+ * tenants.resend_domain verification flow) is. The fix is tenantSender(),
+ * the established helper every other notify path already routes through.
  */
 
 const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (_args: unknown) => ({})) }))
-vi.mock('@/lib/email', () => ({ sendEmail }))
+vi.mock('@/lib/email', async () => {
+  const actual = await vi.importActual<typeof import('@/lib/email')>('@/lib/email')
+  return { ...actual, sendEmail }
+})
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({})) }))
 vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 9 })) }))
 vi.mock('@/lib/documents', () => ({
@@ -190,33 +201,25 @@ describe('POST /api/documents/public/[token]/sign — sendSigningInviteToSigner 
     expect(call.html).not.toContain('other-tenant.example.com')
   })
 
-  it('fromEmail domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+  it('fromEmail uses tenantSender(): no email_from set — falls back to the tenant-identified platform apex, NOT any tenant_domains/tenants.domain value', async () => {
     doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
     tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
     const res = await sign()
     expect(res.status).toBe(200)
     const call = sendEmail.mock.calls[0][0] as { from?: string }
-    expect(call.from).toBe('docs@custom.example.com')
+    // Resend requires a verified sending domain -- a tenant's SITE domain
+    // (tenant_domains/tenants.domain) is never verified for sending, so using
+    // it as the from-address domain would break deliverability. tenantSender()
+    // falls back to the platform's own verified fullloopcrm.com apex instead.
+    expect(call.from).toBe('Acme <acme@fullloopcrm.com>')
   })
 
-  it('fromEmail falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
-    doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
-    tenantDomainsRows = []
+  it('fromEmail uses tenant.email_from when set, ignoring tenant_domains/tenants.domain entirely', async () => {
+    doc = buildDoc({ domain: null, slug: 'acme', email_from: 'docs@acme-verified.com' })
+    tenantDomainsRows = [{ tenant_id: 'tid-a', domain: 'custom.example.com', is_primary: true, active: true }]
     const res = await sign()
     expect(res.status).toBe(200)
     const call = sendEmail.mock.calls[0][0] as { from?: string }
-    expect(call.from).toBe('docs@fullloopcrm.com')
-  })
-
-  it("fromEmail wrong-tenant probe: another tenant's tenant_domains row never leaks into this tenant's next-signer invite from-address", async () => {
-    doc = buildDoc({ domain: null, slug: 'acme', email_from: null })
-    tenantDomainsRows = [
-      { tenant_id: 'tid-a', domain: 'acme-real.example.com', is_primary: true, active: true },
-      { tenant_id: 'tid-b', domain: 'other-tenant.example.com', is_primary: true, active: true },
-    ]
-    const res = await sign()
-    expect(res.status).toBe(200)
-    const call = sendEmail.mock.calls[0][0] as { from?: string }
-    expect(call.from).toBe('docs@acme-real.example.com')
+    expect(call.from).toBe('docs@acme-verified.com')
   })
 })

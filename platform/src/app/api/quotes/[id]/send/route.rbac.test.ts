@@ -38,7 +38,7 @@ vi.mock('@/lib/tenant-query', () => {
 })
 
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ ok: true })) }))
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }))
+vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => ({ ok: true })), tenantSender: vi.fn() }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: vi.fn(() => 'decrypted-key') }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert: vi.fn(async () => {}) }))
 
