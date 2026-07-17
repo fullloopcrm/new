@@ -52,7 +52,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo.toISOString())
@@ -85,10 +85,13 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberSmsConsent = (booking.team_members as any)?.sms_consent
         const isTerminatedAssignee = !!booking.team_member_id && lateCheckInTerminatedIds.has(booking.team_member_id)
 
-        // SMS to team member — skip a terminated assignee
-        if (teamLateOn && !isTerminatedAssignee && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — skip a terminated assignee, plus sms_consent
+        // (team_members.sms_consent is a real, crew-editable column; this
+        // send fired unconditionally regardless of it before this fix).
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckInTeam(tenant.name, booking as any),
@@ -135,7 +138,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -164,10 +167,13 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberSmsConsent = (booking.team_members as any)?.sms_consent
         const isTerminatedAssignee = !!booking.team_member_id && lateCheckOutTerminatedIds.has(booking.team_member_id)
 
-        // SMS to team member — skip a terminated assignee
-        if (teamLateOn && !isTerminatedAssignee && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — skip a terminated assignee, plus sms_consent
+        // (team_members.sms_consent is a real, crew-editable column; this
+        // send fired unconditionally regardless of it before this fix).
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckOutTeam(tenant.name, booking as any),
