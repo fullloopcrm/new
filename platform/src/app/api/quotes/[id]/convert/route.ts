@@ -119,7 +119,11 @@ export async function POST(request: Request, { params }: Params) {
           start_time: startTime,
           end_time: endTime,
           status: bkStatus,
-          price: quote.total_cents ? quote.total_cents / 100 : null,
+          // bookings.price is CENTS (see POST /api/invoices' from_booking_id
+          // handling + lib/sale-to-booking.ts's identical fix, commit 3ac8c818) --
+          // this was dividing by 100, storing DOLLARS. A $500 quote converted here
+          // landed price:500 read back as $5.00 on invoice, a 100x undercharge.
+          price: quote.total_cents ? quote.total_cents : null,
           notes: `Converted from quote ${quote.quote_number}`,
           special_instructions: quote.notes || null,
         })
