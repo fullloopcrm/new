@@ -1339,6 +1339,69 @@ files, 1800/1800 tests, zero regressions (one pre-existing, unrelated
 tenant-scope guard warning on `fixture/route.ts`, not touched, same
 precedent as items 17/23/24/26/27/28/29/30).
 
+## (32) New today, archetype depth — late-check-in cron's admin alerts were is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30) — NOW FIXED
+
+`GET /api/cron/late-check-in` is the proactive sweep that catches a team
+member who never checked in (10+ min overdue) or never checked out (30+
+min after the 15-min payment alert) — but its own `SELECT`s for both
+checks never fetched `bookings.is_emergency`, so a team member late to
+check in/out on a same-day emergency job produced a byte-identical "Late
+Check-In"/"Late Check-Out" push, admin SMS, and in-app notification as one
+running late on a routine job three weeks out. Same root pattern as items
+(20) (schedule-monitor severity), (24) (admin new-booking notify), (26)
+(multi-tech extras SMS), (29) (running-late report), and (30) (reassign
+push): the owner's first glance at the alert carried no signal that the
+job already involved is time-critical — exactly the moment a delay
+matters most.
+
+Also found: the admin SMS templates behind this route
+(`lateCheckInAdmin`/`lateCheckOutAdmin` in `src/lib/messaging/team-sms.ts`
+for cleaning tenants, `smsLateCheckInAdmin`/`smsLateCheckOutAdmin` in
+`src/lib/sms-templates.ts` for the other ~23 tenants) had no `is_emergency`
+parameter at all, unlike `smsJobAssignment`/`jobAssignment` which already
+established the `URGENT — ` prefix convention for this exact scenario
+(item (7)/P11.22).
+
+**Fixed** (`p1-w3`) — added `is_emergency` to both cron selects; push
+title, in-app notification title/message, and all four admin SMS template
+functions now carry a `URGENT — `/`🚨` escalation when true, reusing the
+established convention rather than inventing new wording. Team-member-
+facing late-reminder SMS left untouched, deliberately — same precedent as
+item (29) leaving client-facing copy alone.
+
+Zero test files exist under any `src/app/api/cron/*` route in this repo
+(same precedent items 18/20/22 already established) — relies on `tsc
+--noEmit` + full-suite verification, not new unit tests. `tsc --noEmit`
+clean, full suite 351/351 files, 1800/1800 tests, zero regressions (one
+pre-existing, unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, same precedent as items 17/23/24/26/27/28/29/30/31).
+
+## (33) New today, fresh ground outside the archetype — team-portal running-late's client SMS never checked sms_consent, missed by the prior sweep — NOW FIXED
+
+Continuation of the codebase-wide TCPA compliance sweep begun by items
+(19)/(21)/(23)/(31) (that convention: every real client-SMS call site
+gates on `sms_consent !== false`, matching what the STOP-reply webhook
+actually writes). `POST /api/team-portal/running-late`'s client SMS
+(`smsRunningLateClient`, sent when a team member reports running late on
+their own job) never adopted that convention — the route's booking
+`select()` didn't even fetch `sms_consent`. This one specifically slipped
+past item (23)'s sweep because that commit's own writeup explicitly noted
+"the late-check-in cron never SMS's the client at all, only team+admin" as
+a deliberate exclusion — true for the cron, but this sibling team-portal
+route (found while re-checking the same file for item (32) above) *does*
+SMS the client directly and was never separately audited against the
+convention.
+
+**Fixed** (`p1-w3`) — added `sms_consent` to the booking's `clients()`
+select and gated the client SMS on `sms_consent !== false`; admin SMS
+untouched. 2 new tests (`route.sms-consent.test.ts`: opted-out-skips-the-
+send case + not-opted-out control), mutation-verified (reverted the fix,
+the opted-out test went RED reproducing the exact still-sends symptom,
+control unaffected, restored). `tsc --noEmit` clean, full suite 352/352
+files, 1802/1802 tests, zero regressions (one pre-existing, unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, same
+precedent as items 17/23/24/26/27/28/29/30/31/32).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
