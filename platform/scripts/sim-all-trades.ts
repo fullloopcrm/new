@@ -2002,6 +2002,31 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           if (helper?.id) {
             add('cron-reminder-guard: CONTROL — the active helper\'s booking is NOT caught, still gets the reminder', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
           }
+
+          // ---- 5a-14. CRON/CONFIRMATIONS + CRON/LATE-CHECK-IN — TERMINATED-CREW GUARD ON STALE BOOKING ASSIGNMENT (fresh ground, same trigger as 5a-13: an automated cron reading a pre-termination assignment, two more call sites the 5a-13 fix didn't reach) ----
+          // 5a-13 closed the gap on cron/reminders + cron/daily-summary, but
+          // the same stale-assignment class was still open on two more
+          // automated crons that read bookings.team_member_id with zero
+          // hr_status check: cron/confirmations' hourly "please confirm your
+          // job" resend to the team member (plus the 3rd-attempt admin
+          // "hasn't confirmed" escalation, which would fire about someone who
+          // no longer works there), and cron/late-check-in's team-facing "you
+          // haven't checked in" / "you haven't checked out" texts. Fixed this
+          // round with the same batched getTerminatedTeamMemberIds guard used
+          // by 5a-13's two crons.
+          //
+          // Same CRON_SECRET-gated / no-per-tenant-scope constraint as 5a-13
+          // -- drives the exact guard function both newly-fixed crons now
+          // call, reusing the SAME real stale-assigned booking
+          // (staleTermBooking) and CONTROL booking (staleActiveBooking)
+          // seeded just above, since both bugs share the identical "future
+          // booking still points at a terminated worker" precondition (the
+          // guard call itself is identical to 5a-13's -- reminderTerminatedIds
+          // IS the set both pairs of crons compute).
+          add('cron-confirmations/late-check-in-guard: the terminated worker\'s stale-assigned booking is caught by the same guard both newly-fixed crons apply before texting', reminderTerminatedIds.includes(worker.id), JSON.stringify(reminderTerminatedIds))
+          if (helper?.id) {
+            add('cron-confirmations/late-check-in-guard: CONTROL — the active helper\'s booking is NOT caught, still gets confirm-request/late-check-in texts', !reminderTerminatedIds.includes(helper.id), JSON.stringify(reminderTerminatedIds))
+          }
         }
       }
     }
