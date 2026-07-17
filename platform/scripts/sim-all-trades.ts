@@ -3592,6 +3592,37 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }).eq('id', tenant.id)
     }
 
+    // ---- 5a-41. POST /api/bookings caller-supplied property_id FK — CROSS-CLIENT REJECTION PROBE, not a live bug (archetype-depth extension; this round's fresh-ground hunt covered 6 candidate classes — admin-route auth consistency, caller-supplied cross-tenant FK ownership, PIN/login brute-force rate limiting, PostgREST .or() filter injection, webhook signature verification, and payment-amount bounds — all already closed by existing guards, so there was no new fix to confirm here. This probe instead exercises an unprobed angle of an ALREADY-SHIPPED guard: bookings/route.ts's property_id check filters on `.eq('client_id', …)` in addition to `.eq('tenant_id', …)` — sim-all-trades runs one tenant per pass so it can't build a cross-TENANT probe (see 5a-36's note), but a cross-CLIENT-same-tenant probe needs only a second client and is fully in scope; never exercised before.) ----
+    {
+      const crossClientPhone = '646' + String(3300000 + idx * 151 + (Date.now() % 1000)).slice(-7)
+      const { data: foreignClient, error: foreignClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Cross-Client FK Gate — Foreign Client', phone: crossClientPhone, status: 'active',
+      }).select('id').single()
+      add('cross-client-fk-gate: a second real client created under the SAME tenant', !!foreignClient && !foreignClientErr, foreignClientErr?.message)
+
+      const { data: foreignProperty, error: foreignPropertyErr } = await supabase.from('client_properties').insert({
+        tenant_id: tenant.id, client_id: foreignClient?.id, address: '99 Foreign Client Ave', active: true,
+      }).select('id').single()
+      add('cross-client-fk-gate: a real client_properties row created under the foreign client', !!foreignProperty && !foreignPropertyErr, foreignPropertyErr?.message)
+
+      if (foreignProperty?.id && foreignClient?.id && job?.client_id) {
+        // Mirrors POST /api/bookings' property_id ownership guard exactly
+        // (src/app/api/bookings/route.ts): .eq('id', propertyId).eq('client_id', clientId).eq('tenant_id', tenantId).
+        const { data: rejected } = await supabase.from('client_properties').select('id')
+          .eq('id', foreignProperty.id).eq('client_id', job.client_id).eq('tenant_id', tenant.id).maybeSingle()
+        add('cross-client-fk-gate: bookings/route.ts guard shape rejects a property owned by a DIFFERENT client of the SAME tenant (live schema, not a mock)', !rejected, JSON.stringify(rejected))
+
+        const { data: accepted } = await supabase.from('client_properties').select('id')
+          .eq('id', foreignProperty.id).eq('client_id', foreignClient.id).eq('tenant_id', tenant.id).maybeSingle()
+        add('cross-client-fk-gate: the SAME guard shape accepts the property under its real owning client (control — proves the rejection above is the client_id filter at work, not a broken query)', !!accepted, JSON.stringify(accepted))
+
+        await supabase.from('client_properties').delete().eq('id', foreignProperty.id).eq('tenant_id', tenant.id)
+      }
+      if (foreignClient?.id) {
+        await supabase.from('clients').delete().eq('id', foreignClient.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
