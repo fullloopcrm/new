@@ -15,18 +15,30 @@ import { toBrand } from '@/app/site/template/_lib/seo/brand'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import GenericHome from '@/app/site/template/_components/GenericHome'
 import VirtualAssistantLanding from '@/app/site/template/_components/VirtualAssistantLanding'
+import { getSeoOverride } from '@/lib/seo/overrides'
 
 
 export async function generateMetadata(): Promise<Metadata> {
   const siteConfig = await getSiteConfig()
   const content = homepageContent(toBrand(siteConfig))
+  // SIGNAL apply layer: an admin-approved or autopilot-applied title/meta fix
+  // (seo_overrides, keyed by this exact canonical url) wins over the
+  // template default — same precedence [combo]/page.tsx already gives its
+  // own marketing pages. Previously this table was written by every SEO
+  // "Apply" path (admin review + autopilot) for every tenant property but
+  // read by nothing except the FL marketing combo pages, so an admin
+  // approving a tenant's title/meta fix here silently changed nothing on
+  // the tenant's actual live homepage.
+  const override = await getSeoOverride(siteConfig.identity.url)
+  const title = override?.title || content.title
+  const description = override?.description || content.metaDescription
   return {
-  title: { absolute: content.title },
-  description: content.metaDescription,
+  title: { absolute: title },
+  description,
   alternates: { canonical: siteConfig.identity.url },
   openGraph: {
-    title: content.title,
-    description: content.metaDescription,
+    title,
+    description,
     url: siteConfig.identity.url,
     siteName: siteConfig.identity.siteName ?? siteConfig.identity.name,
     type: 'website',
@@ -34,8 +46,8 @@ export async function generateMetadata(): Promise<Metadata> {
   },
   twitter: {
     card: 'summary_large_image',
-    title: content.title,
-    description: content.metaDescription,
+    title,
+    description,
   },
   other: {
     'format-detection': 'telephone=yes',
