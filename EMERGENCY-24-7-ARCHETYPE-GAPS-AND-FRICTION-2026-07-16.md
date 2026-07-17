@@ -1114,6 +1114,86 @@ path, plus a control proving routine non-campaign notify types are
 unaffected). `tsc --noEmit` clean, full suite 341/341 files, 1783/1783
 tests, zero regressions.
 
+## (26) New today, archetype depth — extras on a multi-tech emergency job never got the urgency signal, only the lead did — NOW FIXED
+
+Direct continuation of item (7)/P11.22's fix, which ported `is_emergency`/
+`pay_rate` into `jobAssignment()`'s signature so an assigned tech could
+learn a job was urgent and that a pay premium applied. That fix wired the
+new fields into the ONE call site that existed at the time — the
+lead-assignment path in `/api/bookings/[id]/route.ts`. This route
+(`/api/bookings/[id]/team`, multi-tech "extras" management — add/remove
+additional techs on top of the lead) has its own separate
+`jobAssignment()` call site that never got the same wiring, despite
+already fetching the booking row (`select('*, clients(*)')`) with both
+fields present on it.
+
+Net effect: on a multi-tech emergency job, the lead's SMS said "URGENT
+—" with the pay premium; every EXTRA team member added alongside them
+got a byte-identical SMS to a routine job — no urgency signal, no
+premium-pay line — plus a plain (non-🚨) push/in-app notification title,
+the same convention items (20)/(24)/P11.27 already established
+elsewhere.
+
+**Fixed** (`p1-w3`) — wired `bookingFull.pay_rate`/`is_emergency` through
+to the real `jobAssignment()` call, applied the same 🚨 title convention
+to the push notification. 2 new tests
+(`route.emergency-sms.test.ts`), mutation-verified (reverted the fix, the
+emergency-case test went RED reproducing the exact byte-identical-SMS
+symptom, the routine-job control test was unaffected, restored). `tsc
+--noEmit` clean, full suite 342/342 files, 1785/1785 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items 17/23/24).
+
+## (27) New today, fresh ground outside the archetype — client/referrer analytics silently dropped a booking the instant bulk payroll paid its team member out — NOW FIXED
+
+`'paid'` is a real `bookings.status` value — `POST /api/finance/payroll`
+flips a completed booking to `'paid'` once the assigned team member's
+wage has been paid out (`src/app/api/finance/payroll/route.ts:101`,
+confirmed as the only two real writers of this status alongside
+`src/lib/selena/tools.ts`'s equivalent tool). Three client/referrer
+reporting routes only ever matched `status === 'completed'` when pulling
+a client's booking history:
+
+- `GET /api/client-analytics` — `totalSpent`/`bookingCount`/lifecycle
+  status (active vs. new/inactive) per client
+- `GET /api/clients/analytics` — LTV + lifecycle classification per
+  client
+- `GET /api/referrers/analytics` — `completedReferredBookings` count
+
+Net effect: the instant bulk payroll ran on a client's (or referred
+client's) booking, that booking vanished from all three reports — a
+client whose only booking got paid out looked like they'd never booked
+at all (status `'new'`, $0 LTV, dropped from `client-analytics`
+entirely), and a referrer's real conversion undercounted every time
+payroll touched one of their referrals.
+
+**Fixed** (`p1-w3`) — all three now match `status IN ('completed',
+'paid')`; a `'paid'` booking is still a completed, revenue-generating
+job, just one whose labor cost has since been settled. Mechanical fix,
+no product decision — `'paid'` is strictly a terminal state past
+`'completed'` on the same booking, never a distinct outcome. (Found
+half-fixed as uncommitted WIP already sitting in the worktree;
+independently re-verified the change was correct by grepping every real
+`status: 'paid'` writer before adopting it, then extended it with tests
+and mutation verification.) 3 new tests (`route.paid-status.test.ts`, one
+per route), mutation-verified (reverted each fix individually, each test
+went RED with the exact symptom described above, restored). `tsc
+--noEmit` clean, full suite 345/345 files, 1788/1788 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items 17/23/24/26).
+
+Deliberately NOT extended to the ~15 other `status === 'completed'`-only
+queries found in `finance/summary`, `finance/pnl`,
+`finance/payroll-prep`, `finance/cleaner-income`, `finance/ar-aging`,
+`admin/analytics`, `leads/feed`, `deals/at-risk`,
+`admin/campaigns/preview`, and others — those mix in payroll-pending/
+unpaid-labor semantics where `'paid'` legitimately should stay excluded
+(e.g. `finance/payroll`'s own GET query, which specifically wants
+"completed but NOT yet paid out" to build the payroll queue). Blanket-
+including `'paid'` there would double up or misclassify money the
+tenant hasn't been shown as settled yet — a real per-query product call,
+not a mechanical fix, and out of scope here.
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
@@ -1131,3 +1211,7 @@ tests, zero regressions.
 - Dormant find-cleaner broadcast dispatch (item 10 above) — activation
   options doc at `FIND-CLEANER-BROADCAST-ACTIVATION-OPTIONS.md`, awaiting
   Jeff's call on migration 008 + `TEST_MODE` flip.
+- Completed-vs-paid undercounting in the ~15 other finance/admin queries
+  noted under item (27) above — a real product question (which specific
+  reports should treat a paid-out booking as still "completed") worth
+  Jeff's call, not auto-fixed.
