@@ -2185,6 +2185,75 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-18. processPayment() CLIENT CONFIRMATION SMS — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, second instance of a bug class parallel to 5a-17's GDPR gap: a client-facing SMS fan-out silently skipping the STOP-compliance gate every other client SMS site in the codebase enforces) ----
+    // payment-processor.ts's processPayment() already gated the TEAM MEMBER
+    // finish-up SMS on teamMember.sms_consent, but the client "payment
+    // confirmed" SMS right below it had no equivalent check at all -- a
+    // client who'd texted STOP (clients.sms_consent -> false via the Telnyx
+    // webhook) or been marked do_not_service kept getting a payment-
+    // confirmation text on every Zelle/Venmo/cash confirmation, indefinitely.
+    // The exact same gap existed in webhooks/stripe/route.ts's parallel
+    // "SMS client a thank-you" branch (both team AND client legs there had
+    // no consent check) -- fixed in the same pass, covered by its own
+    // dedicated vitest suite (route.tenant-scope.test.ts) since exercising
+    // it here would require a fully signed Stripe event, not a direct call.
+    //
+    // This archetype tenant has no telnyx_api_key/telnyx_phone configured
+    // (same as every other scenario in this harness -- see 5a-13's comment:
+    // firing real Telnyx sends here would be outside this tenant's blast
+    // radius), so sendSMS() never actually dispatches regardless of consent
+    // either way. What this DOES prove against the real live schema, which
+    // the fully-mocked unit tests in payment-processor.client-sms-consent.test.ts
+    // cannot: the exact columns/values the new gate reads
+    // (clients.sms_consent, clients.do_not_service) exist on the live prod
+    // table with the expected names/types, AND that adding the gate did not
+    // regress the core payment-recording path for either a consent-revoked
+    // or a normally-consented client.
+    {
+      const { processPayment } = await import('../src/lib/payment-processor')
+      const smsGatePhone = '646' + String(3000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+
+      const { data: smsGateBlockedClient, error: smsGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'SMS-Gate Blocked Client', email: `smsgate-blocked+${runId}@example.com`,
+        phone: smsGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('sms-consent-gate: STOP-revoked client created (sms_consent=false)', !!smsGateBlockedClient && !smsGateBlockedErr, smsGateBlockedErr?.message)
+
+      const { data: smsGateOkClient, error: smsGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'SMS-Gate Consented Client', email: `smsgate-ok+${runId}@example.com`,
+        phone: smsGatePhone + '1', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('sms-consent-gate: consented CONTROL client created (sms_consent=true)', !!smsGateOkClient && !smsGateOkErr, smsGateOkErr?.message)
+
+      for (const [label, gateClient] of [['BLOCKED', smsGateBlockedClient], ['CONTROL', smsGateOkClient]] as const) {
+        if (!gateClient?.id) continue
+        const { data: gateBooking } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 50, actual_hours: 2, status: 'confirmed', payment_status: 'unpaid',
+          service_type: `sms-consent-gate ${label} payment probe`,
+        }).select('id').single()
+
+        if (gateBooking?.id) {
+          const result = await processPayment({
+            tenant: { id: tenant.id }, bookingId: gateBooking.id, clientId: gateClient.id,
+            method: 'zelle', amountCents: 10000, referenceId: `smsgate-${label}-${runId}`,
+          })
+          add(`sms-consent-gate: ${label} — processPayment() still records the payment (new consent guard doesn't block the money write)`, result?.status === 'paid', JSON.stringify(result))
+
+          const { data: bookingAfter } = await supabase.from('bookings').select('payment_status').eq('id', gateBooking.id).single()
+          add(`sms-consent-gate: ${label} — booking.payment_status → paid`, bookingAfter?.payment_status === 'paid', bookingAfter?.payment_status)
+        }
+      }
+
+      // Schema-compat probe: re-read both real client rows straight from prod
+      // and confirm the exact fields/values the fix's gate condition
+      // (`sms_consent !== false && !do_not_service`) evaluates against.
+      const { data: blockedAfter } = await supabase.from('clients').select('sms_consent, do_not_service').eq('id', smsGateBlockedClient?.id || '').single()
+      add('sms-consent-gate: live schema — blocked client sms_consent reads back false', blockedAfter?.sms_consent === false, JSON.stringify(blockedAfter))
+      const { data: okAfter } = await supabase.from('clients').select('sms_consent, do_not_service').eq('id', smsGateOkClient?.id || '').single()
+      add('sms-consent-gate: live schema — CONTROL client sms_consent reads back true', okAfter?.sms_consent === true, JSON.stringify(okAfter))
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
