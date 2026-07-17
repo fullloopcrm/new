@@ -4,8 +4,7 @@
  * Fires on EVERY production deployment (however it was triggered, including a
  * raw `vercel --prod`). Re-points the *.fullloopcrm.com wildcard + every
  * <slug>.fullloopcrm.com alias at the new deployment, so a manual deploy can
- * never orphan them (DEPLOYMENT_NOT_FOUND). See scripts/post-deploy-alias.sh
- * for the manual equivalent.
+ * never orphan them (DEPLOYMENT_NOT_FOUND).
  *
  * Security: requires a valid Vercel HMAC-SHA1 signature. Uses VERCEL_DEPLOY_TOKEN
  * — provision a PROJECT-SCOPED token, never the account-wide key, so a runtime
