@@ -86,7 +86,7 @@ export async function POST(request: Request, { params }: Params) {
         const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
         if (!apiKey) throw new Error('No Resend API key configured for tenant')
         const fromEmail = tenant.email_from || `quotes@${tenant.domain || 'fullloopcrm.com'}`
-        const greeting = quote.contact_name ? `Hi ${quote.contact_name},` : 'Hi there,'
+        const greeting = quote.contact_name ? `Hi ${escapeHtml(quote.contact_name)},` : 'Hi there,'
         const validLine = quote.valid_until
           ? `<p style="margin:0 0 14px">Valid through ${new Date(quote.valid_until).toLocaleDateString('en-US')}.</p>` : ''
         const depositLine = quote.deposit_cents > 0
