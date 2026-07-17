@@ -128,12 +128,18 @@ export async function POST(request: Request) {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-|-$/g, '')
             .slice(0, 48) + '-' + prospectId.slice(0, 6)
+          // Normalize via mapIndustry (same as create-tenant-from-lead.ts) so the
+          // stored value is always a real IndustryKey, not whatever free-text
+          // landed in prospect.trade — a raw value here would silently fail to
+          // match TRADE_HR_DOC_REQUIREMENTS/PER_UNIT_BY_INDUSTRY lookups below.
+          const { mapIndustry } = await import('@/lib/provision-tenant')
+          const industry = mapIndustry(prospect.trade)
           const { data: tenant } = await supabaseAdmin
             .from('tenants')
             .insert({
               name: prospect.business_name,
               slug,
-              industry: prospect.trade,
+              industry,
               phone: prospect.owner_phone,
               email: prospect.owner_email,
               owner_name: prospect.owner_name,
@@ -160,14 +166,23 @@ export async function POST(request: Request) {
             .select('id')
             .single()
           if (tenant) {
-            // Seed default entity + chart of accounts + Selena config
-            await supabaseAdmin.from('entities').insert({
-              tenant_id: tenant.id, name: prospect.business_name, is_default: true, active: true,
-            })
+            // Seed default entity + chart of accounts + Selena config. This is
+            // the same finance_hr step activateTenant runs (activate-tenant.ts
+            // step 3b) — this webhook is a second, separate tenant-creation
+            // door (prospects/admin-approve flow, distinct from stripe-platform's
+            // createTenantFromLead+activateTenant flow) that never called it, so
+            // a tenant born here had no chart of accounts (P&L/ledger totally
+            // broken) and no HR doc-requirement template.
+            const { ensureDefaultEntity } = await import('@/lib/entity-provision')
+            const { seedChartOfAccounts } = await import('@/lib/ledger')
+            const { seedHrDefaults } = await import('@/lib/hr')
+            await ensureDefaultEntity(tenant.id, prospect.business_name)
+            await seedChartOfAccounts(tenant.id)
+            await seedHrDefaults(tenant.id, industry)
             const { provisionTenant } = await import('@/lib/provision-tenant')
             await provisionTenant({
               tenantId: tenant.id,
-              industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
+              industry,
             })
             await supabaseAdmin.from('prospects').update({
               tenant_id: tenant.id,
