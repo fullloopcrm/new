@@ -75,7 +75,7 @@ export async function GET(request: Request) {
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, price, end_time, clients(name, phone)')
+      .select('id, client_id, price, end_time, clients(name, phone, sms_consent)')
       .eq('tenant_id', tenant.id)
       .eq('status', 'completed')
       .gt('price', 0)
@@ -89,8 +89,13 @@ export async function GET(request: Request) {
 
     for (const booking of unpaid || []) {
       if (sent >= MAX_SENDS_PER_RUN) { capHit = true; break }
-      const client = booking.clients as unknown as { name?: string; phone?: string } | null
+      const client = booking.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null } | null
       if (!booking.client_id || !client?.phone) continue
+      // sms_consent is the blanket STOP/START opt-out flag (webhooks/telnyx's
+      // STOP handler sets it false tenant-wide) -- this route sent unconditionally,
+      // so a client who'd already opted out of ALL SMS still got texted asking
+      // for money every slot until paid.
+      if (client.sms_consent === false) continue
 
       // Per-slot idempotency: already chased this booking this slot?
       const { count } = await supabaseAdmin
