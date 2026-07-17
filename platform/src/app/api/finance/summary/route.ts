@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { etYMD, etMidnightUtc } from '@/lib/dates'
 
 export async function GET() {
   try {
@@ -11,17 +12,47 @@ export async function GET() {
     const { tenantId } = _authTenant
     const now = new Date()
 
-    const dayOfWeek = now.getDay()
+    // bookings.start_time is naive-ET TIMESTAMP; referral_commissions/
+    // payments/team_member_payouts.created_at are TIMESTAMPTZ; journal_
+    // entries.entry_date (via ledgerProfitAndLoss) is a plain DATE. The old
+    // `new Date().getFullYear()/getMonth()/getDate()/getDay()` read the
+    // SERVER's local calendar (UTC on Vercel), a full day ahead of ET for
+    // ~4-5h every evening, misplacing every boundary below during that
+    // window. Each column type below gets the representation it actually
+    // needs: a naive ET wall-clock string for start_time, a true-UTC
+    // instant of ET midnight for the aware created_at columns, and a plain
+    // ET calendar-date string for entry_date.
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const { y: ty, m: tm, d: td } = etYMD(now)
+    const todayObj = new Date(Date.UTC(ty, tm - 1, td))
+    // Week starts Monday, matching the original `getDay()`-based math --
+    // todayObj's getUTCDay() reflects the true ET weekday (built purely
+    // from ET y/m/d via Date.UTC), unlike a server-local getDay() would.
+    const dayOfWeek = todayObj.getUTCDay()
     const mondayOffset = dayOfWeek === 0 ? -6 : 1 - dayOfWeek
-    const weekStart = new Date(now.getFullYear(), now.getMonth(), now.getDate() + mondayOffset)
-    const weekEnd = new Date(weekStart)
-    weekEnd.setDate(weekEnd.getDate() + 7)
+    const weekStartObj = new Date(Date.UTC(ty, tm - 1, td + mondayOffset))
+    const weekEndObj = new Date(Date.UTC(weekStartObj.getUTCFullYear(), weekStartObj.getUTCMonth(), weekStartObj.getUTCDate() + 7))
+    const monthStartObj = new Date(Date.UTC(ty, tm - 1, 1))
+    const monthEndObj = new Date(Date.UTC(ty, tm, 0))
+    const yearStartObj = new Date(Date.UTC(ty, 0, 1))
+    const yearEndObj = new Date(Date.UTC(ty, 11, 31))
 
-    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1)
-    const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
+    const ymd = (o: Date) => `${o.getUTCFullYear()}-${pad(o.getUTCMonth() + 1)}-${pad(o.getUTCDate())}`
+    // naive ET wall-clock strings for bookings.start_time (naive TIMESTAMP)
+    const weekStartNaive = `${ymd(weekStartObj)}T00:00:00`
+    const weekEndNaive = `${ymd(weekEndObj)}T00:00:00` // exclusive, matches original `.lt()`
+    const monthStartNaive = `${ymd(monthStartObj)}T00:00:00`
+    const monthEndNaive = `${ymd(monthEndObj)}T23:59:59`
+    const yearStartNaive = `${ymd(yearStartObj)}T00:00:00`
+    const yearEndNaive = `${ymd(yearEndObj)}T23:59:59`
 
-    const yearStart = new Date(now.getFullYear(), 0, 1)
-    const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+    // true-UTC instants for the TIMESTAMPTZ created_at columns (month/year
+    // only -- referral_commissions/payments/team_member_payouts are never
+    // queried by week in this route)
+    const monthStartUtc = etMidnightUtc(monthStartObj.getUTCFullYear(), monthStartObj.getUTCMonth() + 1, monthStartObj.getUTCDate())
+    const monthEndUtc = new Date(etMidnightUtc(monthEndObj.getUTCFullYear(), monthEndObj.getUTCMonth() + 1, monthEndObj.getUTCDate() + 1).getTime() - 1)
+    const yearStartUtc = etMidnightUtc(yearStartObj.getUTCFullYear(), yearStartObj.getUTCMonth() + 1, yearStartObj.getUTCDate())
+    const yearEndUtc = new Date(etMidnightUtc(yearEndObj.getUTCFullYear() + 1, 1, 1).getTime() - 1)
 
     // `status` (job/team-pay lifecycle) and `team_member_paid` (out-of-band
     // manual payout flag) are independent: POST /api/finance/payroll (bulk
@@ -37,9 +68,9 @@ export async function GET() {
     const baseSelect = 'price, team_member_pay, team_member_paid, status'
 
     const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }] = await Promise.all([
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', weekStartNaive).lt('start_time', weekEndNaive),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStartNaive).lte('start_time', monthEndNaive),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', yearStartNaive).lte('start_time', yearEndNaive),
       supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, partial_payment_cents, team_member_paid, status').eq('tenant_id', tenantId).in('status', ['completed', 'paid']).or('payment_status.neq.paid,team_member_paid.neq.true'),
       supabaseAdmin.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
     ])
@@ -51,11 +82,10 @@ export async function GET() {
 
     // Revenue from the LEDGER (single source of truth, matches the books).
     // Labor stays from bookings — it's operational owed/paid tracking.
-    const d = (x: Date) => x.toISOString().slice(0, 10)
     const [ledgerWeek, ledgerMonth, ledgerYear] = await Promise.all([
-      ledgerProfitAndLoss(tenantId, d(weekStart), d(weekEnd)),
-      ledgerProfitAndLoss(tenantId, d(monthStart), d(monthEnd)),
-      ledgerProfitAndLoss(tenantId, d(yearStart), d(yearEnd)),
+      ledgerProfitAndLoss(tenantId, ymd(weekStartObj), ymd(weekEndObj)),
+      ledgerProfitAndLoss(tenantId, ymd(monthStartObj), ymd(monthEndObj)),
+      ledgerProfitAndLoss(tenantId, ymd(yearStartObj), ymd(yearEndObj)),
     ])
 
     const weekRevenue = ledgerWeek.revenue_cents
@@ -88,11 +118,11 @@ export async function GET() {
     const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid && b.status !== 'paid').reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
-      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', yearStart.toISOString()).lte('created_at', yearEnd.toISOString()),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStartUtc.toISOString()).lte('created_at', monthEndUtc.toISOString()),
+      supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', yearStartUtc.toISOString()).lte('created_at', yearEndUtc.toISOString()),
       supabaseAdmin.from('bookings').select('team_member_id, team_member_pay, team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').or('team_member_paid.is.null,team_member_paid.eq.false').not('team_member_pay', 'is', null),
-      supabaseAdmin.from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
-      supabaseAdmin.from('team_member_payouts').select('amount_cents, instant').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
+      supabaseAdmin.from('payments').select('amount_cents, tip_cents, method').eq('tenant_id', tenantId).gte('created_at', monthStartUtc.toISOString()).lte('created_at', monthEndUtc.toISOString()),
+      supabaseAdmin.from('team_member_payouts').select('amount_cents, instant').eq('tenant_id', tenantId).gte('created_at', monthStartUtc.toISOString()).lte('created_at', monthEndUtc.toISOString()),
     ])
 
     const monthReferralCommissions = (monthCommissions || []).reduce((s, c) => s + (c.commission_cents || 0), 0)
