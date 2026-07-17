@@ -4602,3 +4602,77 @@ restored, GREEN). `tsc --noEmit` clean, full suite 401/401 files,
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly
 per standing rule, no reconcile-gate work this round.
+
+## (105) Archetype depth — H-01 class repeats a seventh time: `POST /api/push/subscribe`'s team_member/client branches were never reachable on the main host — NOW FIXED
+
+Same shape as item (103)'s `/api/uploads` gap, one hop over: the
+admin-impersonation bypass list (the `admin_token`-cookie prefix list,
+distinct from `isPublicRoute`) already covers `/api/push`'s role:`'admin'`
+branch — confirmed still present from an earlier session's fix, with its
+own regression test (`middleware-domain-lookup.test.ts`'s "covers
+/api/push" guard). But `app/team/page.tsx` and `app/portal/page.tsx` —
+both global, main-host pages (`/team(.*)` and `/portal(.*)` are
+`isPublicRoute`-listed) — render the shared `<PushPrompt>` with
+role:`'team_member'`/`'client'`. Those roles authenticate via
+`getPortalAuth()`/`protectClientAPI()` *inside* `route.ts`
+(`resolveAuthedTenantId`), not an `admin_token` cookie — confirmed by
+reading the route directly. Since `/api/push/subscribe` was never in
+`isPublicRoute` either, a team member or client with no `admin_token`
+cookie and no Clerk session hit the "not public, no admin cookie" branch
+and 307'd to `/sign-in` before the route's own in-route auth check ever
+ran — the exact same shape as items (82)/(83)/(89)/(103) before it, just
+one more self-gated route that slipped through the same allowlist.
+
+**Fixed** — added `/api/push/subscribe` to `isPublicRoute`, same
+self-gated precedent as `/api/uploads`.
+
+1 new test in `middleware-domain-lookup.test.ts` (source-reading guard,
+same pattern as the existing bypass-list/public-route guards),
+mutation-verified (`git apply -R` the fix, RED for the expected reason —
+`isPublicRoute` no longer covers `/api/push/subscribe` — `git apply`
+restored, GREEN). `tsc --noEmit` clean, full suite 401/401 files,
+1972/1972 tests, zero regressions. Commit `edfd7fcb`.
+
+## (106) Fresh ground, new bug class (Resend delivery-status parity gap, distinct from item (102)'s email.complained thread) — `email.failed` had zero handling, so an async post-acceptance send failure left `campaign_recipients` stuck at `'sent'` forever — NOW FIXED
+
+Verified against Resend's own published webhook event-types docs (fetched
+live, not recalled from training): `email.failed` — "the email failed to
+send due to an error" — is a real, distinct event, separate from
+`email.bounced` ("the recipient's mail server permanently rejected the
+email") and from the *synchronous* send-time error
+`campaigns/send/route.ts` already catches and marks `'failed'` itself at
+the moment of the API call. `webhooks/resend/route.ts`'s type switch had
+no branch for the async event; it fell through to the generic `else {
+return ok: true }`, same shape as item (102)'s `email.complained` gap.
+The tell: the aggregate recount a few lines below the switch already
+treats status `'failed'` as first-class —
+`counts.filter(r => r.status === 'failed' || r.status === 'bounced')` —
+but no code path ever produced that status for an async failure, so a
+recipient Resend initially accepted (status `'sent'`) but later failed to
+deliver stayed miscounted as sent-not-failed forever, and a campaign's
+`failed_count` silently undercounted every async failure.
+
+**Fixed** — added an `email.failed` branch mirroring the existing
+`email.bounced` branch (status update only, no opt-out side effects — an
+async send failure isn't a spam/opt-out signal, unlike item (102)'s
+complaint).
+
+Same standing caveat as item (55)/item (102): this whole webhook path —
+every branch, old and new — depends on
+`campaign_recipients.resend_email_id`, which migration 064 (prepared,
+not applied) is still waiting on. This fix is correct and ready but
+inert in prod until that migration lands, exactly like
+`email.complained` already is; not a reason to skip writing the correct
+handler now.
+
+3 new tests in `route.failed.test.ts` (status update; no opt-out
+side-effect; `failed_count` aggregate recount), mutation-verified (`git
+apply -R` the fix, 2/3 RED for the expected reason — status stayed
+`'sent'`, `failed_count` stayed 0 — the opt-out-side-effects control
+correctly stayed GREEN throughout; `git apply` restored, GREEN). `tsc
+--noEmit` clean, full suite 402/402 files, 1975/1975 tests, zero
+regressions. Commit `6adbf7cd`.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
