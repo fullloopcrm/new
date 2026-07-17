@@ -40,18 +40,50 @@ export async function GET() {
     const canViewFinance = hasPermission(ctx.role, 'finance.view', overridesFor(ctx))
     const canViewTeam = hasPermission(ctx.role, 'team.view', overridesFor(ctx))
 
+    // bookings.start_time is stored naive-ET (no tz, literally what was
+    // typed in). The old `new Date().getFullYear()/getMonth()/getDate()`
+    // read the SERVER's local calendar (UTC on Vercel), a full day ahead of
+    // ET for ~4-5h every evening -- during that window an operator opening
+    // this dashboard (the main landing page for every tenant) at 7-11pm ET
+    // saw an empty "today's jobs" section, a wrong map-today pin set, and a
+    // 14-day upcoming list missing its first day, despite real jobs still
+    // ahead. Same pattern already established this session (cron/schedule-
+    // monitor, team-portal/jobs, team-portal/crew/schedule, team-portal/
+    // earnings). Kept as naive ET wall-clock strings for every boundary
+    // that filters bookings.start_time.
+    const pad = (n: number) => String(n).padStart(2, '0')
+    const ymd = (d: Date) => `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`
     const now = new Date()
-    const startOfDay = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-    const endOfDay = new Date(startOfDay.getTime() + 24 * 60 * 60 * 1000)
-    const startOfWeek = new Date(startOfDay)
-    startOfWeek.setDate(startOfWeek.getDate() - startOfWeek.getDay())
-    const endOfWeek = new Date(startOfWeek.getTime() + 7 * 24 * 60 * 60 * 1000)
-    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1)
-    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59)
-    const fourteenDaysOut = new Date(endOfDay.getTime() + 14 * 24 * 60 * 60 * 1000)
+    const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+    const [ty, tm, td] = todayStr.split('-').map(Number)
+    const todayObj = new Date(Date.UTC(ty, tm - 1, td))
+    const tomorrowObj = new Date(Date.UTC(ty, tm - 1, td + 1))
+    const startOfDay = `${ymd(todayObj)}T00:00:00`
+    const endOfDay = `${ymd(tomorrowObj)}T00:00:00`
+    // Week starts Sunday, matching the original `getDay()`-based math --
+    // todayObj's getUTCDay() reflects the true ET weekday (built purely from
+    // ET y/m/d via Date.UTC), unlike a server-local getDay() would.
+    const sunOffset = todayObj.getUTCDay()
+    const startOfWeekObj = new Date(Date.UTC(ty, tm - 1, td - sunOffset))
+    const endOfWeekObj = new Date(Date.UTC(ty, tm - 1, td - sunOffset + 7))
+    const startOfWeek = `${ymd(startOfWeekObj)}T00:00:00`
+    const endOfWeek = `${ymd(endOfWeekObj)}T00:00:00`
+    const startOfMonthObj = new Date(Date.UTC(ty, tm - 1, 1))
+    const endOfMonthObj = new Date(Date.UTC(ty, tm, 0))
+    const startOfMonth = `${ymd(startOfMonthObj)}T00:00:00`
+    const endOfMonth = `${ymd(endOfMonthObj)}T23:59:59`
+    const fourteenDaysOutObj = new Date(Date.UTC(ty, tm - 1, td + 15))
+    const fourteenDaysOut = `${ymd(fourteenDaysOutObj)}T00:00:00`
+    const startOfYear = `${ty}-01-01T00:00:00`
+    const endOfYear = `${ty}-12-31T23:59:59`
     const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000)
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const endOfYear = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
+    // clients.created_at is TIMESTAMPTZ (unlike bookings.start_time) -- a
+    // true-UTC ISO instant is the correct comparison type for it, so this
+    // one keeps the original server-local-month Date object rather than the
+    // naive-ET string above (which would be misinterpreted against an aware
+    // column). Out of scope for this pass: still a coarser "which month"
+    // boundary than true ET, but not the naive-vs-aware bug this fixes.
+    const startOfMonthForClientsCreatedAt = new Date(now.getFullYear(), now.getMonth(), 1)
 
     const liveStatuses = ['confirmed', 'scheduled', 'in_progress']
     // POST /api/finance/payroll flips a booking's status straight to 'paid'
@@ -74,37 +106,37 @@ export async function GET() {
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDay)
+        .lt('start_time', endOfDay)
         .in('status', doneStatuses)
         .order('start_time'),
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDay)
+        .lt('start_time', endOfDay)
         .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfWeek.toISOString())
-        .lt('start_time', endOfWeek.toISOString())
+        .gte('start_time', startOfWeek)
+        .lt('start_time', endOfWeek)
         .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, status, service_type, team_member_id, clients(name, address), team_members!bookings_team_member_id_fkey(name)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfMonth.toISOString())
-        .lte('start_time', endOfMonth.toISOString())
+        .gte('start_time', startOfMonth)
+        .lte('start_time', endOfMonth)
         .in('status', doneStatuses),
       supabaseAdmin
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfYear.toISOString())
-        .lte('start_time', endOfYear.toISOString())
+        .gte('start_time', startOfYear)
+        .lte('start_time', endOfYear)
         .order('start_time'),
       supabaseAdmin
         .from('bookings')
@@ -116,8 +148,8 @@ export async function GET() {
         .from('bookings')
         .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', fourteenDaysOut.toISOString())
+        .gte('start_time', startOfDay)
+        .lt('start_time', fourteenDaysOut)
         .in('status', liveStatuses)
         .order('start_time'),
       supabaseAdmin
@@ -128,7 +160,7 @@ export async function GET() {
         .from('clients')
         .select('*')
         .eq('tenant_id', tenantId)
-        .gte('created_at', startOfMonth.toISOString()),
+        .gte('created_at', startOfMonthForClientsCreatedAt.toISOString()),
       supabaseAdmin
         .from('bookings')
         .select('id', { count: 'exact', head: true })
@@ -140,30 +172,30 @@ export async function GET() {
         .select('id', { count: 'exact', head: true })
         .eq('tenant_id', tenantId)
         .in('status', liveStatuses)
-        .gte('start_time', startOfDay.toISOString())
-        .lte('start_time', endOfYear.toISOString()),
+        .gte('start_time', startOfDay)
+        .lte('start_time', endOfYear),
       supabaseAdmin
         .from('bookings')
         .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfDay.toISOString())
-        .lt('start_time', endOfDay.toISOString())
+        .gte('start_time', startOfDay)
+        .lt('start_time', endOfDay)
         .in('status', ['completed', 'paid'])
         .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
         .from('bookings')
         .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfWeek.toISOString())
-        .lt('start_time', endOfWeek.toISOString())
+        .gte('start_time', startOfWeek)
+        .lt('start_time', endOfWeek)
         .in('status', ['completed', 'paid'])
         .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
         .from('bookings')
         .select('price, payment_status, partial_payment_cents')
         .eq('tenant_id', tenantId)
-        .gte('start_time', startOfMonth.toISOString())
-        .lte('start_time', endOfMonth.toISOString())
+        .gte('start_time', startOfMonth)
+        .lte('start_time', endOfMonth)
         .in('status', ['completed', 'paid'])
         .in('payment_status', ['paid', 'partial']),
       supabaseAdmin
