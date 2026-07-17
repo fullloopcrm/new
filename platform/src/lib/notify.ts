@@ -1,6 +1,7 @@
 import { supabaseAdmin } from './supabase'
 import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
+import { sendPushToClient, sendPushToTeamMember, sendPushToTenantAdmins } from './push'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
 import { escapeHtml } from './escape-html'
@@ -331,6 +332,17 @@ export async function notify({
       lastError = 'No phone number for recipient'
     } else if (channel === 'sms' && !hasSMS) {
       lastError = 'SMS not configured — no Telnyx API key'
+    } else if (channel === 'push' && recipientType === 'team_member' && recipientId) {
+      sent = await sendPushToTeamMember(recipientId, title, message)
+      if (!sent) lastError = 'No push subscription for recipient'
+    } else if (channel === 'push' && recipientType === 'client' && recipientId) {
+      sent = await sendPushToClient(recipientId, title, message)
+      if (!sent) lastError = 'No push subscription for recipient'
+    } else if (channel === 'push' && recipientType === 'admin') {
+      sent = await sendPushToTenantAdmins(tenantId, title, message)
+      if (!sent) lastError = 'No push subscription for recipient'
+    } else if (channel === 'push') {
+      lastError = 'No recipient for push notification'
     }
   } catch (e) {
     lastError = e instanceof Error ? e.message : String(e)
@@ -386,6 +398,8 @@ export async function notify({
     'No phone number for recipient',
     'Email not configured — no Resend API key',
     'SMS not configured — no Telnyx API key',
+    'No push subscription for recipient',
+    'No recipient for push notification',
   ])
   const finalStatus = lastError && UNROUTABLE.has(lastError) ? 'skipped' : 'failed'
   await updateNotif(finalStatus, {

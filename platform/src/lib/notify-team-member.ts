@@ -145,7 +145,7 @@ export async function notifyTeamMember(
   // 5. Push — suppressed during quiet hours
   if (wantsPush && !quiet) {
     try {
-      await notify({
+      const result = await notify({
         tenantId,
         type: type as Parameters<typeof notify>[0]['type'],
         title,
@@ -155,7 +155,7 @@ export async function notifyTeamMember(
         recipientId: teamMemberId,
         bookingId,
       })
-      sentPush = true
+      sentPush = result.success
     } catch (e) {
       console.error('notifyTeamMember push error:', e)
     }

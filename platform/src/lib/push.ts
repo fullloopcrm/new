@@ -24,9 +24,12 @@ async function sendToSubscriptions(subscriptions: { id: string; subscription: we
   }
 }
 
-// Send push to all admins for a tenant (business owners/managers)
-export async function sendPushToTenantAdmins(tenantId: string, title: string, body: string, url?: string, tag?: string) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
+// Send push to all admins for a tenant (business owners/managers).
+// Returns true only if a subscription existed and a send was attempted —
+// callers that need to distinguish "delivered" from "no subscription on
+// file" (e.g. notify()'s push channel) rely on this, not just no-throw.
+export async function sendPushToTenantAdmins(tenantId: string, title: string, body: string, url?: string, tag?: string): Promise<boolean> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return false
 
   const { data: subscriptions } = await supabaseAdmin
     .from('push_subscriptions')
@@ -34,34 +37,37 @@ export async function sendPushToTenantAdmins(tenantId: string, title: string, bo
     .eq('tenant_id', tenantId)
     .eq('role', 'admin')
 
-  if (!subscriptions || subscriptions.length === 0) return
+  if (!subscriptions || subscriptions.length === 0) return false
   await sendToSubscriptions(subscriptions, title, body, url, tag)
+  return true
 }
 
 // Send push to a specific team member
-export async function sendPushToTeamMember(teamMemberId: string, title: string, body: string, url?: string) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
+export async function sendPushToTeamMember(teamMemberId: string, title: string, body: string, url?: string): Promise<boolean> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return false
 
   const { data: subscriptions } = await supabaseAdmin
     .from('push_subscriptions')
     .select('id, subscription')
     .eq('team_member_id', teamMemberId)
 
-  if (!subscriptions || subscriptions.length === 0) return
+  if (!subscriptions || subscriptions.length === 0) return false
   await sendToSubscriptions(subscriptions, title, body, url || '/team/dashboard')
+  return true
 }
 
 // Send push to a specific client
-export async function sendPushToClient(clientId: string, title: string, body: string, url?: string) {
-  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return
+export async function sendPushToClient(clientId: string, title: string, body: string, url?: string): Promise<boolean> {
+  if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) return false
 
   const { data: subscriptions } = await supabaseAdmin
     .from('push_subscriptions')
     .select('id, subscription')
     .eq('client_id', clientId)
 
-  if (!subscriptions || subscriptions.length === 0) return
+  if (!subscriptions || subscriptions.length === 0) return false
   await sendToSubscriptions(subscriptions, title, body, url || '/portal')
+  return true
 }
 
 // Send push to all team members of a tenant
