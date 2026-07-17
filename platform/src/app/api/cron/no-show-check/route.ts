@@ -33,7 +33,7 @@ export async function GET(request: Request) {
   // we can notify per tenant).
   const { data: candidates } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
+    .select('id, tenant_id, start_time, client_id, team_member_id, is_emergency, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
     .not('team_member_id', 'is', null)
     .is('check_in_time', null)
@@ -58,12 +58,13 @@ export async function GET(request: Request) {
 
       const client = b.clients as unknown as { name: string } | null
       const member = b.team_members as unknown as { name: string } | null
+      const isEmergency = !!(b as { is_emergency?: boolean | null }).is_emergency
 
       await notify({
         tenantId: b.tenant_id,
         type: 'late_check_in',
-        title: 'No-show detected',
-        message: `${client?.name || 'Client'} booking at ${new Date(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
+        title: isEmergency ? '🚨 Urgent no-show detected' : 'No-show detected',
+        message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${client?.name || 'Client'} booking at ${new Date(b.start_time).toLocaleString()} auto-flipped to no_show (team member ${member?.name || 'unassigned'} did not check in within ${GRACE_MINUTES} min).`,
         bookingId: b.id,
       }).catch(() => {})
 

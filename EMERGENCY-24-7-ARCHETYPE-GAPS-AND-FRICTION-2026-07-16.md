@@ -1402,6 +1402,84 @@ files, 1802/1802 tests, zero regressions (one pre-existing, unrelated
 tenant-scope guard warning on `fixture/route.ts`, not touched, same
 precedent as items 17/23/24/26/27/28/29/30/31/32).
 
+## (34) New today, archetype depth — the no-show cron's admin alert was is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32) — NOW FIXED
+
+`GET /api/cron/no-show-check` (item (18)'s subject — the cron that flips an
+unassigned-team-member's booking to `status='no_show'` 45 min after
+`start_time` and fires an admin `notify()`) never fetched
+`bookings.is_emergency` in its candidate query, so a same-day emergency job
+whose assigned tech never checked in produced the byte-identical "No-show
+detected" admin email as a routine no-show three weeks out. Same root
+pattern as every prior archetype-depth item in this doc: the owner's first
+glance at the alert carried no signal that the job was time-critical —
+exactly the case where a no-show demands an immediate reassignment call
+rather than a routine follow-up. Verified by reading the route directly and
+confirming, via `grep -rl is_emergency src/app/api/cron/`, that only
+`schedule-monitor` (item 20) and `late-check-in` (item 32) had already
+picked up the field among this repo's ~40 cron routes.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the candidate `select()` and
+escalated the admin `notify()` title (`'🚨 Urgent no-show detected'`) and
+message (`'🚨 EMERGENCY — '` prefix) when true, reusing the exact convention
+items (20)/(32) already established rather than inventing new wording — no
+product/copy call needed. Zero test files exist under any
+`src/app/api/cron/*` route in this repo (same precedent items 18/20/22/32
+already established) — relies on `tsc --noEmit` + full-suite verification.
+`tsc --noEmit` clean, full suite 352/352 files, 1802/1802 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33).
+
+## (35) New today, fresh ground outside the archetype — the rating-prompt cron's SELECT referenced two columns that don't exist on `bookings`, same stale-naming class as item (6), silently killing the entire cron for every tenant on every run — NOW FIXED
+
+Continuation of item (6)'s "nycmaid-era `cleaner_id`/`cleaners` naming
+against the real `team_member_id`/`team_members` schema" sweep, this time
+found in a cron file item (6)'s original BookingsAdmin.tsx-scoped pass never
+reached. `GET /api/cron/rating-prompt` (runs every 5 min; sends the "How
+was your service today?" Q1 rating text 30+ min after checkout — the trigger
+`src/lib/nycmaid/review-engine.ts`'s reply-handling and
+`comms-registry.ts`'s `rating_prompt` comm key both already assume is live
+and firing) built its candidate query as `.select('id, client_id,
+cleaner_id, start_time, clients(name), cleaners(name))` against `bookings`.
+Confirmed via `supabase/schema.sql:114` (the real `bookings`/`team_members`
+definitions) and a full grep of every `ALTER TABLE ... ADD COLUMN
+cleaner_id` in `src/lib/migrations/*.sql` (only `client_reviews.cleaner_id`
+and `clients.preferred_cleaner_id` are real — neither is `bookings`) that
+`bookings.cleaner_id` has never existed as a column, and there is no
+`cleaners` relationship/view PostgREST could resolve against `bookings`
+(distinct from `src/lib/nycmaid/*`/`src/lib/selena/*`'s own extensive,
+deliberate, separately-tested `.from('cleaners')` usage against a real,
+different `cleaners` table — that's an intentional parallel legacy schema,
+not this bug; confirmed by checking `smart-schedule.test.ts`'s explicit
+`['booking_cleaners', 'cleaners', 'bookings']` table list before ruling it
+out). A `.select()` naming a column PostgREST can't resolve returns an
+error, not a partial row — and the route's own loop does `if (error)
+continue`, silently skipping the tenant. Neither `cleaner_id` nor
+`cleaners(name)` is read anywhere else in the function (only `booking.id`
+and `booking.client_id` are used) — this select has been pure dead weight
+since whatever commit introduced it, and (unlike item (6)'s partial-field
+no-ops) it doesn't degrade the feature, it appears to take the entire cron
+down for every tenant on every single run: no rating-prompt SMS has ever
+gone out, silently, with no error surfaced anywhere an operator would see
+it (cron routes have no dashboard-visible failure surface in this
+codebase, confirmed by this doc's own item 18/20/22/32 precedent that zero
+test files or alerting exist for any cron route).
+
+**Fixed** (`p1-w3`) — dropped both dead, non-existent-column references
+from the select (`.select('id, client_id, start_time, clients(name))`),
+restoring a valid query; no rename to `team_member_id`/`team_members` was
+needed since neither field is consumed by this route at all, unlike item
+(6)'s fields which were genuinely read/written. Zero test files exist under
+any `src/app/api/cron/*` route in this repo (same precedent as item 34
+above) — verification is the same "read the real schema, cross-reference
+every migration, confirm no downstream consumer" methodology as item (6)
+itself, plus this worktree still has no `.env.local`/Supabase env to
+confirm the exact PostgREST error live. `tsc --noEmit` clean, full suite
+352/352 files, 1802/1802 tests, zero regressions (unaffected — no existing
+test touches this route; one pre-existing, unrelated tenant-scope guard
+warning on `fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
