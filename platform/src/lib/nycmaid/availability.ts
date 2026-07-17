@@ -44,10 +44,10 @@ async function getCleanersForDay(tenantId: string, date: string) {
   const dayOfWeek = new Date(date + 'T12:00:00').toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'short' })
 
   const { data: allCleaners } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('*')
     .eq('tenant_id', tenantId)
-    .eq('active', true)
+    .eq('status', 'active')
 
   if (!allCleaners || allCleaners.length === 0) return []
 
@@ -72,7 +72,7 @@ async function getBookingsForDay(tenantId: string, date: string, excludeBookingI
 
   let query = supabaseAdmin
     .from('bookings')
-    .select('id, cleaner_id, start_time, end_time, clients(name)')
+    .select('id, team_member_id, start_time, end_time, clients(name)')
     .eq('tenant_id', tenantId)
     .gte('start_time', startOfDay)
     .lte('start_time', endOfDay)
@@ -95,7 +95,7 @@ function hasConflict(
   existingBookings: any[]
 ): { conflict: boolean; reason?: string } {
   for (const booking of existingBookings) {
-    if (booking.cleaner_id !== cleanerId) continue
+    if (booking.team_member_id !== cleanerId) continue
     const bookingStartMin = toMinutes(booking.start_time)
     const bookingEndMin = toMinutes(booking.end_time)
     const bufferStart = bookingStartMin - BUFFER_MINUTES
@@ -197,10 +197,10 @@ export async function checkCleanerAvailability(
 
   // Also get cleaners NOT working this day so we can show them as unavailable
   const { data: allCleaners } = await supabaseAdmin
-    .from('cleaners')
+    .from('team_members')
     .select('id, name')
     .eq('tenant_id', tenantId)
-    .eq('active', true)
+    .eq('status', 'active')
 
   return (allCleaners || []).map(cleaner => {
     const worksToday = cleanersForDay.some(c => c.id === cleaner.id)
