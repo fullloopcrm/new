@@ -4,6 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { getCommPrefs } from '@/lib/comms-prefs'
 import type { BookingUnconfirmed, BookingTomorrowConfirm } from '@/lib/types'
 import { safeEqual } from '@/lib/secret-compare'
+import { etYMD, toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -41,7 +42,16 @@ export async function GET(request: Request) {
       // TEAM MEMBER CONFIRMATION — Resend hourly until confirmed
       // For jobs in the next 48 hours with no team confirmation
       // ============================================
-      const twoDaysAhead = new Date(now.getTime() + 48 * 60 * 60 * 1000)
+      // bookings.start_time is naive-ET (no tz). A raw `.toISOString()`
+      // bound is a real UTC instant -- Postgres drops the tz marker for a
+      // `timestamp without time zone` column, so the UTC clock digits were
+      // read as if they were ET clock digits, shifting this whole window
+      // later by the EST/EDT offset. Net effect: any job starting within
+      // the next ~4-5h (ET) fell BELOW the shifted lower bound and silently
+      // stopped getting the hourly confirm-request resend right when
+      // confirmation matters most (job imminent).
+      const twoDaysAheadEt = toNaiveET(new Date(now.getTime() + 48 * 60 * 60 * 1000))
+      const nowEt = toNaiveET(now)
 
       const { data: unconfirmedJobs } = await supabaseAdmin
         .from('bookings')
@@ -49,8 +59,8 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled'])
         .not('team_member_id', 'is', null)
-        .gte('start_time', now.toISOString())
-        .lte('start_time', twoDaysAhead.toISOString())
+        .gte('start_time', nowEt)
+        .lte('start_time', twoDaysAheadEt)
         .limit(500) // Don't process more than 500 per tenant per run
         .returns<BookingUnconfirmed[]>()
 
@@ -167,20 +177,29 @@ export async function GET(request: Request) {
       // ============================================
       // CLIENT DAY-BEFORE CONFIRMATION — 1pm the day before
       // ============================================
-      if (now.getHours() === 13 && clientConfirmOn) {
-        const tomorrowStart = new Date(now)
-        tomorrowStart.setDate(tomorrowStart.getDate() + 1)
-        tomorrowStart.setHours(0, 0, 0, 0)
-        const tomorrowEnd = new Date(tomorrowStart)
-        tomorrowEnd.setHours(23, 59, 59, 999)
+      // `now.getHours()` reads the SERVER's local hour (UTC on Vercel), not
+      // ET -- this fired at 1pm UTC (8am EST / 9am EDT), 4-5h earlier than
+      // the intended 1pm ET. `nowEt` (naive ET string, HH at chars 11-12)
+      // gives the real ET hour. tomorrowStart/End were also built via
+      // server-local (UTC) setDate/setHours then compared against the
+      // naive-ET start_time column -- same day-boundary bug as the hour
+      // check, now fixed via ET calendar-day arithmetic.
+      const etHour = Number(nowEt.slice(11, 13))
+      if (etHour === 13 && clientConfirmOn) {
+        const { y: ty, m: tm, d: td } = etYMD(now)
+        const tomorrowObj = new Date(Date.UTC(ty, tm - 1, td + 1))
+        const pad = (n: number) => String(n).padStart(2, '0')
+        const tomorrowYmd = `${tomorrowObj.getUTCFullYear()}-${pad(tomorrowObj.getUTCMonth() + 1)}-${pad(tomorrowObj.getUTCDate())}`
+        const tomorrowStart = `${tomorrowYmd}T00:00:00`
+        const tomorrowEnd = `${tomorrowYmd}T23:59:59`
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
           .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
-          .gte('start_time', tomorrowStart.toISOString())
-          .lte('start_time', tomorrowEnd.toISOString())
+          .gte('start_time', tomorrowStart)
+          .lte('start_time', tomorrowEnd)
           .limit(500) // Don't process more than 500 per tenant per run
           .returns<BookingTomorrowConfirm[]>()
 
