@@ -7,6 +7,7 @@ import { getSettings } from '@/lib/settings'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 60
 
@@ -267,7 +268,7 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('client_id', client.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          .gte('start_time', nowNaiveET())
           .order('start_time', { ascending: true })
           .limit(1)
           .single()
@@ -326,7 +327,7 @@ export async function POST(request: Request) {
           .eq('tenant_id', tenantId)
           .eq('team_member_id', member.id)
           .in('status', ['scheduled'])
-          .gte('start_time', new Date().toISOString())
+          .gte('start_time', nowNaiveET())
           .order('start_time', { ascending: true })
           .limit(1)
           .single()

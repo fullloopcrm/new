@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { pick } from '@/lib/validate'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Keep in sync with RecurringType in @/lib/recurring — generateRecurringDates'
 // switch silently produces zero dates for anything outside this set, so an
@@ -106,7 +107,7 @@ export async function DELETE(
       .from('bookings')
       .update({ status: 'cancelled' })
       .eq('schedule_id', id)
-      .gte('start_time', new Date().toISOString())
+      .gte('start_time', nowNaiveET())
       .in('status', ['scheduled', 'pending', 'confirmed'])
 
     // Cancel the schedule

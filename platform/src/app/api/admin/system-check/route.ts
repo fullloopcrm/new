@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
+import { nowNaiveET } from '@/lib/recurring'
 
 async function verifyAdmin() {
   const cookieStore = await cookies()
@@ -110,7 +111,7 @@ export async function POST() {
 
   // 5. BOOKING PIPELINE
   try {
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    const fourHoursAgo = nowNaiveET(-4 * 60 * 60 * 1000)
     const { count: stuck } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
@@ -121,7 +122,7 @@ export async function POST() {
       .from('bookings')  // tenant-scope-ok: platform super-admin surface (cross-tenant by design)
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .lt('start_time', new Date().toISOString())
+      .lt('start_time', nowNaiveET())
 
     const msgs: string[] = []
     if ((stuck || 0) > 0) msgs.push(`${stuck} stuck in_progress`)

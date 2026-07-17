@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
+import { nowNaiveET } from '@/lib/recurring'
 
 // Single recurring schedule: view / edit / cancel. Tenant-scoped, admin-only,
 // client comms suppressed (see ../route.ts header). Cancelling a series cancels
@@ -33,7 +34,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .from('bookings')
     .select('id, start_time, end_time, status, team_member_id, team_members!bookings_team_member_id_fkey(name)')
     .eq('schedule_id', id)
-    .gte('start_time', new Date().toISOString())
+    .gte('start_time', nowNaiveET())
     .in('status', ['scheduled', 'pending', 'confirmed'])
     .order('start_time')
 
@@ -101,7 +102,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       .update({ team_member_id: teamMemberId || null })
       .eq('schedule_id', id)
       .in('status', ['scheduled', 'pending', 'confirmed'])
-      .gte('start_time', new Date().toISOString())
+      .gte('start_time', nowNaiveET())
   }
 
   return NextResponse.json(data)
@@ -127,7 +128,7 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
     .update({ status: 'cancelled' })
     .eq('schedule_id', id)
     .in('status', ['scheduled', 'pending', 'confirmed'])
-    .gte('start_time', new Date().toISOString())
+    .gte('start_time', nowNaiveET())
     .select('id')
 
   return NextResponse.json({

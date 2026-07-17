@@ -3,6 +3,7 @@ import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { alertOwner } from '@/lib/telegram'
+import { nowNaiveET } from '@/lib/recurring'
 
 export const maxDuration = 120
 
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
 
   // 5. BOOKING PIPELINE — stuck bookings
   try {
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    const fourHoursAgo = nowNaiveET(-4 * 60 * 60 * 1000)
     const { count: stuckCount } = await supabaseAdmin
       .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
@@ -105,7 +106,7 @@ export async function GET(request: Request) {
       .from('bookings')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
       .select('id', { count: 'exact', head: true })
       .eq('status', 'pending')
-      .lt('start_time', new Date().toISOString())
+      .lt('start_time', nowNaiveET())
 
     const issues: string[] = []
     if ((stuckCount || 0) > 0) issues.push(`${stuckCount} stuck in_progress`)

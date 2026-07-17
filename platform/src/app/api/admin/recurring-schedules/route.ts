@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
-import { computeNaiveVisitWindow, generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { computeNaiveVisitWindow, generateRecurringDates, nowNaiveET, type RecurringType } from '@/lib/recurring'
 
 // Admin recurring-schedules management. Ported from standalone nycmaid
 // (/api/admin/recurring-schedules), tenant-scoped for FullLoop and
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
         .select('start_time')
         .eq('schedule_id', schedule.id)
         .in('status', ['scheduled', 'pending', 'confirmed'])
-        .gte('start_time', new Date().toISOString())
+        .gte('start_time', nowNaiveET())
         .order('start_time')
         .limit(1)
         .single()

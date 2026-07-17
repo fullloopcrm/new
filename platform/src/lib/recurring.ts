@@ -181,6 +181,32 @@ export function computeNaiveVisitWindow(
   return { startISO, endISO }
 }
 
+/**
+ * Current (or offset) instant as a naive 'YYYY-MM-DDTHH:MM:SS' America/New_York
+ * wall-clock string -- the same naive-local format bookings.start_time/end_time
+ * are stored in (see computeNaiveVisitWindow above).
+ *
+ * Call sites across schedules/recurring-schedules/telnyx-SMS/system-check used
+ * to filter those naive columns with `.gte('start_time', new Date().toISOString())`
+ * -- a true-UTC instant. Postgres ignores the 'Z' when casting into a `timestamp
+ * without time zone` column, so the comparison landed as "UTC clock reading"
+ * vs. "ET wall-clock value," silently skewing every now-cutoff ahead by the
+ * ET/UTC gap (4h EDT / 5h EST) EVERY time it ran, all day, not just at a DST
+ * boundary. Concretely: any booking within that many hours of the real current
+ * time read as already in the past -- so "cancel this schedule's future
+ * bookings," "reassign upcoming bookings to the new member," "find the
+ * client's next booking to confirm via SMS," and the pending/stuck
+ * system-check counts all silently missed or over-counted bookings in that
+ * rolling multi-hour window. Anchoring "now" to this same naive-ET convention
+ * as the column fixes the comparison instead of the column.
+ */
+export function nowNaiveET(msOffset = 0): string {
+  const d = new Date(Date.now() + msOffset)
+  const date = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const time = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
+  return `${date}T${time}`
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string
