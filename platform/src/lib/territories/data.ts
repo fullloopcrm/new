@@ -124,9 +124,12 @@ export async function getTenantPins(): Promise<TenantPin[]> {
 }
 
 /**
- * Claim (or set pending) a territory for a category. The DB unique index
- * (territory_id, category_id) makes a second active claim impossible — a
- * conflict here means the combo is already taken.
+ * Claim (or set pending) a territory for a category. If a claim already
+ * exists for this (territory, category) — the admin transitioning
+ * pending<->claimed or reassigning the tenant on their own selection —
+ * it's updated in place. Otherwise it's inserted fresh, protected by the
+ * DB's unique index (territory_id, category_id): a genuine concurrent
+ * claim on a still-available combo conflicts instead of silently landing.
  */
 export async function claimTerritory(args: {
   territoryId: string
@@ -136,14 +139,34 @@ export async function claimTerritory(args: {
   notes?: string | null
 }): Promise<{ ok: true } | { ok: false; error: string; conflict?: boolean }> {
   const status = args.status ?? 'claimed'
-  const { error } = await supabaseAdmin.from('territory_claims').insert({
-    territory_id: args.territoryId,
-    category_id: args.categoryId,
+  const fields = {
     tenant_id: args.tenantId ?? null,
     status,
     claimed_at: status === 'claimed' ? new Date().toISOString() : null,
     pending_since: status === 'pending' ? new Date().toISOString() : null,
     notes: args.notes ?? null,
+  }
+
+  const { data: existing } = await supabaseAdmin
+    .from('territory_claims')
+    .select('id')
+    .eq('territory_id', args.territoryId)
+    .eq('category_id', args.categoryId)
+    .maybeSingle()
+
+  if (existing) {
+    const { error } = await supabaseAdmin
+      .from('territory_claims')
+      .update(fields)
+      .eq('id', existing.id as string)
+    if (error) return { ok: false, error: error.message }
+    return { ok: true }
+  }
+
+  const { error } = await supabaseAdmin.from('territory_claims').insert({
+    territory_id: args.territoryId,
+    category_id: args.categoryId,
+    ...fields,
   })
   if (error) {
     const conflict = error.code === '23505'

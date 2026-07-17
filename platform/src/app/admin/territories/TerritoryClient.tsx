@@ -58,6 +58,7 @@ export default function TerritoryClient({
   const [categoryId, setCategoryId] = useState<string>(categories[0]?.id ?? '')
   const [status, setStatus] = useState<Record<string, ClaimStatus>>({})
   const [tenantByTerritory, setTenantByTerritory] = useState<Record<string, string | null>>({})
+  const [tenantIdByTerritory, setTenantIdByTerritory] = useState<Record<string, string | null>>({})
   const [selected, setSelected] = useState<Selected | null>(null)
   const [assignTenant, setAssignTenant] = useState<string>('')
   const [busy, setBusy] = useState(false)
@@ -78,16 +79,19 @@ export default function TerritoryClient({
       return
     }
     const { claims } = (await res.json()) as {
-      claims: { territory_id: string; status: ClaimStatus; tenant_name: string | null }[]
+      claims: { territory_id: string; status: ClaimStatus; tenant_id: string | null; tenant_name: string | null }[]
     }
     const s: Record<string, ClaimStatus> = {}
     const tn: Record<string, string | null> = {}
+    const ti: Record<string, string | null> = {}
     for (const c of claims) {
       s[c.territory_id] = c.status
       tn[c.territory_id] = c.tenant_name
+      ti[c.territory_id] = c.tenant_id
     }
     setStatus(s)
     setTenantByTerritory(tn)
+    setTenantIdByTerritory(ti)
   }, [])
 
   useEffect(() => {
@@ -253,7 +257,7 @@ export default function TerritoryClient({
           pins={pins}
           onCountyClick={(territoryId, countyName) => {
             setSelected({ territoryId, countyName })
-            setAssignTenant('')
+            setAssignTenant(tenantIdByTerritory[territoryId] ?? '')
           }}
         />
       </div>
