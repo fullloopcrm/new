@@ -5833,3 +5833,57 @@ asked for and isn't required for the client's pick to actually take effect.
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (128) Fresh ground, different shape from the destructive-op thread (118-127) — client dashboard's assigned-cleaner name was silently blank on every booking, on all four self-service tenant surfaces — NOW FIXED
+
+Not a missing guard this time — a join-alias mismatch. `GET
+/api/client/bookings` (feeding `site/book`, `wash-and-fold-hoboken`,
+`wash-and-fold-nyc`, and `the-florida-maid`'s `/dashboard` pages, all four
+ported from the same nycmaid original) selects the assigned team member as
+`team_members!bookings_team_member_id_fkey(name)` — supabase-js returns that
+join under the key it's written with, `team_members`. All four dashboards'
+`Booking` interface and JSX, unchanged since the nycmaid port, read
+`booking.cleaners?.name` — a key the response never had. Every booking, even
+a fully staffed one, rendered "Cleaner TBD" (next-booking banner) or "To be
+assigned" (booking list), regardless of whether `team_member_id` was set.
+Pure display gap, not a security issue — the client's own booking data
+wasn't affected, just its presentation.
+
+**Fixed** — aliased the join in `client/bookings/route.ts`'s two queries:
+`cleaners:team_members!bookings_team_member_id_fkey(name)`, matching the key
+every consumer already reads. Checked every other route sharing this same
+join (`client/booking/[id]`, `client/reschedule/[id]`, `client/recurring`,
+`client/preferred-cleaner`, and ~40 admin/dashboard/cron routes) — none of
+their consumers expect a `cleaners` key, so this is the only route that
+needed the alias.
+
+New test (`route.cleaner-alias.test.ts`) captures the actual `select()`
+column string passed to the tenantDb-wrapped query and asserts the join is
+aliased to `cleaners:team_members`, not the bare join name. Mutation-verified
+(`git apply -R` the fix, RED for the expected reason — select string reverted
+to the un-aliased `team_members!...`, assertion failed. `git apply` restored,
+GREEN). `tsc --noEmit` clean, full suite 427/427 files, 2052/2052 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Noticed, not fixed: the same `.cleaners?.name` read also appears in three
+`_components/DashboardMap.tsx` files (`nyc-mobile-salon`,
+`wash-and-fold-hoboken`, `wash-and-fold-nyc`) and two team-member
+`team/[token]/page.tsx` pages (`wash-and-fold-hoboken`, `wash-and-fold-nyc`).
+The three `DashboardMap.tsx` files are confirmed dead — grepped, nothing
+imports them from their actual relative path, so no live surface renders
+them. The `team/[token]/page.tsx` pages are a different, ambiguous case: they
+fetch `/api/team/${token}`, which only resolves to `/api/team/[id]/route.ts`
+(admin-authed `team_members` CRUD, returns `{ member }`, not a booking with
+`clients`/`cleaners`) — the shape this page expects was never served by that
+endpoint. Whether this page is still reachable at all depends on whether
+`next.config.js`'s `/team/:uuid` → `/team/checkin/:uuid` permanent redirect
+(added for the nycmaid cutover) fires before this page can render for
+tenant-domain requests — that's a middleware-ordering question this
+investigation didn't verify at runtime, and it's a different subsystem (team
+portal, not the client self-service surface this round's queue targeted).
+Flagging for a dedicated pass rather than guessing at reachability.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
