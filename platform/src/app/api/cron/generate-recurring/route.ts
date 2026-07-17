@@ -150,9 +150,13 @@ export async function GET(request: Request) {
     if (smartAssign) {
       jobAddr = await getBookingAddress({ propertyId: schedule.property_id, clientId: schedule.client_id })
     }
-    const startHHMM = (): string => {
+    // Takes the occurrence date explicitly -- falling back to `new Date()`
+    // (the cron's real current time) instead of the occurrence's own
+    // carried-over hour/minute would score smart-assign against whatever
+    // time the cron happens to run at, not the schedule's actual start time.
+    const startHHMM = (occDate: Date): string => {
       if (schedule.preferred_time) return String(schedule.preferred_time).slice(0, 5)
-      const m = startMinForDate(new Date())
+      const m = startMinForDate(occDate)
       return `${String(Math.floor(m / 60)).padStart(2, '0')}:${String(m % 60).padStart(2, '0')}`
     }
 
@@ -188,7 +192,7 @@ export async function GET(request: Request) {
         const scores = await scoreTeamForBooking({
           tenantId: schedule.tenant_id,
           date: dateStr,
-          startTime: ex?.type === 'move' && ex.new_start_time ? String(ex.new_start_time).slice(0, 5) : startHHMM(),
+          startTime: ex?.type === 'move' && ex.new_start_time ? String(ex.new_start_time).slice(0, 5) : startHHMM(d),
           durationHours: durH,
           clientAddress: jobAddr?.address || '',
           clientId: schedule.client_id,
