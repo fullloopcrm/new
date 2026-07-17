@@ -7,6 +7,7 @@ import { getBookingAddress } from '@/lib/client-properties'
 import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET, etYMD } from '@/lib/dates'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -16,8 +17,12 @@ export async function GET(request: Request) {
   }
 
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
-  // (tenant-scoped). Safe no-op if the column/rows don't exist.
-  const todayStr = new Date().toISOString().split('T')[0]
+  // (tenant-scoped). Safe no-op if the column/rows don't exist. `paused_until`
+  // is an ET calendar date -- `.toISOString()` reads the UTC calendar day,
+  // which runs a day ahead of ET for ~4-5h every evening (roughly 8pm-midnight
+  // ET), resuming schedules a day early during that window.
+  const { y: todayY, m: todayM, d: todayD } = etYMD(new Date())
+  const todayStr = `${todayY}-${String(todayM).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`
   const { data: resumable } = await supabaseAdmin
     .from('recurring_schedules')
     .select('id')
@@ -51,8 +56,16 @@ export async function GET(request: Request) {
       .order('start_time', { ascending: false })
       .limit(1)
 
-    const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date()
-    const fourWeeksOut = new Date()
+    // bookings.start_time is naive-ET (no tz) -- `new Date(latest[0].start_time)`
+    // on that unzoned string parses its digits as server-local (UTC on
+    // Vercel), which is exactly the naive-ET encoding this route writes with
+    // below (see occ.toISOString() further down), so `lastDate`'s digits
+    // already line up with ET wall-clock. The no-prior-booking fallback has
+    // to match that same encoding instead of a real UTC "now" -- otherwise
+    // it's off by the EST/EDT offset and the fourWeeksOut cutoff below
+    // compares two different reference frames.
+    const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date(toNaiveET(new Date()))
+    const fourWeeksOut = new Date(toNaiveET(new Date()))
     fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
 
     if (lastDate >= fourWeeksOut) continue // Already generated enough
@@ -102,18 +115,25 @@ export async function GET(request: Request) {
         .single()
       mem = data
     }
+    // `d` (and `startDate` it derives from) carries its ET wall-clock date and
+    // time-of-day directly in its own local fields (UTC-on-server on Vercel) --
+    // that's the naive-ET encoding `startDate.setHours(preferredTime)` builds
+    // near the top of this loop, threaded through unchanged by
+    // generateRecurringDates. Re-converting through the America/New_York
+    // timezone here would double-shift it: for early-morning preferred times
+    // that lands the calendar date a day early.
+    const naiveETDateStr = (d: Date): string =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
     const startMinForDate = (d: Date): number => {
       if (schedule.preferred_time) {
         const [h, m] = String(schedule.preferred_time).split(':').map(Number)
         return (h || 0) * 60 + (m || 0)
       }
-      const hm = d.toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
-      const [h, m] = hm.split(':').map(Number)
-      return (h || 0) * 60 + (m || 0)
+      return d.getHours() * 60 + d.getMinutes()
     }
     const memberCanTake = (d: Date): boolean => {
       if (!schedule.team_member_id || !mem) return false
-      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const dateStr = naiveETDateStr(d)
       if (Array.isArray(mem.unavailable_dates) && mem.unavailable_dates.includes(dateStr)) return false
       if (!worksScheduledDay(mem.working_days, mem.schedule, dateStr)) return false
       const startMin = startMinForDate(d)
@@ -148,7 +168,7 @@ export async function GET(request: Request) {
 
     const bookings: Record<string, unknown>[] = []
     for (const d of dates) {
-      const dateStr = d.toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+      const dateStr = naiveETDateStr(d)
       const ex = exMap.get(dateStr)
       if (ex?.type === 'skip') continue // occurrence cancelled — don't materialize it
 
