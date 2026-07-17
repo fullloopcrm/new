@@ -431,7 +431,7 @@ function BookFormContent() {
               <input
                 type="date"
                 required
-                min={isSameDay ? new Date().toISOString().split('T')[0] : minDate}
+                min={isSameDay ? new Date().toLocaleDateString('en-CA') : minDate}
                 value={form.date}
                 onChange={(e) => update('date', e.target.value)}
                 className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]"

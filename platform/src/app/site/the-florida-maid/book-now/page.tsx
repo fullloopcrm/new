@@ -253,7 +253,7 @@ function BookFormContent() {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Date</label>
-                <input type="date" required min={isSameDay ? new Date().toISOString().split('T')[0] : minDate}
+                <input type="date" required min={isSameDay ? new Date().toLocaleDateString('en-CA') : minDate}
                   value={form.date} onChange={(e) => update('date', e.target.value)}
                   className="w-full px-3 py-2.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]" />
               </div>
