@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { checkDealDeletable } from '@/lib/deal-delete-guard'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -106,6 +107,12 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const { id } = await params
+
+    const guard = await checkDealDeletable(tenantId, id)
+    if (!guard.deletable) {
+      return NextResponse.json({ error: guard.reason }, { status: 409 })
+    }
+
     const { error } = await supabaseAdmin
       .from('deals')
       .delete()
