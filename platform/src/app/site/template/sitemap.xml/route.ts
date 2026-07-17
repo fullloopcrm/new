@@ -112,7 +112,7 @@ ${genUrls
     priority: '1.0',
     images: [
       { loc: absoluteImageUrl(homepagePhoto.src), title: homepagePhoto.alt, caption: homepagePhoto.caption },
-      { loc: `${BASE_URL}/icon-512.png`, title: 'Your Business — Logo' },
+      { loc: `${BASE_URL}/icon-512.png`, title: `${config.identity.name} — Logo` },
     ],
   })
 
