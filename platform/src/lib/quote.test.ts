@@ -203,6 +203,17 @@ describe('computeTotals', () => {
     expect(t.total_cents).toBe(3000)
   })
 
+  it('clamps a negative tax_rate_bps to zero instead of letting it drag total_cents below zero', () => {
+    // POST/PUT /api/invoices + /api/quotes both pass a caller-supplied
+    // tax_rate_bps straight into computeTotals with no sign check -- a
+    // negative rate produces negative tax_cents, which (unlike discount_cents'
+    // own [0, subtotal] clamp above) had nothing stopping it from driving
+    // total_cents negative.
+    const t = computeTotals(items([{ name: 'a', quantity: 1, unit_price_cents: 3000 }]), -20000, 0)
+    expect(t.tax_cents).toBe(0)
+    expect(t.total_cents).toBe(3000)
+  })
+
   it('rounds tax to the nearest cent', () => {
     // subtotal 333, tax 10% (1000 bps) -> 33.3 -> 33
     const t = computeTotals(items([{ name: 'a', quantity: 1, unit_price_cents: 333 }]), 1000, 0)

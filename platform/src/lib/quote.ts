@@ -78,7 +78,14 @@ export function computeTotals(
     .reduce((acc, li) => acc + (li.subtotal_cents || 0), 0)
   const discount = Math.max(0, Math.min(subtotal, discount_cents || 0))
   const taxable = subtotal - discount
-  const tax = Math.round((taxable * (tax_rate_bps || 0)) / 10000)
+  // Clamp non-negative, same convention (and same reason) as normalizeLineItems'
+  // quantity/unit_price_cents clamp above: an unclamped negative tax_rate_bps
+  // (POST/PUT /api/invoices + /api/quotes both pass the caller-supplied value
+  // straight through) produces a negative tax_cents that isn't caught by
+  // discount_cents' own [0, subtotal] clamp, driving total_cents negative --
+  // the same total-manipulation risk that clamp exists to prevent, via a
+  // different field.
+  const tax = Math.round((taxable * Math.max(0, tax_rate_bps || 0)) / 10000)
   const total = taxable + tax
   return { subtotal_cents: subtotal, tax_cents: tax, discount_cents: discount, total_cents: total }
 }
