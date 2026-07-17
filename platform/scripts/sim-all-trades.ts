@@ -1116,6 +1116,55 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: a tech directly assigned to an emergency job is told the job is urgent and/or their pay premium, via SMS or the team-portal',
         eitherSigHasEmergencyOrPayRate || teamPortalMentionsEmergency || eitherRenderedMentionsUrgency,
         `Neither jobAssignment() signature (team-sms.ts: ${cleaningJobAssignmentSig.replace(/\s+/g, ' ').trim()}; sms-templates.ts smsJobAssignment: ${genericJobAssignmentSig.replace(/\s+/g, ' ').trim()}) carries is_emergency or pay_rate. Called both live with an emergency-shaped booking: cleaning-brand SMS = "${renderedCleaningSms}"; trade-industry SMS = "${renderedGenericSms}" — neither mentions urgency, priority, or a rate. Grepped team-portal's API surface for is_emergency: found=${teamPortalMentionsEmergency} (would need to be true for any tech-facing surface to know a job is urgent). PUT /api/bookings/[id]/route.ts fires this same jobAssignment on every team_member_id change, emergency or not — so a tech assigned to a same-day burst-pipe job gets byte-identical copy to one assigned to a routine job 3 weeks out.`)
+
+      // P11.22 completes the urgency-visibility trilogy alongside P11.19/20
+      // (customer never told) and P11.21 (assigned tech never told): checks
+      // whether the OPERATOR's own admin UI — the person actually running
+      // the schedule — can see which bookings are emergencies at a glance,
+      // anywhere outside the one-time create-form toggle. GET /api/bookings
+      // selects '*' (route.ts:43), so is_emergency is already present on
+      // every booking object every dashboard surface already receives —
+      // this is purely a "nothing renders it" gap, not a data-availability
+      // one. Scans the primary Bookings admin page plus every
+      // calendar/schedules/map dashboard file for a read of an EXISTING
+      // booking's is_emergency, as opposed to the create-form's own
+      // createForm.is_emergency local state (excluded by the regex below,
+      // since that's a one-time toggle at creation, not a standing visual
+      // marker on the booking afterward). Verified by reading source
+      // directly, same constraint as P11.8-21 (worktree has no
+      // .env.local/Supabase env for a live render/screenshot check).
+      const urgencyVisibilitySurfaceFiles = [
+        'src/app/dashboard/bookings/BookingsAdmin.tsx',
+        'src/app/dashboard/calendar/CalendarBoard.tsx',
+        'src/app/dashboard/calendar/KanbanView.tsx',
+        'src/app/dashboard/calendar/ProjectsView.tsx',
+        'src/app/dashboard/calendar/TimelineView.tsx',
+        'src/app/dashboard/calendar/CalendarShell.tsx',
+        'src/app/dashboard/calendar/page.tsx',
+        'src/app/dashboard/schedules/page.tsx',
+        'src/app/dashboard/schedules/[id]/page.tsx',
+        'src/app/dashboard/map/map-view.tsx',
+        'src/app/dashboard/map/page.tsx',
+      ]
+      const existingBookingIsEmergencyReads: string[] = []
+      for (const f of urgencyVisibilitySurfaceFiles) {
+        let src = ''
+        try { src = readFileSync(resolve(process.cwd(), f), 'utf8') } catch { continue }
+        // Matches NOT immediately preceded by createForm/CreateForm — those
+        // are the one-time create-dialog toggle, not a standing visual
+        // marker on an already-saved booking.
+        const badgeStyleReads = [...src.matchAll(/(\w+)[.?]is_emergency\b/g)].filter(m => !/createform/i.test(m[1]))
+        if (badgeStyleReads.length) {
+          existingBookingIsEmergencyReads.push(`${f}: ${badgeStyleReads.map(m => m[0]).join(', ')}`)
+        }
+      }
+      const bookingsSelectStarSrc = (() => {
+        try { return readFileSync(resolve(process.cwd(), 'src/app/api/bookings/route.ts'), 'utf8') } catch { return '' }
+      })()
+      const bookingsApiExposesEmergencyFlag = /\.select\(\s*['"`]\*/.test(bookingsSelectStarSrc)
+      add('emergency: the operator\'s own Bookings/Calendar/Schedules admin UI visually flags which bookings are emergencies',
+        existingBookingIsEmergencyReads.length > 0,
+        `Scanned ${urgencyVisibilitySurfaceFiles.length} admin-UI files (Bookings list/cards, every Calendar view, Schedules, Map) for a read of an existing booking's is_emergency field: zero found any (only BookingsAdmin.tsx references is_emergency at all, and every one of those is createForm.is_emergency — the create-dialog's own local toggle, not a display of an already-saved booking's flag). GET /api/bookings uses '.select(\\'*...)' (confirmed: ${bookingsApiExposesEmergencyFlag}), so is_emergency is already in every booking object these pages already fetch — this is a pure "nothing renders it" gap. Net effect combined with P11.19-21: no channel anywhere in this codebase — customer confirmation, tech assignment, tech self-claim pool, OR the operator's own schedule view — ever visually surfaces which jobs are emergencies; the only place the flag has any visible effect at all is the one-time create-form toggle's own red "Broadcasts to all team" banner, which disappears the moment the booking is saved.`)
     }
 
   } catch (err) {
