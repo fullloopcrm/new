@@ -187,6 +187,24 @@ export async function POST(request: NextRequest) {
     ? 'bespoke'
     : 'template'
 
+  // Every read site (site-export's "resolve the primary domain", 068's
+  // is_primary->type backfill mapping, the admin UI itself) assumes at most
+  // ONE is_primary=true row per tenant, but nothing enforced it — this insert
+  // just added a caller-supplied is_primary with no check for an existing
+  // primary. Two admin adds (or one repeated call) left a tenant with 2+
+  // "primary" domains, which every consumer resolves by picking an arbitrary
+  // one (first match / .find()) rather than erroring, so the bug was silent
+  // data corruption, not a crash. Clear any existing primary for this tenant
+  // BEFORE inserting the new one, same invariant
+  // 2026_07_16_set_primary_client_contact.sql enforces for client_contacts.
+  if (is_primary) {
+    await supabaseAdmin
+      .from('tenant_domains')
+      .update({ is_primary: false })
+      .eq('tenant_id', tenant_id)
+      .eq('is_primary', true)
+  }
+
   const { data, error } = await supabaseAdmin
     .from('tenant_domains')
     .insert({

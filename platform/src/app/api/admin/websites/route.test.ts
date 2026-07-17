@@ -159,3 +159,54 @@ describe('POST /api/admin/websites — routing_mode/type on insert', () => {
     expect(json.domain).toMatchObject({ routing_mode: 'template', type: 'generic', is_primary: false })
   })
 })
+
+describe('POST /api/admin/websites — at most one is_primary per tenant', () => {
+  it('clears the existing primary when a second is_primary domain is added for the same tenant', async () => {
+    h.store.tenants.push({ id: 'tenant-multi', name: 'Multi Domain Co', slug: 'multi-domain-co' })
+    h.store.tenant_domains.push({
+      id: 'dom-old', tenant_id: 'tenant-multi', domain: 'old-primary.com',
+      is_primary: true, type: 'primary', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-multi', domain: 'new-primary.com', is_primary: true }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain).toMatchObject({ is_primary: true, domain: 'new-primary.com' })
+
+    const oldRow = h.store.tenant_domains.find((d) => d.id === 'dom-old')
+    expect(oldRow?.is_primary).toBe(false)
+
+    const primaries = h.store.tenant_domains.filter((d) => d.tenant_id === 'tenant-multi' && d.is_primary === true)
+    expect(primaries).toHaveLength(1)
+  })
+
+  it('does not touch an existing primary when the new domain is not primary', async () => {
+    h.store.tenants.push({ id: 'tenant-multi2', name: 'Multi Domain Co 2', slug: 'multi-domain-co-2' })
+    h.store.tenant_domains.push({
+      id: 'dom-old2', tenant_id: 'tenant-multi2', domain: 'old-primary2.com',
+      is_primary: true, type: 'primary', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-multi2', domain: 'alias2.com' }))
+    expect(res.status).toBe(201)
+
+    const oldRow = h.store.tenant_domains.find((d) => d.id === 'dom-old2')
+    expect(oldRow?.is_primary).toBe(true)
+  })
+
+  it('does not clear a different tenant\'s primary', async () => {
+    h.store.tenants.push({ id: 'tenant-x', name: 'Tenant X', slug: 'tenant-x' })
+    h.store.tenants.push({ id: 'tenant-y', name: 'Tenant Y', slug: 'tenant-y' })
+    h.store.tenant_domains.push({
+      id: 'dom-x', tenant_id: 'tenant-x', domain: 'x.com',
+      is_primary: true, type: 'primary', active: true, created_at: '2026-07-01T00:00:00.000Z',
+    })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-y', domain: 'y.com', is_primary: true }))
+    expect(res.status).toBe(201)
+
+    const xRow = h.store.tenant_domains.find((d) => d.id === 'dom-x')
+    expect(xRow?.is_primary).toBe(true)
+  })
+})

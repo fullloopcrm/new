@@ -507,10 +507,50 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       }
     }
 
+    // Clear is_primary on any OTHER domain row this tenant owns whenever this
+    // run is registering a new is_primary:true domain. `ignoreDuplicates`
+    // above only ever WRITES is_primary on a brand-new row (it never touches
+    // an existing one), so a tenant re-activated after its custom domain
+    // changed (e.g. a rebrand) previously ended up with BOTH the old and the
+    // new custom-domain rows marked is_primary:true — the same
+    // "at most one primary per tenant" invariant violated by the
+    // POST /api/admin/websites gap fixed alongside
+    // 2026_07_17_tenant_domains_one_primary_per_tenant.sql, just reachable
+    // from the highest-volume write path instead of the admin one. Only the
+    // domains in THIS run's `rows` are exempt — everything else for this
+    // tenant gets demoted.
+    // Fetch-then-filter rather than a `.not(col, 'in', …)` PostgREST filter —
+    // same reasoning as AUTO_VERCEL_PROJECT_VALUES above: keeps this readable
+    // across both the real PostgREST client and the in-memory test fake,
+    // which only implements the simple `.not(col, 'eq'|'is'|'neq', val)` form.
+    let primaryFixed = 0
+    if (!tdErr) {
+      const newPrimaryDomains = rows.filter(r => r.is_primary).map(r => r.domain)
+      if (newPrimaryDomains.length > 0) {
+        const { data: existingPrimaries } = await supabaseAdmin
+          .from('tenant_domains')
+          .select('id, domain')
+          .eq('tenant_id', tenantId)
+          .eq('is_primary', true)
+        const staleIds = (existingPrimaries || [])
+          .filter(r => !newPrimaryDomains.includes(r.domain as string))
+          .map(r => r.id as string)
+        if (staleIds.length > 0) {
+          const { data: fixedPrimary, error: primaryErr } = await supabaseAdmin
+            .from('tenant_domains')
+            .update({ is_primary: false })
+            .in('id', staleIds)
+            .select('id')
+          if (!primaryErr) primaryFixed += fixedPrimary?.length ?? 0
+        }
+      }
+    }
+
     const corrections = [
       driftFixed > 0 ? `routing_mode on ${driftFixed} row(s)` : null,
       vercelProjectFixed > 0 ? `vercel_project on ${vercelProjectFixed} row(s)` : null,
       typeFixed > 0 ? `type on ${typeFixed} row(s)` : null,
+      primaryFixed > 0 ? `is_primary on ${primaryFixed} stale row(s)` : null,
     ].filter(Boolean)
 
     steps.push({
