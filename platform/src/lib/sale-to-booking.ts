@@ -110,7 +110,10 @@ export async function createBookingFromQuote(
         end_time: end.toISOString(),
         status: 'pending',
         service_type: quote.title || 'Service',
-        price: quote.total_cents ? (quote.total_cents as number) / 100 : null,
+        // bookings.price is CENTS (see POST /api/invoices' from_booking_id
+        // handling) -- do NOT divide by 100, or the invoice cut from this
+        // booking later silently bills 100x too low.
+        price: quote.total_cents ? (quote.total_cents as number) : null,
         notes: `Converted from quote ${quote.quote_number} — confirm the date`,
         special_instructions: quote.notes || null,
       })

@@ -168,7 +168,11 @@ async function createSeriesAfterClaim(
   const startDate = (quote.recurring_start_date as string | null) || nowNaiveET().slice(0, 10)
   const preferredTime = (quote.recurring_preferred_time as string | null) || '09:00'
   const hours = Number(quote.recurring_duration_hours) || 3
-  const pricePerVisit = ((quote.total_cents as number) || 0) / 100
+  // bookings.price is CENTS (see POST /api/invoices' from_booking_id handling
+  // and /api/client/recurring's writer) -- do NOT divide by 100 here, or
+  // every consumer that reads it as cents (buildConsolidatedLineItems, the
+  // from_booking_id invoice path) silently under-bills by 100x.
+  const pricePerVisit = (quote.total_cents as number) || 0
 
   const dayOfWeek = new Date(startDate + 'T12:00:00').getDay()
   const dates: string[] = computeInitialOccurrenceDates(recurringType, startDate)
