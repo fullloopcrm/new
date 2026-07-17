@@ -96,6 +96,16 @@ describe('portal self-book — notification wiring', () => {
     expect(call.telnyxApiKey).toBe('tk_test')
   })
 
+  it('prefixes the admin notify() with 🚨 EMERGENCY for a same-day booking', async () => {
+    fake._seed('tenants', [{ id: TENANT_ID, name: 'Acme Plumbing' }])
+    const todayStr = new Date().toLocaleDateString('en-CA')
+    const res = await POST(req({ start_time: `${todayStr}T10:00:00`, service_type_id: SVC_ID }))
+    expect(res.status).toBe(201)
+    const call = notifyMock.mock.calls[0]?.[0] as Record<string, unknown>
+    expect(call.title).toBe('🚨 Urgent Booking Request')
+    expect(String(call.message)).toMatch(/^🚨 EMERGENCY — /)
+  })
+
   it('does not fail booking creation if notify/email/SMS throw', async () => {
     notifyMock.mockRejectedValueOnce(new Error('boom'))
     fake._seed('tenants', [{ id: TENANT_ID, name: 'Acme Plumbing' }])

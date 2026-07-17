@@ -153,8 +153,8 @@ export async function POST(request: Request) {
     await notify({
       tenantId: auth.tid,
       type: 'new_booking',
-      title: 'New Booking Request',
-      message: `New booking from ${client?.name || 'Unknown'} • via Client Portal`,
+      title: isEmergency ? '🚨 Urgent Booking Request' : 'New Booking Request',
+      message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}New booking from ${client?.name || 'Unknown'} • via Client Portal`,
       bookingId: data.id,
     })
 

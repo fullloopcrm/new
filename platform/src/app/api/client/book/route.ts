@@ -384,12 +384,14 @@ export async function POST(request: Request) {
       console.error('Smart suggestion error:', e)
     }
 
-    // Admin notify
-    const bookingMsg = `New booking from ${data.clients?.name || 'Unknown'}${body.ref_code ? ` (Ref: ${body.ref_code})` : ''} • by Client`
+    // Admin notify — 🚨 prefix on emergency so the owner's first look at a new
+    // job isn't blind to urgency, matching the convention already established
+    // for team-facing SMS (jobAssignment/smsJobAssignment/smsJobRescheduled).
+    const bookingMsg = `${bkIsEmergency ? '🚨 EMERGENCY — ' : ''}New booking from ${data.clients?.name || 'Unknown'}${body.ref_code ? ` (Ref: ${body.ref_code})` : ''} • by Client`
     await notify({
       tenantId: tenant.id,
       type: 'new_booking',
-      title: 'New Booking Request',
+      title: bkIsEmergency ? '🚨 Urgent Booking Request' : 'New Booking Request',
       message: bookingMsg,
       booking_id: data.id,
     })
@@ -432,6 +434,7 @@ export async function POST(request: Request) {
           date: bookingDate,
           time: (body.time as string) || '',
           notes: (body.notes as string) || '',
+          isEmergency: bkIsEmergency,
         }, td)
         await emailAdmins(tenant, admin.subject, admin.html)
 

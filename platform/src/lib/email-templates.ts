@@ -1,7 +1,7 @@
 // Branded HTML email templates for notifications
 import { escapeHtml, safeUrl } from './escape-html'
 
-type TemplateData = {
+export type TemplateData = {
   tenantName: string
   primaryColor?: string
   logoUrl?: string
@@ -11,7 +11,7 @@ type TemplateData = {
   unsubscribeUrl?: string
 }
 
-function baseTemplate(content: string, data: TemplateData): string {
+export function baseTemplate(content: string, data: TemplateData): string {
   // Full Loop light-editorial shell (mirror of lib/messaging/shell.ts) so every
   // template — all 14 that call this — matches the proposal + dashboard look,
   // brand-injected per tenant. color-scheme:light resists dark-mode inversion.
@@ -440,9 +440,15 @@ export function adminNewBookingRequestEmail(
     date?: string
     time?: string
     notes?: string
+    /** Same-day/urgent booking — the admin's first look at a new job was
+     * structurally blind to this (see EMERGENCY-24-7-ARCHETYPE-GAPS-AND-FRICTION
+     * archetype-depth findings); mirrors the 🚨 convention bookingReceivedEmail
+     * already established for the client-facing side of the same event. */
+    isEmergency?: boolean
   },
   data: TemplateData & { adminUrl?: string },
 ): { subject: string; html: string } {
+  const urgent = !!booking.isEmergency
   const row = (l: string, v: string) =>
     `<tr><td style="padding:8px 12px;background:#f9fafb;border-bottom:1px solid #e5e7eb;"><span style="color:#6b7280;font-size:12px;text-transform:uppercase;">${escapeHtml(l)}</span></td><td style="padding:8px 12px;border-bottom:1px solid #e5e7eb;color:#111827;font-size:14px;">${escapeHtml(v)}</td></tr>`
   const rows = [
@@ -455,13 +461,17 @@ export function adminNewBookingRequestEmail(
     booking.notes ? row('Notes', booking.notes) : '',
   ].filter(Boolean)
   const html = baseTemplate(
-    `<h2 style="color:#111827;font-size:20px;margin:0 0 16px;">New booking request</h2>
+    `<h2 style="color:#111827;font-size:20px;margin:0 0 16px;">${urgent ? '🚨 New Urgent Booking Request' : 'New booking request'}</h2>
+     ${urgent ? `
+     <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:8px;padding:12px 16px;margin:0 0 20px;">
+       <p style="color:#991b1b;font-size:13px;font-weight:600;margin:0;">Same-day emergency — dispatch ASAP.</p>
+     </div>` : ''}
      <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
        ${rows.join('\n')}
      </table>`,
     data,
   )
-  return { subject: `New Booking: ${booking.clientName}`, html }
+  return { subject: `${urgent ? '🚨 URGENT — ' : ''}New Booking: ${booking.clientName}`, html }
 }
 
 export function referralSignupNotifyEmail(
