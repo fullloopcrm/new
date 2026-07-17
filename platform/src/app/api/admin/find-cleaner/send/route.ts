@@ -64,6 +64,7 @@ type CleanerRow = {
   phone: string | null
   preferred_language: string | null
   hourly_rate: number | null
+  sms_consent: boolean | null
 }
 
 export async function POST(request: Request) {
@@ -109,14 +110,18 @@ export async function POST(request: Request) {
 
   const { data: cleaners, error: cErr } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, phone, preferred_language, hourly_rate')
+    .select('id, name, phone, preferred_language, hourly_rate, sms_consent')
     .eq('tenant_id', tenantId)
     .in('id', cleaner_ids)
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
   // Mass-SMS guard: TEST_MODE hard-filters to the test cleaner row(s) until cleared.
+  // sms_consent !== false: same team-member opt-out gate as bookings/broadcast
+  // (item 48) — this route is that route's sibling mass-dispatch broadcast and
+  // was texting opted-out team members unconditionally before this check existed.
   const recipients = (cleaners as CleanerRow[] || []).filter((c) => {
     if (!c.phone) return false
+    if (c.sms_consent === false) return false
     if (TEST_MODE && !c.name.toLowerCase().includes(TEST_CLEANER_NAME_SUBSTRING)) return false
     return true
   })
@@ -124,7 +129,7 @@ export async function POST(request: Request) {
     return NextResponse.json({
       error: TEST_MODE
         ? `TEST MODE — no team member named "${TEST_CLEANER_NAME_SUBSTRING}" with a phone on file`
-        : 'No recipients with phones on file',
+        : 'No recipients with phones on file (or all opted out of SMS)',
     }, { status: 400 })
   }
 

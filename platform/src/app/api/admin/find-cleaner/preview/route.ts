@@ -24,6 +24,7 @@ type CleanerRow = {
   max_jobs_per_day: number | null
   hourly_rate: number | null
   preferred_language: string | null
+  sms_consent: boolean | null
 }
 
 type BookingRow = {
@@ -87,7 +88,7 @@ export async function POST(request: Request) {
 
   const { data: cleaners, error: cErr } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, phone, working_days, schedule, unavailable_dates, service_zones, has_car, max_jobs_per_day, hourly_rate, preferred_language')
+    .select('id, name, phone, working_days, schedule, unavailable_dates, service_zones, has_car, max_jobs_per_day, hourly_rate, preferred_language, sms_consent')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
@@ -133,6 +134,9 @@ export async function POST(request: Request) {
     }
     if (!c.phone) {
       reasons.push('No phone on file')
+    }
+    if (c.sms_consent === false) {
+      reasons.push('Opted out of SMS')
     }
     if (targetZone && c.service_zones && c.service_zones.length > 0 && !c.service_zones.includes(targetZone)) {
       reasons.push(`Doesn't service ${targetZone}`)
