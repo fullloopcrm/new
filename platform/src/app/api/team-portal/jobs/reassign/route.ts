@@ -114,7 +114,6 @@ export async function POST(request: Request) {
   // tech, the item (48) SMS-consent gate, and quiet hours entirely (routine
   // reassignments always pushed regardless of the hour; an emergency one had
   // no reliable non-push fallback if the push subscription was stale).
-  const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }) : ''
   const isEmergency = !!booking.is_emergency
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
@@ -122,6 +121,7 @@ export async function POST(request: Request) {
     .eq('id', auth.tid)
     .single()
   const bizName = tenant?.name || 'Your Business'
+  const when = booking.start_time ? new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tenant?.timezone || 'America/New_York', month: 'short', day: 'numeric' }) : ''
   try {
     await notifyTeamMember({
       tenantId: auth.tid,

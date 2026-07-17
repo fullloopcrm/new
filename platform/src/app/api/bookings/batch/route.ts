@@ -115,19 +115,19 @@ export async function POST(request: Request) {
       const client = first.clients as { name?: string; email?: string | null; phone?: string | null; sms_consent?: boolean | null } | null
       const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null } | null
 
+      // Resolve tenant SMS creds
+      const { data: tRow } = await supabaseAdmin
+        .from('tenants')
+        .select('telnyx_api_key, telnyx_phone, resend_api_key, email_from, timezone')
+        .eq('id', tenantId)
+        .single()
+
       const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
-        timeZone: 'America/New_York',
+        timeZone: tRow?.timezone || 'America/New_York',
         weekday: 'short',
         month: 'short',
         day: 'numeric',
       })
-
-      // Resolve tenant SMS creds
-      const { data: tRow } = await supabaseAdmin
-        .from('tenants')
-        .select('telnyx_api_key, telnyx_phone, resend_api_key, email_from')
-        .eq('id', tenantId)
-        .single()
 
       const telnyxApiKey = (tRow?.telnyx_api_key as string) || process.env.TELNYX_API_KEY || ''
       const telnyxPhone = (tRow?.telnyx_phone as string) || process.env.TELNYX_PHONE || ''

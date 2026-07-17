@@ -111,7 +111,8 @@ export async function POST(req: NextRequest) {
       const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
       const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'
       const videoLabel = type === 'walkthrough' ? 'Walkthrough' : 'Final'
-      const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const { data: tenantTz } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).single()
+      const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tenantTz?.timezone || 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
 
       await notify({
         tenantId: auth.tid,
@@ -187,7 +188,8 @@ export async function POST(req: NextRequest) {
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
     const teamMemberName = (booking.team_members as unknown as { name: string })?.name || 'Team Member'
     const videoLabel = type === 'walkthrough' ? 'Walkthrough' : 'Final'
-    const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const { data: tenantTz } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).single()
+    const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tenantTz?.timezone || 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
 
     await notify({
       tenantId: auth.tid,

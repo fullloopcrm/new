@@ -22,7 +22,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, timezone')
     .eq('status', 'active')
     .limit(1000)
 
@@ -84,8 +84,9 @@ export async function GET(request: Request) {
         }
 
         const client = booking.clients
-        const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+        const tz = tenant.timezone || 'America/New_York'
+        const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
+        const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
         const memberFirst = member.name.split(' ')[0]
 
         const smsBody = `${tenant.name}: Hi ${memberFirst}, please confirm your job on ${date} at ${time} — ${client?.name || 'Client'}${client?.address ? ` @ ${client.address}` : ''}. Reply YES to confirm.`
@@ -190,7 +191,7 @@ export async function GET(request: Request) {
           if (alreadySent && alreadySent.length > 0) continue
 
           const member = booking.team_members
-          const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+          const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tenant.timezone || 'America/New_York', hour: 'numeric', minute: '2-digit' })
           const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
           const firstName = client.name?.split(' ')[0] || 'there'
 

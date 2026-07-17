@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const tenantId = booking.tenant_id
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, owner_phone, phone, telnyx_api_key, telnyx_phone')
+      .select('name, owner_phone, phone, telnyx_api_key, telnyx_phone, timezone')
       .eq('id', tenantId)
       .single()
 
@@ -43,7 +43,7 @@ export async function POST(request: Request) {
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
     const clientSmsConsent = (booking.clients as any)?.sms_consent
-    const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    const time = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tenant.timezone || 'America/New_York', hour: 'numeric', minute: '2-digit' })
 
     // Record on booking
     await db.from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)

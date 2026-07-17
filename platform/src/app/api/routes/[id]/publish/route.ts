@@ -63,7 +63,12 @@ export async function POST(_request: Request, { params }: Params) {
     const duration = route.total_duration_seconds ? formatDuration(route.total_duration_seconds) : '—'
 
     const firstName = (tm.name || 'there').split(' ')[0]
-    const body = `Hi ${firstName}, your route for ${new Date(route.route_date).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })} is ready.\n\n${stops.length} stops · ${distance} · ~${duration}\n\n${stopSummary}${mapsUrl ? `\n\nFull route: ${mapsUrl}` : ''}`
+    // `route_date` is a bare DATE column ("2026-07-20") — anchor at noon
+    // before parsing so no runtime-zone default can roll it to the adjacent
+    // calendar day, same convention cron/schedule-monitor and
+    // portal/collect already use for date-only columns.
+    const routeDateLabel = new Date(`${route.route_date}T12:00:00`).toLocaleDateString('en-US', { weekday: 'long', month: 'short', day: 'numeric' })
+    const body = `Hi ${firstName}, your route for ${routeDateLabel} is ready.\n\n${stops.length} stops · ${distance} · ~${duration}\n\n${stopSummary}${mapsUrl ? `\n\nFull route: ${mapsUrl}` : ''}`
 
     if (tm.sms_consent !== false) {
       await sendSMS({ to: tm.phone, body, telnyxApiKey: apiKey, telnyxPhone: from })

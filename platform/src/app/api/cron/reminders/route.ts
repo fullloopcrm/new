@@ -33,12 +33,13 @@ export async function GET(request: Request) {
   // Get all active tenants
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key, timezone')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const tz = tenant.timezone || 'America/New_York'
     const clientSms = await clientSmsTemplatesFor(tenantId)
     // Per-tenant communications prefs (loaded once — not per booking).
     // reminder_days drives which day-out reminders fire; the booking_reminder
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
                 tenantId,
                 type: 'booking_reminder',
                 title: `Reminder: Appointment ${label}`,
-                message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}.`,
+                message: `Hi ${clientName}, your ${booking.service_type || 'appointment'} is ${label} on ${new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}.`,
                 channel: 'email',
                 recipientType: 'client',
                 recipientId: booking.client_id ?? undefined,
@@ -126,7 +127,7 @@ export async function GET(request: Request) {
             if (daysOut === 1 && booking.team_member_id) {
               const member = booking.team_members
               if (member) {
-                let teamMsg = `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+                let teamMsg = `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`
 
                 // NYC Maid parity: send the cleaner their FULL next-day route with
                 // travel times (property-aware coords). Only the earliest job of the
@@ -157,7 +158,7 @@ export async function GET(request: Request) {
                     for (let i = 0; i < jobs.length; i++) {
                       // eslint-disable-next-line @typescript-eslint/no-explicit-any
                       const j = jobs[i] as any
-                      const t = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+                      const t = new Date(j.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
                       lines.push(`${t} ${j.clients?.name?.split(' ')[0] || 'Client'}`)
                       if (i < jobs.length - 1) {
                         const a = await coordsOf(j); const b = await coordsOf(jobs[i + 1])
@@ -229,7 +230,7 @@ export async function GET(request: Request) {
 
         // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle and sms_consent)
         if (reminderSmsOn && client?.phone && client?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
-          const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
+          const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
             await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
             sent++
@@ -241,7 +242,7 @@ export async function GET(request: Request) {
 
         // Team member SMS — 2hr reminder
         if (booking.team_member_id && member?.phone && member?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
-          const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
+          const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`
           try {
             await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
             sent++
@@ -457,7 +458,7 @@ export async function GET(request: Request) {
           const sorted = [...pendingBookings].sort((a, b) => (b.is_emergency ? 1 : 0) - (a.is_emergency ? 1 : 0))
           const details = sorted.slice(0, 5).map(b => {
             const clientName = b.clients?.name || 'Unknown'
-            const date = new Date(b.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+            const date = new Date(b.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
             return `${b.is_emergency ? '🚨 ' : ''}${clientName} - ${date}`
           }).join(', ')
           const title = emergencyCount > 0
@@ -521,14 +522,14 @@ export async function GET(request: Request) {
         const todayPaid = (todayBookings || []).filter((b: { payment_status?: string }) => b.payment_status === 'paid').length
         const todayUnpaid = (todayBookings || []).length - todayPaid
 
-        const todayDateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const todayDateStr = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' })
         const tomorrowDateObj = new Date(now); tomorrowDateObj.setDate(tomorrowDateObj.getDate() + 1)
-        const tomorrowDateStr = tomorrowDateObj.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const tomorrowDateStr = tomorrowDateObj.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' })
 
         const todayJobsList = (todayBookings || []).map((b: any) => ({
           clientName: b.clients?.name || 'Unknown',
           teamMemberName: b.team_members?.name || 'Unassigned',
-          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`,
           revenue: fmt(b.price || 0),
           paymentStatus: b.payment_status || 'pending',
         }))
@@ -536,7 +537,7 @@ export async function GET(request: Request) {
         const tomorrowJobsList = (tomorrowBookings || []).map((b: any) => ({
           clientName: b.clients?.name || 'Unknown',
           teamMemberName: b.team_members?.name || 'Unassigned',
-          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`,
+          time: `${new Date(b.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })} – ${new Date(b.end_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })}`,
           revenue: fmt(b.price || 0),
         }))
 
@@ -583,11 +584,11 @@ export async function GET(request: Request) {
         const entries = (todayNotifs || []).map((n: any) => ({
           type: n.type.replace(/_/g, ' ').replace(/\b\w/g, (c: string) => c.toUpperCase()),
           recipient: n.recipient_type || 'unknown',
-          time: new Date(n.created_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }),
+          time: new Date(n.created_at).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' }),
           channel: n.channel || 'email',
         }))
 
-        const dateStr = now.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
+        const dateStr = now.toLocaleDateString('en-US', { timeZone: tz, weekday: 'long', month: 'long', day: 'numeric' })
 
         await notify({
           tenantId,

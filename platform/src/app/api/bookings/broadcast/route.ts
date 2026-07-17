@@ -24,7 +24,7 @@ export async function POST(request: Request) {
   // Get tenant config
   const { data: tenantConfig } = await supabaseAdmin
     .from('tenants')
-    .select('name, telnyx_api_key, telnyx_phone, resend_api_key, primary_color')
+    .select('name, telnyx_api_key, telnyx_phone, resend_api_key, primary_color, timezone')
     .eq('id', tenantId)
     .single()
 
@@ -74,9 +74,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'No notification channels configured. Add Resend or Telnyx keys in Settings.' }, { status: 400 })
   }
 
-  const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
-  const jobTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
-  const endTime = booking.end_time ? new Date(booking.end_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : ''
+  const broadcastTz = tenantConfig.timezone || 'America/New_York'
+  const jobDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: broadcastTz, weekday: 'long', month: 'long', day: 'numeric' })
+  const jobTime = new Date(booking.start_time).toLocaleTimeString('en-US', { timeZone: broadcastTz, hour: 'numeric', minute: '2-digit' })
+  const endTime = booking.end_time ? new Date(booking.end_time).toLocaleTimeString('en-US', { timeZone: broadcastTz, hour: 'numeric', minute: '2-digit' }) : ''
   const payRate = booking.pay_rate || 40
   const client = booking.clients as unknown as { name: string; address: string } | null
 

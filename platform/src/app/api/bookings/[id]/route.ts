@@ -124,8 +124,9 @@ export async function PUT(
         .eq('id', tenantId)
         .single()
       const hasSMS = !!(tenantData?.telnyx_api_key && tenantData?.telnyx_phone)
-      const date = new Date(data.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-      const time = new Date(data.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+      const tz = tenantData?.timezone || 'America/New_York'
+      const date = new Date(data.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
+      const time = new Date(data.start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
 
       const statusChanged = fields.status && fields.status !== oldBooking?.status
       const memberChanged = fields.team_member_id && fields.team_member_id !== oldBooking?.team_member_id
@@ -257,7 +258,7 @@ export async function DELETE(
       try {
         const { data: tenantData } = await supabaseAdmin
           .from('tenants')
-          .select('name, telnyx_api_key, telnyx_phone')
+          .select('name, telnyx_api_key, telnyx_phone, timezone')
           .eq('id', tenantId)
           .single()
         const bizName = tenantData?.name || 'Your Business'
@@ -265,7 +266,7 @@ export async function DELETE(
 
         // Client cancellation email
         if (booking.client_id) {
-          const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+          const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tenantData?.timezone || 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
           await notify({
             tenantId,
             type: 'booking_cancelled',

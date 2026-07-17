@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
+import { supabaseAdmin } from '@/lib/supabase'
 
 export async function GET(
   request: Request,
@@ -77,11 +78,20 @@ export async function PUT(
 
   const clientName = (oldBooking.clients as unknown as { name: string } | null)?.name || 'Client'
 
+  // Same timezone-awareness gap as items (70)/(115) — these dates render in
+  // the tenant's own zone, not the server runtime default. Only fetched when
+  // one of the two notify branches below can actually fire.
+  let tz = 'America/New_York'
+  if ((start_time && start_time !== oldBooking.start_time) || status === 'cancelled') {
+    const { data: tenantRow } = await supabaseAdmin.from('tenants').select('timezone').eq('id', auth.tid).single()
+    tz = tenantRow?.timezone || 'America/New_York'
+  }
+
   // Notifications for reschedule
   if (start_time && start_time !== oldBooking.start_time) {
-    const oldDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    const newDate = new Date(start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-    const newTime = new Date(start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+    const oldDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
+    const newDate = new Date(start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
+    const newTime = new Date(start_time).toLocaleTimeString('en-US', { timeZone: tz, hour: 'numeric', minute: '2-digit' })
 
     // Admin notification
     await db.from('notifications').insert({
@@ -121,7 +131,7 @@ export async function PUT(
 
   // Notifications for cancellation
   if (status === 'cancelled') {
-    const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+    const bookingDate = new Date(oldBooking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
 
     await db.from('notifications').insert({
       type: 'booking_cancelled',

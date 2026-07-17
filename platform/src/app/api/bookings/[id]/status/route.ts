@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { tenantDb } from '@/lib/tenant-db'
 import { audit } from '@/lib/audit'
 import { notify } from '@/lib/notify'
+import { supabaseAdmin } from '@/lib/supabase'
 
 const VALID_TRANSITIONS: Record<string, string[]> = {
   pending: ['scheduled', 'cancelled'],
@@ -81,13 +82,27 @@ export async function PATCH(
 
     await audit({ tenantId, action: 'booking.status_changed', entityType: 'booking', entityId: id, details: { from: booking.status, to: status } })
 
+    // Same timezone-awareness gap as items (70)/(115): booking dates in
+    // these notify() messages must render in the tenant's own zone, not the
+    // server runtime default. Only fetched when one of the two notify
+    // branches below can actually fire.
+    let tz = 'America/New_York'
+    if ((status === 'cancelled' && booking.team_member_id) || status === 'completed') {
+      const { data: tenantData } = await supabaseAdmin
+        .from('tenants')
+        .select('timezone')
+        .eq('id', tenantId)
+        .single()
+      tz = tenantData?.timezone || 'America/New_York'
+    }
+
     // A tech assigned to a job that gets cancelled from the admin dashboard
     // was never told — they'd show up to a job that no longer exists. The
     // client-portal self-cancel path (POST /api/portal/bookings/[id]) already
     // fires this same team-member SMS; this is the operator-initiated side
     // of that same gap.
     if (status === 'cancelled' && booking.team_member_id) {
-      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
       try {
         await notify({
           tenantId,
@@ -111,7 +126,7 @@ export async function PATCH(
     // it. Same "declared type, real UI, never fired" shape as items
     // (63)/(66)/(67)'s quote-lifecycle gaps in the sales-hub archetype.
     if (status === 'completed') {
-      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
+      const bookingDate = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: tz, weekday: 'short', month: 'short', day: 'numeric' })
       try {
         await notify({
           tenantId,

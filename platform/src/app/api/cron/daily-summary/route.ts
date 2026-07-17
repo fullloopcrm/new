@@ -143,8 +143,8 @@ export async function GET(request: Request) {
       if (member.email) {
         const jobDetails = upcomingJobs.map(j => {
           const client = j.clients
-          const date = new Date(j.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
-          const time = new Date(j.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
+          const date = new Date(j.start_time).toLocaleDateString('en-US', { timeZone: tenant.timezone || 'America/New_York', weekday: 'short', month: 'short', day: 'numeric' })
+          const time = new Date(j.start_time).toLocaleTimeString('en-US', { timeZone: tenant.timezone || 'America/New_York', hour: 'numeric', minute: '2-digit' })
           return `${date} ${time} — ${client?.name || 'Client'}${client?.address ? ` @ ${client.address}` : ''}`
         }).join('<br>')
 
@@ -214,7 +214,7 @@ export async function GET(request: Request) {
           .limit(1)
 
         if (!existingNotif || existingNotif.length === 0) {
-          const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+          const lastDateStr = lastDate.toLocaleDateString('en-US', { timeZone: tenant.timezone || 'America/New_York', month: 'short', day: 'numeric', year: 'numeric' })
 
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenantId,
