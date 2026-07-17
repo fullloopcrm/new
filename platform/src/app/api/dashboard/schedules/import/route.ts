@@ -11,6 +11,7 @@ import { NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { audit } from '@/lib/audit'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 type Row = {
   client_name?: string
@@ -64,10 +65,23 @@ export async function POST(request: Request) {
     const staffByName = new Map<string, string>()
     for (const s of staff || []) if (s.name) staffByName.set((s.name as string).trim().toLowerCase(), s.id as string)
 
+    // Same terminated-crew guard as every other team_member_id assignment path
+    // (POST /api/bookings, admin/recurring-schedules, etc.) — a spreadsheet
+    // import matches staff purely by name, with no HR check, so a row naming
+    // an already-terminated employee (a stale export, or a re-run import after
+    // the tenant let someone go) would otherwise raw-insert bookings.
+    // team_member_id / recurring_schedules.team_member_id straight past every
+    // guarded route's own check. Import unassigned instead of blocking the
+    // whole row — the client's appointment is still real and worth keeping.
+    const terminatedStaffIds = new Set(
+      await getTerminatedTeamMemberIds(tenantId, Array.from(staffByName.values())),
+    )
+
     const bookings: Record<string, unknown>[] = []
     const recurring: Record<string, unknown>[] = []
     const unmatched: string[] = []
     const errors: string[] = []
+    const warnings: string[] = []
 
     rows.forEach((r, i) => {
       const line = i + 1
@@ -79,7 +93,11 @@ export async function POST(request: Request) {
         unmatched.push(`Row ${line}: no client match for "${r.client_name || r.client_phone || '—'}"`)
         return
       }
-      const staffId = r.staff_name ? staffByName.get(r.staff_name.trim().toLowerCase()) || null : null
+      let staffId = r.staff_name ? staffByName.get(r.staff_name.trim().toLowerCase()) || null : null
+      if (staffId && terminatedStaffIds.has(staffId)) {
+        warnings.push(`Row ${line}: staff "${r.staff_name}" is no longer active — imported unassigned`)
+        staffId = null
+      }
       const dur = parseFloat(r.duration_hours || '') || 2
 
       const rt = (r.recurring_type || '').trim().toLowerCase()
@@ -124,13 +142,14 @@ export async function POST(request: Request) {
 
     await audit({
       tenantId, action: 'booking.created', entityType: 'booking',
-      details: { type: 'schedule_import', importedBookings, importedRecurring, unmatched: unmatched.length, errors: errors.length, totalRows: rows.length },
+      details: { type: 'schedule_import', importedBookings, importedRecurring, unmatched: unmatched.length, errors: errors.length, warnings: warnings.length, totalRows: rows.length },
     })
 
     return NextResponse.json({
       importedBookings, importedRecurring,
       unmatched: unmatched.length, unmatchedDetails: unmatched.slice(0, 30),
       errors: errors.slice(0, 30),
+      warnings: warnings.slice(0, 30),
     })
   } catch (e) {
     console.error('Schedule import error:', e)

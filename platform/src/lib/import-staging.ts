@@ -9,6 +9,7 @@
  * the generic batch scaffolding; schedules reuse the same batch/commit/undo shape.
  */
 import { supabaseAdmin } from './supabase'
+import { getTerminatedTeamMemberIds } from './hr'
 
 export type ImportKind = 'clients' | 'schedules' | 'finance'
 export type MatchStatus = 'new' | 'matched' | 'duplicate' | 'unmatched' | 'rejected'
@@ -150,6 +151,17 @@ export async function stageScheduleBatch(
   const staffByName = new Map<string, string>()
   for (const s of staff || []) if (s.name) staffByName.set((s.name as string).trim().toLowerCase(), s.id as string)
 
+  // Same terminated-crew guard as every other team_member_id assignment path
+  // (POST /api/bookings, admin/recurring-schedules, client/recurring, etc.) —
+  // staff is matched purely by NAME with no HR filter above, so a row naming
+  // an already-terminated employee (a stale export, or a re-run of the import
+  // after the tenant let someone go) would otherwise stage a real assignment
+  // straight through commitBatch's raw insert, bypassing every guarded
+  // route's own check the same way a direct-write import would.
+  const terminatedStaffIds = new Set(
+    await getTerminatedTeamMemberIds(tenantId, Array.from(staffByName.values())),
+  )
+
   const str = (v: unknown) => (typeof v === 'string' ? v.trim() : '')
   const staged: StagedRow[] = rows.map((raw, idx) => {
     const clientName = str(raw.client_name)
@@ -162,7 +174,16 @@ export async function stageScheduleBatch(
     if (!clientId && clientName) clientId = byName.get(clientName.toLowerCase())
     if (!clientId) return mk('unmatched', `no client match for "${clientName || clientPhone || '—'}"`)
 
-    const staffId = str(raw.staff_name) ? staffByName.get(str(raw.staff_name).toLowerCase()) || null : null
+    const staffName = str(raw.staff_name)
+    let staffId = staffName ? staffByName.get(staffName.toLowerCase()) || null : null
+    // Still 'matched' (committed) — never drop a real client's appointment
+    // over a staffer who can no longer be assigned. match_detail surfaces on
+    // the review screen (dashboard/import/review/[batchId]) same as any
+    // other row note.
+    const staffDetail = staffId && terminatedStaffIds.has(staffId)
+      ? `staff "${staffName}" is no longer active — imported unassigned`
+      : undefined
+    if (staffDetail) staffId = null
     const dur = parseFloat(str(raw.duration_hours)) || 2
     const rt = str(raw.recurring_type).toLowerCase()
 
@@ -170,7 +191,7 @@ export async function stageScheduleBatch(
       if (!RECURRING.includes(rt)) return mk('rejected', 'recurring_type must be weekly/biweekly/monthly')
       const dowRaw = str(raw.day_of_week).toLowerCase()
       const dow = dowRaw in DOW ? DOW[dowRaw] : /^[0-6]$/.test(dowRaw) ? Number(dowRaw) : null
-      return mk('matched', undefined, {
+      return mk('matched', staffDetail, {
         client_id: clientId, team_member_id: staffId, recurring_type: rt, day_of_week: dow,
         preferred_time: str(raw.preferred_time) || null, duration_hours: dur, notes: str(raw.notes) || null, status: 'active',
       }, 'recurring_schedules')
@@ -180,7 +201,7 @@ export async function stageScheduleBatch(
     if (!d || isNaN(d.getTime())) return mk('rejected', `invalid/missing start date "${startStr}"`)
     const end = new Date(d.getTime() + dur * 3600_000)
     const fmt = (x: Date) => x.toISOString().slice(0, 19)
-    return mk('matched', undefined, {
+    return mk('matched', staffDetail, {
       client_id: clientId, team_member_id: staffId, service_type: str(raw.service_type) || null,
       start_time: fmt(d), end_time: fmt(end), status: 'scheduled', price: priceCents(str(raw.price)),
       team_size: 1, notes: str(raw.notes) || null,
