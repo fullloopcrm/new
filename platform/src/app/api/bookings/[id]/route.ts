@@ -142,7 +142,7 @@ export async function PUT(
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('*, clients(name, phone, address, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, address, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
       .single()
 
     if (error) {
@@ -192,8 +192,11 @@ export async function PUT(
         }
       }
 
-      // Team member assigned/reassigned
-      if (memberChanged && data.team_members?.phone && hasSMS) {
+      // Team member assigned/reassigned — sms_consent, same invariant the
+      // client sends around it enforce (team_members.sms_consent is a real,
+      // crew-editable column since the team-portal/preferences fix; this send
+      // fired unconditionally regardless of it before this fix).
+      if (memberChanged && data.team_members?.phone && data.team_members?.sms_consent !== false && hasSMS) {
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),

@@ -167,7 +167,7 @@ export async function POST(request: Request) {
   if (first && first.status !== 'pending') {
     try {
       const client = first.clients as { name?: string; email?: string | null; phone?: string | null; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
-      const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null } | null
+      const cleaner = first.team_members as { name?: string; email?: string | null; phone?: string | null; sms_consent?: boolean | null } | null
 
       const bookingDate = new Date(first.start_time).toLocaleDateString('en-US', {
         timeZone: 'America/New_York',
@@ -208,8 +208,11 @@ export async function POST(request: Request) {
         }).catch(err => console.error('[batch] client SMS error:', err))
       }
 
-      // Cleaner SMS assignment
-      if (cleaner?.phone && telnyxApiKey && telnyxPhone) {
+      // Cleaner SMS assignment — sms_consent, same invariant the client send
+      // above enforces (team_members.sms_consent is a real, crew-editable
+      // column since the team-portal/preferences fix; this send fired
+      // unconditionally regardless of it before this fix).
+      if (cleaner?.phone && cleaner.sms_consent !== false && telnyxApiKey && telnyxPhone) {
         sendSMS({
           to: cleaner.phone,
           body: smsJobAssignment(bizName, first),

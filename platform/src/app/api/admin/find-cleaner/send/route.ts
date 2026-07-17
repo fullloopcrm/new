@@ -65,6 +65,7 @@ type CleanerRow = {
   phone: string | null
   preferred_language: string | null
   hourly_rate: number | null
+  sms_consent: boolean | null
 }
 
 export async function POST(request: Request) {
@@ -110,7 +111,7 @@ export async function POST(request: Request) {
 
   const { data: cleaners, error: cErr } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, phone, preferred_language, hourly_rate')
+    .select('id, name, phone, preferred_language, hourly_rate, sms_consent')
     .eq('tenant_id', tenantId)
     .in('id', cleaner_ids)
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
@@ -125,9 +126,13 @@ export async function POST(request: Request) {
   )
 
   // Mass-SMS guard: TEST_MODE hard-filters to the test cleaner row(s) until cleared.
+  // sms_consent — team_members.sms_consent is a real, crew-editable column
+  // since the team-portal/preferences fix; this broadcast texted every
+  // selected candidate regardless of it before this fix.
   const recipients = (cleaners as CleanerRow[] || []).filter((c) => {
     if (!c.phone) return false
     if (terminatedIds.has(c.id)) return false
+    if (c.sms_consent === false) return false
     if (TEST_MODE && !c.name.toLowerCase().includes(TEST_CLEANER_NAME_SUBSTRING)) return false
     return true
   })

@@ -222,7 +222,7 @@ export async function GET(request: Request) {
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .gte('start_time', hourWindowStart.toISOString())
@@ -265,8 +265,11 @@ export async function GET(request: Request) {
           }
         }
 
-        // Team member SMS — 2hr reminder — skip a terminated assignee
-        if (booking.team_member_id && !hourTerminatedIds.has(booking.team_member_id) && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Team member SMS — 2hr reminder — skip a terminated assignee, plus
+        // sms_consent (team_members.sms_consent is a real, crew-editable
+        // column since the team-portal/preferences fix; this send fired
+        // unconditionally regardless of it before this fix).
+        if (booking.team_member_id && !hourTerminatedIds.has(booking.team_member_id) && member?.phone && member?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
           try {
             await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })

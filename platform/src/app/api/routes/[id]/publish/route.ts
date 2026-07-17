@@ -18,15 +18,22 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: route } = await supabaseAdmin
       .from('routes')
-      .select('*, team_members!routes_team_member_id_fkey(id, name, phone)')
+      .select('*, team_members!routes_team_member_id_fkey(id, name, phone, sms_consent)')
       .eq('tenant_id', tenantId)
       .eq('id', id)
       .single()
     if (!route) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const tm = route.team_members as { id: string; name: string | null; phone: string | null } | null
+    const tm = route.team_members as { id: string; name: string | null; phone: string | null; sms_consent: boolean | null } | null
     if (!tm || !tm.phone) {
       return NextResponse.json({ error: 'Route has no team member with phone number' }, { status: 400 })
+    }
+    // sms_consent — same invariant every other team-member/client SMS fan-out
+    // enforces (team_members.sms_consent is a real, crew-editable column
+    // since the team-portal/preferences fix); this send fired unconditionally
+    // regardless of it before this fix.
+    if (tm.sms_consent === false) {
+      return NextResponse.json({ error: 'This team member has opted out of SMS.' }, { status: 400 })
     }
 
     // POST/PATCH now block assigning a terminated team member to a route, but a

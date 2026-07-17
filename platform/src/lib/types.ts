@@ -18,6 +18,7 @@ export interface TeamMemberRecord {
   name: string
   email: string
   phone: string
+  sms_consent: boolean | null
 }
 
 export interface TenantRecord {
@@ -46,6 +47,7 @@ export type ClientNamePhoneConsent = Pick<ClientRecord, 'name' | 'phone' | 'sms_
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
 export type TeamMemberNamePhone = Pick<TeamMemberRecord, 'name' | 'phone'> | null
 export type TeamMemberNamePhoneEmail = Pick<TeamMemberRecord, 'name' | 'phone' | 'email'> | null
+export type TeamMemberNamePhoneConsent = Pick<TeamMemberRecord, 'name' | 'phone' | 'sms_consent'> | null
 
 // ============================================
 // Booking with joined relations
@@ -72,7 +74,7 @@ export interface BookingWith2HourReminder {
   service_type: string | null
   start_time: string
   clients: ClientNamePhoneEmailConsent
-  team_members: TeamMemberNamePhone
+  team_members: TeamMemberNamePhoneConsent
 }
 
 /** reminders/route.ts — payment alert query */
