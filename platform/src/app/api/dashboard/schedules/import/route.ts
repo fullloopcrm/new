@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     // Load the tenant's clients + staff once, build match maps.
     const [{ data: clients }, { data: staff }] = await Promise.all([
       supabaseAdmin.from('clients').select('id, name, phone').eq('tenant_id', tenantId),
-      supabaseAdmin.from('team_members').select('id, name').eq('tenant_id', tenantId),
+      supabaseAdmin.from('team_members').select('id, name, status').eq('tenant_id', tenantId),
     ])
     const byPhone = new Map<string, string>()
     const byName = new Map<string, string>()
@@ -62,7 +62,7 @@ export async function POST(request: Request) {
       if (c.name) byName.set((c.name as string).trim().toLowerCase(), c.id as string)
     }
     const staffByName = new Map<string, string>()
-    for (const s of staff || []) if (s.name) staffByName.set((s.name as string).trim().toLowerCase(), s.id as string)
+    for (const s of staff || []) if (s.name && s.status !== 'inactive') staffByName.set((s.name as string).trim().toLowerCase(), s.id as string)
 
     const bookings: Record<string, unknown>[] = []
     const recurring: Record<string, unknown>[] = []
