@@ -24,6 +24,10 @@ export function generateRecurringDates(
     : (repeatEnd === 'on_date' && repeatEndDate ? new Date(repeatEndDate + 'T12:00:00') : null)
 
   let current = new Date(start)
+  // Anchor day-of-month for monthly_date, captured once off the true start
+  // date — never re-derived from `current` mid-loop (see the monthly_date
+  // case below for why).
+  const monthlyDateAnchorDay = start.getDate()
 
   // For monthly_day, we need special handling
   if (repeatType === 'monthly_day') {
@@ -75,9 +79,21 @@ export function generateRecurringDates(
       case 'triweekly':
         current.setDate(current.getDate() + 21)
         break
-      case 'monthly_date':
+      case 'monthly_date': {
+        // Zero the day-of-month before advancing, then clamp back to the
+        // ORIGINAL anchor day (not whatever `current`'s day drifted to).
+        // The old `current.setMonth(current.getMonth() + 1)` chained off
+        // the previous iteration's (possibly already-overflowed) result --
+        // a day-29/30/31 anchor that overflowed a short month (Jan 31 ->
+        // Feb 31 rolls to Mar 3) became the new PERMANENT baseline for
+        // every month after it (Mar 3 -> Apr 3 -> ... forever), silently
+        // and permanently shifting the client's recurring day.
+        current.setDate(1)
         current.setMonth(current.getMonth() + 1)
+        const lastDayOfMonth = new Date(current.getFullYear(), current.getMonth() + 1, 0).getDate()
+        current.setDate(Math.min(monthlyDateAnchorDay, lastDayOfMonth))
         break
+      }
       case 'custom':
         current.setDate(current.getDate() + (customInterval * 7)) // weeks, not days
         break

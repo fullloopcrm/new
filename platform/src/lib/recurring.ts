@@ -52,12 +52,27 @@ export function generateRecurringDates({
       }
       break
 
-    case 'monthly_date':
+    case 'monthly_date': {
+      // Recompute each month's date fresh off the ORIGINAL anchor day,
+      // clamped to that month's last day — never chain setMonth() off the
+      // previous iteration's result. A day-29/30/31 anchor that overflows a
+      // short month (Jan 31 -> setMonth(+1) rolls to Mar 3, since Feb has no
+      // 31st) must not become the new permanent baseline for every month
+      // after it (Mar 3 -> Apr 3 -> ... forever). Zeroing to day 1 before
+      // advancing the month avoids the overflow entirely; clamping the
+      // final day to the target month's real length reproduces "same date
+      // each month" semantics (Jan 31 -> Feb 28 -> Mar 31, not Mar 3).
+      const anchorDay = current.getDate()
       for (let i = 0; i < weeksToGenerate; i++) {
-        dates.push(new Date(current))
-        current.setMonth(current.getMonth() + 1)
+        const d = new Date(current)
+        d.setDate(1)
+        d.setMonth(d.getMonth() + i)
+        const lastDayOfMonth = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate()
+        d.setDate(Math.min(anchorDay, lastDayOfMonth))
+        dates.push(d)
       }
       break
+    }
 
     case 'monthly_weekday': {
       // Same weekday, same week-of-month
@@ -68,8 +83,14 @@ export function generateRecurringDates({
           dates.push(new Date(current))
         } else {
           const next = new Date(current)
-          next.setMonth(next.getMonth() + i)
+          // Zero the day-of-month BEFORE advancing the month. current's
+          // original day can be 29-31; advancing the month first (the old
+          // order) can overflow past the intended month on a short target
+          // month (e.g. Jan 29 -> setMonth(+1) while day=29 -> Feb 29
+          // doesn't exist in a non-leap year -> rolls to Mar 1), silently
+          // skipping the intended month's occurrence entirely.
           next.setDate(1)
+          next.setMonth(next.getMonth() + i)
           // Find the nth occurrence of targetDay
           let count = 0
           while (count < weekOfMonth) {

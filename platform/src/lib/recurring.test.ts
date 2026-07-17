@@ -76,6 +76,31 @@ describe('generateRecurringDates — cadence + count', () => {
     })
   })
 
+  it('monthly_date: a day-31 anchor clamps to each short month\'s real last day and does NOT permanently drift', () => {
+    // FIX: this used to chain setMonth() off the previous iteration's
+    // result — Jan 31 -> Feb 31 rolled to Mar 3, and Mar 3 became the new
+    // PERMANENT baseline (Mar 3 -> Apr 3 -> ...), silently and forever
+    // shifting the anchor day. Every month must independently clamp back
+    // to the true anchor (31), not carry forward a prior month's overflow.
+    const jan31_2026 = new Date(2026, 0, 31)
+    const out = generateRecurringDates({
+      recurringType: 'monthly_date',
+      startDate: jan31_2026,
+      weeksToGenerate: 5, // Jan, Feb, Mar, Apr, May
+    })
+    expect(out).toHaveLength(5)
+    expect(out[0].getMonth()).toBe(0) // Jan
+    expect(out[0].getDate()).toBe(31)
+    expect(out[1].getMonth()).toBe(1) // Feb 2026 (non-leap) — clamps to 28, not Mar 3
+    expect(out[1].getDate()).toBe(28)
+    expect(out[2].getMonth()).toBe(2) // Mar — back to the true anchor day 31, not drifted to 3
+    expect(out[2].getDate()).toBe(31)
+    expect(out[3].getMonth()).toBe(3) // Apr has only 30 days
+    expect(out[3].getDate()).toBe(30)
+    expect(out[4].getMonth()).toBe(4) // May — back to 31, still not drifted
+    expect(out[4].getDate()).toBe(31)
+  })
+
   it('custom: emits only the start date (caller expands the rest)', () => {
     const out = generateRecurringDates({
       recurringType: 'custom',
@@ -103,6 +128,29 @@ describe('generateRecurringDates — monthly_weekday', () => {
       expect(Math.ceil(d.getDate() / 7)).toBe(1) // still the 1st week
       expect(d.getMonth()).toBe(i) // consecutive months Jan..Apr
     })
+  })
+
+  it('a day-30/5th-week anchor does not overflow past the intended month before searching it', () => {
+    // FIX: setMonth() used to run BEFORE zeroing the day-of-month. Jan 30,
+    // 2026 is the 5th Friday of January (day-of-month 30). The old code's
+    // `next.setMonth(next.getMonth() + i)` ran while `next`'s day was still
+    // 30 -- "Feb 30" doesn't exist (Feb 2026 has 28 days), so it silently
+    // rolled over to Mar 2 BEFORE the 5th-Friday search even started,
+    // skipping February's search entirely (Feb 2026 also has no 5th Friday)
+    // and landing on Apr 3 -- two months past the intended slot. Zeroing the
+    // day to 1 before advancing the month starts the search at Feb 1, which
+    // correctly finds the nearest 5th-Friday-of-a-month at Mar 6 instead.
+    const start = new Date(2026, 0, 30) // Fri, 5th Friday of Jan 2026
+    const out = generateRecurringDates({
+      recurringType: 'monthly_weekday',
+      startDate: start,
+      weeksToGenerate: 2,
+    })
+    expect(out).toHaveLength(2)
+    expect(out[0].getTime()).toBe(start.getTime())
+    expect(out[1].getMonth()).toBe(2) // March, not April
+    expect(out[1].getDate()).toBe(6)
+    expect(out[1].getDay()).toBe(5) // still a Friday
   })
 
   it('honors an explicit dayOfWeek override', () => {
