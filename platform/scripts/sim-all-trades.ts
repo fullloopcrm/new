@@ -3285,6 +3285,68 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-36. documents.void + bank-transactions/match(expense) — WRITE-SIDE TENANT SCOPE HARDENING, not a live bug (fresh-ground pivot off the now-closed field-wiring class; this round's new shape is a mutation that runs only after an already tenant-scoped SELECT, but itself filtered only .eq('id', …) — the redundant .eq('tenant_id', …) sibling mutations in the same files/features already carry) ----
+    // Found by diffing every documents/[id]/* and finance/[…]/[id]/* route's
+    // UPDATE calls against their own SELECT calls: documents/[id]/void's
+    // final UPDATE, and finance/bank-transactions/[id]/match's expense-branch
+    // UPDATE, both dropped the tenant_id filter that every sibling mutation
+    // in the same file/feature keeps (documents/[id] PATCH/DELETE,
+    // documents/[id]/send, this same match route's own booking-branch
+    // UPDATE). Not exploitable on the real schema — both `id`s are globally-
+    // unique UUID PKs already confirmed to belong to the caller's tenant by
+    // the SELECT immediately above each UPDATE, so no producible request
+    // reaches the UPDATE with a foreign-tenant id. Hardened anyway to match
+    // the codebase's own stated invariant (see import-staging.ts's
+    // undoBatch comment): every mutation carries tenant_id even when a
+    // call-site guard already exists, so a future refactor that loosens the
+    // guard doesn't silently reopen a cross-tenant write. The vitest
+    // wrong-tenant-id-collision tests prove the query logic; this probe
+    // proves the fixed shape round-trips against the LIVE documents/expenses
+    // tables (schema-drift check, not a cross-tenant check — sim-all-trades
+    // runs one tenant per pass).
+    {
+      const docGatePath = `tenants/${tenant.id}/docs/write-scope-gate/original.pdf`
+      const { data: writeScopeDoc, error: writeScopeDocErr } = await supabase.from('documents').insert({
+        tenant_id: tenant.id, title: 'Write-Scope Gate Agreement', original_path: docGatePath, status: 'draft',
+      }).select('id, status').single()
+      add('write-scope-gate: documents row created (draft)', !!writeScopeDoc && !writeScopeDocErr, writeScopeDocErr?.message)
+
+      if (writeScopeDoc?.id) {
+        // documents/[id]/void's fixed UPDATE shape.
+        const { error: voidUpdateErr } = await supabase.from('documents').update({
+          status: 'voided', voided_at: new Date().toISOString(), void_reason: 'sim probe',
+        }).eq('tenant_id', tenant.id).eq('id', writeScopeDoc.id)
+        add('write-scope-gate: void UPDATE with the tenant_id+id shape succeeds against the live documents table', !voidUpdateErr, voidUpdateErr?.message)
+
+        const { data: voidAfter } = await supabase.from('documents').select('status').eq('id', writeScopeDoc.id).eq('tenant_id', tenant.id).single()
+        add('write-scope-gate: document actually transitions to voided (fix did not break the happy path)', voidAfter?.status === 'voided', JSON.stringify(voidAfter))
+
+        await supabase.from('documents').delete().eq('id', writeScopeDoc.id).eq('tenant_id', tenant.id)
+      }
+
+      const { data: entityForWriteScope } = await supabase.from('entities').select('id').eq('tenant_id', tenant.id).limit(1).maybeSingle()
+      const { data: writeScopeExpense, error: writeScopeExpErr } = await supabase.from('expenses').insert({
+        tenant_id: tenant.id, entity_id: entityForWriteScope?.id ?? null, category: 'Materials & Supplies',
+        amount: 4200, description: 'Write-scope gate expense', date: projectDaysFromNow(0, 0).slice(0, 10),
+      }).select('id').single()
+      add('write-scope-gate: expenses row created', !!writeScopeExpense && !writeScopeExpErr, writeScopeExpErr?.message)
+
+      if (writeScopeExpense?.id) {
+        // finance/bank-transactions/[id]/match's fixed expense-branch UPDATE
+        // shape. matched_bank_transaction_id has a live FK to bank_transactions
+        // and this probe doesn't need a real bank_transactions row to prove
+        // the thing under test (the .eq('tenant_id',…).eq('id',…) WHERE
+        // clause itself resolves against the live table) — NULL satisfies the
+        // FK and still exercises the identical query shape the route runs.
+        const { error: matchUpdateErr } = await supabase.from('expenses').update({
+          matched_bank_transaction_id: null,
+        }).eq('tenant_id', tenant.id).eq('id', writeScopeExpense.id)
+        add('write-scope-gate: expense-match UPDATE with the tenant_id+id shape succeeds against the live expenses table', !matchUpdateErr, matchUpdateErr?.message)
+
+        await supabase.from('expenses').delete().eq('id', writeScopeExpense.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
