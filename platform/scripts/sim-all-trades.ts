@@ -4189,6 +4189,63 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-55. getPrimaryTenantDomain() — SINGLE-ACTIVE-PRIMARY DETERMINISM PROBE, a genuinely different bug class from 5a-49 through 5a-54 (fresh ground this round: the leader flagged the resolver-precedence class -- "does X ever consult tenant_domains" -- as exhausted after 5 mirrors, so this sweep looked at the WRITE side of the same table instead of another read-side caller. Found: POST /api/admin/websites, the only route an admin uses to add a domain to a tenant AFTER activation, let `is_primary: true` be set on a brand-new row without ever demoting the tenant's existing primary -- no app-level check, and no DB constraint (migration 043's CREATE TABLE has no unique/partial-unique on is_primary). getPrimaryTenantDomain() -- the single choke point that feeds tenantSiteUrl(), tenantBrand(), the SELENA agent's buildBrandOverride()/applyBrandRewrite(), and site-readiness's resolveOrigin(), i.e. every resolver this session has spent 5a-49 through 5a-54 fixing -- ran an UNORDERED select and picked `rows.find(d => d.is_primary)`, so once a tenant had two active is_primary=true rows, which domain "won" for every one of those downstream call sites depended on whatever order an unordered Postgres scan happened to return, not on which the admin most recently intended. Fixed on both ends: (1) the write path now demotes any existing primary before inserting a new one (same demote-then-set pattern already used for client_contacts.is_primary / client_properties.is_primary elsewhere in this codebase), so this shouldn't recur; (2) getPrimaryTenantDomain() now explicitly orders by created_at ascending as defense-in-depth, so even a row that predates the fix (or a future bug that slips past it) resolves deterministically -- the OLDEST is_primary row consistently wins instead of an arbitrary one. A DB-level partial unique index (tenant_id) WHERE is_primary AND active is prepared as a migration FILE ONLY (2026_07_17_tenant_domains_single_primary.sql, includes a one-time dedup step) for the leader to run after Jeff approves -- not applied by this probe or by the worker. 5 new vitest cases (domains.test.ts: a determinism probe with two is_primary rows + an assertion the query's .order() call itself is created_at/ascending; route.normalization.test.ts: a demote-before-insert probe, a wrong-tenant probe proving the demote never touches a DIFFERENT tenant's primary, and a non-primary-insert-is-a-no-op probe) prove this against a mocked supabaseAdmin; this probe proves the SAME determinism against the REAL live schema by seeding two genuinely conflicting is_primary=true rows for this tenant with explicit, out-of-order created_at values.) ----
+    {
+      const { getPrimaryTenantDomain } = await import('../src/lib/domains')
+
+      // Deactivate this tenant's real tenant_domains rows so they can't
+      // interfere with the controlled two-primary state seeded below.
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+
+      // Seed two ACTIVE, ACTIVE is_primary=true rows for the SAME tenant --
+      // the exact live-DB state the admin/websites write-path bug allowed --
+      // with explicit created_at values so the older one is unambiguous
+      // regardless of insertion order.
+      const olderPrimaryDomain = `older-primary-${tenant.id.slice(0, 8)}.example.com`
+      const newerPrimaryDomain = `newer-primary-${tenant.id.slice(0, 8)}.example.com`
+      const { error: olderPrimaryErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: olderPrimaryDomain, active: true, is_primary: true,
+        created_at: '2020-01-01T00:00:00Z', notes: 'sim-all-trades single-primary determinism probe (older)',
+      })
+      add('single-primary probe: older conflicting is_primary row seeded with an explicit past created_at', !olderPrimaryErr, olderPrimaryErr?.message)
+
+      const { error: newerPrimaryErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: newerPrimaryDomain, active: true, is_primary: true,
+        notes: 'sim-all-trades single-primary determinism probe (newer, default created_at)',
+      })
+      add('single-primary probe: newer conflicting is_primary row seeded (default created_at, i.e. now)', !newerPrimaryErr, newerPrimaryErr?.message)
+
+      const resolvedPrimary = await getPrimaryTenantDomain(tenant.id)
+      add('single-primary probe: getPrimaryTenantDomain() deterministically returns the OLDEST is_primary row when two conflict (live schema, not a mock) -- what tenantSiteUrl()/tenantBrand()/buildBrandOverride()/resolveOrigin() all now resolve to instead of an arbitrary pick', resolvedPrimary === olderPrimaryDomain, resolvedPrimary ?? undefined)
+
+      // WRONG-TENANT PROBE: a second real tenant's own is_primary row must
+      // never leak into THIS tenant's determinism resolution.
+      const foreignSlugPrimary = slugify('single-primary-probe', randomUUID())
+      const { data: foreignTenantPrimary, error: foreignTenantPrimaryErr } = await supabase.from('tenants').insert({
+        name: 'Single-Primary Probe Co', slug: foreignSlugPrimary, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('single-primary wrong-tenant probe: a real SECOND tenant row created to own its own conflicting-looking is_primary domain', !!foreignTenantPrimary && !foreignTenantPrimaryErr, foreignTenantPrimaryErr?.message)
+
+      if (foreignTenantPrimary?.id) {
+        const foreignPrimaryDomain = `foreign-single-primary-${foreignTenantPrimary.id.slice(0, 8)}.example.com`
+        const { error: foreignTdPrimaryErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantPrimary.id, domain: foreignPrimaryDomain, active: true, is_primary: true,
+          created_at: '2019-01-01T00:00:00Z', notes: 'sim-all-trades single-primary wrong-tenant probe',
+        })
+        add('single-primary wrong-tenant probe: the SECOND tenant\'s own (even OLDER) is_primary row seeded', !foreignTdPrimaryErr, foreignTdPrimaryErr?.message)
+
+        const stillOwnPrimary = await getPrimaryTenantDomain(tenant.id)
+        add('single-primary wrong-tenant probe: THIS tenant\'s primary resolution is untouched by a second tenant\'s even-older is_primary row (live schema, real conflicting rows -- not a mock)', stillOwnPrimary === olderPrimaryDomain, stillOwnPrimary === foreignPrimaryDomain ? 'LEAKED foreign domain' : 'clean')
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantPrimary.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantPrimary.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).in('domain', [olderPrimaryDomain, newerPrimaryDomain])
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
