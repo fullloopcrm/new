@@ -43,15 +43,21 @@ vi.mock('@/lib/supabase', () => {
   function from(table: string) {
     const eqs: Record<string, unknown> = {}
     const neqs: Record<string, unknown> = {}
+    const notIns: Record<string, string[]> = {}
     let updatePatch: Record<string, unknown> | null = null
     const rows = () => (table === 'bookings' ? bookingsStore : table === 'tenants' ? [{ id: TENANT, name: 'Biz', telnyx_api_key: 'k', telnyx_phone: '+1000' }] : [])
     const matches = (row: Record<string, unknown>) =>
       Object.entries(eqs).every(([k, v]) => row[k] === v) &&
-      Object.entries(neqs).every(([k, v]) => row[k] !== v)
+      Object.entries(neqs).every(([k, v]) => row[k] !== v) &&
+      Object.entries(notIns).every(([k, list]) => !list.includes(row[k] as string))
     const chain: Record<string, unknown> = {
       select: () => chain,
       eq: (col: string, val: unknown) => { eqs[col] = val; return chain },
       neq: (col: string, val: unknown) => { neqs[col] = val; return chain },
+      not: (col: string, op: string, val: string) => {
+        if (op === 'in') notIns[col] = val.replace(/^\(|\)$/g, '').split(',').map((s) => s.trim())
+        return chain
+      },
       update: (patch: Record<string, unknown>) => { updatePatch = patch; return chain },
       maybeSingle: async () => {
         const found = rows().find(matches) as Record<string, unknown> | undefined

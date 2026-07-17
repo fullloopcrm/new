@@ -47,16 +47,31 @@ export async function PATCH(
       )
     }
 
+    // Atomic re-check: `allowed` above was computed from a plain SELECT
+    // snapshot of booking.status taken before this write. A concurrent
+    // transition (another status change, checkout, cron auto-complete)
+    // landing in the gap between that read and this update would otherwise
+    // still apply this write unconditionally -- e.g. a stale 'scheduled'
+    // snapshot could let a cancel land here and silently overwrite a
+    // since-completed booking, even though completed->cancelled is not a
+    // valid transition. `.eq('status', booking.status)` makes the write
+    // conditional on the FROM-state actually still holding at write time,
+    // same TOCTOU shape already fixed on the sibling PUT/reassign/reschedule
+    // routes.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .update({ status })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .eq('status', booking.status)
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'Update failed — booking state changed' }, { status: 409 })
     }
 
     // Sync the mirrored booking-mode deal to match the booking outcome:

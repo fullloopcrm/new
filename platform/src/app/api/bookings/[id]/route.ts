@@ -177,12 +177,25 @@ export async function PUT(
     let memberChanged = false
     let timeChanged = false
     if (fields.status !== undefined) {
-      const { data: won } = await supabaseAdmin
+      // This claim write also mutates `status` directly (not just a probe) —
+      // without the same completed/paid exclusion as the guarded final write
+      // below, a race landing here could flip a since-completed booking's
+      // status to 'cancelled' right here, before the final write ever runs.
+      // (Deliberately excludes only completed/paid, not cancelled itself --
+      // this claim's own successful write passes status through 'cancelled'
+      // as an expected intermediate value before the final write below reads
+      // it, so excluding 'cancelled' too would make the final write falsely
+      // reject its own preceding claim as if it were a race.)
+      const statusClaimBase = supabaseAdmin
         .from('bookings')
         .update({ status: fields.status })
         .eq('id', id)
         .eq('tenant_id', tenantId)
         .neq('status', fields.status)
+      const statusClaimQuery = fields.status === 'cancelled'
+        ? statusClaimBase.not('status', 'in', '(completed,paid)')
+        : statusClaimBase
+      const { data: won } = await statusClaimQuery
         .select('id')
         .maybeSingle()
       statusChanged = !!won
@@ -210,16 +223,32 @@ export async function PUT(
       timeChanged = !!won
     }
 
-    const { data, error } = await supabaseAdmin
+    // Atomic re-check: the cancellation guard above read currentBooking from a
+    // plain SELECT snapshot taken before this write. A concurrent transition
+    // (checkout, cron auto-complete, no-show) landing in the gap between that
+    // read and this update would otherwise still let the cancel through,
+    // silently corrupting a since-settled booking with no refund/payroll
+    // reconciliation. Mirrors the atomic-claim guard already applied to
+    // team-portal/jobs/reassign, client/reschedule/[id], and portal/bookings/[id]
+    // for the same race.
+    const baseUpdate = supabaseAdmin
       .from('bookings')
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
+    const updateQuery = fields.status === 'cancelled'
+      ? baseUpdate.not('status', 'in', '(completed,paid)')
+      : baseUpdate
+
+    const { data, error } = await updateQuery
       .select('*, clients(name, phone, address, email), team_members!bookings_team_member_id_fkey(name, phone)')
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      return NextResponse.json({ error: 'Update failed — booking state changed' }, { status: 409 })
     }
 
     // Send notifications based on what changed

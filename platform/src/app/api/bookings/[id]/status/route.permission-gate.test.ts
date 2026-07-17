@@ -29,6 +29,11 @@ function chain(table: string) {
       if (updatePayload) matched.forEach((r) => Object.assign(r, updatePayload))
       return Promise.resolve({ data: matched[0] || null, error: null })
     },
+    maybeSingle: () => {
+      const matched = rowsOf().filter((r) => filters.every((f) => f(r)))
+      if (updatePayload) matched.forEach((r) => Object.assign(r, updatePayload))
+      return Promise.resolve({ data: matched[0] || null, error: null })
+    },
     then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
       const matched = rowsOf().filter((r) => filters.every((f) => f(r)))
       if (updatePayload) matched.forEach((r) => Object.assign(r, updatePayload))
