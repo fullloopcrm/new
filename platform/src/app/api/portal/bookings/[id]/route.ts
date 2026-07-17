@@ -4,6 +4,17 @@ import { verifyPortalToken } from '../../auth/token'
 import { notify } from '@/lib/notify'
 import { supabaseAdmin } from '@/lib/supabase'
 
+// Mirrors portal/bookings/[id]/page.tsx's own canReschedule/canCancel gates
+// exactly — those only control which buttons render, they were never
+// enforced here. Any bearer-token-authenticated client could otherwise PUT
+// a new start_time or status:'cancelled' directly at this route regardless
+// of the booking's actual status. finance/payroll-prep and
+// finance/cleaner-income both filter on `.eq('status', 'completed')`, so
+// flipping a completed booking to 'cancelled' silently zeroes out the
+// assigned team member's pay for work already done.
+const RESCHEDULABLE_STATUSES = ['pending', 'scheduled', 'confirmed']
+const CANCELLABLE_STATUSES = ['scheduled', 'confirmed']
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -48,13 +59,20 @@ export async function PUT(
   // Get old booking for notification context
   const { data: oldBooking } = await db
     .from('bookings')
-    .select('start_time, end_time, team_member_id, clients(name)')
+    .select('status, start_time, end_time, team_member_id, clients(name)')
     .eq('id', id)
     .eq('client_id', auth.id)
-    .single<{ start_time: string; end_time: string | null; team_member_id: string | null; clients: { name?: string | null } | null }>()
+    .single<{ status: string; start_time: string; end_time: string | null; team_member_id: string | null; clients: { name?: string | null } | null }>()
 
   if (!oldBooking) {
     return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+  }
+
+  if ((start_time || end_time) && !RESCHEDULABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json({ error: 'This booking can no longer be rescheduled' }, { status: 400 })
+  }
+  if (status === 'cancelled' && !CANCELLABLE_STATUSES.includes(oldBooking.status)) {
+    return NextResponse.json({ error: 'This booking can no longer be cancelled' }, { status: 400 })
   }
 
   const update: Record<string, unknown> = {}
