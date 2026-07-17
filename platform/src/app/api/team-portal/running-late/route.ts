@@ -44,7 +44,7 @@ export async function POST(request: Request) {
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Record on booking
-    await supabaseAdmin.from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('id', bookingId)
+    await supabaseAdmin.from('bookings').update({ running_late_at: new Date().toISOString(), running_late_eta: eta || null }).eq('tenant_id', tenantId).eq('id', bookingId)
 
     // Notify admin
     await notify({ tenantId, type: 'booking_reminder' as any, title: 'Running Late', message: `${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`, bookingId })

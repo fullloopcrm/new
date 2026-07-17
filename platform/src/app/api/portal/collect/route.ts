@@ -244,6 +244,7 @@ export async function POST(request: NextRequest) {
               state: 'form_received',
               updated_at: new Date().toISOString(),
             })
+            .eq('tenant_id', tenant.id)
             .eq('id', convo_id)
 
           const firstName = (name || '').split(' ')[0]

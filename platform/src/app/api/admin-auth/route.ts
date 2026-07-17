@@ -148,6 +148,7 @@ export async function POST(request: Request) {
       await supabaseAdmin
         .from('tenant_members')
         .update({ pin_last_login: new Date().toISOString() })
+        .eq('tenant_id', headerTenantId)
         .eq('id', member.id)
         .then(() => {}, () => {})
 

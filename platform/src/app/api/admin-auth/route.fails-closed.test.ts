@@ -28,6 +28,7 @@ let memberRows: Record<string, { id: string; role: string }>
 let rateLimitInserts: string[]
 let tenantMembersQueried: boolean
 let updatedMemberIds: string[]
+let updatedMemberTenantIds: string[]
 let mockHeaders: Map<string, string>
 
 function rateLimitEventsTable() {
@@ -64,12 +65,22 @@ function tenantMembersTable() {
         }
       },
     }),
-    update: () => ({
-      eq: (_col: string, val: unknown) => {
-        updatedMemberIds.push(String(val))
-        return Promise.resolve({ error: null })
-      },
-    }),
+    update: () => {
+      const eqs: Eqs = {}
+      const builder = {
+        eq: (col: string, val: unknown) => {
+          eqs[col] = val
+          if (col === 'id') {
+            updatedMemberTenantIds.push(String(eqs.tenant_id))
+            updatedMemberIds.push(String(val))
+          }
+          return builder
+        },
+        then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>
+          Promise.resolve({ error: null }).then(onFulfilled, onRejected),
+      }
+      return builder
+    },
   }
 }
 
@@ -116,6 +127,7 @@ beforeEach(() => {
   rateLimitInserts = []
   tenantMembersQueried = false
   updatedMemberIds = []
+  updatedMemberTenantIds = []
   mockHeaders = new Map()
   process.env.ADMIN_PIN = 'super-secret-pin'
   process.env.ADMIN_TOKEN_SECRET = 'admin-auth-fails-closed-test-secret'
@@ -217,6 +229,11 @@ describe('admin-auth — tenant-admin PIN is scoped to the signed tenant, not gl
     const data = await res.json()
     expect(data.role).toBe('tenant_admin')
     expect(updatedMemberIds).toEqual(['member-b'])
+    // Write-side tenant scope: the pin_last_login UPDATE itself carries
+    // .eq('tenant_id', ...), not just the preceding SELECT that found the
+    // member. See route.tenant-scope.test.ts for the dedicated wrong-tenant
+    // write probe on this same UPDATE.
+    expect(updatedMemberTenantIds).toEqual([TENANT_B])
   })
 
   it('a forged/unsigned x-tenant-id cannot be used to bypass tenant scoping', async () => {
