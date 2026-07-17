@@ -2446,6 +2446,66 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       if (overflowProbeBooking?.id) await supabase.from('bookings').delete().eq('id', overflowProbeBooking.id).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-22. schedules/[id]/pause + team-portal/running-late — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, fifth/sixth call sites of the missing-consent-check bug class after payment-processor.ts, webhooks/stripe.ts, client/book, and client/reschedule) ----
+    // Two more client-facing SMS fan-outs found with the exact same gap
+    // 5a-18/5a-19 fixed elsewhere: POST /api/schedules/[id]/pause texts a
+    // client their paused-schedule/cancelled-bookings summary, and POST
+    // /api/team-portal/running-late texts a client their crew's ETA — both
+    // gated only on phone-presence before this round. Fixed: both now also
+    // require sms_consent !== false && !do_not_service, same invariant as
+    // every other client SMS site. requirePermission/requirePortalPermission
+    // need headers()/cookies() this harness doesn't have, so — same
+    // reasoning as 5a-11/5a-18 — this proves the fixed predicate against
+    // real rows in this archetype tenant rather than calling the routes.
+    {
+      const pauseGatePhone = '646' + String(4000000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: pauseGateBlockedClient, error: pauseGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Pause-Gate Blocked Client', email: `pausegate-blocked+${runId}@example.com`,
+        phone: pauseGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('pause/running-late-gate: STOP-revoked client row created (sms_consent=false)', !!pauseGateBlockedClient && !pauseGateBlockedErr, pauseGateBlockedErr?.message)
+
+      const { data: pauseGateDnsClient, error: pauseGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Pause-Gate DNS Client', email: `pausegate-dns+${runId}@example.com`,
+        phone: pauseGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('pause/running-late-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!pauseGateDnsClient && !pauseGateDnsErr, pauseGateDnsErr?.message)
+
+      const { data: pauseGateOkClient, error: pauseGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Pause-Gate Consented Client', email: `pausegate-ok+${runId}@example.com`,
+        phone: pauseGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('pause/running-late-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!pauseGateOkClient && !pauseGateOkErr, pauseGateOkErr?.message)
+
+      // Live schema — re-read straight from prod through the exact column
+      // selection each fixed route now uses (schedules/[id]/pause selects
+      // `clients(name, phone, email, sms_consent, do_not_service)`,
+      // running-late selects `clients(name, phone, sms_consent, do_not_service)`)
+      // and apply the exact gate predicate both fixes share.
+      const pauseGateIds = [pauseGateBlockedClient?.id, pauseGateDnsClient?.id, pauseGateOkClient?.id].filter(Boolean) as string[]
+      const { data: pauseGateRows } = await supabase.from('clients')
+        .select('id, phone, sms_consent, do_not_service').eq('tenant_id', tenant.id).in('id', pauseGateIds)
+      const pauseGateWouldText = (pauseGateRows || []).filter(c => !!c.phone && c.sms_consent !== false && !c.do_not_service).map(c => c.id)
+      add('pause/running-late-gate: the fixed predicate skips the STOP-revoked client', !pauseGateWouldText.includes(pauseGateBlockedClient?.id), JSON.stringify(pauseGateWouldText))
+      add('pause/running-late-gate: the fixed predicate skips the do_not_service client even though sms_consent=true', !pauseGateWouldText.includes(pauseGateDnsClient?.id), JSON.stringify(pauseGateWouldText))
+      add('pause/running-late-gate: CONTROL — the fixed predicate still texts the consented, non-DNS client', pauseGateWouldText.includes(pauseGateOkClient?.id), JSON.stringify(pauseGateWouldText))
+
+      // Also prove a real recurring_schedules row (what schedules/[id]/pause
+      // actually joins against) round-trips the same client consent columns
+      // through its embedded `clients(...)` select, not just the clients
+      // table read directly above.
+      if (pauseGateBlockedClient?.id) {
+        const { data: pauseGateSchedule, error: pauseGateSchedErr } = await supabase.from('recurring_schedules').insert({
+          tenant_id: tenant.id, client_id: pauseGateBlockedClient.id, team_member_id: worker.id,
+          recurring_type: 'weekly', day_of_week: 3, preferred_time: '09:00:00', duration_hours: 2,
+          hourly_rate: 55, status: 'active',
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add('pause/running-late-gate: live schema — a real recurring_schedules row\'s embedded clients() join surfaces the same STOP-revoked sms_consent value the fix reads', !!pauseGateSchedule && !pauseGateSchedErr && (pauseGateSchedule as any).clients?.sms_consent === false, pauseGateSchedErr?.message || JSON.stringify(pauseGateSchedule))
+        if (pauseGateSchedule?.id) await supabase.from('recurring_schedules').delete().eq('id', pauseGateSchedule.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
