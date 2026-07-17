@@ -24,10 +24,19 @@ export async function GET(request: NextRequest) {
   const available = request.nextUrl.searchParams.get('available')
   const upcoming = request.nextUrl.searchParams.get('upcoming')
 
-  const today = new Date()
-  today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
+  const pad = (n: number) => String(n).padStart(2, '0')
+  // bookings.start_time is stored naive-local (no tz — ET for the vast majority
+  // of tenants), matching exactly what was typed in. The old `today.setHours
+  // (0,0,0,0)` read the SERVER's local calendar (UTC on Vercel), which runs a
+  // full calendar day ahead of ET for ~4-5h every evening (8pm-midnight ET) —
+  // during that window every query below used a UTC-midnight boundary that had
+  // already rolled to tomorrow, silently hiding the rest of tonight's real ET
+  // jobs from the field-worker portal (today's jobs, the available pool, and
+  // the upcoming-14-days list all share this boundary).
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
+  const [ty, tm, td] = todayStr.split('-').map(Number)
+  const tomorrowObj = new Date(Date.UTC(ty, tm - 1, td + 1))
+  const tomorrowStr = `${tomorrowObj.getUTCFullYear()}-${pad(tomorrowObj.getUTCMonth() + 1)}-${pad(tomorrowObj.getUTCDate())}`
 
   if (available === 'true') {
     // Seeing the open (unassigned) pool is a field-staff tier permission — a
@@ -44,7 +53,7 @@ export async function GET(request: NextRequest) {
       .eq('tenant_id', auth.tid)
       .is('team_member_id', null)
       .in('status', ['scheduled', 'confirmed'])
-      .gte('start_time', today.toISOString())
+      .gte('start_time', todayStr + 'T00:00:00')
       .order('start_time')
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
@@ -66,16 +75,16 @@ export async function GET(request: NextRequest) {
 
   if (upcoming === 'true') {
     // Return next 14 days of jobs (excluding today)
-    const futureEnd = new Date(today)
-    futureEnd.setDate(futureEnd.getDate() + 14)
+    const futureEndObj = new Date(Date.UTC(ty, tm - 1, td + 14))
+    const futureEndStr = `${futureEndObj.getUTCFullYear()}-${pad(futureEndObj.getUTCMonth() + 1)}-${pad(futureEndObj.getUTCDate())}`
 
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .select('*, clients(name, phone, address, special_instructions)')
       .eq('tenant_id', auth.tid)
       .eq('team_member_id', auth.id)
-      .gte('start_time', tomorrow.toISOString())
-      .lt('start_time', futureEnd.toISOString())
+      .gte('start_time', tomorrowStr + 'T00:00:00')
+      .lt('start_time', futureEndStr + 'T00:00:00')
       .not('status', 'eq', 'cancelled')
       .order('start_time')
 
@@ -89,8 +98,8 @@ export async function GET(request: NextRequest) {
     .select('*, clients(name, phone, address, special_instructions)')
     .eq('tenant_id', auth.tid)
     .eq('team_member_id', auth.id)
-    .gte('start_time', today.toISOString())
-    .lt('start_time', tomorrow.toISOString())
+    .gte('start_time', todayStr + 'T00:00:00')
+    .lt('start_time', tomorrowStr + 'T00:00:00')
     .not('status', 'eq', 'cancelled')
     .order('start_time')
 
