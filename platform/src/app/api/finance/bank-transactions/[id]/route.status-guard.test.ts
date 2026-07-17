@@ -99,4 +99,29 @@ describe('PATCH /api/finance/bank-transactions/[id] — status guard', () => {
     const txnRow = fake._all('bank_transactions').find((t) => t.id === TXN_ID)
     expect(txnRow?.status).toBe('ignored')
   })
+
+  it('rejects categorizing a flagged-duplicate transaction directly — must be restored first', async () => {
+    seed('duplicate')
+    const res = await PATCH(patchRequest({ coa_id: COA_ID }), { params: Promise.resolve({ id: TXN_ID }) })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Already duplicate')
+    expect(fake._all('journal_entries').length).toBe(0)
+  })
+
+  it('restores a flagged duplicate back to pending', async () => {
+    seed('duplicate')
+    const res = await PATCH(patchRequest({ status: 'restore' }), { params: Promise.resolve({ id: TXN_ID }) })
+    expect(res.status).toBe(200)
+    const txnRow = fake._all('bank_transactions').find((t) => t.id === TXN_ID)
+    expect(txnRow?.status).toBe('pending')
+  })
+
+  it('rejects restoring a transaction that was never flagged as a duplicate', async () => {
+    seed('pending')
+    const res = await PATCH(patchRequest({ status: 'restore' }), { params: Promise.resolve({ id: TXN_ID }) })
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('Cannot restore a pending transaction')
+    const txnRow = fake._all('bank_transactions').find((t) => t.id === TXN_ID)
+    expect(txnRow?.status).toBe('pending')
+  })
 })

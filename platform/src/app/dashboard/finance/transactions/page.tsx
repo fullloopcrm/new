@@ -30,6 +30,7 @@ const TABS = [
   { value: 'pending', label: 'To Review' },
   { value: 'posted', label: 'Posted' },
   { value: 'ignored', label: 'Ignored' },
+  { value: 'duplicate', label: 'Duplicates' },
   { value: 'all', label: 'All' },
 ]
 
@@ -70,6 +71,16 @@ export default function BankTransactionsPage() {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: 'ignored' }),
     })
+    setBusy(null); load()
+  }
+
+  async function restore(id: string) {
+    setBusy(id)
+    const res = await fetch(`/api/finance/bank-transactions/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: 'restore' }),
+    })
+    if (!res.ok) alert((await res.json()).error || 'Failed')
     setBusy(null); load()
   }
 
@@ -150,10 +161,10 @@ export default function BankTransactionsPage() {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {txns.map(t => (
-                <tr key={t.id} className={`hover:bg-slate-50 ${t.status === 'posted' || t.status === 'matched' ? 'text-slate-500' : ''}`}>
+                <tr key={t.id} className={`hover:bg-slate-50 ${t.status === 'posted' || t.status === 'matched' || t.status === 'duplicate' ? 'text-slate-500' : ''}`}>
                   <td className="px-4 py-3 text-xs">{t.txn_date}</td>
                   <td className="px-4 py-3">
-                    <p className={`${t.status === 'posted' || t.status === 'matched' ? 'text-slate-500' : 'text-slate-900'} font-medium`}>{t.description}</p>
+                    <p className={`${t.status === 'posted' || t.status === 'matched' || t.status === 'duplicate' ? 'text-slate-500' : 'text-slate-900'} font-medium`}>{t.description}</p>
                     {t.memo && <p className="text-xs text-slate-400">{t.memo}</p>}
                   </td>
                   <td className="px-4 py-3 text-xs text-slate-500">
@@ -169,6 +180,8 @@ export default function BankTransactionsPage() {
                       <span className="text-xs text-slate-500">
                         Matched → {t.matched_invoice_id ? 'Invoice' : t.matched_booking_id ? 'Booking' : 'Expense'}
                       </span>
+                    ) : t.status === 'duplicate' ? (
+                      <span className="text-xs text-amber-700">Possible duplicate — matches another imported transaction</span>
                     ) : (
                       <div className="space-y-1">
                         {t.suggested_coa_id && (
@@ -208,6 +221,10 @@ export default function BankTransactionsPage() {
                       <button onClick={() => ignore(t.id)} disabled={busy === t.id}
                         className="text-xs text-slate-400 hover:text-slate-700">ignore</button>
                     )}
+                    {t.status === 'duplicate' && (
+                      <button onClick={() => restore(t.id)} disabled={busy === t.id}
+                        className="text-xs text-teal-600 hover:text-teal-800">not a duplicate — restore</button>
+                    )}
                   </td>
                 </tr>
               ))}
@@ -217,7 +234,7 @@ export default function BankTransactionsPage() {
       </div>
 
       <p className="mt-4 text-xs text-slate-500">
-        {txns.filter(t => t.status === 'pending').length} to review · {txns.filter(t => t.status === 'posted').length} posted · {txns.filter(t => t.status === 'matched').length} matched · {txns.filter(t => t.status === 'ignored').length} ignored
+        {txns.filter(t => t.status === 'pending').length} to review · {txns.filter(t => t.status === 'posted').length} posted · {txns.filter(t => t.status === 'matched').length} matched · {txns.filter(t => t.status === 'ignored').length} ignored · {txns.filter(t => t.status === 'duplicate').length} duplicates
       </p>
       {/* Bulk toolbar placeholder (not wired yet) */}
       <input type="hidden" value={bulkCoa} onChange={e => setBulkCoa(e.target.value)} />

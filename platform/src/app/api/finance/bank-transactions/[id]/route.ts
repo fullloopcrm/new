@@ -34,13 +34,29 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ ok: true })
     }
 
+    // Restore a flagged duplicate back into the normal review queue — the
+    // only sanctioned way out of 'duplicate', so a false-positive fingerprint
+    // collision can be recovered instead of staying invisible forever.
+    if (body.status === 'restore') {
+      if (txn.status !== 'duplicate') {
+        return NextResponse.json({ error: `Cannot restore a ${txn.status} transaction` }, { status: 400 })
+      }
+      await supabaseAdmin
+        .from('bank_transactions')
+        .update({ status: 'pending' })
+        .eq('id', id)
+      return NextResponse.json({ ok: true })
+    }
+
     // Same guard match/route.ts already has for re-matching: a transaction
     // matched to an invoice/booking (or already posted) has its revenue
     // accounted for via that payment's own journal entry — categorizing it
     // again here would post a SECOND entry for the same money (this route has
     // no idea the money was already recognized elsewhere), double-counting
-    // revenue instead of erroring like the sibling route does.
-    if (txn.status === 'matched' || txn.status === 'posted') {
+    // revenue instead of erroring like the sibling route does. A flagged
+    // duplicate must be explicitly restored first — categorizing it directly
+    // would silently treat a probable double-import as a real transaction.
+    if (txn.status === 'matched' || txn.status === 'posted' || txn.status === 'duplicate') {
       return NextResponse.json({ error: `Already ${txn.status}` }, { status: 400 })
     }
 

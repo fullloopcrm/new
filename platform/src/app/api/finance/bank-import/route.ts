@@ -107,9 +107,14 @@ export async function POST(request: Request) {
     const accepted = toInsert.filter(r => !r.duplicate)
     const duplicates = toInsert.length - accepted.length
 
-    if (accepted.length > 0) {
+    // Every detected row is written, including duplicates — flagged with
+    // status:'duplicate' rather than silently dropped, so a false-positive
+    // fingerprint collision (same date/amount/normalized description as an
+    // unrelated legitimate transaction) stays visible and recoverable
+    // instead of vanishing from the books with no trace. See item (158).
+    if (toInsert.length > 0) {
       const { error: iErr } = await supabaseAdmin.from('bank_transactions').insert(
-        accepted.map(r => ({
+        toInsert.map(r => ({
           tenant_id: tenantId,
           bank_account_id: bankAccountId,
           import_batch_id: batch.id,
@@ -121,7 +126,7 @@ export async function POST(request: Request) {
           check_number: r.check_number || null,
           external_id: r.external_id || null,
           fingerprint: r.fingerprint,
-          status: 'pending',
+          status: r.duplicate ? 'duplicate' : 'pending',
         })),
       )
       if (iErr) throw iErr
