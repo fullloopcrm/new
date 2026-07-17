@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import './clients.css'
 import ClientDrawer from './client-drawer'
+import { formatRecurringFrequency } from '@/lib/recurring'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -377,7 +378,7 @@ export default function ClientsPage() {
                 {c.recurring ? (
                   <>
                     <span className="clients-recurring-tier">
-                      {c.recurring.frequency}
+                      {formatRecurringFrequency(c.recurring.frequency)}
                       {c.recurring.discount_pct > 0 ? ` · ${c.recurring.discount_pct}%` : ''}
                     </span>
                     <span className="clients-recurring-slot">

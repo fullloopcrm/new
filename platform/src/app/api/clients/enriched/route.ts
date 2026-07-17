@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getSettings } from '@/lib/settings'
+import { recurringDiscountPct } from '@/lib/nycmaid/recurring-discount'
 
 type Stage = 'lead' | 'first' | 'active' | 'vip' | 'risk' | 'lapsed' | 'dns'
 type HealthBand = 'vip' | 'healthy' | 'ok' | 'risk' | 'critical'
@@ -83,6 +84,21 @@ function computeStage(opts: {
   if (opts.daysSinceLast > opts.activeThreshold) return 'risk'
   if (opts.hasActiveRecurring && opts.recurringFrequency === 'weekly' && opts.ltvCents >= 150_000) return 'vip'
   return 'active'
+}
+
+// recurring_schedules.recurring_type stores the real RecurringType enum
+// (lib/recurring.ts: weekly/biweekly/triweekly/monthly_date/monthly_weekday/
+// daily/custom) -- there is no bare 'monthly' value. The frequency-based
+// scoring below used to compare against 'monthly' directly (never matched)
+// and had no case for 'triweekly' at all, so every monthly/triweekly
+// recurring client silently fell through to the one-off booking-count
+// scoring tier for freqScore/ltv_projected_cents/mrr_cents. Normalize to the
+// same tier grouping recurringDiscountPct already uses (triweekly grouped
+// with monthly, matching their shared 10% discount tier) before scoring.
+function normalizeFrequencyTier(recurringType: string | null): string | null {
+  if (!recurringType) return null
+  if (recurringType === 'monthly_date' || recurringType === 'monthly_weekday') return 'monthly'
+  return recurringType
 }
 
 function band(score: number, stage: Stage): HealthBand {
@@ -228,13 +244,14 @@ export async function GET(_request: NextRequest) {
         atRiskThreshold: settings.at_risk_threshold_days,
       })
 
+      const frequencyTier = normalizeFrequencyTier(recurringFrequency)
       const freqScore = stage === 'vip'
         ? 100
-        : recurringFrequency === 'weekly'
+        : frequencyTier === 'weekly'
           ? 90
-          : recurringFrequency === 'biweekly'
+          : frequencyTier === 'biweekly'
             ? 75
-            : recurringFrequency === 'monthly'
+            : frequencyTier === 'monthly' || frequencyTier === 'triweekly'
               ? 55
               : agg.count >= 4
                 ? 50
@@ -252,9 +269,10 @@ export async function GET(_request: NextRequest) {
       const ltvProjected = (() => {
         if (stage === 'risk' || stage === 'lapsed' || stage === 'dns') return 0
         const avg = avgJobCents || 25_000
-        if (recurringFrequency === 'weekly') return Math.round(avg * 52)
-        if (recurringFrequency === 'biweekly') return Math.round(avg * 26)
-        if (recurringFrequency === 'monthly') return Math.round(avg * 12)
+        if (frequencyTier === 'weekly') return Math.round(avg * 52)
+        if (frequencyTier === 'biweekly') return Math.round(avg * 26)
+        if (frequencyTier === 'monthly') return Math.round(avg * 12)
+        if (frequencyTier === 'triweekly') return Math.round(avg * 17)
         return Math.round(avg * Math.max(2, agg.count))
       })()
 
@@ -275,7 +293,7 @@ export async function GET(_request: NextRequest) {
       const recurring = sched
         ? {
             frequency: (sched.recurring_type as string | null) || 'one-time',
-            discount_pct: 0,
+            discount_pct: Math.round(recurringDiscountPct(sched.recurring_type as string | null) * 100),
             day: dayLabel(sched.day_of_week as number | null),
             time: timeLabel(sched.preferred_time as string | null),
             status: (sched.status as string | null) || 'active',
@@ -332,9 +350,11 @@ export async function GET(_request: NextRequest) {
       mrr_cents: enriched.reduce((s, e) => {
         if (e.stage === 'dns' || !e.recurring || e.recurring.status === 'paused') return s
         const avgPerJob = e.bookings_count > 0 ? e.ltv_actual_cents / e.bookings_count : 25_000
-        if (e.recurring.frequency === 'weekly') return s + avgPerJob * 4
-        if (e.recurring.frequency === 'biweekly') return s + avgPerJob * 2
-        if (e.recurring.frequency === 'monthly') return s + avgPerJob
+        const tier = normalizeFrequencyTier(e.recurring.frequency)
+        if (tier === 'weekly') return s + avgPerJob * 4
+        if (tier === 'biweekly') return s + avgPerJob * 2
+        if (tier === 'monthly') return s + avgPerJob
+        if (tier === 'triweekly') return s + avgPerJob * (30 / 21)
         return s
       }, 0),
       recurring: enriched.filter((e) => e.recurring && e.recurring.status !== 'paused').length,

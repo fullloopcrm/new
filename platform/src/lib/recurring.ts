@@ -210,3 +210,24 @@ export function formatRecurringLabel(
   const startDate = startDateTime ? startDateTime.slice(0, 10) : ''
   return getRecurringDisplayName(recurringType, startDate) || recurringType
 }
+
+/**
+ * Date-independent variant of formatRecurringLabel, for call sites (client
+ * health/LTV dashboards) that only have the recurring_type, no occurrence date
+ * to derive a monthly_weekday week-number/day-name from. Same raw-value
+ * fallback discipline: known cadences get a real label, monthly_weekday and
+ * any unrecognized/legacy display-string value pass through unformatted
+ * rather than showing blank.
+ */
+export function formatRecurringFrequency(recurringType: string | null | undefined): string {
+  if (!recurringType) return ''
+  switch (recurringType) {
+    case 'daily': return 'Daily'
+    case 'weekly': return 'Weekly'
+    case 'biweekly': return 'Bi-weekly'
+    case 'triweekly': return 'Tri-weekly'
+    case 'monthly_date': return 'Monthly'
+    case 'custom': return 'Custom'
+    default: return recurringType
+  }
+}

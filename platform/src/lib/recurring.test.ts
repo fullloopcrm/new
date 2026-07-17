@@ -3,6 +3,7 @@ import {
   generateRecurringDates,
   getRecurringDisplayName,
   formatRecurringLabel,
+  formatRecurringFrequency,
   computeNaiveVisitWindow,
   nextOccurrenceDates,
   type RecurringType,
@@ -271,6 +272,27 @@ describe('formatRecurringLabel', () => {
   it('returns empty string for no recurring type', () => {
     expect(formatRecurringLabel(null, '2026-01-12T09:00:00')).toBe('')
     expect(formatRecurringLabel(undefined, '2026-01-12T09:00:00')).toBe('')
+  })
+})
+
+describe('formatRecurringFrequency', () => {
+  it('formats known cadences without needing an occurrence date', () => {
+    expect(formatRecurringFrequency('weekly')).toBe('Weekly')
+    expect(formatRecurringFrequency('biweekly')).toBe('Bi-weekly')
+    expect(formatRecurringFrequency('triweekly')).toBe('Tri-weekly')
+    expect(formatRecurringFrequency('monthly_date')).toBe('Monthly')
+    expect(formatRecurringFrequency('daily')).toBe('Daily')
+    expect(formatRecurringFrequency('custom')).toBe('Custom')
+  })
+
+  it('falls back to the raw value for monthly_weekday (needs a date to name the week/day) and unrecognized values', () => {
+    expect(formatRecurringFrequency('monthly_weekday')).toBe('monthly_weekday')
+    expect(formatRecurringFrequency('some-legacy-value')).toBe('some-legacy-value')
+  })
+
+  it('returns empty string for no recurring type', () => {
+    expect(formatRecurringFrequency(null)).toBe('')
+    expect(formatRecurringFrequency(undefined)).toBe('')
   })
 })
 

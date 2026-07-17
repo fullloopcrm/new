@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
+import { formatRecurringFrequency } from '@/lib/recurring'
 
 type EnrichedClient = {
   id: string
@@ -234,7 +235,7 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
                 <div className="clients-health-status" style={{ color: bColor }}>{bandLabel(client.health_band)}</div>
                 <div className="clients-health-desc">
                   {client.bookings_count} job{client.bookings_count === 1 ? '' : 's'} ·{' '}
-                  {client.recurring ? `${client.recurring.frequency} with ${client.preferred_cleaner?.name || 'team'}` : 'one-time relationship'}
+                  {client.recurring ? `${formatRecurringFrequency(client.recurring.frequency)} with ${client.preferred_cleaner?.name || 'team'}` : 'one-time relationship'}
                   {' · '}
                   Lifetime spend {fmt(client.ltv_actual_cents)}
                 </div>
@@ -271,7 +272,7 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
                   {client.recurring.time ? ` · ${client.recurring.time}` : ''}
                 </div>
                 <div className="clients-slot-hero-meta">
-                  {client.recurring.frequency} cadence
+                  {formatRecurringFrequency(client.recurring.frequency)} cadence
                   {client.preferred_cleaner ? ` · with ${client.preferred_cleaner.name}` : ''}
                   {client.recurring.discount_pct > 0 ? ` · ${client.recurring.discount_pct}% loyalty discount` : ''}
                 </div>
@@ -297,7 +298,7 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
                 <div className="clients-ltv-cell-label proj">↗ Projected · 12mo</div>
                 <div className="clients-ltv-cell-value proj">{fmt(client.ltv_projected_cents)}</div>
                 <div className="clients-ltv-cell-sub">
-                  {client.recurring ? `${client.recurring.frequency} cadence` : 'based on history'}
+                  {client.recurring ? `${formatRecurringFrequency(client.recurring.frequency)} cadence` : 'based on history'}
                 </div>
               </div>
             </div>

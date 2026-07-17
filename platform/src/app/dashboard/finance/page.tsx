@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import Link from 'next/link'
 import './finance.css'
+import { formatRecurringFrequency } from '@/lib/recurring'
 
 type Tab = 'overview'
 // The finance PROCESS, left→right — one connected hub. Overview lives on this
@@ -82,7 +83,7 @@ export default function FinancePage() {
         .map((c) => ({
           name: c.name,
           amount_cents: c.ltv_actual_cents,
-          meta: c.recurring ? `${c.recurring.frequency} · ${c.bookings_count} jobs` : `One-time · ${c.bookings_count} ${c.bookings_count === 1 ? 'job' : 'jobs'}`,
+          meta: c.recurring ? `${formatRecurringFrequency(c.recurring.frequency)} · ${c.bookings_count} jobs` : `One-time · ${c.bookings_count} ${c.bookings_count === 1 ? 'job' : 'jobs'}`,
           vip: c.stage === 'vip',
         }))
       setTopClients(top)
