@@ -23,7 +23,7 @@ export async function POST(request: Request) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data: booking } = (await db
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, is_emergency, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, is_emergency, clients(name, phone, sms_consent), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
       .single()) as { data: { tenant_id: string; start_time: string; client_id: string | null; is_emergency: boolean | null; clients: unknown; team_members: unknown } | null }
@@ -42,6 +42,7 @@ export async function POST(request: Request) {
     const memberName = (booking.team_members as any)?.name || 'Team member'
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
+    const clientSmsConsent = (booking.clients as any)?.sms_consent
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Record on booking
@@ -68,8 +69,10 @@ export async function POST(request: Request) {
 
     sendPushToTenantAdmins(tenantId, isEmergency ? '🚨 Emergency Job Running Late' : 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
 
-    // SMS to client
-    if (clientPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // SMS to client — gated on sms_consent, matching the codebase's own
+    // established convention (items 19/21/23/31): a client who texted STOP
+    // shouldn't get another SMS, transactional or not.
+    if (clientPhone && clientSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
     if (booking.client_id) {
