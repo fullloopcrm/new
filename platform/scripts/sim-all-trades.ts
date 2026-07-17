@@ -4135,6 +4135,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-54. tenantSiteUrl() — invoice/quote/document send-link REVERSE-LOOKUP PROBE, fifth mirror-gap instance (fresh ground this round: same bug class as 5a-49/5a-51/5a-52/5a-53, but a DIFFERENT shape -- not a resolver function that never called tenant_domains, but 6 call sites across invoices/[id]/send, invoices/public/[token]/checkout, quotes/[id]/send, quotes/public/[token]/deposit-checkout, documents/[id]/send, and documents/public/[token]/sign's sendSigningInviteToSigner, each with its OWN ad-hoc inline `tenant.domain ? https://${tenant.domain} : appUrl` -- never calling tenantSiteUrl() (already fixed+tested at 5a-49) at all. Worse than 5a-49's original gap: the inline fallback was the PLATFORM's own generic app URL, not even the tenant's slug subdomain, so a tenant whose real domain lived only in tenant_domains got every "View & Pay" invoice link, Stripe Checkout success/cancel redirect, "Review & Accept" quote link, and "Review & Sign" document link pointed at the platform's own bare domain instead of any tenant-branded host -- live, real payment/signing links mailed and texted to customers today. Fixed by routing all 6 call sites through the already-tested tenantSiteUrl() helper instead of duplicating resolution logic. This probe exercises the SAME tenantSiteUrl()/getPrimaryTenantDomain() precedence 5a-49 already proves against the live schema, with the exact {id, domain, slug} argument shape these 6 routes now pass, to confirm the newly-wired call sites resolve correctly against the REAL live schema, not just a mock -- plus a wrong-tenant probe scoped to this specific fix.) ----
+    {
+      const { tenantSiteUrl } = await import('../src/lib/tenant-site')
+      const { data: beforeDomainSendLinks } = await supabase.from('tenants').select('domain').eq('id', tenant.id).single()
+
+      // Case 1: tenants.domain cleared, no active tenant_domains rows -- must
+      // fall back to the slug subdomain (the worst case these 6 routes used to
+      // skip entirely, landing on the platform's own generic app URL instead).
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const { error: clearedSendLinkErr } = await supabase.from('tenants').update({ domain: null }).eq('id', tenant.id)
+      add('send-link probe: tenants.domain cleared, this tenant\'s tenant_domains rows deactivated', !clearedSendLinkErr, clearedSendLinkErr?.message)
+
+      const urlNoTd = await tenantSiteUrl({ id: tenant.id, domain: null, slug: tenant.slug })
+      add('send-link probe: falls back to the slug subdomain when nothing else resolves (live schema, not a mock) -- what invoices/quotes/documents send routes now do instead of the platform app URL', urlNoTd === `https://${tenant.slug}.homeservicesbusinesscrm.com`, urlNoTd)
+
+      // Case 2: an active PRIMARY tenant_domains row now exists -- must WIN,
+      // matching what these routes now hand their customers in real send emails/SMS.
+      const primarySendLinkDomain = `primary-sendlink-${tenant.id.slice(0, 8)}.example.com`
+      const { error: primarySendLinkErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: primarySendLinkDomain, active: true, is_primary: true, notes: 'sim-all-trades send-link probe',
+      })
+      add('send-link probe: an active PRIMARY tenant_domains row seeded', !primarySendLinkErr, primarySendLinkErr?.message)
+
+      const urlWithTd = await tenantSiteUrl({ id: tenant.id, domain: null, slug: tenant.slug })
+      add('send-link probe: the tenant_domains PRIMARY row wins -- an invoice/quote/document link built today would now carry this domain, not the platform app URL (live schema, not a mock)', urlWithTd === `https://${primarySendLinkDomain}`, urlWithTd)
+
+      // WRONG-TENANT PROBE: a second real tenant's tenant_domains PRIMARY row
+      // must never leak into THIS tenant's payment/signing links.
+      const foreignSlugSendLink = slugify('sendlink-probe', randomUUID())
+      const { data: foreignTenantSendLink, error: foreignTenantSendLinkErr } = await supabase.from('tenants').insert({
+        name: 'Send-Link Probe Co', slug: foreignSlugSendLink, industry: ind, status: 'active', plan: 'growth',
+      }).select('id').single()
+      add('send-link wrong-tenant probe: a real SECOND tenant row created to own a conflicting-looking domain', !!foreignTenantSendLink && !foreignTenantSendLinkErr, foreignTenantSendLinkErr?.message)
+
+      if (foreignTenantSendLink?.id) {
+        const foreignSendLinkDomain = `foreign-sendlink-${foreignTenantSendLink.id.slice(0, 8)}.example.com`
+        const { error: foreignTdSendLinkErr } = await supabase.from('tenant_domains').insert({
+          tenant_id: foreignTenantSendLink.id, domain: foreignSendLinkDomain, active: true, is_primary: true, notes: 'sim-all-trades send-link wrong-tenant probe',
+        })
+        add('send-link wrong-tenant probe: the SECOND tenant\'s own active PRIMARY tenant_domains row seeded', !foreignTdSendLinkErr, foreignTdSendLinkErr?.message)
+
+        const urlStillOwn = await tenantSiteUrl({ id: tenant.id, domain: null, slug: tenant.slug })
+        add('send-link wrong-tenant probe: THIS tenant\'s invoice/quote/document link still resolves to its own domain, never the second tenant\'s (live schema, real conflicting rows -- not a mock)', urlStillOwn === `https://${primarySendLinkDomain}`, urlStillOwn === `https://${foreignSendLinkDomain}` ? 'LEAKED foreign domain' : 'clean')
+
+        await supabase.from('tenant_domains').delete().eq('tenant_id', foreignTenantSendLink.id)
+        await supabase.from('tenants').delete().eq('id', foreignTenantSendLink.id)
+      }
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', primarySendLinkDomain)
+      await supabase.from('tenants').update({ domain: beforeDomainSendLinks?.domain ?? null }).eq('id', tenant.id)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
