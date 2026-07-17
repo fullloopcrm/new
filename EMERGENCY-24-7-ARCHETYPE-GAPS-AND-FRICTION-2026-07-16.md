@@ -3623,3 +3623,114 @@ brand-compatible with the undici multipart encoder `NextRequest.formData()`
 actually uses at runtime, which is orthogonal to what this fix changes
 (auth resolution, not multipart parsing). `tsc --noEmit` clean, full suite
 380/380 files, 1892/1892 tests, zero regressions. Commit `b8107a59`.
+
+## H-01 sweep — audited exhaustively today, class is now closed
+
+Before hunting further instances of items (82)/(83)'s admin-impersonation-
+bypass class, did a full sweep instead of another spot-check: enumerated
+every `/api/*` directory in the repo (102), extracted every prefix already
+covered by either `isPublicRoute` or the middleware admin-bypass `startsWith`
+list (both are plain string-prefix checks, not path-segment-aware — so e.g.
+the existing `/api/team` entry already covers `/api/team-applications`,
+`/api/team-availability`, `/api/team-members` etc. as a side effect, not by
+accident), and diffed the two sets. 14 directories came back uncovered by
+either list. Checked each for `getTenantForRequest()`/`requirePermission()`
+usage (the two helpers that actually need the impersonation-bypass to be
+reachable) — only one, `user/preferences/route.ts`, uses either, and it has
+**zero real callers anywhere in the repo** (grepped for the literal path),
+same "unwired path, not a live bug" shape as the already-noted
+`announcements/unread` case — correctly left alone, not "fixed" for the same
+reason. `/api/uploads`' admin/Clerk fallback branch (the one item (84) didn't
+touch) was also checked specifically since it does call
+`getTenantForRequest()`: its only real caller in the whole app is
+`app/team/page.tsx`'s portal-auth branch (item 84's fix), the `getTenantForRequest()`
+fallback has no caller at all — same dead-branch verdict, not added to the
+bypass list. Net: no live H-01 instances remain to close. Verified via a
+plain-string prefix-coverage diff (`ls src/app/api` against every
+`startsWith(...)` argument in `src/middleware.ts`) plus a direct grep of each
+uncovered directory for the two gating helpers — not a hypothesis.
+
+## (85) New today, archetype depth — item (79)'s client-side UTC-vs-local "today" sweep missed the Calendar page's own mobile list view — NOW FIXED
+
+Direct continuation of items (74)/(75)/(79)'s UTC-vs-local "today" bug family
+(client `new Date().toISOString().split('T')[0]` computes the date in UTC,
+not the browser's local zone — wrong every evening once UTC has ticked into
+tomorrow while it's still today locally). Item (79) swept 15 instances across
+the booking/reschedule/dashboard/days-off surfaces but never touched
+`src/app/dashboard/calendar/CalendarBoard.tsx` — grepped the whole repo today
+for the same `toISOString().split('T')` shape and found one live instance
+item (79) missed: `CalendarBoard.tsx:571`'s **Mobile List View** computes
+`todayStr` this way, then filters `allBookings` to `b.start_time.split('T')[0]
+>= todayStr` (line 572) and uses `todayStr` again to label the "Today"
+section header (line 586). `b.start_time` itself is a naive/local datetime
+string in this file (confirmed by the file's own `formatNaiveDate`/
+`formatNaiveTime` helpers and its other same-day comparisons at lines 230/274,
+which all treat `.split('T')[0]` as local — only the `todayStr` computation
+itself was the odd one out, comparing a UTC-computed string against
+naive-local ones). Concrete impact: every evening once the browser's local
+clock has passed roughly UTC midnight (8-9pm Eastern, earlier during EDT),
+`todayStr` silently becomes tomorrow's date, so the mobile calendar list
+**drops every remaining booking for the rest of today** from view — an owner
+checking their phone at 8:30pm to see if there's still a same-day emergency
+job on the books would see it vanish from the "upcoming" list even though it
+hasn't happened yet.
+
+**Fixed** — same exact convention item (79) already established (verified via
+`git show 3b0d0cb1`): `new Date().toISOString().split('T')[0]` →
+`new Date().toLocaleDateString('en-CA')` (en-CA locale formats as
+`YYYY-MM-DD` in the browser's local timezone). One-line change; the
+comparison target (`b.start_time.split('T')[0]`) needed no change since it
+was already correct/naive-local per the rest of the file's convention. `tsc
+--noEmit` clean. No dedicated render-test harness exists for this file (same
+precedent as `BookingsAdmin.tsx` elsewhere in this doc), so verification is
+type-level plus direct re-read of the one-line diff against the surrounding
+filter/label logic; full existing suite re-run clean, zero regressions
+(expected — no prior test covered this line).
+
+## (86) New today, fresh ground — reassigning a booking to a different tech never told the tech who lost it — NOW FIXED
+
+Found while re-reading `PUT /api/bookings/[id]/route.ts`'s notification block
+for item (17)'s precedent (operator-cancel now SMS's the assigned tech).
+That same file's existing "Team member assigned/reassigned" block
+(`memberChanged && data.team_members?.phone`) only ever sends the job-
+assignment SMS to the **new** `team_member_id` — traced what happens to
+whoever held the job before the reassignment and found nothing: no SMS, no
+`notify()` call, no in-app signal of any kind reaches them. Same "silently
+vanished" shape as item (17)'s cancellation gap, just one step earlier in
+the same lifecycle — a dispatcher moving a same-day emergency job from Tech A
+(running behind) to Tech B (closer/faster) never tells Tech A the job left
+their plate; Tech A could still show up to a job that's no longer theirs, or
+just be confused when it disappears from their schedule with no explanation.
+Confirmed via the route's own `oldBooking` pre-update snapshot (already
+fetched for change detection, just never used for this) and the `memberChanged`
+boolean's definition (`fields.team_member_id && fields.team_member_id !==
+oldBooking?.team_member_id`) — true precisely on a reassignment away from an
+existing assignee, the exact condition needed to close this gap safely.
+
+**Fixed** (`p1-w3`) — added a second block right after the existing
+assignment SMS: when `memberChanged` and `oldBooking.team_member_id` was set
+(i.e. a real reassignment, not a first-time assignment), looks up the
+outgoing tech's phone and sends a plain "job has been reassigned to another
+team member" SMS, wrapped in the same non-blocking try/catch this whole
+notification section already runs under (a failed lookup/send can't fail the
+booking update itself). 3 new tests
+(`route.reassign-notify.test.ts`): true reassignment fires both the outgoing-
+removal and incoming-assignment SMS, a first-time assignment (no prior tech)
+fires only the incoming SMS, and a no-op update (tech unchanged) fires
+neither. `tsc --noEmit` clean, full suite 381/381 files, 1895/1895 tests,
+zero regressions (one pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts` predates this session's diff, same note item
+(17) already made — not touched here).
+
+**Not fixed, flagged** — while implementing this, noticed the `memberChanged`
+boolean requires `fields.team_member_id` to be truthy, so it's `false`
+(never fires, not even the pre-existing "new assignment" branch) when an
+admin explicitly **unassigns** a booking by setting `team_member_id: null`
+(confirmed `pick()`, `src/lib/validate.ts:94`, keeps explicit `null` values —
+only `undefined` is dropped — so this is a reachable state, not a
+theoretical one). An outright unassignment (as opposed to a reassignment to
+someone else) would leave the outgoing tech just as uninformed as before this
+fix. Left alone rather than folded in here: the `memberChanged` boolean is
+used elsewhere in this same block's control flow and reshaping it to also
+cover the null case needs its own careful trace of what else keys off it, not
+a one-line addition alongside an already-verified fix.

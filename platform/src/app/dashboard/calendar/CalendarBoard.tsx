@@ -568,7 +568,7 @@ export default function CalendarBoard() {
           if (selectedMember) filtered = filtered.filter(b => b.team_member_id === selectedMember)
           if (selectedStatuses.length > 0) filtered = filtered.filter(b => selectedStatuses.includes(b.status))
           filtered.sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
-          const todayStr = new Date().toISOString().split('T')[0]
+          const todayStr = new Date().toLocaleDateString('en-CA')
           filtered = filtered.filter(b => b.start_time.split('T')[0] >= todayStr)
 
           const grouped: Record<string, Booking[]> = {}

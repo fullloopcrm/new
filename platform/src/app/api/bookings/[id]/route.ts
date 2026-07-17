@@ -166,6 +166,26 @@ export async function PUT(
         }).catch(err => console.error('Assignment SMS error:', err))
       }
 
+      // Reassigned AWAY from a previous tech — the block above only ever
+      // reaches the new assignee. A tech who still thinks the job is theirs
+      // gets no signal it's gone; same "silently vanished" risk item (17)
+      // already fixed for outright cancellation, here for reassignment.
+      if (memberChanged && oldBooking?.team_member_id && hasSMS) {
+        const { data: oldMember } = (await db
+          .from('team_members')
+          .select('phone')
+          .eq('id', oldBooking.team_member_id)
+          .single()) as { data: { phone: string | null } | null }
+        if (oldMember?.phone) {
+          sendSMS({
+            to: oldMember.phone,
+            body: `${tenantData?.name || 'Job'}: Your ${date} ${time} job has been reassigned to another team member.`,
+            telnyxApiKey: tenantData!.telnyx_api_key,
+            telnyxPhone: tenantData!.telnyx_phone,
+          }).catch(err => console.error('Reassignment-removal SMS error:', err))
+        }
+      }
+
       // Rescheduled
       if (timeChanged && data.clients?.phone && data.clients?.sms_consent !== false && hasSMS) {
         sendSMS({
