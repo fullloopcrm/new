@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { generateRecurringDates, type RecurringType } from '@/lib/recurring'
 import { validate } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('schedules.view')
@@ -74,6 +75,16 @@ export async function POST(request: Request) {
       const { data: ownedMember } = await db.from('team_members').select('id').eq('id', v.team_member_id as string).maybeSingle()
       if (!ownedMember) {
         return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
+      }
+      // Same guard as POST /api/bookings, .../team, and the job-session routes
+      // (86b797ad, 53e83ee4, ca14a7fe) -- this route was the one live
+      // scheduling surface that still had zero hr_status check. Unlike
+      // /api/admin/recurring-schedules (known gap, deferred), this route
+      // immediately generates 4 real weeks of bookings below, so a terminated
+      // worker picked here gets silently booked onto real future jobs today.
+      const terminatedIds = await getTerminatedTeamMemberIds(tenantId, [v.team_member_id as string])
+      if (terminatedIds.length > 0) {
+        return NextResponse.json({ error: 'This team member is no longer active and cannot be assigned.' }, { status: 400 })
       }
     }
     // service_type_id is the same shape of FK — checked here (before the
