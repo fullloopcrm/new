@@ -46,11 +46,18 @@ export async function GET() {
         .not('status', 'in', '(paid,void,refunded,draft)')
         .order('due_date', { ascending: true, nullsFirst: false })
         .limit(200),
+      // `status` and `payment_status` are independent (see ar-aging/pending):
+      // bulk payroll flips `status` straight to 'paid' with no regard for
+      // whether the client ever paid. status='completed' only meant a
+      // client-still-owes booking dropped out of reconciliation candidates
+      // the instant payroll ran on it, same blind spot already fixed on
+      // ar-aging/pending/pnl/summary/cleaner-income this session. Still
+      // gated by the existing not-paid/refunded payment_status check.
       supabaseAdmin
         .from('bookings')
         .select('id, start_time, price, payment_status, clients(name)')
         .eq('tenant_id', tenantId)
-        .eq('status', 'completed')
+        .in('status', ['completed', 'paid'])
         .not('payment_status', 'in', '(paid,refunded)')
         .is('route_id', null)
         .order('start_time', { ascending: false })
