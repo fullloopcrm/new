@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
 import { etToday, etDayBoundaryUTC } from '@/lib/recurring'
 import { normalizeDomain } from '@/lib/seo/onboarding'
+import { registerCustomDomain } from '@/lib/vercel-domains'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -235,5 +236,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
-  return NextResponse.json({ domain: data }, { status: 201 })
+  // activate-tenant.ts's domain_routing step is the ONLY other tenant_domains
+  // write path, and it always pairs the DB row with a live Vercel project-domain
+  // registration (registerCarryingDomain / registerCustomDomain) — without that,
+  // Vercel never routes or issues a cert for the host. This endpoint inserted
+  // the DB row and stopped: a 201 here read as "domain added" in the admin UI,
+  // but the domain was never attached to the Vercel project, so it would 404/
+  // cert-error on every real request regardless of how correctly it resolves in
+  // tenant_domains. Register it the same way activation does — never throws, so
+  // a Vercel-side failure surfaces in the response instead of blocking the row
+  // that's already been created.
+  const vercel = await registerCustomDomain(domain)
+
+  return NextResponse.json({ domain: data, vercel }, { status: 201 })
 }

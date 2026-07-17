@@ -17,8 +17,10 @@ const h = vi.hoisted(() => ({
   seq: 0,
   store: {} as Record<string, Array<Record<string, unknown>>>,
   requireAdmin: vi.fn(),
+  registerCustomDomain: vi.fn(),
 })) as unknown as FakeStoreHandle & {
   requireAdmin: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
+  registerCustomDomain: ReturnType<typeof import('vitest').vi.fn<(...args: unknown[]) => unknown>>
 }
 
 vi.mock('@/lib/supabase', () => {
@@ -26,6 +28,9 @@ vi.mock('@/lib/supabase', () => {
   return { supabaseAdmin: fake, supabase: fake }
 })
 vi.mock('@/lib/require-admin', () => ({ requireAdmin: (...a: unknown[]) => h.requireAdmin(...a) }))
+vi.mock('@/lib/vercel-domains', () => ({
+  registerCustomDomain: (...a: unknown[]) => h.registerCustomDomain(...a),
+}))
 
 import { GET, POST } from './route'
 
@@ -37,6 +42,10 @@ beforeEach(() => {
   h.seq = 0
   h.requireAdmin.mockReset()
   h.requireAdmin.mockResolvedValue(null)
+  h.registerCustomDomain.mockReset()
+  h.registerCustomDomain.mockImplementation(async (...args: unknown[]) => ({
+    ok: true, domain: args[0] as string, status: 'created', verified: false, records: [],
+  }))
   h.store = {
     tenants: [
       { id: 'tenant-A', name: 'Acme Cleaning' },
@@ -197,6 +206,46 @@ describe('POST /api/admin/websites — domain normalization', () => {
     const res = await POST(postReq({ tenant_id: 'tenant-norm4', domain: '   ' }))
 
     expect(res.status).toBe(400)
+  })
+})
+
+describe('POST /api/admin/websites — Vercel domain registration', () => {
+  it('registers the normalized domain with Vercel and returns the result', async () => {
+    h.store.tenants.push({ id: 'tenant-vc1', name: 'Vercel Co', slug: 'vercel-co' })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-vc1', domain: 'https://Example-VC.com/path' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(h.registerCustomDomain).toHaveBeenCalledWith('example-vc.com')
+    expect(json.vercel).toMatchObject({ status: 'created' })
+  })
+
+  it('still returns 201 with the saved row when Vercel registration errors, so the admin sees the DB row was saved but Vercel failed', async () => {
+    h.store.tenants.push({ id: 'tenant-vc2', name: 'Vercel Co 2', slug: 'vercel-co-2' })
+    h.registerCustomDomain.mockResolvedValueOnce({
+      ok: false, domain: 'fails.com', status: 'error', verified: false, records: [], detail: '500 unknown',
+    })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-vc2', domain: 'fails.com' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.domain.domain).toBe('fails.com')
+    expect(json.vercel).toMatchObject({ status: 'error', detail: '500 unknown' })
+  })
+
+  it('surfaces a "skipped" status (Vercel env not configured) instead of silently reporting success', async () => {
+    h.store.tenants.push({ id: 'tenant-vc3', name: 'Vercel Co 3', slug: 'vercel-co-3' })
+    h.registerCustomDomain.mockResolvedValueOnce({
+      ok: false, domain: 'skip.com', status: 'skipped', verified: false, records: [], detail: 'vercel env not configured',
+    })
+
+    const res = await POST(postReq({ tenant_id: 'tenant-vc3', domain: 'skip.com' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(201)
+    expect(json.vercel.status).toBe('skipped')
   })
 })
 

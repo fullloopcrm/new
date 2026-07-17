@@ -64,10 +64,20 @@ export default function AdminWebsitesPage() {
         body: JSON.stringify({ domain: newDomain.trim(), tenant_id: newTenantId })
       })
       if (res.ok) {
+        const body = await res.json()
         setShowAddForm(false)
         setNewDomain('')
         setNewTenantId('')
         fetchData()
+        // The DB row is saved either way; a Vercel-side failure/skip here means
+        // the domain won't actually route or get a cert until that's resolved,
+        // which the admin needs to know rather than assuming "added" = "live".
+        const vercelStatus = body.vercel?.status
+        if (vercelStatus === 'error') {
+          alert(`Domain saved, but Vercel registration failed (${body.vercel.detail || 'unknown error'}). It will not serve traffic until this is resolved.`)
+        } else if (vercelStatus === 'skipped') {
+          alert('Domain saved, but Vercel is not configured in this environment — it will not serve traffic until registered manually.')
+        }
       } else {
         const err = await res.json()
         alert(err.error || 'Failed to add domain')
