@@ -1,6 +1,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail, tenantSender } from '@/lib/email'
+import { etMinuteOfDay } from '@/lib/recurring'
 
 export interface NotifyTeamMemberOptions {
   tenantId: string
@@ -24,9 +25,12 @@ export interface DeliveryReport {
   quietHours: boolean
 }
 
-function isQuietHours(quietStart: string, quietEnd: string): boolean {
-  const now = new Date()
-  const currentMinutes = now.getHours() * 60 + now.getMinutes()
+// quiet_start/quiet_end are set by the team member as their own ET
+// wall-clock time (team dashboard time-of-day picker) -- must compare
+// against the ET clock, not the server's local clock (UTC on Vercel).
+// `now` is exposed for testing; production call sites use the default.
+export function isQuietHours(quietStart: string, quietEnd: string, now: Date = new Date()): boolean {
+  const currentMinutes = etMinuteOfDay(now)
 
   const [startH, startM] = quietStart.split(':').map(Number)
   const [endH, endM] = quietEnd.split(':').map(Number)

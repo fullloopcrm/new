@@ -13,6 +13,7 @@ import {
   calendarDayOfWeek,
   formatNaiveET,
   etHour,
+  etMinuteOfDay,
   type RecurringType,
 } from './recurring'
 
@@ -564,5 +565,35 @@ describe('etHour — hour-gate counterpart of etToday', () => {
   it('returns 0, not 24, for ET midnight', () => {
     // 4am UTC on the 17th = midnight EDT on the 17th.
     expect(etHour(new Date('2026-07-17T04:00:00.000Z'))).toBe(0)
+  })
+})
+
+describe('etMinuteOfDay — quiet-hours-window counterpart of etHour', () => {
+  // Team-member quiet-hours preferences ("22:00" to "07:00") are set as the
+  // team member's own ET wall-clock time, but
+  // `now.getHours() * 60 + now.getMinutes()` reads the SERVER's local clock
+  // (UTC on Vercel). etMinuteOfDay() reads the true ET wall-clock
+  // minute-of-day instead.
+
+  it('reads the ET minute-of-day, not the UTC one, in EDT (UTC-4)', () => {
+    // 17:30 UTC on a July date = 1:30pm EDT = 810 minutes.
+    expect(etMinuteOfDay(new Date('2026-07-17T17:30:00.000Z'))).toBe(13 * 60 + 30)
+  })
+
+  it('reads the ET minute-of-day, not the UTC one, in EST (UTC-5)', () => {
+    // 18:15 UTC on a January date = 1:15pm EST = 795 minutes.
+    expect(etMinuteOfDay(new Date('2026-01-17T18:15:00.000Z'))).toBe(13 * 60 + 15)
+  })
+
+  it('returns 0, not 1440, for ET midnight', () => {
+    // 4am UTC on the 17th = midnight EDT on the 17th.
+    expect(etMinuteOfDay(new Date('2026-07-17T04:00:00.000Z'))).toBe(0)
+  })
+
+  it('defaults to the real current instant when no date is passed', () => {
+    const before = etMinuteOfDay(new Date())
+    expect(etMinuteOfDay()).toBeGreaterThanOrEqual(0)
+    expect(etMinuteOfDay()).toBeLessThan(1440)
+    expect(Math.abs(etMinuteOfDay() - before)).toBeLessThan(5)
   })
 })

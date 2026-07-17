@@ -345,6 +345,24 @@ export function etHour(date: Date): number {
   return hour === 24 ? 0 : hour
 }
 
+/**
+ * ET wall-clock minute-of-day (0-1439) for a given instant -- the
+ * quiet-hours-window counterpart of etHour() above. Team-member "quiet
+ * hours" preferences (e.g. "22:00" to "07:00") are set as the team member's
+ * own ET wall-clock time via the team dashboard, but
+ * `now.getHours() * 60 + now.getMinutes()` reads the SERVER's local clock
+ * (UTC on Vercel) -- the same ET/UTC gap as every other bug in this class,
+ * silently suppressing push notifications during real evening work hours
+ * and letting them through during the real overnight quiet window.
+ */
+export function etMinuteOfDay(date: Date = new Date()): number {
+  const [hourStr, minuteStr] = date
+    .toLocaleTimeString('en-GB', { timeZone: 'America/New_York', hour12: false })
+    .split(':')
+  const hour = Number(hourStr) === 24 ? 0 : Number(hourStr)
+  return hour * 60 + Number(minuteStr)
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string
