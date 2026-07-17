@@ -11,6 +11,23 @@ import { protectClientAPI } from '@/lib/client-auth'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { omit } from '@/lib/validate'
 
+// bookings.team_member_token/token_expires_at — a fresh crypto-random token
+// ("Team member token (for portal access)", supabase/schema.sql's legacy
+// `worker_token` column comment) is generated and stored on EVERY booking
+// (client/book's generateCleanerToken(), client/recurring, admin/
+// recurring-schedules, bookings/batch, sale-to-recurring.ts all write it).
+// admin/recurring-schedules/route.ts's own doc comment confirms the live
+// FullLoop column is named `team_member_token` (nycmaid's `cleaner_token`
+// renamed on port) — supabase/schema.sql's `worker_token` is the stale
+// pre-rename bootstrap name, same schema/migrations-vs-prod drift this
+// session has found before. Grepped every read site in the repo: nothing
+// ever validates either name as a credential — it's written but never
+// consumed for its apparent purpose. Zero legitimate reader, same invariant
+// as clients.pin/team_members.pin below — strip both possible names before
+// this reaches the client's browser (redacting a name that isn't a real
+// column is a harmless no-op; not redacting the real one is the leak).
+const NEVER_RETURNED_BOOKING_FIELDS = ['team_member_token', 'worker_token', 'token_expires_at']
+
 function fmtDate(iso: string, tz: string): string {
   return new Date(iso).toLocaleDateString('en-US', {
     timeZone: tz, weekday: 'long', month: 'long', day: 'numeric',
@@ -168,9 +185,10 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // member's own portal-login PIN, not the client's, and clients.pin is a
   // plaintext credential too. Redact both before returning; the fan-out
   // closure above already captured the un-redacted `updated`, so it's
-  // unaffected.
+  // unaffected. bookings.worker_token/token_expires_at are redacted from the
+  // top-level spread for the same reason (see NEVER_RETURNED_BOOKING_FIELDS).
   return NextResponse.json({
-    ...updated,
+    ...omit(updated, NEVER_RETURNED_BOOKING_FIELDS),
     clients: updated.clients ? omit(updated.clients, ['pin']) : updated.clients,
     team_members: updated.team_members ? omit(updated.team_members, ['pin']) : updated.team_members,
   })

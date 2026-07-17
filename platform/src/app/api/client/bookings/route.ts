@@ -2,6 +2,20 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
+import { omit } from '@/lib/validate'
+
+// bookings.team_member_token/token_expires_at — a fresh crypto-random token
+// ("Team member token (for portal access)", supabase/schema.sql's legacy
+// `worker_token` column comment) generated and stored on every booking
+// (client/book, client/recurring, admin/recurring-schedules, bookings/batch
+// all write it). admin/recurring-schedules/route.ts's own doc comment
+// confirms the live column is named `team_member_token` (nycmaid's
+// `cleaner_token` renamed on port) — schema.sql's `worker_token` is the
+// stale pre-rename name. Nothing in the repo ever reads/validates either
+// name as a credential. Zero legitimate reader — strip both possible names
+// before this reaches the client's browser, same invariant as the
+// clients.pin/team_members.pin redactions.
+const NEVER_RETURNED_BOOKING_FIELDS = ['team_member_token', 'worker_token', 'token_expires_at']
 
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -74,8 +88,8 @@ export async function GET(request: Request) {
     .limit(20)
 
   return NextResponse.json({
-    upcoming: upcoming || [],
-    past: past || [],
+    upcoming: (upcoming || []).map(b => omit(b, NEVER_RETURNED_BOOKING_FIELDS)),
+    past: (past || []).map(b => omit(b, NEVER_RETURNED_BOOKING_FIELDS)),
     do_not_service: clientRecord?.do_not_service || false,
   })
 }

@@ -18,6 +18,23 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { getSettings } from '@/lib/settings'
 import { labelToHour } from '@/lib/time-slots'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { omit } from '@/lib/validate'
+
+// bookings.team_member_token/token_expires_at — this route ITSELF generates
+// the fresh crypto-random token below (generateCleanerToken(), passed as
+// p_team_member_token into create_booking_atomic) and stores it on every new
+// booking. supabase/schema.sql's `worker_token` column comment ("Team member
+// token (for portal access)") describes the same field under its legacy
+// pre-rename name — admin/recurring-schedules/route.ts's own doc comment
+// confirms the live column is `team_member_token` (nycmaid's `cleaner_token`
+// renamed on port). Grepped every read site in the repo: nothing ever
+// validates either name as a credential — it's written but never consumed
+// for its apparent portal-access purpose. Zero legitimate reader — strip
+// both possible names before this reaches the client's browser. Unlike
+// clients.pin below (deliberately echoed once to a new client), there is no
+// equivalent legitimate reader for this field, so it's unconditionally
+// redacted, not reviewed case-by-case.
+const NEVER_RETURNED_BOOKING_FIELDS = ['team_member_token', 'worker_token', 'token_expires_at']
 import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
@@ -463,7 +480,7 @@ export async function POST(request: Request) {
       console.error('Mirror-deal create error (non-blocking):', dealErr)
     }
 
-    return NextResponse.json({ ...data, is_new_client: isNewClient })
+    return NextResponse.json({ ...omit(data, NEVER_RETURNED_BOOKING_FIELDS), is_new_client: isNewClient })
   } catch (err) {
     console.error('Booking error:', err)
     return NextResponse.json({ error: 'Failed to create booking' }, { status: 500 })
