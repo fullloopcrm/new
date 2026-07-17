@@ -294,6 +294,42 @@ urgency signal in that message. 2 new tests
 (`route.emergency-flag.test.ts`), mutation-verified. `tsc --noEmit` clean,
 full suite 329/329 files, 1745/1745 tests, zero regressions.
 
+**Update, later this session — the PUSH half is now FIXED too (`p1-w3`),
+closing item (7) completely.** Re-read the "needs a copy/wording decision"
+call above and found the decision had already been made elsewhere in this
+codebase: `smsUrgentBroadcast()`/`smsUrgentBroadcastES()`
+(`src/lib/sms-templates.ts`, the already-shipped find-cleaner broadcast
+templates referenced in item (10)) already establish the exact wording —
+`"{bizName} URGENT: $X/hr job available..."` bilingual. Ported that same
+convention into the two direct-assignment templates instead of opening a
+new product decision: `jobAssignment()` (`src/lib/messaging/team-sms.ts`)
+and `smsJobAssignment()` (`src/lib/sms-templates.ts`) both now take optional
+`is_emergency`/`pay_rate` fields on their booking param and prefix
+`"URGENT — "` / `"URGENTE — "` plus a `" Pay: $X/hr."` line when
+`is_emergency` is true (omitted when `pay_rate` isn't set, so the prefix
+alone still lands even if pay isn't priced yet). Wired at both real call
+sites that fire this SMS on a live `team_member_id` assignment: `PUT
+/api/bookings/[id]/route.ts` (reassignment — the path item (7) originally
+traced) and `POST /api/bookings` (the emergency-create path referenced
+throughout items (3)/(5)/(9) — an admin-created same-day booking can already
+carry an assigned tech at creation time, which was the same blind spot).
+`POST /api/bookings/batch` (recurring/multi-booking series) was left
+untouched — verified its row-builder never sets `is_emergency` on a batch
+row at all, since that flag is exclusively the single-booking create
+dialog's one-time toggle per item (8)'s finding, so there's nothing for the
+new wording to key off there; not a gap. 9 new tests across
+`team-sms-resolver.test.ts` (both the cleaning-brand and generic/trade
+branches) and a new `sms-templates.emergency-rate-wording.test.ts`,
+covering: emergency-with-rate, emergency-with-no-rate-on-record (prefix
+still fires, rate line omitted), and the routine-job control (byte-identical
+to before, no regression for the ~99% non-emergency case). `tsc --noEmit`
+clean, full suite 330/330 files, 1754/1754 tests, zero regressions.
+Verification method unchanged from the rest of this doc: this worktree still
+has no `.env.local`/Supabase env for a live send, so this was confirmed via
+the actual unit tests calling the live, DB-free template functions directly
+with an emergency-shaped booking and asserting on the real rendered string
+(not mocked), same as every P11.x check in `scripts/sim-all-trades.ts`.
+
 ## (8) New today — the operator's own admin UI never visually flags an emergency booking either — NOW FIXED
 
 Third and final leg of items (7)'s "who ever finds out this job is
@@ -357,6 +393,28 @@ no render-test setup in this repo), so verification is type-level plus
 direct re-read of each diff against its surrounding JSX; full existing
 suite re-run clean at 328/328 files, 1743/1743 tests, zero regressions
 (expected — none of these four files had prior test coverage to regress).
+
+**Update, later this session — Map view is now FIXED too (`p1-w3`), closing
+item (8) completely.** The open question left above was a non-color marker
+treatment, since marker color already encodes `status`
+(`src/app/dashboard/map/map-view.tsx`'s `statusIcon()`). Resolved it the
+same way `KanbanView.tsx` did (badge chip + red ring, not a color swap):
+`statusIcon()` now takes an `isEmergency` param and, when true, renders the
+same status-colored circle with a red `border` + red-tinted `box-shadow`
+ring plus a small 🚨 badge overlaid at the marker's corner — status color
+and emergency state are both visible at a glance, neither overwrites the
+other. `GeocodedBooking` (`map-view.tsx`) and `Booking` (`page.tsx`) both
+gained `is_emergency?: boolean | null` (same "already in the `'*'`
+response, just not in the local type" pattern as the other three surfaces).
+Popup content also gained a `🚨 Emergency` line, and the sidebar Legend got
+a one-line explainer (`🚨 Emergency (red ring)`) so the new marker treatment
+isn't undocumented on the one page that explains what markers mean.
+`ProjectsView.tsx` remains untouched — still structurally excluded per the
+original finding (multiday/project jobs only, this archetype's same-day
+bookings can't reach it). `tsc --noEmit` clean, full suite 330/330 files,
+1754/1754 tests, zero regressions (no render-test harness for this file
+either, same precedent as above — verified type-level plus direct re-read
+of the diff).
 
 ## (9) New today — the actual payment receipt never reaches the client at all; the one template that would show a breakdown is dead code for client delivery
 
@@ -465,6 +523,44 @@ so this is a decision doc, not a code change:
 `day-availability.ts`, `008_cleaner_broadcasts.sql`, and both `.rbac.test.ts`
 probes directly, plus confirming via `grep -rn "find-cleaner"` across all
 `.ts`/`.tsx`/`.json` that no nav config references it anywhere in the repo.
+
+## (11) New today — the reschedule-into-same-day path had the identical team-SMS urgency gap as item (7), on a third code path item (7) never traced
+
+Found while closing item (7)'s push half above: `PUT
+/api/client/reschedule/[id]/route.ts` has its own `becomesEmergency`
+recomputation (`:74-90`, the reschedule-path twin of the create-path
+same-day-is-emergency rule documented at P11.8/16/17) — if a client moves an
+existing routine booking to today, this route flips `is_emergency` true and
+recalculates `hourly_rate`/`price` at the tenant's configured emergency
+rate. But the assigned tech's notification for this event is
+`smsJobRescheduled()` (`src/lib/sms-templates.ts`), a third, separate
+template from the two item (7) already covered
+(`jobAssignment()`/`smsJobAssignment()`) — its signature had no
+`is_emergency`/`pay_rate` field either, so a tech whose routine job just got
+moved into a same-day emergency by the client got the exact same
+"Rescheduled - {client} moved to {date} {time}" text as any routine
+reschedule, with no signal that the job is now urgent or that a pay premium
+now applies. Same root cause and same shape as (7), just a path (7)'s
+original trace didn't reach since it only read `PUT /api/bookings/[id]` and
+`POST /api/bookings`, not the client-facing reschedule endpoint.
+
+**Fixed** (`p1-w3`), same convention as item (7)'s push-half fix (ported
+from the already-shipped `smsUrgentBroadcast()` wording, no new decision
+needed): `smsJobRescheduled()` now takes optional `is_emergency`/`pay_rate`
+fields and prefixes `"URGENT — "`/`"URGENTE — "` plus a pay-rate line under
+the same rules as the other two templates. No call-site change was needed
+beyond the template itself — `reschedule/[id]/route.ts:161` already passes
+the whole `updated` row (the post-update `.select('*', ...)` result, which
+already carries `is_emergency`/`pay_rate` since this same route just wrote
+them) into `smsJobRescheduled(tenant.name, updated)`; only the function's
+own signature was blind to those fields before this fix. Confirmed only one
+real (non-legacy-clone) call site of `smsJobRescheduled` exists in the
+codebase. 5 new tests in `src/lib/sms-templates.emergency-rate-wording.test.ts`
+(routine control, emergency-with-rate, and the same coverage for
+`smsJobAssignment`), calling the live functions directly (no
+`.env.local`/Supabase env in this worktree, same constraint as every other
+item in this doc). `tsc --noEmit` clean, full suite 330/330 files,
+1754/1754 tests, zero regressions.
 
 ## Not re-litigated here (already tracked elsewhere, still open)
 

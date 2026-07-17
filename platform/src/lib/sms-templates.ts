@@ -64,12 +64,19 @@ export function smsVerificationCode(bizName: string, code: string): string {
 // TEAM MEMBER SMS
 // ============================================
 
-export function smsJobAssignment(bizName: string, booking: { start_time: string; clients?: { name: string } | null }, portalUrl?: string): string {
+// Item (7)/P11.22 push-half fix: was urgency-blind by construction (no
+// emergency/pay-rate field in the signature at all, identical gap shape to
+// smsBookingReceived above before P11.14). Both fields optional so every
+// existing caller keeps working unchanged.
+export function smsJobAssignment(bizName: string, booking: { start_time: string; clients?: { name: string } | null; is_emergency?: boolean | null; pay_rate?: number | null }, portalUrl?: string): string {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
   const link = portalUrl ? ` Portal: ${portalUrl}` : ''
-  return `${bizName}: New job ${date} ${time} - ${clientName}.${link}\n---\n${bizName}: Nuevo trabajo ${date} ${time} - ${clientName}.${link}${STOP_TEXT}`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  const prefixEs = booking.is_emergency ? 'URGENTE — ' : ''
+  const rateLine = booking.is_emergency && booking.pay_rate ? ` Pay: $${booking.pay_rate}/hr.` : ''
+  return `${bizName}: ${prefix}New job ${date} ${time} - ${clientName}.${rateLine}${link}\n---\n${bizName}: ${prefixEs}Nuevo trabajo ${date} ${time} - ${clientName}.${rateLine}${link}${STOP_TEXT}`
 }
 
 export function smsDailySummary(bizName: string, memberName: string, count: number, portalUrl?: string): string {
@@ -84,11 +91,21 @@ export function smsJobCancelled(bizName: string, booking: { start_time: string; 
   return `${bizName}: Cancelled - ${date} job (${clientName}).\n---\n${bizName}: Cancelado - trabajo del ${date} (${clientName}).${STOP_TEXT}`
 }
 
-export function smsJobRescheduled(bizName: string, booking: { start_time: string; clients?: { name: string } | null }): string {
+// Fresh-ground fix, same shape as smsJobAssignment above: a booking rescheduled
+// INTO same-day (PUT /api/client/reschedule/[id] recomputes is_emergency/rate
+// when the new date lands today, see becomesEmergency in that route) still
+// sent the assigned tech a byte-identical reschedule SMS with no urgency or
+// pay-rate signal — same team-facing gap as item (7)/P11.21, just on the
+// reschedule path instead of create/direct-assignment. Both fields optional
+// so every existing caller (client-reschedule confirmations too) is unchanged.
+export function smsJobRescheduled(bizName: string, booking: { start_time: string; clients?: { name: string } | null; is_emergency?: boolean | null; pay_rate?: number | null }): string {
   const newDate = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
   const newTime = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
   const clientName = booking.clients?.name || 'Client'
-  return `${bizName}: Rescheduled - ${clientName} moved to ${newDate} ${newTime}.\n---\n${bizName}: Reprogramado - ${clientName} movido a ${newDate} ${newTime}.${STOP_TEXT}`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  const prefixEs = booking.is_emergency ? 'URGENTE — ' : ''
+  const rateLine = booking.is_emergency && booking.pay_rate ? ` Pay: $${booking.pay_rate}/hr.` : ''
+  return `${bizName}: ${prefix}Rescheduled - ${clientName} moved to ${newDate} ${newTime}.${rateLine}\n---\n${bizName}: ${prefixEs}Reprogramado - ${clientName} movido a ${newDate} ${newTime}.${rateLine}${STOP_TEXT}`
 }
 
 export function smsUrgentBroadcast(bizName: string, booking: { start_time: string; team_pay_rate?: number }): string {

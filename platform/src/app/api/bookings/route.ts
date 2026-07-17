@@ -321,7 +321,7 @@ export async function POST(request: Request) {
       if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.team_members.phone,
-          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, clients: data.clients, team_members: data.team_members }),
+          body: teamSmsTemplates(tenantData || {}).jobAssignment({ start_time: data.start_time, hourly_rate: data.hourly_rate, pay_rate: data.pay_rate, is_emergency: data.is_emergency, clients: data.clients, team_members: data.team_members }),
           telnyxApiKey: tenantData.telnyx_api_key,
           telnyxPhone: tenantData.telnyx_phone,
         }).catch(err => console.error('Team assignment SMS error:', err))

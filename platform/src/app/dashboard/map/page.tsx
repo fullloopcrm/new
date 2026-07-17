@@ -13,6 +13,7 @@ type Booking = {
   status: string
   price: number | null
   notes: string | null
+  is_emergency?: boolean | null
   client_id: string | null
   team_member_id: string | null
   clients: { name: string; phone: string | null; address: string | null } | null
@@ -375,6 +376,10 @@ export default function MapPage() {
                   <span className="text-xs text-slate-400">{item.label}</span>
                 </div>
               ))}
+              <div className="flex items-center gap-2 pt-1">
+                <span className="text-xs">🚨</span>
+                <span className="text-xs text-slate-400">Emergency (red ring)</span>
+              </div>
             </div>
           </div>
         </div>

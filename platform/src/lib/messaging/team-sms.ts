@@ -16,6 +16,8 @@ const STOP_TEXT = '\nReply STOP to opt out.'
 export type TeamBookingLike = {
   start_time: string
   hourly_rate?: number | null
+  pay_rate?: number | null
+  is_emergency?: boolean | null
   clients?: { name?: string | null; phone?: string | null; address?: string | null } | null
   team_members?: { name?: string | null; pin?: string | null } | null
 }
@@ -32,13 +34,20 @@ function suppliesLine(booking: TeamBookingLike): string {
     : ' (Bring supplies / Trae suministros)'
 }
 
+// Item (7)/P11.22 push-half fix: booking.is_emergency/pay_rate were never in
+// this signature at all, so an assigned tech had no way to learn the job was
+// urgent or that a pay premium applied. Both fields optional so every
+// existing caller keeps working unchanged.
 export function jobAssignment(brand: TenantBrand, booking: TeamBookingLike): string {
   const date = etDate(booking.start_time)
   const time = etTime(booking.start_time)
   const pin = booking.team_members?.pin || ''
   const supplies = suppliesLine(booking)
   const portal = `${brand.site}/team`
-  return `${brand.name}: New job ${date} ${time} - ${booking.clients?.name || 'Client'}.${supplies} Portal: ${portal} PIN: ${pin}\nNuevo trabajo ${date} ${time}.${supplies} Portal: ${portal} PIN: ${pin}${STOP_TEXT}`
+  const prefix = booking.is_emergency ? 'URGENT — ' : ''
+  const prefixEs = booking.is_emergency ? 'URGENTE — ' : ''
+  const rateLine = booking.is_emergency && booking.pay_rate ? ` Pay: $${booking.pay_rate}/hr.` : ''
+  return `${brand.name}: ${prefix}New job ${date} ${time} - ${booking.clients?.name || 'Client'}.${rateLine}${supplies} Portal: ${portal} PIN: ${pin}\n${prefixEs}Nuevo trabajo ${date} ${time}.${rateLine}${supplies} Portal: ${portal} PIN: ${pin}${STOP_TEXT}`
 }
 
 export function dailySummary(brand: TenantBrand, cleanerName: string, count: number, pin?: string, bookings?: TeamBookingLike[]): string {

@@ -17,8 +17,11 @@ L.Icon.Default.mergeOptions({
     'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
 })
 
-// Colored markers based on booking status
-function statusIcon(status: string) {
+// Colored markers based on booking status. Emergency bookings get a red ring
+// + badge overlay rather than a marker-color swap, since color already
+// encodes status — this was the one archetype surface item (8)/P11.22 left
+// open pending a non-color marker treatment.
+function statusIcon(status: string, isEmergency?: boolean) {
   const colors: Record<string, string> = {
     scheduled: '#3b82f6',
     confirmed: '#6366f1',
@@ -28,9 +31,18 @@ function statusIcon(status: string) {
     cancelled: '#ef4444',
     no_show: '#6b7280',
   }
+  const color = colors[status] || '#6b7280'
+  if (isEmergency) {
+    return L.divIcon({
+      className: '',
+      html: `<div style="position:relative;width:28px;height:28px;"><div style="width:28px;height:28px;border-radius:50%;background:${color};border:3px solid #ef4444;box-shadow:0 0 0 2px white, 0 2px 6px rgba(239,68,68,0.5)"></div><div style="position:absolute;top:-7px;right:-8px;font-size:13px;line-height:1;">🚨</div></div>`,
+      iconSize: [28, 28],
+      iconAnchor: [14, 14],
+    })
+  }
   return L.divIcon({
     className: '',
-    html: `<div style="width:24px;height:24px;border-radius:50%;background:${colors[status] || '#6b7280'};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
+    html: `<div style="width:24px;height:24px;border-radius:50%;background:${color};border:3px solid white;box-shadow:0 2px 6px rgba(0,0,0,0.3)"></div>`,
     iconSize: [24, 24],
     iconAnchor: [12, 12],
   })
@@ -44,6 +56,7 @@ type GeocodedBooking = {
   status: string
   price: number | null
   notes: string | null
+  is_emergency?: boolean | null
   lat: number
   lng: number
   clients: { name: string; phone: string | null; address: string | null } | null
@@ -83,9 +96,12 @@ export default function MapView({ bookings, fmt }: MapViewProps) {
         url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
       />
       {bookings.map((b) => (
-        <Marker key={b.id} position={[b.lat, b.lng]} icon={statusIcon(b.status)}>
+        <Marker key={b.id} position={[b.lat, b.lng]} icon={statusIcon(b.status, b.is_emergency ?? undefined)}>
           <Popup>
             <div className="text-sm min-w-[200px]">
+              {b.is_emergency && (
+                <p className="text-xs font-bold text-red-600 mb-1">🚨 Emergency</p>
+              )}
               <p className="font-bold text-slate-800 text-base mb-1">
                 {b.clients?.name || 'Unknown Client'}
               </p>

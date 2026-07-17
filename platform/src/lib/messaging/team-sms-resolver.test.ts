@@ -53,3 +53,41 @@ describe('teamSmsTemplates — non-cleaning tenant is unaffected (generic copy)'
     expect(body).toContain('Acme Plumbing: New job')
   })
 })
+
+// Item (7)/P11.21 push-half fix: an assigned tech previously got byte-identical
+// copy whether the job was routine or a same-day emergency. is_emergency/pay_rate
+// are optional on TeamBookingLike so every non-emergency caller above stays
+// unchanged (already asserted: neither contains "URGENT" or a $ rate).
+describe('teamSmsTemplates — emergency job assignment now surfaces urgency + pay rate', () => {
+  const emergencyBooking = { ...booking, is_emergency: true, pay_rate: 90 }
+
+  it('cleaning-tenant jobAssignment prefixes URGENT and states the pay rate, bilingual', () => {
+    const templates = teamSmsTemplates({ industry: 'cleaning', name: 'The NYC Maid', website_url: 'https://thenycmaid.com' })
+    const body = templates.jobAssignment(emergencyBooking)
+    expect(body).toContain('URGENT — New job')
+    expect(body).toContain('URGENTE — Nuevo trabajo')
+    expect(body).toContain('Pay: $90/hr.')
+  })
+
+  it('generic (non-cleaning) jobAssignment prefixes URGENT and states the pay rate, bilingual', () => {
+    const templates = teamSmsTemplates({ industry: 'plumbing', name: 'Acme Plumbing' })
+    const body = templates.jobAssignment(emergencyBooking)
+    expect(body).toContain('URGENT — New job')
+    expect(body).toContain('URGENTE — Nuevo trabajo')
+    expect(body).toContain('Pay: $90/hr.')
+  })
+
+  it('a routine (non-emergency) job keeps byte-identical copy, no rate line', () => {
+    const templates = teamSmsTemplates({ industry: 'plumbing', name: 'Acme Plumbing' })
+    const body = templates.jobAssignment(booking)
+    expect(body).not.toContain('URGENT')
+    expect(body).not.toContain('Pay: $')
+  })
+
+  it('emergency with no pay_rate on record omits the rate line but keeps the URGENT prefix', () => {
+    const templates = teamSmsTemplates({ industry: 'plumbing', name: 'Acme Plumbing' })
+    const body = templates.jobAssignment({ ...booking, is_emergency: true })
+    expect(body).toContain('URGENT — New job')
+    expect(body).not.toContain('Pay: $')
+  })
+})
