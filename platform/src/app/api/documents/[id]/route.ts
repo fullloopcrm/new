@@ -84,14 +84,24 @@ export async function PATCH(request: Request, { params }: Params) {
     const assignables = ['title', 'message', 'sign_order', 'expires_at', 'consent_text'] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
+    // Atomic claim — only write while still draft. Without the status guard
+    // here, a concurrent send() flipping draft -> sent between the check
+    // above and this write would let a stale edit land on a document that's
+    // already out for signature.
     const { data, error } = await supabaseAdmin
       .from('documents')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', 'draft')
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({
+        error: 'Document status changed and is no longer editable — void first and duplicate to create a corrected version.',
+      }, { status: 400 })
+    }
     return NextResponse.json({ document: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -109,27 +119,39 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     const { data: existing } = await supabaseAdmin
       .from('documents')
-      .select('status, original_path, signed_path')
+      .select('status')
       .eq('tenant_id', tenantId)
       .eq('id', id)
-      .single()
+      .maybeSingle()
     if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     if (!isEditableStatus(existing.status)) {
       return NextResponse.json({ error: 'Only drafts can be deleted. Void sent docs instead.' }, { status: 400 })
     }
 
-    // Remove storage objects
-    const paths = [existing.original_path, existing.signed_path].filter(Boolean) as string[]
-    if (paths.length > 0) {
-      await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).remove(paths)
-    }
-
-    const { error } = await supabaseAdmin
+    // Atomic claim — delete only while still draft, conditioned in the same
+    // statement. Without this, a concurrent send() flipping draft -> sent
+    // between the check above and the delete would let this request wipe out
+    // a document (row + storage) that real signers were just notified about,
+    // with no recovery path. Storage cleanup is deliberately ordered *after*
+    // the claim succeeds, using the paths returned by the delete itself, so
+    // we never remove files for a document we didn't actually delete.
+    const { data: claimed, error } = await supabaseAdmin
       .from('documents')
       .delete()
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', 'draft')
+      .select('original_path, signed_path')
+      .maybeSingle()
     if (error) throw error
+    if (!claimed) {
+      return NextResponse.json({ error: 'Only drafts can be deleted. Void sent docs instead.' }, { status: 400 })
+    }
+
+    const paths = [claimed.original_path, claimed.signed_path].filter(Boolean) as string[]
+    if (paths.length > 0) {
+      await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).remove(paths)
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

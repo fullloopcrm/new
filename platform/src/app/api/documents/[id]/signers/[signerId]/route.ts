@@ -36,15 +36,27 @@ export async function PATCH(request: Request, { params }: Params) {
       if (k in body) updates[k] = body[k]
     }
 
+    // Atomic claim — only edit a signer still at 'pending'. requireDraft()
+    // above reads the *document's* status, which is racy against a
+    // concurrent send(): send() flips document draft -> sent AND (once
+    // notified) signer pending -> sent in the same request. Gating this
+    // write on the signer's own status closes that race in a single-table
+    // condition, and — unlike the document-level check — it also blocks
+    // editing a signer who has since been viewed, signed, or declined even
+    // outside a send race.
     const { data, error } = await supabaseAdmin
       .from('document_signers')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', signerId)
       .eq('document_id', id)
+      .eq('status', 'pending')
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({ error: 'Cannot modify a signer that has already been notified, viewed, signed, or declined.' }, { status: 400 })
+    }
     return NextResponse.json({ signer: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
@@ -61,13 +73,25 @@ export async function DELETE(_request: Request, { params }: Params) {
     const check = await requireDraft(tenantId, id)
     if (check) return NextResponse.json({ error: check.error }, { status: check.status })
 
-    const { error } = await supabaseAdmin
+    // Atomic claim — only delete a signer still at 'pending'. Without this,
+    // a concurrent sign() (which atomically claims pending/sent/viewed ->
+    // signed) racing this delete could win first, and this request would
+    // then delete the row anyway — destroying the just-recorded signature,
+    // IP, and timestamp with no recovery path, the same class of bug fixed
+    // in decline vs. sign.
+    const { data, error } = await supabaseAdmin
       .from('document_signers')
       .delete()
       .eq('tenant_id', tenantId)
       .eq('id', signerId)
       .eq('document_id', id)
+      .eq('status', 'pending')
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({ error: 'Cannot remove a signer that has already been notified, viewed, signed, or declined.' }, { status: 400 })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

@@ -70,6 +70,25 @@ export async function POST(request: Request, { params }: Params) {
       .select('*')
       .single()
     if (error) throw error
+
+    // Post-insert verification — a concurrent send() could flip the document
+    // from draft to sent between the check above and this insert landing.
+    // Inserts can't carry a WHERE on a different table's row, so the guard
+    // has to be a re-check + rollback instead of a single atomic claim: if
+    // we lost the race, delete the signer we just added rather than leaving
+    // it stranded at 'pending' forever (send()'s notify loop already ran and
+    // will never pick this signer up, with no error ever surfaced to the
+    // admin who added them).
+    const { data: stillDraft } = await supabaseAdmin
+      .from('documents')
+      .select('status')
+      .eq('id', id)
+      .maybeSingle()
+    if (!stillDraft || !isEditableStatus(stillDraft.status)) {
+      await supabaseAdmin.from('document_signers').delete().eq('id', data.id)
+      return NextResponse.json({ error: 'Cannot add signers to a sent document. Void first.' }, { status: 400 })
+    }
+
     return NextResponse.json({ signer: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
