@@ -21,13 +21,20 @@ export async function POST(request: Request) {
     // Get client
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('name, email, phone')
+      .select('name, email, phone, sms_consent, do_not_service')
       .eq('id', client_id)
       .eq('tenant_id', tenantId)
       .single()
 
     if (!client) {
       return NextResponse.json({ error: 'Client not found' }, { status: 404 })
+    }
+
+    // do_not_service is the codebase-wide "NEVER contact" flag (client/book,
+    // client-auth.ts, campaigns/send, payment-processor.ts all enforce it) —
+    // block the whole action, same as those single-client-action call sites.
+    if (client.do_not_service) {
+      return NextResponse.json({ error: 'Client is marked do-not-service; review request blocked.' }, { status: 403 })
     }
 
     // booking_id is caller-supplied — verify it belongs to this tenant AND
@@ -89,8 +96,11 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send SMS if available
-    if (client.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // Send SMS if available. sms_consent is the literal STOP-reply flag (set
+    // false by the Telnyx webhook) -- TCPA requires every further send stop
+    // once revoked, not just marketing sends (same reasoning applied to
+    // schedule-pause/running-late/payment-followup-daily this session).
+    if (client.phone && client.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         await sendSMS({
           to: client.phone,
