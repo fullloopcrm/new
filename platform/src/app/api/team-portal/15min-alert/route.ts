@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
     // supabase-js's column-string type inference — cast to the shape actually selected.
     const { data: booking } = (await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
+      .select('id, tenant_id, start_time, end_time, check_in_time, check_out_time, service_type, hourly_rate, pay_rate, price, notes, max_hours, team_size, client_id, payment_status, fifteen_min_alert_time, is_emergency, clients(name, phone, email, address), team_members!bookings_team_member_id_fkey(name, pay_rate)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
       .single()) as { data: {
@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
         check_in_time: string | null; check_out_time: string | null; service_type: string | null
         hourly_rate: number | null; pay_rate: number | null; price: number | null; notes: string | null
         max_hours: number | null; team_size: number | null; client_id: string | null
-        payment_status: string | null; fifteen_min_alert_time: string | null
+        payment_status: string | null; fifteen_min_alert_time: string | null; is_emergency: boolean | null
         clients: unknown; team_members: unknown
       } | null }
 
@@ -75,6 +75,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, skipped: 'already paid' })
     }
 
+    const isEmergency = booking.is_emergency === true
     const tenantId = booking.tenant_id as string
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
@@ -139,7 +140,7 @@ export async function POST(req: NextRequest) {
     const checkedInAt = formatET(workStart, { hour: 'numeric', minute: '2-digit', hour12: true })
 
     const smsLines = [
-      `30-MIN HEADS UP`,
+      isEmergency ? `🚨 EMERGENCY — 30-MIN HEADS UP` : `30-MIN HEADS UP`,
       `${clientName} — ${serviceLabel}`,
       `Cleaner: ${cleanerName}`,
       `Checked in: ${checkedInAt} (${actualHours}hrs so far)`,
@@ -171,7 +172,7 @@ export async function POST(req: NextRequest) {
     await notify({
       tenantId,
       type: '15min_warning' as never,
-      title: '30-Min Heads Up',
+      title: isEmergency ? '🚨 Urgent — 30-Min Heads Up' : '30-Min Heads Up',
       message: smsMessage,
       bookingId,
     }).catch(() => {})
@@ -226,8 +227,10 @@ export async function POST(req: NextRequest) {
       await tenantDb(tenantId).from('admin_tasks').insert({
         type: 'payment_request_undelivered',
         priority: 'high',
-        title: `CALL ${clientName} manually — $${clientOwes} payment request undelivered`,
-        description: `SMS failed for booking ${bookingId}. Phone: ${clientPhone || 'none'}. Email on file: ${clientEmail || 'none'}. Cleaner is ~30 min from done.`,
+        title: isEmergency
+          ? `🚨 Urgent — CALL ${clientName} manually — $${clientOwes} payment request undelivered`
+          : `CALL ${clientName} manually — $${clientOwes} payment request undelivered`,
+        description: `${isEmergency ? '🚨 EMERGENCY — ' : ''}SMS failed for booking ${bookingId}. Phone: ${clientPhone || 'none'}. Email on file: ${clientEmail || 'none'}. Cleaner is ~30 min from done.`,
         related_type: 'booking',
         related_id: bookingId,
       }).then(() => {}, () => {})
