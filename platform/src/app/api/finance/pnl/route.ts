@@ -51,13 +51,19 @@ export async function GET(request: Request) {
     for (const b of bookings || []) {
       const priceCents = Math.round(Number(b.price || 0)) // already cents
       const payCents = Math.round(Number(b.team_member_pay || 0)) // already cents
+      // `status` and `payment_status` are independent (see ar-aging/pending
+      // fixes): bulk payroll flips `status` to 'paid' with no regard for
+      // whether the client ever paid. Treat 'paid' as settled here too, so
+      // cost-of-service and still-unpaid-client-revenue don't silently drop
+      // a booking the instant payroll runs on it.
+      const isSettled = b.status === 'completed' || b.status === 'paid'
       if (b.payment_status === 'paid' || b.payment_status === 'partial') {
         revenueCents += priceCents
         bookingsCount += 1
-      } else if (b.status === 'completed') {
+      } else if (isSettled) {
         unpaidCents += priceCents
       }
-      if (b.status === 'completed') {
+      if (isSettled) {
         costOfServiceCents += payCents
       }
     }

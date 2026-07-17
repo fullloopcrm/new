@@ -23,20 +23,31 @@ export async function GET() {
     const yearStart = new Date(now.getFullYear(), 0, 1)
     const yearEnd = new Date(now.getFullYear(), 11, 31, 23, 59, 59)
 
-    const baseSelect = 'price, team_member_pay, team_member_paid'
+    // `status` (job/team-pay lifecycle) and `team_member_paid` (out-of-band
+    // manual payout flag) are independent: POST /api/finance/payroll (bulk
+    // payroll) flips a booking's `status` straight to 'paid' once claimed,
+    // but never sets `team_member_paid`. The week/month/year queries below
+    // used to filter status='completed' only, so a bulk-paid booking
+    // vanished from labor cost + job-count totals entirely the moment
+    // payroll ran on it. Widened to include 'paid'; `sumPaidLabor` below
+    // now also treats status='paid' as settled so that money already paid
+    // via bulk payroll doesn't get counted as still-owed instead (which
+    // broadening the status filter alone would have caused, since
+    // team_member_paid stays false on those rows).
+    const baseSelect = 'price, team_member_pay, team_member_paid, status'
 
     const [{ data: weekBookings }, { data: monthBookings }, { data: yearBookings }, { data: pendingBookings }, { data: recentPayments }] = await Promise.all([
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
-      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).eq('status', 'completed').gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
-      supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, team_member_paid').eq('tenant_id', tenantId).eq('status', 'completed').or('payment_status.neq.paid,team_member_paid.neq.true'),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', weekStart.toISOString()).lt('start_time', weekEnd.toISOString()),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', monthStart.toISOString()).lte('start_time', monthEnd.toISOString()),
+      supabaseAdmin.from('bookings').select(baseSelect).eq('tenant_id', tenantId).in('status', ['completed', 'paid']).gte('start_time', yearStart.toISOString()).lte('start_time', yearEnd.toISOString()),
+      supabaseAdmin.from('bookings').select('price, team_member_pay, payment_status, team_member_paid, status').eq('tenant_id', tenantId).in('status', ['completed', 'paid']).or('payment_status.neq.paid,team_member_paid.neq.true'),
       supabaseAdmin.from('bookings').select('id, team_member_paid_at, team_member_pay, actual_hours, start_time, clients(name), team_members!bookings_team_member_id_fkey(name)').eq('tenant_id', tenantId).eq('status', 'completed').eq('team_member_paid', true).not('team_member_paid_at', 'is', null).order('team_member_paid_at', { ascending: false }).limit(20),
     ])
 
-    const sum = (arr: { price?: number | null; team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null, key: 'price' | 'team_member_pay') =>
+    const sum = (arr: { price?: number | null; team_member_pay?: number | null }[] | null, key: 'price' | 'team_member_pay') =>
       (arr || []).reduce((s, b) => s + (b[key] || 0), 0)
-    const sumPaidLabor = (arr: { team_member_pay?: number | null; team_member_paid?: boolean | null }[] | null) =>
-      (arr || []).filter(b => b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
+    const sumPaidLabor = (arr: { team_member_pay?: number | null; team_member_paid?: boolean | null; status?: string | null }[] | null) =>
+      (arr || []).filter(b => b.team_member_paid || b.status === 'paid').reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
     // Revenue from the LEDGER (single source of truth, matches the books).
     // Labor stays from bookings — it's operational owed/paid tracking.
@@ -60,7 +71,10 @@ export async function GET() {
     const yearLaborPaid = sumPaidLabor(yearBookings)
 
     const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => s + (b.price || 0), 0)
-    const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
+    // Same status='paid'-means-settled guard as sumPaidLabor above: a
+    // bulk-paid booking (status='paid') must not count toward cleaner
+    // pending pay just because team_member_paid was never set.
+    const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid && b.status !== 'paid').reduce((s, b) => s + (b.team_member_pay || 0), 0)
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
       supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStart.toISOString()).lte('created_at', monthEnd.toISOString()),
