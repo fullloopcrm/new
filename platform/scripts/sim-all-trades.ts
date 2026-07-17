@@ -2649,6 +2649,73 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-26. POST/PUT/DELETE /api/bookings(+[id],+batch) — SMS_CONSENT/DO_NOT_SERVICE NEVER CHECKED (fresh ground, ninth call site of the missing-consent-check bug class and the biggest by volume so far — the PRIMARY admin-facing booking create/update/cancel paths) ----
+    // requirePermission needs headers()/cookies() this harness doesn't
+    // have, so — same reasoning as every prior 5a-1x/2x round — prove the
+    // fixed predicate against real bookings/clients rows in this archetype
+    // tenant through the exact column selection all 3 fixed routes now use
+    // (`clients(..., sms_consent, do_not_service)`), rather than calling
+    // the routes directly.
+    {
+      const bkGatePhone = '646' + String(4400000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+
+      const { data: bkGateBlockedClient, error: bkGateBlockedErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Booking-Gate STOP Client', email: `bkgate-stop+${runId}@example.com`,
+        phone: bkGatePhone, status: 'active', sms_consent: false, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('bookings-gate: STOP-revoked client row created (sms_consent=false)', !!bkGateBlockedClient && !bkGateBlockedErr, bkGateBlockedErr?.message)
+
+      const { data: bkGateDnsClient, error: bkGateDnsErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Booking-Gate Banned Client', email: `bkgate-dns+${runId}@example.com`,
+        phone: bkGatePhone + '1', status: 'active', sms_consent: true, do_not_service: true,
+      }).select('id, sms_consent, do_not_service').single()
+      add('bookings-gate: do_not_service client row created (do_not_service=true, sms_consent=true)', !!bkGateDnsClient && !bkGateDnsErr, bkGateDnsErr?.message)
+
+      const { data: bkGateOkClient, error: bkGateOkErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Booking-Gate Consented Client', email: `bkgate-ok+${runId}@example.com`,
+        phone: bkGatePhone + '2', status: 'active', sms_consent: true, do_not_service: false,
+      }).select('id, sms_consent, do_not_service').single()
+      add('bookings-gate: CONTROL consented client row created (sms_consent=true, do_not_service=false)', !!bkGateOkClient && !bkGateOkErr, bkGateOkErr?.message)
+
+      // Also prove a real bookings row (what all 3 fixed routes' `.select('*,
+      // clients(...))` re-read actually returns) round-trips the same
+      // consent columns through its embedded clients() join.
+      const bkGateBookingIds: Record<string, string> = {}
+      for (const [label, gateClient] of [
+        ['blocked', bkGateBlockedClient], ['dns', bkGateDnsClient], ['control', bkGateOkClient],
+      ] as const) {
+        if (!gateClient?.id) continue
+        const { data: bkGateBooking, error: bkGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: gateClient.id, team_member_id: worker.id,
+          hourly_rate: 55, actual_hours: 2, status: 'confirmed', payment_status: 'unpaid',
+          service_type: `bookings-gate ${label} probe`,
+        }).select('id, clients(sms_consent, do_not_service)').single()
+        add(`bookings-gate: ${label} — live schema — a real bookings row's embedded clients() join surfaces the same consent columns POST/PUT/DELETE /api/bookings now read`, !!bkGateBooking && !bkGateBookingErr, bkGateBookingErr?.message || JSON.stringify(bkGateBooking))
+        if (bkGateBooking?.id) bkGateBookingIds[label] = bkGateBooking.id
+      }
+
+      // Live schema — re-read straight from prod through the exact column
+      // selection all 3 fixed routes now use, and apply the exact gate
+      // predicates the fixes enforce (email: !do_not_service; SMS:
+      // sms_consent !== false && !do_not_service).
+      const bkGateIds = Object.values(bkGateBookingIds)
+      const { data: bkGateRows } = await supabase.from('bookings')
+        .select('id, clients(phone, sms_consent, do_not_service)').eq('tenant_id', tenant.id).in('id', bkGateIds)
+      const bkGateWouldEmail = (bkGateRows || [])
+        .filter(b => { const c = b.clients as unknown as { do_not_service?: boolean | null } | null; return !c?.do_not_service })
+        .map(b => b.id)
+      const bkGateWouldText = (bkGateRows || [])
+        .filter(b => { const c = b.clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null; return !!c?.phone && c.sms_consent !== false && !c.do_not_service })
+        .map(b => b.id)
+      add('bookings-gate: the fixed predicate skips the STOP-revoked client\'s SMS (email still allowed)', !bkGateWouldText.includes(bkGateBookingIds.blocked) && bkGateWouldEmail.includes(bkGateBookingIds.blocked), JSON.stringify({ bkGateWouldEmail, bkGateWouldText }))
+      add('bookings-gate: the fixed predicate skips the do_not_service client\'s email AND SMS', !bkGateWouldEmail.includes(bkGateBookingIds.dns) && !bkGateWouldText.includes(bkGateBookingIds.dns), JSON.stringify({ bkGateWouldEmail, bkGateWouldText }))
+      add('bookings-gate: CONTROL — the fixed predicate still reaches the consented, non-banned client on both legs', bkGateWouldEmail.includes(bkGateBookingIds.control) && bkGateWouldText.includes(bkGateBookingIds.control), JSON.stringify({ bkGateWouldEmail, bkGateWouldText }))
+
+      for (const id of Object.values(bkGateBookingIds)) {
+        await supabase.from('bookings').delete().eq('id', id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
