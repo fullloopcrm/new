@@ -4246,6 +4246,26 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-56. tenantSiteUrl() + URL-PATH-SUFFIX COMPOSITION PROBE, sixth mirror-gap instance (fresh ground this round: cron/post-job-followup's review-request SMS -- sent to every completed booking/job's customer across every active tenant, 2 hours after checkout -- built its review link from `tenant.domain ? https://${tenant.domain}/reviews/submit : https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`, the same tenant.domain-only gap as 5a-49/5a-51/5a-52/5a-53 (no tenant_domains fallback), duplicated across BOTH the standalone-booking and job-level send paths in the same file. Fixed by routing both through the already-tested tenantSiteUrl() helper, same as 5a-54's invoice/quote/document fix. This probe checks something 5a-49/5a-54 didn't: every prior probe/test asserted on the BARE resolved URL (`https://domain`); post-job-followup.ts is the first caller to string-concat a URL PATH SUFFIX onto tenantSiteUrl()'s return value (`${await tenantSiteUrl(tenant)}/reviews/submit`) rather than using it standalone -- confirms against the real live schema that the primary-domain resolution composes correctly with a trailing path (no double slash, no missing scheme) exactly the way this new caller relies on it.) ----
+    {
+      const { tenantSiteUrl } = await import('../src/lib/tenant-site')
+
+      const suffixCustomDomain = `suffix-probe-${tenant.id.slice(0, 8)}.example.com`
+      await supabase.from('tenant_domains').update({ active: false }).eq('tenant_id', tenant.id)
+      const { error: suffixDomainErr } = await supabase.from('tenant_domains').insert({
+        tenant_id: tenant.id, domain: suffixCustomDomain, active: true, is_primary: true,
+        notes: 'sim-all-trades tenantSiteUrl()+path-suffix composition probe',
+      })
+      add('path-suffix probe: tenant_domains PRIMARY row seeded for the composition check', !suffixDomainErr, suffixDomainErr?.message)
+
+      const composedUrl = `${await tenantSiteUrl({ id: tenant.id, domain: null, slug: tenant.slug })}/reviews/submit`
+      add('path-suffix probe: tenantSiteUrl() + "/reviews/submit" composes to the exact URL post-job-followup.ts\'s review-request SMS now sends (live schema, real tenant_domains row -- not a mock)', composedUrl === `https://${suffixCustomDomain}/reviews/submit`, composedUrl)
+
+      // Restore -- this tenant is shared by every later phase in this run.
+      await supabase.from('tenant_domains').delete().eq('tenant_id', tenant.id).eq('domain', suffixCustomDomain)
+      await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
