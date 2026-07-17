@@ -1524,6 +1524,37 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
     add(`invoicing: ${expectedPaymentCount} payments posted to ledger (incl. change order + split collections payment)`, paymentsPosted === expectedPaymentCount, `${paymentsPosted}/${expectedPaymentCount}`)
     add('invoicing: revenue = quote total + change order (scope creep not lost, underpayment fully collected)', revenueRecognizedCents === newJobTotal, `${revenueRecognizedCents} vs ${newJobTotal}`)
 
+    // ============ 7a-2. KNOWN GAP: job_payments never syncs to the real invoice/payment/ledger rail ============
+    // job_payments has a real `invoice_id` column, added specifically to "link
+    // to existing money rails (reuse, don't reinvent)"
+    // (src/lib/migrations/2026_07_02_jobs_projects.sql) — but nothing in src/
+    // ever sets it. The invoicing loop just above (this archetype's own code,
+    // mirroring production's actual workaround) creates independent `invoices`
+    // rows per milestone with zero linkage back to the job_payments row they
+    // correspond to, and nothing reads job_payments.invoice_id to auto-flip
+    // status when that invoice is paid. The ONLY thing that ever moves
+    // job_payments.status to 'paid' anywhere in this codebase is
+    // PATCH /api/jobs/[id]/payments (operator clicks "Mark paid" on the Job
+    // detail page) — a second, fully manual, disconnected step from the real
+    // money rail. src/app/dashboard/jobs/[id]/page.tsx computes the "$X
+    // collected" header shown at the top of every job ENTIRELY from
+    // job_payments.status==='paid' (`paidCents = payments.filter(p => p.status
+    // === 'paid')...`), so every milestone below is fully invoiced, paid, and
+    // ledger-recognized (proven by the checks above) and the Job page will
+    // still show it as outstanding/"due" until someone remembers the separate
+    // click. Asserting the CORRECT/desired behavior here (both checks are
+    // expected to fail today) rather than silently "fixing" it — the real fix
+    // (auto-set invoice_id at milestone-invoice creation + sync status off the
+    // invoice's own paid state) is a feature decision, not a one-line patch,
+    // and no route in src/app/api even creates an invoice FROM a job_payments
+    // row today for that to hook into.
+    const { data: jobPaysAfterInvoicing } = await supabase.from('job_payments').select('status, invoice_id')
+      .eq('job_id', jobRes.job_id).in('id', (jobPaysAfterCO || []).map(p => p.id))
+    add('job_payments: invoice_id auto-linked to the milestone\'s real invoice (KNOWN GAP — column exists, nothing sets it)',
+      (jobPaysAfterInvoicing || []).length > 0 && (jobPaysAfterInvoicing || []).every(p => p.invoice_id !== null), JSON.stringify(jobPaysAfterInvoicing))
+    add('job_payments: status auto-syncs to paid once the real invoice+payment+ledger settle (KNOWN GAP — Job page "collected" total under-reports without a manual Mark Paid click)',
+      (jobPaysAfterInvoicing || []).length > 0 && (jobPaysAfterInvoicing || []).every(p => p.status === 'paid'), JSON.stringify(jobPaysAfterInvoicing))
+
     // ================= 7b. CUSTOMER DISPUTE (final invoice, completed work) =================
     // Real pain point across every one of these trades, distinct from the
     // mid-project scope-creep change order above: the customer disputes the
