@@ -10,6 +10,7 @@ export interface ClientRecord {
   email: string
   phone: string
   address: string
+  sms_consent: boolean | null
 }
 
 export interface TeamMemberRecord {
@@ -37,6 +38,11 @@ export type ClientNameEmail = Pick<ClientRecord, 'name' | 'email'> | null
 export type ClientNameAddress = Pick<ClientRecord, 'name' | 'address'> | null
 export type ClientNamePhoneEmail = Pick<ClientRecord, 'name' | 'phone' | 'email'> | null
 export type ClientNamePhoneAddress = Pick<ClientRecord, 'name' | 'phone' | 'address'> | null
+// Consent-carrying variants — for any query that will conditionally SMS the
+// client, so the sms_consent (STOP-webhook-written) gate is always available
+// alongside the phone number, never fetched separately or forgotten.
+export type ClientNamePhoneConsent = Pick<ClientRecord, 'name' | 'phone' | 'sms_consent'> | null
+export type ClientNamePhoneEmailConsent = Pick<ClientRecord, 'name' | 'phone' | 'email' | 'sms_consent'> | null
 
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
 export type TeamMemberNamePhone = Pick<TeamMemberRecord, 'name' | 'phone'> | null
@@ -55,7 +61,7 @@ export interface BookingWithClientAndTeam {
   service_type: string | null
   start_time: string
   end_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhoneEmail
 }
 
@@ -66,7 +72,7 @@ export interface BookingWith2HourReminder {
   team_member_id: string | null
   service_type: string | null
   start_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhone
 }
 
@@ -112,7 +118,7 @@ export interface BookingTomorrowConfirm {
   client_id: string | null
   start_time: string
   service_type: string | null
-  clients: ClientNamePhone
+  clients: ClientNamePhoneConsent
   team_members: TeamMemberName
 }
 

@@ -21,7 +21,7 @@ export async function POST(request: Request) {
     // Get client
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('name, email, phone')
+      .select('name, email, phone, sms_consent')
       .eq('id', client_id)
       .eq('tenant_id', tenantId)
       .single()
@@ -70,8 +70,8 @@ export async function POST(request: Request) {
       }
     }
 
-    // Send SMS if available
-    if (client.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // Send SMS if available (and the client hasn't opted out via STOP)
+    if (client.phone && client.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         await sendSMS({
           to: client.phone,

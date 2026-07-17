@@ -163,7 +163,7 @@ export async function GET(request: Request) {
 
         const { data: tomorrowBookings } = await supabaseAdmin
           .from('bookings')
-          .select('id, client_id, start_time, service_type, clients(name, phone), team_members!bookings_team_member_id_fkey(name)')
+          .select('id, client_id, start_time, service_type, clients(name, phone, sms_consent), team_members!bookings_team_member_id_fkey(name)')
           .eq('tenant_id', tenantId)
           .in('status', ['scheduled', 'confirmed'])
           .gte('start_time', tomorrowStart.toISOString())
@@ -173,7 +173,10 @@ export async function GET(request: Request) {
 
         for (const booking of tomorrowBookings || []) {
           const client = booking.clients
-          if (!client?.phone) continue
+          // This is the message that literally trains clients to reply STOP
+          // (line below) — it must itself honor sms_consent, same as every
+          // other real client-SMS call site in the codebase.
+          if (!client?.phone || client.sms_consent === false) continue
 
           // Check if already sent confirmation for this booking
           const { data: alreadySent } = await supabaseAdmin

@@ -65,7 +65,7 @@ export async function GET(request: Request) {
 
           const { data: bookings } = await supabaseAdmin
             .from('bookings')
-            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
+            .select('id, client_id, team_member_id, service_type, start_time, end_time, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, email)')
             .eq('tenant_id', tenantId)
             .in('status', ['scheduled', 'confirmed'])
             .gte('start_time', target.toISOString())
@@ -102,8 +102,10 @@ export async function GET(request: Request) {
               })
             }
 
-            // Client SMS reminder (gated by the booking_reminder SMS toggle)
-            if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            // Client SMS reminder (gated by the booking_reminder SMS toggle and,
+            // like every other real client-SMS call site in the codebase, by
+            // sms_consent — a client who texted STOP stops getting texted here too)
+            if (reminderSmsOn && client?.phone && client?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {
@@ -202,7 +204,7 @@ export async function GET(request: Request) {
 
       const { data: hourBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, client_id, team_member_id, service_type, start_time, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .gte('start_time', hourWindowStart.toISOString())
@@ -225,8 +227,8 @@ export async function GET(request: Request) {
         const member = booking.team_members
         const memberFirst = member?.name?.split(' ')[0] || 'Your pro'
 
-        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle)
-        if (reminderSmsOn && client?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Client SMS — 2hr reminder (gated by the booking_reminder SMS toggle and sms_consent)
+        if (reminderSmsOn && client?.phone && client?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
             await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
