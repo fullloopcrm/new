@@ -3,6 +3,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { ledgerProfitAndLoss } from '@/lib/finance/ledger-reports'
+import { buildTrailingMonthKeys } from '@/lib/finance/trailing-month-keys'
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,12 +57,7 @@ export async function GET(request: NextRequest) {
         .gte('payment_date', twelveMonthsAgo.toISOString())
 
       const monthMap: Record<string, number> = {}
-      for (let i = 11; i >= 0; i--) {
-        const d = new Date()
-        d.setMonth(d.getMonth() - i)
-        const key = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-        monthMap[key] = 0
-      }
+      for (const key of buildTrailingMonthKeys(12)) monthMap[key] = 0
 
       for (const b of monthlyBookings || []) {
         if (b.payment_date) {
