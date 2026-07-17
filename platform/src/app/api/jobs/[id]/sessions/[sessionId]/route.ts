@@ -7,7 +7,12 @@
  *          body are touched; a bare start move preserves the visit's duration.
  *          status → 'completed' logs 'session_completed' and releases any
  *          stage-gated payments (mirrors the job-complete release path).
- * DELETE → remove the session (and its assignee rows via FK cascade).
+ * DELETE → remove the session (and its assignee rows via FK cascade), unless
+ *          it carries real history (rating, referral commission, payment, or
+ *          payout) — see checkBookingDeletable, the same guard the sibling
+ *          DELETE /api/bookings/[id] route uses. This route hard-deletes the
+ *          same `bookings` row through a different entry point, so it needed
+ *          the identical guard, not a new one.
  *
  * Tenant + job scoped: the booking must belong to this tenant AND this job.
  */
@@ -18,6 +23,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type RawSession } from '@/lib/jobs'
 import { getSettings } from '@/lib/settings'
 import { findSchedulingConflicts } from '@/lib/schedule/conflict-check'
+import { checkBookingDeletable } from '@/lib/booking-delete-guard'
 
 type Params = { params: Promise<{ id: string; sessionId: string }> }
 
@@ -237,6 +243,11 @@ export async function DELETE(_request: Request, { params }: Params) {
 
     const current = await loadOwnedSession(tenantId, jobId, sessionId)
     if (!current) return NextResponse.json({ error: 'Session not found' }, { status: 404 })
+
+    const guard = await checkBookingDeletable(tenantId, sessionId)
+    if (!guard.deletable) {
+      return NextResponse.json({ error: guard.reason }, { status: 409 })
+    }
 
     // booking_assignees cascade on the FK; delete the booking itself.
     const { error } = await supabaseAdmin
