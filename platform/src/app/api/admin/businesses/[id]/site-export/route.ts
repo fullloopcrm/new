@@ -29,9 +29,23 @@ export async function GET(
     .eq('tenant_id', id)
     .eq('active', true)
 
-  const primary =
+  let primary =
     (domains || []).find((d) => (d as { is_primary?: boolean }).is_primary)?.domain ||
     (domains || [])[0]?.domain
+
+  // Fallback: tenants.domain (legacy source of truth, retained per P1 spec —
+  // see getTenantByDomain in tenant.ts / tenant-lookup.ts, same precedence).
+  // Without this, a tenant live only via tenants.domain (not yet migrated to
+  // tenant_domains) always 400'd "no active domain" here even though their
+  // site is reachable and the ownership-export promise applies to them too.
+  if (!primary) {
+    const { data: tenant } = await supabaseAdmin
+      .from('tenants')
+      .select('domain')
+      .eq('id', id)
+      .maybeSingle()
+    primary = tenant?.domain || undefined
+  }
 
   if (!primary) {
     return NextResponse.json(
