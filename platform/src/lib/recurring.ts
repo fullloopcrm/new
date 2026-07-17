@@ -242,6 +242,38 @@ export function nowNaiveET(msOffset = 0): string {
   return `${date}T${time}`
 }
 
+/**
+ * The inverse of nowNaiveET(): converts an arbitrary naive 'YYYY-MM-DDTHH:MM:SS'
+ * America/New_York wall-clock string (the bookings.start_time/end_time
+ * convention) into the real UTC instant it represents.
+ *
+ * `src/lib/dates.ts`'s parseTimestamp() does the opposite -- it deliberately
+ * forces UTC interpretation on any naive timestamp (append 'Z'), which is
+ * correct for check_in_time/check_out_time (written via `new Date().toISOString()`,
+ * genuinely UTC) but WRONG for start_time/end_time. A fallback that reads
+ * `parseTimestamp(booking.start_time)` silently treats a naive-ET value as if
+ * it were UTC, shifting it 4-5h. Use this instead wherever a naive-ET column
+ * needs to become a real Date.
+ *
+ * Standard double-conversion trick: guess the instant by treating the naive
+ * string as UTC, read what the ET wall clock shows at that guessed instant
+ * (which — being within a few hours of the true instant — falls on the same
+ * side of any DST boundary), then correct by that offset.
+ */
+export function parseNaiveET(naive: string): Date {
+  const guess = new Date(naive.endsWith('Z') ? naive : `${naive}Z`)
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit', hour12: false,
+  }).formatToParts(guess)
+  const get = (type: string) => Number(parts.find(p => p.type === type)?.value)
+  const hour = get('hour')
+  const etAsUtc = Date.UTC(get('year'), get('month') - 1, get('day'), hour === 24 ? 0 : hour, get('minute'), get('second'))
+  const offsetMs = etAsUtc - guess.getTime()
+  return new Date(guess.getTime() - offsetMs)
+}
+
 export function getRecurringDisplayName(
   repeatType: string,
   startDate: string

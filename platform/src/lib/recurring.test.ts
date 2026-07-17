@@ -6,6 +6,8 @@ import {
   formatRecurringFrequency,
   computeNaiveVisitWindow,
   nextOccurrenceDates,
+  nowNaiveET,
+  parseNaiveET,
   type RecurringType,
 } from './recurring'
 
@@ -437,5 +439,50 @@ describe('nextOccurrenceDates — cron refill anchoring (regression)', () => {
   it('defaults count to 4 when omitted', () => {
     const dates = nextOccurrenceDates({ recurringType: 'weekly', lastOccurrence: noon(2026, 0, 5) })
     expect(dates).toHaveLength(4)
+  })
+})
+
+describe('parseNaiveET — inverse of nowNaiveET', () => {
+  // dates.ts's parseTimestamp() forces UTC on any naive timestamp -- correct
+  // for check_in_time/check_out_time (written via `new Date().toISOString()`,
+  // genuinely UTC) but WRONG for start_time/end_time (naive-ET, per
+  // computeNaiveVisitWindow). parseNaiveET is the correct converse.
+  it('round-trips with nowNaiveET back to (approximately) the current instant', () => {
+    const before = Date.now()
+    const naive = nowNaiveET()
+    const parsed = parseNaiveET(naive)
+    const after = Date.now()
+    // A few ms of drift between capturing `before`/`after` and the string
+    // round-trip (which only has second precision) is expected.
+    expect(parsed.getTime()).toBeGreaterThanOrEqual(before - 1000)
+    expect(parsed.getTime()).toBeLessThanOrEqual(after + 1000)
+  })
+
+  it('an offset naive-ET string parses back to the same real instant nowNaiveET(offset) would format', () => {
+    const offsetMs = 3 * 60 * 60 * 1000 // 3h ahead
+    const naive = nowNaiveET(offsetMs)
+    const parsed = parseNaiveET(naive)
+    expect(Math.abs(parsed.getTime() - (Date.now() + offsetMs))).toBeLessThan(1500)
+  })
+
+  it('interprets a naive string as EDT (UTC-4) in summer', () => {
+    // 2026-07-17 14:00 ET (July -> EDT, UTC-4) == 18:00 UTC.
+    const d = parseNaiveET('2026-07-17T14:00:00')
+    expect(d.toISOString()).toBe('2026-07-17T18:00:00.000Z')
+  })
+
+  it('interprets a naive string as EST (UTC-5) in winter', () => {
+    // 2026-01-17 14:00 ET (January -> EST, UTC-5) == 19:00 UTC.
+    const d = parseNaiveET('2026-01-17T14:00:00')
+    expect(d.toISOString()).toBe('2026-01-17T19:00:00.000Z')
+  })
+
+  it('differs from a naive-as-UTC (dates.ts parseTimestamp-style) reading by exactly the ET/UTC gap', () => {
+    // Guards the exact mistake this helper exists to avoid: treating a
+    // naive-ET string as if it were already UTC.
+    const naive = '2026-07-17T14:00:00'
+    const correct = parseNaiveET(naive)
+    const misreadAsUtc = new Date(`${naive}Z`)
+    expect(correct.getTime() - misreadAsUtc.getTime()).toBe(4 * 60 * 60 * 1000)
   })
 })

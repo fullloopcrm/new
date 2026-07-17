@@ -16,6 +16,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { parseTimestamp, formatET } from '@/lib/dates'
+import { parseNaiveET } from '@/lib/recurring'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
@@ -79,7 +80,11 @@ export async function POST(req: NextRequest) {
     // else check_in_time → now. The check_out_time fallback handles the case
     // where this alert fires AFTER the cleaner has checked out (race / late
     // cron) — without it, we extrapolate past the real end and overcharge.
-    const workStart = parseTimestamp(booking.check_in_time as string) || parseTimestamp(booking.start_time as string) || now
+    // check_in_time is real UTC (parseTimestamp forces UTC on naive input,
+    // correct here); start_time is naive-ET (see parseNaiveET's header) --
+    // parseTimestamp would misread it as UTC and shift it 4-5h, inflating
+    // the actual-hours-worked estimate this computes for client billing.
+    const workStart = parseTimestamp(booking.check_in_time as string) || (booking.start_time ? parseNaiveET(booking.start_time as string) : null) || now
     const workEnd = parseTimestamp(booking.check_out_time as string) || now
     const rawMinutes = Math.max(0, (workEnd.getTime() - workStart.getTime()) / (1000 * 60))
     const actualHours = Math.max(0.5, Math.round(rawMinutes / 30) * 0.5)
