@@ -8,6 +8,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
 import { isSafeImageUrl } from '@/lib/validate'
+import { checkTeamMemberDeletable } from '@/lib/team-member-delete-guard'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -82,6 +83,11 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
 
   const { id } = await params
   const tenantId = tenant.tenantId
+
+  const guard = await checkTeamMemberDeletable(tenantId, id)
+  if (!guard.deletable) {
+    return NextResponse.json({ error: guard.reason }, { status: 409 })
+  }
 
   await supabaseAdmin.from('bookings').update({ team_member_id: null }).eq('team_member_id', id).eq('tenant_id', tenantId)
   await supabaseAdmin.from('bookings').update({ suggested_team_member_id: null }).eq('suggested_team_member_id', id).eq('tenant_id', tenantId)

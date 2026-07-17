@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { pick, isSafeImageUrl } from '@/lib/validate'
 import { audit } from '@/lib/audit'
+import { checkTeamMemberDeletable } from '@/lib/team-member-delete-guard'
 
 export async function GET(
   _request: Request,
@@ -85,6 +86,11 @@ export async function DELETE(
   try {
     const { tenantId } = tenant
     const { id } = await params
+
+    const guard = await checkTeamMemberDeletable(tenantId, id)
+    if (!guard.deletable) {
+      return NextResponse.json({ error: guard.reason }, { status: 409 })
+    }
 
     const { error } = await supabaseAdmin
       .from('team_members')
