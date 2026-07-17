@@ -100,4 +100,32 @@ describe('POST /api/documents/[id]/send — domain-fallback bug-class probe', ()
     expect(call.html).toContain('acme-real.example.com')
     expect(call.html).not.toContain('other-tenant.example.com')
   })
+
+  it('fromEmail domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'custom.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('d-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@custom.example.com')
+  })
+
+  it('fromEmail falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
+    const res = await post('d-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@fullloopcrm.com')
+  })
+
+  it("fromEmail wrong-tenant probe: tenant B's tenant_domains row never leaks into tenant A's from address", async () => {
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: B, domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('d-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0] as { from?: string }
+    expect(call.from).toBe('docs@acme-real.example.com')
+  })
 })

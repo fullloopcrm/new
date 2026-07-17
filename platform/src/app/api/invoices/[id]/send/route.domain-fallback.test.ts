@@ -27,7 +27,9 @@ vi.mock('@/lib/require-permission', () => ({
 }))
 vi.mock('@/lib/tenant-query', () => ({ AuthError: class AuthError extends Error { status = 401 } }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ ok: true })) }))
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }))
+type SendEmailArgs = { to: string; from?: string; html: string; subject: string; resendApiKey?: string | null }
+const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (_args: SendEmailArgs) => ({ ok: true })) }))
+vi.mock('@/lib/email', () => ({ sendEmail }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: (s: string) => s }))
 vi.mock('@/lib/invoice', () => ({
   logInvoiceEvent: vi.fn(async () => {}),
@@ -60,6 +62,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  sendEmail.mockClear()
 })
 
 function post(id: string) {
@@ -96,5 +99,36 @@ describe('POST /api/invoices/[id]/send — domain-fallback bug-class probe', () 
     const body = await res.json()
     expect(body.invoice_url).toContain('acme-real.example.com')
     expect(body.invoice_url).not.toContain('other-tenant.example.com')
+  })
+
+  it('fromEmail domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+    h.seed.tenants[0].email_from = null
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'custom.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('inv-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('invoices@custom.example.com')
+  })
+
+  it('fromEmail falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
+    h.seed.tenants[0].email_from = null
+    const res = await post('inv-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('invoices@fullloopcrm.com')
+  })
+
+  it("fromEmail wrong-tenant probe: tenant B's tenant_domains row never leaks into tenant A's from address", async () => {
+    h.seed.tenants[0].email_from = null
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: B, domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('inv-a')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('invoices@acme-real.example.com')
   })
 })

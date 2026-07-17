@@ -11,6 +11,7 @@ import { sendEmail } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { DOCUMENTS_BUCKET, isEditableStatus, logDocEvent, sha256Hex } from '@/lib/documents'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -79,7 +80,12 @@ export async function POST(_request: Request, { params }: Params) {
     const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant?.domain ?? null, slug: tenant?.slug ?? null })
     const telnyxKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
     const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-    const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
+    // tenant_domains FIRST, tenants.domain fallback — same precedence as
+    // tenantSiteUrl() above. This fallback only fires when email_from isn't
+    // set, but when it does, it must not skip a custom domain that lives only
+    // in tenant_domains and land on the generic default instead.
+    const emailDomain = (await getPrimaryTenantDomain(tenantId)) || tenant?.domain
+    const fromEmail = tenant?.email_from || `docs@${emailDomain || 'fullloopcrm.com'}`
 
     // Determine which signers to notify now
     const toNotify = doc.sign_order === 'sequential' ? [signers[0]] : signers

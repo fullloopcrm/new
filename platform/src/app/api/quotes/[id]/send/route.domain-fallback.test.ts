@@ -32,7 +32,9 @@ vi.mock('@/lib/tenant-query', () => {
 })
 
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => ({ ok: true })) }))
-vi.mock('@/lib/email', () => ({ sendEmail: vi.fn(async () => ({ ok: true })) }))
+type SendEmailArgs = { to: string; from?: string; html: string; subject: string; resendApiKey?: string | null }
+const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (_args: SendEmailArgs) => ({ ok: true })) }))
+vi.mock('@/lib/email', () => ({ sendEmail }))
 vi.mock('@/lib/secret-crypto', () => ({ decryptSecret: vi.fn((s: string) => s) }))
 vi.mock('@/lib/messaging/owner-alerts', () => ({ ownerAlert: vi.fn(async () => {}) }))
 
@@ -67,6 +69,7 @@ let h: Harness
 beforeEach(() => {
   h = createTenantDbHarness(seed())
   holder.from = h.from
+  sendEmail.mockClear()
 })
 
 function post(id: string) {
@@ -103,5 +106,33 @@ describe('POST /api/quotes/[id]/send — domain-fallback bug-class probe', () =>
     const body = await res.json()
     expect(body.quote_url).toContain('acme-real.example.com')
     expect(body.quote_url).not.toContain('other-tenant.example.com')
+  })
+
+  it('fromEmail domain-fallback: no email_from, tenants.domain null, tenant_domains has PRIMARY — from uses it, not fullloopcrm.com', async () => {
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'custom.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('quote-1')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('quotes@custom.example.com')
+  })
+
+  it('fromEmail falls back to the generic domain only when neither tenant_domains nor tenants.domain resolve', async () => {
+    const res = await post('quote-1')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('quotes@fullloopcrm.com')
+  })
+
+  it("fromEmail wrong-tenant probe: tenant B's tenant_domains row never leaks into tenant A's from address", async () => {
+    h.seed.tenant_domains = [
+      { tenant_id: A, domain: 'acme-real.example.com', is_primary: true, active: true },
+      { tenant_id: B, domain: 'other-tenant.example.com', is_primary: true, active: true },
+    ]
+    const res = await post('quote-1')
+    expect(res.status).toBe(200)
+    const call = sendEmail.mock.calls[0][0]
+    expect(call.from).toBe('quotes@acme-real.example.com')
   })
 })
