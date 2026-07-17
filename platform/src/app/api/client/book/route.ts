@@ -21,6 +21,7 @@ import { randomInt, randomBytes } from 'crypto'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
+import { computeNaiveVisitWindow } from '@/lib/recurring'
 
 function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
@@ -163,8 +164,16 @@ export async function POST(request: Request) {
       }
       const hour = timeMap[body.time as string] || 9
       const duration = Number(body.estimated_hours) || 2
-      startTime = `${body.date}T${String(hour).padStart(2, '0')}:00:00`
-      endTime = `${body.date}T${String(hour + duration).padStart(2, '0')}:00:00`
+      // Raw `hour + duration` hour-of-day arithmetic (the old version here)
+      // produces an invalid/malformed timestamp -- e.g. a 4:00 PM slot with a
+      // 9h job (RemoteBookForm.tsx defaults estimated_hours to 10) built
+      // "...T25:00:00" -- instead of rolling over to the next calendar date,
+      // same midnight-crossing class computeNaiveVisitWindow was centralized
+      // to fix for every OTHER recurring-booking writer; this client
+      // self-service date+time fallback was never migrated to it.
+      const window = computeNaiveVisitWindow(body.date as string, hour, 0, duration)
+      startTime = window.startISO
+      endTime = window.endISO
     }
     if (!startTime) return NextResponse.json({ error: 'start_time or date+time required' }, { status: 400 })
 
