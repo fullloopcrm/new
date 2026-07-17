@@ -1194,6 +1194,71 @@ including `'paid'` there would double up or misclassify money the
 tenant hasn't been shown as settled yet — a real per-query product call,
 not a mechanical fix, and out of scope here.
 
+## (28) New today, fresh ground outside the archetype — self-claiming an open job silently overwrote its own pay_rate with the claimant's default — NOW FIXED
+
+`POST /api/team-portal/jobs/claim` unconditionally set `pay_rate:
+member.pay_rate` on every claim, discarding any per-job rate already sitting
+on the booking. A job open for self-claim can already carry one: `/api/
+bookings/broadcast` (the live, wired-up "Emergency: single booking +
+broadcast" flow off `BookingsAdmin.tsx`'s create form) advertises exactly
+`booking.pay_rate` as the "$X/hr — first to claim gets it!" promise in the
+SMS/email it sends to every active team member, and `.../jobs/release`
+(a member handing their own job back to the pool) never touches `pay_rate`
+at all, so a released job keeps whatever rate it had.
+
+Net effect: `finance/payroll/route.ts:35` already treats `booking.pay_rate`
+as authoritative over the member's own default
+(`b.pay_rate || member.pay_rate`) precisely so per-job overrides like an
+emergency premium survive to payout — but the claim endpoint clobbered that
+override the instant someone claimed the job, before payroll ever got to
+read it. A cleaner who answered a "$89/hr" broadcast and claimed it got paid
+their own standard rate at payout time instead, with no error, no signal,
+nothing in the UI showing the promised rate ever applied.
+
+**Fixed** (`p1-w3`) — claim now only falls back to the claiming member's own
+`pay_rate` when the booking doesn't already carry one; an existing per-job
+rate (broadcast premium or a survived-release rate) is preserved. 2 new
+tests (`route.pay-rate.test.ts`), mutation-verified (reverted the fix, the
+premium-preservation test went RED reproducing the exact 89→25 symptom,
+restored). `tsc --noEmit` clean, full suite 346/346 files, 1790/1790 tests,
+zero regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items 17/23/24/26/27).
+
+Deliberately NOT extended to `.../jobs/reassign/route.ts`, which has the
+identical pattern (`pay_rate: target.pay_rate` on reassignment) — there a
+lead/manager is making an explicit choice to move a job to a different
+member, and paying that member their own standard rate going forward is a
+plausible intended design, not an unambiguous bait-and-switch like claim's
+broadcast-then-discard case. Real product question for Jeff's call, not
+auto-fixed — listed below.
+
+## (29) New today, archetype depth — running-late report on a same-day emergency job got the same non-urgent admin alert as a routine one — NOW FIXED
+
+`POST /api/team-portal/running-late` never looked at `bookings.is_emergency`
+at all — the route's own `SELECT` didn't even fetch the column. A team
+member reporting late on a same-day emergency job produced a byte-identical
+"Running Late" `notify()` title/push/admin-SMS as a routine job running a
+few minutes behind. Same class of admin-notify blind spot as items
+(20)/(24)/(26) (schedule-monitor severity escalation, admin new-booking
+emergency-blindness, multi-tech extras SMS): the owner's first glance at
+this alert carried no signal that the job already involved is time-critical
+— exactly the moment a delay matters most and the owner is most likely to
+want to intervene (reassign, call the client, etc.) rather than just note it.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the route's `SELECT`; admin
+`notify()`/push/SMS now carry a 🚨/URGENT escalation on an emergency booking
+(title, message, and `smsRunningLateAdmin`'s new optional `isEmergency`
+param), matching the convention already established elsewhere. Client-facing
+SMS/push left untouched, deliberately — same precedent as prior items: the
+client already knows their own booking is an emergency, and "running late"
+is routine logistics info to them either way. 2 new tests
+(`route.emergency-escalation.test.ts`: escalation case + non-emergency
+control), mutation-verified (reverted both files, the escalation test went
+RED reproducing the exact missing-🚨 symptom, restored). `tsc --noEmit`
+clean, full suite 347/347 files, 1792/1792 tests, zero regressions (one
+pre-existing, unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, same precedent as items 17/23/24/26/27/28).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
@@ -1215,3 +1280,10 @@ not a mechanical fix, and out of scope here.
   noted under item (27) above — a real product question (which specific
   reports should treat a paid-out booking as still "completed") worth
   Jeff's call, not auto-fixed.
+- `.../jobs/reassign/route.ts` overwriting a booking's `pay_rate` with the
+  new assignee's own standard rate on manager-initiated reassignment (item
+  (28) above) — same code shape as the claim-route bug just fixed, but a
+  manager explicitly choosing to move a job could plausibly want the new
+  person paid their own rate going forward. Worth Jeff's call on whether
+  reassign should preserve the existing per-job rate (matching claim's new
+  behavior) or keep overwriting it; not auto-fixed.
