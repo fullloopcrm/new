@@ -200,10 +200,13 @@ interface RawMemberRow {
  * Connect status into one flat record for the People hub.
  */
 export async function listEmployees(tenantId: string): Promise<HrEmployee[]> {
-  // team_members has no `active` boolean column -- only `status` ('active' |
-  // 'inactive' | 'suspended', see schema.sql). Selecting a nonexistent column
-  // makes PostgREST error the whole query (including the joined profiles),
-  // so this 500'd every call to the People hub roster.
+  // Use `status` ('active' | 'inactive' | 'suspended'), not `active`. Correction:
+  // team_members.active does exist (added by 010_nycmaid_parity_columns_2.sql, a
+  // one-time NYC Maid legacy-data import column) -- verified live against
+  // production. But nothing in the app writes it, so it silently drifts from
+  // reality (confirmed live: ~12% of rows disagree with `status`, including
+  // status='inactive' rows still showing active=true). `status` is the field
+  // the termination flow actually keeps current.
   const { data, error } = await supabaseAdmin
     .from('team_members')
     .select(`

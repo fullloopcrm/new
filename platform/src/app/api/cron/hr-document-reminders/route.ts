@@ -64,10 +64,13 @@ export async function GET(request: Request) {
   }
 
   // Skip terminated/inactive team members — no point nudging about a former
-  // employee's expiring license. team_members has no `active` boolean column
-  // (only `status`, see schema.sql) — selecting a nonexistent column made
-  // PostgREST error the query in production, so `members` was always empty
-  // and this filtered out EVERY document, silencing the whole cron.
+  // employee's expiring license. Use `status`, not `active`. Correction:
+  // team_members.active does exist (added by 010_nycmaid_parity_columns_2.sql,
+  // a one-time NYC Maid legacy-data import column) -- verified live against
+  // production. But nothing in the app writes it, so it silently drifts from
+  // reality (confirmed live: ~12% of rows disagree with `status`, including
+  // status='inactive' rows still showing active=true). `status` is the field
+  // the termination flow actually keeps current.
   const memberIds = [...new Set(docs.map((d) => d.team_member_id as string))]
   const { data: members } = await supabaseAdmin
     .from('team_members')

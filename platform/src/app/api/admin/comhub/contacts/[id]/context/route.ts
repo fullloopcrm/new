@@ -96,7 +96,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (clientId) {
     const { data: c } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, address, status, active, do_not_service, sms_consent, notes, created_at')
+      .select('id, name, email, phone, address, status, do_not_service, sms_consent, notes, created_at')
       .eq('id', clientId)
       .eq('tenant_id', tenantId)
       .single()
@@ -130,7 +130,7 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   if (teamMemberId) {
     const { data: tm } = await supabaseAdmin
       .from('team_members')
-      .select('id, name, email, phone, active, hourly_rate, avg_rating, rating_count, has_car, created_at')
+      .select('id, name, email, phone, status, hourly_rate, avg_rating, rating_count, has_car, created_at')
       .eq('id', teamMemberId)
       .eq('tenant_id', tenantId)
       .single()

@@ -1,12 +1,15 @@
 /**
  * listEmployees fuses team_members + hr_employee_profiles in a single
- * PostgREST embedded select. That select named a column, `active`, that
- * doesn't exist on team_members (the table only has `status` -- see
- * schema.sql) -- a real PostgREST would error the whole query (including
- * the embed) over one bad column name, 500-ing the People hub roster. The
- * shared fake-supabase.ts harness doesn't validate column names or resolve
- * embeds, so it couldn't catch this; this test hand-rolls a chain mock that
- * returns the real embedded-row shape PostgREST actually sends.
+ * PostgREST embedded select. team_members.active is a real column (added by a
+ * one-time NYC Maid legacy-data import migration, verified live against
+ * production) but nothing in the app writes it, so it silently drifts from
+ * reality -- confirmed live, ~12% of rows disagree with `status`, including
+ * terminated members still showing active=true. `status` is the field the
+ * termination flow actually keeps current, so listEmployees derives its
+ * `active` flag from `status` instead of trusting the stale column. The
+ * shared fake-supabase.ts harness doesn't resolve embeds, so this test
+ * hand-rolls a chain mock that returns the real embedded-row shape PostgREST
+ * actually sends.
  */
 import { describe, it, expect, vi } from 'vitest'
 
@@ -38,12 +41,12 @@ vi.mock('./supabase', () => ({
 
 import { listEmployees } from './hr'
 
-describe('listEmployees — team_members has no `active` column, only `status`', () => {
-  it('resolves without a PostgREST column error (regression: select() named a nonexistent column)', async () => {
+describe('listEmployees — derives active from status, not the stale team_members.active column', () => {
+  it('resolves successfully', async () => {
     await expect(listEmployees(TENANT_A)).resolves.toBeDefined()
   })
 
-  it('derives active from status=inactive rather than a nonexistent active column', async () => {
+  it('derives active from status=inactive rather than the stale/unmaintained active column', async () => {
     const employees = await listEmployees(TENANT_A)
     const active = employees.find((e) => e.team_member_id === 'tm-active')
     const inactive = employees.find((e) => e.team_member_id === 'tm-inactive')

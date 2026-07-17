@@ -91,7 +91,6 @@ type ClientRow = {
   address: string | null
   address_line1: string | null
   status: string | null
-  active: boolean | null
   do_not_service: boolean | null
   pet_name: string | null
   pet_type: string | null
@@ -103,7 +102,7 @@ type CleanerRow = {
   name: string | null
   email: string | null
   phone: string | null
-  active: boolean | null
+  status: string | null
   hourly_rate: number | null
   avg_rating: number | null
   rating_count: number | null
@@ -1269,10 +1268,10 @@ function ContextPanelInline({ context }: { context: ContactContext }) {
           {client?.do_not_service && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-red-900 text-red-200">DNS</span>
           )}
-          {client?.active === false && (
+          {client?.status === 'inactive' && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
           )}
-          {cleaner?.active === false && (
+          {cleaner?.status === 'inactive' && (
             <span className="text-[10px] uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#FFFFFF] text-[#7A7A78]">Inactive</span>
           )}
         </div>

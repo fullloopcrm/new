@@ -29,7 +29,7 @@ export async function GET(request: Request) {
 
   const { data: pastJobs } = await tenantDb(tenant.id)
     .from('bookings')
-    .select('team_member_id, team_members!bookings_team_member_id_fkey(id, name)')
+    .select('team_member_id, team_members!bookings_team_member_id_fkey(id, name, status)')
     .eq('client_id', clientId)
     .not('team_member_id', 'is', null)
     .order('start_time', { ascending: false })
@@ -38,9 +38,14 @@ export async function GET(request: Request) {
   const seen = new Set<string>()
   const familiar: { id: string; name: string }[] = []
   for (const j of pastJobs || []) {
-    const tm = j.team_members as unknown as { id: string; name: string } | { id: string; name: string }[] | null
+    const tm = j.team_members as unknown as
+      | { id: string; name: string; status: string | null }
+      | { id: string; name: string; status: string | null }[]
+      | null
     const member = Array.isArray(tm) ? tm[0] : tm
-    if (member && !seen.has(member.id)) {
+    // Exclude terminated/inactive cleaners -- a client shouldn't be able to
+    // re-select someone who no longer works here from their "worked with" list.
+    if (member && member.status !== 'inactive' && !seen.has(member.id)) {
       seen.add(member.id)
       familiar.push({ id: member.id, name: member.name })
     }
@@ -67,10 +72,14 @@ export async function PUT(request: Request) {
   if (auth instanceof NextResponse) return auth
 
   if (body.preferred_cleaner_id) {
-    // team_members has no `active` boolean column -- only `status` ('active' |
-    // 'inactive' | 'suspended', see schema.sql). Selecting a nonexistent column
-    // makes PostgREST error the query, so `data` was always null here and this
-    // rejected every single preferred-cleaner selection, valid or not.
+    // Use `status` ('active' | 'inactive' | 'suspended'), not `active`. Correction:
+    // team_members.active does exist (added by 010_nycmaid_parity_columns_2.sql, a
+    // one-time NYC Maid legacy-data import column) -- verified live against
+    // production, contra an earlier assumption in this codebase's history that the
+    // column was missing. But nothing in the app writes it, so it silently drifts
+    // from reality (confirmed live: ~12% of rows disagree with `status`, including
+    // status='inactive' rows still showing active=true). `status` is the field the
+    // termination flow and everything else actually keeps current.
     const { data: member } = await tenantDb(tenant.id)
       .from('team_members')
       .select('id, status')

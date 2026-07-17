@@ -74,6 +74,18 @@ describe('GET /api/client/preferred-cleaner — tenantDb scoping', () => {
     expect(res.status).toBe(200)
     expect(await res.json()).toMatchObject({ preferred_cleaner_id: 'tm-1' })
   })
+
+  it('excludes a terminated/inactive cleaner from familiar_cleaners', async () => {
+    DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, preferred_team_member_id: null })
+    DB.bookings.push(
+      { client_id: 'c-1', tenant_id: TENANT_A, team_member_id: 'tm-active', team_members: { id: 'tm-active', name: 'Still Here', status: 'active' } },
+      { client_id: 'c-1', tenant_id: TENANT_A, team_member_id: 'tm-gone', team_members: { id: 'tm-gone', name: 'Long Gone', status: 'inactive' } },
+    )
+    const res = await GET(new Request('https://x?client_id=c-1'))
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.familiar_cleaners).toEqual([{ id: 'tm-active', name: 'Still Here' }])
+  })
 })
 
 describe('PUT /api/client/preferred-cleaner — tenantDb scoping', () => {
@@ -101,7 +113,7 @@ describe('PUT /api/client/preferred-cleaner — tenantDb scoping', () => {
     expect(DB.clients[0].preferred_team_member_id).toBe('tm-good')
   })
 
-  it('rejects an inactive team member (real schema has no `active` column, only `status`)', async () => {
+  it('rejects an inactive team member (checked via `status`, not the stale `active` column)', async () => {
     DB.clients.push({ id: 'c-1', tenant_id: TENANT_A, preferred_team_member_id: null })
     DB.team_members.push({ id: 'tm-gone', tenant_id: TENANT_A, status: 'inactive' })
     const res = await PUT(new Request('https://x', {

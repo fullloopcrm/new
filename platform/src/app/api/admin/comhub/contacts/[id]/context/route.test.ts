@@ -22,11 +22,15 @@ vi.mock('@/lib/tenant', () => ({
 }))
 
 const eqLog: Record<string, Array<[string, unknown]>> = {}
+const selectLog: Record<string, string> = {}
 
 function chain(data: unknown, table: string) {
   eqLog[table] = eqLog[table] || []
   const obj: Record<string, unknown> = {
-    select: () => obj,
+    select: (cols: string) => {
+      selectLog[table] = cols
+      return obj
+    },
     eq: (col: string, val: unknown) => {
       eqLog[table].push([col, val])
       return obj
@@ -85,5 +89,27 @@ describe('GET contacts/[id]/context', () => {
     await GET(makeRequest(), { params: Promise.resolve({ id: 'contact-1' }) })
     expect(eqLog['team_members']).toContainEqual(['tenant_id', 'tenant-1'])
     expect(eqLog['team_members']).toContainEqual(['id', 'tm-1'])
+  })
+
+  it('selects team_members.status, not the stale/unmaintained active column', async () => {
+    // team_members.active is a real column (added by a one-time NYC Maid
+    // legacy-data import migration) but nothing in the app writes it, so it
+    // silently drifts from reality -- confirmed live, ~12% of rows disagree
+    // with `status`, including terminated members still showing active=true.
+    // `status` is the field the termination flow actually keeps current.
+    await GET(makeRequest(), { params: Promise.resolve({ id: 'contact-1' }) })
+    expect(selectLog['team_members']).toContain('status')
+    expect(selectLog['team_members']).not.toMatch(/(^|,\s*)active(\s*,|$)/)
+  })
+
+  it('selects clients.status, not the stale/unmaintained active column', async () => {
+    // Same root cause as team_members.active, worse magnitude: clients.active
+    // exists but drifts even harder from `status` -- confirmed live, 426 of
+    // 439 status='inactive' clients still show active=true (only 13 agree).
+    // The comhub "Inactive" badge trusted `active`, so it silently failed to
+    // flag inactive clients for the vast majority of them.
+    await GET(makeRequest(), { params: Promise.resolve({ id: 'contact-1' }) })
+    expect(selectLog['clients']).toContain('status')
+    expect(selectLog['clients']).not.toMatch(/(^|,\s*)active(\s*,|$)/)
   })
 })
