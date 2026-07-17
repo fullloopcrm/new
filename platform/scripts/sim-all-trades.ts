@@ -3347,6 +3347,84 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-37. team-portal/running-late + portal/collect + admin-auth — WRITE-SIDE TENANT SCOPE HARDENING, not a live bug (fresh-ground continuation of 5a-36's now-closed write-scope thread; same shape — a mutation that runs only after an already tenant-scoped SELECT, but itself filtered only .eq('id', …) — the redundant .eq('tenant_id', …) sibling mutations in the same files already carry) ----
+    // Same reasoning as 5a-36: not exploitable on the real schema (bookings.id,
+    // sms_conversations.id, and tenant_members.id are all globally-unique UUID
+    // PKs, and each UPDATE only runs after a preceding SELECT already proved
+    // the id belongs to the caller's own tenant), hardened anyway to match the
+    // codebase's stated invariant. The vitest wrong-tenant-id-collision tests
+    // (route.tenant-scope.test.ts × 2, route.fails-closed.test.ts's new
+    // assertion) prove the query logic; this probe proves the fixed shape
+    // round-trips against the LIVE bookings/sms_conversations/tenant_members
+    // tables (schema-drift check, not a cross-tenant check).
+    {
+      // running-late's fixed UPDATE shape.
+      const { data: lateGateBooking, error: lateGateBookingErr } = await supabase.from('bookings').insert({
+        tenant_id: tenant.id, team_member_id: worker.id, status: 'scheduled',
+        service_type: 'write-scope-gate (running-late)',
+        start_time: new Date(Date.now() + 3600_000).toISOString(),
+        end_time: new Date(Date.now() + 7200_000).toISOString(),
+      }).select('id').single()
+      add('write-scope-gate: running-late probe booking created', !!lateGateBooking && !lateGateBookingErr, lateGateBookingErr?.message)
+
+      if (lateGateBooking?.id) {
+        const { error: lateUpdateErr } = await supabase.from('bookings').update({
+          running_late_at: new Date().toISOString(), running_late_eta: 15,
+        }).eq('tenant_id', tenant.id).eq('id', lateGateBooking.id)
+        add('write-scope-gate: running-late UPDATE with the tenant_id+id shape succeeds against the live bookings table', !lateUpdateErr, lateUpdateErr?.message)
+
+        const { data: lateAfter } = await supabase.from('bookings').select('running_late_at, running_late_eta').eq('id', lateGateBooking.id).eq('tenant_id', tenant.id).single()
+        add('write-scope-gate: running_late_at/running_late_eta actually persist (fix did not break the happy path)', !!lateAfter?.running_late_at && lateAfter?.running_late_eta === 15, JSON.stringify(lateAfter))
+
+        await supabase.from('bookings').delete().eq('id', lateGateBooking.id).eq('tenant_id', tenant.id)
+      }
+
+      // portal/collect's fixed UPDATE shape (Selena conversation handoff).
+      const collectGatePhone = '917' + String(5100000 + idx * 117 + (Date.now() % 1000)).slice(-7)
+      const { data: collectGateClient, error: collectGateClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Write-Scope Gate Client', phone: collectGatePhone, status: 'active',
+      }).select('id').single()
+      add('write-scope-gate: collect probe client created', !!collectGateClient && !collectGateClientErr, collectGateClientErr?.message)
+
+      const { data: collectGateConvo, error: collectGateConvoErr } = await supabase.from('sms_conversations').insert({
+        tenant_id: tenant.id, phone: collectGatePhone, state: 'welcome',
+      }).select('id').single()
+      add('write-scope-gate: collect probe sms_conversations row created', !!collectGateConvo && !collectGateConvoErr, collectGateConvoErr?.message)
+
+      if (collectGateConvo?.id && collectGateClient?.id) {
+        const { error: collectUpdateErr } = await supabase.from('sms_conversations').update({
+          client_id: collectGateClient.id, state: 'form_received', updated_at: new Date().toISOString(),
+        }).eq('tenant_id', tenant.id).eq('id', collectGateConvo.id)
+        add('write-scope-gate: portal/collect UPDATE with the tenant_id+id shape succeeds against the live sms_conversations table', !collectUpdateErr, collectUpdateErr?.message)
+
+        const { data: collectAfter } = await supabase.from('sms_conversations').select('client_id, state').eq('id', collectGateConvo.id).eq('tenant_id', tenant.id).single()
+        add('write-scope-gate: sms_conversations actually transitions to form_received + links the client (fix did not break the happy path)', collectAfter?.state === 'form_received' && collectAfter?.client_id === collectGateClient.id, JSON.stringify(collectAfter))
+
+        await supabase.from('sms_conversations').delete().eq('id', collectGateConvo.id).eq('tenant_id', tenant.id)
+      }
+      if (collectGateClient?.id) await supabase.from('clients').delete().eq('id', collectGateClient.id).eq('tenant_id', tenant.id)
+
+      // admin-auth's fixed UPDATE shape (pin_last_login on successful PIN login).
+      const { hashAdminPin } = await import('../src/lib/admin-pin')
+      const { data: authGateMember, error: authGateMemberErr } = await supabase.from('tenant_members').insert({
+        tenant_id: tenant.id, role: 'admin', name: 'Write-Scope Gate Member',
+        pin_hash: process.env.ADMIN_TOKEN_SECRET ? hashAdminPin('000000') : null,
+      }).select('id').single()
+      add('write-scope-gate: admin-auth probe tenant_members row created', !!authGateMember && !authGateMemberErr, authGateMemberErr?.message)
+
+      if (authGateMember?.id) {
+        const { error: authUpdateErr } = await supabase.from('tenant_members').update({
+          pin_last_login: new Date().toISOString(),
+        }).eq('tenant_id', tenant.id).eq('id', authGateMember.id)
+        add('write-scope-gate: admin-auth UPDATE with the tenant_id+id shape succeeds against the live tenant_members table', !authUpdateErr, authUpdateErr?.message)
+
+        const { data: authAfter } = await supabase.from('tenant_members').select('pin_last_login').eq('id', authGateMember.id).eq('tenant_id', tenant.id).single()
+        add('write-scope-gate: pin_last_login actually persists (fix did not break the happy path)', !!authAfter?.pin_last_login, JSON.stringify(authAfter))
+
+        await supabase.from('tenant_members').delete().eq('id', authGateMember.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
