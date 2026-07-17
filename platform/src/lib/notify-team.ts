@@ -5,7 +5,7 @@ import { sendEmail, tenantSender } from '@/lib/email'
 export interface NotifyTeamMemberOptions {
   tenantId: string
   teamMemberId: string
-  type: 'job_assignment' | 'job_reminder' | 'daily_summary' | 'job_cancelled' | 'job_rescheduled' | 'broadcast'
+  type: 'job_assignment' | 'job_reminder' | 'daily_summary' | 'job_cancelled' | 'job_rescheduled' | 'broadcast' | 'hr_document_expiry'
   title: string
   message: string
   bookingId?: string
