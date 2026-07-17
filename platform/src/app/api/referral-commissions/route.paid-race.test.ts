@@ -19,7 +19,18 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
+  const rpc = async (fn: string, params: Record<string, unknown>) => {
+    if (fn !== 'bump_referrer_total_paid' && fn !== 'bump_referrer_total_earned') {
+      throw new Error(`unexpected rpc: ${fn}`)
+    }
+    const col = fn === 'bump_referrer_total_paid' ? 'total_paid' : 'total_earned'
+    const ref = fake._all('referrers').find(
+      (r) => r.id === params.p_referrer_id && r.tenant_id === params.p_tenant_id,
+    )
+    if (ref) ref[col] = (Number(ref[col]) || 0) + Number(params.p_amount_cents)
+    return { data: null, error: null }
+  }
+  return { supabaseAdmin: { ...fake, rpc } }
 })
 
 vi.mock('@/lib/notify', () => ({ notify: vi.fn().mockResolvedValue(undefined) }))

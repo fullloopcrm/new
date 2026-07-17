@@ -6,8 +6,12 @@
  *                        via the token-gated GET /api/referrers/[code]).
  * GET (no params, admin session) — list all commissions for the tenant.
  * POST (admin) — create a commission for a booking with a referrer_id.
- * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid
- *               (atomically claimed so a double-submit can't double-credit).
+ * PUT (admin) — update status; marking 'paid' bumps referrer.total_paid.
+ *               The status transition itself is atomically claimed (a
+ *               double-submit of the SAME commission can't double-credit)
+ *               and the total_paid bump is a separate atomic RPC increment
+ *               (concurrent DIFFERENT commissions for the same referrer
+ *               can't clobber each other's credit either).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -132,11 +136,15 @@ export async function POST(request: Request) {
     postCommissionAccrual({ tenantId, commissionId: commissionRow.id })
       .catch(err => console.error('[ref-comm] accrual post failed:', err))
 
-    await supabaseAdmin
-      .from('referrers')
-      .update({ total_earned: (ref.total_earned || 0) + commission })
-      .eq('id', ref.id)
-      .eq('tenant_id', tenantId)
+    // Atomic increment (bump_referrer_total_earned RPC) — a plain
+    // read-then-write here would lose a concurrent commission's credit if
+    // two different commissions for the same referrer are created around
+    // the same time (see 2026_07_17_referrer_counter_atomic_bump.sql).
+    await supabaseAdmin.rpc('bump_referrer_total_earned', {
+      p_referrer_id: ref.id,
+      p_tenant_id: tenantId,
+      p_amount_cents: commission,
+    })
 
     if (ref.email) {
       notify({
@@ -238,19 +246,16 @@ export async function PUT(request: Request) {
     }
 
     if (status === 'paid') {
-      const { data: ref } = await supabaseAdmin
-        .from('referrers')
-        .select('total_paid')
-        .eq('id', data.referrer_id)
-        .eq('tenant_id', tenantId)
-        .single()
-      if (ref) {
-        await supabaseAdmin
-          .from('referrers')
-          .update({ total_paid: (ref.total_paid || 0) + (data.commission_cents as number) })
-          .eq('id', data.referrer_id)
-          .eq('tenant_id', tenantId)
-      }
+      // Atomic increment (bump_referrer_total_paid RPC) — the status CAS
+      // above only protects against double-submitting THIS SAME commission.
+      // Two DIFFERENT commissions for the same referrer marked paid
+      // concurrently would still race on a plain read-then-write of
+      // total_paid (see 2026_07_17_referrer_counter_atomic_bump.sql).
+      await supabaseAdmin.rpc('bump_referrer_total_paid', {
+        p_referrer_id: data.referrer_id,
+        p_tenant_id: tenantId,
+        p_amount_cents: data.commission_cents as number,
+      })
       // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))

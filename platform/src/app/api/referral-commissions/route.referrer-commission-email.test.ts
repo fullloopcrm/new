@@ -23,7 +23,15 @@ vi.mock('@/lib/require-admin', () => ({ requireAdmin: async () => ({ tenantId: c
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
+  const rpc = async (fn: string, params: Record<string, unknown>) => {
+    if (fn !== 'bump_referrer_total_earned') throw new Error(`unexpected rpc: ${fn}`)
+    const ref = fake._all('referrers').find(
+      (r) => r.id === params.p_referrer_id && r.tenant_id === params.p_tenant_id,
+    )
+    if (ref) ref.total_earned = (Number(ref.total_earned) || 0) + Number(params.p_amount_cents)
+    return { data: null, error: null }
+  }
+  return { supabaseAdmin: { ...fake, rpc } }
 })
 vi.mock('@/lib/notify', () => ({ notify: vi.fn().mockResolvedValue({ success: true }) }))
 vi.mock('@/lib/finance/post-adjustments', () => ({

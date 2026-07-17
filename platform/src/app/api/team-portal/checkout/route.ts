@@ -155,10 +155,16 @@ export async function POST(request: Request) {
       // commErr is expected (and ignored) when a commission already exists for
       // this booking — the UNIQUE(booking_id) constraint makes re-checkout safe.
       if (!commErr) {
+        // Atomic increment (bump_referrer_total_earned RPC) — a plain
+        // read-then-write here would lose a concurrent commission's credit
+        // if two of this referrer's bookings check out around the same
+        // time (see 2026_07_17_referrer_counter_atomic_bump.sql).
         await supabaseAdmin
-          .from('referrers')
-          .update({ total_earned: (ref.total_earned || 0) + commissionCents })
-          .eq('id', ref.id)
+          .rpc('bump_referrer_total_earned', {
+            p_referrer_id: ref.id,
+            p_tenant_id: auth.tid,
+            p_amount_cents: commissionCents,
+          })
           .then(() => {}, () => {})
         await supabaseAdmin.from('notifications').insert({
           tenant_id: auth.tid,
