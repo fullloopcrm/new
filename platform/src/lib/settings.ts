@@ -31,6 +31,10 @@ export interface TenantSettings {
   default_duration_hours: number
   min_days_ahead: number
   allow_same_day: boolean
+  // IANA zone (tenants.timezone, auto-derived from ZIP at creation, default
+  // 'America/New_York'). Same-day/emergency date comparisons must resolve
+  // "today" in this zone, not the server runtime's default — see item (70).
+  timezone: string
   // When true, the business operates 365 days a year — no holiday is ever
   // treated as closed for booking/availability. Default OFF (federal holidays
   // block, per lib/holidays.ts). Stored in tenants.selena_config jsonb.
@@ -212,6 +216,7 @@ export async function getSettings(tenantId: string): Promise<TenantSettings> {
     default_duration_hours: Number(tenant?.default_duration_hours ?? 2),
     min_days_ahead: Number(tenant?.min_days_ahead ?? 1),
     allow_same_day: Boolean(tenant?.allow_same_day),
+    timezone: (tenant?.timezone as string) || 'America/New_York',
     open_365: Boolean(selenaConfig.open_365),
     funnel_mode:
       selenaConfig.funnel_mode === 'pipeline' ? 'pipeline'

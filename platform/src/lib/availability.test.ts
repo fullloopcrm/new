@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
 /**
  * Regression (F4): checkAvailability() used to hardcode a 9am-5pm window and
@@ -43,7 +43,7 @@ vi.mock('@/lib/supabase', () => ({
 const ALL_DAYS = ['0', '1', '2', '3', '4', '5', '6']
 const AVAILABLE_TEAM = [{ id: 'member-1', name: 'Alex', working_days: ALL_DAYS, schedule: null, unavailable_dates: null, status: 'active' }]
 
-let settingsOverride: Partial<{ open_365: boolean; allow_same_day: boolean; business_hours_start: number; business_hours_end: number }>
+let settingsOverride: Partial<{ open_365: boolean; allow_same_day: boolean; business_hours_start: number; business_hours_end: number; timezone: string }>
 
 vi.mock('@/lib/settings', () => ({
   getSettings: async () => ({
@@ -114,5 +114,41 @@ describe('checkAvailability — same-day (F4)', () => {
     expect(times).not.toContain('9:00 AM')
     expect(times).not.toContain('2:00 PM')
     expect(times).toContain('3:00 PM')
+  })
+})
+
+// "Today" (the same-day gate) and "now" (the already-past-hours filter) must
+// both resolve in the tenant's own configured tenants.timezone, not the
+// server runtime's default — comparing in the wrong zone silently mis-gated
+// same-day availability during the multi-hour evening window before the
+// tenant's local midnight, exactly the 24/7-emergency-vertical window this
+// gate exists for (towing, restoration, emergency plumbing). Same bug shape
+// as item (70)'s is_emergency fix. TZ is explicitly stubbed to UTC (Vercel's
+// actual runtime default) rather than relying on the dev machine's own local
+// zone, which is already America/New_York and would otherwise mask the bug.
+describe('checkAvailability — same-day gate resolves in tenants.timezone, not the server default', () => {
+  beforeEach(() => { vi.stubEnv('TZ', 'UTC') })
+  afterEach(() => { vi.unstubAllEnvs() })
+
+  it('a same-day (ET) request is still gated even though UTC has already rolled to the next calendar date', async () => {
+    // 9:30pm EDT on Aug 10 = 2026-08-11T01:30:00Z -- UTC day is already Aug 11.
+    vi.setSystemTime(new Date('2026-08-11T01:30:00.000Z'))
+    settingsOverride = { allow_same_day: false, timezone: 'America/New_York' }
+
+    const result = await checkAvailability('tenant-1', '2026-08-10', 2)
+    expect(result.sameDay).toBe(true)
+    expect(result.slots).toEqual([])
+  })
+
+  it('a Pacific tenant same-day request excludes already-past PT hours, not server-default hours', async () => {
+    // 1:30pm PDT on Aug 10 = 2026-08-10T20:30:00Z.
+    vi.setSystemTime(new Date('2026-08-10T20:30:00.000Z'))
+    settingsOverride = { allow_same_day: true, business_hours_start: 8, business_hours_end: 20, timezone: 'America/Los_Angeles' }
+
+    const result = await checkAvailability('tenant-1', '2026-08-10', 2)
+    const times = result.slots.map((s) => s.time)
+    expect(times).not.toContain('9:00 AM')
+    expect(times).not.toContain('1:00 PM')
+    expect(times).toContain('2:00 PM')
   })
 })

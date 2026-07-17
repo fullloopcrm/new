@@ -133,9 +133,17 @@ export async function checkAvailability(
   durationHours: number = 2
 ): Promise<AvailabilityResult> {
   const now = new Date()
-  const today = now.toLocaleDateString('en-CA')
   const settings = await getSettings(tenantId)
   const { open_365, allow_same_day } = settings
+  // Resolved in the tenant's own configured zone (tenants.timezone, default
+  // America/New_York), not the server runtime's default — comparing "today"
+  // in the wrong zone silently mis-gated the same-day check during the
+  // multi-hour evening window before the tenant's local midnight, exactly
+  // the 24/7-emergency-vertical window this same-day gate exists for. Same
+  // bug shape as item (70)'s is_emergency fix, found while confirming this
+  // same-day path uses tenant-correct dates too.
+  const tz = settings.timezone || 'America/New_York'
+  const today = now.toLocaleDateString('en-CA', { timeZone: tz })
 
   // Same-day is opt-in per tenant (allow_same_day, already surfaced in
   // dashboard settings and enforced on the portal booking path) — previously
@@ -168,7 +176,11 @@ export async function checkAvailability(
   const businessStart = settings.business_hours_start ?? DEFAULT_BUSINESS_START
   const businessEnd = settings.business_hours_end ?? DEFAULT_BUSINESS_END
   const lastStartHour = businessEnd - durationHours
-  const nowMinutes = now.getHours() * 60 + now.getMinutes()
+  const [nowHour, nowMin] = now
+    .toLocaleTimeString('en-US', { timeZone: tz, hour12: false, hour: '2-digit', minute: '2-digit' })
+    .split(':')
+    .map(Number)
+  const nowMinutes = nowHour * 60 + nowMin
 
   const slots: AvailabilitySlot[] = []
 
