@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { verifyToken } from '../auth/token'
+import { casUpdateTeamMemberNotes } from '@/lib/team-member-notes'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -58,27 +59,16 @@ export async function PUT(request: NextRequest) {
 
   const { notification_preferences, sms_consent } = await request.json()
 
-  // Get current notes
-  const { data: member } = await supabaseAdmin
-    .from('team_members')
-    .select('notes')
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
-    .single()
-
-  let notesObj: Record<string, unknown> = {}
-  if (member?.notes) {
-    try { notesObj = JSON.parse(member.notes) } catch { notesObj = { text: member.notes } }
-  }
-
-  if (notification_preferences) notesObj.notification_preferences = notification_preferences
-  if (sms_consent !== undefined) notesObj.sms_consent = sms_consent
-
-  await supabaseAdmin
-    .from('team_members')
-    .update({ notes: JSON.stringify(notesObj) })
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
+  // notes is a shared JSON blob also written by team-portal/availability and
+  // the admin dashboard's schedule/time-off editor -- CAS-guarded (see
+  // lib/team-member-notes.ts) so a race with either of those doesn't
+  // silently clobber this write (or get clobbered by them).
+  await casUpdateTeamMemberNotes(auth.id, auth.tid, (current) => {
+    const next = { ...current }
+    if (notification_preferences) next.notification_preferences = notification_preferences
+    if (sms_consent !== undefined) next.sms_consent = sms_consent
+    return next
+  })
 
   return NextResponse.json({ success: true })
 }

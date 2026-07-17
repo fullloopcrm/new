@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
+import { requirePortalPermission } from '@/lib/team-portal-auth'
+import { casUpdateTeamMemberNotes } from '@/lib/team-member-notes'
 
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
@@ -30,11 +32,12 @@ export async function GET(request: NextRequest) {
 }
 
 export async function PUT(request: NextRequest) {
-  const token = request.headers.get('authorization')?.replace('Bearer ', '')
-  if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-
-  const auth = verifyToken(token)
-  if (!auth) return NextResponse.json({ error: 'Invalid token' }, { status: 401 })
+  // availability.edit_own is a tenant-customizable portal permission (see
+  // lib/portal-rbac.ts + the settings.portal-permissions UI) -- gate the
+  // write on it, not just a bare token, so a tenant that revokes it for a
+  // role actually stops that role from editing their own availability.
+  const { auth, error: authErr } = await requirePortalPermission(request, 'availability.edit_own')
+  if (authErr) return authErr
 
   const { availability } = await request.json()
 
@@ -84,13 +87,11 @@ export async function PUT(request: NextRequest) {
     }
   }
 
-  currentObj.availability = availability
-
-  await supabaseAdmin
-    .from('team_members')
-    .update({ notes: JSON.stringify(currentObj) })
-    .eq('id', auth.id)
-    .eq('tenant_id', auth.tid)
+  // notes is a shared JSON blob also written by team-portal/preferences and
+  // the admin dashboard's schedule/time-off editor -- CAS-guarded so a race
+  // with either of those doesn't silently clobber this write (or get
+  // clobbered by them).
+  await casUpdateTeamMemberNotes(auth.id, auth.tid, (current) => ({ ...current, availability }))
 
   // Notify admin about new time-off requests
   if (newDatesRequested.length > 0) {
