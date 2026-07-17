@@ -2127,3 +2127,69 @@ tenant-scope guard warning on `fixture/route.ts`, noted since item 17).
 Worktree still has no `.env.local`/Supabase env and this feature's own
 migration 008 is unapplied to prod either way, same constraint as every other
 item in this doc — file-only fix, no DB migration run.
+
+## (51) New today, archetype depth — `cron/late-check-in`'s own team-member SMS
+(the late-check-in AND late-check-out legs) never checked `sms_consent`,
+missed by item (48)'s sweep — NOW FIXED
+
+Item (48)'s sweep grepped every `sendSMS()` call site targeting a team
+member's phone and found five; re-checking that inventory against every
+`admin_tasks`/cron-alert route already touched by the `is_emergency`-blind
+archetype-depth thread (items 20/24/26/29/30/32/34/36/38/40/42/43/45) turned
+up a sixth site that sweep missed: `cron/late-check-in/route.ts`. Item (32)
+already made this route's *admin* alert emergency-aware, but never touched
+its separate team-member leg. Confirmed directly — neither of the route's
+two `bookings` queries (`lateBookings`, `lateCheckouts`) selected
+`team_members.sms_consent`, and both `if (teamLateOn && memberPhone && ...)`
+send-gates checked only the tenant-level `team_late_alert` comms preference,
+never the individual member's own opt-out. An opted-out team member running
+late to check in (or slow to check out) would still get texted every run
+this cron fires.
+
+**Fixed** (`p1-w3`) — added `sms_consent` to both `team_members` selects and
+gated both send sites on `memberConsent !== false`, same default-opt-in
+convention as every item (48)/(50) site. No dedicated test file added — this
+cron route (like its `confirmations`/`daily-summary`/`reminders`/
+`webhooks/stripe` siblings fixed under item 48) has no existing test harness
+to extend; verified by direct read of both loops plus `tsc --noEmit` clean
+and the full suite, 359/359 files, 1818/1818 tests, zero regressions (same
+pre-existing unrelated tenant-scope guard warning on `fixture/route.ts`).
+Worktree still has no `.env.local`/Supabase env for a live cron run, same
+constraint as every other item in this doc.
+
+## (52) New today, fresh ground — the missed-call auto-callback SMS
+(`telnyx-voice` webhook) sent unconditionally to every caller, bypassing
+`sms_consent` even for a known, opted-out client — NOW FIXED
+
+Traced `sendSMS()`'s consent gate in `src/lib/nycmaid/sms.ts` (the wrapper
+used by the NYC Maid voice/comhub system) end to end: `checkSMSConsent()`
+only runs `if (!options?.skipConsent && options?.recipientType &&
+options?.recipientId)` — consent is checked only when the caller supplies
+BOTH a recipient type and id, not by default. `telnyx-voice/route.ts`'s
+`maybeSendMissedCallSMS()` (fires an automated "sorry we missed your call"
+text on `no_answer`/`voicemail`/`hangup_before_pickup`) calls `sendSMS(opts.
+customerPhone, MISSED_CALL_SMS_BODY, { smsType: 'missed_call_callback' })`
+— no `recipientType`, no `recipientId`, and critically no `skipConsent: true`
+either, meaning this wasn't a deliberate OTP-style exemption (like
+`pin-reset`'s documented one) but an accidental bypass: the caller simply
+never wired up the fields `checkSMSConsent()` needs, so the gate silently
+never ran. Net effect: a customer who already texted STOP and has
+`clients.sms_consent = false` on their booking record would still get this
+automated callback the next time they called and hung up or got voicemail —
+`checkSMSConsent()` can't even help here as written, since it only knows how
+to look up `'client' | 'cleaner'` by row id, and this call site only has a
+raw phone number plus a `comhub_contacts` id (a different table it doesn't
+support).
+
+**Fixed** (`p1-w3`) — added a direct `clients` lookup by `tenant_id` +
+`phone` (same exact-match E.164 convention as the STOP webhook's own
+`clients` lookup in `webhooks/telnyx/route.ts`) immediately before the send,
+and skip if `sms_consent === false`. Deliberately narrow: this only blocks
+the send when the caller phone matches an existing `clients` row with an
+explicit opt-out — an unknown caller (no client match) still gets the
+callback, same as before, since silence isn't an opt-out signal. No
+dedicated test file added — this route has no existing test harness;
+verified by direct read plus `tsc --noEmit` clean and the full suite,
+359/359 files, 1818/1818 tests, zero regressions. Worktree still has no
+`.env.local`/Supabase env for a live call, same constraint as every other
+item in this doc.
