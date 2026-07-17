@@ -106,4 +106,38 @@ describe('checkTeamMemberDeletable', () => {
     expect(result.deletable).toBe(false)
     expect(result.reason).toMatch(/profile/i)
   })
+
+  it('blocks deletion when the member is crew (non-lead extra) on an active booking via booking_team_members', async () => {
+    fake._seed('booking_team_members', [{ id: 'btm-1', tenant_id: TENANT, team_member_id: MEMBER, booking_id: 'booking-1', is_lead: false, position: 2 }])
+    fake._seed('bookings', [{ id: 'booking-1', tenant_id: TENANT, status: 'scheduled' }])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(false)
+    expect(result.reason).toMatch(/active booking|assigned/i)
+  })
+
+  it('allows deletion when the member\'s only booking_team_members rows point at completed/cancelled bookings', async () => {
+    fake._seed('booking_team_members', [
+      { id: 'btm-1', tenant_id: TENANT, team_member_id: MEMBER, booking_id: 'booking-1', is_lead: false, position: 2 },
+      { id: 'btm-2', tenant_id: TENANT, team_member_id: MEMBER, booking_id: 'booking-2', is_lead: false, position: 2 },
+    ])
+    fake._seed('bookings', [
+      { id: 'booking-1', tenant_id: TENANT, status: 'completed' },
+      { id: 'booking-2', tenant_id: TENANT, status: 'cancelled' },
+    ])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(true)
+  })
+
+  it('does not block on another team member\'s or tenant\'s booking_team_members row', async () => {
+    fake._seed('booking_team_members', [
+      { id: 'btm-1', tenant_id: TENANT, team_member_id: 'someone-else', booking_id: 'booking-1', is_lead: false, position: 2 },
+      { id: 'btm-2', tenant_id: 'other-tenant', team_member_id: MEMBER, booking_id: 'booking-2', is_lead: false, position: 2 },
+    ])
+    fake._seed('bookings', [
+      { id: 'booking-1', tenant_id: TENANT, status: 'scheduled' },
+      { id: 'booking-2', tenant_id: 'other-tenant', status: 'scheduled' },
+    ])
+    const result = await checkTeamMemberDeletable(TENANT, MEMBER)
+    expect(result.deletable).toBe(true)
+  })
 })
