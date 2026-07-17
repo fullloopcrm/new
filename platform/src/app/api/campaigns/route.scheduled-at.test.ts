@@ -73,6 +73,13 @@ describe('POST /api/campaigns — scheduled_at is no longer silently dropped', (
     expect(campaign.scheduled_at).toBeNull()
   })
 
+  it('creates as status "scheduled" (not "draft") when scheduled_at is set — the dashboard "Scheduled" tab and cron/campaign-dispatch both filter on status, not on scheduled_at being non-null', async () => {
+    const res = await POST(req({ name: 'Spring Sale', type: 'email', body: 'Hello', scheduled_at: '2026-08-01T14:30' }))
+    expect(res.status).toBe(201)
+    const { campaign } = await res.json()
+    expect(campaign.status).toBe('scheduled')
+  })
+
   it('rejects a malformed scheduled_at instead of silently dropping it', async () => {
     const res = await POST(req({ name: 'Bad date', type: 'email', body: 'Hi', scheduled_at: 'not-a-date' }))
     expect(res.status).toBe(400)

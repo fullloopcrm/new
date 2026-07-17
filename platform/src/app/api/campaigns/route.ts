@@ -56,9 +56,18 @@ export async function POST(request: Request) {
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 
+    // scheduled_at landing on the row was only half the earlier fix: with
+    // status always forced to 'draft', a campaign the admin scheduled had no
+    // way to ever be distinguished from a plain draft. The dashboard's
+    // "Scheduled" tab/counter filters on status === 'scheduled' (never
+    // populated) and no cron ever looked for due campaigns to dispatch
+    // (see /api/cron/campaign-dispatch) — both dead ends traced back to this
+    // one insert never setting the status a scheduled campaign needs.
+    const status = fields!.scheduled_at ? 'scheduled' : 'draft'
+
     const { data, error } = await supabaseAdmin
       .from('campaigns')
-      .insert({ ...fields, tenant_id: tenantId, status: 'draft' })
+      .insert({ ...fields, tenant_id: tenantId, status })
       .select()
       .single()
 

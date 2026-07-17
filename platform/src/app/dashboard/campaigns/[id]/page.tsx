@@ -58,7 +58,7 @@ export default function CampaignDetailPage() {
       <div className="flex items-center justify-between mb-6">
         <h2 className="text-2xl font-bold text-slate-900">{campaign.name}</h2>
         <div className="flex gap-2">
-          {campaign.status === 'draft' && (
+          {(campaign.status === 'draft' || campaign.status === 'scheduled') && (
             <button onClick={sendCampaign} disabled={sending} className="bg-green-600 text-white px-4 py-2 rounded-lg text-sm font-medium disabled:opacity-50">
               {sending ? 'Sending...' : 'Send Now'}
             </button>
