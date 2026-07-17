@@ -4208,3 +4208,54 @@ nycmaid tenant. This needs a live prod-schema check (`cleaners` table
 existence + row count) before anyone touches it — flagging instead of
 guessing, given the blast radius is the primary client-facing booking
 flow.
+
+## (95) Archetype depth — item (94)'s flagged-not-fixed `core.ts` `handleCreateBooking` confirmed live and fixed — NOW FIXED
+
+Live prod-schema check (read-only) confirmed item (94)'s open question the
+hard way: `cleaners`, `booking_cleaners`, `cleaner_payouts`, and
+`cleaner_blocks` do not exist anywhere in prod, and `bookings` has zero
+`cleaner_id`-related columns. `core.ts`'s nycmaid-specific styling
+(hardcoded `thenycmaid.com` links, staff first names, an NYC phone number)
+was a red herring — there is no separate live `cleaners` table underneath
+it the way item (77)'s live-schema check overturned a source-only read.
+`handleCreateBooking` — the `create_booking` tool's real implementation,
+bridged in from every channel/tenant via `CLIENT_TOOLS`, its own comment
+calling it "the platform's most-used AI booking assistant" — has been
+importing `scoreCleanersForBooking` from the legacy `@/lib/nycmaid/
+smart-schedule` (queries the nonexistent `cleaners`/`booking_cleaners`)
+and inserting `suggested_cleaner_id` into `bookings`, a column that has
+never existed. Every AI/SMS-created booking's insert has been going out
+with a booking-yet-technician-suggestion silently dropped (the field
+write is a straight insert, not wrapped separately from the rest of the
+row, so a genuinely nonexistent column would 400 the whole `INSERT` —
+confirmed by the mutation test below going RED with the pre-fix column
+name).
+
+**Fixed** (`p1-w3`) — same swap item (94) made in `tools.ts`: import
+`scoreTeamForBooking` from the real `@/lib/smart-schedule` (identical
+call signature — `tenantId`, `date`, `startTime`, `durationHours`,
+`clientAddress`, `clientId`, `hourlyRate` — and identical
+`{ id, name, score, available, reason }` shape on the returned scores, so
+no downstream logic changed), and write the suggested tech to
+`suggested_team_member_id` instead of `suggested_cleaner_id`. No
+tool-schema or LLM-facing field name changed — `handleCreateBooking`
+never exposed `cleaner_id`/`suggested_cleaner_id` as an external tool
+argument, so this was pure internal wiring.
+
+2 new tests (`core.create-booking-team-members-schema.test.ts`), covering
+the real `handleCreateBooking` entry point: asserts `scoreTeamForBooking`
+is called and the legacy `scoreCleanersForBooking` is not, and that the
+inserted booking row carries `suggested_team_member_id` (not
+`suggested_cleaner_id`). Mutation-verified: `git apply -R` the fix, both
+tests RED for the expected reason (mock never called; inserted row's
+`suggested_team_member_id` `undefined`) — `git apply` restored, GREEN.
+Also updated the adjacent `core.create-booking-emergency-rate.test.ts`'s
+stale mock of the now-unimported `@/lib/nycmaid/smart-schedule` to mock
+the real `@/lib/smart-schedule` instead, so it actually intercepts the
+call the function under test makes (previously the real, unmocked
+`scoreTeamForBooking` was silently running against the fake-supabase
+store on every test, caught only because the score lookup is
+try/catch-wrapped). `tsc --noEmit` clean, full suite 392/392 files,
+1936/1936 tests, zero regressions (same pre-existing, unrelated
+`tenant-scope` guard warning on `src/app/api/fixture/route.ts`, not
+touched here).

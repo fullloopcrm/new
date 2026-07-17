@@ -2,7 +2,7 @@ import Anthropic from '@anthropic-ai/sdk'
 import { randomInt } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
-import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
+import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/nycmaid/admin-contacts'
@@ -1133,7 +1133,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
     let suggestedCleanerId: string | null = null
     let suggestedReason = ''
     try {
-      const scores = await scoreCleanersForBooking({
+      const scores = await scoreTeamForBooking({
         tenantId: tid,
         date, startTime: `${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}`,
         durationHours: estimatedHours, clientAddress: checklist.address || '',
@@ -1156,7 +1156,7 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       start_time: startTimeStr, end_time: endTimeStr,
       status: 'pending', service_type: serviceType,
       hourly_rate: hourlyRate, price: finalPriceCents,
-      recurring_type: recurringType, suggested_cleaner_id: suggestedCleanerId,
+      recurring_type: recurringType, suggested_team_member_id: suggestedCleanerId,
       notes: `SMS booking | ${convo.bedrooms || 0}BR/${convo.bathrooms || 0}BA${suggestedReason ? ` | Suggested: ${suggestedReason}` : ''} | [Promo: $20 self-booking discount applies at billing]`,
       is_emergency: isEmergency,
     }).select('id').single()
