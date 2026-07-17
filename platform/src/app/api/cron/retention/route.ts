@@ -32,12 +32,17 @@ export async function GET(request: Request) {
     if (!tenant.telnyx_api_key || !tenant.telnyx_phone) continue
 
     try {
-      // Find active clients with SMS consent
+      // Find active clients with SMS consent. Filters on `status`, not the
+      // `active` boolean column: nothing in the codebase ever flips `active`
+      // false (cron/lifecycle's own 90-day dormancy sweep only ever writes
+      // status:'inactive', leaving `active` stuck at its true default), so an
+      // `active`-only gate let this send unsolicited win-back texts to
+      // clients already marked inactive or explicitly do_not_contact.
       const { data: clients } = await supabaseAdmin
         .from('clients')
         .select('id, name, phone')
         .eq('tenant_id', tenant.id)
-        .eq('active', true)
+        .not('status', 'in', '(inactive,do_not_contact)')
         .eq('sms_consent', true)
         .not('phone', 'is', null)
         .limit(500)

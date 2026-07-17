@@ -7560,3 +7560,88 @@ round (non-interactive worker session, no dev server driven this round).
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (168) New fresh-ground surface, a different bug class entirely (infrastructure-wiring, not a status enum) — `cron/retention` has been documented, debugged, and re-debugged as live for 4 months and has never once run
+
+Instead of another schema-enum sweep, checked whether every cron route under
+`src/app/api/cron/*` is actually scheduled in `vercel.json`. `retention`
+(the 30-day dormant-client win-back SMS: max 3 texts, 30-day cooldown,
+skips anyone with an upcoming booking) is fully built, `verifyCronSecret`-
+gated exactly like every other cron, and referenced as live in three places:
+`admin/docs/page.tsx` lists `/api/cron/retention` as running "Weekly";
+`MARKETING-FEATURE-DIFF-2026-04-27.md` lists it among 17 "**WIRED**" crons;
+`NYCMAID-100-REVIEW-2026-07-10.md` (10 days ago) names it as the final,
+automated stage of the platform's own 10-stage client pipeline. Multiple
+sessions have debugged its internals as if it were live production code:
+a naive-ET/UTC boundary fix, an SMS-credential-resolver fix (tonight, on a
+sibling worktree), and a stale-column filter fix (see (169) below, also
+found independently on a sibling worktree). Checked the full git history of
+`vercel.json` (50 commits back to March) plus `origin/main`'s current
+state: `retention` has **never once appeared** in any version of that file,
+on any branch. Four months of debugging effort has been spent hardening a
+cron that has never fired a single time — no client, ever, has received a
+retention win-back text. Confirmed this isn't the same "deliberately held
+out during cron consolidation" pattern as `seo-vitals`/`seo-gbp-profile`/
+`seo-gbp-performance` (each of which carries its own explicit "not yet
+wired... per cron consolidation" comment, and `seo-autopilot`/
+`seo-competitors`/`seo-enrich`/`seo-propose`/`seo-verify-revert` are simply
+absent from this branch but already present on `origin/main`, i.e. branch
+lag, not a gap) — `retention` has no such disclaimer anywhere and is absent
+from `origin/main` too.
+
+**Fixed** — added `{ "path": "/api/cron/retention", "schedule": "0 10 * * *" }`
+to `vercel.json`, matching the route's own header comment ("runs daily at
+10am") and the identical daily-10am slot already used by the adjacent
+`follow-up` cron (a similar-purpose client-facing SMS touch).
+
+## (169) Continuing (168)'s surface — turning the schedule on would have immediately activated a live compliance bug: the dormant-client query filtered on a column nothing ever writes
+
+Before scheduling a cron that texts real clients, checked what its query
+would actually select. It filtered `.eq('active', true)` — but
+`clients.active` (migration `009_nycmaid_parity_columns.sql`) is a boolean
+that defaults `true` and is never flipped by any write path in this
+codebase. The real deactivation signal is `clients.status` (schema.sql:
+`active` / `inactive` / `do_not_contact`), written by `cron/lifecycle`'s own
+90-day dormancy sweep (`status: 'inactive'`) and, per the codebase's
+established do-not-contact convention, an admin-set `do_not_contact` value
+— neither of which ever touches `active`. Net effect, had (168)'s schedule
+fix shipped alone: every client `cron/lifecycle` has already marked
+`inactive` for being dormant, and any client an operator has explicitly
+flagged `do_not_contact`, would still read `active: true` forever and get
+win-back texted anyway — the STOP-reply/`sms_consent` gate (already correct)
+covers explicit opt-outs, but not an operator-side do-not-contact flag or a
+client already identified as dormant by the platform's own lifecycle logic.
+
+**Fixed** — replaced the stale `.eq('active', true)` with
+`.not('status', 'in', '(inactive,do_not_contact)')`, matching the exact
+`.not('status', 'in', '(...)')` idiom already used elsewhere in this
+codebase (`bookings` cancelled/no_show, `invoices` paid/void/refunded).
+
+New test `route.status-filter.test.ts` (in-memory fake `clients` table that
+actually evaluates the applied filter predicates against 3 fixture clients
+— active/inactive/do_not_contact, all still `active: true` — so the test
+can only pass if the route filters on the real signal): asserts exactly one
+SMS (to the `active` client) and `sent: 1` in the response body.
+Mutation-verified — reverted the fix via `git apply -R`, reran: failed for
+the right reason (`sent: 3`, all three clients texted including the two
+that should never be contacted), reapplied, confirmed back to `sent: 1`.
+`tsc --noEmit` clean. Full suite 454/454 files, 2153/2153 tests, zero
+regressions (same pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts` every prior report in this doc has flagged,
+not touched here).
+
+Noticed, not fixed (flagging for a future round rather than inventing a
+parallel implementation): a naive-ET/UTC boundary issue in the same route's
+30/90-day window math (`new Date()` compared directly against
+`bookings.end_time`, which is naive-ET wall-clock, not real UTC) — already
+identified and fixed on a sibling worktree via a `nowNaiveET()` helper that
+doesn't exist on this branch yet. Impact is narrow (only bookings within a
+few hours of the exact 30- or 90-day boundary), unlike (169)'s bug which
+affected every dormant/do-not-contact client permanently — left alone here
+to avoid shipping a second, divergent implementation of that helper that
+would only need reconciling at merge time.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round. CI workflow files
+(`.github/workflows/tenant-config-reconcile.yml`) and
+`scripts/reconcile-tenant-config.mjs` re-reviewed this round, zero diff.
