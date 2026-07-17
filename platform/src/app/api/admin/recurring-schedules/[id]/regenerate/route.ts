@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
-import { computeNaiveVisitWindow } from '@/lib/recurring'
+import { computeNaiveVisitWindow, nowNaiveET } from '@/lib/recurring'
 
 // Atomic "edit recurring pattern" for a series. Replaces the old client-side
 // loop (delete-each future booking, then create-each new one — N+N requests,
@@ -126,7 +126,13 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // never touched. We delete these by id AFTER the new insert succeeds, so a
   // failed insert leaves the existing series fully intact (no destructive
   // window).
-  const cutoff = from_date || new Date().toISOString()
+  //
+  // Same ET/UTC gap bug class fixed elsewhere in this session: start_time is
+  // naive-ET (see ../route.ts's own nowNaiveET() usage), so the caller-omitted
+  // fallback must anchor to ET now, not a true-UTC new Date().toISOString() --
+  // otherwise the rolling multi-hour gap window either leaves a stale
+  // duplicate booking un-retired or wrongly retires one that hasn't happened.
+  const cutoff = from_date || nowNaiveET()
   const { data: oldRows } = await db
     .from('bookings')
     .select('id, price')

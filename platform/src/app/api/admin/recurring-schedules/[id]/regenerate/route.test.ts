@@ -1,5 +1,6 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
+import { nowNaiveET } from '@/lib/recurring'
 
 /**
  * POST /api/admin/recurring-schedules/:id/regenerate — first route-level
@@ -271,5 +272,36 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(ids).not.toContain('book-old-confirmed')
     expect(ids).toContain('book-old-past')
     expect(ids).toContain('book-old-completed')
+  })
+
+  // Same ET/UTC gap bug class fixed elsewhere this session: when the caller
+  // omits from_date, the cutoff used to fall back to a true-UTC
+  // new Date().toISOString() compared against naive-ET start_time. Mocking
+  // "now" to 2026-07-17T18:00:00.000Z (2:00pm EDT) makes the true-UTC ISO
+  // string lexically greater than the naive-ET '...T14:00:00' start_time for
+  // a booking happening at that exact instant, so the old cutoff silently
+  // excluded it from the "old future bookings to retire" set -- a real
+  // schedule edit would leave a stale duplicate booking behind instead of
+  // replacing it with the new pattern's row for that date.
+  it('retires a same-instant booking when from_date is omitted (cutoff anchored to ET, not UTC)', async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-07-17T18:00:00.000Z'))
+    try {
+      h.store.bookings.push({
+        id: 'book-right-now', tenant_id: 'tenant-A', schedule_id: 'sched-A1',
+        status: 'scheduled', start_time: nowNaiveET(), price: 12000,
+      })
+
+      const { from_date: _omit, ...bodyWithoutFromDate } = baseBody
+      const res = await POST(postReq(bodyWithoutFromDate), params('sched-A1'))
+      const json = await res.json()
+
+      expect(res.status).toBe(200)
+      const ids = h.store.bookings.map((b) => b.id)
+      expect(ids).not.toContain('book-right-now')
+      expect(json.bookings_removed).toBeGreaterThanOrEqual(1)
+    } finally {
+      vi.useRealTimers()
+    }
   })
 })
