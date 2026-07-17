@@ -41,7 +41,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, is_emergency, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
         .lte('start_time', toDateStr(endDate) + 'T23:59:59')
@@ -140,7 +140,13 @@ export async function GET(request: Request) {
           const client = b.clients as any
 
           if (!b.team_member_id) {
-            issues.push({ type: 'unassigned', severity: 'warning', message: `${client?.name || 'Client'} on ${date} — no team member assigned`, booking_ids: [b.id], tenant_id: tenantId, date })
+            // An unassigned same-day emergency is a dispatch failure, not a
+            // routine scheduling gap — this cron is the only proactive sweep
+            // that catches it (see EMERGENCY-24-7-ARCHETYPE-GAPS-AND-FRICTION
+            // item 4/18), so it needs 'critical' severity to stand out from
+            // an ordinary unassigned booking three weeks out.
+            const isEmergencyBooking = (b as { is_emergency?: boolean | null }).is_emergency === true
+            issues.push({ type: 'unassigned', severity: isEmergencyBooking ? 'critical' : 'warning', message: `${isEmergencyBooking ? '🚨 EMERGENCY — ' : ''}${client?.name || 'Client'} on ${date} — no team member assigned`, booking_ids: [b.id], tenant_id: tenantId, date })
             continue
           }
           if (!member) continue
