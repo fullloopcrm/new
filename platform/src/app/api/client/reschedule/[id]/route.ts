@@ -151,14 +151,18 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
     // 4. Team member (if assigned)
     if (updated.team_member_id) {
+      const isEmergency = Boolean(updated.is_emergency)
       await notifyTeamMember({
         tenantId: tenant.id,
         teamMemberId: updated.team_member_id,
         type: 'job_rescheduled',
-        title: 'Job Rescheduled',
-        message: `${updated.clients?.name || 'Client'} moved to ${newDate}`,
+        title: isEmergency ? '🚨 Job Rescheduled — Now Urgent' : 'Job Rescheduled',
+        message: isEmergency
+          ? `${updated.clients?.name || 'Client'} moved to ${newDate} — now same-day/urgent`
+          : `${updated.clients?.name || 'Client'} moved to ${newDate}`,
         bookingId: id,
         smsMessage: smsJobRescheduled(tenant.name, updated),
+        isEmergency,
       }).catch(() => {})
     }
   })()

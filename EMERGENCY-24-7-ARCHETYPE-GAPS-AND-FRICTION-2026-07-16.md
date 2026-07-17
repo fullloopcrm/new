@@ -2384,3 +2384,69 @@ path, not the one this finding is about), `notify.ts`'s email branch, and
 `email.ts`'s `sendEmail()` return value directly, plus every tracked
 migration referencing `campaign_recipients` by name
 (`grep -rln campaign_recipients src/lib/migrations`).
+
+## (56) New today, archetype depth — the emergency reschedule's push notification to the assigned tech was itself is_emergency-blind, and quiet hours silently swallowed it overnight with no urgency exception — NOW FIXED
+
+Direct continuation of item (53)'s push-channel activation: with `notify()`'s
+`channel:'push'` now real, checked whether the one caller of
+`notify-team-member.ts`'s `notifyTeamMember()` that sits squarely in this
+session's price-transparency/urgency trilogy — `PUT
+/api/client/reschedule/[id]` (item (11)'s subject, the route whose own
+`becomesEmergency` logic flips `is_emergency` true when a client moves an
+existing booking to today) — actually surfaces that urgency on the push leg.
+It didn't, two ways at once:
+
+1. **The call site itself was blind.** Its `notifyTeamMember()` call hardcoded
+   `title: 'Job Rescheduled'` and a plain `message`, never reading
+   `updated.is_emergency` (already on the row it just wrote) or passing
+   anything urgency-shaped — unlike its own sibling `smsMessage:
+   smsJobRescheduled(...)` on the very same call, which item (11) already made
+   emergency-aware. The push/in-app leg of this exact notification never got
+   the same treatment.
+2. **`notifyTeamMember()`'s push leg had no urgency escape hatch from quiet
+   hours at all.** `notify-team-member.ts:145` suppressed push
+   unconditionally whenever `isQuietHours()` was true (default window
+   22:00-07:00) — no exception for any notification type, urgent or not. This
+   directly contradicts the established convention in this file's own older
+   sibling, `notify-team.ts` (used by the extra-crew assignment path, item
+   (7)'s original subject): that file's SMS and email legs are explicitly
+   commented "still delivered during quiet hours for urgent notifications."
+   `notify-team-member.ts` added a push channel later (item (53)) without
+   porting that same exception. Net effect: a tech whose routine job just got
+   moved into a same-day emergency by the client (the exact scenario item (11)
+   already prices/flags correctly) got a generic "Job Rescheduled" push with
+   no urgency signal — and if the reschedule landed overnight, exactly when a
+   real emergency is statistically most likely, the push was silently dropped
+   entirely with zero exception, on the one channel most likely to actually
+   wake someone up. Verified by reading `notify-team-member.ts` in full,
+   `client/reschedule/[id]/route.ts`'s notification fan-out block, and
+   confirming via `grep -rln "from '@/lib/notify-team-member'\|from
+   '@/lib/notify-team'" src/app/api` that this route is the only caller of the
+   push-capable `notify-team-member.ts` (the extra-crew path uses the
+   push-less `notify-team.ts` instead, so it isn't affected by this
+   particular gap).
+
+**Fixed** (`p1-w3`) — added an optional `isEmergency` field to
+`NotifyTeamMemberOptions`; the push gate is now `if (wantsPush && (!quiet ||
+isEmergency))`, porting `notify-team.ts`'s own "urgent notifications still
+delivered during quiet hours" convention onto the push channel it never had.
+`client/reschedule/[id]/route.ts`'s call site now reads
+`Boolean(updated.is_emergency)` and passes `isEmergency` plus an
+urgency-aware title (`'🚨 Job Rescheduled — Now Urgent'`) and message,
+matching the 🚨-prefix convention `bookings/[id]/team/route.ts` already
+established for the sibling assignment-notification title. 4 new tests:
+`notify-team-member.emergency-quiet-hours.test.ts` (routine push suppressed
+at 2am inside the default quiet window; `isEmergency:true` push still
+delivered at the same 2am, using `vi.setSystemTime` for a deterministic
+clock rather than a wall-clock-dependent quiet-window guess) and
+`route.emergency-push-title.test.ts` (the route's call site passes
+`isEmergency:true` + the urgent title/message when rescheduling to today,
+`isEmergency:false` + the generic title on the future-date control).
+Mutation-verified via saved patch (`git diff` → `/tmp/w3-emergency-quiet-
+hours.patch` → `git apply -R` → all 3 new assertions failed reproducing the
+exact pre-fix symptom, RED — push not delivered / `isEmergency` undefined →
+`git apply` restored, GREEN). `tsc --noEmit` clean, full suite 364/364
+files, 1832/1832 tests, zero regressions (same pre-existing unrelated
+tenant-scope guard warning on `fixture/route.ts`, not touched, noted since
+item 17). Worktree still has no `.env.local`/Supabase env for a live push
+send, same constraint as every other item in this doc.

@@ -20,6 +20,7 @@ export interface NotifyTeamMemberOptions {
   skipEmail?: boolean
   skipSms?: boolean
   skipPush?: boolean
+  isEmergency?: boolean
 }
 
 export interface DeliveryReport {
@@ -91,6 +92,7 @@ export async function notifyTeamMember(
     skipEmail,
     skipSms,
     skipPush,
+    isEmergency,
   } = opts
 
   // 1. Always create in-app notification
@@ -142,8 +144,13 @@ export async function notifyTeamMember(
   let sentEmail = false
   let sentSms = false
 
-  // 5. Push — suppressed during quiet hours
-  if (wantsPush && !quiet) {
+  // 5. Push — suppressed during quiet hours, except for emergency jobs.
+  // Mirrors notify-team.ts's own SMS/email convention ("still delivered
+  // during quiet hours for urgent notifications") — push had no such
+  // exception, so an emergency reschedule/assignment landing overnight
+  // (exactly when a real emergency is most likely) got silently suppressed
+  // on the one channel most likely to actually wake someone up.
+  if (wantsPush && (!quiet || isEmergency)) {
     try {
       const result = await notify({
         tenantId,
