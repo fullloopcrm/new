@@ -194,6 +194,26 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(row.price).toBe(15000)
   })
 
+  it('persists an explicit team_member_id: null unassign onto the schedule rule, not just the new bookings', async () => {
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'], team_member_id: 'tm-1' }), params('sched-A1'))
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.team_member_id).toBe('tm-1')
+
+    await POST(postReq({ ...baseBody, dates: ['2026-08-22'], team_member_id: null }), params('sched-A1'))
+
+    const sched = h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!
+    expect(sched.team_member_id).toBeNull()
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-08-22T09:00:00')!
+    expect(row.team_member_id).toBeNull()
+  })
+
+  it('leaves the schedule’s team_member_id unchanged when the caller omits the field entirely', async () => {
+    await POST(postReq({ ...baseBody, dates: ['2026-08-15'], team_member_id: 'tm-1' }), params('sched-A1'))
+
+    await POST(postReq({ ...baseBody, dates: ['2026-08-22'] }), params('sched-A1'))
+
+    expect(h.store.recurring_schedules.find((s) => s.id === 'sched-A1')!.team_member_id).toBe('tm-1')
+  })
+
   it('accepts the nycmaid aliases cleaner_id and cleaner_pay_rate', async () => {
     await POST(postReq({ ...baseBody, dates: ['2026-08-15'], cleaner_id: 'cleaner-9', cleaner_pay_rate: 30 }), params('sched-A1'))
 

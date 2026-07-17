@@ -59,7 +59,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     return NextResponse.json({ error: 'dates[] required' }, { status: 400 })
   }
 
-  const teamMemberId = team_member_id ?? cleaner_id ?? null
+  // Distinguish "caller didn't send this field" from "caller explicitly wants
+  // to unassign" (team_member_id: null) -- team_member_id ?? cleaner_id ?? null
+  // collapsed both cases to null, so an explicit unassign (a real, supported
+  // state elsewhere: cron/generate-recurring creates unassigned+flagged
+  // bookings the same way) silently failed to clear the rule below, matching
+  // ../route.ts PUT's already-correct `!== undefined` handling of this same field.
+  const teamMemberProvided = team_member_id !== undefined || cleaner_id !== undefined
+  const teamMemberId = team_member_id !== undefined ? team_member_id : (cleaner_id ?? null)
   const payRate = pay_rate ?? cleaner_pay_rate ?? null
   const hours = duration_hours || 3
 
@@ -98,7 +105,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (duration_hours !== undefined) rulePatch.duration_hours = hours
   if (hourly_rate !== undefined) rulePatch.hourly_rate = hourly_rate
   if (payRate !== null) rulePatch.pay_rate = effPayRate
-  if (teamMemberId !== null) rulePatch.team_member_id = teamMemberId
+  if (teamMemberProvided) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
   await db.from('recurring_schedules').update(rulePatch).eq('id', id)
 
