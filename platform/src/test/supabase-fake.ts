@@ -24,7 +24,7 @@
  * Supported query surface (superset; unused bits are inert for a given test):
  *   from(table)
  *     .select(cols?, { head }) .insert(payload) .update(payload) .delete()
- *     .eq(col, val) .gte(col, val) .lt(col, val) .is(col, null|bool) .in(col, vals) .not() .order() .limit()
+ *     .eq(col, val) .gte(col, val) .lt(col, val) .is(col, null|bool) .in(col, vals) .not() .order() .limit() .returns<T>()
  *     .single() .maybeSingle() .then(...)   // awaiting the chain = "many"
  *
  * `gte`/`lt` compare stringwise (`String(a) >= String(b)`), which is what the
@@ -172,6 +172,7 @@ export function makeSupabaseFake(h: FakeStoreHandle, opts: SupabaseFakeOptions =
         not: () => chain,
         order: () => chain,
         limit: () => chain,
+        returns: () => chain,
         single: () => Promise.resolve(runQuery(h, state, 'single', opts)),
         maybeSingle: () => Promise.resolve(runQuery(h, state, 'maybeSingle', opts)),
         then: (res: (v: unknown) => unknown, rej?: (e: unknown) => unknown) =>

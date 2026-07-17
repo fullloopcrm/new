@@ -184,7 +184,7 @@ export async function GET(request: Request) {
         .from('bookings')
         .select('start_time')
         .eq('schedule_id', schedule.id)
-        .in('status', ['scheduled', 'pending'])
+        .in('status', ['scheduled', 'confirmed', 'pending'])
         .order('start_time', { ascending: false })
         .limit(1)
         .single()
