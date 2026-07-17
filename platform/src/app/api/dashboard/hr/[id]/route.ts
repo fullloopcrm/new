@@ -124,6 +124,24 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
       .single()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 
+    // hr_status is purely a label read by the HR pages only -- team_members.status
+    // is the field every operational gate actually checks (team-portal PIN login,
+    // urgent-job broadcast eligibility), and nothing kept the two in sync. Marking
+    // someone 'terminated' here left them fully able to log into the team portal
+    // and get broadcast new jobs the next day. Close that specific gap: flip
+    // team_members.status to 'inactive' — the value the delete-guard/roster pages
+    // already use for "remove from active roster, keep the record" — whenever HR
+    // status becomes 'terminated'. One-way only: reactivating from 'terminated'
+    // does not auto-flip status back, since 'inactive' may have an unrelated
+    // cause (e.g. manual removal) that this PATCH has no way to distinguish.
+    if (patch.hr_status === 'terminated') {
+      await supabaseAdmin
+        .from('team_members')
+        .update({ status: 'inactive' })
+        .eq('tenant_id', tenantId)
+        .eq('id', id)
+    }
+
     return NextResponse.json({ ok: true, profile: data })
   } catch (e) {
     const message = e instanceof Error ? e.message : 'unexpected error'
