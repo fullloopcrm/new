@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 120
 
@@ -14,8 +15,24 @@ export async function GET(request: Request) {
   }
 
   const now = new Date()
+  // clients.created_at is TIMESTAMPTZ (aware) -- real-UTC thirtyDaysAgo is
+  // correct against it. bookings.start_time is naive-ET TIMESTAMP (no tz);
+  // comparing it against a real-UTC bound mixes reference frames by the
+  // EST/EDT offset, so the start_time checks below use the naive-ET-encoded
+  // bounds instead.
   const thirtyDaysAgo = new Date(now.getTime() - 30 * 24 * 3600 * 1000).toISOString()
-  const ninetyDaysAgo = new Date(now.getTime() - 90 * 24 * 3600 * 1000).toISOString()
+  // nowNaiveET's UTC-getter fields already ARE the ET wall-clock digits
+  // (that's what toNaiveET+`new Date()` encodes) -- format those fields
+  // directly after the ms subtraction below, rather than running the result
+  // through toNaiveET() again, which would re-apply the America/New_York
+  // conversion a second time and shift the digits by the offset once more.
+  const nowNaiveET = new Date(toNaiveET(now))
+  const naiveETString = (d: Date): string => {
+    const pad = (n: number) => String(n).padStart(2, '0')
+    return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}T${pad(d.getUTCHours())}:${pad(d.getUTCMinutes())}:${pad(d.getUTCSeconds())}`
+  }
+  const thirtyDaysAgoNaiveET = naiveETString(new Date(nowNaiveET.getTime() - 30 * 24 * 3600 * 1000))
+  const ninetyDaysAgoNaiveET = naiveETString(new Date(nowNaiveET.getTime() - 90 * 24 * 3600 * 1000))
 
   let totalUpdated = 0
   let totalProcessed = 0
@@ -51,7 +68,7 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .in('client_id', ids)
           .in('status', ['completed', 'paid'])
-          .gte('start_time', ninetyDaysAgo)
+          .gte('start_time', ninetyDaysAgoNaiveET)
 
         const activeClientIds = new Set((recentlyActive || []).map(b => b.client_id))
 
@@ -66,7 +83,7 @@ export async function GET(request: Request) {
             .eq('tenant_id', tenant.id)
             .in('client_id', toInactive)
             .in('status', ['completed', 'paid'])
-            .gte('start_time', thirtyDaysAgo)
+            .gte('start_time', thirtyDaysAgoNaiveET)
 
           const midRangeIds = new Set((midRangeActive || []).map(b => b.client_id))
           const trulyInactive = toInactive.filter(id => !midRangeIds.has(id))
@@ -102,7 +119,7 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .in('client_id', inactiveIds)
           .in('status', ['completed', 'paid', 'scheduled', 'confirmed'])
-          .gte('start_time', ninetyDaysAgo)
+          .gte('start_time', ninetyDaysAgoNaiveET)
 
         const toReactivate = [...new Set((newBookings || []).map(b => b.client_id))]
 
