@@ -15,7 +15,7 @@ export async function GET(request: Request) {
 
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, client_id, service_type, clients(name)')
+    .select('id, tenant_id, client_id, service_type, notes, clients(name)')
     .in('status', ['completed', 'paid'])
     .gte('check_out_time', windowStart.toISOString())
     .lte('check_out_time', windowEnd.toISOString())
@@ -23,6 +23,18 @@ export async function GET(request: Request) {
   let totalSent = 0
 
   for (const booking of bookings || []) {
+    // Unlike every sibling follow-up cron (post-job-followup's
+    // [FOLLOWUP_SENT] notes marker, sales-follow-ups' notifications-based
+    // dedup), this route had ZERO duplicate-send protection -- a manual
+    // re-trigger of this endpoint, or a platform-retried cron delivery,
+    // would re-send the "thank you + THANKYOU for 10% off" email to every
+    // booking still inside the 2-hour window. Distinct marker from
+    // post-job-followup's [FOLLOWUP_SENT] -- that one gates an unrelated
+    // 2-hour-post-checkout SMS rating request on the same bookings.notes
+    // field, and would already be present by the time this 3-day thank-you
+    // runs, so reusing it would make this cron silently skip every booking.
+    if (booking.notes?.includes('[THANKYOU_SENT]')) continue
+
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
       .select('name')
@@ -41,6 +53,12 @@ export async function GET(request: Request) {
       recipientId: booking.client_id,
       bookingId: booking.id,
     })
+
+    const updatedNotes = booking.notes
+      ? `${booking.notes}\n[THANKYOU_SENT] ${new Date().toISOString()}`
+      : `[THANKYOU_SENT] ${new Date().toISOString()}`
+    await supabaseAdmin.from('bookings').update({ notes: updatedNotes }).eq('id', booking.id)
+
     totalSent++
   }
 
