@@ -1,6 +1,7 @@
 import { randomInt } from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
 import { supabaseAdmin } from '@/lib/supabase'
+import { toNaiveET } from '@/lib/dates'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { scoreCleanersForBooking } from '@/lib/nycmaid/smart-schedule'
 import { notify } from '@/lib/nycmaid/notify'
@@ -1213,7 +1214,10 @@ async function handleGetAccount(conversationId: string): Promise<string> {
     const { data: upcoming } = await supabaseAdmin.from('bookings')
       .select('id, start_time, status, service_type, hourly_rate, payment_status, cleaners(name)')
       .eq('tenant_id', tid).eq('client_id', convo.client_id).in('status', ['pending', 'scheduled', 'confirmed', 'in_progress'])
-      .gte('start_time', new Date().toISOString()).order('start_time').limit(5)
+      // start_time is a naive-ET TIMESTAMP (no tz); a real-UTC .toISOString()
+      // lower bound silently drops tonight's still-upcoming booking during
+      // the evening ET window (same class as webhooks/telnyx confirm branch).
+      .gte('start_time', toNaiveET(new Date())).order('start_time').limit(5)
     const { data: payments } = await supabaseAdmin.from('payments')
       .select('amount, tip, method, created_at').eq('tenant_id', tid).eq('client_id', convo.client_id)
       .order('created_at', { ascending: false }).limit(5)
@@ -1302,7 +1306,9 @@ async function handleResendConfirmation(input: Record<string, unknown>, conversa
     if (!bookingId) {
       const { data: next } = await supabaseAdmin.from('bookings')
         .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id)
-        .in('status', ['pending', 'scheduled']).gte('start_time', new Date().toISOString())
+        .in('status', ['pending', 'scheduled'])
+        // see naive-ET note on handleGetAccount above.
+        .gte('start_time', toNaiveET(new Date()))
         .order('start_time').limit(1).single()
       bookingId = next?.id
     }
@@ -1572,7 +1578,10 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
       let bookingQuery = supabaseAdmin.from('bookings').update({ status: 'cancelled' })
         .eq('tenant_id', tid).eq('schedule_id', scheduleId)
         .in('status', ['scheduled', 'pending', 'confirmed'])
-        .gte('start_time', new Date().toISOString())
+        // start_time is naive-ET; a real-UTC lower bound misses tonight's
+        // still-upcoming visit during the evening ET window (same class as
+        // the get_account/resend_confirmation lookups above).
+        .gte('start_time', toNaiveET(new Date()))
       if (pauseUntil) bookingQuery = bookingQuery.lte('start_time', `${pauseUntil}T23:59:59`)
       const { data: cancelled } = await bookingQuery.select('id')
       const cancelledCount = cancelled?.length || 0
@@ -1594,7 +1603,8 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
       const { data: cancelled } = await supabaseAdmin.from('bookings').update({ status: 'cancelled' })
         .eq('tenant_id', tid).eq('schedule_id', scheduleId)
         .in('status', ['scheduled', 'pending', 'confirmed'])
-        .gte('start_time', new Date().toISOString())
+        // see naive-ET note on the pause action above.
+        .gte('start_time', toNaiveET(new Date()))
         .select('id')
       const cancelledCount = cancelled?.length || 0
 
