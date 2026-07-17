@@ -1350,6 +1350,36 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
         await supabase.from('bookings').update({ team_member_id: replacement.id }).eq('id', remainingSession.id)
         const { data: reassignedSession } = await supabase.from('bookings').select('team_member_id').eq('id', remainingSession.id).single()
         add('crew-termination: remaining session reassigned to the replacement, not left on the terminated worker', reassignedSession?.team_member_id === replacement.id, reassignedSession?.team_member_id)
+
+        // ---- 5a-3. DOUBLE-BOOKING THE SAME CREW MEMBER (no conflict guard) ----
+        // FRESH GROUND, found while proving the termination guard above: the
+        // replacement is now the sole assignee on the remaining session.
+        // Nothing stops that SAME person also being booked onto an unrelated
+        // job's session at the EXACT SAME time. POST/PATCH .../sessions
+        // (route.ts + [sessionId]/route.ts) only ever validate team_members
+        // existence+tenant, and (since the fix above) hr_status -- neither
+        // checks the assignee's OTHER bookings for a time overlap. For a
+        // solo/small crew (the norm on these trades), a double-booked crew
+        // member means one of the two jobs silently has nobody show up,
+        // discovered only when the customer calls. NOT FIXED here -- whether
+        // ANY overlap should be blocked is a real product decision (a crew
+        // lead legitimately splitting a morning between two nearby
+        // walk-throughs is not itself a bug); documented as an
+        // expected-to-fail check so this doesn't silently regress into
+        // "considered and rejected" territory before Jeff weighs in.
+        const { data: secondJob } = await supabase.from('jobs').insert({
+          tenant_id: tenant.id, client_id: job?.client_id || null,
+          title: `${cfg.crew.name} — second job (double-book probe)`, status: 'scheduled', total_cents: 0,
+        }).select('id').single()
+        if (secondJob) {
+          const { data: overlapBooking, error: overlapErr } = await supabase.from('bookings').insert({
+            tenant_id: tenant.id, client_id: job?.client_id || null, job_id: secondJob.id,
+            team_member_id: replacement.id, start_time: remainingSession.start_time, end_time: remainingSession.end_time,
+            status: 'confirmed', notes: 'Double-book probe — unrelated job, same crew member, overlapping window',
+          }).select('id').single()
+          add('double-booking (KNOWN GAP — no scheduling-conflict guard exists anywhere in session create/reassign): the SAME crew member can be booked onto a second, unrelated job at the EXACT SAME overlapping time with zero warning',
+            !overlapErr && !!overlapBooking, overlapErr?.message)
+        }
       }
     }
 
