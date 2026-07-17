@@ -7,8 +7,10 @@
  *
  * Replaces the booking's team. Updates bookings.team_member_id (lead) +
  * bookings.team_size, then rewrites booking_team_members rows. Notifies
- * newly-added extras (lead is handled by the main /api/bookings/[id] PUT
- * path on team_member_id change).
+ * newly-added extras and, on a lead swap, both the outgoing and incoming
+ * lead directly (this route writes team_member_id itself and does not
+ * actually go through /api/bookings/[id] PUT, so that route's own
+ * reassignment SMS never fires for a change made here).
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -87,6 +89,12 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     .eq('booking_id', id)) as { data: { team_member_id: string; is_lead: boolean }[] | null }
   const oldMemberIds = new Set((oldRows || []).map((r) => r.team_member_id))
   const newlyAddedExtras = newExtras.filter((mid) => !oldMemberIds.has(mid))
+  // This route updates bookings.team_member_id (the lead) directly above,
+  // bypassing /api/bookings/[id] PUT entirely — so that route's own
+  // outgoing/incoming-lead SMS (items 86/89) never fires for a lead swap
+  // made here, despite this file's own header comment claiming it does.
+  const oldLeadId = (oldRows || []).find((r) => r.is_lead)?.team_member_id || null
+  const leadChanged = newLead !== oldLeadId
 
   // Update bookings.team_member_id (lead) + team_size — tenant-scoped.
   const { data: updatedBooking, error: updErr } = await db
@@ -170,6 +178,75 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       })
     } catch (notifyErr) {
       console.error('Team notify on edit failed:', notifyErr)
+    }
+  }
+
+  // Lead reassignment — mirrors the outgoing/incoming notify-both-sides
+  // shape items (86)/(89) established on the main booking PUT path, applied
+  // here since this route is a separate write path that path never sees.
+  if (leadChanged) {
+    if (newLead) {
+      try {
+        const { data: bookingFull } = await db
+          .from('bookings')
+          .select('*, clients(*)')
+          .eq('id', id)
+          .single<Booking & { hourly_rate?: number | null; pay_rate?: number | null; is_emergency?: boolean | null }>()
+
+        const { data: newLeadMember } = await db
+          .from('team_members')
+          .select('name, pin')
+          .eq('id', newLead)
+          .single<{ name: string | null; pin: string | null }>()
+
+        const report = await notifyTeamMember({
+          tenantId: ctx.tenantId,
+          teamMemberId: newLead,
+          type: 'job_assignment',
+          title: bookingFull?.is_emergency ? '🚨 Assigned Emergency Job Lead' : 'Assigned as Job Lead',
+          message: `${clientName} on ${bookingDate} (team of ${teamSize})`,
+          bookingId: id,
+          smsMessage: tenant && bookingFull?.start_time
+            ? teamSmsTemplates(tenant).jobAssignment({
+                start_time: bookingFull.start_time,
+                hourly_rate: bookingFull.hourly_rate,
+                pay_rate: bookingFull.pay_rate,
+                is_emergency: bookingFull.is_emergency,
+                clients: bookingFull.clients?.name ? { name: bookingFull.clients.name } : null,
+                team_members: newLeadMember ? { name: newLeadMember.name, pin: newLeadMember.pin } : null,
+              })
+            : `You've been assigned as lead for ${clientName} on ${bookingDate}.`,
+          skipEmail: true,
+          isEmergency: !!bookingFull?.is_emergency,
+        })
+
+        await db.from('notifications').insert({
+          type: 'team_member_notified',
+          title: 'Team Member Notified',
+          message: formatDeliveryReport(report),
+          booking_id: id,
+        })
+      } catch (notifyErr) {
+        console.error('Lead assignment notify failed:', notifyErr)
+      }
+    }
+    if (oldLeadId) {
+      try {
+        await notifyTeamMember({
+          tenantId: ctx.tenantId,
+          teamMemberId: oldLeadId,
+          type: 'job_cancelled',
+          title: 'Removed as Job Lead',
+          message: `You are no longer the lead on ${clientName}'s ${bookingDate} job.`,
+          bookingId: id,
+          smsMessage: newLead
+            ? `${tenant?.name || 'Job'}: You've been reassigned off the ${bookingDate} ${clientName} job.`
+            : `${tenant?.name || 'Job'}: The ${bookingDate} ${clientName} job's lead assignment was removed.`,
+          skipEmail: true,
+        })
+      } catch (notifyErr) {
+        console.error('Lead removal notify failed:', notifyErr)
+      }
     }
   }
 

@@ -68,6 +68,18 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Old team_member_id per booking, needed to detect a real reassignment
+    // below — must be read BEFORE the update overwrites it.
+    const teamChangeUpdates = sanitizedUpdates.filter((u) => 'team_member_id' in u.data)
+    const oldTeamById = new Map<string, string | null>()
+    if (teamChangeUpdates.length > 0) {
+      const { data: oldRows } = (await db
+        .from('bookings')
+        .select('id, team_member_id')
+        .in('id', teamChangeUpdates.map((u) => u.id))) as { data: { id: string; team_member_id: string | null }[] | null }
+      for (const r of oldRows || []) oldTeamById.set(r.id, r.team_member_id ?? null)
+    }
+
     const results = await Promise.all(
       sanitizedUpdates.map(async (u) => {
         const { data, error } = await db
@@ -107,21 +119,68 @@ export async function PUT(request: Request) {
         status: 'sent',
       })
 
-      // Notify team member if rescheduled
-      if (notify_type === 'rescheduled' && first.team_member_id) {
+      await audit({ tenantId, action: 'booking.batch_updated', entityType: 'booking', entityId: first.id, details: { count: results.length } })
+    }
+
+    // Reassignment across the batch — mirrors items (86)/(89)'s outgoing/
+    // incoming notify-both-sides shape (PUT /api/bookings/[id]). This route
+    // is BookingsAdmin's own "apply to all future bookings" series-edit path
+    // and explicitly allows team_member_id in BATCH_UPDATE_FIELDS, so a
+    // whole-series reassignment goes through here, not the single-booking
+    // route. Two gaps this closes: the old code below only ever notified
+    // the NEW tech, gated on `notify_type === 'rescheduled'` (set by the
+    // caller only when the *time* shifted, not when the tech did — so a
+    // pure reassignment with unchanged times notified no one) and only for
+    // the first booking in the batch; the outgoing tech was never notified
+    // at all, for any booking. Aggregated to one SMS per affected member
+    // (not one per booking) to match this route's own "sends ONE
+    // notification" design intent for series-wide edits.
+    if (teamChangeUpdates.length > 0) {
+      const resultById = new Map(results.map((r) => [r.id, r.data]))
+      const outgoingCounts = new Map<string, number>()
+      const incomingCounts = new Map<string, number>()
+      for (const u of teamChangeUpdates) {
+        const oldId = oldTeamById.get(u.id) ?? null
+        const newId = (u.data.team_member_id as string | null) ?? null
+        if (oldId === newId) continue
+        if (oldId) outgoingCounts.set(oldId, (outgoingCounts.get(oldId) || 0) + 1)
+        if (newId) incomingCounts.set(newId, (incomingCounts.get(newId) || 0) + 1)
+      }
+
+      if (outgoingCounts.size > 0) {
+        const { data: outgoingMembers } = (await db
+          .from('team_members')
+          .select('id, phone')
+          .in('id', [...outgoingCounts.keys()])) as { data: { id: string; phone: string | null }[] | null }
+        for (const m of outgoingMembers || []) {
+          const count = outgoingCounts.get(m.id) || 0
+          if (!m.phone || count === 0) continue
+          await notify({
+            tenantId,
+            type: 'booking_reminder',
+            title: 'Jobs Reassigned',
+            message: `${count} of your upcoming job${count === 1 ? '' : 's'} ${count === 1 ? 'has' : 'have'} been reassigned to another team member.`,
+            channel: 'sms',
+            recipientType: 'team_member',
+            recipientId: m.id,
+          }).catch((err) => console.error('Batch reassignment-removal notify error:', err))
+        }
+      }
+
+      for (const [newId, count] of incomingCounts) {
+        const anyBookingForMember = teamChangeUpdates.find((u) => (u.data.team_member_id as string | null) === newId)
+        const bookingId = anyBookingForMember ? resultById.get(anyBookingForMember.id)?.id : undefined
         await notify({
           tenantId,
           type: 'booking_reminder',
-          title: 'Schedule Updated',
-          message: `${clientName} — ${results.length} bookings rescheduled from ${bookingDate}`,
+          title: 'New Jobs Assigned',
+          message: `You've been assigned ${count} upcoming job${count === 1 ? '' : 's'}.`,
           channel: 'sms',
           recipientType: 'team_member',
-          recipientId: first.team_member_id,
-          bookingId: first.id,
-        })
+          recipientId: newId,
+          bookingId,
+        }).catch((err) => console.error('Batch reassignment-assignment notify error:', err))
       }
-
-      await audit({ tenantId, action: 'booking.batch_updated', entityType: 'booking', entityId: first.id, details: { count: results.length } })
     }
 
     return NextResponse.json({ updated: results.length })
