@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { etYMD, etMidnightUtc } from './dates'
+import { etYMD, etMidnightUtc, toNaiveET } from './dates'
 
 describe('etYMD', () => {
   it('reads the ET calendar day, not the UTC calendar day, during the evening offset window', () => {
@@ -26,5 +26,22 @@ describe('etMidnightUtc', () => {
     const instant = etMidnightUtc(2026, 7, 5)
     const { y, m, d } = etYMD(instant)
     expect(`${y}-${m}-${d}`).toBe('2026-7-5')
+  })
+})
+
+describe('toNaiveET', () => {
+  it('formats a UTC instant as naive ET wall-clock under EST (UTC-5)', () => {
+    // 2026-01-06T00:30:00Z = 7:30pm EST Jan 5.
+    expect(toNaiveET(new Date('2026-01-06T00:30:00.000Z'))).toBe('2026-01-05T19:30:00')
+  })
+
+  it('formats a UTC instant as naive ET wall-clock under EDT (UTC-4)', () => {
+    // 2026-07-05T23:15:00Z = 7:15pm EDT Jul 5.
+    expect(toNaiveET(new Date('2026-07-05T23:15:00.000Z'))).toBe('2026-07-05T19:15:00')
+  })
+
+  it('rolls to the correct ET calendar day when UTC has already advanced past midnight', () => {
+    // Same instant as the first case: UTC is Jan 6, ET is still Jan 5.
+    expect(toNaiveET(new Date('2026-01-06T04:59:00.000Z'))).toBe('2026-01-05T23:59:00')
   })
 })

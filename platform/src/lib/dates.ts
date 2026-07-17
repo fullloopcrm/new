@@ -93,3 +93,26 @@ export function etMidnightUtc(year: number, month: number, day: number): Date {
   const offsetMinutes = etUtcOffsetMinutes(new Date(Date.UTC(year, month - 1, day, 5, 0, 0)))
   return new Date(Date.UTC(year, month - 1, day, 0, 0, 0) - offsetMinutes * 60 * 1000)
 }
+
+/**
+ * Full ET wall-clock datetime string (no tz suffix, second precision) for a
+ * given UTC instant -- the same naive format `bookings.start_time` is stored
+ * in. Needed for boundary comparisons that need time-of-day precision
+ * (e.g. "45 minutes ago"), not just calendar date (see `etYMD`/
+ * `etMidnightUtc` for date-only boundaries).
+ */
+export function toNaiveET(date: Date): string {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone: 'America/New_York',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+  const get = (type: string) => parts.find((p) => p.type === type)?.value ?? '00'
+  const hour = get('hour') === '24' ? '00' : get('hour')
+  return `${get('year')}-${get('month')}-${get('day')}T${hour}:${get('minute')}:${get('second')}`
+}
