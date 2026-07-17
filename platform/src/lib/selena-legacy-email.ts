@@ -15,6 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
+import { escapeHtml } from '@/lib/escape-html'
 import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
 
@@ -36,7 +37,7 @@ function extractNewContent(text: string): string {
   return out.join('\n').trim()
 }
 
-function formatHtmlReply(text: string, tenant: TenantLike): string {
+export function formatHtmlReply(text: string, tenant: TenantLike): string {
   const escaped = text
     .replace(/&/g, '&amp;')
     .replace(/</g, '&lt;')
@@ -52,7 +53,7 @@ function formatHtmlReply(text: string, tenant: TenantLike): string {
   <p>${escaped}</p>
   <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
   <p style="color: #888; font-size: 13px; margin: 0;">
-    ${tenant.name} · ${phoneTel}${siteLink}
+    ${escapeHtml(tenant.name)} · ${phoneTel}${siteLink}
   </p>
 </div>`
 }
