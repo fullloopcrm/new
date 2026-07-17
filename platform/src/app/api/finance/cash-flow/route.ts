@@ -94,16 +94,20 @@ export async function GET(request: Request) {
         : r.start_date
         ? new Date(r.start_date as string)
         : now
+      // Anchor day-of-month comes from start_date (the immutable original
+      // anchor), not next_due_date -- next_due_date may itself already be
+      // drifted for a row created before the cron's advance() fix.
+      const anchorDay = r.start_date ? new Date(r.start_date as string).getUTCDate() : startDate.getUTCDate()
       let cursor = new Date(startDate)
       if (cursor < now) {
         // Advance cursor until >= now
-        while (cursor < now) cursor = advanceCursor(cursor, r.frequency as string)
+        while (cursor < now) cursor = advanceCursor(cursor, r.frequency as string, anchorDay)
       }
       while (cursor <= endDate) {
         const key = weekKey(cursor)
         const bucket = buckets.get(key)
         if (bucket) bucket.outflows_cents += amount
-        cursor = advanceCursor(cursor, r.frequency as string)
+        cursor = advanceCursor(cursor, r.frequency as string, anchorDay)
       }
     }
 
@@ -126,16 +130,31 @@ export async function GET(request: Request) {
   }
 }
 
-function advanceCursor(d: Date, frequency: string): Date {
+// Same permanent-drift bug class as cron/recurring-expenses' advance() (see
+// that file's advanceMonthly comment): the old monthly/quarterly branches
+// chained setUTCMonth() off the previous cursor, so a day-29/30/31 anchor's
+// first short-month overflow (Jan 31 -> setUTCMonth overflows Feb 31 into
+// Mar 3) became the new baseline for every later tick within this forecast
+// walk, misplacing the outflow into the wrong week bucket. Fixed by
+// re-deriving the day-of-month from the recurrence's original anchor
+// (start_date) every tick, clamped to the target month's last day, instead
+// of carrying the previous (possibly-already-overflowed) day forward.
+export function advanceCursor(d: Date, frequency: string, anchorDay: number): Date {
   const r = new Date(d)
   switch (frequency) {
-    case 'daily': r.setUTCDate(r.getUTCDate() + 1); break
-    case 'weekly': r.setUTCDate(r.getUTCDate() + 7); break
-    case 'biweekly': r.setUTCDate(r.getUTCDate() + 14); break
-    case 'monthly': r.setUTCMonth(r.getUTCMonth() + 1); break
-    case 'quarterly': r.setUTCMonth(r.getUTCMonth() + 3); break
-    case 'yearly': r.setUTCFullYear(r.getUTCFullYear() + 1); break
-    default: r.setUTCDate(r.getUTCDate() + 30)
+    case 'daily': r.setUTCDate(r.getUTCDate() + 1); return r
+    case 'weekly': r.setUTCDate(r.getUTCDate() + 7); return r
+    case 'biweekly': r.setUTCDate(r.getUTCDate() + 14); return r
+    case 'monthly': return advanceMonthly(r, anchorDay, 1)
+    case 'quarterly': return advanceMonthly(r, anchorDay, 3)
+    case 'yearly': r.setUTCFullYear(r.getUTCFullYear() + 1); return r
+    default: r.setUTCDate(r.getUTCDate() + 30); return r
   }
-  return r
+}
+
+function advanceMonthly(current: Date, anchorDay: number, monthsStep: number): Date {
+  const year = current.getUTCFullYear()
+  const month = current.getUTCMonth() + monthsStep
+  const daysInMonth = new Date(Date.UTC(year, month + 1, 0)).getUTCDate()
+  return new Date(Date.UTC(year, month, Math.min(anchorDay, daysInMonth)))
 }
