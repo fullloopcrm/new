@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requirePermission } from '@/lib/require-permission'
 import { generateToken } from '@/lib/tokens'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 // Atomic "edit recurring pattern" for a series. Replaces the old client-side
 // loop (delete-each future booking, then create-each new one — N+N requests,
@@ -83,6 +84,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (teamMemberId) {
     const { data: ownedMember } = await db.from('team_members').select('id').eq('id', teamMemberId as string).maybeSingle()
     if (!ownedMember) return NextResponse.json({ error: 'Invalid team member' }, { status: 400 })
+
+    // Same guard as the sibling recurring-schedule routes (../route.ts PUT,
+    // ../exception/route.ts) -- this atomic pattern-change path writes
+    // team_member_id onto the schedule rule AND every regenerated booking, so
+    // without this check a "change the pattern" edit could silently reassign
+    // an entire regenerated series onto a let-go worker.
+    const [terminatedId] = await getTerminatedTeamMemberIds(tenantId, [teamMemberId as string])
+    if (terminatedId) {
+      return NextResponse.json({ error: `Cannot assign terminated team member: ${terminatedId}` }, { status: 400 })
+    }
   }
 
   // Fall back to the schedule's stored rates when the caller omits them, so an
