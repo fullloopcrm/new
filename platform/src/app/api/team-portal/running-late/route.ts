@@ -52,10 +52,23 @@ export async function POST(request: Request) {
     // schedule-monitor/job-release/admin-new-booking already apply elsewhere
     // (items 20/24/26): a same-day emergency running late is a different
     // severity of problem than a routine job running a few minutes behind.
+    //
+    // channel explicitly 'sms' (not the default 'email'): this call exists to
+    // populate the admin notifications row below the dashboard bell — the
+    // route already sends its own purpose-built admin SMS/push right after.
+    // Left on the default, notify() rendered this through bookingReminderEmail
+    // (the case for 'booking_reminder', the closest valid NotificationType),
+    // a CLIENT appointment-reminder template — every late report silently
+    // emailed the owner an "Appointment Reminder" for client "Client" whose
+    // "Date & Time" was this ops message text. recipientType stays the
+    // default 'admin', which notify() never resolves a phone for, so this is
+    // a no-op send (skipped, not failed) — the in-app row (unconditional,
+    // above the channel branch) is the only observable effect, as intended.
     const isEmergency = !!booking.is_emergency
     await notify({
       tenantId,
       type: 'booking_reminder' as any,
+      channel: 'sms',
       title: isEmergency ? '🚨 Emergency Job Running Late' : 'Running Late',
       message: `${isEmergency ? '🚨 EMERGENCY — ' : ''}${memberName} running late for ${clientName} (${time})${eta ? ` — ETA ${eta} min` : ''}`,
       bookingId,
