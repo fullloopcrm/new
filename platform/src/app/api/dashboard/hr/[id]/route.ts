@@ -35,10 +35,38 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
       supabaseAdmin.from('hr_document_requirements').select('*').eq('tenant_id', tenantId).order('sort_order', { ascending: true }),
     ])
 
+    // Expire documents whose expires_on has passed — the same declared-but-
+    // never-written gap documents.status='expired' had: hr_documents' own
+    // CHECK constraint includes 'expired', and this page's own client
+    // component (DocRow in dashboard/hr/[id]/page.tsx) already computes an
+    // "expired"/"expiring soon" badge independently by comparing expires_on
+    // to Date.now() — never from `status` — because nothing ever wrote the
+    // transition. Scoped to the statuses still actually open to renewal so
+    // an already-'rejected' doc isn't relabeled by an unrelated expiry date.
+    const documents = docsRes.data ?? []
+    const awaitingRenewal = new Set(['pending', 'submitted', 'approved'])
+    const today = new Date()
+    const toExpire = documents.filter(
+      (d) => d.expires_on && awaitingRenewal.has(d.status as string) && new Date(d.expires_on as string) < today,
+    )
+    if (toExpire.length > 0) {
+      const expiredAt = new Date().toISOString()
+      await Promise.all(
+        toExpire.map((d) =>
+          supabaseAdmin
+            .from('hr_documents')
+            .update({ status: 'expired', updated_at: expiredAt })
+            .eq('id', d.id)
+            .eq('tenant_id', tenantId),
+        ),
+      )
+      for (const d of toExpire) d.status = 'expired'
+    }
+
     return NextResponse.json({
       member,
       profile: profileRes.data ?? null,
-      documents: docsRes.data ?? [],
+      documents,
       notes: notesRes.data ?? [],
       requirements: reqsRes.data ?? [],
       stripe_connected: !!(member.stripe_account_id && member.stripe_ready_at),

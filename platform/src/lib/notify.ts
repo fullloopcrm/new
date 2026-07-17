@@ -71,6 +71,7 @@ export type NotificationType =
   | 'document_declined'
   | 'document_completed'
   | 'document_expired'
+  | 'hr_document_expiring'
   | 'security'
   | 'error'
   | 'referral_lead'
