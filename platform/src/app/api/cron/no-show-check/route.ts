@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 300
 
@@ -24,7 +25,16 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const cutoff = new Date(Date.now() - GRACE_MINUTES * 60 * 1000)
+  // bookings.start_time is stored naive-ET (no tz, literally what was typed
+  // in). A raw `.toISOString()` cutoff is a real UTC instant with a 'Z'
+  // suffix -- Postgres drops the tz marker for a `timestamp without time
+  // zone` column and compares the literal digits, so an unconverted cutoff
+  // was being read as if its UTC clock digits were ET clock digits, off by
+  // the whole EST/EDT offset (4-5h) on every single run, not just a daily
+  // boundary window. Net effect: bookings up to ~4-5h in the future (that
+  // hadn't even started yet) were eligible to be flipped to `no_show`.
+  const cutoff = toNaiveET(new Date(Date.now() - GRACE_MINUTES * 60 * 1000))
+  const lowerBound = toNaiveET(new Date(Date.now() - 24 * 60 * 60 * 1000))
 
   // Find candidates across all tenants in one query (tenant_id returned so
   // we can notify per tenant).
@@ -33,8 +43,8 @@ export async function GET(request: Request) {
     .select('id, tenant_id, start_time, client_id, team_member_id, clients(name), team_members!bookings_team_member_id_fkey(name)')
     .in('status', ['scheduled', 'confirmed', 'pending'])
     .is('check_in_time', null)
-    .lt('start_time', cutoff.toISOString())
-    .gt('start_time', new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()) // skip old stragglers
+    .lt('start_time', cutoff)
+    .gt('start_time', lowerBound) // skip old stragglers
     .limit(500)
 
   if (!candidates || candidates.length === 0) {

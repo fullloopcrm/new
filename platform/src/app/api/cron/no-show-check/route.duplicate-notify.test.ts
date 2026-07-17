@@ -9,7 +9,7 @@
  * only the run whose UPDATE actually matches a row (status not already
  * flipped) proceeds to notify.
  */
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import type { FakeSupabase } from '@/test/fake-supabase'
 
 process.env.CRON_SECRET = 'test-secret'
@@ -34,7 +34,8 @@ const fake = supabaseAdmin as unknown as FakeSupabase
 const req = () => new Request('http://x', { headers: { authorization: 'Bearer test-secret' } })
 
 function seedOverdueBooking() {
-  const startTime = new Date(Date.now() - 60 * 60 * 1000).toISOString() // 60 min ago, > 45 min grace
+  // bookings.start_time is stored naive-ET (no tz). Fake clock: 7:30pm EST
+  // Jan 5; booking started 6pm ET the same day — 90 min ago, > 45 min grace.
   fake._seed('bookings', [
     {
       id: 'booking-1',
@@ -43,7 +44,7 @@ function seedOverdueBooking() {
       team_member_id: 'member-1',
       status: 'scheduled',
       check_in_time: null,
-      start_time: startTime,
+      start_time: '2026-01-05T18:00:00',
       clients: { name: 'Jane Doe' },
       team_members: { name: 'Bob' },
     },
@@ -53,6 +54,11 @@ function seedOverdueBooking() {
 describe('GET /api/cron/no-show-check — duplicate-notify guard', () => {
   beforeEach(() => {
     notifyCalls.length = 0
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-06T00:30:00.000Z')) // 7:30pm EST Jan 5
+  })
+  afterEach(() => {
+    vi.useRealTimers()
   })
 
   it('flips and notifies once for a normal single run', async () => {
