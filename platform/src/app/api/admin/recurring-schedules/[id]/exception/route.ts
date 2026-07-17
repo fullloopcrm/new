@@ -96,7 +96,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       const { data: reassigned } = await db.from('bookings').update({ team_member_id: new_team_member_id })
         .eq('id', b.id).in('status', ['scheduled', 'pending', 'confirmed'])
         .select('id').maybeSingle()
-      if (reassigned) applied++
+      if (reassigned) {
+        applied++
+        // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+        // from booking_team_members (falling back to bookings.team_member_id
+        // only when no booking_team_members rows exist at all -- never the
+        // case here, every one of these bookings was created with a lead row).
+        // Updating only bookings.team_member_id above left that lead row
+        // stale, so the admin Team panel and payout attribution kept showing
+        // the OLD member after a per-occurrence reassign -- same
+        // booking_team_members-sync gap already fixed for cron/generate-
+        // recurring's refill and the regenerate route, found here in the
+        // per-occurrence exception path.
+        await db.from('booking_team_members').delete().eq('booking_id', b.id).eq('is_lead', true)
+        await db.from('booking_team_members').upsert(
+          { booking_id: b.id, team_member_id: new_team_member_id, is_lead: true, position: 1 },
+          { onConflict: 'booking_id,team_member_id' }
+        )
+      }
     }
   }
 

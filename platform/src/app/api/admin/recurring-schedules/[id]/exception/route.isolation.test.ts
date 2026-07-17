@@ -46,7 +46,11 @@ beforeEach(() => {
     ],
     team_members: [
       { id: 'tm-A9', tenant_id: 'tenant-A', name: 'Sam A9' },
+      { id: 'tm-old', tenant_id: 'tenant-A', name: 'Old Lead A' },
       { id: 'tm-other', tenant_id: 'tenant-B', name: 'Other Sam B' },
+    ],
+    booking_team_members: [
+      { id: 'btm-1', tenant_id: 'tenant-A', booking_id: 'book-A1', team_member_id: 'tm-old', is_lead: true, position: 1 },
     ],
   }
 })
@@ -82,6 +86,23 @@ describe('POST /api/admin/recurring-schedules/:id/exception — tenant isolation
     const bookX = h.store.bookings.find((b) => b.id === 'book-X1')
     expect(bookA?.team_member_id).toBe('tm-A9')
     expect(bookX?.team_member_id).toBeUndefined()
+  })
+
+  it('a reassign exception updates the stale booking_team_members lead row too, not just bookings.team_member_id', async () => {
+    // Regression: GET /api/bookings/:id/team and closeout-summary both source
+    // the lead from booking_team_members, not bookings.team_member_id -- a
+    // reassign that only updated the booking left the Team panel and payout
+    // attribution pointing at the OLD member forever.
+    const res = await POST(
+      postReq({ occurrence_date: '2026-08-01', type: 'reassign', new_team_member_id: 'tm-A9' }),
+      params('sched-A1'),
+    )
+    expect(res.status).toBe(200)
+
+    const leadRows = h.store.booking_team_members.filter((r) => r.booking_id === 'book-A1' && r.is_lead)
+    expect(leadRows.length).toBe(1)
+    expect(leadRows[0].team_member_id).toBe('tm-A9')
+    expect(h.store.booking_team_members.find((r) => r.team_member_id === 'tm-old')).toBeUndefined()
   })
 
   it("rejects a new_team_member_id belonging to another tenant instead of writing it (FK injection)", async () => {
