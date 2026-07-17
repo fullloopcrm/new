@@ -40,10 +40,10 @@ export async function POST(request: Request) {
   // Look up team member by PIN — scoped to the tenant resolved above.
   const { data: member } = (await tenantDb(tenant.id)
     .from('team_members')
-    .select('id, name, preferred_language, pay_rate, avatar_url, role')
+    .select('id, name, preferred_language, pay_rate, photo_url, role')
     .eq('pin', pin)
     .eq('status', 'active')
-    .single()) as { data: { id: string; name: string; preferred_language: string | null; pay_rate: number | null; avatar_url: string | null; role: string | null } | null }
+    .single()) as { data: { id: string; name: string; preferred_language: string | null; pay_rate: number | null; photo_url: string | null; role: string | null } | null }
 
   if (!member) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
@@ -58,7 +58,7 @@ export async function POST(request: Request) {
       name: member.name,
       language: member.preferred_language,
       pay_rate: member.pay_rate,
-      avatar_url: member.avatar_url,
+      photo_url: member.photo_url,
       role: member.role,
     },
     tenant: { id: tenant.id, name: tenant.name, phone: tenant.phone },

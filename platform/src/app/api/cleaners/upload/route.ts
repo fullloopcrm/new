@@ -1,7 +1,7 @@
 /**
  * Team member photo upload — legacy nycmaid path.
  * Writes to storage bucket `team-photos` (per-tenant namespaced), updates
- * team_members.photo_url / avatar_url. Admin path OR cleaner_id self-upload.
+ * team_members.photo_url. Admin path OR cleaner_id self-upload.
  */
 import { NextRequest, NextResponse } from 'next/server'
 import { randomBytes } from 'crypto'
@@ -82,7 +82,7 @@ export async function POST(request: NextRequest) {
     if (memberId) {
       await supabaseAdmin
         .from('team_members')
-        .update({ photo_url: photoUrl, avatar_url: photoUrl })
+        .update({ photo_url: photoUrl })
         .eq('id', memberId)
         .eq('tenant_id', tenantId)
     }

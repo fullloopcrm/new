@@ -14,8 +14,11 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
-  // (tenant-scoped). Safe no-op if the column/rows don't exist.
-  const todayStr = new Date().toISOString().split('T')[0]
+  // (tenant-scoped). Safe no-op if the column/rows don't exist. NYCMAID_TENANT_ID
+  // is a single, hardcoded Eastern-time tenant (same convention as selena/core.ts),
+  // so this resolves "today" in ET rather than the server's UTC default — matching
+  // every other date computation later in this same file (en-CA/America-New_York).
+  const todayStr = new Date().toLocaleDateString('en-CA', { timeZone: 'America/New_York' })
   const { data: resumable } = await supabaseAdmin
     .from('recurring_schedules')
     .select('id')

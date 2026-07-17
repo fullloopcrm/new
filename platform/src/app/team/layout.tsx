@@ -7,7 +7,7 @@ import { usePathname } from 'next/navigation'
 type Lang = 'en' | 'es'
 type AuthState = {
   token: string
-  member: { id: string; name: string; language: string; pay_rate?: number | null; avatar_url?: string | null; role?: string | null }
+  member: { id: string; name: string; language: string; pay_rate?: number | null; photo_url?: string | null; role?: string | null }
   tenant: { id: string; name: string; phone?: string | null }
 } | null
 

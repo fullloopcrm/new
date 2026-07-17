@@ -41,7 +41,7 @@ beforeEach(() => {
   fake._store.clear()
   fake._seed('tenants', [{ id: TENANT_ID, name: 'A Co', slug: 'biz-a', status: 'active', phone: '+15550001' }])
   fake._seed('team_members', [
-    { id: 'tm-a', tenant_id: TENANT_ID, name: 'Worker A', pin: '4242', status: 'active', preferred_language: 'en', pay_rate: 20, avatar_url: null, role: 'worker' },
+    { id: 'tm-a', tenant_id: TENANT_ID, name: 'Worker A', pin: '4242', status: 'active', preferred_language: 'en', pay_rate: 20, photo_url: null, role: 'worker' },
   ])
   rateLimitDb.mockReset()
   rateLimitDb.mockResolvedValue({ allowed: true })

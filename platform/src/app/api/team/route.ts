@@ -51,7 +51,7 @@ export async function POST(request: Request) {
       hourly_rate: { type: 'number', min: 0 },
       pay_rate: { type: 'number', min: 0 },
       working_days: { type: 'array' },
-      avatar_url: { type: 'string', max: 1000 },
+      photo_url: { type: 'string', max: 1000 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
 

@@ -613,14 +613,16 @@ export default function TeamHomePage() {
       const res = await fetch('/api/uploads', { method: 'POST', body: formData })
       if (res.ok) {
         const data = await res.json()
-        await fetch(`/api/team/${auth.member.id}`, {
+        const saveRes = await fetch(`/api/team/${auth.member.id}`, {
           method: 'PUT',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ avatar_url: data.url }),
+          body: JSON.stringify({ photo_url: data.url }),
         })
-        const updated = { ...auth, member: { ...auth.member, avatar_url: data.url } }
-        localStorage.setItem('team_auth', JSON.stringify(updated))
-        window.location.reload()
+        if (saveRes.ok) {
+          const updated = { ...auth, member: { ...auth.member, photo_url: data.url } }
+          localStorage.setItem('team_auth', JSON.stringify(updated))
+          window.location.reload()
+        }
       }
     } catch { /* silently fail */ }
     setPhotoUploading(false)
@@ -877,17 +879,17 @@ export default function TeamHomePage() {
       {/* ================ 7. MY PHOTO ================ */}
       <CollapsibleSection title={t('My Photo', 'Mi Foto')}>
         <div className="flex items-center gap-4">
-          {auth.member.avatar_url ? (
-            <img src={auth.member.avatar_url} alt={auth.member.name} className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
+          {auth.member.photo_url ? (
+            <img src={auth.member.photo_url} alt={auth.member.name} className="w-20 h-20 rounded-full object-cover border-2 border-gray-200" />
           ) : (
             <div className="w-20 h-20 rounded-full border-2 border-dashed border-gray-300 flex items-center justify-center text-2xl text-slate-400">📷</div>
           )}
           <div>
             <p className="text-xs text-slate-400 mb-2">
-              {auth.member.avatar_url ? t('Clients see this photo', 'Los clientes ven esta foto') : t('Upload a smiling photo', 'Sube una foto sonriendo')}
+              {auth.member.photo_url ? t('Clients see this photo', 'Los clientes ven esta foto') : t('Upload a smiling photo', 'Sube una foto sonriendo')}
             </p>
             <label className="inline-block bg-slate-800 text-white text-sm font-medium px-4 py-2 rounded-lg cursor-pointer">
-              {photoUploading ? t('Uploading...', 'Subiendo...') : auth.member.avatar_url ? t('Change Photo', 'Cambiar Foto') : t('Upload Photo', 'Subir Foto')}
+              {photoUploading ? t('Uploading...', 'Subiendo...') : auth.member.photo_url ? t('Change Photo', 'Cambiar Foto') : t('Upload Photo', 'Subir Foto')}
               <input type="file" accept="image/jpeg,image/png,image/webp,image/heic,image/heif" onChange={handlePhotoUpload} className="hidden" disabled={photoUploading} />
             </label>
           </div>

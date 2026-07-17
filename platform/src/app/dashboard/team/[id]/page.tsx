@@ -15,7 +15,7 @@ type TeamMember = {
   status: string
   hourly_rate: number | null
   pay_rate: number | null
-  avatar_url: string | null
+  photo_url: string | null
   notes: string | null
   preferred_language: string
   created_at: string
@@ -286,13 +286,13 @@ export default function TeamMemberDetailPage() {
         const ctx = canvas.getContext('2d')!
         ctx.drawImage(img, 0, 0, w, h)
         const dataUrl = canvas.toDataURL('image/jpeg', 0.8)
-        setForm(f => ({ ...f, avatar_url: dataUrl }))
+        setForm(f => ({ ...f, photo_url: dataUrl }))
         // Save immediately
         try {
           const saveRes = await fetch(`/api/team/${id}`, {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ avatar_url: dataUrl }),
+            body: JSON.stringify({ photo_url: dataUrl }),
           })
           if (saveRes.ok) {
             const { member: updated } = await saveRes.json()
@@ -370,8 +370,8 @@ export default function TeamMemberDetailPage() {
               <div className="space-y-3">
                 <input type="file" accept="image/*" ref={photoInputRef} onChange={handlePhotoUpload} className="hidden" />
                 <div className="flex items-center gap-4 mb-2">
-                  {(form.avatar_url || member.avatar_url) ? (
-                    <img src={(form.avatar_url || member.avatar_url)!} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
+                  {(form.photo_url || member.photo_url) ? (
+                    <img src={(form.photo_url || member.photo_url)!} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
                     <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
                       {initials(member.name)}
@@ -403,8 +403,8 @@ export default function TeamMemberDetailPage() {
             ) : (
               <>
                 <div className="flex items-center gap-4 mb-4">
-                  {member.avatar_url ? (
-                    <img src={member.avatar_url} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
+                  {member.photo_url ? (
+                    <img src={member.photo_url} alt={member.name} className="w-16 h-16 rounded-full object-cover" />
                   ) : (
                     <div className={`w-16 h-16 rounded-full ${avatarColor(member.name)} flex items-center justify-center text-slate-900 text-lg font-bold`}>
                       {initials(member.name)}

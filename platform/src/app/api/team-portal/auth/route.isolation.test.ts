@@ -42,8 +42,8 @@ beforeEach(() => {
   // Same PIN reused across two tenants — a realistic collision since PINs are
   // short, tenant-local codes, not globally unique.
   fake._seed('team_members', [
-    { id: 'tm-a', tenant_id: A_ID, name: 'Worker A', pin: SHARED_PIN, status: 'active', preferred_language: 'en', pay_rate: 20, avatar_url: null, role: 'worker' },
-    { id: 'tm-b', tenant_id: B_ID, name: 'Worker B', pin: SHARED_PIN, status: 'active', preferred_language: 'en', pay_rate: 25, avatar_url: null, role: 'worker' },
+    { id: 'tm-a', tenant_id: A_ID, name: 'Worker A', pin: SHARED_PIN, status: 'active', preferred_language: 'en', pay_rate: 20, photo_url: null, role: 'worker' },
+    { id: 'tm-b', tenant_id: B_ID, name: 'Worker B', pin: SHARED_PIN, status: 'active', preferred_language: 'en', pay_rate: 25, photo_url: null, role: 'worker' },
   ])
 })
 
