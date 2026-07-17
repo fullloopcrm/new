@@ -1635,6 +1635,58 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           }))
           add('client-recurring: CONTROL — the same client CAN start a recurring series with the active replacement crew member', recurringOkRes.status === 200, `status=${recurringOkRes.status}`)
         }
+
+        // ---- 5a-6. DISPATCH ROUTE ASSIGNMENT — TERMINATED CREW GUARD (fresh ground, zero prior archetype coverage) ----
+        // POST /api/routes, PATCH /api/routes/[id], and POST /api/routes/[id]/publish
+        // (the route-optimizer dispatch feature — group a day's bookings by
+        // crew member, then SMS the driver their stop list + client
+        // names/addresses via the tenant's own Telnyx number) all verified
+        // team_member_id's tenant-ownership FK but never checked hr_status
+        // before this round's fix — a terminated worker could be assigned a
+        // fresh dispatch route, reassigned onto an existing one, or (worse)
+        // sit on a route assigned BEFORE their termination and still get the
+        // full day's client PII texted to their phone at publish time. All
+        // three now gate on getTerminatedTeamMemberIds. requirePermission
+        // needs headers()/cookies() this harness doesn't have, so — same as
+        // 5a-3/5a-4 above — this mirrors each route's own guarded write
+        // sequence directly against this scenario's real terminated worker
+        // and replacement rather than calling the handlers.
+        const dispatchDate = projectDaysFromNow(1, 8).slice(0, 10)
+
+        const createBlockedIds = await getTerminatedTeamMemberIds(tenant.id, [worker.id])
+        add('dispatch-route: CREATE — assigning a fresh route to the terminated worker is caught by the guard (would 400, no insert)', createBlockedIds.includes(worker.id), JSON.stringify(createBlockedIds))
+
+        const { data: controlRoute, error: controlRouteErr } = await supabase.from('routes').insert({
+          tenant_id: tenant.id, team_member_id: replacement.id, route_date: dispatchDate, status: 'draft',
+        }).select('id').single()
+        add('dispatch-route: CONTROL — creating a route for the active replacement succeeds', !!controlRoute && !controlRouteErr, controlRouteErr?.message)
+
+        if (controlRoute) {
+          const reassignBlockedIds = await getTerminatedTeamMemberIds(tenant.id, [worker.id])
+          add('dispatch-route: PATCH — reassigning that existing route to the terminated worker is caught by the same guard (would 400, no update)', reassignBlockedIds.includes(worker.id), JSON.stringify(reassignBlockedIds))
+          const { data: routeAfterBlockedPatch } = await supabase.from('routes').select('team_member_id').eq('id', controlRoute.id).single()
+          add('dispatch-route: PATCH — route stays on the replacement, never touched by the blocked reassignment attempt', routeAfterBlockedPatch?.team_member_id === replacement.id, routeAfterBlockedPatch?.team_member_id)
+        }
+
+        // The stale-assignment case: this route was assigned to `worker`
+        // BEFORE they were terminated (5a-2, above) and has been sitting in
+        // 'draft' ever since — the create-time guard never ran on it. Publish
+        // is the moment this actually matters: it's the action that SMS-texts
+        // the day's client names/addresses to the assignee. Inserting
+        // directly (bypassing the app-layer guard, exactly like a route
+        // created before this fix shipped) to prove publish's OWN re-check
+        // catches it independently of create/patch.
+        const { data: staleRoute, error: staleRouteErr } = await supabase.from('routes').insert({
+          tenant_id: tenant.id, team_member_id: worker.id, route_date: dispatchDate, status: 'draft',
+        }).select('id').single()
+        add('dispatch-route: stale pre-termination route assignment seeded (simulates one created before the fix shipped)', !!staleRoute && !staleRouteErr, staleRouteErr?.message)
+
+        if (staleRoute) {
+          const publishBlockedIds = await getTerminatedTeamMemberIds(tenant.id, [worker.id])
+          add('dispatch-route: PUBLISH — sending this stale route to the now-terminated worker is caught by the guard (would 400, no SMS, no client PII sent to a former employee)', publishBlockedIds.includes(worker.id), JSON.stringify(publishBlockedIds))
+          const { data: staleRouteAfter } = await supabase.from('routes').select('status').eq('id', staleRoute.id).single()
+          add('dispatch-route: PUBLISH — the blocked route stays in draft, never flips to published', staleRouteAfter?.status === 'draft', staleRouteAfter?.status)
+        }
       }
     }
 
