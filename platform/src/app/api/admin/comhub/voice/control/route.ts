@@ -107,12 +107,25 @@ export async function POST(req: NextRequest) {
     case 'hangup': {
       const looksLikeUUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(customerCallId)
       if (looksLikeUUID) {
+        // Browser-SDK-managed leg: the softphone's own WebRTC hangup already
+        // ends the call client-side (log-softphone-call/route.ts mirrors that
+        // lifecycle). No Telnyx Call Control leg exists to hang up server-side.
         result = { ok: true, detail: 'softphone-managed; db-only finalize' }
       } else {
+        // A real Telnyx Call Control leg. Unlike every other action in this
+        // switch, this used to force `result.ok = true` on ANY Telnyx failure
+        // and finalize the DB row regardless -- so a transient Telnyx error
+        // (auth blip, rate limit, network failure) got silently reported to
+        // the admin as "call ended" while the live, per-minute-billing PSTN
+        // leg kept running with no further way to reach it (comhub_active_calls
+        // now shows 'ended', and the only sweep for stale rows,
+        // POST /api/admin/comhub/voice/cleanup, is unwired dead code and
+        // doesn't call Telnyx either -- see deploy-prep gap notes). Let a
+        // genuine failure fall through to the same honest 502 path every
+        // other action already uses below, instead of lying about success.
         result = await telnyxAction(cfg.apiKey, customerCallId, 'hangup')
-        if (!result.ok) result = { ok: true, detail: 'forced db-only finalize' }
       }
-      if (activeCallRowId) {
+      if (result.ok && activeCallRowId) {
         await supabaseAdmin
           .from('comhub_active_calls')
           .update({ status: 'ended', ended_at: new Date().toISOString(), hangup_cause: 'admin_hangup' })

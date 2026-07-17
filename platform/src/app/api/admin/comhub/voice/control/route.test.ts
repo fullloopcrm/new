@@ -32,6 +32,12 @@ vi.mock('@/lib/comhub-voice-config', () => ({
 }))
 
 let activeCallRow: { id: string } | null = null
+const updateSpy = vi.fn((patch: Record<string, unknown>) => ({
+  eq: () => ({
+    eq: async () => ({ error: null }),
+  }),
+  __patch: patch,
+}))
 
 vi.mock('@/lib/supabase', () => {
   const from = (table: string) => {
@@ -44,11 +50,7 @@ vi.mock('@/lib/supabase', () => {
             }),
           }),
         }),
-        update: () => ({
-          eq: () => ({
-            eq: async () => ({ error: null }),
-          }),
-        }),
+        update: (patch: Record<string, unknown>) => updateSpy(patch),
       }
     }
     throw new Error(`unexpected table ${table}`)
@@ -68,10 +70,45 @@ function makeRequest(body: unknown): NextRequest {
 describe('POST admin/comhub/voice/control', () => {
   beforeEach(() => {
     activeCallRow = null
+    updateSpy.mockClear()
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({ data: {} }), { status: 200 })),
     )
+  })
+
+  /**
+   * Regression: a failed Telnyx `hangup` call used to be silently rewritten
+   * to `result.ok = true` and the DB row force-finalized to 'ended' anyway --
+   * unlike every other action (hold/mute/transfer/speak/dtmf), which already
+   * returns a clean 502 and leaves the row untouched on a real Telnyx
+   * failure. That meant a transient Telnyx error left a still-live,
+   * per-minute-billing PSTN call reported to the admin as ended, with no
+   * remaining way to reach it. Fix: let a genuine hangup failure fall
+   * through the same honest 502 path as every other action.
+   */
+  it('does not report success or finalize the row when Telnyx hangup genuinely fails', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+    vi.stubGlobal(
+      'fetch',
+      vi.fn(async () => new Response('telnyx down', { status: 500 })),
+    )
+
+    const res = await POST(makeRequest({ customer_call_id: 'v2:realCallControlId', action: 'hangup' }))
+
+    expect(res.status).toBe(502)
+    expect(updateSpy).not.toHaveBeenCalled()
+  })
+
+  it('still finalizes the row when Telnyx confirms the hangup', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+
+    const res = await POST(makeRequest({ customer_call_id: 'v2:realCallControlId', action: 'hangup' }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.ok).toBe(true)
+    expect(updateSpy).toHaveBeenCalledWith(expect.objectContaining({ status: 'ended' }))
   })
 
   it('rejects a customer_call_id that does not belong to the caller tenant and never calls Telnyx', async () => {
