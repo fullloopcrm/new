@@ -109,6 +109,12 @@ type RingTarget = {
 // Per-tenant PSTN fallback numbers, sourced from each admin's own voice
 // settings (the same table the /admin/comhub/voice/settings UI writes to).
 // Ordered by admin_id for deterministic ring order.
+//
+// NOTE: this does NOT filter on ring_strategy / do_not_disturb_until —
+// it's also used by notifyVoicemailToAdmin() as an after-the-fact SMS
+// text alert, which should still reach an admin who opted their *live
+// PSTN ringing* out via 'browser_only' or a DND window. buildRingTargets()
+// below applies those filters itself for the actual live-dial path.
 async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
   const { data } = await supabaseAdmin
     .from('comhub_admin_voice_settings')
@@ -121,24 +127,56 @@ async function getTenantAdminCellPhones(tenantId: string): Promise<string[]> {
     .filter(Boolean)
 }
 
+function isDndActive(doNotDisturbUntil: string | null | undefined, nowMs: number): boolean {
+  if (!doNotDisturbUntil) return false
+  const until = new Date(doNotDisturbUntil).getTime()
+  return Number.isFinite(until) && until > nowMs
+}
+
 // Build the ordered list of admin endpoints to dial for this tenant's call.
 // Online softphones first (browser dialer), then this tenant's configured
 // cell numbers. If no softphones are online, this just returns the cell
 // list. TENANT-SCOPED: both presence and cell numbers are filtered to
 // tenantId — an unrelated tenant's online admin or configured cell must
 // never ring for this call.
+//
+// Also honors each admin's own comhub_admin_voice_settings: 'ring_strategy'
+// ('browser_only' skips that admin's PSTN cell fallback entirely;
+// 'cell_only' skips ringing their online browser softphone) and
+// 'do_not_disturb_until' (skips that admin on BOTH legs while active).
+// These settings existed and were writable via the voice settings UI but
+// were never read here — an admin who explicitly chose "browser only" (to
+// avoid a live PSTN dial-out to their personal cell) or set a DND window
+// still had their cell rung on every inbound call, at real per-minute
+// Telnyx cost and against their stated preference.
 async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
-  const cutoff = new Date(Date.now() - 60_000).toISOString()
-  const { data: presence } = await supabaseAdmin
-    .from('comhub_admin_presence')
-    .select('admin_id, sip_username, sip_address, status, last_seen_at')
-    .eq('tenant_id', tenantId)
-    .gte('last_seen_at', cutoff)
-    .eq('status', 'available')
-    .order('last_seen_at', { ascending: false })
+  const nowMs = Date.now()
+  const cutoff = new Date(nowMs - 60_000).toISOString()
+
+  const [{ data: presence }, { data: settingsRows }] = await Promise.all([
+    supabaseAdmin
+      .from('comhub_admin_presence')
+      .select('admin_id, sip_username, sip_address, status, last_seen_at')
+      .eq('tenant_id', tenantId)
+      .gte('last_seen_at', cutoff)
+      .eq('status', 'available')
+      .order('last_seen_at', { ascending: false }),
+    supabaseAdmin
+      .from('comhub_admin_voice_settings')
+      .select('admin_id, fallback_cell_phone, ring_strategy, do_not_disturb_until')
+      .eq('tenant_id', tenantId)
+      .order('admin_id', { ascending: true }),
+  ])
+
+  const prefsByAdmin = new Map(
+    (settingsRows ?? []).map(row => [row.admin_id, row]),
+  )
 
   const sipTargets: RingTarget[] = []
   for (const row of presence ?? []) {
+    const prefs = prefsByAdmin.get(row.admin_id)
+    if (isDndActive(prefs?.do_not_disturb_until, nowMs)) continue
+    if (prefs?.ring_strategy === 'cell_only') continue
     const addr =
       row.sip_address ||
       (row.sip_username ? `sip:${row.sip_username}@sip.telnyx.com` : null)
@@ -147,13 +185,12 @@ async function buildRingTargets(tenantId: string): Promise<RingTarget[]> {
     }
   }
 
-  const cellPhones = await getTenantAdminCellPhones(tenantId)
-  const phoneTargets: RingTarget[] = cellPhones.map(p => ({
-    kind: 'phone' as const,
-    destination: p,
-    label: p,
-    amd: true,
-  }))
+  const phoneTargets: RingTarget[] = (settingsRows ?? [])
+    .filter(row => row.ring_strategy !== 'browser_only')
+    .filter(row => !isDndActive(row.do_not_disturb_until, nowMs))
+    .map(row => (row.fallback_cell_phone || '').trim())
+    .filter(Boolean)
+    .map(destination => ({ kind: 'phone' as const, destination, label: destination, amd: true }))
 
   return [...sipTargets, ...phoneTargets]
 }
