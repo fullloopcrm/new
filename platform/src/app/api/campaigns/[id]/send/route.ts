@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { unsubscribeUrl } from '@/lib/unsubscribe-token'
 
 export async function POST(
   _request: Request,
@@ -112,10 +113,16 @@ export async function POST(
       // opt-out-able. Default true; off only if the tenant explicitly disabled.
       // CAN-SPAM also requires the sender's physical postal address — appended
       // whenever it's on file, independent of the unsubscribe toggle.
+      //
+      // The link must carry a signed token (see unsubscribe-token.ts) — the
+      // /unsubscribe page only ever reads `t`, not a raw `email` param. A
+      // link built from client.email alone lands on a page whose confirm
+      // button stays permanently disabled (no token to POST), so the
+      // one-click opt-out this footer promises silently never works.
       const tenantAddress = (tenant as { address?: string | null }).address
       const addressLine = tenantAddress ? `<br>${tenant.name} · ${tenantAddress}` : ''
       const emailBody = settings.campaign_auto_unsubscribe
-        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
+        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${unsubscribeUrl(process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com', { clientId: client.id, tenantId, channel: 'email' })}">Unsubscribe</a>${addressLine}</p>`
         : (tenantAddress ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${tenant.name} · ${tenantAddress}</p>` : personalizedBody)
 
       if (sendEmails && client.email && !client.email_marketing_opt_out) {
