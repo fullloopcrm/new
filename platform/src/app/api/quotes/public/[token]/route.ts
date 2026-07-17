@@ -54,11 +54,12 @@ export async function GET(request: Request, { params }: Params) {
 
     // Record view — first view bumps status to 'viewed'
     const now = new Date().toISOString()
+    const isFirstView = !quote.first_viewed_at
     const update: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (quote.view_count || 0) + 1,
     }
-    if (!quote.first_viewed_at) update.first_viewed_at = now
+    if (isFirstView) update.first_viewed_at = now
     if (quote.status === 'sent') update.status = 'viewed'
 
     await supabaseAdmin.from('quotes').update(update).eq('id', quote.id)
@@ -70,6 +71,41 @@ export async function GET(request: Request, { params }: Params) {
       ip_address: ipFromRequest(request),
       user_agent: request.headers.get('user-agent'),
     })
+
+    // Fresh-ground fix: 'quote_viewed' has been a declared NotificationType
+    // since this file's sibling accept/decline routes were built, but no call
+    // site ever fired it — the owner's most actionable early signal ("they're
+    // looking at it right now") was tracked in quote_events/first_viewed_at
+    // and otherwise never surfaced on any channel. Only on the FIRST view —
+    // view_count increments on every refresh, and neither the in-app record
+    // nor the owner's inbox should churn on repeat opens the way accept/decline
+    // (one-shot terminal events) don't need to guard against.
+    if (isFirstView) {
+      try {
+        const { notify } = await import('@/lib/notify')
+        await notify({
+          tenantId: quote.tenant_id,
+          type: 'quote_viewed',
+          title: `Quote ${quote.quote_number} viewed`,
+          message: `${quote.contact_name || 'The customer'} opened this proposal for the first time`,
+          channel: 'email',
+          recipientType: 'admin',
+          metadata: { quote_id: quote.id, href: `/admin/sales-hub/quotes/${quote.id}` },
+        })
+      } catch (e) {
+        console.warn('notify quote_viewed failed', e)
+      }
+
+      const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+      await ownerAlert({
+        tenantId: quote.tenant_id,
+        subject: `Viewed — ${quote.quote_number}`,
+        kicker: 'Proposal viewed',
+        heading: `${quote.contact_name || 'The customer'} opened ${quote.quote_number}`,
+        bodyHtml: `<p style="margin:0">They just viewed this proposal for the first time — good moment to follow up.</p>`,
+        sms: `${quote.contact_name || 'A customer'} just viewed ${quote.quote_number}.`,
+      })
+    }
 
     // Redact internal fields
     const publicQuote = {
