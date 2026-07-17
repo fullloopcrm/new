@@ -6219,3 +6219,99 @@ pre-existing UX rough edge, not part of either fix above. Also, the
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (136) New fresh-ground surface — the platform-level prospect intake's declared `cancelled` status already had a badge color prepared and nothing that could ever write it — NOW FIXED
+
+Picked a different subsystem than (130)-(135)'s tenant-facing tables and the
+finance close page: the super-admin prospect-intake pipeline (`prospects`
+table, migration `037_leads_qualification.sql`, fed by the public `/qualify`
+form and reviewed at `/admin/prospects`). Its `status` CHECK constraint
+declares six values — `new`, `reviewing`, `approved`, `rejected`, `paid`,
+`cancelled` — and `admin/prospects/page.tsx`'s own `STATUS_COLORS` map
+already has a dedicated slate badge for `cancelled`, the same "UI was built,
+data never arrives" signal as (134)'s blue `reopened` badge. But
+`PATCH /api/admin/prospects/[id]` only had three action branches
+(`approve`→`approved`, `reject`→`rejected`, `review`→`reviewing`); the
+Stripe webhook writes `paid` on checkout completion; the public POST route
+defaults new rows to `new`. Grepped every `.update(` and `.insert(` call
+site touching `prospects.status` in the codebase — none ever wrote
+`cancelled`. Net effect: an application that goes stale (spam, duplicate
+submission, the business changes its mind before paying, or the admin
+simply decides not to pursue it) had no way to leave the pipeline short of
+sitting in `new`/`reviewing`/`approved` indefinitely or a raw DB edit. Same
+declared-value-never-written root cause as (130)-(135), a fifth subsystem
+(platform-level prospect intake, not a tenant-scoped table).
+
+Checked fallout before adding the branch: the only other consumer of
+`prospects.status` is the public intake route's slot-collision check
+(`.in('status', ['approved','paid'])` in `src/app/api/prospects/route.ts`),
+which already correctly excludes anything not `approved`/`paid` — a
+`cancelled` row won't block a new applicant from claiming that trade × zip,
+which is the right behavior, not a fix needed here.
+
+**Fixed** — added `action: 'cancel'` to the PATCH route (`updates.status =
+'cancelled'`, same minimal shape as the existing `review` branch, no reason
+field since the schema has none). Wired a "Cancel" button on
+`/admin/prospects`: shown alongside Approve/Reject for `new`/`reviewing`
+rows, and alongside the existing "Copy link" button for `approved` rows (an
+admin who approved and sent a checkout link but the prospect never pays can
+now retire it instead of it sitting `approved` forever). Also added the
+missing `Cancelled` option to the status filter `<select>` — it was
+absent even though the badge color existed, so the new status would have
+been unreachable via the page's own filter tool the moment it existed.
+
+5 new tests (`route.actions.test.ts` — this route had zero prior test
+coverage of any kind, same starting point as (132)'s cleaner-applications
+route): `cancel` persists the literal `cancelled` status; `review` persists
+`reviewing` (see (137)); an unrecognized action is rejected with 400 before
+any DB write; an unknown prospect id 404s; a caller without a valid admin
+token is rejected before any DB write. Mutation-verified the `cancel`
+branch (swapped the persisted literal to a wrong value, the status-assertion
+test went RED for the expected reason, restored, GREEN). `tsc --noEmit`
+clean, full suite 432/432 files, 2071/2071 tests, zero regressions (same
+pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (137) Continuing (136)'s surface — the route's own `action:'review'` branch had already existed with zero UI trigger, so an admin could never flag "still deciding" without prematurely approving, rejecting, or now cancelling
+
+While fixing (136), noticed `PATCH /api/admin/prospects/[id]` already
+supported `action:'review'` (→ `status:'reviewing'`) — `STATUS_COLORS` and
+the filter dropdown both already treat `reviewing` as a first-class state.
+But grepping `admin/prospects/page.tsx`'s own `act()` call sites, only
+`'approve'` and `'reject'` were ever fired from a button — no code path
+ever called `act(id, 'review')`. An admin who wanted to sit with an
+application longer (checking territory availability, waiting on another
+prospect's slot to free up) had no way to distinguish it from an
+application nobody had opened yet — both stayed `new`. Same declared-but-
+unreachable shape as (133)'s `reviewed` cleaner-application status and
+(131)'s waitlist states: a backend branch that already existed with no
+button wired to fire it.
+
+**Fixed** — added a "Mark Reviewing" button next to Approve/Reject, shown
+only for `status === 'new'` (a `reviewing` row already shows
+Approve/Reject/Cancel, so a second "Mark Reviewing" there would be a
+no-op button, not offered). No new backend code — reuses the same PATCH
+action (136) already added test coverage for.
+
+Covered by the same (136) test file: the `review` branch test doubles as
+this item's backend coverage (no separate frontend test framework wired for
+this page — it had none before this round, matching (135)'s note about the
+finance close page). `tsc --noEmit` clean, full suite 432/432 files,
+2071/2071 tests, zero regressions.
+
+Noticed, not fixed: `prospects.reviewed_by` (UUID) is a declared column
+that's never written by any code path, including (136)/(137)'s new
+branches — the super-admin auth system is a single global PIN
+(`ADMIN_PIN`/`ADMIN_TOKEN_SECRET`) that mints a `role:'super_admin'` token
+with no per-admin identity, so there's no UUID to stamp it with yet. Fixing
+this for real needs a multi-admin-user identity system, not a one-line
+write — out of scope for a file-only round, flagging rather than faking a
+value.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
