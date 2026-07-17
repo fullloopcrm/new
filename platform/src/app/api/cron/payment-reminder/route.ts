@@ -75,6 +75,25 @@ export async function GET(request: Request) {
         const sinceLast = lastReminder ? Date.now() - new Date(lastReminder).getTime() : Infinity
         if (sinceLast < 5 * 60 * 1000) continue // throttle 5 min
 
+        // Claim BEFORE sending: compare-and-swap update conditioned on
+        // payment_reminder_sent_at still matching what we just read. Two
+        // overlapping invocations racing on the same booking can no longer
+        // both send -- the loser's claim affects 0 rows and it skips.
+        // Same bug class + fix shape as rating-prompt's claim-before-send:
+        // marking sent AFTER the send left a crash/overlap window where a
+        // still-eligible booking got a second client text (or a duplicate
+        // admin escalation) on the very next overlapping pass.
+        let claimQuery = supabaseAdmin
+          .from('bookings')
+          .update({ payment_reminder_sent_at: new Date().toISOString() })
+          .eq('id', b.id)
+          .eq('tenant_id', tenantId)
+        claimQuery = lastReminder
+          ? claimQuery.eq('payment_reminder_sent_at', lastReminder)
+          : claimQuery.is('payment_reminder_sent_at', null)
+        const { data: claimed } = await claimQuery.select('id')
+        if (!claimed || claimed.length === 0) continue // lost the race to a concurrent/overlapping invocation
+
         // First reminder ≤30min — gentle nudge to client
         const alertTime = new Date(b.fifteen_min_alert_time).getTime()
         const minsSinceAlert = Math.floor((Date.now() - alertTime) / 60000)
@@ -112,12 +131,6 @@ export async function GET(request: Request) {
             escalated++
           }
         }
-
-        await supabaseAdmin
-          .from('bookings')
-          .update({ payment_reminder_sent_at: new Date().toISOString() })
-          .eq('id', b.id)
-          .eq('tenant_id', tenantId)
       }
     } catch (e) {
       errors.push(`tenant ${tenantId}: ${e instanceof Error ? e.message : 'unknown'}`)
