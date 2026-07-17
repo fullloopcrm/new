@@ -170,8 +170,15 @@ export async function stageScheduleBatch(
       if (!RECURRING.includes(rt)) return mk('rejected', 'recurring_type must be weekly/biweekly/monthly')
       const dowRaw = str(raw.day_of_week).toLowerCase()
       const dow = dowRaw in DOW ? DOW[dowRaw] : /^[0-6]$/.test(dowRaw) ? Number(dowRaw) : null
+      // rt is validated above as one of weekly/biweekly/monthly, but recurring_schedules'
+      // actual recurring_type domain (src/lib/recurring.ts RecurringType) has no 'monthly'
+      // value -- only 'monthly_date'/'monthly_weekday'. Same bug already fixed in
+      // client/recurring/route.ts and the dashboard/schedules edit form: storing 'monthly'
+      // verbatim makes nextOccurrenceDates' switch match nothing, silently zeroing out
+      // this schedule's future auto-generation forever.
+      const recurringType = rt === 'monthly' ? 'monthly_date' : rt
       return mk('matched', undefined, {
-        client_id: clientId, team_member_id: staffId, recurring_type: rt, day_of_week: dow,
+        client_id: clientId, team_member_id: staffId, recurring_type: recurringType, day_of_week: dow,
         preferred_time: str(raw.preferred_time) || null, duration_hours: dur, notes: str(raw.notes) || null, status: 'active',
       }, 'recurring_schedules')
     }
