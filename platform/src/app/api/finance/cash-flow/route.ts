@@ -33,7 +33,7 @@ export async function GET(request: Request) {
     // bookings is tenant-level (no entity_id); invoices + recurring_expenses take the filter.
     const bookingsQ = supabaseAdmin
       .from('bookings')
-      .select('id, price, start_time, payment_status')
+      .select('id, price, start_time, payment_status, partial_payment_cents')
       .eq('tenant_id', tenantId)
       .gte('start_time', now.toISOString())
       .lte('start_time', endTs)
@@ -72,9 +72,16 @@ export async function GET(request: Request) {
       // bookings.price is already in cents — no ×100 (that over-projected 100×).
       const price = Math.round(Number(b.price || 0))
       if (!price) continue
+      // A 'partial' booking already collected partial_payment_cents from the
+      // client -- only the remainder is still an incoming cash event. Without
+      // this, every partially-paid booking double-counted money that already
+      // landed as still-projected future inflow.
+      const received = b.payment_status === 'partial' ? Math.max(0, Math.round(Number(b.partial_payment_cents) || 0)) : 0
+      const remaining = price - received
+      if (remaining <= 0) continue
       const key = weekKey(new Date(b.start_time as string))
       const bucket = buckets.get(key)
-      if (bucket) bucket.inflows_cents += price
+      if (bucket) bucket.inflows_cents += remaining
     }
 
     for (const inv of openInvoices || []) {

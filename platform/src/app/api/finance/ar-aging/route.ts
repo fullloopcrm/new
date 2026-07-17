@@ -47,7 +47,7 @@ export async function GET(request: Request) {
     // same not-paid/refunded payment_status check below.
     const { data: bookings } = await supabaseAdmin
       .from('bookings')
-      .select('id, price, start_time, payment_status, client_id, clients(id, name, email, phone)')
+      .select('id, price, start_time, payment_status, partial_payment_cents, client_id, clients(id, name, email, phone)')
       .eq('tenant_id', tenantId)
       .in('status', ['completed', 'paid'])
       .not('payment_status', 'in', '(paid,refunded)')
@@ -96,6 +96,13 @@ export async function GET(request: Request) {
     for (const b of bookings || []) {
       const priceCents = Math.round(Number(b.price || 0)) // price is already cents
       if (priceCents <= 0) continue
+      // A 'partial' booking already collected partial_payment_cents from the
+      // client (set by payment-processor/Stripe/bank-match) -- only the
+      // remainder is still receivable. Without this, every partially-paid
+      // booking overstated AR by the amount the client already sent in.
+      const received = b.payment_status === 'partial' ? Math.max(0, Math.round(Number(b.partial_payment_cents) || 0)) : 0
+      const balanceCents = priceCents - received
+      if (balanceCents <= 0) continue
       const daysPast = b.start_time ? Math.max(0, Math.floor((today.getTime() - new Date(b.start_time as string).getTime()) / 86400000)) : 0
       const bucket = BUCKETS.find(bu => daysPast >= bu.minDays && daysPast <= bu.maxDays)?.label || 'Current'
       const clientRaw = b.clients as unknown
@@ -108,7 +115,7 @@ export async function GET(request: Request) {
         client_name: client?.name || null,
         client_id: b.client_id || client?.id || null,
         total_cents: priceCents,
-        balance_cents: priceCents,
+        balance_cents: balanceCents,
         due_date: b.start_time,
         days_past_due: daysPast,
         bucket,
