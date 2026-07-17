@@ -191,21 +191,92 @@ render-test harness in this repo; verification here is type-level +
 manual cross-reference against every target route's actual accepted field
 names, not a rendered/clicked end-to-end test).
 
-**Not fixed, noticed but out of scope for this pass** (same class, lower
-confidence or bigger lift):
-- `cleaner_pay_rate` (createForm, the per-job tech pay-rate field on the
-  "New Booking" modal) — not a naming mismatch, `POST /api/bookings`'s
-  `validate()` allowlist doesn't accept ANY per-job pay-rate field at all,
-  under any name. Needs a schema/endpoint decision, not a rename.
-- `POST /api/bookings/batch` doesn't accept `team_size`/extra-crew fields
-  at all (only the single `team_member_id` lead) — multi-worker jobs can
-  only get extra crew assigned via a follow-up edit, not at initial
-  creation. Missing feature, not a bug.
-- Batch series edits ("apply to all future bookings") silently drop
-  `service_type` and `recurring_type` changes — `BATCH_UPDATE_FIELDS` in
-  `/api/bookings/batch-update` only allows `service_type_id`, not the plain
-  `service_type` text field the edit form actually sends. Same bug class as
-  this section, not yet verified/fixed.
+**Update, later this session — all three siblings below are now FIXED**
+(commit `beb99d6c`, `p1-w3`), on re-inspection none actually needed a
+schema/product decision — all three were the identical allowlist-omission
+bug hitting real, already-existing columns the caller already sends:
+- `cleaner_pay_rate`: `bookings.pay_rate` already exists and was already
+  read correctly by `POST /api/bookings/batch`'s row-builder
+  (`pay_rate: b.pay_rate || null`) — the caller (BookingsAdmin.tsx) just
+  never sent it under that name on the plain create path, and
+  `POST /api/bookings`'s `validate()` (the emergency-create path) had no
+  `pay_rate` field in its allowlist at all. Added the field to that
+  allowlist and renamed both callers' `cleaner_pay_rate` body key to the
+  real column name `pay_rate`.
+- `POST /api/bookings/batch` team_size/extra-crew: `bookings.team_size` and
+  the `booking_team_members` junction table both already exist, and
+  `PUT /api/bookings/[id]/team` already implements lead+extras+team_size
+  assignment correctly (the edit-save path already calls it). Added
+  `team_size` (clamped `[1,8]`, matching that same endpoint's own clamp) to
+  the batch row-builder, and wired the create path to call
+  `/api/bookings/[id]/team` once per newly-created booking when
+  `team_size > 1` — reusing the endpoint wholesale rather than duplicating
+  its ownership checks/notifications in the batch route.
+- Batch series `service_type`/`recurring_type` drop: both are real
+  `bookings` columns (`supabase/schema.sql:141,148`) already sent verbatim
+  by `BookingsAdmin.tsx`'s "apply to all future bookings" edit. Added both
+  to `BATCH_UPDATE_FIELDS`.
+
+Also fixed in the same pass, same mechanism, found while touching the exact
+same `POST /api/bookings/batch` row-builder for `team_size`:
+`property_id` and `max_hours` were two MORE real columns the create form
+already sends on every batch-create row that the row-builder silently
+dropped. Added both, plus a `property_id` ownership check alongside the
+existing `client_id`/`team_member_id` FK-injection guards (`client_properties`
+is deny-all RLS, so a foreign tenant's property id would otherwise attach
+silently). `tsc --noEmit` clean, full suite 328/328 files, 1743/1743 tests
+(12 new, one per fixed field plus the property_id FK-injection guard).
+
+## (7) New today — even when a tech IS assigned to an emergency job, nothing ever tells them it's urgent or that a pay premium applies
+
+Fresh ground, distinct from (4)/P11.18 (which is about jobs that never get
+assigned to anyone at all). This is the opposite case: an admin (or the
+smart-schedule scorer) DOES assign a `team_member_id` to a booking — the
+normal, working dispatch path, not the broken one — and traced what the tech
+actually receives. `PUT /api/bookings/[id]/route.ts:131-163` detects
+`team_member_id` changing and fires `teamSmsTemplates(...).jobAssignment({
+start_time, hourly_rate, clients, team_members })` — but neither argument
+list nor either template implementation takes `is_emergency` or the tech's
+own `pay_rate` at all. Confirmed on both branches `teamSmsTemplates()` can
+resolve to:
+- `src/lib/messaging/team-sms.ts` `jobAssignment()` (cleaning-industry
+  tenants) — signature is `(brand, booking: { start_time, hourly_rate,
+  clients, team_members })`; the only thing `hourly_rate` is used for is a
+  `$49 → "labor only, bring no supplies"` convention check, never rendered as
+  a rate or urgency flag.
+- `src/lib/sms-templates.ts` `smsJobAssignment()` (all ~23 non-cleaning
+  trade tenants — the plumbing/HVAC/restoration/tree-service archetype this
+  report tracks) — signature is `(bizName, booking: { start_time, clients })`
+  only; `hourly_rate` isn't even in the type, let alone `is_emergency` or
+  `pay_rate`. Body is a flat `"{biz}: New job {date} {time} - {client}."` —
+  identical whether the job is a routine Tuesday cleaning or a same-day burst
+  pipe at 2x pay.
+
+Checked whether urgency reaches the tech through any OTHER channel and it
+doesn't, anywhere: grepped the entire `team-portal` surface (portal pages +
+`/api/team-portal/*`) for `is_emergency` — zero matches. The self-claim
+open-jobs listing itself, `GET /api/team-portal/jobs?available=true`
+(`src/app/api/team-portal/jobs/route.ts:45`), doesn't even `SELECT
+is_emergency` from `bookings` — so a tech voluntarily browsing the open-jobs
+screen (P11.13's pull-model fallback) has no way to see which open jobs are
+urgent even if they wanted to prioritize their own pickup order. Net effect,
+combined with (4)/P11.18: **no channel in this codebase — push, pull, or
+direct assignment — ever surfaces job urgency or the emergency pay premium
+to a tech.** This is the team-facing mirror of items (3)/(5)'s customer-side
+price-transparency gap (P11.19/P11.20): same shape of bug (a real,
+already-tracked `is_emergency`/pay-premium concept that stops at the
+booking record and never reaches the message a person actually reads), just
+on the other side of the job. Concrete impact: a tech accepting/working an
+assigned same-day emergency job has no signal to treat it as time-critical
+(may not reprioritize their day around it) and finds out about any pay
+premium only after the fact (payroll/checkout), same "surprise" pattern as
+the customer side. Not fixed — same class of product call as P11.19/20:
+needs a decision on wording (e.g. prefix "URGENT — " on the SMS and state
+the pay rate) before touching the templates, verified by reading
+`team-sms.ts`, `sms-templates.ts`, `team-sms-resolver.ts`,
+`bookings/[id]/route.ts`, and grepping the full `team-portal` tree directly
+(worktree still has no `.env.local`/Supabase env for a live call, same
+constraint as P11.8-20).
 
 ## Not re-litigated here (already tracked elsewhere, still open)
 
