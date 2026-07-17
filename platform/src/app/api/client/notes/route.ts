@@ -3,6 +3,14 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 
+// Backed by clients.special_instructions — the column team-portal/jobs and
+// team/page.tsx actually read as the client's standing note for the cleaner
+// (door codes, pet info, etc). clients.notes is a DIFFERENT column: the
+// operator-only field admin edits via the dashboard client form. This route
+// (the per-tenant client-dashboard sibling of the already-fixed
+// /api/portal/notes) used to read/write .notes, meaning (a) whatever the
+// client typed here never reached the cleaner, and (b) the client could read
+// and silently overwrite the admin's private notes.
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -16,13 +24,13 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from('clients')
-    .select('notes')
+    .select('special_instructions')
     .eq('id', clientId)
     .eq('tenant_id', tenant.id)
     .single()
 
   if (error || !data) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
-  return NextResponse.json({ notes: data.notes || '' })
+  return NextResponse.json({ notes: data.special_instructions || '' })
 }
 
 export async function PUT(request: Request) {
@@ -42,7 +50,7 @@ export async function PUT(request: Request) {
 
   const { error } = await supabaseAdmin
     .from('clients')
-    .update({ notes })
+    .update({ special_instructions: notes })
     .eq('id', client_id)
     .eq('tenant_id', tenant.id)
 
