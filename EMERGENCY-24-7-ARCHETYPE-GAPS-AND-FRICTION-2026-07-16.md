@@ -4530,3 +4530,75 @@ further as out of lane.)
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (103) Archetype depth — H-01 class repeats a sixth time: `POST /api/uploads`, item (84)'s own fix, was never reachable on the main host to begin with — NOW FIXED
+
+Item (84) taught `POST /api/uploads` to check `getPortalAuth()` (portal
+bearer token) before falling back to `getTenantForRequest()`, fixing
+`app/team/page.tsx`'s `handlePhotoUpload` — its only real caller anywhere
+in the repo, confirmed by re-checking. But that fix only patches what
+happens *inside* the route handler; Next.js middleware decides whether the
+request ever reaches it. `/api/uploads` was never added to `isPublicRoute`
+— unlike its sibling `/api/team-portal(.*)`, which has been public all
+along for exactly this reason: team-portal auth is a bearer token, not a
+Clerk session or `admin_token` cookie, so the route must self-gate rather
+than rely on the middleware's Clerk/admin-cookie check. On a tenant's own
+subdomain this doesn't matter (that branch of middleware never runs the
+Clerk/admin-cookie gate at all), but on the main host — which includes
+`localhost`, the most likely place this flow gets exercised — a team
+member's photo upload still 307'd to `/sign-in` before the route's own
+portal-auth check ever ran. Same H-01 shape as items (82)/(83)/(89): a
+helper already covered elsewhere in the allowlist, one call site slips
+through.
+
+**Fixed** — added `/api/uploads` to `isPublicRoute`, matching
+`/api/client-analytics`'s existing precedent (public at the middleware
+layer, self-gated by the route's own auth check).
+
+1 new test in `middleware-domain-lookup.test.ts` (source-reading guard,
+same pattern as the existing bypass-list guards), mutation-verified (`git
+apply -R` the fix, RED for the expected reason — `isPublicRoute` no
+longer covers `/api/uploads` — `git apply` restored, GREEN). `tsc
+--noEmit` clean, full suite 400/400 files, 1966/1966 tests, zero
+regressions. Commit `91b80633`.
+
+## (104) Fresh ground, new bug class (Stripe dispute-resolution parity gap, distinct from every prior thread) — `charge.dispute.closed` had zero handling, so a WON dispute never reversed the chargeback loss — NOW FIXED
+
+Same shape as item (102)'s `email.complained` gap, one thread over on the
+Stripe side: `charge.dispute.created` already books the chargeback as a
+loss (`postChargebackToLedger`, DR 6110 Chargebacks / CR 1050
+Undeposited) the moment a dispute opens — but Stripe's own
+`charge.dispute.closed` event, fired when the dispute resolves and
+carrying `dispute.status` of `'won'` / `'lost'` / `'warning_closed'`, was
+never handled anywhere in `webhooks/stripe/route.ts`'s type switch (no
+`default:` case either, so it silently fell through to the generic
+`{ received: true }` response like every unhandled event does). When the
+merchant WINS a dispute, Stripe returns the disputed funds — but nothing
+ever reversed the loss entry booked at `dispute.created` time. A tenant
+who won every dispute they ever opened would carry a permanently
+overstated chargeback-loss total in their own ledger forever, with no
+self-correcting mechanism. `'lost'`/`'warning_closed'` correctly need no
+ledger action — Stripe kept the funds, the original loss entry already
+reflects reality.
+
+**Fixed** — added `postChargebackReversalToLedger()` to
+`post-adjustments.ts` (DR 1050 Undeposited / CR 6110 Chargebacks, the
+mirror image of `postChargebackToLedger`; `source: 'chargeback_reversal'`
+so its idempotency key can't collide with the original chargeback entry
+for the same dispute id) and wired `charge.dispute.closed` into the
+webhook switch, gated on `status === 'won'`.
+
+5 new tests: 2 in `post-adjustments-race.test.ts` (concurrent double-post
+race + no collision with the original chargeback's idempotency key, same
+pattern as the sibling deposit/refund/chargeback race tests already
+there) and 3 in a new `route.dispute-closed.test.ts` (posts the reversal
+on `'won'`; does not on `'lost'`; does not on `'warning_closed'`).
+Mutation-verified (`git apply -R` both production files, all 3
+new-behavior tests RED for the expected reason —
+`postChargebackReversalToLedger` undefined / never called — `git apply`
+restored, GREEN). `tsc --noEmit` clean, full suite 401/401 files,
+1971/1971 tests, zero regressions. Commit `97bd2d4c`.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly
+per standing rule, no reconcile-gate work this round.
