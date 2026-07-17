@@ -61,6 +61,20 @@ export async function upsertSalesContact(input: LeadContactInput): Promise<strin
       .single()
 
     if (error) {
+      // 23505 = unique_violation on contacts_email_unique (lower(email)). The
+      // maybeSingle() check above is a fast path, not the guard: a concurrent
+      // caller for the same email can win the INSERT race between our SELECT
+      // and our own INSERT. Re-fetch the winner's row instead of dropping
+      // this lead's contact_id -- the whole point of this function is that
+      // lead creation never gets blocked by contact bookkeeping.
+      if (error.code === '23505') {
+        const { data: winner } = await supabaseAdmin
+          .from('contacts')
+          .select('id')
+          .eq('email', email)
+          .maybeSingle()
+        if (winner?.id) return winner.id
+      }
       console.error('[sales-contacts] insert failed:', error.message)
       return null
     }
