@@ -6615,3 +6615,94 @@ not touched here).
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (146) New fresh-ground surface — `client_reviews`'s full `pending → verified → paid` lifecycle is declared and written, but nothing else in the app ever reads it
+
+`client_reviews` (`2026_05_19_ratings_team_bookings.sql`) is the $10
+write-a-review credit ledger: `type`, `credit_amount`, `proof_url`, `paid_at`,
+and a `status` `CHECK` declaring all three states. `lib/nycmaid/review-engine.ts`
+(the SMS engine that handles a client's "DONE `<link>`" reply to a review
+ask) inserts a row at `status: 'pending'` and tells the client "your $10
+credit will be applied" — but a repo-wide grep for `client_reviews` turns up
+exactly that one INSERT and nothing else. No GET, no PATCH, no dashboard
+page, no admin list. `verified` and `paid` are declared and even have their
+own dedicated `paid_at` column, but there was no code path in the entire app
+that could ever write either value. Same declared-but-unwired root cause as
+every item in this doc, but at table scope instead of a single status value:
+every $10 credit any client has ever earned has been sitting at `pending`
+forever, invisible, with no way to confirm it, no way to record it as paid,
+short of a raw DB edit — the exact thing the SMS text promises the client
+will happen has no operational path to actually happen.
+
+The sibling table for the exact same "money owed to a person, tracked by a
+status column" shape already exists and is fully built: `referral_commissions`
++ `PUT /api/referral-commissions` (`pending → paid`, atomic paid-claim via
+`.neq('status','paid')` so a double-submit can't double-credit, `paid_at` +
+`paid_via` stamped on payout). `client_reviews` was clearly meant to follow
+the same pattern — it has the `paid_at` column to prove it — but the
+API/UI half of that build never happened.
+
+**Fixed** — added `GET /api/client-reviews` (list, tenant-scoped, joins
+`clients(name)`/`team_members(name)`, `reviews.view`) and
+`PATCH /api/client-reviews/[id]` (`reviews.request`), status-only
+mass-assignment guard same as `PUT /api/reviews/[id]`, and the identical
+atomic paid-claim (`.neq('status','paid')` on the `paid` transition, second
+request returns the current row instead of a false 404) `PUT
+/api/referral-commissions` already proved out. Added a "Review Credits"
+section to `/dashboard/reviews` listing every credit with Verify/Mark Paid
+buttons, gated to render only when a tenant actually has rows (safe no-op
+for every non-nycmaid tenant, matching how the rest of this SMS flow is
+already data-gated rather than tenant-ID-gated in the UI layer).
+
+Deliberately NOT built: ledger posting (`postCommissionAccrual`/
+`postCommissionPayment`'s equivalent) for `client_reviews` payouts. That's a
+real next step — a paid-out $10 credit is real money leaving the business
+the same as a referral commission — but it needs a COA account decision
+first and is its own deliberate pass, not a broad-hunt queue item (same
+reasoning the leader gave for holding the per-tenant-fork question earlier
+this session).
+
+5 new tests (`api/client-reviews/route.test.ts`,
+`api/client-reviews/[id]/route.test.ts`): tenant isolation on the list,
+pending→verified, paid stamps `paid_at` without touching a same-id row on
+another tenant, invalid status rejected before touching the DB, a second
+`paid` request on an already-paid row returns 200 not 404. `tsc --noEmit`
+clean.
+
+## (147) Continuing (146)'s surface — `ratings` (the other table `review-engine.ts` writes) has the same zero-reader problem, but for the client's actual feedback text
+
+Tracing `review-engine.ts` fully for (146) surfaced its other write target:
+`ratings` (`service_rating`, `cleaner_rating`, `feedback` free text). A
+client's 1-5 SMS reply gets a row; the engine's own comment says a <5 reply's
+free-text follow-up ("What could we have done better?") exists specifically
+to drive operator follow-up. A repo-wide grep for `.from('ratings')` found
+three call sites, and all three are inside `review-engine.ts` itself
+(two inserts, one update) plus a single read in `lib/selena/tools.ts` — an AI
+agent tool, not a dashboard page. The only trace of `ratings` an operator can
+see in the actual UI is the pre-computed `avg_rating`/`rating_count` roll-up
+a DB trigger maintains on `team_members` (shown in `admin/comhub` and the
+cleaner's own team-portal rating widget) — a number, not the feedback text
+behind it. A client who types "the cleaner left dishes in the sink" after a
+2-star rating has that sentence written to the database and then it is
+never seen by anyone again short of a raw DB query — the exact
+"needs follow-up" signal the engine was built to surface has no surface.
+
+**Fixed** — added `GET /api/team/[id]/ratings` (`team.view`, tenant-scoped
+via the same `assertMember`-style ownership check the HR documents route
+uses: confirm the `team_members` row belongs to this tenant before querying
+`ratings` by `team_member_id`) and a "Client Feedback" section on
+`/dashboard/team/[id]` showing each rating's stars, date, and feedback text,
+directly under the existing "Job History" card. Rendered conditionally on
+`ratings.length > 0`, same data-gating as (146) — a no-op for every team
+member with no SMS-collected ratings yet.
+
+2 new tests (`api/team/[id]/ratings/route.test.ts`): a same-id team member on
+another tenant's ratings never leak into this tenant's list; a member id
+that doesn't belong to the requesting tenant 404s before the ratings query
+ever runs. `tsc --noEmit` clean, full suite 440/440 files, 2098/2098 tests,
+zero regressions (same pre-existing, unrelated `tenant-scope` guard warning
+on `src/app/api/fixture/route.ts`, not touched here).
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
