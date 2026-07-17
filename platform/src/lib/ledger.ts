@@ -206,6 +206,24 @@ export async function getAccountIdByCode(tenantId: string, code: string): Promis
   return (data?.id as string) || null
 }
 
+/**
+ * journal_entries.source_id is a UUID column, but some callers only have a
+ * non-UUID external id (Stripe's `re_...`/`ch_...`/`dp_...`, or a synthetic
+ * per-occurrence key like `${recurringExpenseId}:${dueDate}` for a recurring
+ * template that legitimately posts a NEW real entry every period). Passing
+ * those straight through raises a Postgres 22P02 (invalid uuid). Map any
+ * non-UUID id to a deterministic UUID so idempotency (same external id →
+ * same journal entry) still holds — including against migration 061's
+ * UNIQUE(tenant_id, source, source_id) index — while UUIDs already valid
+ * pass through as-is.
+ */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export function toSourceUuid(externalId: string): string {
+  if (UUID_RE.test(externalId)) return externalId
+  const hash = createHash('md5').update(externalId).digest('hex')
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`
+}
+
 /** Has a journal entry already been posted for this (source, source_id)? */
 export async function journalEntryExists(tenantId: string, source: string, sourceId: string): Promise<boolean> {
   const { data } = await supabaseAdmin

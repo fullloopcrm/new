@@ -9,31 +9,15 @@
  * A deposit is a liability until the job runs, not revenue — reclassifying it to
  * 4000 on job completion is a follow-up (needs the deposit→final-invoice link).
  */
-import { createHash } from 'crypto'
 import { supabaseAdmin } from '../supabase'
 import {
   postJournalEntry,
   ensureChartAccounts,
   getAccountIdByCode,
   journalEntryExists,
+  toSourceUuid,
   type JournalLineInput,
 } from '../ledger'
-
-/**
- * journal_entries.source_id is a UUID column, but refund/chargeback callers
- * (the Stripe webhook) only have Stripe's own object ids (`re_...`, `ch_...`,
- * `dp_...`) — not UUIDs. Passing those straight through raises a Postgres
- * 22P02 (invalid uuid) that the webhook silently swallows in a .catch(), so
- * the refund/chargeback never actually reaches the ledger. Map any non-UUID
- * external id to a deterministic UUID so idempotency (same external id →
- * same journal entry) still holds, while UUIDs already valid pass through as-is.
- */
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-function toSourceUuid(externalId: string): string {
-  if (UUID_RE.test(externalId)) return externalId
-  const hash = createHash('md5').update(externalId).digest('hex')
-  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`
-}
 
 export interface PostAdjResult {
   posted: boolean

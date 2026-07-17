@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { createHash } from 'crypto'
 
 /**
  * Webhook idempotency — money must not double-apply on duplicate delivery.
@@ -39,12 +40,23 @@ const postJournalEntry = vi.fn(async (opts: { tenant_id: string; source?: string
   return `entry_${posted.size}`
 })
 
+// Mirrors the real ledger.ts toSourceUuid (moved there from post-adjustments.ts) --
+// duplicated here rather than un-mocking '../ledger' so this suite's in-memory
+// postJournalEntry/journalEntryExists mocks stay intact.
+const UUID_RE_INTERNAL = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+function toSourceUuid(externalId: string): string {
+  if (UUID_RE_INTERNAL.test(externalId)) return externalId
+  const hash = createHash('md5').update(externalId).digest('hex')
+  return `${hash.slice(0, 8)}-${hash.slice(8, 12)}-${hash.slice(12, 16)}-${hash.slice(16, 20)}-${hash.slice(20, 32)}`
+}
+
 vi.mock('../ledger', () => ({
   postJournalEntry: (opts: { tenant_id: string; source?: string; source_id?: string }) => postJournalEntry(opts),
   journalEntryExists: async (tenantId: string, source: string, sourceId: string) =>
     posted.has(key(tenantId, source, sourceId)),
   ensureChartAccounts: async () => {},
   getAccountIdByCode: async (_tenantId: string, code: string) => `acct_${code}`,
+  toSourceUuid: (externalId: string) => toSourceUuid(externalId),
 }))
 
 // postPaymentRevenue reads the payment row from supabaseAdmin. Return a single

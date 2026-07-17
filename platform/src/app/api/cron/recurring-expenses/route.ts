@@ -1,10 +1,35 @@
 /**
  * Cron: fire due recurring_expenses, record failures + retry counts.
  * Schedule via vercel.json. Uses CRON_SECRET Bearer auth.
+ *
+ * GAP (closed here): every OTHER ledger source (expense, bank_txn, payroll,
+ * payout, refund, chargeback, deposit, booking...) keys source_id to a real
+ * economic event's own row id, which only ever exists once -- exactly what
+ * migration 061's UNIQUE(tenant_id, source, source_id) index (live on prod as
+ * of 2026-07-16 14:35, per deploy log) assumes. 'recurring' broke that
+ * assumption: source_id was r.id, the recurring_expenses TEMPLATE row's own
+ * id, reused identically on EVERY period it fires. The 2nd+ firing's insert
+ * hit the unique index as a false collision (23505), and postJournalEntry's
+ * own 23505-resolution path (by design, for the real cross-tenant-safe retry
+ * case) looked up "any existing entry for this (tenant,source,source_id)"
+ * with no entry_date filter -- so it silently returned the FIRST period's
+ * entry id as if the 2nd period's post had succeeded. The cron then advanced
+ * next_due_date, cleared last_error, and counted it as fired -- with NO new
+ * journal_entries row and NO error anywhere. Net effect: every recurring
+ * expense's cost reached the P&L exactly ONCE, ever, no matter how many
+ * periods it has actually fired since -- permanently understating cost from
+ * the 2nd occurrence on, invisibly (last_fired_at keeps advancing normally).
+ *
+ * FIX: source_id is now a deterministic per-OCCURRENCE UUID derived from
+ * `${recurringExpenseId}:${dueDate}` via toSourceUuid (same technique
+ * post-adjustments.ts already uses for Stripe's non-UUID refund/dispute ids).
+ * A genuine retry of the SAME period recomputes the SAME hash -> still caught
+ * as a real duplicate by both the dedupe check below and the DB index. A NEW
+ * period recomputes a DIFFERENT hash -> posts its own real entry.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { postJournalEntry } from '@/lib/ledger'
+import { postJournalEntry, toSourceUuid } from '@/lib/ledger'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { safeEqual } from '@/lib/timing-safe-equal'
 
@@ -43,6 +68,9 @@ export async function POST(request: Request) {
     id: string; tenant_id: string; entity_id: string | null; label: string; category: string | null
     amount_cents: number; frequency: string; next_due_date: string; failure_count: number
   }>) {
+    // Per-occurrence key -- NOT r.id (the template's own id, which is the
+    // same across every period it fires). See the file-level comment.
+    const occurrenceSourceId = toSourceUuid(`${r.id}:${r.next_due_date}`)
     try {
       // Dedupe guard — if a journal entry for this recurring row + due date
       // already exists, don't double-post on a cron re-run or retry.
@@ -51,7 +79,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('tenant_id', r.tenant_id)
         .eq('source', 'recurring')
-        .eq('source_id', r.id)
+        .eq('source_id', occurrenceSourceId)
         .eq('entry_date', r.next_due_date)
         .limit(1)
         .maybeSingle()
@@ -86,7 +114,7 @@ export async function POST(request: Request) {
         entry_date: r.next_due_date,
         memo: `Recurring: ${r.label}`,
         source: 'recurring',
-        source_id: r.id,
+        source_id: occurrenceSourceId,
         lines: [
           { coa_id: coaMatch.id, debit_cents: r.amount_cents },
           { coa_id: bankCoa.id, credit_cents: r.amount_cents },
