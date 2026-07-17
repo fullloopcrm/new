@@ -3673,6 +3673,73 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       if (teamGateOk?.id) await supabase.from('team_members').delete().eq('id', teamGateOk.id).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-43. documents/public/[token]/sign — COMPLETION-COPY RECEIPT SENDER-CREDENTIAL PROBE (fresh ground, first instance of this session's new bug class: a tenant-branded email using the PLATFORM's default Resend key/from-address instead of the tenant's own, distinct from consent/secret-redaction/write-scope classes closed earlier this session) ----
+    // sendCompletionCopies (the on-completion "here's your signed copy"
+    // receipt, fired after every signer finishes) called sendEmail() with no
+    // from/resendApiKey at all — this SAME file's sendSigningInviteToSigner
+    // (sequential next-signer notify) and documents/[id]/send/route.ts (the
+    // initial invite) both already decrypt and pass the tenant's own
+    // resend_api_key/email_from for every other email on this document; the
+    // final receipt carrying the legally-signed PDF was the one send that
+    // silently fell back to the platform's shared Resend account/address.
+    // Fixed: sendCompletionCopies now takes doc.tenants (already loaded) and
+    // decrypts/passes resend_api_key + email_from, matching
+    // sendSigningInviteToSigner's pattern exactly. The route-level vitest
+    // (route.completion-copy-sender.test.ts) proves this with a mocked
+    // decryptSecret; this probe proves the fixed
+    // `.select('*, tenants(name, domain, telnyx_api_key, telnyx_phone,
+    // resend_api_key, email_from)')` join actually resolves a REAL encrypted
+    // resend_api_key against the live schema, and that the real
+    // decryptSecret()/encryptSecret() round-trip it correctly — neither of
+    // which a mocked unit test can prove.
+    {
+      const { data: tenantBeforeSignProbe } = await supabase.from('tenants').select('resend_api_key, email_from, domain').eq('id', tenant.id).single()
+
+      const { encryptSecret, decryptSecret } = await import('../src/lib/secret-crypto')
+      const liveResendKey = 're_live_probe_' + tenant.id.slice(0, 8)
+      const liveEmailFrom = `docs-probe@${tenant.id.slice(0, 8)}.example.com`
+      const liveDomain = `${tenant.id.slice(0, 8)}.example.com`
+      const { error: signProbeTenantErr } = await supabase.from('tenants').update({
+        resend_api_key: encryptSecret(liveResendKey), email_from: liveEmailFrom, domain: liveDomain,
+      }).eq('id', tenant.id)
+      add('completion-copy-sender probe: tenants.resend_api_key/email_from/domain seeded with a real encrypted key', !signProbeTenantErr, signProbeTenantErr?.message)
+
+      const signProbeDocPath = `tenants/${tenant.id}/docs/completion-copy-sender-gate/original.pdf`
+      const { data: signProbeDoc, error: signProbeDocErr } = await supabase.from('documents').insert({
+        tenant_id: tenant.id, title: 'Completion-Copy Sender Gate Agreement', original_path: signProbeDocPath, status: 'sent',
+      }).select('id').single()
+      add('completion-copy-sender probe: documents row created', !!signProbeDoc && !signProbeDocErr, signProbeDocErr?.message)
+
+      if (signProbeDoc?.id) {
+        const { data: signProbeSigner, error: signProbeSignerErr } = await supabase.from('document_signers').insert({
+          tenant_id: tenant.id, document_id: signProbeDoc.id, order_index: 1, name: 'Sender-Gate Signer',
+          email: 'sender-gate-signer@example.com', public_token: 'probe_' + signProbeDoc.id.slice(0, 12), status: 'sent',
+        }).select('id').single()
+        add('completion-copy-sender probe: document_signers row created', !!signProbeSigner && !signProbeSignerErr, signProbeSignerErr?.message)
+
+        // Exact join-select shape the fixed sign/route.ts uses to load
+        // doc.tenants before calling sendCompletionCopies.
+        const { data: joinedDoc, error: joinedDocErr } = await supabase.from('documents')
+          .select('*, tenants(name, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from)')
+          .eq('id', signProbeDoc.id).single()
+        const joinedTenant = joinedDoc?.tenants as unknown as { resend_api_key: string | null; email_from: string | null; domain: string | null } | null
+        add('completion-copy-sender probe: the documents->tenants join resolves resend_api_key/email_from/domain against the live schema', !joinedDocErr && !!joinedTenant?.resend_api_key && joinedTenant.email_from === liveEmailFrom && joinedTenant.domain === liveDomain, JSON.stringify({ email_from: joinedTenant?.email_from, domain: joinedTenant?.domain }) + (joinedDocErr?.message || ''))
+
+        const decryptedFromJoin = joinedTenant?.resend_api_key ? decryptSecret(joinedTenant.resend_api_key) : null
+        add('completion-copy-sender probe: decryptSecret() on the joined resend_api_key round-trips the exact plaintext written (the fix\'s actual runtime call, not a mock)', decryptedFromJoin === liveResendKey, `${decryptedFromJoin} vs ${liveResendKey}`)
+
+        if (signProbeSigner?.id) await supabase.from('document_signers').delete().eq('id', signProbeSigner.id).eq('tenant_id', tenant.id)
+        await supabase.from('documents').delete().eq('id', signProbeDoc.id).eq('tenant_id', tenant.id)
+      }
+
+      // Restore — this tenant is shared by every later phase in this run.
+      await supabase.from('tenants').update({
+        resend_api_key: tenantBeforeSignProbe?.resend_api_key ?? null,
+        email_from: tenantBeforeSignProbe?.email_from ?? null,
+        domain: tenantBeforeSignProbe?.domain ?? null,
+      }).eq('id', tenant.id)
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
