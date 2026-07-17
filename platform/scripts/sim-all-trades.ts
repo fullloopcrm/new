@@ -1047,6 +1047,28 @@ async function runTrade(t: (typeof TRADES)[number], idx: number): Promise<TradeR
       add('emergency: customer-facing booking-received confirmation discloses the emergency/same-day rate (not just that the request was received)',
         sigHasPriceField || renderedMentionsPrice,
         `bookingReceivedEmail's type signature (email-templates.ts: ${bookingReceivedEmailSig.replace(/\s+/g, ' ').trim()}) has no 'price' field at all — unlike the sibling bookingConfirmationEmail a few lines up, which does. Calling it live with isEmergency:true (rendered output checked for $/price/rate/surcharge/premium/fee wording) still produces zero mention of cost. P11.14 already fixed the tone (the customer now sees "We've flagged this as urgent"), but never the price: for an archetype where the emergency rate runs ${emPriceCents ? `$${(emPriceCents / 100).toFixed(0)}` : '2-2.5x routine'} vs the base rate, a customer's first confirmation after calling in a burst pipe/no-heat emergency sounds urgent but never discloses the surcharge — they find out on the invoice, after the job is done.`)
+
+      // P11.20 the SMS twin of P11.19 — same missing-price gap, different
+      // channel. smsBookingReceived()'s own signature (src/lib/sms-templates.ts,
+      // extracted below) is `(bizName: string, booking: { start_time: string;
+      // is_emergency?: boolean | null })` — is_emergency drives the P11.14
+      // urgency wording ("URGENT request received...We're treating this as a
+      // priority") but there is no price/rate field in the signature at all,
+      // so there is no code path by which the SMS could ever mention cost.
+      // Calling it live with is_emergency:true (not mocked, not grepped)
+      // confirms the actual rendered text. Distinct from P11.19: many
+      // customers read the SMS and never open the email at all (P11.14's own
+      // finding was that SMS is often the ONLY urgency-acknowledging channel
+      // a customer sees), so this is the more consequential of the two gaps,
+      // not a duplicate.
+      const smsBookingReceivedSrc = readFileSync(resolve(process.cwd(), 'src/lib/sms-templates.ts'), 'utf8')
+      const smsBookingReceivedSig = (smsBookingReceivedSrc.split('export function smsBookingReceived(')[1] || '').split('): string {')[0]
+      const smsSigHasPriceField = /\bprice\b|\brate\b/.test(smsBookingReceivedSig)
+      const emSmsUrgentPriced = smsBookingReceived(t.category, { start_time: new Date().toISOString(), is_emergency: true })
+      const smsRenderedMentionsPrice = priceWords.test(emSmsUrgentPriced)
+      add('emergency: customer-facing booking-received SMS discloses the emergency/same-day rate (not just that the request was received)',
+        smsSigHasPriceField || smsRenderedMentionsPrice,
+        `smsBookingReceived's signature (sms-templates.ts: (bizName: string, booking: {${smsBookingReceivedSig.split('booking: {')[1] || ''}) has no price/rate field — only is_emergency, which P11.14 already wired into the urgency wording. Calling it live with is_emergency:true: "${emSmsUrgentPriced}" — confirms zero $/price/rate/surcharge/premium/fee wording regardless of input. Same root cause and same fix shape as P11.19 (email), but for the channel a customer is more likely to actually read first.`)
     }
 
   } catch (err) {
