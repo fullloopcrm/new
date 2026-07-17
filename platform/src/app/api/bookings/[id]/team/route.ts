@@ -68,7 +68,8 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     }
   }
 
-  // Snapshot the old team to figure out which extras are NEW (need notification).
+  // Snapshot the old team to figure out which extras are NEW (need notification)
+  // and to restore below if the replacement write fails partway.
   const { data: oldRows } = await supabaseAdmin
     .from('booking_team_members')
     .select('team_member_id, is_lead')
@@ -76,6 +77,15 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     .eq('booking_id', id)
   const oldMemberIds = new Set((oldRows || []).map((r) => r.team_member_id))
   const newlyAddedExtras = newExtras.filter((mid) => !oldMemberIds.has(mid))
+
+  // Snapshot the booking's current lead/team_size so a failed
+  // booking_team_members write below can be rolled back to a consistent state.
+  const { data: prevBooking } = await supabaseAdmin
+    .from('bookings')
+    .select('team_member_id, team_size')
+    .eq('id', id)
+    .eq('tenant_id', ctx.tenantId)
+    .single()
 
   // Update bookings.team_member_id (lead) + team_size — tenant-scoped.
   const { data: updatedBooking, error: updErr } = await supabaseAdmin
@@ -103,7 +113,29 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   })
   if (teamRows.length > 0) {
     const { error: insErr } = await supabaseAdmin.from('booking_team_members').insert(teamRows)
-    if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
+    if (insErr) {
+      // The delete above already removed the old team rows, and bookings.
+      // team_member_id/team_size were already committed to the new values --
+      // without a rollback, the booking is left pointing at a lead/team_size
+      // with zero booking_team_members rows, so payroll (cleaner-payout),
+      // closeout-summary, and notifications (which all join off
+      // booking_team_members) silently see no one assigned. Restore both to
+      // their pre-write state -- same orphaned-write rollback class already
+      // fixed on the recurring-schedule create paths this session.
+      if (prevBooking) {
+        await supabaseAdmin
+          .from('bookings')
+          .update({ team_member_id: prevBooking.team_member_id, team_size: prevBooking.team_size })
+          .eq('id', id)
+          .eq('tenant_id', ctx.tenantId)
+      }
+      if (oldRows && oldRows.length > 0) {
+        await supabaseAdmin
+          .from('booking_team_members')
+          .insert(oldRows.map((r) => ({ tenant_id: ctx.tenantId, booking_id: id, ...r })))
+      }
+      return NextResponse.json({ error: insErr.message }, { status: 500 })
+    }
   }
 
   // Tenant context for notifications (telnyx + push)
