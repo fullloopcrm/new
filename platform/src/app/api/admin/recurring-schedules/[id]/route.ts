@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ id:
     .select('id, start_time, end_time, status, team_member_id, team_members!bookings_team_member_id_fkey(name)')
     .eq('schedule_id', id)
     .gte('start_time', new Date().toISOString())
-    .in('status', ['scheduled', 'pending'])
+    .in('status', ['scheduled', 'pending', 'confirmed'])
     .order('start_time')
 
   return NextResponse.json({ ...schedule, upcoming_bookings: bookings || [] })

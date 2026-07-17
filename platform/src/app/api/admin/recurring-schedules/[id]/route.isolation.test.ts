@@ -63,7 +63,16 @@ describe('GET /api/admin/recurring-schedules/:id — tenant isolation', () => {
     const res = await GET(new Request('http://x'), params('sched-A1'))
     expect(res.status).toBe(200)
     const json = await res.json()
-    expect(json.upcoming_bookings.map((b: { id: string }) => b.id)).toEqual(['book-A1'])
+    expect(json.upcoming_bookings.map((b: { id: string }) => b.id).sort()).toEqual(['book-A1', 'book-A2-confirmed'])
+  })
+
+  it("upcoming bookings includes an already-confirmed future booking, not just scheduled/pending ones", async () => {
+    const res = await GET(new Request('http://x'), params('sched-A1'))
+    expect(res.status).toBe(200)
+    const json = await res.json()
+    const confirmed = json.upcoming_bookings.find((b: { id: string }) => b.id === 'book-A2-confirmed')
+    expect(confirmed).toBeDefined()
+    expect(confirmed.status).toBe('confirmed')
   })
 })
 
