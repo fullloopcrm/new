@@ -21,17 +21,26 @@ function chain(table: string) {
   const filters: Array<(r: Row) => boolean> = []
   let op: 'select' | 'insert' | 'update' = 'select'
   let payload: Row = {}
+  const matched = (): Row[] => rowsOf().filter((r) => filters.every((f) => f(r)))
   const c: Record<string, unknown> = {
     select: () => c,
     insert: (p: Row) => { op = 'insert'; payload = p; return c },
     update: (p: Row) => { op = 'update'; payload = p; return c },
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
+    is: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
     single: async () => {
       if (op === 'insert') { const row = { ...payload }; DB[table] = [...rowsOf(), row]; return { data: row, error: null } }
-      const row = rowsOf().find((r) => filters.every((f) => f(r)))
+      const row = matched()[0]
       if (!row) return { data: null, error: { message: 'not found' } }
       if (op === 'update') Object.assign(row, payload)
       return { data: row, error: null }
+    },
+    maybeSingle: async () => {
+      if (op === 'insert') { const row = { ...payload }; DB[table] = [...rowsOf(), row]; return { data: row, error: null } }
+      const row = matched()[0]
+      if (row && op === 'update') Object.assign(row, payload)
+      return { data: row ?? null, error: null }
     },
   }
   return c

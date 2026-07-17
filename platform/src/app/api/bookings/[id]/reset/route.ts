@@ -40,14 +40,26 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (booking.payment_status === 'paid') {
       return NextResponse.json({ error: 'Payment already collected — undo manually; money/texts already went out.' }, { status: 400 })
     }
+    // Atomic re-check: the payment_status==='paid' guard above read a plain
+    // SELECT snapshot. A concurrent payment (webhook, admin mark-paid) landing
+    // in the gap between that read and this write would otherwise still let
+    // the undo through, silently reverting an already-paid booking back to
+    // in_progress with no matching refund/payroll reconciliation — exactly
+    // the harm this route's own safety comment says is blocked. Mirrors the
+    // atomic-claim guard already applied elsewhere on this booking-mutation
+    // surface this session.
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .update({ status: 'in_progress', check_out_time: null, check_out_location: null, actual_hours: null })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .neq('payment_status', 'paid')
       .select('*, clients(name), team_members!bookings_team_member_id_fkey(name)')
-      .single()
+      .maybeSingle()
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!data) {
+      return NextResponse.json({ error: 'Undo failed — payment was collected concurrently; undo manually.' }, { status: 409 })
+    }
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
       type: 'check_out_reset',
@@ -65,14 +77,24 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (booking.check_out_time) {
     return NextResponse.json({ error: 'Undo check-out first' }, { status: 400 })
   }
+  // Atomic re-check: the check_out_time guard above read a plain SELECT
+  // snapshot. A concurrent check-out landing in the gap between that read and
+  // this write would otherwise still let the undo through, clearing
+  // check_in_time/status back to 'scheduled' while check_out_time (and its
+  // actual_hours/payment data) from the concurrent write stays in place --
+  // an inconsistent booking that looks unstarted but is already checked out.
   const { data, error } = await supabaseAdmin
     .from('bookings')
     .update({ status: 'scheduled', check_in_time: null, check_in_location: null, fifteen_min_alert_time: null })
     .eq('id', id)
     .eq('tenant_id', tenantId)
+    .is('check_out_time', null)
     .select('*, clients(name), team_members!bookings_team_member_id_fkey(name)')
-    .single()
+    .maybeSingle()
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+  if (!data) {
+    return NextResponse.json({ error: 'Undo failed — booking was checked out concurrently; undo check-out first.' }, { status: 409 })
+  }
   await supabaseAdmin.from('notifications').insert({
     tenant_id: tenantId,
     type: 'check_in_reset',
