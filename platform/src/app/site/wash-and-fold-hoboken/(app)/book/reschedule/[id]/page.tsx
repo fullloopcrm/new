@@ -4,7 +4,6 @@ import { useRouter, useParams } from 'next/navigation'
 
 interface TimeSlot {
   time: string
-  cleaners: { id: string; name: string }[]
 }
 
 export default function ReschedulePage() {
@@ -75,7 +74,6 @@ export default function ReschedulePage() {
         body: JSON.stringify({
           start_time: startTime.toISOString(),
           end_time: endTime.toISOString(),
-          cleaner_id: selectedSlot.cleaners[0]?.id
         })
       })
 
