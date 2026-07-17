@@ -130,7 +130,7 @@ export async function POST(request: Request) {
 
   // Referral commission — if this booking came through an affiliate referrer,
   // ledger their cut on completion. Idempotent via UNIQUE(booking_id); a no-op
-  // when there's no referrer. (Referrer-notification email not ported — flagged.)
+  // when there's no referrer.
   if (booking.referrer_id && updatedPriceCents && updatedPriceCents > 0) {
     const { data: ref } = await supabaseAdmin
       .from('referrers')
@@ -175,6 +175,33 @@ export async function POST(request: Request) {
             'You earned a referral commission',
             `<p>Hi ${(ref as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${clientName || 'a'} booking. Thank you for spreading the word!</p>`,
           ).catch(() => {})
+        } else if ((ref as { email?: string | null }).email) {
+          // Every other tenant with the referral program got the commission
+          // ledgered (row above) and the admin got an internal notification
+          // (above), but the referrer themselves — the person actually owed
+          // the money, and the one this email is meant to keep engaged for
+          // future referrals — was never told. The admin-created path
+          // (POST /api/referral-commissions) has the identical gap: it only
+          // notifies admin via notify(), never the referrer directly. Only
+          // the nycmaid-only branch above ever emailed a referrer. Uses the
+          // same generic sendEmail() the client-facing reschedule/booking
+          // routes already use, gated on the tenant actually having Resend
+          // configured (same precondition those routes check).
+          const { data: tenantRow } = await supabaseAdmin
+            .from('tenants')
+            .select('name, resend_api_key, email_from')
+            .eq('id', auth.tid)
+            .maybeSingle<{ name: string | null; resend_api_key: string | null; email_from: string | null }>()
+          if (tenantRow?.resend_api_key) {
+            const { sendEmail } = await import('@/lib/email')
+            await sendEmail({
+              to: (ref as { email: string }).email,
+              subject: 'You earned a referral commission',
+              html: `<p>Hi ${(ref as { name?: string | null }).name || 'there'}, you just earned $${(commissionCents / 100).toFixed(2)} from ${clientName || 'a'} booking with ${tenantRow.name || 'us'}. Thank you for spreading the word!</p>`,
+              resendApiKey: tenantRow.resend_api_key,
+              from: tenantRow.email_from || undefined,
+            }).catch(() => {})
+          }
         }
       }
     }
