@@ -110,7 +110,22 @@ export async function postExpenseToLedger(opts: { tenantId: string; expenseId: s
  * 'expense' key can only ever hold one entry, so a clean reverse-then-repost
  * (supporting more than one edit over the expense's lifetime while still
  * preserving the original entry for audit) needs a schema decision, not a
- * guess — not attempted here.
+ * guess — not attempted here. PUT /api/finance/expenses/[id] instead BLOCKS
+ * amount/category edits on an already-posted expense (409) until that
+ * decision is made, rather than silently letting the ledger drift.
+ *
+ * An expense can reach the ledger under EITHER of two different source keys
+ * depending on how it got there (never both — match/route.ts checks for an
+ * 'expense' entry before posting its own, see route.expense-dedup.test.ts):
+ *   - source='expense', source_id=<expense.id>          (postExpenseToLedger,
+ *     fired at creation)
+ *   - source='bank_txn', source_id=<bank_transactions.id> (bank reconciliation
+ *     match, when the expense was never posted at creation)
+ * so reversal has to check the second key too, via the expense's own
+ * matched_bank_transaction_id, or a bank-matched expense's cost survives its
+ * own deletion forever. When that's the one found, the bank_transactions row
+ * is also released back to a matchable state -- otherwise it stays stuck
+ * 'matched'/'posted', pointing at a deleted expense, forever unmatchable.
  */
 export async function reverseExpenseFromLedger(opts: { tenantId: string; expenseId: string }): Promise<PostExpenseResult> {
   const { tenantId, expenseId } = opts
@@ -123,12 +138,34 @@ export async function reverseExpenseFromLedger(opts: { tenantId: string; expense
     .eq('source', 'expense')
     .eq('source_id', expenseId)
     .maybeSingle()
-  if (!original) return { posted: false, reason: 'no_original_entry' }
+
+  let originalEntry = original as { id: string } | null
+  let matchedTxnId: string | null = null
+  if (!originalEntry) {
+    const { data: expense } = await supabaseAdmin
+      .from('expenses')
+      .select('matched_bank_transaction_id')
+      .eq('tenant_id', tenantId)
+      .eq('id', expenseId)
+      .maybeSingle()
+    matchedTxnId = (expense?.matched_bank_transaction_id as string) || null
+    if (matchedTxnId) {
+      const { data: bankEntry } = await supabaseAdmin
+        .from('journal_entries')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .eq('source', 'bank_txn')
+        .eq('source_id', matchedTxnId)
+        .maybeSingle()
+      originalEntry = bankEntry as { id: string } | null
+    }
+  }
+  if (!originalEntry) return { posted: false, reason: 'no_original_entry' }
 
   const { data: origLines } = await supabaseAdmin
     .from('journal_lines')
     .select('coa_id, debit_cents, credit_cents, memo')
-    .eq('entry_id', original.id as string)
+    .eq('entry_id', originalEntry.id)
   if (!origLines || origLines.length === 0) return { posted: false, reason: 'no_lines' }
 
   const lines: JournalLineInput[] = origLines.map((l) => ({
@@ -146,6 +183,18 @@ export async function reverseExpenseFromLedger(opts: { tenantId: string; expense
     source_id: expenseId,
     lines,
   })
+
+  if (matchedTxnId) {
+    // Free the bank line back to a matchable state now that its cost is
+    // reversed. matched_expense_id is dropped separately by the FK's own
+    // ON DELETE SET NULL once the caller actually deletes the expense row.
+    await supabaseAdmin
+      .from('bank_transactions')
+      .update({ status: 'categorized', journal_entry_id: null })
+      .eq('tenant_id', tenantId)
+      .eq('id', matchedTxnId)
+  }
+
   return { posted: true, entryId }
 }
 

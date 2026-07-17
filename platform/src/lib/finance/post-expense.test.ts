@@ -52,6 +52,18 @@ function seedOriginalEntry(tenantId: string, expenseId: string, entryId: string,
   JOURNAL_LINES.set(entryId, lines)
 }
 
+// Simulates an expense posted via bank-match instead of at creation: the
+// journal entry is keyed source='bank_txn', source_id=<bank txn id> -- not
+// source='expense' -- so reverseExpenseFromLedger has to reach it through the
+// expense row's own matched_bank_transaction_id.
+function seedBankMatchedEntry(tenantId: string, expenseId: string, txnId: string, entryId: string, lines: JournalLineRow[]) {
+  const row = EXPENSES.get(expenseId)
+  EXPENSES.set(expenseId, { id: expenseId, category: null, amount: 0, date: '2026-07-10', description: null, ...row, matched_bank_transaction_id: txnId } as unknown as { id: string; category: string | null; amount: number; date: string; description: string | null })
+  JOURNAL_ENTRIES.set(entryId, { id: entryId, tenant_id: tenantId, source: 'bank_txn', source_id: txnId })
+  JOURNAL_LINES.set(entryId, lines)
+  BANK_TXNS.set(txnId, { id: txnId, tenant_id: tenantId, status: 'posted', journal_entry_id: entryId })
+}
+
 function journalEntriesBuilder() {
   const chain: Record<string, unknown> = {
     select: () => chain,
@@ -102,6 +114,36 @@ function expensesBuilder() {
   return chain
 }
 
+// bank_transactions: only what reverseExpenseFromLedger's bank-match path
+// needs -- matched_bank_transaction_id lookup on 'expenses' (above) plus the
+// post-reversal status/journal_entry_id reset here.
+type BankTxnRow = { id: string; tenant_id: string; status: string; journal_entry_id: string | null }
+const BANK_TXNS = new Map<string, BankTxnRow>()
+
+function bankTransactionsBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    eq: (col: string, val: unknown) => {
+      chain.__filters = { ...(chain.__filters as object), [col]: val }
+      return chain
+    },
+    update: (values: Record<string, unknown>) => {
+      chain.__update = values
+      return chain
+    },
+    then: (resolve: (v: { data: null; error: null }) => void) => {
+      const filters = (chain.__filters as Record<string, unknown>) || {}
+      const update = chain.__update as Record<string, unknown> | undefined
+      if (update) {
+        const row = BANK_TXNS.get(filters.id as string)
+        if (row && row.tenant_id === filters.tenant_id) Object.assign(row, update)
+      }
+      resolve({ data: null, error: null })
+    },
+  }
+  return chain
+}
+
 function coaBuilder() {
   const chain: Record<string, unknown> = {
     select: () => chain,
@@ -130,6 +172,7 @@ vi.mock('../supabase', () => ({
       if (table === 'chart_of_accounts') return coaBuilder()
       if (table === 'journal_entries') return journalEntriesBuilder()
       if (table === 'journal_lines') return journalLinesBuilder()
+      if (table === 'bank_transactions') return bankTransactionsBuilder()
       return expensesBuilder()
     },
   },
@@ -145,6 +188,7 @@ beforeEach(() => {
   EXPENSES.clear()
   JOURNAL_ENTRIES.clear()
   JOURNAL_LINES.clear()
+  BANK_TXNS.clear()
 })
 
 describe('postExpenseToLedger', () => {
@@ -235,5 +279,57 @@ describe('reverseExpenseFromLedger', () => {
     expect(res.posted).toBe(false)
     expect(res.reason).toBe('no_original_entry')
     expect(postJournalEntry).not.toHaveBeenCalled()
+  })
+
+  // GAP (closed here): an expense that was NEVER posted at creation (e.g. it
+  // predates postExpenseToLedger, or creation-time posting failed) but was
+  // later linked to a bank line via finance/bank-transactions/[id]/match
+  // posts its cost under source='bank_txn', source_id=<bank txn id> -- not
+  // source='expense'. Deleting that expense used to look ONLY for the
+  // 'expense' key, find nothing, and let the delete proceed with the real
+  // bank-matched cost left permanently un-reversed on the P&L, while the
+  // bank_transactions row stayed stuck 'matched'/'posted' forever, unable to
+  // be rematched to anything else.
+  it('reverses a bank-match-sourced entry (no source=expense entry exists) via matched_bank_transaction_id', async () => {
+    seedBankMatchedEntry(TENANT, 'exp-20', 'txn-20', 'je-20', [
+      { coa_id: 'acct_6050', debit_cents: 8000, memo: 'Home Depot' },
+      { coa_id: 'acct_2450', credit_cents: 8000, memo: 'Home Depot' },
+    ])
+    const res = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-20' })
+    expect(res.posted).toBe(true)
+    const call = postJournalEntry.mock.calls[0][0]
+    expect(call.source).toBe('expense_reversal')
+    expect(call.source_id).toBe('exp-20')
+    expect(call.lines.find((l: { coa_id: string }) => l.coa_id === 'acct_6050')).toMatchObject({ credit_cents: 8000, debit_cents: 0 })
+    expect(call.lines.find((l: { coa_id: string }) => l.coa_id === 'acct_2450')).toMatchObject({ debit_cents: 8000, credit_cents: 0 })
+  })
+
+  it('releases the matched bank transaction back to a matchable status after reversing its entry', async () => {
+    seedBankMatchedEntry(TENANT, 'exp-21', 'txn-21', 'je-21', [
+      { coa_id: 'acct_6050', debit_cents: 3000, memo: 'x' },
+      { coa_id: 'acct_2450', credit_cents: 3000, memo: 'x' },
+    ])
+    await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-21' })
+    const txn = BANK_TXNS.get('txn-21')!
+    expect(txn.status).toBe('categorized')
+    expect(txn.journal_entry_id).toBeNull()
+  })
+
+  it('prefers the source=expense entry over a bank match when (in theory) both are present', async () => {
+    seedBankMatchedEntry(TENANT, 'exp-22', 'txn-22', 'je-22-bank', [
+      { coa_id: 'acct_6050', debit_cents: 1, memo: 'should not be used' },
+      { coa_id: 'acct_2450', credit_cents: 1, memo: 'should not be used' },
+    ])
+    seedOriginalEntry(TENANT, 'exp-22', 'je-22-expense', [
+      { coa_id: 'acct_5100', debit_cents: 4000, memo: 'real one' },
+      { coa_id: 'acct_2450', credit_cents: 4000, memo: 'real one' },
+    ])
+    const res = await reverseExpenseFromLedger({ tenantId: TENANT, expenseId: 'exp-22' })
+    expect(res.posted).toBe(true)
+    const call = postJournalEntry.mock.calls[0][0]
+    expect(call.lines.find((l: { coa_id: string }) => l.coa_id === 'acct_5100')).toMatchObject({ credit_cents: 4000 })
+    // The bank_transactions row is untouched -- reversal used the 'expense' key.
+    const txn = BANK_TXNS.get('txn-22')!
+    expect(txn.status).toBe('posted')
   })
 })
