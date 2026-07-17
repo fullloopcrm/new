@@ -35,6 +35,7 @@ type Thread = {
   status: 'open' | 'snoozed' | 'closed'
   disposition: 'waiting_customer' | 'waiting_admin' | 'closed_booked' | 'closed_lost' | 'closed_spam' | null
   bot_paused_until: string | null
+  snoozed_until: string | null
   created_at: string
   last_message_at: string
   last_message_preview: string | null
@@ -584,6 +585,47 @@ export default function ComhubPage() {
                   >
                     📞 Call
                   </button>
+                )}
+                {thread.status === 'snoozed' ? (
+                  <button
+                    onClick={async () => {
+                      await fetch(`/api/admin/comhub/threads/${thread.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'open' }),
+                      })
+                      fetchThread(thread.id)
+                      fetchThreads()
+                    }}
+                    className="px-2.5 py-1 rounded text-xs bg-amber-500/15 hover:bg-amber-500/25 text-amber-700 whitespace-nowrap"
+                    title={thread.snoozed_until ? `Snoozed until ${new Date(thread.snoozed_until).toLocaleString()}` : 'Snoozed'}
+                  >
+                    😴 Wake now
+                  </button>
+                ) : (
+                  <select
+                    defaultValue=""
+                    onChange={async (e) => {
+                      const hours = parseInt(e.target.value, 10)
+                      e.target.value = ''
+                      if (!hours) return
+                      const snoozedUntil = new Date(Date.now() + hours * 60 * 60 * 1000).toISOString()
+                      await fetch(`/api/admin/comhub/threads/${thread.id}`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ status: 'snoozed', snoozed_until: snoozedUntil }),
+                      })
+                      setSelected(null)
+                      fetchThreads()
+                    }}
+                    className="px-2 py-1 rounded bg-[#FFFFFF]/60 hover:bg-[#EFEFEC] text-[#3A3A3A] text-xs border-0 cursor-pointer"
+                  >
+                    <option value="">Snooze…</option>
+                    <option value="1">1 hour</option>
+                    <option value="4">4 hours</option>
+                    <option value="24">Tomorrow</option>
+                    <option value="168">Next week</option>
+                  </select>
                 )}
                 <button
                   onClick={async () => {

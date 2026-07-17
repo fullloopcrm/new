@@ -11,6 +11,17 @@ export async function GET(_req: NextRequest, ctx: { params: Promise<{ id: string
   const tenantId = await getCurrentTenantId()
   const { id } = await ctx.params
 
+  // Lazy wake: a snoozed thread whose snoozed_until has passed reopens the
+  // moment anyone reads it, mirroring quotes' valid_until expire-on-view
+  // pattern — there is no cron sweep for comhub_threads.
+  await supabaseAdmin
+    .from('comhub_threads')
+    .update({ status: 'open', snoozed_until: null, updated_at: new Date().toISOString() })
+    .eq('id', id)
+    .eq('tenant_id', tenantId)
+    .eq('status', 'snoozed')
+    .lte('snoozed_until', new Date().toISOString())
+
   const { data: thread, error: tErr } = await supabaseAdmin
     .from('comhub_threads')
     .select(`
@@ -67,8 +78,16 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   }
 
   const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
-  if (body.status) patch.status = body.status
-  if (body.snoozed_until !== undefined) patch.snoozed_until = body.snoozed_until
+  if (body.status) {
+    patch.status = body.status
+    // snoozed_until only means something while status is 'snoozed' — clear it
+    // on every other transition so a stale wake time can't linger on a thread
+    // that isn't snoozed anymore (same stale-field discipline as onboarding's
+    // blocked_reason).
+    patch.snoozed_until = body.status === 'snoozed' ? (body.snoozed_until ?? null) : null
+  } else if (body.snoozed_until !== undefined) {
+    patch.snoozed_until = body.snoozed_until
+  }
   if (body.assignee_id !== undefined) patch.assignee_id = body.assignee_id
   if (body.mark_read) patch.unread_count = 0
   if (body.disposition !== undefined) patch.disposition = body.disposition

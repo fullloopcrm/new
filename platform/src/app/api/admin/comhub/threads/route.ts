@@ -24,6 +24,17 @@ export async function GET(req: NextRequest) {
   const limit = Math.min(parseInt(searchParams.get('limit') || '50', 10) || 50, 200)
   const offset = parseInt(searchParams.get('offset') || '0', 10) || 0
 
+  // Lazy wake: flip any snoozed thread past its snoozed_until back to 'open'
+  // before filtering, so it reappears in the default open-inbox view the
+  // next time this list is polled — same lazy-expire idiom as quotes'
+  // valid_until, no separate cron needed.
+  await supabaseAdmin
+    .from('comhub_threads')
+    .update({ status: 'open', snoozed_until: null, updated_at: new Date().toISOString() })
+    .eq('tenant_id', tenantId)
+    .eq('status', 'snoozed')
+    .lte('snoozed_until', new Date().toISOString())
+
   const join = kind === 'channel' ? 'comhub_contacts' : 'comhub_contacts!left'
   let query = supabaseAdmin
     .from('comhub_threads')
