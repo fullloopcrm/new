@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { validate } from '@/lib/validate'
 import { sendEmail } from '@/lib/email'
 import { requireAdmin } from '@/lib/require-admin'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 /*
   SQL to create the partner_requests table:
@@ -75,6 +76,18 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
+    // Public, unauthenticated form (see middleware.ts allowlist) with no
+    // per-IP throttle — only a per-email 24h dedup below, which a scripted
+    // caller trivially bypasses by rotating the email field. Unthrottled,
+    // this endpoint drives unlimited partner_requests inserts and an admin
+    // notification email per call. Same class already fixed on the sibling
+    // public forms (/api/inquiry, /api/public-upload); this one was missed.
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`requests:${ip}`, 5, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Please try again later.' }, { status: 429 })
+    }
+
     const body = await request.json()
 
     // Validate required fields
