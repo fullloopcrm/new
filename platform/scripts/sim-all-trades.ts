@@ -1865,6 +1865,51 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           const broadcastRecipientsAfterGuard = broadcastCandidateIds.filter(id => !broadcastTerminatedIds.includes(id))
           add('bookings-broadcast: filtering the active-status roster through this guard leaves exactly the active helper, never the terminated worker', broadcastRecipientsAfterGuard.length === 1 && broadcastRecipientsAfterGuard[0] === helper.id, JSON.stringify(broadcastRecipientsAfterGuard))
         }
+
+        // ---- 5a-11. SEND-APOLOGY-BATCH — SMS CONSENT GUARD (fresh ground, first archetype coverage of a bug class BROADENED past terminated-crew) ----
+        // POST /api/admin/send-apology-batch (bulk apology-credit SMS blast)
+        // checked clients.sms_opt_in before this round -- the ORIGINAL
+        // schema.sql column (default true) that nothing in the live codebase
+        // writes after client creation. The two real opt-out writers are
+        // sms_marketing_opt_out (set by /api/unsubscribe's link-click flow)
+        // and sms_consent (set false by the Telnyx STOP-reply webhook) --
+        // the same pair campaigns/send and campaigns/[id]/send already
+        // check. Because sms_opt_in never moves off its true default, the
+        // route's skip branch was permanently dead: a client who texted
+        // STOP or clicked unsubscribe still received the blast. Fixed this
+        // round: check sms_marketing_opt_out / sms_consent instead.
+        // requirePermission needs headers()/cookies() this harness doesn't
+        // have, so — same reasoning as 5a-3/5a-4/5a-6 above — this proves
+        // the fixed predicate against real rows in this archetype tenant
+        // rather than calling the route handler.
+        {
+          const { data: unsubClient, error: unsubErr } = await supabase.from('clients').insert({
+            tenant_id: tenant.id, name: 'Unsub Client', email: `unsub+${runId}@example.com`,
+            phone: '+15551237777', status: 'active', sms_marketing_opt_out: true,
+          }).select('id, sms_consent, sms_marketing_opt_out').single()
+          add('apology-batch: unsubscribed client row created with sms_marketing_opt_out=true', !!unsubClient && !unsubErr && unsubClient.sms_marketing_opt_out === true, unsubErr?.message || JSON.stringify(unsubClient))
+
+          const { data: stopClient, error: stopErr } = await supabase.from('clients').insert({
+            tenant_id: tenant.id, name: 'Stop Client', email: `stop+${runId}@example.com`,
+            phone: '+15551238888', status: 'active', sms_consent: false,
+          }).select('id, sms_consent, sms_marketing_opt_out').single()
+          add('apology-batch: STOP-replied client row created with sms_consent=false', !!stopClient && !stopErr && stopClient.sms_consent === false, stopErr?.message || JSON.stringify(stopClient))
+
+          const { data: consentingClient, error: consentErr } = await supabase.from('clients').insert({
+            tenant_id: tenant.id, name: 'Consenting Client', email: `consenting+${runId}@example.com`,
+            phone: '+15551239999', status: 'active',
+          }).select('id, sms_consent, sms_marketing_opt_out').single()
+          add('apology-batch: CONTROL — consenting client row created with no opt-out flags', !!consentingClient && !consentErr, consentErr?.message)
+
+          const apologyBatchIds = [unsubClient?.id, stopClient?.id, consentingClient?.id].filter(Boolean) as string[]
+          const { data: apologyBatchRows } = await supabase.from('clients')
+            .select('id, sms_consent, sms_marketing_opt_out').eq('tenant_id', tenant.id).in('id', apologyBatchIds)
+          // exact predicate the fixed route applies before sending
+          const apologySkipped = (apologyBatchRows || []).filter(c => c.sms_marketing_opt_out || c.sms_consent === false).map(c => c.id)
+          const apologySent = (apologyBatchRows || []).filter(c => !(c.sms_marketing_opt_out || c.sms_consent === false)).map(c => c.id)
+          add('apology-batch: the fixed predicate skips both the unsubscribe-link client and the STOP-reply client', apologySkipped.includes(unsubClient?.id) && apologySkipped.includes(stopClient?.id), JSON.stringify(apologySkipped))
+          add('apology-batch: CONTROL — the fixed predicate still sends to the consenting client', apologySent.includes(consentingClient?.id) && !apologySent.includes(unsubClient?.id) && !apologySent.includes(stopClient?.id), JSON.stringify(apologySent))
+        }
       }
     }
 
