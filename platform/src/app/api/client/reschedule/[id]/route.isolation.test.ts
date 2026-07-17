@@ -39,8 +39,8 @@ beforeEach(() => {
   fake._store.clear()
   currentTenant = { id: A_ID, timezone: 'America/New_York', resend_api_key: null, telnyx_api_key: null, telnyx_phone: null, name: 'Tenant A Co', email_from: null }
   fake._seed('bookings', [
-    { id: 'bk-a', tenant_id: A_ID, client_id: 'client-a', start_time: '2026-08-01T10:00:00.000Z', end_time: '2026-08-01T11:00:00.000Z', clients: { name: 'A Client' }, team_members: null },
-    { id: 'bk-b', tenant_id: B_ID, client_id: 'client-b', start_time: '2026-08-02T10:00:00.000Z', end_time: '2026-08-02T11:00:00.000Z', clients: { name: 'B Client' }, team_members: null },
+    { id: 'bk-a', tenant_id: A_ID, client_id: 'client-a', start_time: '2026-08-01T10:00:00.000Z', end_time: '2026-08-01T11:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', clients: { name: 'A Client' }, team_members: null },
+    { id: 'bk-b', tenant_id: B_ID, client_id: 'client-b', start_time: '2026-08-02T10:00:00.000Z', end_time: '2026-08-02T11:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', clients: { name: 'B Client' }, team_members: null },
   ])
   fake._seed('email_logs', [])
   fake._seed('team_members', [

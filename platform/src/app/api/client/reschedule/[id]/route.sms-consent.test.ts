@@ -56,7 +56,7 @@ beforeEach(() => {
 describe('client reschedule PUT — reschedule SMS honors sms_consent', () => {
   it('skips the reschedule SMS for a client who has opted out (sms_consent:false)', async () => {
     fake._seed('bookings', [
-      { id: 'bk-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', phone: '+15551234567', sms_consent: false }, team_members: null },
+      { id: 'bk-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', phone: '+15551234567', sms_consent: false }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: '2099-02-01T10:00:00.000Z', end_time: '2099-02-01T12:00:00.000Z' }), paramsFor('bk-1'))
     expect(res.status).toBe(200)
@@ -66,7 +66,7 @@ describe('client reschedule PUT — reschedule SMS honors sms_consent', () => {
 
   it('sends the reschedule SMS for a client who has not opted out (positive control)', async () => {
     fake._seed('bookings', [
-      { id: 'bk-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', phone: '+15551234567', sms_consent: true }, team_members: null },
+      { id: 'bk-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', phone: '+15551234567', sms_consent: true }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: '2099-02-01T10:00:00.000Z', end_time: '2099-02-01T12:00:00.000Z' }), paramsFor('bk-2'))
     expect(res.status).toBe(200)

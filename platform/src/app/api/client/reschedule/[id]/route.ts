@@ -21,6 +21,21 @@ function fmtTime(iso: string, tz: string): string {
   })
 }
 
+// Mirrors this route's own consumer-site callers' canReschedule() gate
+// exactly — site/book, wash-and-fold-hoboken, wash-and-fold-nyc, and
+// the-florida-maid all compute the identical rule (one-time bookings can
+// never be rescheduled; recurring ones need 7+ days notice) before showing
+// the "Reschedule" button, but none of it was ever enforced here. Same
+// destructive-op-no-server-guard shape as items (118)/(122)/(123)/(124):
+// a client hitting this route directly could reschedule a one-time booking
+// the UI says can never move, jump the 7-day staffing-notice window, or —
+// since this route also never checked status — silently move a cancelled
+// booking's date forward without touching its status column, leaving it
+// invisible to admin (bookings queries filter .neq('status','cancelled'))
+// while the client believed the reschedule succeeded.
+const RESCHEDULABLE_STATUSES = ['pending', 'scheduled', 'confirmed']
+const MIN_RESCHEDULE_NOTICE_DAYS = 7
+
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -39,11 +54,24 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     .from('bookings')
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
     .eq('id', id)
-    .single()) as { data: { client_id: string | null; start_time: string; end_time: string | null } | null }
+    .single()) as { data: { client_id: string | null; start_time: string; end_time: string | null; status: string; recurring_type: string | null } | null }
   if (!oldBooking) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
 
   const auth = await protectClientAPI(tenant.id, oldBooking.client_id ?? undefined)
   if (auth instanceof NextResponse) return auth
+
+  if (body.start_time || body.end_time) {
+    if (!RESCHEDULABLE_STATUSES.includes(oldBooking.status)) {
+      return NextResponse.json({ error: 'This booking can no longer be rescheduled' }, { status: 400 })
+    }
+    if (!oldBooking.recurring_type) {
+      return NextResponse.json({ error: 'One-time bookings cannot be rescheduled' }, { status: 400 })
+    }
+    const daysUntil = Math.ceil((new Date(oldBooking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+    if (daysUntil < MIN_RESCHEDULE_NOTICE_DAYS) {
+      return NextResponse.json({ error: `Reschedules require at least ${MIN_RESCHEDULE_NOTICE_DAYS} days notice` }, { status: 400 })
+    }
+  }
 
   // A client picking who does their job must stay inside their own tenant's
   // active roster — same gate /api/client/preferred-cleaner already enforces.

@@ -64,7 +64,7 @@ beforeEach(() => {
 describe('client reschedule PUT — team-member push title/isEmergency wiring', () => {
   it('rescheduling an assigned booking to TODAY passes isEmergency:true and an urgent title/message to notifyTeamMember', async () => {
     fake._seed('bookings', [
-      { id: 'bk-push-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: MEMBER_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
+      { id: 'bk-push-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: MEMBER_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: `${todayStr()}T14:00:00.000Z`, end_time: `${todayStr()}T16:00:00.000Z` }), paramsFor('bk-push-1'))
     expect(res.status).toBe(200)
@@ -79,7 +79,7 @@ describe('client reschedule PUT — team-member push title/isEmergency wiring', 
 
   it('rescheduling to a future date (control) passes isEmergency:false and the generic title', async () => {
     fake._seed('bookings', [
-      { id: 'bk-push-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: MEMBER_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
+      { id: 'bk-push-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: MEMBER_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: '2099-02-01T10:00:00.000Z', end_time: '2099-02-01T12:00:00.000Z' }), paramsFor('bk-push-2'))
     expect(res.status).toBe(200)

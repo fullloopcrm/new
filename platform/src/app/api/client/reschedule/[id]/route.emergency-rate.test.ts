@@ -54,7 +54,7 @@ beforeEach(() => {
   fake._store.clear()
   currentTenant = { id: TENANT_ID, timezone: 'America/New_York', resend_api_key: null, telnyx_api_key: null, telnyx_phone: null, name: 'Tenant Co', email_from: null, selena_config: { emergency_available: true, emergency_rate: 130 } }
   fake._seed('bookings', [
-    { id: 'bk-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
+    { id: 'bk-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client' }, team_members: null },
   ])
   fake._seed('email_logs', [])
 })

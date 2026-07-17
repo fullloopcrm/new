@@ -65,7 +65,7 @@ beforeEach(() => {
 describe('client reschedule PUT — client-facing email/SMS emergency notice', () => {
   it('rescheduling an assigned booking to TODAY (industry tenant) puts an urgency notice in both the email and SMS', async () => {
     fake._seed('bookings', [
-      { id: 'bk-notice-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: null, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', email: 'client@example.com', phone: '+15551234567', sms_consent: true }, team_members: null },
+      { id: 'bk-notice-1', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: null, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', email: 'client@example.com', phone: '+15551234567', sms_consent: true }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: `${todayStr()}T14:00:00.000Z`, end_time: `${todayStr()}T16:00:00.000Z` }), paramsFor('bk-notice-1'))
     expect(res.status).toBe(200)
@@ -84,7 +84,7 @@ describe('client reschedule PUT — client-facing email/SMS emergency notice', (
 
   it('rescheduling to a future date (control) keeps the plain copy — no urgency notice on either channel', async () => {
     fake._seed('bookings', [
-      { id: 'bk-notice-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: null, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', email: 'client@example.com', phone: '+15551234567', sms_consent: true }, team_members: null },
+      { id: 'bk-notice-2', tenant_id: TENANT_ID, client_id: CLIENT_ID, team_member_id: null, start_time: '2099-01-15T10:00:00.000Z', end_time: '2099-01-15T12:00:00.000Z', status: 'confirmed', recurring_type: 'weekly', hourly_rate: 75, price: 15000, is_emergency: false, clients: { name: 'A Client', email: 'client@example.com', phone: '+15551234567', sms_consent: true }, team_members: null },
     ])
     const res = await PUT(putReq({ start_time: '2099-02-01T10:00:00.000Z', end_time: '2099-02-01T12:00:00.000Z' }), paramsFor('bk-notice-2'))
     expect(res.status).toBe(200)
