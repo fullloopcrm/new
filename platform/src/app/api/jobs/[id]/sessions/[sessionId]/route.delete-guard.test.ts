@@ -31,10 +31,15 @@ vi.mock('@/lib/jobs', () => ({
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase({
+    // status:'scheduled', no check_in_time, no team_member_pay -- deliberately
+    // NOT 'completed'/'paid' so these fixtures isolate the ratings/payments-
+    // table checks under test, instead of tripping the guard's separate
+    // "completed/paid status = real job history" check first (see
+    // src/lib/booking-delete-guard.test.ts for that check's own coverage).
     bookings: [
-      { id: 'session-clean', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'completed', team_member_id: null },
-      { id: 'session-rated', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'completed', team_member_id: null },
-      { id: 'session-paid', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'completed', team_member_id: null },
+      { id: 'session-clean', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'scheduled', team_member_id: null },
+      { id: 'session-rated', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'scheduled', team_member_id: null },
+      { id: 'session-paid', tenant_id: TENANT, job_id: JOB, start_time: '2026-08-01T10:00:00Z', end_time: '2026-08-01T12:00:00Z', status: 'scheduled', team_member_id: null },
     ],
     ratings: [{ id: 'r-1', tenant_id: TENANT, booking_id: 'session-rated', service_rating: 5 }],
     payments: [{ id: 'p-1', tenant_id: TENANT, booking_id: 'session-paid', amount_cents: 10000 }],
