@@ -238,6 +238,14 @@ describe('POST /api/admin/recurring-schedules/:id/regenerate — booking regener
     expect(row.price).toBe(15000)
   })
 
+  it('carries the schedule’s existing recurring_type onto regenerated bookings when the caller omits it (e.g. a time/member-only edit), instead of nulling series membership', async () => {
+    await POST(postReq({ ...baseBody, recurring_type: 'weekly', dates: ['2026-08-15'] }), params('sched-A1'))
+    await POST(postReq({ ...baseBody, dates: ['2026-09-01'], hourly_rate: 50 }), params('sched-A1')) // recurring_type omitted -- schedule stays 'weekly'
+
+    const row = h.store.bookings.find((b) => b.schedule_id === 'sched-A1' && b.start_time === '2026-09-01T09:00:00')!
+    expect(row.recurring_type).toBe('weekly')
+  })
+
   it('falls back to the series’ existing price when the caller omits price entirely, instead of zeroing it', async () => {
     // fixture's old future/confirmed bookings for sched-A1 are both priced at 12000
     await POST(postReq({ ...baseBody, dates: ['2026-08-15'] }), params('sched-A1'))

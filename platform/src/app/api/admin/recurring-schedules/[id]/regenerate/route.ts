@@ -182,7 +182,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       hourly_rate: effHourlyRate,
       pay_rate: effPayRate,
       notes: notes || null,
-      recurring_type,
+      // effRecurringType (not the raw, possibly-omitted `recurring_type`) --
+      // same fallback-to-existing-value fix already applied to pay_rate/
+      // hourly_rate/price above. bookings.recurring_type isn't cosmetic:
+      // BookingsAdmin's "apply to all" sibling match
+      // (`b.recurring_type === editingBooking.recurring_type`) and its list
+      // badges both key off it, so an edit that omits recurring_type (any
+      // caller other than today's one UI call site, which happens to always
+      // resend it) would silently null every regenerated booking's series
+      // membership instead of keeping the schedule's actual type.
+      recurring_type: effRecurringType,
       team_member_token: token,
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',
