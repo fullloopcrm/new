@@ -167,10 +167,31 @@ export async function POST(request: Request) {
           .insert(batch)
           .select('id')
 
-        if (error) {
-          errors.push(`Database error on batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
-        } else {
+        if (!error) {
           imported += data?.length || 0
+          continue
+        }
+
+        // 23505 = unique_violation. There is currently no DB constraint on
+        // (tenant_id, email)/(tenant_id, phone) backing the in-memory dedup
+        // above, so this branch is dormant until that constraint is added
+        // (see migrations/2026_07_17_clients_import_dedup_unique_index_PROPOSED.sql)
+        // — at which point a batch racing a concurrent import lands here
+        // instead of silently double-inserting. Retry row-by-row so one
+        // conflicting row doesn't sink the other ~199 valid rows in the batch.
+        if (error.code === '23505') {
+          for (const row of batch) {
+            const { error: rowError } = await supabaseAdmin.from('clients').insert(row)
+            if (rowError?.code === '23505') {
+              duplicates.push(`${row.name}: already imported by a concurrent request`)
+            } else if (rowError) {
+              errors.push(`Database error importing "${row.name}": ${rowError.message}`)
+            } else {
+              imported += 1
+            }
+          }
+        } else {
+          errors.push(`Database error on batch ${Math.floor(i / batchSize) + 1}: ${error.message}`)
         }
       }
     }
