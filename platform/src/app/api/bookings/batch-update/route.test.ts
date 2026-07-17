@@ -106,6 +106,20 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'notifications') {
         return { insert: async () => ({ error: null }) }
       }
+      if (table === 'hr_employee_profiles') {
+        // No terminated members seeded in this file's fixtures — the
+        // terminated-crew guard itself is covered separately in
+        // route.terminated-crew-guard.test.ts.
+        return {
+          select: () => ({
+            eq: () => ({
+              eq: () => ({
+                in: async () => ({ data: [], error: null }),
+              }),
+            }),
+          }),
+        }
+      }
       throw new Error(`unexpected table: ${table}`)
     },
   },
