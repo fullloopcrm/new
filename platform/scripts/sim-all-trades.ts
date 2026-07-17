@@ -2998,6 +2998,60 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       }
     }
 
+    // ---- 5a-30. portal/notes (client-facing "Notes for your team member") + PUT /api/clients/[id] special_instructions — WRONG COLUMN (fresh ground, first instance of this session's field-wiring bug class, distinct from the now-closed consent-check thread) ----
+    // portal/notes used to read/write clients.notes instead of
+    // clients.special_instructions — the column team/page.tsx and
+    // team-portal/jobs actually surface to the cleaner. That meant a client's
+    // door-code/parking notes never reached the cleaner, AND the client's own
+    // portal textarea was silently pre-filled with (and could overwrite)
+    // whatever the admin dashboard's private "Notes" field held. Both routes
+    // are now fixed to special_instructions. This probe proves against the
+    // live schema that (a) notes and special_instructions are genuinely
+    // distinct, independently-writable columns on a real clients row, and
+    // (b) team-portal/jobs' exact join shape surfaces special_instructions
+    // (what the cleaner sees) while never surfacing notes (the admin-private
+    // field) at all — so the two can never cross-contaminate through that
+    // read path either.
+    {
+      const fieldGatePhone = '646' + String(4800000 + idx * 113 + (Date.now() % 1000)).slice(-7)
+      const { data: fieldGateClient, error: fieldGateClientErr } = await supabase.from('clients').insert({
+        tenant_id: tenant.id, name: 'Field-Wiring Gate Client', email: `fieldgate+${runId}@example.com`,
+        phone: fieldGatePhone, status: 'active',
+        notes: `OPERATOR-PRIVATE ${runId} — do not surface to client`,
+        special_instructions: `Gate code ${runId} — cleaner-facing`,
+      }).select('id, notes, special_instructions').single()
+      add('field-wiring-gate: client row created with distinct notes vs special_instructions values', !!fieldGateClient && !fieldGateClientErr, fieldGateClientErr?.message)
+
+      if (fieldGateClient?.id) {
+        // portal/notes' exact fixed select shape.
+        const portalNotesRow = await supabase.from('clients').select('special_instructions').eq('id', fieldGateClient.id).eq('tenant_id', tenant.id).single()
+        add('field-wiring-gate: portal/notes\' fixed select returns the special_instructions value', portalNotesRow.data?.special_instructions === fieldGateClient.special_instructions, JSON.stringify(portalNotesRow.data))
+        add('field-wiring-gate: portal/notes\' fixed select never returns the operator-private notes value', portalNotesRow.data?.special_instructions !== fieldGateClient.notes, JSON.stringify(portalNotesRow.data))
+
+        const { data: fieldGateBooking, error: fieldGateBookingErr } = await supabase.from('bookings').insert({
+          tenant_id: tenant.id, client_id: fieldGateClient.id, team_member_id: worker.id,
+          hourly_rate: 55, actual_hours: 2, status: 'scheduled', payment_status: 'unpaid',
+          service_type: 'field-wiring-gate probe', start_time: new Date(Date.now() + 3600_000).toISOString(),
+          end_time: new Date(Date.now() + 7200_000).toISOString(),
+        }).select('id').single()
+        add('field-wiring-gate: probe booking row created', !!fieldGateBooking && !fieldGateBookingErr, fieldGateBookingErr?.message)
+
+        if (fieldGateBooking?.id) {
+          // team-portal/jobs' exact join shape — what the cleaner actually sees.
+          const cleanerJoinRow = await supabase.from('bookings')
+            .select('*, clients(name, phone, address, special_instructions)')
+            .eq('id', fieldGateBooking.id).eq('tenant_id', tenant.id).single()
+          const cleanerSeesClient = cleanerJoinRow.data?.clients as unknown as { special_instructions?: string; notes?: string } | null
+          add('field-wiring-gate: team-portal/jobs\' join surfaces special_instructions to the cleaner', cleanerSeesClient?.special_instructions === fieldGateClient.special_instructions, JSON.stringify(cleanerSeesClient))
+          add('field-wiring-gate: team-portal/jobs\' join never selects notes at all (undefined, not just empty)', cleanerSeesClient?.notes === undefined, JSON.stringify(cleanerSeesClient))
+
+          await supabase.from('bookings').delete().eq('id', fieldGateBooking.id).eq('tenant_id', tenant.id)
+        }
+
+        await supabase.from('clients').delete().eq('id', fieldGateClient.id).eq('tenant_id', tenant.id)
+      }
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled
