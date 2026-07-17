@@ -1,5 +1,6 @@
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import { siteConfig as defaultConfig } from './site'
 import { industryProfile } from '@/app/site/template/_lib/seo/industry'
 import type { SiteConfig } from './types'
@@ -55,7 +56,16 @@ export async function getSiteConfig(): Promise<SiteConfig> {
   if (!tenant) return defaultConfig
 
   const name = str(tenant, 'name') ?? defaultConfig.identity.name
-  const domain = str(tenant, 'domain') ?? str(tenant, 'domain_name')
+  const tenantId = str(tenant, 'id')
+  // tenant_domains PRIMARY row wins over the legacy tenants.domain/domain_name
+  // columns -- same precedence as tenantSiteUrl()/resolveOrigin()'s other
+  // callers. admin/websites writes tenant_domains only, never tenants.domain,
+  // so a tenant whose custom domain lives only in tenant_domains (the normal
+  // case) previously fell through both legacy columns to the neutral
+  // https://example.com default -- wrong canonical/OG/JSON-LD urls and sitemap
+  // entries across every page the shared template renders for that tenant.
+  const primaryDomain = tenantId ? await getPrimaryTenantDomain(tenantId) : null
+  const domain = primaryDomain ?? str(tenant, 'domain') ?? str(tenant, 'domain_name')
   const url =
     str(tenant, 'website_url') ??
     (domain ? `https://${domain}` : defaultConfig.identity.url)
@@ -95,7 +105,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
 
   const industry = str(tenant, 'industry') ?? defaultConfig.industry
   const isCleaningTenant = industryProfile(industry).isCleaning
-  const reviewStats = await loadReviewStats(str(tenant, 'id'))
+  const reviewStats = await loadReviewStats(tenantId)
   const hasReviews = reviewStats.count !== ''
 
   return {
@@ -130,7 +140,7 @@ export async function getSiteConfig(): Promise<SiteConfig> {
     // the existing default so their live sites don't regress.
     rating: hasReviews ? reviewStats.rating : isCleaningTenant ? defaultConfig.rating : 0,
     reviewCount: hasReviews ? reviewStats.count : isCleaningTenant ? defaultConfig.reviewCount : '',
-    services: (await loadServices(str(tenant, 'id'))) ?? defaultConfig.services,
+    services: (await loadServices(tenantId)) ?? defaultConfig.services,
     funnelMode:
       selena?.['funnel_mode'] === 'pipeline' ? 'pipeline'
       : selena?.['funnel_mode'] === 'lead_only' ? 'lead_only'
