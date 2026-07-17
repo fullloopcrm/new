@@ -25,6 +25,10 @@ function seed() {
       { id: 'inv-a1', tenant_id: TENANT_A, client_id: 'cli-a', contact_name: 'Alice A', contact_email: 'alice@example.com', total_cents: 10000 },
       { id: 'inv-b1', tenant_id: TENANT_B, client_id: 'cli-b', contact_name: 'Bob B', contact_email: 'bob@example.com', total_cents: 20000 },
     ],
+    client_contacts: [
+      { id: 'con-a1', tenant_id: TENANT_A, client_id: 'cli-a', name: 'Alice A', phone_e164: '+15551110000', email: 'alice@example.com', is_primary: true, receives_sms: true, receives_email: true },
+      { id: 'con-b1', tenant_id: TENANT_B, client_id: 'cli-b', name: 'Bob B', phone_e164: '+15552220000', email: 'bob@example.com', is_primary: true, receives_sms: true, receives_email: true },
+    ],
   }
 }
 
@@ -125,8 +129,37 @@ describe('purgeDueDeletions', () => {
     expect(invoiceA.contact_email).toBe(null)
     expect(invoiceA.total_cents).toBe(10000) // financial aggregate preserved, row not deleted
 
+    // BLOCKED: the actual fan-out source for every outbound client SMS/email
+    // (getClientContacts()) is purged too — a real phone/email left here
+    // would keep receiving messages forever regardless of clients.active.
+    const contactA = h.seed.client_contacts.find((c) => c.id === 'con-a1')!
+    expect(contactA.name).toBe('Deleted User')
+    expect(contactA.phone_e164).toBe(null)
+    expect(contactA.email).not.toBe('alice@example.com')
+    expect(contactA.receives_sms).toBe(false)
+    expect(contactA.receives_email).toBe(false)
+
+    // CONTROL: tenant B's contact, not due for purge, is untouched.
+    const contactB = h.seed.client_contacts.find((c) => c.id === 'con-b1')!
+    expect(contactB.name).toBe('Bob B')
+    expect(contactB.phone_e164).toBe('+15552220000')
+    expect(contactB.receives_sms).toBe(true)
+
     const reqA = h.seed.gdpr_deletion_requests.find((r) => r.id === dueRequest.id)!
     expect(reqA.status).toBe('completed')
+  })
+
+  it("wrong-tenant probe: purging tenant A's due request never touches tenant B's contact even when both clients share a colliding id shape", async () => {
+    const dueRequest = await requestDeletion({ tenantId: TENANT_A, clientId: 'cli-a' })
+    const rawA = h.seed.gdpr_deletion_requests.find((r) => r.id === dueRequest.id)!
+    rawA.scheduled_purge_at = new Date(Date.now() - 1000).toISOString()
+
+    await purgeDueDeletions()
+
+    const contactB = h.seed.client_contacts.find((c) => c.id === 'con-b1')!
+    expect(contactB.name).toBe('Bob B')
+    expect(contactB.email).toBe('bob@example.com')
+    expect(contactB.receives_sms).toBe(true)
   })
 
   it('is a no-op when nothing is due', async () => {
