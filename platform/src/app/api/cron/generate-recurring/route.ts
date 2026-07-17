@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { verifyCronSecret } from '@/lib/cron-auth'
 import { supabaseAdmin } from '@/lib/supabase'
-import { nextOccurrenceDates, type RecurringType } from '@/lib/recurring'
+import { nextOccurrenceDates, nowNaiveET, type RecurringType } from '@/lib/recurring'
 import { worksScheduledDay, slotWithinHours } from '@/lib/day-availability'
 import { getSettings } from '@/lib/settings'
 import { getBookingAddress } from '@/lib/client-properties'
@@ -15,7 +15,13 @@ export async function GET(request: Request) {
 
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
   // (tenant-scoped). Safe no-op if the column/rows don't exist.
-  const todayStr = new Date().toISOString().split('T')[0]
+  // paused_until is an ET calendar date (see pause/route.ts's own
+  // paused_until + 'T23:59:59' naive-ET end-of-day convention) -- comparing
+  // it against a true-UTC calendar day (new Date().toISOString()'s date
+  // slice) auto-resumed the schedule up to ~4-5h (the ET/UTC gap) before the
+  // client's chosen resume date actually arrived in real ET time. Same
+  // day-boundary bug class as tonight's other UTC-calendar-vs-ET fixes.
+  const todayStr = nowNaiveET().slice(0, 10)
   const { data: resumable } = await supabaseAdmin
     .from('recurring_schedules')
     .select('id')
