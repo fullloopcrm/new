@@ -9,6 +9,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { PAID_PAYOUT_STATUSES } from '@/lib/finance/post-labor'
 
 export async function GET(request: Request) {
   try {
@@ -98,7 +99,13 @@ export async function GET(request: Request) {
 
     for (const p of payouts || []) {
       if (!p.team_member_id) continue
-      if (p.status !== 'paid' && p.status !== 'succeeded' && p.status !== 'completed') continue
+      // Was checking status against a vocabulary ('paid'/'succeeded'/'completed')
+      // that no payout writer in the codebase actually uses -- Stripe auto-payouts
+      // write 'transferred', so paid_out_cents (and balance_owed_cents derived
+      // from it) was silently 0/full for EVERY contractor regardless of how much
+      // they'd actually been paid. Share the same status set post-labor.ts posts
+      // the ledger from, so "counted as paid here" and "posted to the ledger" agree.
+      if (!PAID_PAYOUT_STATUSES.includes((p.status as string) || '')) continue
       const row = rowMap.get(p.team_member_id)
       if (!row) continue
       row.paid_out_cents += Number(p.amount_cents) || 0

@@ -28,8 +28,10 @@ import {
   type JournalLineInput,
 } from '../ledger'
 
-// Payout statuses that mean money actually moved.
-const PAID_PAYOUT_STATUSES = ['transferred', 'paid', 'succeeded', 'completed']
+// Payout statuses that mean money actually moved. Exported so every other
+// reader of team_member_payouts.status (payroll-prep, backfill, etc.) shares
+// the same vocabulary instead of drifting into a filter that matches nothing.
+export const PAID_PAYOUT_STATUSES = ['transferred', 'paid', 'succeeded', 'completed']
 
 export interface PostLaborResult {
   posted: boolean

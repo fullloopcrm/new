@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { postPayoutToLedger } from '@/lib/finance/post-labor'
 
 // POST /api/admin/bookings/:id/cleaner-payout
 // Manual team-member payout (Zelle / Venmo / CashApp / cash / other) for a
@@ -44,6 +45,13 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     .single()
   if (!member) return NextResponse.json({ error: 'Team member not found' }, { status: 404 })
 
+  // status is a delivery STATE ('pending'|'transferred'|'paid'|...), not the
+  // payment method -- team_member_payouts has a dedicated `method` column
+  // (migration 010) for that. Writing the method into `status` here used to
+  // leave every manual payout permanently invisible to postPayoutToLedger's
+  // PAID_PAYOUT_STATUSES check AND to backfillUnpostedLabor's safety-net scan
+  // (both filter on status), so Zelle/Venmo/CashApp/cash payouts never once
+  // reached the ledger or payroll-prep's paid_out total.
   const { data: payoutRow, error: payErr } = await supabaseAdmin
     .from('team_member_payouts')
     .insert({
@@ -51,7 +59,9 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       booking_id: id,
       team_member_id: teamMemberId,
       amount_cents: amountCents,
-      status: method,
+      method,
+      status: 'paid',
+      paid_at: new Date().toISOString(),
     })
     .select()
     .single()
@@ -63,6 +73,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
       .update({ team_member_paid: true, team_member_paid_at: new Date().toISOString() })
       .eq('id', id)
       .eq('tenant_id', tenantId)
+  }
+
+  if (payoutRow?.id) {
+    postPayoutToLedger({ tenantId, payoutId: payoutRow.id as string })
+      .catch((err) => console.error('[cleaner-payout] ledger post failed:', err))
   }
 
   return NextResponse.json({ ok: true, payout: payoutRow })
