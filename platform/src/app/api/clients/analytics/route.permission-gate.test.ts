@@ -21,6 +21,7 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    in: (col: string, vals: unknown[]) => { filters.push((r) => vals.includes(r[col])); return c },
     order: () => c,
     then: (res: (v: { data: unknown; error: unknown }) => unknown) =>
       Promise.resolve(res({ data: rowsOf().filter((r) => filters.every((f) => f(r))), error: null })),
