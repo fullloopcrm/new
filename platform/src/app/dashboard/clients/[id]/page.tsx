@@ -120,7 +120,12 @@ export default function ClientDetailPage() {
 
   async function deleteClient() {
     if (!confirm('Delete this client? This cannot be undone.')) return
-    await fetch(`/api/clients/${id}`, { method: 'DELETE' })
+    const res = await fetch(`/api/clients/${id}`, { method: 'DELETE' })
+    if (!res.ok) {
+      const body = await res.json().catch(() => null)
+      alert(body?.error || 'Could not delete this client.')
+      return
+    }
     router.push('/dashboard/clients')
   }
 
