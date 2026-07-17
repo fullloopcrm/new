@@ -52,7 +52,7 @@ export default function ProspectsAdminPage() {
 
   useEffect(() => { load() }, [load])
 
-  async function act(id: string, action: 'approve' | 'reject' | 'review', seatsArg?: { admins: number; team: number }) {
+  async function act(id: string, action: 'approve' | 'reject' | 'review' | 'cancel', seatsArg?: { admins: number; team: number }) {
     setBusy(id); setMsg('')
     const body: Record<string, unknown> = { action }
     if (action === 'approve') { body.admins = seatsArg?.admins ?? 1; body.team_members = seatsArg?.team ?? 0 }
@@ -79,6 +79,7 @@ export default function ProspectsAdminPage() {
         <select value={filter} onChange={e => setFilter(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
           <option value="">All</option><option value="new">New</option><option value="reviewing">Reviewing</option>
           <option value="approved">Approved</option><option value="paid">Paid</option><option value="rejected">Rejected</option>
+          <option value="cancelled">Cancelled</option>
         </select>
       </div>
 
@@ -141,13 +142,31 @@ export default function ProspectsAdminPage() {
                           className="text-xs px-2 py-1 rounded bg-white border border-red-200 text-red-600 hover:bg-red-50 disabled:opacity-50">
                           Reject
                         </button>
+                        {p.status === 'new' && (
+                          <button disabled={busy === p.id} onClick={() => act(p.id, 'review')}
+                            className="text-xs px-2 py-1 rounded bg-white border border-amber-200 text-amber-700 hover:bg-amber-50 disabled:opacity-50">
+                            Mark Reviewing
+                          </button>
+                        )}
+                        <button disabled={busy === p.id} onClick={() => act(p.id, 'cancel')}
+                          className="text-xs px-2 py-1 rounded bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 disabled:opacity-50">
+                          Cancel
+                        </button>
                       </div>
                     )}
-                    {p.status === 'approved' && p.stripe_checkout_url && (
-                      <button onClick={() => { navigator.clipboard.writeText(p.stripe_checkout_url!); setMsg('Copied') }}
-                        className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-50">
-                        Copy link
-                      </button>
+                    {p.status === 'approved' && (
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {p.stripe_checkout_url && (
+                          <button onClick={() => { navigator.clipboard.writeText(p.stripe_checkout_url!); setMsg('Copied') }}
+                            className="text-xs px-2 py-1 rounded bg-white border border-slate-300 hover:bg-slate-50">
+                            Copy link
+                          </button>
+                        )}
+                        <button disabled={busy === p.id} onClick={() => act(p.id, 'cancel')}
+                          className="text-xs px-2 py-1 rounded bg-white border border-slate-300 text-slate-500 hover:bg-slate-50 disabled:opacity-50">
+                          Cancel
+                        </button>
+                      </div>
                     )}
                     {p.status === 'rejected' && p.reject_reason && (
                       <span className="text-xs text-slate-500" title={p.reject_reason}>reason ℹ</span>

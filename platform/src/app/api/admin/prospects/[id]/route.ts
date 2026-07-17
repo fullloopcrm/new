@@ -79,6 +79,8 @@ export async function PATCH(request: Request, { params }: Params) {
     updates.reject_reason = body.reject_reason || null
   } else if (body.action === 'review') {
     updates.status = 'reviewing'
+  } else if (body.action === 'cancel') {
+    updates.status = 'cancelled'
   } else {
     return NextResponse.json({ error: 'Unknown action' }, { status: 400 })
   }
