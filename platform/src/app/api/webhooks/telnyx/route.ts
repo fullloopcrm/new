@@ -8,6 +8,7 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { nowNaiveET } from '@/lib/recurring'
+import { normalizePhone } from '@/lib/nycmaid/client-contacts'
 
 export const maxDuration = 60
 
@@ -196,6 +197,25 @@ export async function POST(request: Request) {
         })
       }
 
+      // client_contacts (a client's secondary phone holders — e.g. a family
+      // member or co-decision-maker added via /clients/[id]/contacts) have
+      // their OWN receives_sms/sms_opted_out_at columns that sendClientSMS's
+      // fan-out (getClientContacts) reads independently of clients.sms_consent
+      // above. Nothing matched their phone against `clients.phone`, so without
+      // this they had no way to ever opt out by replying STOP — the carrier
+      // delivers, our gate never engages, and they keep getting texted
+      // indefinitely (TCPA gap). Mirrors the update onto any client_contacts
+      // row for this tenant with a matching phone, which also covers the
+      // primary contact's own row (created alongside the `clients` record).
+      const stopPhone = normalizePhone(from)
+      if (stopPhone) {
+        await supabaseAdmin
+          .from('client_contacts')
+          .update({ receives_sms: false, sms_opted_out_at: new Date().toISOString() })
+          .eq('tenant_id', tenantId)
+          .eq('phone_e164', stopPhone)
+      }
+
       // Send confirmation per TCPA
       if (tenant.telnyx_api_key && tenant.telnyx_phone) {
         await sendSMS({
@@ -235,6 +255,19 @@ export async function POST(request: Request) {
           metadata: { client_id: client.id, phone: from },
           status: 'sent',
         })
+      }
+
+      // Mirror image of the STOP handler's client_contacts update above — a
+      // contact who re-subscribes needs their own receives_sms/sms_opted_out_at
+      // cleared too, or getClientContacts keeps skipping them even after the
+      // parent client's consent flag is back on.
+      const startPhone = normalizePhone(from)
+      if (startPhone) {
+        await supabaseAdmin
+          .from('client_contacts')
+          .update({ receives_sms: true, sms_opted_out_at: null, sms_consent_at: new Date().toISOString() })
+          .eq('tenant_id', tenantId)
+          .eq('phone_e164', startPhone)
       }
 
       if (tenant.telnyx_api_key && tenant.telnyx_phone) {
