@@ -27,11 +27,23 @@ export async function POST(request: Request) {
   // Fetch the booking (tenant-scoped) so we know who currently holds it.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, team_member_id, start_time, clients(name)')
+    .select('id, team_member_id, start_time, check_in_time, clients(name)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
   if (!booking) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+
+  // Same class as jobs/release: reassigning an already-checked-in booking would
+  // hand the new member a row with check_in_time still stamped from the
+  // PREVIOUS assignee -- checkin/route.ts rejects ANY existing check_in_time
+  // regardless of who set it, so the new assignee could never check in
+  // themselves, and a checkout without ever checking in would compute hours
+  // off the wrong worker's start time. A job already underway needs an admin
+  // handoff (bookings/[id]/reset clears check_in_time for exactly this reason,
+  // then the dashboard's own reassign can run) -- not this self-serve route.
+  if (booking.check_in_time) {
+    return NextResponse.json({ error: 'This job is already checked in — an admin must reset it before it can be reassigned.' }, { status: 409 })
+  }
 
   const previous = booking.team_member_id
 
