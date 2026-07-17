@@ -118,8 +118,14 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
         .eq('id', matchResult.bookingId)
         .eq('tenant_id', tenant.id)
 
-      // Notify client
-      if (tenant.telnyx_api_key && tenant.telnyx_phone && matchResult.clientPhone) {
+      // Notify client — sms_consent (STOP compliance) / do_not_service, same
+      // invariant every other client SMS fan-out enforces (webhooks/stripe's
+      // payment-confirmation SMS already does this; this IMAP-parsed
+      // Zelle/Venmo path never did).
+      if (
+        tenant.telnyx_api_key && tenant.telnyx_phone && matchResult.clientPhone &&
+        matchResult.clientSmsConsent !== false && !matchResult.clientDoNotService
+      ) {
         sendSMS({
           to: matchResult.clientPhone,
           body: `Got your ${payment.method} payment of $${payment.amount.toFixed(0)} — thank you! 😊`,
@@ -171,6 +177,8 @@ interface MatchResult {
   bookingId?: string
   clientId?: string
   clientPhone?: string
+  clientSmsConsent?: boolean | null
+  clientDoNotService?: boolean | null
 }
 
 async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): Promise<MatchResult> {
@@ -180,15 +188,15 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
   if (senderLower) {
     const { data: byPayer } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, clients(phone)')
+      .select('id, client_id, clients(phone, sms_consent, do_not_service)')
       .eq('tenant_id', tenant.id)
       .neq('payment_status', 'paid')
       .ilike('payment_sender_name', `%${senderLower}%`)
       .order('start_time', { ascending: false })
       .limit(1)
     if (byPayer && byPayer.length > 0) {
-      const c = byPayer[0].clients as unknown as { phone?: string } | null
-      return { bookingId: byPayer[0].id, clientId: byPayer[0].client_id || undefined, clientPhone: c?.phone }
+      const c = byPayer[0].clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
+      return { bookingId: byPayer[0].id, clientId: byPayer[0].client_id || undefined, clientPhone: c?.phone, clientSmsConsent: c?.sms_consent, clientDoNotService: c?.do_not_service }
     }
   }
 
@@ -196,7 +204,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
   if (senderLower) {
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, phone')
+      .select('id, phone, sms_consent, do_not_service')
       .eq('tenant_id', tenant.id)
       .ilike('name', `%${senderLower}%`)
       .limit(5)
@@ -210,7 +218,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
         .order('start_time', { ascending: false })
         .limit(1)
         .single()
-      if (booking) return { bookingId: booking.id, clientId: client.id, clientPhone: client.phone || undefined }
+      if (booking) return { bookingId: booking.id, clientId: client.id, clientPhone: client.phone || undefined, clientSmsConsent: client.sms_consent, clientDoNotService: client.do_not_service }
     }
   }
 
@@ -218,7 +226,7 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
   const targetCents = payment.amountCents
   const { data: candidates } = await supabaseAdmin
     .from('bookings')
-    .select('id, client_id, price, clients(phone)')
+    .select('id, client_id, price, clients(phone, sms_consent, do_not_service)')
     .eq('tenant_id', tenant.id)
     .neq('payment_status', 'paid')
     .gte('price', targetCents - 100)
@@ -226,8 +234,8 @@ async function matchPaymentToBooking(tenant: TenantRow, payment: EmailPayment): 
     .order('start_time', { ascending: false })
     .limit(1)
   if (candidates && candidates.length > 0) {
-    const c = candidates[0].clients as unknown as { phone?: string } | null
-    return { bookingId: candidates[0].id, clientId: candidates[0].client_id || undefined, clientPhone: c?.phone }
+    const c = candidates[0].clients as unknown as { phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
+    return { bookingId: candidates[0].id, clientId: candidates[0].client_id || undefined, clientPhone: c?.phone, clientSmsConsent: c?.sms_consent, clientDoNotService: c?.do_not_service }
   }
 
   return {}

@@ -31,7 +31,7 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
 
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, start_time, status, client_terms_accepted_at, client_id, clients(name, phone)')
+    .select('id, tenant_id, start_time, status, client_terms_accepted_at, client_id, clients(name, phone, sms_consent, do_not_service)')
     .eq('client_confirm_token', token)
     .maybeSingle()
 
@@ -55,9 +55,13 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const startTime = new Date(booking.start_time).toLocaleString('en-US', {
     timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   })
-  const client = booking.clients as unknown as { name?: string; phone?: string } | null
+  const client = booking.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
 
-  if (client?.phone) {
+  // sms_consent (STOP compliance) / do_not_service (banned), same invariant
+  // every other client SMS fan-out enforces — this route's skipConsent:true
+  // was bypassing both, so a STOP-revoked or banned client tapping their own
+  // one-tap confirm link still got texted.
+  if (client?.phone && client.sms_consent !== false && !client.do_not_service) {
     await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're getting you assigned now and will send your full booking confirmation with the details once locked in.`, {
       skipConsent: true, smsType: 'terms_accepted', bookingId: booking.id,
     }).catch(() => {})
