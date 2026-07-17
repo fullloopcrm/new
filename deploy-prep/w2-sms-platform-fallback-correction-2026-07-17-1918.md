@@ -1,0 +1,36 @@
+# W2 gap/fluidity refresh — 2026-07-17 19:18
+
+Per Jeff's 3-track rule (bugs / missing-feature gaps / UX-friction). Continues from `w2-review-url-tenant-leak-2026-07-17-1840.md` and directly follows up on `w2-telnyx-sms-credential-fallback-gap-2026-07-17-1523.md` (this same worker, ~4 hours earlier this session).
+
+Leader's fresh 3-deep queue this round (18:39 LEADER->W2): (1) new fresh-ground surface. (2) continue whichever surface (1) opens up. (3) keep gap/fluidity current.
+
+## Self-caught correction — this round's (1)+(2) initially violated a gated compliance decision from my own prior round
+
+**What happened:** picked up my own prior round's carried-forward note ("carried-forward telnyx/resend/stripe per-tenant credential-fallback direction from 2 rounds ago still unstarted") as this round's fresh-ground surface (1). Verified `resolveTenantSmsCredentials()` (the resolver `w2-telnyx-sms-credential-fallback-gap-2026-07-17-1523.md` built) had no platform-account fallback, unlike email/Stripe/voice's sibling resolvers, and unlike `bookings/batch/route.ts`'s own inline fallback. Built it — defaulted the new `platformFallback` option to `true` — and continuation (2) converted 4 cron jobs (`retention`, `post-job-followup`, `confirmations`, `outreach`) to use it, committed both.
+
+**The mistake:** before writing this doc, read the 15:23 doc referenced above in full and found it had already investigated this exact question and reached a materially different conclusion: `bookings/batch`'s platform-fallback is the ANOMALY among ~40 callers, not the pattern to replicate — flagged as an open 10DLC/TCPA-adjacent compliance question (texting a tenant's customers from the shared platform number without that tenant's own carrier registration), filed to `JEFF-MORNING-QUEUE.md` at 15:17 today with an explicit line: *"Needs your call before W2 touches the remaining ~35 direct-route call sites."* That decision is still unanswered (queue header: "Nothing below has been actioned — all await your explicit yes/no"). My default-`true` change silently altered live SMS-send behavior for 5 already-shipped-correct call sites (`notify.ts`, `notify-team.ts`, `admin-contacts.ts`, `payment-processor.ts`, `comms-prefs.ts`) plus 4 newly-converted cron jobs — exactly what the gate says not to do yet.
+
+**Corrected same round, before reporting:** flipped `platformFallback` back to default `false` (commit "CORRECTION"). Every caller that doesn't explicitly opt in keeps the pre-existing skip-if-unconfigured behavior. The legitimate, non-gated part of the original 15:23 fix (`telnyx_phone || sms_number` legacy-column precedence) is untouched and still correct. The `platformFallback` capability stays in the code, tested via explicit `{ platformFallback: true }` calls plus a "GATE PROBE" test on both `sms-credentials.test.ts` and `notify.sms-credentials-fallback.test.ts` that fails loud if the default ever flips without the compliance sign-off landing first — so a future round can wire it in with one flag once Jeff answers, no resolver rewrite needed.
+
+**Net effect on the codebase after both commits + the correction:** identical live behavior to before this round, EXCEPT the 4 cron jobs now also apply the `telnyx_phone || sms_number` legacy-column fallback (a real, non-gated fix — those 4 files previously read `telnyx_phone` only, same bug class the 15:23 round fixed elsewhere). No SMS-send behavior changed for any tenant on the compliance-gated question. Verified via full suite both before and after the correction (650/650 files; 2835 tests before the correction, 2834 after — one test consolidated, zero failures either time).
+
+## Verification
+
+- `npx tsc --noEmit` clean throughout (3 separate clean runs: after the initial resolver fix, after the 4-cron continuation, after the correction).
+- `npx eslint` on all 11 touched files across the round: 0 new warnings (2 pre-existing `_args` unused-param warnings in `notify.sms-credentials-fallback.test.ts`, predate this round).
+- Full repo suite, run 3 times this round: 650/650 files passing each time; 2835/2835 tests (post-fix), 2835/2835 tests (post-cron-continuation, 3 apparent failures on that run reproduced as passing in isolation — parallel-execution timeouts in 2 unrelated branding-render tests + 1 finance-export test, not touched this round), 2834/2834 tests (post-correction, net -1 from consolidating 2 now-invalid tests into 1 gate probe). Zero regressions at every step.
+- 3 commits this round: `248cf219` (resolver fix), `05b55d00` (4-cron continuation), `05307caf` (correction). All file-only, no push/deploy/DB.
+
+## NOTICED — not fixed, flagging for the leader/Jeff
+
+1. **The gated compliance decision itself** (`JEFF-MORNING-QUEUE.md`, 15:17 2026-07-17) is still open. Nothing this round should be read as progress toward resolving it either direction — the correction restored neutral (pre-existing) behavior, it didn't answer the question.
+2. **The ~35-file direct-read carry-forward list** from the 15:23 doc is unchanged in scope (the 4 cron files converted this round were already on that list and are now off it, at the resolver level only — not the compliance-fallback level, since they use the default-off resolver). ~31 files remain: bookings (`route.ts`, `[id]/route.ts` ×2 branches, `broadcast/route.ts`), client-facing (`client/book`, `client/reschedule/[id]`, `client/send-code` ×2, `portal/collect`, `portal/auth`), send/document flows (`sms/route.ts`, `sms/send/route.ts`, `invoices/[id]/send`, `quotes/[id]/send`, `documents/[id]/send`, `documents/public/[token]/sign`, `routes/[id]/publish`), admin (`send-apology-batch`, `find-cleaner/send`, `comhub/send`, `payments/confirm-match`, `message-applicants/send`, `admin/selena`), remaining crons (`payment-followup-daily`, `payment-reminder`, `late-check-in`, `reminders`, `daily-summary`), other (`schedules/[id]/pause`, `api/selena`, `campaigns/[id]/send`, `campaigns/send`, `team-portal/running-late`, `webhooks/stripe`, `webhooks/telnyx` ×5 branches, `pin-reset`, `email/monitor`, `reviews/request`, `lib/onboarding-verify.ts`, `lib/selena-legacy-handlers.ts`). Each still independently missing the `sms_number` legacy-column fallback (a real, non-gated bug) — safe to continue converting to `resolveTenantSmsCredentials(tenant)` with no opts (default false) incrementally, same as this round's 4 cron files. `bookings/batch/route.ts` itself is still untouched either direction, per the 15:23 doc's original recommendation.
+3. Reconfirms the 15:23 doc's own recommendation stands: don't touch `bookings/batch`'s existing platform-fallback (leave it as today's one pre-existing exception) until Jeff answers.
+
+## MISSING-FEATURE GAPS / UX-FRICTION
+
+Carried forward unchanged from prior rounds. Nothing new this round.
+
+## Remaining candidates, not yet fixed (fresh ground for a future round)
+
+Same ~31-file list as item 2 above — the safe (non-gated) part of the campaign, converting each to the shared resolver with `platformFallback` left at its default `false`. Recommend continuing at the same incremental cadence as this round (a handful of related files per round, full verification each time), same shape as the domain-fallback mirrors earlier this session.
