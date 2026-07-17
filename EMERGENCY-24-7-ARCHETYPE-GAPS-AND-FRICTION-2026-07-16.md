@@ -1801,6 +1801,62 @@ unrelated tenant-scope guard warning on `fixture/route.ts`, not touched,
 same precedent as items
 17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41/42/43).
 
+## (45) New today, archetype depth — the team-portal 30-min payment alert was is_emergency-blind, same class as items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38)/(40)/(42)/(43) — NOW FIXED
+
+Swept every `admin_tasks` write site in the repo (`grep -rln admin_tasks src/app src/lib`)
+looking for one this queue hadn't checked yet. `src/app/api/team-portal/15min-alert/route.ts`
+(team-member-triggered "30-MIN HEADS UP" payment-collection alert — the nycmaid-ported
+`team/30min-alert` route) never selected `bookings.is_emergency` at all, so its admin
+SMS (`smsAdmins`), its `notify()` in-app alert, and its undelivered-payment-request
+`admin_tasks` escalation were all byte-identical for a same-day emergency job mid-cleanup
+vs a routine one — exactly the class items (20)/(24)/(26)/(29)/(30)/(32)/(34)/(36)/(38)/
+(40)/(42)/(43) already closed elsewhere. Verified via `grep -n is_emergency` on the file
+(same method as items 34/36/38/40/42) returning zero hits before the fix.
+
+**Fixed** (`p1-w3`) — added `is_emergency` to the select + inline result type, and
+escalated the admin-facing "30-MIN HEADS UP" SMS heading, the `notify()` title, and the
+`payment_request_undelivered` `admin_tasks` title/description using the same `🚨 Urgent`
+/ `EMERGENCY —` convention items (20)/(32)/(34)/(38)/(40)/(42)/(43) already established.
+Left the client-facing SMS text (`clientSmsText`, the balance-due + pay-link message) and
+the delivery-confirmation admin ping (already hardcodes `URGENT` on failure regardless of
+emergency status) untouched — same "wording/product call, not the blindness bug" carve-out
+item (38)/(42) used. Zero test files exist for this route (same precedent as items
+18/20/22/32/34/35/36/38/39/40/41/42/43/44) — relies on `tsc --noEmit` + full-suite
+verification. `tsc --noEmit` clean, full suite 355/355 files, 1810/1810 tests, zero
+regressions (one pre-existing, unrelated tenant-scope guard warning on `fixture/route.ts`,
+not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41/42/43/44).
+
+## (46) New today, fresh ground outside the archetype — the email-payment-monitor cron's unmatched-payment path had no idempotency guard, so a slow IMAP round-trip or mid-batch timeout could duplicate `unmatched_payments` + `admin_tasks` rows for the same email every minute — NOW FIXED
+
+Same "read the more careful sibling path before concluding" method items
+(39)/(41)/(44) used: `src/app/api/email/monitor/route.ts`'s **matched**-payment
+branch (line ~79) already guards against reprocessing with a `payments.raw_email_id`
+idempotency check before inserting — but the **unmatched** branch a few lines below
+(opens an `unmatched_payments` reconciliation row + an `admin_tasks` entry when no
+booking match is found) had no equivalent check. The upstream cron
+(`src/app/api/cron/email-monitor/route.ts`, `vercel.json` schedule `* * * * *`) fires
+this route every 60 seconds with a matching 60s `maxDuration`; `fetchUnreadEmails` +
+per-email Supabase/SMS/notify round-trips run *before* `markEmailRead` is called at
+the end of each loop iteration. If that iteration is slow enough to miss the 60s
+window, or the process dies between the insert and `markEmailRead`, the email stays
+unread — so the next minute's tick reprocesses the identical email and inserts
+*another* `unmatched_payments` row and *another* `admin_tasks` row for it, repeating
+every minute until the email finally gets marked read. Same duplicate-row shape as
+item (44)'s payment-reminder bug, but here it also pollutes the actual Zelle/Venmo
+reconciliation queue (`unmatched_payments`), not just the admin task list.
+
+**Fixed** (`p1-w3`) — added the same `raw_email_id` (email `Message-ID`, the
+existing dedup key per `payment-email-parser.ts`) lookup against `unmatched_payments`
+that the matched branch already runs against `payments`, before the insert; a dup
+still gets `markEmailRead` called on it so it doesn't loop forever unread. Zero test
+files exist for this route (same precedent as items
+18/20/22/32/34/35/36/38/39/40/41/42/43/44/45) — relies on `tsc --noEmit` +
+full-suite verification. `tsc --noEmit` clean, full suite 355/355 files, 1810/1810
+tests, zero regressions (one pre-existing, unrelated tenant-scope guard warning on
+`fixture/route.ts`, not touched, same precedent as items
+17/23/24/26/27/28/29/30/31/32/33/34/35/36/37/38/39/40/41/42/43/44/45).
+
 ## Not re-litigated here (already tracked elsewhere, still open)
 
 - Urgency-blind +3-day booking placeholder on quote-accept — full options
