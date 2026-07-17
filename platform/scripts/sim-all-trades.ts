@@ -1527,6 +1527,61 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           add('double-booking: the DB-level overlap trigger blocks the SAME crew member from being booked onto a second, unrelated job at the EXACT SAME overlapping window (app-layer routes have no check of their own, but this catches it regardless)',
             !!overlapErr && overlapErr.code === '23P01' && !overlapBooking, overlapErr?.message)
         }
+
+        // ---- 5a-4. MULTI-TECH TEAM ASSIGNMENT (real booking_team_members surface, zero prior archetype coverage) ----
+        // Every one of these trades routinely runs a crew of 2+ on a project
+        // session (a roofer + a helper, a second remodeling installer), but
+        // nothing in this harness had ever exercised PUT /api/bookings/[id]/team
+        // (src/app/api/bookings/[id]/team/route.ts) — the multi-tech
+        // lead+extras surface — only ever the single bookings.team_member_id
+        // lead. requirePermission needs a real request's headers()/cookies(),
+        // unavailable here, so this mirrors the route's own write sequence
+        // directly (same reasoning as the session-complete/crew-termination
+        // mirrors above) rather than calling the route handler.
+        const helperPhone = '704' + String(5000000 + idx * 111 + (Date.now() % 1000)).slice(-7)
+        try {
+          await provisionReplacement(tenant.id, {
+            id: randomUUID(), name: `${cfg.crew.name} (Helper)`, email: `crew-helper+${runId}@example.com`, phone: helperPhone, address: null,
+          })
+        } catch (e) {
+          const emailThrew = /Email not configured|Resend/i.test(e instanceof Error ? e.message : String(e))
+          if (!emailThrew) throw e
+        }
+        const { data: helper } = await supabase.from('team_members').select('id').eq('tenant_id', tenant.id).eq('phone', helperPhone).maybeSingle()
+        add('multi-tech: second crew member (helper) provisioned', !!helper)
+
+        if (helper?.id) {
+          // The operator's FIRST attempt includes the already-terminated worker
+          // as a third extra (an easy real mistake — reusing a saved crew list
+          // that hasn't been pruned since the termination). Same guard as
+          // POST /api/bookings, PUT /api/bookings/[id], and the job-session
+          // routes (86b797ad) — proves it also covers the multi-tech extras
+          // array, not just the single lead field.
+          const attemptedIds = [replacement.id, helper.id, worker.id]
+          const blockedIds = await getTerminatedTeamMemberIds(tenant.id, attemptedIds)
+          add('multi-tech: adding the terminated worker as a THIRD extra is caught by the same guard (would 400, naming only the terminated one)',
+            blockedIds.length === 1 && blockedIds[0] === worker.id, JSON.stringify(blockedIds))
+
+          // Corrected submission: lead=replacement, extras=[helper] — the
+          // terminated worker dropped, exactly what the real route would force
+          // the operator to do after the 400. Mirrors the route's own
+          // delete-then-insert replace + team_size update.
+          await supabase.from('booking_team_members').delete().eq('booking_id', remainingSession.id)
+          const { error: teamInsErr } = await supabase.from('booking_team_members').insert([
+            { tenant_id: tenant.id, booking_id: remainingSession.id, team_member_id: replacement.id, is_lead: true, position: 1 },
+            { tenant_id: tenant.id, booking_id: remainingSession.id, team_member_id: helper.id, is_lead: false, position: 2 },
+          ])
+          add('multi-tech: corrected team (lead + 1 extra, terminated worker excluded) writes cleanly', !teamInsErr, teamInsErr?.message)
+          await supabase.from('bookings').update({ team_size: 2 }).eq('id', remainingSession.id)
+
+          const { data: teamRowsAfter } = await supabase.from('booking_team_members').select('team_member_id, is_lead').eq('booking_id', remainingSession.id).order('position')
+          const teamIds = (teamRowsAfter || []).map(r => r.team_member_id)
+          add('multi-tech: booking_team_members reflects exactly [lead=replacement, extra=helper] — no trace of the terminated worker',
+            teamIds.length === 2 && teamIds.includes(replacement.id) && teamIds.includes(helper.id) && !teamIds.includes(worker.id),
+            JSON.stringify(teamRowsAfter))
+          const leadRow = (teamRowsAfter || []).find(r => r.is_lead)
+          add('multi-tech: exactly one row flagged is_lead, and it is the replacement (not the helper)', leadRow?.team_member_id === replacement.id, JSON.stringify(leadRow))
+        }
       }
     }
 
@@ -2053,7 +2108,7 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
           'territory_claims', 'expenses', 'journal_lines', 'journal_entries', 'chart_of_accounts',
           'hr_documents', 'hr_employee_profiles', 'hr_document_requirements', 'invoice_activity', 'invoices',
           'quote_activity', 'quotes', 'deal_activities', 'deals', 'job_events', 'job_payments',
-          'bookings', 'recurring_schedules', 'jobs', 'team_members', 'payments', 'clients',
+          'booking_team_members', 'bookings', 'recurring_schedules', 'jobs', 'team_members', 'payments', 'clients',
           'service_types', 'entities', 'tenant_invites',
         ]) {
           await supabase.from(tbl).delete().eq('tenant_id', tenantId) // best-effort, ignore errors
