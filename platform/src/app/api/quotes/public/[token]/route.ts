@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logQuoteEvent } from '@/lib/quote'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeHtml } from '@/lib/escape-html'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -49,6 +50,44 @@ export async function GET(request: Request, { params }: Params) {
         await supabaseAdmin.from('quotes').update({ status: 'expired' }).eq('id', quote.id)
         quote.status = 'expired'
         await logQuoteEvent({ quote_id: quote.id, tenant_id: quote.tenant_id, event_type: 'expired' })
+
+        // Archetype depth (same class as this file's own quote_viewed fix
+        // below): 'quote_expired' has been a declared NotificationType since
+        // notify.ts's beginning, and this exact transition — the only place
+        // in the codebase that ever sets a quote's status to 'expired' —
+        // already does the full quote_events bookkeeping its sibling
+        // accept/decline transitions do, but never fired notify()/ownerAlert()
+        // the way both of those one-shot terminal events do. A proposal
+        // dying silently with no owner signal is exactly the "declared type,
+        // real tracking, never wired" gap items (63)/(65) fixed elsewhere —
+        // this is the one instance of that class living in the same file,
+        // one function above the already-fixed quote_viewed case. Naturally
+        // one-shot: this block only runs while status is still 'sent', so a
+        // quote already 'expired' never re-enters it on a later visit.
+        try {
+          const { notify } = await import('@/lib/notify')
+          await notify({
+            tenantId: quote.tenant_id,
+            type: 'quote_expired',
+            title: `Quote ${quote.quote_number} expired`,
+            message: `${quote.contact_name || 'The customer'}'s proposal passed its valid-until date without being accepted`,
+            channel: 'email',
+            recipientType: 'admin',
+            metadata: { quote_id: quote.id, href: `/admin/sales-hub/quotes/${quote.id}` },
+          })
+        } catch (e) {
+          console.warn('notify quote_expired failed', e)
+        }
+
+        const { ownerAlert } = await import('@/lib/messaging/owner-alerts')
+        await ownerAlert({
+          tenantId: quote.tenant_id,
+          subject: `Expired — ${quote.quote_number}`,
+          kicker: 'Proposal expired',
+          heading: `${quote.quote_number} expired unsigned`,
+          bodyHtml: `<p style="margin:0">${escapeHtml(quote.contact_name || 'The customer')}'s proposal passed its valid-until date without being accepted — worth a follow-up if it's still live.</p>`,
+          sms: `${quote.contact_name || 'A customer'}'s proposal ${quote.quote_number} expired unsigned.`,
+        })
       }
     }
 
