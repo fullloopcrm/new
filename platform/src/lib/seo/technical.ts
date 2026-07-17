@@ -217,6 +217,11 @@ async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspe
     }
   }
 
+  // Fresh slate for THIS property's indexing issues only -- scoped per-property
+  // (not global) so a `?properties=N`-limited run, or a property that errors/gets
+  // skipped elsewhere in the loop, doesn't wipe out issues for properties this
+  // run never actually rescanned.
+  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'not_indexed').eq('property', prop.property)
   if (problems.length) {
     const { error } = await supabaseAdmin.from('seo_issues').insert(problems)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     if (error) throw new Error(`not_indexed insert ${prop.property}: ${error.message}`)
@@ -236,9 +241,6 @@ export type TechnicalScanResult = {
 }
 
 export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promise<TechnicalScanResult> {
-  // Fresh slate for indexing issues — GSC + competitor detectors don't touch these.
-  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'not_indexed')
-
   const { data: props } = await supabaseAdmin
     .from('seo_properties')
     .select('property,domain,tenant_id')

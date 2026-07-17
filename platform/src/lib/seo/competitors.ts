@@ -229,6 +229,12 @@ async function detectCompetitorGaps(prop: Property, serps: SerpRow[]): Promise<n
     })
   }
 
+  // Fresh slate for THIS property's competitor-gap issues only -- scoped
+  // per-property (not global) so a `?properties=N`-limited run, or a property
+  // that errors/gets skipped elsewhere in the loop, doesn't wipe out issues for
+  // properties this run never actually rescanned.
+  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'competitor_gap').eq('property', prop.property)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
+
   if (!issues.length) return 0
 
   // Backfill impressions/value from the stored SERP rows (kept out of the loop
@@ -272,9 +278,6 @@ export async function runCompetitorScan(opts?: { propertyLimit?: number }): Prom
   if (!serpEnabled()) {
     return { enabled: false, properties: 0, scanned: 0, serpCalls: 0, competitors: 0, gaps: 0, skipped: ['SERPER_API_KEY not set'] }
   }
-
-  // Fresh slate for competitor issues — the GSC detector no longer touches these.
-  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'competitor_gap')
 
   const { data: props } = await supabaseAdmin
     .from('seo_properties')
