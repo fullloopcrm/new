@@ -1,5 +1,6 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { TENANT_STATUS_COLORS, PLAN_COLORS } from '@/lib/constants'
+import { buildTrailingMonths } from '@/lib/finance/trailing-month-keys'
 
 export default async function AnalyticsPage() {
   const { data: tenants } = await supabaseAdmin
@@ -27,19 +28,15 @@ export default async function AnalyticsPage() {
   const industries = Object.entries(industryMap).sort((a, b) => b[1] - a[1])
 
   // Signups by month (last 6 months)
-  const months: { label: string; count: number }[] = []
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date()
-    d.setMonth(d.getMonth() - i)
-    const label = d.toLocaleDateString('en-US', { month: 'short', year: '2-digit' })
-    const monthStart = new Date(d.getFullYear(), d.getMonth(), 1)
-    const monthEnd = new Date(d.getFullYear(), d.getMonth() + 1, 0, 23, 59, 59)
+  const months = buildTrailingMonths(6).map(({ year, month, label }) => {
+    const monthStart = new Date(year, month, 1)
+    const monthEnd = new Date(year, month + 1, 0, 23, 59, 59)
     const count = allTenants.filter((t) => {
       const created = new Date(t.created_at)
       return created >= monthStart && created <= monthEnd
     }).length
-    months.push({ label, count })
-  }
+    return { label, count }
+  })
   const maxMonth = Math.max(...months.map((m) => m.count), 1)
 
   const [

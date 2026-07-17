@@ -9,7 +9,7 @@
  * duplicating another.
  */
 import { describe, it, expect } from 'vitest'
-import { buildTrailingMonthKeys } from './trailing-month-keys'
+import { buildTrailingMonthKeys, buildTrailingMonths } from './trailing-month-keys'
 
 describe('buildTrailingMonthKeys', () => {
   it('day-31 anchor produces 12 distinct, chronologically consecutive months with no skip/duplicate', () => {
@@ -46,5 +46,34 @@ describe('buildTrailingMonthKeys', () => {
   it('respects an arbitrary count', () => {
     const keys = buildTrailingMonthKeys(3, new Date(2026, 6, 31))
     expect(keys).toEqual(['May 26', 'Jun 26', 'Jul 26'])
+  })
+})
+
+describe('buildTrailingMonths', () => {
+  it('day-31 anchor produces 6 distinct year/month pairs with no skip/duplicate (admin/analytics signups-by-month regression)', () => {
+    // Old inline version in admin/analytics/page.tsx mutated `new Date()`
+    // via setMonth(getMonth() - i) directly, then derived monthStart/
+    // monthEnd off the mutated (possibly-overflowed) date -- on Jul 31 this
+    // silently skipped Feb and duplicated Mar's bucket, undercounting real
+    // tenant signups for the skipped month in the platform-admin chart.
+    const months = buildTrailingMonths(6, new Date(2026, 6, 31)) // Jul 31 2026
+    expect(months.map((m) => m.label)).toEqual([
+      'Feb 26', 'Mar 26', 'Apr 26', 'May 26', 'Jun 26', 'Jul 26',
+    ])
+    expect(new Set(months.map((m) => `${m.year}-${m.month}`)).size).toBe(6)
+    // Every month's date range must actually be constructible and valid
+    // (this is what the caller derives monthStart/monthEnd from).
+    months.forEach(({ year, month }) => {
+      const monthStart = new Date(year, month, 1)
+      const monthEnd = new Date(year, month + 1, 0, 23, 59, 59)
+      expect(monthStart.getMonth()).toBe(month)
+      expect(monthEnd > monthStart).toBe(true)
+    })
+  })
+
+  it('mid-month anchor is trivially unaffected (regression control)', () => {
+    const months = buildTrailingMonths(6, new Date(2026, 0, 15)) // Jan 15 2026
+    expect(months[months.length - 1]).toEqual({ year: 2026, month: 0, label: 'Jan 26' })
+    expect(new Set(months.map((m) => `${m.year}-${m.month}`)).size).toBe(6)
   })
 })
