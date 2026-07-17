@@ -7481,3 +7481,82 @@ future round rather than bundling it in here.
 
 Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round.
+
+## (166) New fresh-ground surface, new bug class (an enum value fully wired
+through the schema and both API layers but with zero UI trigger anywhere,
+distinct from the wired-but-unreachable shape (164)/(165) hit) —
+`comhub_threads.status='snoozed'` had no way to ever be set
+
+`comhub_threads` (`2026_05_19_comhub.sql`) declares `CHECK (status IN
+('open','snoozed','closed'))` plus a `snoozed_until TIMESTAMPTZ` column
+purpose-built for it. `GET /api/admin/comhub/threads`'s own doc comment
+names `snoozed` as a valid `?status=` filter value and selects
+`snoozed_until` on every row; `PATCH /api/admin/comhub/threads/[id]` types
+`status` as `'open' | 'snoozed' | 'closed'` and accepts `snoozed_until` in
+its body. But the only comhub UI (`admin/comhub/page.tsx`) that ever calls
+that PATCH route sends exactly one status value — `'closed'`, from its
+"Close" button. Every layer down to the API is snooze-ready, and nothing
+above it has ever offered the option. The admin inbox's list fetch also
+hardcodes `status: 'open'` on every poll (every 5s), so even a thread
+snoozed by a raw DB edit would just disappear from view with no tab or
+filter to find it again.
+
+**Fixed** — added a Snooze control next to Close in the thread header: a
+preset-duration dropdown (1 hour / 4 hours / tomorrow / next week) that
+PATCHes `{ status: 'snoozed', snoozed_until: <computed> }`, reusing the
+same endpoint the Close button already calls.
+
+## (167) Continuing (166)'s surface — wiring the write path exposed the
+same footgun shape as (161): nothing anywhere ever reads `snoozed_until`
+to wake a thread back up
+
+Once (166) made `status:'snoozed'` reachable, `snoozed_until` turned out to
+have never been consumed by any code path — no cron, no lazy check on read,
+nothing. Since the inbox's only list query is `status:'open'`, a snoozed
+thread would vanish from the default view exactly as designed, but with no
+mechanism to *undo* that once its snooze window passed, it would stay
+invisible forever — a customer thread silently dropped off the inbox on a
+fixed schedule, permanently, the moment an admin tried the very feature
+(166) just added. Same shape as (161)'s territory-assignment fix turning a
+cosmetic gap into a live risk: closing the write-side gap makes the missing
+read-side handling actually dangerous instead of merely unused.
+
+**Fixed** — added a lazy wake-up check (mirrors the `quotes.valid_until`
+expire-on-view pattern from earlier this session, no new cron needed) to
+both `GET /api/admin/comhub/threads` and `GET
+/api/admin/comhub/threads/[id]`: before running the real query, either
+route flips any thread with `status:'snoozed'` and `snoozed_until <=
+now()` back to `status:'open'` (clearing `snoozed_until`) for the current
+tenant. Since the admin inbox polls the list route every 5 seconds, a
+snoozed thread reappears within one poll cycle of its wake time. Also
+added stale-field discipline to the PATCH route matching (162)'s
+`blocked_reason` handling: `snoozed_until` is now cleared to `null` on
+every transition away from `'snoozed'` (Close, manual "Wake now"), not
+just left to rot on the row.
+
+Noticed, not fixed: `comhub_get_or_create_thread()`'s dedup query (`WHERE
+... status != 'closed'`) treats a snoozed thread as still "the" open
+thread for its contact+channel — a new inbound message during the snooze
+window reattaches to the same thread rather than reopening it, so it sits
+unseen until the lazy wake fires on the next scheduled check, not the
+moment the customer actually replies. A reply-triggered wake would need
+touching the SQL trigger plus every inbound write path (SMS webhook,
+Telnyx voice webhook), a bigger lift than (166)/(167)'s self-contained fix
+— flagging for a future round.
+
+New test file `route.snooze.test.ts` (7 tests) covering both routes: PATCH
+persists status:'snoozed' + snoozed_until; PATCH clears snoozed_until on
+close and on manual wake; single-thread GET wakes an overdue snooze and
+leaves a future one alone; list GET's default status=open filter picks up
+a woken thread and correctly excludes one still in its window.
+Mutation-verified — reverted the list route's diff via `git apply -R`,
+reran all 7: 1 failed for the right reason (the list-route wake test — the
+other 6 passed because they only touch the still-fixed `[id]` route and
+PATCH logic), reapplied and confirmed all 7 GREEN. `tsc --noEmit` clean.
+Full repo suite: 453/453 files, 2152/2152 tests, zero regressions (same
+pre-existing unrelated `fixture/route.ts` tenant-scope baseline warning
+every prior report has flagged) — not visually exercised in a browser this
+round (non-interactive worker session, no dev server driven this round).
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round.
