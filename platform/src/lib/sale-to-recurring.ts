@@ -12,7 +12,7 @@
  */
 import { supabaseAdmin } from '@/lib/supabase'
 import { generateToken } from '@/lib/tokens'
-import { computeNaiveVisitWindow, generateRecurringDates, type RecurringType } from '@/lib/recurring'
+import { computeNaiveVisitWindow, generateRecurringDates, nowNaiveET, type RecurringType } from '@/lib/recurring'
 
 /**
  * Initial batch of occurrence dates (YYYY-MM-DD) for a new recurring series,
@@ -162,7 +162,10 @@ async function createSeriesAfterClaim(
   }
 
   const recurringType = quote.recurring_type as RecurringType
-  const startDate = (quote.recurring_start_date as string | null) || new Date().toISOString().split('T')[0]
+  // No explicit recurring_start_date on the quote -> "today" must be the ET
+  // calendar date, not the true-UTC day, or converting a quote in the
+  // evening ET silently anchors the new schedule's first visit a day late.
+  const startDate = (quote.recurring_start_date as string | null) || nowNaiveET().slice(0, 10)
   const preferredTime = (quote.recurring_preferred_time as string | null) || '09:00'
   const hours = Number(quote.recurring_duration_hours) || 3
   const pricePerVisit = ((quote.total_cents as number) || 0) / 100

@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
 
 /**
@@ -154,6 +154,34 @@ describe('POST /api/finance/expenses — creation', () => {
     const json = await res.json()
 
     expect(json.expense.date).toBe('2026-01-15')
+  })
+
+  describe('date default -- ET calendar day, not true-UTC day', () => {
+    // 9:00 PM EDT July 17 -- already 1:00 AM UTC July 18 (UTC's calendar day
+    // has rolled over to the 18th, but the real ET calendar day is still the
+    // 17th). Forces TZ=UTC to simulate Vercel's runtime, same technique as
+    // this session's other day-boundary tests.
+    const NOW = new Date('2026-07-18T01:00:00.000Z')
+    const realTZ = process.env.TZ
+
+    beforeEach(() => {
+      process.env.TZ = 'UTC'
+      vi.useFakeTimers()
+      vi.setSystemTime(NOW)
+    })
+
+    afterEach(() => {
+      if (realTZ === undefined) delete process.env.TZ
+      else process.env.TZ = realTZ
+      vi.useRealTimers()
+    })
+
+    it('defaults an omitted date to the real ET-today, not the already-rolled-over UTC day', async () => {
+      const res = await POST(postReq({ category: 'supplies', amount: 10 }))
+      const json = await res.json()
+
+      expect(json.expense.date).toBe('2026-07-17')
+    })
   })
 
   it('logs an expense.created audit event', async () => {

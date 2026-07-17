@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { validate } from '@/lib/validate'
 import { entityIdFromUrl, getDefaultEntityId, verifyEntityId } from '@/lib/entity'
 import { audit } from '@/lib/audit'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function GET(request: Request) {
   try {
@@ -70,7 +71,11 @@ export async function POST(request: Request) {
         amount: Math.round(Number(validated.amount) * 100),
         description: validated.description || null,
         receipt_url: validated.receipt_url || null,
-        date: validated.date || new Date().toISOString().split('T')[0],
+        // No explicit date -> today, but "today" must be the ET calendar
+        // date (what the admin means by "today"), not the true-UTC day --
+        // filing an expense in the evening ET otherwise silently dated it
+        // tomorrow.
+        date: validated.date || nowNaiveET().slice(0, 10),
       })
       .select()
       .single()

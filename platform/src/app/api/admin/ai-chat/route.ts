@@ -12,6 +12,7 @@ import { pick } from '@/lib/validate'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { anthropicFromStoredKey } from '@/lib/anthropic-client'
+import { nowNaiveET } from '@/lib/recurring'
 
 const tools: Anthropic.Tool[] = [
   {
@@ -264,7 +265,10 @@ export async function executeTool(
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      // No explicit date from the AI -> "today" must be the ET calendar
+      // date, not the true-UTC day, or asking "what's on my schedule today"
+      // in the evening ET silently returns tomorrow's bookings instead.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
       const dateTo = (input.date_to as string) || date
       const { data, error } = await db
         .from('bookings')

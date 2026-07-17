@@ -6,6 +6,7 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { pick } from '@/lib/validate'
+import { nowNaiveET } from '@/lib/recurring'
 
 function buildSystemPrompt(tenantName: string, industry: string) {
   return `You are Selena, the AI assistant for ${tenantName}, a ${industry} business using Full Loop CRM.
@@ -15,7 +16,7 @@ Key rules:
 - Always confirm before destructive actions (cancelling, deleting)
 - When updating multiple bookings, state how many will be affected and ask for confirmation
 - Use short, direct responses — this is a chat widget, not an essay
-- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
+- Dates are stored as naive ISO strings (no timezone). Today is ${new Date().toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' })}
 - Prices are stored in cents. Display as dollars.
 - When you find results, format them concisely — use bullet points or short lists
 - If a user asks to do something, do it (after confirmation if destructive). Don't explain how to do it in the UI.`
@@ -256,7 +257,10 @@ export async function executeTool(name: string, input: Record<string, unknown>, 
     }
 
     case 'get_schedule_summary': {
-      const date = (input.date as string) || new Date().toISOString().split('T')[0]
+      // No explicit date from the AI -> "today" must be the ET calendar
+      // date, not the true-UTC day, or asking "what's on my schedule today"
+      // in the evening ET silently returns tomorrow's bookings instead.
+      const date = (input.date as string) || nowNaiveET().slice(0, 10)
       const dateTo = (input.date_to as string) || date
 
       const { data, error } = await supabaseAdmin

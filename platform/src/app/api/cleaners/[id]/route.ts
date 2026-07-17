@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
+import { nowNaiveET } from '@/lib/recurring'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -15,7 +16,11 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const { id } = await params
   const body = await request.json()
 
-  const today = new Date().toISOString().split('T')[0]
+  // unavailable_dates are naive ET calendar dates (set via the team-member
+  // date picker) -- comparing against a true-UTC calendar day rolled this
+  // filter over ~4-5h (the ET/UTC gap) early, silently dropping a real
+  // still-current ET date out of the saved list every evening.
+  const today = nowNaiveET().slice(0, 10)
   const futureDates = (body.unavailable_dates || []).filter((d: string) => d >= today)
 
   const update: Record<string, unknown> = {
