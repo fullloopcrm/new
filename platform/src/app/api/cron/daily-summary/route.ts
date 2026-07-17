@@ -5,6 +5,7 @@ import { smsDailySummary } from '@/lib/sms-templates'
 import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -107,7 +108,20 @@ export async function GET(request: Request) {
       .eq('status', 'active')
       .limit(500) // Don't process more than 500 per tenant per run
 
+    // team_members.status is a separate field from hr_employee_profiles.hr_status
+    // -- HR terminating someone (PATCH /api/dashboard/hr/[id]) never touches
+    // team_members.status, so a terminated member stays 'active' here and would
+    // otherwise keep getting their 3-day job lookahead SMS/email/push after
+    // being let go (booking assignment itself isn't cleared on termination
+    // either). Same guard class as cron/reminders' day/hour-based team texts.
+    const summaryMemberIds = (teamMembers || []).map(m => m.id)
+    const summaryTerminatedIds = summaryMemberIds.length > 0
+      ? new Set(await getTerminatedTeamMemberIds(tenantId, summaryMemberIds))
+      : new Set<string>()
+
     for (const member of teamMembers || []) {
+      if (summaryTerminatedIds.has(member.id)) continue
+
       const { data: upcomingJobs } = await supabaseAdmin
         .from('bookings')
         .select('id, start_time, end_time, service_type, clients(name, phone, address)')

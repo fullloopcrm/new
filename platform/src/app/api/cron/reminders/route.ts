@@ -6,6 +6,7 @@ import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { sendSMS } from '@/lib/sms'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { sendPushToClient } from '@/lib/push'
+import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import type {
   BookingWithClientAndTeam,
   BookingWith2HourReminder,
@@ -75,6 +76,20 @@ export async function GET(request: Request) {
             .limit(500)
             .returns<BookingWithClientAndTeam[]>()
 
+          // Booking assignment survives HR termination (nothing unassigns a
+          // let-go worker's existing future bookings) — without this check a
+          // terminated team member keeps getting "job tomorrow" reminder texts
+          // (incl. NYC Maid's full route text below) for jobs they no longer
+          // work. Same guard class as the find-cleaner/bookings broadcast and
+          // dispatch-route/batch-update/regenerate fixes; batched once per
+          // daysOut pass rather than per-booking to avoid N+1 queries.
+          const dayTeamMemberIds = daysOut === 1
+            ? Array.from(new Set((bookings || []).map(b => b.team_member_id).filter((x): x is string => !!x)))
+            : []
+          const dayTerminatedIds = dayTeamMemberIds.length > 0
+            ? new Set(await getTerminatedTeamMemberIds(tenantId, dayTeamMemberIds))
+            : new Set<string>()
+
           for (const booking of bookings || []) {
             // Deduplication
             const { data: existing } = await supabaseAdmin
@@ -122,8 +137,8 @@ export async function GET(request: Request) {
               sendPushToClient(booking.client_id, daysOut === 1 ? 'Cleaning Tomorrow' : `Cleaning ${label}`, `Your cleaning is ${label}`, '/book/dashboard').catch(() => {})
             }
 
-            // Team member reminder (day before only)
-            if (daysOut === 1 && booking.team_member_id) {
+            // Team member reminder (day before only) — skip a terminated assignee
+            if (daysOut === 1 && booking.team_member_id && !dayTerminatedIds.has(booking.team_member_id)) {
               const member = booking.team_members
               if (member) {
                 let teamMsg = `${client?.name || 'Client'} - ${label} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
@@ -212,6 +227,13 @@ export async function GET(request: Request) {
         .limit(500)
         .returns<BookingWith2HourReminder[]>()
 
+      // Same stale-assignment guard as the day-based pass above, batched once
+      // per hoursBefore pass.
+      const hourTeamMemberIds = Array.from(new Set((hourBookings || []).map(b => b.team_member_id).filter((x): x is string => !!x)))
+      const hourTerminatedIds = hourTeamMemberIds.length > 0
+        ? new Set(await getTerminatedTeamMemberIds(tenantId, hourTeamMemberIds))
+        : new Set<string>()
+
       for (const booking of hourBookings || []) {
         const emailType = `reminder_${hoursBefore}hour`
         const { data: existing } = await supabaseAdmin
@@ -239,8 +261,8 @@ export async function GET(request: Request) {
           }
         }
 
-        // Team member SMS — 2hr reminder
-        if (booking.team_member_id && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // Team member SMS — 2hr reminder — skip a terminated assignee
+        if (booking.team_member_id && !hourTerminatedIds.has(booking.team_member_id) && member?.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
           const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
           try {
             await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
