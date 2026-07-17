@@ -190,6 +190,32 @@ export async function PATCH(request: Request, { params }: Params) {
           )
         }
       }
+
+      // booking_assignees is Jobs' own display join; GET /api/bookings/:id/team
+      // and closeout-summary source the multi-tech team from booking_team_members
+      // instead, and this route never touched it -- a reassign here left the
+      // OLD lead/extras (or none, on the first-ever assignment) stuck there,
+      // so the Team panel and closeout payout attribution silently kept
+      // crediting whoever was assigned before, or the sole lead, forever.
+      // Same booking_team_members-sync gap fixed at every other
+      // bookings.team_member_id write site this session.
+      const leadId = patch.team_member_id as string | null
+      await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', sessionId).eq('tenant_id', tenantId)
+      if (leadId) {
+        const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = [
+          { tenant_id: tenantId, booking_id: sessionId, team_member_id: leadId, is_lead: true, position: 1 },
+        ]
+        assigneeList.filter((mid) => mid !== leadId).forEach((mid, i) => {
+          teamRows.push({ tenant_id: tenantId, booking_id: sessionId, team_member_id: mid, is_lead: false, position: i + 2 })
+        })
+        const { error: teamErr } = await supabaseAdmin.from('booking_team_members').insert(teamRows)
+        if (teamErr) {
+          return NextResponse.json(
+            { error: `Reassignment failed after clearing prior team: ${teamErr.message}` },
+            { status: 500 },
+          )
+        }
+      }
     }
 
     // Timeline + payment releases.

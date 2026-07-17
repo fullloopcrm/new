@@ -111,6 +111,27 @@ export async function POST(request: Request, { params }: Params) {
       }
     }
 
+    // booking_assignees is Jobs' own display join, but GET /api/bookings/:id/team
+    // and closeout-summary (the SAME widgets a job-session booking shows up in --
+    // it's just a `bookings` row with a job_id, unfiltered from the general
+    // Bookings admin list) source the multi-tech team from booking_team_members,
+    // not booking_assignees. Without this, a session's non-lead crew members
+    // were invisible to both, and closeout payout attribution silently paid out
+    // only the lead. Same booking_team_members-sync gap fixed at every other
+    // bookings.team_member_id write site this session.
+    if (leadId) {
+      const teamRows: { tenant_id: string; booking_id: string; team_member_id: string; is_lead: boolean; position: number }[] = [
+        { tenant_id: tenantId, booking_id: booking.id, team_member_id: leadId, is_lead: true, position: 1 },
+      ]
+      assigneeList.filter((mid) => mid !== leadId).forEach((mid, i) => {
+        teamRows.push({ tenant_id: tenantId, booking_id: booking.id, team_member_id: mid, is_lead: false, position: i + 2 })
+      })
+      const { error: teamErr } = await supabaseAdmin.from('booking_team_members').insert(teamRows)
+      if (teamErr) {
+        return NextResponse.json({ error: teamErr.message, session: booking }, { status: 500 })
+      }
+    }
+
     await logJobEvent({
       tenant_id: tenantId,
       job_id: id,
