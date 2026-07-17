@@ -3951,6 +3951,23 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
+    // ---- 5a-50. domains.ts neighborhood/zip_codes/type -- DEAD-COLUMN PROBE, closing NOTICED #27 (fresh ground this round: NOTICED #27 flagged that domains.ts's TenantDomain interface declares `type`, `neighborhood`, and `zip_codes` fields, and attribution.ts's entire address-based lead-attribution feature depends on querying tenant_domains by them, but no migration swept in that round proved they existed live. Confirmed this round via a direct read-only REST call against the real tenant_domains table: `column tenant_domains.neighborhood does not exist` (and same for `type`). Cross-checked every migration touching tenant_domains (043's CREATE TABLE, 046, 058) -- none ever added these columns, and no insert anywhere in the codebase (grepped every `.from('tenant_domains').insert(...)`) ever writes them. This is NOT schema.sql-vs-live drift like NOTICED #19 -- it's a feature written against a schema that never existed, live-broken since inception. Every call site already wraps the attribution helpers in try/catch, so this has never crashed a request, but the neighborhood-based lead/booking attribution feature (getNeighborhoodFromZip/getDomainsForNeighborhood, and the type='generic' filter in getTenantDomains) has never actually attributed anything -- the "Website -> Lead"/"Website -> Sale" notifications and bookings.attributed_domain/attribution_confidence populate only through this path and it has always been dead. Compounding bug found alongside: getTenantDomains() and getDomainsForNeighborhood() were silently discarding their own query errors (destructuring only `{ data }`, no `error` check) and returning [] on every call instead of surfacing the failure -- the exact masked-error anti-pattern this same file already fixed for getNeighborhoodFromZip/getPrimaryTenantDomain, just not applied to these two. Fixed the masked-error handling this round (both now throw loud, matching their two neighbor functions) -- did NOT touch the underlying dead-column question itself, since whether to add a migration (making the feature real) or delete the dead codepath is Jeff's product call, not mine. This probe proves both things against the REAL live schema: the columns are genuinely absent, and the two newly-fixed functions now throw loud instead of masking it -- no mock, no throwaway rows needed since the error is structural, not data-dependent.) ----
+    {
+      const { getTenantDomains, getDomainsForNeighborhood, getNeighborhoodFromZip } = await import('../src/lib/domains')
+
+      let tdErr: unknown = null
+      try { await getTenantDomains(tenant.id) } catch (e) { tdErr = e }
+      add('domains.ts dead-column probe: getTenantDomains() throws loud (not silently []) against the REAL live schema -- tenant_domains.type does not exist', tdErr instanceof Error && /TENANT_DOMAINS_LOOKUP_ERROR/.test(tdErr.message), tdErr instanceof Error ? tdErr.message : String(tdErr))
+
+      let dfnErr: unknown = null
+      try { await getDomainsForNeighborhood(tenant.id, 'Brooklyn') } catch (e) { dfnErr = e }
+      add('domains.ts dead-column probe: getDomainsForNeighborhood() throws loud (not silently []) against the REAL live schema -- tenant_domains.neighborhood does not exist', dfnErr instanceof Error && /DOMAINS_FOR_NEIGHBORHOOD_LOOKUP_ERROR/.test(dfnErr.message), dfnErr instanceof Error ? dfnErr.message : String(dfnErr))
+
+      let nfzErr: unknown = null
+      try { await getNeighborhoodFromZip(tenant.id, '11215') } catch (e) { nfzErr = e }
+      add('domains.ts dead-column probe: getNeighborhoodFromZip() already threw loud pre-existing (not silently null) against the REAL live schema -- tenant_domains.zip_codes does not exist', nfzErr instanceof Error && /TENANT_DOMAIN_ZIP_LOOKUP_ERROR/.test(nfzErr.message), nfzErr instanceof Error ? nfzErr.message : String(nfzErr))
+    }
+
     // ================= 5b. CHANGE ORDER (scope creep mid-project) =================
     // Real pain point across every one of these trades: the customer adds or
     // changes scope AFTER the sale is signed and the job is already scheduled

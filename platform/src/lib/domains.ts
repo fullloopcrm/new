@@ -12,12 +12,17 @@ export interface TenantDomain {
 
 // Get all domains for a tenant
 export async function getTenantDomains(tenantId: string): Promise<TenantDomain[]> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('tenant_domains')
     .select('*')
     .eq('tenant_id', tenantId)
     .eq('active', true)
     .order('type', { ascending: true })
+
+  if (error) {
+    console.error(`TENANT_DOMAINS_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`TENANT_DOMAINS_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
 
   return (data || []) as TenantDomain[]
 }
@@ -55,12 +60,17 @@ export async function getPrimaryTenantDomain(tenantId: string): Promise<string |
 
 // Get domains for a specific neighborhood
 export async function getDomainsForNeighborhood(tenantId: string, neighborhood: string): Promise<string[]> {
-  const { data } = await supabaseAdmin
+  const { data, error } = await supabaseAdmin
     .from('tenant_domains')
     .select('domain')
     .eq('tenant_id', tenantId)
     .eq('neighborhood', neighborhood)
     .eq('active', true)
+
+  if (error) {
+    console.error(`DOMAINS_FOR_NEIGHBORHOOD_LOOKUP_ERROR tenant_id=${tenantId} neighborhood=${neighborhood} error=${error.message}`)
+    throw new Error(`DOMAINS_FOR_NEIGHBORHOOD_LOOKUP_ERROR tenant_id=${tenantId} neighborhood=${neighborhood} error=${error.message}`)
+  }
 
   return (data || []).map(d => d.domain)
 }

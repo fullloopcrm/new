@@ -56,9 +56,14 @@ describe('getTenantDomains', () => {
   })
 
   it('returns [] (not null/throw) when the tenant has no domains', async () => {
-    resolve = () => ({ data: null })
+    resolve = () => ({ data: null, error: null })
     const rows = await getTenantDomains('t-1')
     expect(rows).toEqual([])
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning [] — indistinguishable from "no domains" otherwise', async () => {
+    resolve = () => ({ data: null, error: { message: 'connection timeout' } })
+    await expect(getTenantDomains('t-1')).rejects.toThrow(/TENANT_DOMAINS_LOOKUP_ERROR/)
   })
 })
 
@@ -89,9 +94,14 @@ describe('getDomainsForNeighborhood', () => {
   })
 
   it('returns [] when no domain is mapped to that neighborhood', async () => {
-    resolve = () => ({ data: null })
+    resolve = () => ({ data: null, error: null })
     const domains = await getDomainsForNeighborhood('t-1', 'Nowhere')
     expect(domains).toEqual([])
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error instead of silently returning [] — indistinguishable from "nothing mapped" otherwise', async () => {
+    resolve = () => ({ data: null, error: { message: 'connection timeout' } })
+    await expect(getDomainsForNeighborhood('t-1', 'Brooklyn')).rejects.toThrow(/DOMAINS_FOR_NEIGHBORHOOD_LOOKUP_ERROR/)
   })
 })
 
