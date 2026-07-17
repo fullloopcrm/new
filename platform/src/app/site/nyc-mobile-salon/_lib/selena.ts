@@ -748,7 +748,7 @@ export async function getClientProfile(phone: string): Promise<string> {
     const target = nat(digits)
     const { data: candidates } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
+      .select('id, name, email, phone, address, notes, status, do_not_service, created_at')
     const client = (candidates || []).find(c => {
       const cDigits = nat((c.phone || '').replace(/\D/g, ''))
       return cDigits.length >= 10 && cDigits === target
@@ -801,7 +801,7 @@ export async function getClientProfile(phone: string): Promise<string> {
 
     return JSON.stringify({
       name: client.name, address: client.address, email: client.email,
-      notes: client.notes, active: client.active, do_not_service: client.do_not_service,
+      notes: client.notes, active: client.status !== 'inactive', do_not_service: client.do_not_service,
       total_bookings: totalBookings || 0, preferred_stylist: preferredStylist,
       last_rate: recentBookings?.[0]?.hourly_rate || null,
       upcoming,

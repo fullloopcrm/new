@@ -12,7 +12,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 type Eqs = Record<string, unknown>
 
-let clientRows: Array<{ id: string; name: string; email: string; phone: string; address: string; notes: string; active: boolean; do_not_service: boolean }>
+let clientRows: Array<{ id: string; name: string; email: string; phone: string; address: string; notes: string; status: string; do_not_service: boolean }>
 
 // Supports both the pre-fix ilike-substring shape (.ilike().limit().single())
 // and the fixed plain-select shape (awaited directly after .eq()), so the
@@ -60,7 +60,7 @@ vi.mock('@/lib/anthropic-client', () => ({ resolveAnthropic: async () => ({}) })
 describe('selena/core getClientProfile — phone match floor', () => {
   beforeEach(() => {
     clientRows = [
-      { id: 'client-victim', name: 'Victim Client', email: 'victim@example.com', phone: '+12125551234', address: '123 Main St', notes: 'sensitive notes', active: true, do_not_service: false },
+      { id: 'client-victim', name: 'Victim Client', email: 'victim@example.com', phone: '+12125551234', address: '123 Main St', notes: 'sensitive notes', status: 'active', do_not_service: false },
     ]
   })
 
@@ -86,5 +86,18 @@ describe('selena/core getClientProfile — phone match floor', () => {
     const { getClientProfile } = await import('./core')
     const result = JSON.parse(await getClientProfile('12125551234', 'tenant-a'))
     expect(result.name).toBe('Victim Client')
+  })
+
+  it('derives active from the maintained status column, not the stale unmaintained active column', async () => {
+    // clients.active is a real but unmaintained legacy column from a one-time
+    // NYC Maid data import (see deploy-prep/w4-broad-hunt-2026-07-17-0128 —
+    // 426/957 live clients have status='inactive' but active still reads
+    // true). Feeding the raw column to the AI as a client's "active" flag
+    // would tell Selena a churned/inactive client is active nearly half the
+    // time. This asserts the tool result derives active from status instead.
+    clientRows[0].status = 'inactive'
+    const { getClientProfile } = await import('./core')
+    const result = JSON.parse(await getClientProfile('2125551234', 'tenant-a'))
+    expect(result.active).toBe(false)
   })
 })

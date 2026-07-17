@@ -847,7 +847,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
     const target = nat(digits)
     const { data: candidates } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, address, notes, active, created_at')
+      .select('id, name, email, phone, address, notes, status, created_at')
       .eq('tenant_id', tenantId)
     const client = (candidates || []).find(c => {
       const cDigits = nat((c.phone || '').replace(/\D/g, ''))
@@ -872,7 +872,7 @@ export async function getClientProfile(tenantId: string, phone: string): Promise
 
     return JSON.stringify({
       name: client.name, address: client.address, email: client.email,
-      notes: client.notes, active: client.active, upcoming,
+      notes: client.notes, active: client.status !== 'inactive', upcoming,
       last_rate: recentBookings?.[0]?.price ? Math.round((recentBookings[0].price / 100) / 2) : null,
       previous_messages: (prevMessages || []).reverse().map(m => ({ from: m.direction === 'inbound' ? 'client' : 'selena', message: m.message })),
     })

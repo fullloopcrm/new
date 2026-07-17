@@ -1856,7 +1856,7 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
     const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
     const target = nat(digits)
     const { data: candidates } = await supabaseAdmin.from('clients')
-      .select('id, name, email, phone, address, notes, active, do_not_service, created_at')
+      .select('id, name, email, phone, address, notes, status, do_not_service, created_at')
       .eq('tenant_id', tid)
     const client = (candidates || []).find(c => {
       const cDigits = nat((c.phone || '').replace(/\D/g, ''))
@@ -1901,7 +1901,7 @@ export async function getClientProfile(phone: string, tenantId?: string): Promis
 
     return JSON.stringify({
       name: client.name, address: client.address, email: client.email,
-      notes: client.notes, active: client.active, do_not_service: client.do_not_service,
+      notes: client.notes, active: client.status !== 'inactive', do_not_service: client.do_not_service,
       total_bookings: totalBookings || 0, preferred_cleaner: preferredCleaner,
       last_rate: recentBookings?.[0]?.hourly_rate || null,
       upcoming,
