@@ -6966,6 +6966,136 @@ reverted the guard, confirmed both rejection tests RED for the right reason
 restored. `tsc --noEmit` clean, full suite 445/445 files, 2118/2118 tests,
 zero regressions.
 
+## (154) New fresh-ground surface — manual invoice payments never post revenue either, the exact permanent gap (152) closed on the bank-txn match route, missed on a second money-in path
+
+(152) fixed `POST /api/finance/bank-transactions/[id]/match` to call
+`postPaymentRevenue` after inserting a payment, but that was never the only
+manual-payment-insert site missing the call. `POST /api/invoices/[id]/
+record-payment` (the "record a manual Zelle/Venmo/cash/check payment
+against an invoice" action, comment: "For Stripe-initiated payments, the
+Stripe webhook inserts into `payments`... the DB trigger bumps
+amount_paid_cents + status automatically") inserts a `payments` row with
+`status: 'succeeded'` and relies entirely on a DB trigger to recompute the
+invoice's paid total — but never called `postPaymentRevenue`, same as
+(152)'s bank-txn match route before its fix.
+
+For an invoice WITH a linked booking (`invoice.booking_id`, threaded straight
+into the payment insert as `booking_id: invoice.booking_id`) this only
+delayed revenue until the next `finance-post` cron run
+(`backfillRevenueFromBookings` scans `bookings.payment_status`). For an
+invoice with **no** linked booking — a plain one-off invoice, which this
+route's own schema explicitly supports (`booking_id` on `invoices` is
+nullable) — it was the identical permanent gap (152) closed on the other
+route: `backfillRevenueFromBookings` only ever reads the `bookings` table,
+and the generic payments-table safety net (`backfillUnpostedRevenue`) is
+still deliberately never wired into the `finance-post` cron. A manually
+recorded Zelle/Venmo/cash/check payment against a bookingless invoice
+marked the invoice paid to the client and the admin, and the revenue never
+reached the books, through any path, ever — same failure mode as (152),
+different entry point.
+
+**Fixed** — added the same `postPaymentRevenue` call immediately after the
+payment insert, matching (152)'s established convention exactly: best-effort,
+`.catch()` logs and continues rather than failing the payment record on a
+ledger hiccup, idempotent by construction so a concurrent/later cron re-post
+can never double-count. 3 new tests (`route.revenue.test.ts`): a bookingless
+invoice payment posts revenue keyed by the payment (the permanent-gap case);
+an invoice linked to a booking keys revenue by the booking, unifying with
+the bookings backfill's idempotency key exactly as (152) established; a
+ledger-posting failure (missing chart-of-accounts) doesn't fail the payment
+record itself. Mutation-verified — reverted the fix, confirmed both posting
+assertions RED for the right reason (0 entries where 1 expected), restored.
+`tsc --noEmit` clean.
+
+## (155) Continuing (154)'s surface — a third manual-payment route, admin's Zelle/Venmo-to-booking confirm-match, has the identical missing call
+
+Same root cause, a third site: `POST /api/admin/payments/confirm-match`
+(admin manually matches an unmatched Zelle/Venmo payment — detected by the
+inbound-email/SMS monitor, landed in `unmatched_payments` — to a specific
+booking) inserts a `payments` row and updates `bookings.payment_status` to
+`'paid'`/`'partial'`, but never called `postPaymentRevenue` either. Unlike
+(154)'s invoice case this route always requires a `bookingId`, so the gap
+was never permanent — `backfillRevenueFromBookings` catches it on the next
+`finance-post` cron run — but it broke the same real-time-posting
+convention every other money-in path (mark-paid, Stripe webhook,
+payment-processor.ts, and now the bank-txn match route and (154)) follows:
+an admin confirming a payment match should see it hit the books
+immediately, not up to a day later.
+
+**Fixed** — ported the identical `postPaymentRevenue` call, same
+best-effort `.catch()` shape. No new double-count guard needed here (unlike
+(153)'s continuation of (152)): `postPaymentRevenue`'s idempotency key for
+a booking-linked payment is the booking itself
+(`journalEntryExists(tenantId, 'booking', booking_id)`), so this route, a
+later bank-txn match to the same booking, and the cron's own backfill can
+never double-post regardless of which one lands first — the existing
+unique-index guard already covers this route for free. 3 new tests
+(`route.revenue.test.ts`): a confirmed match posts revenue immediately,
+keyed by the booking; a partial match (amount under the booking's price)
+still posts; a ledger-posting failure doesn't fail the match itself.
+Mutation-verified — reverted the fix, confirmed both posting assertions RED
+for the right reason (0 entries where 1 expected), restored. `tsc --noEmit`
+clean, full suite 447/447 files, 2124/2124 tests, zero regressions (same
+pre-existing, unrelated `tenant-scope` guard warning on
+`src/app/api/fixture/route.ts`, not touched here).
+
+Flagged, not fixed — a fourth site with a deeper problem than the other
+three: Selena's admin-chat tool `handleMarkPaymentReceived`
+(`src/lib/selena/tools.ts`) also inserts a `payments` row on a "mark payment
+received" request and never posts revenue, but even adding the same call
+wouldn't fix it — it writes `status: 'received'`, a value
+`postPaymentRevenue`'s `REVENUE_STATUSES` (`'completed' | 'succeeded' |
+'partial'`) doesn't recognize, so the post would silently no-op
+(`reason: 'status_received'`). It's booking-linked, so the daily cron's
+`bookings.payment_status` backfill still eventually catches the revenue —
+same non-permanent shape as (155) — but the payments row itself sits with a
+nonstandard status forever, invisible to anything that filters
+`payments.status` the way the other three sites' rows are. Not fixed this
+round: the right correction is changing the written status to `'completed'`
+(matching every other manual-payment site) before wiring the call, a
+one-line change but a different file/surface than this round's three, left
+here as the next thread to pick up.
+
+Reconcile-gate lane (this worker's other standing lane): the tenant-config
+reconcile token env var is still absent this session — skipped cleanly per
+standing rule, no reconcile-gate work this round.
+
+## (156) Fixed the fourth site flagged in (155) — Selena's `handleMarkPaymentReceived` never even wrote a `payments` row, worse than the flagged status mismatch
+
+Picking up the thread (155) left: `handleMarkPaymentReceived`
+(`src/lib/selena/tools.ts`), the tool behind Selena's admin-chat "mark
+payment received" flow, was worse than flagged. The status value
+(`'received'`, not in `postPaymentRevenue`'s `REVENUE_STATUSES`) was one
+bug, but the insert also wrote to a column named `amount` — the `payments`
+table has no such column (only `amount_cents`, confirmed against every
+migration that ever touched the table). PostgREST rejects unknown-column
+inserts, and the call site never checked `{ error }`, so the insert failed
+silently on every call: no `payments` row was ever created, at all, for
+this path — not a nonstandard-status row sitting invisible, an outright
+missing one. The booking still flipped to `payment_status: 'paid'`, so the
+UI looked correct while the money trail was entirely absent, with no cron
+backfill able to help since there's no row for it to backfill *from*.
+
+**Fixed** — `amount` → `amount_cents`, `status: 'received'` →
+`status: 'completed'` (matching every other manual-payment site's
+convention), added `{ error }` handling on the insert so a future schema
+drift fails loud instead of silent, and wired the same best-effort
+`postPaymentRevenue(...).catch()` call used by (152)–(155). Exported the
+previously-unexported `handleMarkPaymentReceived` to test it directly, same
+pattern as the existing `handleProcessStripeRefund` test. 5 new tests
+(`tools.mark-payment-received.test.ts`): insert lands with `amount_cents`
+(not the nonexistent column) and `status: 'completed'`; booking flips to
+paid; revenue posts immediately keyed by the booking; a ledger-posting
+failure (missing chart-of-accounts) doesn't fail the tool call; a
+missing-booking call errors without touching `payments`. `tsc --noEmit`
+clean; ran alongside all three sibling revenue suites ((152)/(154)/(155)),
+15/15 tests green, no regressions.
+
+This closes out the 4-site manual-payment-revenue-gap pattern opened at
+(152): bank-txn match, invoice record-payment, admin confirm-match, and
+now Selena's chat tool all post revenue in real time on the same
+convention.
+
 Reconcile-gate lane (this worker's other standing lane): the tenant-config
 reconcile token env var is still absent this session — skipped cleanly per
 standing rule, no reconcile-gate work this round.
