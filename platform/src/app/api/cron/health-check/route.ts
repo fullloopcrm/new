@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/secret-compare'
+import { toNaiveET } from '@/lib/dates'
 
 export const maxDuration = 120
 
@@ -220,8 +221,12 @@ export async function GET(request: Request) {
   // 5. BOOKINGS WITH STALE STATUS
   // =============================================
   try {
-    // Find bookings that are "in_progress" but end_time was 4+ hours ago
-    const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
+    // Find bookings that are "in_progress" but end_time was 4+ hours ago.
+    // bookings.end_time is a naive-ET TIMESTAMP (no tz) -- compare against a
+    // naive-ET string, not a real-UTC .toISOString() instant, or this
+    // auto-complete write skews by the EST/EDT offset (4-5h) during the
+    // ~8pm-midnight ET window every day.
+    const fourHoursAgo = toNaiveET(new Date(Date.now() - 4 * 60 * 60 * 1000))
     const { data: staleBookings } = await supabaseAdmin
       .from('bookings')
       .select('id, tenant_id')
