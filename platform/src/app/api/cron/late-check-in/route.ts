@@ -6,6 +6,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins } from '@/lib/push'
 import { trackError } from '@/lib/error-tracking'
+import { etToday, formatNaiveET, nowNaiveET } from '@/lib/recurring'
 import {
   smsLateCheckInTeam,
   smsLateCheckInAdmin,
@@ -20,10 +21,17 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
-  const tenMinAgo = new Date(now.getTime() - 10 * 60 * 1000)
+  // fifteen_min_alert_time is genuinely UTC (written via
+  // `new Date().toISOString()`) -- thirtyMinAgo stays a true-UTC cutoff for
+  // that filter only.
   const thirtyMinAgo = new Date(now.getTime() - 30 * 60 * 1000)
-  const todayStart = new Date(now)
-  todayStart.setHours(0, 0, 0, 0)
+  // start_time is naive-ET (see recurring.ts's nowNaiveET header). The old
+  // tenMinAgo/todayStart, built from true-UTC `now`, silently misread the
+  // naive-ET column as UTC -- both the instant-cutoff bug (tenMinAgo, same
+  // class as e380a403) and its day-boundary counterpart (todayStart, same
+  // class already fixed on the main dashboard, 975d7db8).
+  const tenMinAgoET = nowNaiveET(-10 * 60 * 1000)
+  const todayStartET = formatNaiveET(etToday())
 
   let lateCheckIns = 0
   let lateCheckOuts = 0
@@ -52,8 +60,8 @@ export async function GET(request: Request) {
         .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
-        .lte('start_time', tenMinAgo.toISOString())
-        .gte('start_time', todayStart.toISOString())
+        .lte('start_time', tenMinAgoET)
+        .gte('start_time', todayStartET)
         .is('check_in_time', null)
         .limit(100)
 

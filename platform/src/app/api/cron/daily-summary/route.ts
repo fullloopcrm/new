@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { smsDailySummary } from '@/lib/sms-templates'
 import { sendSMS } from '@/lib/sms'
+import { etToday, addCalendarDays, formatNaiveET, parseNaiveET } from '@/lib/recurring'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 
 export const maxDuration = 300 // Vercel pro plan
@@ -17,15 +18,24 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
+  // payment_date is genuinely UTC (written via `new Date().toISOString()`,
+  // like check_in_time/check_out_time) -- today/yesterday stay true-UTC
+  // boundaries for that filter only.
   const today = new Date(now)
   today.setHours(0, 0, 0, 0)
-  const tomorrow = new Date(today)
-  tomorrow.setDate(tomorrow.getDate() + 1)
   const yesterday = new Date(today)
   yesterday.setDate(yesterday.getDate() - 1)
-  const threeDaysEnd = new Date(today)
-  threeDaysEnd.setDate(threeDaysEnd.getDate() + 3)
-  threeDaysEnd.setHours(23, 59, 59, 999)
+
+  // start_time/end_time are naive-ET (see recurring.ts's nowNaiveET header).
+  // The old tomorrow/weekEnd/threeDaysEnd boundaries below (now removed) were
+  // built off `today` (the server's UTC calendar), silently shifting every
+  // day/week cutoff by the ET/UTC gap (4-5h) -- the same bug already fixed on
+  // the main dashboard (975d7db8) and bookings/stats (81be89f6).
+  const etTodayDate = etToday()
+  const startOfDayET = formatNaiveET(etTodayDate)
+  const startOfTomorrowET = formatNaiveET(addCalendarDays(etTodayDate, 1))
+  const endOfWeekET = formatNaiveET(addCalendarDays(etTodayDate, 7))
+  const endOf3DaysOutET = formatNaiveET(addCalendarDays(etTodayDate, 3), 23, 59, 59)
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
@@ -50,8 +60,8 @@ export async function GET(request: Request) {
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', tomorrow.toISOString())
+      .gte('start_time', startOfDayET)
+      .lt('start_time', startOfTomorrowET)
       .not('status', 'eq', 'cancelled')
 
     const { data: paidBookings } = await supabaseAdmin
@@ -65,14 +75,12 @@ export async function GET(request: Request) {
     const yesterdayRevenue = (paidBookings || []).reduce((sum, b) => sum + (b.price || 0), 0)
 
     // Count upcoming week
-    const weekEnd = new Date(today)
-    weekEnd.setDate(weekEnd.getDate() + 7)
     const { count: weekJobs } = await supabaseAdmin
       .from('bookings')
       .select('id', { count: 'exact', head: true })
       .eq('tenant_id', tenantId)
-      .gte('start_time', today.toISOString())
-      .lt('start_time', weekEnd.toISOString())
+      .gte('start_time', startOfDayET)
+      .lt('start_time', endOfWeekET)
       .not('status', 'eq', 'cancelled')
 
     const message = [
@@ -111,8 +119,8 @@ export async function GET(request: Request) {
         .select('id, start_time, end_time, service_type, clients(name, phone, address)')
         .eq('tenant_id', tenantId)
         .eq('team_member_id', member.id)
-        .gte('start_time', tomorrow.toISOString())
-        .lte('start_time', threeDaysEnd.toISOString())
+        .gte('start_time', startOfTomorrowET)
+        .lte('start_time', endOf3DaysOutET)
         .in('status', ['scheduled', 'confirmed', 'pending'])
         .order('start_time')
         .returns<BookingTeamLookahead[]>()
@@ -191,7 +199,10 @@ export async function GET(request: Request) {
 
       if (!latestBooking) continue
 
-      const lastDate = new Date(latestBooking.start_time)
+      // start_time is naive-ET -- new Date() on it silently treats the
+      // wall-clock digits as UTC (same class as nowNaiveET's header bug),
+      // shifting the expiration check's boundary by the ET/UTC gap (4-5h).
+      const lastDate = parseNaiveET(latestBooking.start_time)
       if (lastDate <= thirtyDaysOut && lastDate >= now) {
         const clientName = schedule.clients?.name || 'Unknown'
 
