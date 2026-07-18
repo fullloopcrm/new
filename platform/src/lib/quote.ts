@@ -71,6 +71,33 @@ export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineIt
     })
 }
 
+// Same unbounded-caller-input class as normalizeLineItems above, on the
+// tiers sibling field: quotes/route.ts, quotes/[id]/route.ts, and
+// quote-templates/route.ts all stored body.tiers raw with no cap, and
+// quotes/public/[token]/route.ts serves it straight to the public
+// (unauthenticated) quote page. Each tier's line_items reuses
+// normalizeLineItems so the same per-item caps apply there too.
+const MAX_TIER_LABEL_LENGTH = 200
+const MAX_TIER_NOTE_LENGTH = 2000
+const TIER_KEYS = ['good', 'better', 'best'] as const
+
+export function normalizeTiers(tiers: unknown): Record<string, QuoteTier> | null {
+  if (!tiers || typeof tiers !== 'object') return null
+  const result: Record<string, QuoteTier> = {}
+  for (const key of TIER_KEYS) {
+    const tier = (tiers as Record<string, unknown>)[key]
+    if (!tier || typeof tier !== 'object') continue
+    const t = tier as Partial<QuoteTier> & { line_items?: Partial<QuoteLineItem>[] }
+    result[key] = {
+      label: String(t.label || key).slice(0, MAX_TIER_LABEL_LENGTH),
+      line_items: normalizeLineItems(t.line_items || []),
+      subtotal_cents: Math.round(Number(t.subtotal_cents) || 0),
+      ...(t.note ? { note: String(t.note).slice(0, MAX_TIER_NOTE_LENGTH) } : {}),
+    }
+  }
+  return Object.keys(result).length ? result : null
+}
+
 export function computeTotals(
   lineItems: QuoteLineItem[],
   tax_rate_bps: number,

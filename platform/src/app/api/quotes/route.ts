@@ -7,6 +7,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import {
   normalizeLineItems,
+  normalizeTiers,
   computeTotals,
   generatePublicToken,
   generateQuoteNumber,
@@ -112,7 +113,7 @@ export async function POST(request: Request) {
         contact_phone: body.contact_phone || null,
         service_address: body.service_address || null,
         line_items: lineItems,
-        tiers: body.tiers || null,
+        tiers: normalizeTiers(body.tiers),
         subtotal_cents: totals.subtotal_cents,
         tax_rate_bps,
         tax_cents: totals.tax_cents,

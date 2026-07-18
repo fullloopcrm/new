@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { normalizeLineItems, normalizeTiers } from '@/lib/quote'
 
 export async function GET() {
   try {
@@ -41,8 +42,8 @@ export async function POST(request: Request) {
         industry: body.industry || null,
         title_template: body.title_template || null,
         description: body.description || null,
-        line_items: body.line_items || [],
-        tiers: body.tiers || null,
+        line_items: normalizeLineItems(body.line_items || []),
+        tiers: normalizeTiers(body.tiers),
         terms: body.terms || null,
         default_valid_days: body.default_valid_days || 30,
         default_tax_rate_bps: body.default_tax_rate_bps || 0,

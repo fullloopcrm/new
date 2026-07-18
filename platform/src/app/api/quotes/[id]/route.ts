@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
+import { normalizeLineItems, normalizeTiers, computeTotals, logQuoteEvent } from '@/lib/quote'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -67,6 +67,7 @@ export async function PATCH(request: Request, { params }: Params) {
       'terms', 'notes', 'valid_until', 'client_id', 'tiers',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
+    if ('tiers' in updates) updates.tiers = normalizeTiers(updates.tiers)
 
     // client_id is a caller-supplied FK — GET embeds clients(name/email/phone/
     // address) off this row, so a foreign id would leak another tenant's client

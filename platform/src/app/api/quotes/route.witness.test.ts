@@ -46,6 +46,7 @@ vi.mock('@/lib/tenant-query', () => {
 
 vi.mock('@/lib/quote', () => ({
   normalizeLineItems: (x: unknown[]) => x || [],
+  normalizeTiers: (x: unknown) => x || null,
   computeTotals: () => ({ subtotal_cents: 0, tax_cents: 0, discount_cents: 0, total_cents: 0 }),
   generatePublicToken: () => 'tok-q',
   generateQuoteNumber: async () => 'Q-0001',
