@@ -26,6 +26,7 @@ vi.mock('@/lib/quote', () => ({
   normalizeLineItems: (items: unknown[]) => items,
   computeTotals: () => ({ subtotal_cents: 0, tax_cents: 0, discount_cents: 0, total_cents: 0 }),
   logQuoteEvent: vi.fn(async () => {}),
+  capQuoteTextField: (_key: string, value: unknown) => (value == null || value === '' ? null : String(value)),
 }))
 
 vi.mock('@/lib/supabase', () => {

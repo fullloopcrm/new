@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { normalizeLineItems, capQuoteTextField } from '@/lib/quote'
 
 export async function GET() {
   try {
@@ -37,13 +38,18 @@ export async function POST(request: Request) {
       .from('quote_templates')
       .insert({
         tenant_id: tenantId,
-        name: body.name,
-        industry: body.industry || null,
-        title_template: body.title_template || null,
-        description: body.description || null,
-        line_items: body.line_items || [],
+        // Unlike quotes/route.ts, this route previously inserted body.line_items
+        // raw -- no array-length cap, no per-item field cap, not even the
+        // subtotal recompute normalizeLineItems does. Templates get loaded
+        // into the quote builder as a starting point, so an oversized/garbage
+        // template silently propagates into every quote built from it.
+        name: capQuoteTextField('name', body.name),
+        industry: capQuoteTextField('industry', body.industry),
+        title_template: capQuoteTextField('title_template', body.title_template),
+        description: capQuoteTextField('description', body.description),
+        line_items: normalizeLineItems(body.line_items || []),
         tiers: body.tiers || null,
-        terms: body.terms || null,
+        terms: capQuoteTextField('terms', body.terms),
         default_valid_days: body.default_valid_days || 30,
         default_tax_rate_bps: body.default_tax_rate_bps || 0,
         sort_order: body.sort_order || 0,

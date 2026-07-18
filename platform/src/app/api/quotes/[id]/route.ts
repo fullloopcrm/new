@@ -5,7 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { normalizeLineItems, computeTotals, logQuoteEvent } from '@/lib/quote'
+import { normalizeLineItems, computeTotals, logQuoteEvent, capQuoteTextField } from '@/lib/quote'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -59,11 +59,14 @@ export async function PATCH(request: Request, { params }: Params) {
     }
 
     const updates: Record<string, unknown> = {}
-    const assignables = [
-      'title', 'description',
-      'contact_name', 'contact_email', 'contact_phone', 'service_address',
-      'terms', 'notes', 'valid_until', 'client_id', 'tiers',
+    // Same length caps as create (POST /api/quotes) -- an edit/autosave is an
+    // equally-reachable write path for the uncapped-string class fixed there.
+    const cappedTextFields = [
+      'title', 'description', 'contact_name', 'contact_email', 'contact_phone',
+      'service_address', 'terms', 'notes',
     ] as const
+    for (const k of cappedTextFields) if (k in body) updates[k] = capQuoteTextField(k, body[k])
+    const assignables = ['valid_until', 'client_id', 'tiers'] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 
     // Confirm a reassigned client_id belongs to this tenant -- otherwise a

@@ -5,6 +5,8 @@ import {
   computeTotals,
   formatCents,
   formatBpsAsPct,
+  capQuoteTextField,
+  MAX_LINE_ITEMS,
   type QuoteLineItem,
 } from './quote'
 
@@ -76,6 +78,39 @@ describe('normalizeLineItems', () => {
     expect(item.quantity).toBe(0)
     expect(item.unit_price_cents).toBe(0)
     expect(item.subtotal_cents).toBe(0)
+  })
+
+  it('caps the array at MAX_LINE_ITEMS, dropping the tail instead of storing an unbounded row', () => {
+    const oversized = Array.from({ length: MAX_LINE_ITEMS + 50 }, (_, i) => ({
+      name: `Item ${i}`, quantity: 1, unit_price_cents: 100,
+    }))
+    const out = normalizeLineItems(oversized)
+    expect(out).toHaveLength(MAX_LINE_ITEMS)
+  })
+
+  it('truncates per-item name/description instead of storing them unbounded', () => {
+    const [item] = normalizeLineItems([
+      { name: 'N'.repeat(5000), description: 'D'.repeat(50000), quantity: 1, unit_price_cents: 100 },
+    ])
+    expect(item.name.length).toBe(200)
+    expect(item.description!.length).toBe(2000)
+  })
+})
+
+describe('capQuoteTextField', () => {
+  it('truncates a string to the field cap', () => {
+    expect(capQuoteTextField('title', 'X'.repeat(5000))!.length).toBe(200)
+    expect(capQuoteTextField('notes', 'Y'.repeat(5000))!.length).toBe(2000)
+  })
+
+  it('leaves a short value untouched', () => {
+    expect(capQuoteTextField('title', 'Deep clean')).toBe('Deep clean')
+  })
+
+  it('normalizes null/undefined/empty-string to null', () => {
+    expect(capQuoteTextField('title', null)).toBe(null)
+    expect(capQuoteTextField('title', undefined)).toBe(null)
+    expect(capQuoteTextField('title', '')).toBe(null)
   })
 })
 

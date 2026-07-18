@@ -41,8 +41,19 @@ export function computeLineItemSubtotal(li: Omit<QuoteLineItem, 'subtotal_cents'
   return Math.round(qty * price)
 }
 
+// Neither quote create (POST /api/quotes) nor edit (PATCH /api/quotes/[id])
+// capped line_items array length or per-item string length before this fix —
+// an authenticated sales.edit session could insert e.g. 100k items or
+// megabyte-scale name/description strings into a row rendered on the public
+// (unauthenticated, tokenized) /quote/[token] page. Caps mirror the sibling
+// /api/import-clients hardening (array cap + per-field slice()).
+export const MAX_LINE_ITEMS = 200
+const MAX_ITEM_NAME = 200
+const MAX_ITEM_DESC = 2000
+
 export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineItem[] {
   return (items || [])
+    .slice(0, MAX_LINE_ITEMS)
     .filter(li => li && (li.name || li.quantity))
     .map((li, i) => {
       const quantity = Number(li.quantity) || 0
@@ -50,8 +61,8 @@ export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineIt
       const subtotal_cents = Math.round(quantity * unit_price_cents)
       return {
         id: li.id || `li_${i}_${Date.now()}`,
-        name: String(li.name || 'Item'),
-        description: li.description ? String(li.description) : undefined,
+        name: String(li.name || 'Item').slice(0, MAX_ITEM_NAME),
+        description: li.description ? String(li.description).slice(0, MAX_ITEM_DESC) : undefined,
         quantity,
         unit_price_cents,
         subtotal_cents,
@@ -74,6 +85,28 @@ export function computeTotals(
   const tax = Math.round((taxable * (tax_rate_bps || 0)) / 10000)
   const total = taxable + tax
   return { subtotal_cents: subtotal, tax_cents: tax, discount_cents: discount, total_cents: total }
+}
+
+// Same uncapped-write class as MAX_LINE_ITEMS above, applied to the flat
+// string columns on quotes/quote_templates (title, contact info, terms,
+// notes, ...) — none had a length cap before this fix.
+const QUOTE_TEXT_FIELD_CAPS = {
+  title: 200,
+  industry: 100,
+  description: 2000,
+  contact_name: 200,
+  contact_email: 254,
+  contact_phone: 30,
+  service_address: 500,
+  terms: 10000,
+  notes: 2000,
+  name: 200,
+  title_template: 200,
+} as const
+
+export function capQuoteTextField(key: keyof typeof QUOTE_TEXT_FIELD_CAPS, value: unknown): string | null {
+  if (value == null || value === '') return null
+  return String(value).slice(0, QUOTE_TEXT_FIELD_CAPS[key])
 }
 
 export function generatePublicToken(): string {
