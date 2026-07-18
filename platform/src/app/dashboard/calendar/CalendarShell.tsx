@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, type CSSProperties } from 'react'
-import CalendarBoard from './CalendarBoard'
+import RichMonthView from './RichMonthView'
 import KanbanView from './KanbanView'
 import ProjectsView from './ProjectsView'
 import TimelineView from './TimelineView'
@@ -125,7 +125,7 @@ export default function CalendarShell() {
           .cal-scale .cal-chip-sm { font-size: calc(10px * var(--cal-fs, 1)); }
           .cal-scale .cal-chip-md { font-size: calc(14px * var(--cal-fs, 1)); }
         `}</style>
-        {view === 'month' ? <CalendarBoard /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : view === 'projects' ? <ProjectsView /> : <Scaffold view={active} />}
+        {view === 'month' ? <RichMonthView /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : view === 'projects' ? <ProjectsView /> : <Scaffold view={active} />}
       </div>
     </div>
   )

@@ -3,9 +3,23 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { stageMeta } from '@/lib/pipeline'
+import { CloseoutDetail } from '@/components/closeout-detail'
 
 type Assignee = { id: string; name: string }
-type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
+type Job = {
+  id: string
+  title: string | null
+  status: string
+  total_cents: number
+  service_address: string | null
+  notes: string | null
+  starts_on: string | null
+  ends_on: string | null
+}
+type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; unit: string | null; notes: string | null }
+type Quote = { id: string; quote_number: string | null; deal_id: string | null }
+type Deal = { id: string; title: string; stage: string; value_cents: number }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = {
   id: string
@@ -20,14 +34,27 @@ type Session = {
   assignees: Assignee[]
 }
 type EventRow = { id: string; event_type: string; created_at: string }
+type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
+/** From GET /api/jobs/[id]/budget-variance -- variance is null when the job's quote has no saved Master Budget yet. */
+type BudgetVariance = {
+  variance: { budgeted_total_cents: number; actual_total_cents: number; variance_cents: number; projected_margin_bps: number | null } | null
+}
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
+
+const EXPENSE_CATEGORIES = ['Materials', 'Supplies', 'Equipment rental', 'Fuel', 'Permits', 'Subcontractor', 'Other']
 
 function money(c: number) { return ((c || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) }
 function when(iso: string | null) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
 function dayLabel(iso: string | null) { return iso ? new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' }
 function timeLabel(iso: string | null) { return iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '' }
 function monthKey(iso: string | null) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Unscheduled' }
+/** DATE-only column (no time component) — parse as local, not UTC, to avoid an off-by-one day. */
+function dateOnlyLabel(d: string | null) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 function durationHrs(s: string | null, e: string | null) {
   if (!s || !e) return null
   const h = (new Date(e).getTime() - new Date(s).getTime()) / 3_600_000
@@ -41,7 +68,7 @@ function toLocalInput(iso: string | null) {
 }
 
 const JOB_STATUS_STYLE: Record<string, string> = {
-  scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
+  unscheduled: 'bg-slate-100 text-slate-500', scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-green-50 text-green-600', cancelled: 'bg-slate-100 text-slate-500',
 }
 const SESSION_STATUS_STYLE: Record<string, string> = {
@@ -140,29 +167,52 @@ function SessionEditor({
 export default function JobDetailPage() {
   const id = useParams<{ id: string }>().id
   const [job, setJob] = useState<Job | null>(null)
+  const [client, setClient] = useState<Client | null>(null)
+  const [quote, setQuote] = useState<Quote | null>(null)
+  const [deal, setDeal] = useState<Deal | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [events, setEvents] = useState<EventRow[]>([])
   const [crews, setCrews] = useState<Crew[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
+  const [expenses, setExpenses] = useState<JobExpense[]>([])
+  const [expenseForm, setExpenseForm] = useState({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+  const [expenseFile, setExpenseFile] = useState<File | null>(null)
+  const [uploadingExpense, setUploadingExpense] = useState(false)
+  const [budgetVariance, setBudgetVariance] = useState<BudgetVariance['variance']>(null)
+  const [details, setDetails] = useState({ notes: '', ends_on: '' })
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState<SessionForm>(EMPTY_FORM)
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
-      setJob(d.job || null); setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
+      setJob(d.job || null); setClient(d.client || null); setQuote(d.quote || null); setDeal(d.deal || null)
+      setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+  const loadExpenses = useCallback(() => {
+    fetch(`/api/jobs/${id}/expenses`).then(r => r.json()).then(d => setExpenses(d.expenses || [])).catch(() => {})
+  }, [id])
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadExpenses() }, [loadExpenses])
   useEffect(() => {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
   }, [])
+  useEffect(() => {
+    if (job) setDetails({ notes: job.notes ?? '', ends_on: job.ends_on ?? '' })
+  }, [job])
+  useEffect(() => {
+    // sales.view-gated, and null (not an error) until the job's quote has a
+    // saved Master Budget -- section below hides itself in either case.
+    fetch(`/api/jobs/${id}/budget-variance`).then(r => r.json()).then((d: BudgetVariance) => setBudgetVariance(d.variance || null)).catch(() => {})
+  }, [id])
 
   async function act(label: string, fn: () => Promise<Response>) {
     setBusy(label); setErr('')
@@ -174,8 +224,55 @@ export default function JobDetailPage() {
   const setJobStatus = (status: string) => act(`job-${status}`, () =>
     fetch(`/api/jobs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }))
 
+  const detailsDirty = !!job && (details.notes !== (job.notes ?? '') || details.ends_on !== (job.ends_on ?? ''))
+  const saveDetails = () => act('save-details', () =>
+    fetch(`/api/jobs/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: details.notes.trim() || null, ends_on: details.ends_on || null }),
+    }))
+
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
+
+  async function addExpense() {
+    const amount = Number(expenseForm.amount)
+    if (!amount || amount <= 0) { setErr('Enter a valid amount'); return }
+    setUploadingExpense(true); setErr('')
+    try {
+      let receiptUrl: string | null = null
+      if (expenseFile) {
+        const fd = new FormData()
+        fd.set('file', expenseFile)
+        fd.set('folder', 'job-receipts')
+        const upRes = await fetch('/api/uploads', { method: 'POST', body: fd })
+        const upData = await upRes.json()
+        if (!upRes.ok) throw new Error(upData.error || 'Receipt upload failed')
+        receiptUrl = upData.url
+      }
+      const res = await fetch(`/api/jobs/${id}/expenses`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: expenseForm.category,
+          amount,
+          vendor_name: expenseForm.vendor.trim() || null,
+          description: expenseForm.note.trim() || null,
+          receipt_url: receiptUrl,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to add receipt')
+      setExpenseForm({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+      setExpenseFile(null)
+      loadExpenses()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to add receipt')
+    } finally {
+      setUploadingExpense(false)
+    }
+  }
+
+  const deleteExpense = (expenseId: string) => act(`del-expense-${expenseId}`, () =>
+    fetch(`/api/jobs/${id}/expenses/${expenseId}`, { method: 'DELETE' })).then((ok) => { if (ok) loadExpenses() })
 
   /** Assemble a session-write body from the shared form. */
   function formBody(f: SessionForm) {
@@ -206,13 +303,31 @@ export default function JobDetailPage() {
 
   const beginEdit = (s: Session) => { setAdding(false); setEditingId(s.id); setForm(formFromSession(s)) }
   const beginAdd = () => { setEditingId(null); setForm({ ...EMPTY_FORM, service: job?.title ?? '' }); setAdding(true) }
+  const toggleDetail = (sessionId: string) => setExpandedSessions((prev) => {
+    const next = new Set(prev)
+    if (next.has(sessionId)) next.delete(sessionId); else next.add(sessionId)
+    return next
+  })
 
   if (loading) return <div className="p-8 text-slate-400 text-sm">Loading…</div>
   if (!job) return <div className="p-8 text-slate-500 text-sm">Job not found.</div>
 
   const paidCents = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_cents, 0)
+  const owedCents = Math.max(0, job.total_cents - paidCents)
+  const costCents = expenses.reduce((s, e) => s + e.amount, 0)
+  const marginCents = paidCents - costCents
   const doneCount = sessions.filter(s => s.status === 'completed').length
   const pct = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
+
+  // Everyone who has touched this job: direct session assignees + members of any
+  // crew ever scheduled on it. Derived from sessions/crews already loaded — the
+  // data model has no separate "who worked on this job" table.
+  const crewById = new Map(crews.map(c => [c.id, c]))
+  const workedOn = new Map<string, string>()
+  for (const s of sessions) {
+    for (const a of s.assignees) workedOn.set(a.id, a.name)
+    if (s.crew_id) crewById.get(s.crew_id)?.members.forEach(m => workedOn.set(m.id, m.name))
+  }
 
   // Sessions arrive sorted by start_time asc → group into months preserving order.
   const groups: { month: string; items: Session[] }[] = []
@@ -224,19 +339,41 @@ export default function JobDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div>
       <Link href="/dashboard/bookings" className="text-xs text-slate-500 hover:underline">← Schedule</Link>
       <div className="flex items-start justify-between flex-wrap gap-3 mt-1 mb-5">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-bold text-slate-900">{job.title || 'Job'}</h1>
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
+            {sessions.length > 0 && <span className="text-xs text-slate-400">{pct}% complete</span>}
           </div>
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
+          {(job.starts_on || job.ends_on) && (
+            <p className="text-xs text-slate-400 mt-1">
+              {job.starts_on ? dateOnlyLabel(job.starts_on) : 'Unscheduled'}
+              {job.ends_on ? ` → est. completion ${dateOnlyLabel(job.ends_on)}` : ''}
+            </p>
+          )}
         </div>
-        <div className="text-right">
-          <p className="text-2xl font-bold text-slate-900">{money(job.total_cents)}</p>
-          <p className="text-xs text-slate-400">{money(paidCents)} collected</p>
+      </div>
+
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+        <div className="p-4 rounded-xl border border-slate-200 bg-white">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Total</p>
+          <p className="text-2xl font-bold mt-1 text-slate-900">{money(job.total_cents)}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-200 bg-white">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Collected</p>
+          <p className="text-2xl font-bold mt-1 text-green-600">{money(paidCents)}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-200 bg-white">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">Owed</p>
+          <p className="text-2xl font-bold mt-1 text-amber-600">{money(owedCents)}</p>
+        </div>
+        <div className="p-4 rounded-xl border border-slate-200 bg-white">
+          <p className="text-xs text-slate-500 uppercase tracking-wide">% Complete</p>
+          <p className="text-2xl font-bold mt-1 text-slate-900">{sessions.length > 0 ? `${pct}%` : '—'}</p>
         </div>
       </div>
 
@@ -247,9 +384,35 @@ export default function JobDetailPage() {
         {job.status !== 'completed' && job.status !== 'cancelled' && <button onClick={() => setJobStatus('completed')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Mark complete</button>}
       </div>
 
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 min-w-0">
+
+      {/* Details */}
+      <section className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Details</h2>
+        <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+          <label className="flex flex-col gap-1 max-w-[220px]">
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">Estimated completion date</span>
+            <input type="date" value={details.ends_on} onChange={(e) => setDetails({ ...details, ends_on: e.target.value })}
+              className="px-2 py-1 text-xs rounded border border-slate-300 bg-white" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">Job notes</span>
+            <textarea value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} rows={4}
+              placeholder="Add job notes…" className="px-2 py-1.5 text-xs rounded border border-slate-300 bg-white resize-y w-full" />
+          </label>
+          {detailsDirty && (
+            <button onClick={saveDetails} disabled={busy === 'save-details'}
+              className="px-3 py-1 text-xs font-medium rounded bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50">
+              {busy === 'save-details' ? 'Saving…' : 'Save details'}
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Payment plan */}
       <section className="mb-6">
-        <h2 className="text-sm font-semibold text-slate-800 mb-2">Payment plan</h2>
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Payments</h2>
         <div className="space-y-1.5">
           {payments.map(p => (
             <div key={p.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white">
@@ -266,6 +429,95 @@ export default function JobDetailPage() {
             </div>
           ))}
           {payments.length === 0 && <p className="text-sm text-slate-400">No payments.</p>}
+        </div>
+      </section>
+
+      {/* Costs & receipts */}
+      <section className="mb-6">
+        <div className="flex items-center justify-between mb-2">
+          <h2 className="text-sm font-semibold text-slate-800">Costs & receipts</h2>
+          <span className="text-sm font-medium text-slate-900">{money(costCents)}</span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-3">
+          <div className="p-2 rounded-lg border border-slate-200 bg-white">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Collected</p>
+            <p className="text-sm font-semibold text-green-600">{money(paidCents)}</p>
+          </div>
+          <div className="p-2 rounded-lg border border-slate-200 bg-white">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Actual cost</p>
+            <p className="text-sm font-semibold text-red-600">{money(costCents)}</p>
+          </div>
+          <div className="p-2 rounded-lg border border-slate-200 bg-white">
+            <p className="text-[10px] uppercase tracking-wide text-slate-400">Margin</p>
+            <p className={`text-sm font-semibold ${marginCents >= 0 ? 'text-slate-900' : 'text-red-600'}`}>{money(marginCents)}</p>
+          </div>
+          {budgetVariance && (
+            <div className="p-2 rounded-lg border border-slate-200 bg-white">
+              <p className="text-[10px] uppercase tracking-wide text-slate-400">{budgetVariance.budgeted_total_cents - costCents < 0 ? 'Over budget' : 'Remaining'}</p>
+              <p className={`text-sm font-semibold ${budgetVariance.budgeted_total_cents - costCents < 0 ? 'text-red-600' : 'text-slate-900'}`}>
+                {money(Math.abs(budgetVariance.budgeted_total_cents - costCents))}
+              </p>
+            </div>
+          )}
+        </div>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 mb-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Vendor</span>
+              <input type="text" value={expenseForm.vendor} onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+                placeholder="e.g. Home Depot" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Amount</span>
+              <input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                placeholder="0.00" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-24" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Category</span>
+              <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                className="px-2 py-1 text-xs rounded border border-slate-300 bg-white">
+                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Receipt photo</span>
+              <label className="inline-flex items-center px-2 py-1 text-xs rounded border border-slate-300 bg-white text-slate-600 cursor-pointer hover:bg-slate-50 w-fit">
+                {expenseFile ? expenseFile.name.slice(0, 18) : 'Choose photo'}
+                <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                  onChange={(e) => setExpenseFile(e.target.files?.[0] ?? null)}
+                  className="hidden" />
+              </label>
+            </label>
+            <label className="flex flex-col gap-1 flex-1 min-w-[140px]">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Note (optional)</span>
+              <input type="text" value={expenseForm.note} onChange={(e) => setExpenseForm({ ...expenseForm, note: e.target.value })}
+                className="px-2 py-1 text-xs rounded border border-slate-300 bg-white" />
+            </label>
+          </div>
+          <button onClick={addExpense} disabled={uploadingExpense}
+            className="px-3 py-1 text-xs font-medium rounded bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50">
+            {uploadingExpense ? 'Adding…' : '+ Add receipt'}
+          </button>
+        </div>
+
+        <div className="space-y-1.5">
+          {expenses.map((e) => (
+            <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white">
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{e.category}</span>
+              <span className="flex-1 min-w-0">
+                <span className="text-sm text-slate-700">{e.vendor_name || 'Receipt'}</span>
+                {e.description && <span className="ml-2 text-[11px] text-slate-400">{e.description}</span>}
+                {e.receipt_url && <a href={e.receipt_url} target="_blank" rel="noreferrer" className="ml-2 text-[11px] text-blue-600 hover:underline">view</a>}
+              </span>
+              <span className="text-[11px] text-slate-400">{dayLabel(e.date)}</span>
+              <span className="text-sm font-medium text-slate-900 w-20 text-right">{money(e.amount)}</span>
+              <button onClick={() => deleteExpense(e.id)} disabled={busy === `del-expense-${e.id}`} title="Remove"
+                className="text-[11px] px-1.5 py-1 rounded border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 disabled:opacity-50">✕</button>
+            </div>
+          ))}
+          {expenses.length === 0 && <p className="text-sm text-slate-400">No receipts logged.</p>}
         </div>
       </section>
 
@@ -305,6 +557,7 @@ export default function JobDetailPage() {
                 {g.items.map((s) => {
                   const dur = durationHrs(s.start_time, s.end_time)
                   const isEditing = editingId === s.id
+                  const isDetailOpen = expandedSessions.has(s.id)
                   const done = s.status === 'completed'
                   return (
                     <div key={s.id} className="relative">
@@ -330,6 +583,10 @@ export default function JobDetailPage() {
                           </div>
                           {!isEditing && (
                             <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => toggleDetail(s.id)} title="Time, bill, payments & payouts for this visit"
+                                className={`text-[11px] px-2 py-1 rounded border ${isDetailOpen ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                                {isDetailOpen ? 'Hide' : 'Details'}
+                              </button>
                               {!done && <button onClick={() => completeSession(s.id)} disabled={busy === `complete-${s.id}`} title="Mark visit complete"
                                 className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Done</button>}
                               <button onClick={() => beginEdit(s)} title="Move / reassign"
@@ -343,6 +600,11 @@ export default function JobDetailPage() {
                           <div className="px-2.5 pb-2.5">
                             <SessionEditor form={form} setForm={setForm} crews={crews} team={team}
                               onSave={() => saveEdit(s.id)} onCancel={() => setEditingId(null)} saving={busy === `edit-${s.id}`} saveLabel="Save visit" />
+                          </div>
+                        )}
+                        {isDetailOpen && (
+                          <div className="px-2.5 pb-2.5">
+                            <CloseoutDetail bookingId={s.id} onAnyChange={load} />
                           </div>
                         )}
                       </div>
@@ -368,6 +630,87 @@ export default function JobDetailPage() {
           {events.length === 0 && <li className="text-sm text-slate-400">No activity yet.</li>}
         </ul>
       </section>
+
+      </div>
+
+      {/* Sidebar */}
+      <div className="space-y-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Client</h2>
+          {client ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-800">{client.name}</p>
+              {client.phone && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500">{client.phone}</span>
+                  <a href={`tel:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
+                  <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                </div>
+              )}
+              {client.email && <p className="text-sm text-slate-500 break-all">{client.email}</p>}
+              {(client.address || client.unit) && (
+                <p className="text-sm text-slate-500">{[client.address, client.unit].filter(Boolean).join(', ')}</p>
+              )}
+              {client.notes && <p className="text-xs text-slate-400 pt-1 border-t border-slate-100 mt-2">{client.notes}</p>}
+              <Link href={`/dashboard/clients/${client.id}`} className="text-xs text-blue-600 hover:underline inline-block pt-1">View client →</Link>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No client on this job.</p>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Source lead</h2>
+          {deal ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-slate-800">{deal.title}</p>
+              <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded font-medium ${stageMeta(deal.stage).color}`}>{stageMeta(deal.stage).label}</span>
+              {quote?.quote_number && <p className="text-xs text-slate-400">Quote {quote.quote_number}</p>}
+              <Link href={`/dashboard/sales/pipeline/${deal.id}`} className="text-xs text-blue-600 hover:underline inline-block pt-1">View deal →</Link>
+            </div>
+          ) : quote ? (
+            <div className="space-y-1.5">
+              <p className="text-sm text-slate-500">Converted from quote{quote.quote_number ? ` ${quote.quote_number}` : ''}, not linked to a pipeline deal.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Not created from a lead or quote.</p>
+          )}
+        </section>
+
+        {budgetVariance && (
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-slate-800 mb-3">Budget vs. actual</h2>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">Budgeted</span><span className="text-slate-800">{money(budgetVariance.budgeted_total_cents)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Actual (Master Budget)</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Receipts logged</span><span className="text-slate-800">{money(costCents)}</span></div>
+              <div className="flex justify-between pt-1.5 border-t border-slate-100">
+                <span className="text-slate-500">Variance</span>
+                <span className={`font-medium ${budgetVariance.variance_cents < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {budgetVariance.variance_cents < 0 ? 'Over by ' : 'Under by '}{money(Math.abs(budgetVariance.variance_cents))}
+                </span>
+              </div>
+              {budgetVariance.projected_margin_bps !== null && (
+                <div className="flex justify-between"><span className="text-slate-500">Projected margin</span><span className="text-slate-800">{(budgetVariance.projected_margin_bps / 100).toFixed(1)}%</span></div>
+              )}
+            </div>
+          </section>
+        )}
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Team on this job</h2>
+          {workedOn.size > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {[...workedOn.entries()].map(([wid, name]) => (
+                <span key={wid} className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{name}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No one assigned yet.</p>
+          )}
+        </section>
+      </div>
+      </div>
     </div>
   )
 }

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import './schedule.css'
 import BookingsAdmin from './BookingsAdmin'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 const TEAM_COLORS = [
   'var(--sched-team-1)', 'var(--sched-team-2)', 'var(--sched-team-3)',
@@ -16,7 +17,7 @@ const TABS: Array<{ key: Tab; letter: string; label: string }> = [
   { key: 'calendar', letter: 'A', label: 'Calendar' },
   { key: 'bookings', letter: 'B', label: 'Bookings' },
   { key: 'map', letter: 'C', label: 'Map' },
-  { key: 'cleaner', letter: 'D', label: 'By Cleaner' },
+  { key: 'cleaner', letter: 'D', label: 'By Team' },
   { key: 'capacity', letter: 'E', label: 'Capacity' },
 ]
 
@@ -101,6 +102,8 @@ function monthLabel(month: string): { name: string; year: string } {
 
 export default function SchedulePage() {
   const worker = useWorkerLabel()
+  const { tenant } = useTenantSettings()
+  const agentName = (tenant?.agent_name as string) || 'Selena'
   const [data, setData] = useState<CalendarData | null>(null)
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState<Tab>('bookings')
@@ -240,7 +243,7 @@ export default function SchedulePage() {
 
       {/* SELENA QUERY */}
       <div className="sched-selena-query">
-        <span className="sched-selena-query-icon">Selena · Schedule</span>
+        <span className="sched-selena-query-icon">{agentName} · Schedule</span>
         <input className="sched-selena-query-input" placeholder="find me a 3hr deep clean slot in UWS this week with Jeff…" />
         <span className="sched-selena-suggest-pill">Reassign overloaded</span>
         <span className="sched-selena-suggest-pill">Fill idle days</span>

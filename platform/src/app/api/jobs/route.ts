@@ -36,7 +36,7 @@ export async function GET() {
 
     const { data: jobs, error } = await db
       .from('jobs')
-      .select('id, title, status, total_cents, created_at, client_id, clients(name), job_payments(amount_cents, status, due_at)')
+      .select('id, title, status, total_cents, created_at, ends_on, client_id, clients(name), job_payments(amount_cents, status, due_at), bookings(status)')
       .order('created_at', { ascending: false })
       .limit(500)
     if (error) {
@@ -48,12 +48,18 @@ export async function GET() {
       const payments = (j.job_payments as PaymentRow[]) ?? []
       const money = rollup(payments, nowIso)
       const client = j.clients as { name?: string } | null
+      const sessions = (j.bookings as { status: string }[]) ?? []
+      const doneCount = sessions.filter((s) => s.status === 'completed').length
+      const pctComplete = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
       return {
         id: j.id as string,
         title: (j.title as string) || 'Job',
         status: j.status as string,
         client_name: client?.name ?? null,
         created_at: j.created_at as string,
+        ends_on: (j.ends_on as string) || null,
+        pct_complete: pctComplete,
+        session_count: sessions.length,
         ...money,
       }
     })
