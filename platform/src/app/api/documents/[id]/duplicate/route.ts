@@ -46,14 +46,34 @@ export async function POST(_request: Request, { params }: Params) {
       .single()
     if (dErr) throw dErr
 
-    // Copy storage object
+    // Copy storage object. A failed download/upload used to be silently
+    // ignored -- original_path still got pointed at newPath with nothing
+    // actually stored there, so the route returned 200 as if the duplicate
+    // fully succeeded. The break only surfaced later, as a confusing 500
+    // from POST /api/documents/[id]/send ("Unable to read original PDF").
+    // No signers/fields exist yet at this point, so a clean rollback is
+    // just deleting the draft row.
     const newPath = documentOriginalPath(tenantId, newDoc.id)
-    const { data: blob } = await supabaseAdmin.storage.from(DOCUMENTS_BUCKET).download(src.original_path)
-    if (blob) {
-      const arrayBuf = await blob.arrayBuffer()
-      await supabaseAdmin.storage
-        .from(DOCUMENTS_BUCKET)
-        .upload(newPath, new Uint8Array(arrayBuf), { contentType: 'application/pdf', upsert: true })
+    const { data: blob, error: dlErr } = await supabaseAdmin.storage
+      .from(DOCUMENTS_BUCKET)
+      .download(src.original_path)
+    if (dlErr || !blob) {
+      await supabaseAdmin.from('documents').delete().eq('id', newDoc.id)
+      return NextResponse.json(
+        { error: `Unable to copy original PDF: ${dlErr?.message || 'source file missing'}` },
+        { status: 500 }
+      )
+    }
+    const arrayBuf = await blob.arrayBuffer()
+    const { error: upErr } = await supabaseAdmin.storage
+      .from(DOCUMENTS_BUCKET)
+      .upload(newPath, new Uint8Array(arrayBuf), { contentType: 'application/pdf', upsert: true })
+    if (upErr) {
+      await supabaseAdmin.from('documents').delete().eq('id', newDoc.id)
+      return NextResponse.json(
+        { error: `Unable to store duplicated PDF: ${upErr.message}` },
+        { status: 500 }
+      )
     }
     await supabaseAdmin.from('documents').update({ original_path: newPath }).eq('id', newDoc.id)
 
