@@ -673,4 +673,17 @@ body {
   box-shadow: 0 6px 22px rgba(0,0,0,.22); opacity: 0; visibility: hidden;
   transition: opacity .12s ease; z-index: 60; pointer-events: none; text-align: left;
 }
+
+/* Leaflet maps (ClientsMap, DashboardMap/JobsMap, TeamJobsMap, CoverageMap,
+   TeamCoverageMap) — leaflet.js sets `position: relative` on .leaflet-container
+   inline but never sets a z-index, so the container never becomes a CSS
+   stacking-context root. Its internal panes/controls (.leaflet-popup-pane:700,
+   .leaflet-top/.leaflet-bottom controls:1000 — see node_modules/leaflet/dist/
+   leaflet.css) then stack against the nearest ACTUAL stacking-context ancestor,
+   which on dashboard pages is the document root. That lets map controls/popups
+   render on top of fixed-position UI with far lower z-index (e.g. the client
+   drawer's z-index:60), producing the map-bleeds-through-the-slide-over bug.
+   Giving the container an explicit z-index contains all of Leaflet's internal
+   layers inside it for good. */
+.leaflet-container { z-index: 0; }
 .help-tip:hover .help-bubble, .help-tip:focus .help-bubble { opacity: 1; visibility: visible; }
