@@ -96,7 +96,7 @@ export default function SalesAppsTab({ onPendingCount }: { onPendingCount?: (n: 
     <div key={app.id} style={{ border: '1px solid var(--line, #e5e7eb)', borderRadius: 12, padding: 16, background: '#fff', marginBottom: 12 }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, flexWrap: 'wrap' }}>
         <div>
-          <div style={{ fontWeight: 700, color: 'var(--ink, #1E2A4A)', fontSize: 15 }}>{app.name}</div>
+          <div style={{ fontWeight: 700, color: 'var(--ink, var(--tm-ink))', fontSize: 15 }}>{app.name}</div>
           <div style={{ fontSize: 12, color: 'var(--muted, #6b7280)' }}>
             {app.location || '—'} · applied {timeAgo(app.created_at)}
             {app.status !== 'pending' && ` · ${app.status}`}
@@ -104,7 +104,7 @@ export default function SalesAppsTab({ onPendingCount }: { onPendingCount?: (n: 
         </div>
         {app.video_url && (
           <a href={app.video_url} target="_blank" rel="noopener noreferrer"
-            style={{ alignSelf: 'flex-start', background: '#1E2A4A', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, textDecoration: 'none' }}>
+            style={{ alignSelf: 'flex-start', background: 'var(--tm-ink)', color: '#fff', fontSize: 12, fontWeight: 600, padding: '6px 12px', borderRadius: 8, textDecoration: 'none' }}>
             ▶ Watch Selfie Video
           </a>
         )}
@@ -122,7 +122,7 @@ export default function SalesAppsTab({ onPendingCount }: { onPendingCount?: (n: 
       {app.target_segments && app.target_segments.length > 0 && (
         <div style={{ marginTop: 8, display: 'flex', flexWrap: 'wrap', gap: 6 }}>
           {app.target_segments.map((s) => (
-            <span key={s} style={{ fontSize: 11, background: '#A8F0DC33', color: '#1E2A4A', padding: '3px 8px', borderRadius: 999 }}>{s}</span>
+            <span key={s} style={{ fontSize: 11, background: '#A8F0DC33', color: 'var(--tm-ink)', padding: '3px 8px', borderRadius: 999 }}>{s}</span>
           ))}
         </div>
       )}

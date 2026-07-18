@@ -470,6 +470,7 @@
 }
 .sched-status-chip:hover { color: var(--sched-ink); border-color: var(--sched-ink); }
 .sched-status-chip.active { background: var(--sched-ink); color: var(--sched-canvas); border-color: var(--sched-ink); }
+.sched-status-chip.active .sched-tab-count { background: rgba(255,255,255,0.2); color: var(--sched-canvas); }
 .sched-status-chip-dot { width: 5px; height: 5px; border-radius: 50%; }
 .sched-status-chip.pending .sched-status-chip-dot { background: var(--sched-danger); }
 .sched-status-chip.scheduled .sched-status-chip-dot { background: var(--sched-muted-2); }
