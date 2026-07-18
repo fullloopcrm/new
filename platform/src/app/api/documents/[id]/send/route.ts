@@ -11,6 +11,7 @@ import { sendEmail, tenantSender } from '@/lib/email'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { DOCUMENTS_BUCKET, isEditableStatus, logDocEvent, sha256Hex } from '@/lib/documents'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -72,12 +73,13 @@ export async function POST(_request: Request, { params }: Params) {
     // Look up tenant for sending
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+      .select('name, slug, domain, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, email_from')
       .eq('id', tenantId)
       .single()
 
     const baseUrl = await tenantSiteUrl({ id: tenantId, domain: tenant?.domain ?? null, slug: tenant?.slug ?? null })
-    const telnyxKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    const telnyxKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
     const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
     const fromEmail = tenantSender(tenant)
 
@@ -111,11 +113,11 @@ export async function POST(_request: Request, { params }: Params) {
         }
       }
 
-      if (s.phone && telnyxKey && tenant?.telnyx_phone) {
+      if (s.phone && telnyxKey && smsCreds.phone) {
         try {
           const firstName = (s.name || '').split(' ')[0] || 'there'
-          const smsBody = `Hi ${firstName}, ${tenant.name} is requesting your signature on "${doc.title}": ${signUrl}`
-          await sendSMS({ to: s.phone, body: smsBody, telnyxApiKey: telnyxKey, telnyxPhone: tenant.telnyx_phone })
+          const smsBody = `Hi ${firstName}, ${tenant?.name} is requesting your signature on "${doc.title}": ${signUrl}`
+          await sendSMS({ to: s.phone, body: smsBody, telnyxApiKey: telnyxKey, telnyxPhone: smsCreds.phone })
           r.sms = { ok: true }
         } catch (e) {
           r.sms = { ok: false, detail: e instanceof Error ? e.message : 'failed' }

@@ -11,6 +11,7 @@ import { logQuoteEvent, formatCents } from '@/lib/quote'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { emailShell, smsFormat, type CommsBrand } from '@/lib/messaging/shell'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -36,7 +37,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, resend_api_key, email_from, selena_config')
+      .select('name, slug, domain, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, email_from, selena_config')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant config missing' }, { status: 500 })
@@ -95,8 +96,9 @@ export async function POST(request: Request, { params }: Params) {
     // ── SMS ──
     if ((via === 'sms' || via === 'both') && toPhone) {
       try {
-        const apiKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-        const phoneFrom = tenant.telnyx_phone || ''
+        const smsCreds = resolveTenantSmsCredentials(tenant)
+        const apiKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
+        const phoneFrom = smsCreds.phone || ''
         if (!apiKey || !phoneFrom) throw new Error('No Telnyx credentials configured for tenant')
         const firstName = (quote.contact_name || '').split(' ')[0] || 'there'
         const smsBody = smsFormat(brand, `Hi ${firstName}, your proposal for ${formatCents(quote.total_cents)} is ready — review, sign & pay here: ${quoteUrl}`)

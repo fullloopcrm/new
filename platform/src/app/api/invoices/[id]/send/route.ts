@@ -10,6 +10,7 @@ import { sendEmail, tenantSender } from '@/lib/email'
 import { logInvoiceEvent, formatInvoiceCents } from '@/lib/invoice'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -35,7 +36,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, slug, domain, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+      .select('name, slug, domain, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, email_from')
       .eq('id', tenantId)
       .single()
     if (!tenant) return NextResponse.json({ error: 'Tenant config missing' }, { status: 500 })
@@ -80,8 +81,9 @@ export async function POST(request: Request, { params }: Params) {
 
     if ((via === 'sms' || via === 'both') && toPhone) {
       try {
-        const apiKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-        const phoneFrom = tenant.telnyx_phone || ''
+        const smsCreds = resolveTenantSmsCredentials(tenant)
+        const apiKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
+        const phoneFrom = smsCreds.phone || ''
         if (!apiKey || !phoneFrom) throw new Error('No Telnyx credentials for tenant')
         const firstName = (invoice.contact_name || '').split(' ')[0] || 'there'
         const smsBody = `Hi ${firstName}, your invoice from ${tenant.name} for ${formatInvoiceCents(amountOwed)}: ${invoiceUrl}`

@@ -5,6 +5,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
+import { resolveTenantSmsCredentials, hasTenantSms } from '@/lib/sms-credentials'
 
 export async function POST(
   _request: Request,
@@ -66,7 +67,8 @@ export async function POST(
     if (sendEmails && !hasEmail) {
       return NextResponse.json({ error: 'Email not configured. Add Resend API key in Settings.' }, { status: 400 })
     }
-    if (sendSMSMessages && (!tenant.telnyx_api_key || !tenant.telnyx_phone)) {
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (sendSMSMessages && !hasTenantSms(tenant)) {
       return NextResponse.json({ error: 'SMS not configured. Add Telnyx keys in Settings.' }, { status: 400 })
     }
 
@@ -114,8 +116,8 @@ export async function POST(
           await sendSMS({
             to: client.phone,
             body: personalizedBody,
-            telnyxApiKey: tenant.telnyx_api_key!,
-            telnyxPhone: tenant.telnyx_phone!,
+            telnyxApiKey: smsCreds.apiKey!,
+            telnyxPhone: smsCreds.phone!,
           })
           sentCount++
         } catch (e) {

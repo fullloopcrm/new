@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,11 +21,12 @@ export async function POST(req: NextRequest) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('telnyx_api_key, telnyx_phone')
+      .select('telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
 
-    if (!tenant?.telnyx_api_key || !tenant.telnyx_phone) {
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (!smsCreds.apiKey || !smsCreds.phone) {
       return NextResponse.json({ error: 'Tenant has no Telnyx configured' }, { status: 400 })
     }
 
@@ -32,8 +34,8 @@ export async function POST(req: NextRequest) {
       await sendSMS({
         to: String(to),
         body: String(message),
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: smsCreds.apiKey,
+        telnyxPhone: smsCreds.phone,
       })
       return NextResponse.json({ success: true })
     } catch (smsErr) {

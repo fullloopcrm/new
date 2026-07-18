@@ -18,6 +18,7 @@ import { sendEmail, tenantSender } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { tenantSiteUrl } from '@/lib/tenant-site'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -67,7 +68,7 @@ export async function POST(request: Request, { params }: Params) {
 
     const { data: doc } = await supabaseAdmin
       .from('documents')
-      .select('*, tenants(name, domain, slug, telnyx_api_key, telnyx_phone, resend_api_key, email_from)')
+      .select('*, tenants(name, domain, slug, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, email_from)')
       .eq('id', signer.document_id)
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
@@ -453,7 +454,7 @@ function wrapText(text: string, font: import('pdf-lib').PDFFont, size: number, m
 // ─── notify next signer (sequential flow) ──────────────────────────────
 
 async function sendSigningInviteToSigner(
-  doc: { id: string; tenant_id: string; title: string; message: string | null; tenants: { name: string; domain: string | null; slug: string | null; telnyx_api_key: string | null; telnyx_phone: string | null; resend_api_key: string | null; email_from: string | null } | null },
+  doc: { id: string; tenant_id: string; title: string; message: string | null; tenants: { name: string; domain: string | null; slug: string | null; telnyx_api_key: string | null; telnyx_phone: string | null; sms_number: string | null; resend_api_key: string | null; email_from: string | null } | null },
   next: { id: string; name: string; email: string | null; phone: string | null },
 ) {
   const tenant = doc.tenants
@@ -467,7 +468,8 @@ async function sendSigningInviteToSigner(
   if (!tokenRow) return
   const signUrl = `${baseUrl}/sign/${tokenRow.public_token}`
 
-  const telnyxKey = tenant.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
+  const smsCreds = resolveTenantSmsCredentials(tenant)
+  const telnyxKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
   const resendKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
   const fromEmail = tenantSender(tenant)
 
@@ -482,13 +484,13 @@ async function sendSigningInviteToSigner(
       })
     } catch { /* noop */ }
   }
-  if (next.phone && telnyxKey && tenant.telnyx_phone) {
+  if (next.phone && telnyxKey && smsCreds.phone) {
     try {
       await sendSMS({
         to: next.phone,
         body: `${tenant.name}: you're up on "${doc.title}": ${signUrl}`,
         telnyxApiKey: telnyxKey,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxPhone: smsCreds.phone,
       })
     } catch { /* noop */ }
   }

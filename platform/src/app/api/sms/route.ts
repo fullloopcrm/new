@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // GET /api/sms
 // ?conversation_id=X  → messages for that conversation
@@ -156,11 +157,12 @@ export async function POST(request: NextRequest) {
     try {
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
-        .select('telnyx_api_key, telnyx_phone')
+        .select('telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
 
-      if (tenant?.telnyx_api_key && tenant?.telnyx_phone) {
+      const smsCreds = resolveTenantSmsCredentials(tenant)
+      if (smsCreds.apiKey && smsCreds.phone) {
         // Get client phone number
         const { data: client } = await db
           .from('clients')
@@ -173,8 +175,8 @@ export async function POST(request: NextRequest) {
           await sendSMS({
             to: client.phone,
             body: message,
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
           sent = true
         }

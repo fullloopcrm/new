@@ -4,6 +4,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
+import { hasTenantSms } from '@/lib/sms-credentials'
 
 export const maxDuration = 300
 
@@ -80,12 +81,12 @@ export async function POST(request: Request) {
     // Check if required integrations are configured
     const { data: tenantConfig } = await supabaseAdmin
       .from('tenants')
-      .select('resend_api_key, telnyx_api_key, telnyx_phone')
+      .select('resend_api_key, telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
 
     const hasEmail = !!(tenantConfig?.resend_api_key || (process.env.RESEND_API_KEY && process.env.RESEND_API_KEY !== 'placeholder'))
-    const hasSMS = !!(tenantConfig?.telnyx_api_key && tenantConfig?.telnyx_phone)
+    const hasSMS = hasTenantSms(tenantConfig)
 
     if (sendEmail && !hasEmail) {
       await db.from('campaigns').update({ status: 'draft' }).eq('id', campaign_id)
