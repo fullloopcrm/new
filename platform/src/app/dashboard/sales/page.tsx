@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useMemo, useState, Suspense } from 'react'
+import { useEffect, useMemo, useRef, useState, Suspense } from 'react'
 import { useSearchParams } from 'next/navigation'
 import './sales.css'
 import CalendarShell from '../calendar/CalendarShell'
@@ -129,6 +129,66 @@ const ACT_ICON: Record<string, string> = {
   note: '📝', call: '📞', text: '💬', email: '✉️',
   stage_change: '↗', follow_up_set: '⏰', quote_sent: '📄',
   auto_created: '✨',
+}
+
+interface StageDropdownProps {
+  stage: string
+  onSelect: (stage: string) => void
+}
+// Custom-styled replacement for a native <select> — same trigger/position, no OS chrome.
+function StageDropdown({ stage, onSelect }: StageDropdownProps) {
+  const [open, setOpen] = useState(false)
+  const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    if (!open) return
+    function onDocMouseDown(e: MouseEvent) {
+      if (rootRef.current && !rootRef.current.contains(e.target as Node)) setOpen(false)
+    }
+    function onKeyDown(e: KeyboardEvent) {
+      if (e.key === 'Escape') setOpen(false)
+    }
+    document.addEventListener('mousedown', onDocMouseDown)
+    document.addEventListener('keydown', onKeyDown)
+    return () => {
+      document.removeEventListener('mousedown', onDocMouseDown)
+      document.removeEventListener('keydown', onKeyDown)
+    }
+  }, [open])
+
+  const current = STAGES.find((s) => s.key === stage)
+
+  return (
+    <div className="sl-row-move" ref={rootRef} onClick={(e) => e.stopPropagation()}>
+      <button
+        type="button"
+        className="sl-row-move-btn"
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen((v) => !v)}
+      >
+        <span className="sl-row-move-label">{current?.label ?? stage}</span>
+        <span className="sl-row-move-caret">▾</span>
+      </button>
+      {open && (
+        <ul className="sl-row-move-list" role="listbox">
+          {STAGES.map((s) => (
+            <li key={s.key} role="presentation">
+              <button
+                type="button"
+                role="option"
+                aria-selected={s.key === stage}
+                className={`sl-row-move-opt ${s.key === stage ? 'active' : ''}`}
+                onClick={() => { setOpen(false); onSelect(s.key) }}
+              >
+                {s.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
 }
 
 function SalesPageInner() {
@@ -383,9 +443,7 @@ function SalesPageInner() {
                     <span className="sl-row-value">{fmtMoney(d.value_cents)}</span>
                     <span className="sl-row-date">{new Date(d.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                     <span className={`sl-row-age ${ageClass}`}>{age === 0 ? 'today' : `${age}d`}</span>
-                    <select className="sl-row-move" value={d.stage} onClick={(e) => e.stopPropagation()} onChange={(e) => moveDeal(d.id, e.target.value)}>
-                      {STAGES.map((s) => <option key={s.key} value={s.key}>{s.label}</option>)}
-                    </select>
+                    <StageDropdown stage={d.stage} onSelect={(stage) => moveDeal(d.id, stage)} />
                   </div>
 
                   {isOpen && (
