@@ -12882,3 +12882,90 @@ run against Supabase, and this item didn't touch
 `reconcile-tenant-config.mjs` itself (only the workflow YAML that reads its
 output), so there was nothing in the script to re-verify against a live
 token regardless.
+
+## (247) New fresh-ground surface per LEADER's queue item (1), immediately
+continued per item (2) -- ci.yml's OWN two custom-script gating steps
+(Tenant-isolation guard, Protected-tenant guard) carry the identical
+"exit 1 is ambiguous between a real finding and a script crash" shape (246)
+just closed for tenant-config-reconcile.yml's drift-gate step, previously
+unexamined because (244)-(246)'s own work stayed inside that one workflow
+
+Re-reading ci.yml's `verify` job with (246)'s exact question in mind
+("does this step's exit 1 always mean the same thing?") surfaced two
+sibling gaps in the SAME job, both invisible to (244)'s "name which step
+failed" fix:
+
+- `scripts/audit-tenant-scope.mjs` exits 1 for two structurally different
+  reasons: `process.exit(ALL ? 0 : 1)` after finding real NEW unscoped
+  queries on a tenant table (a real leak), or an uncaught exception at the
+  script's own top level (it has no top-level try/catch; e.g. its narrow
+  `err.status === 1` guard around `execSync` rethrows anything else) that
+  the runtime's default uncaught-exception handler turns into a bare-
+  stack-trace exit 1.
+- `scripts/verify-protected-tenants.mjs` exits 1 the same way: a real
+  PROTECTED-tenant violation via its own `process.exit(1)`, or an uncaught
+  exception before its `main()` ever gets there -- unlike the sibling
+  reconcile script's `main().catch(...)` wrapper, this script's `main()`
+  is a bare synchronous call with no try/catch of its own at all.
+
+Before this item, identify-failed-step reported both as a single flat label
+("Tenant-isolation guard" / "Protected-tenant guard") -- naming the step but
+leaving the reader to log-dive to learn whether it was a real cross-tenant
+leak / a live tenant about to lose its site, or just a bug in the guard
+script itself. Exactly the friction (244)-(246) already closed one workflow
+over, never closed here.
+
+**Fixed** the same way (246) did: both steps now pipe their script's stdout
+through `tee` to a captured output file (`tenant-scope-output.txt`,
+`protected-tenant-output.txt`; `PIPESTATUS[0]` preserves the real exit code
+through the pipe so the gate still fails correctly), and identify-failed-
+step greps each captured file for a string ONLY the script itself prints
+when it ran to completion and found a real problem --
+audit-tenant-scope.mjs's own `✗ tenant-scope guard:` finding-report line,
+and verify-protected-tenants.mjs's own `PROTECTED-TENANT GUARD FAILED`
+banner. Neither string is ever printed by an uncaught exception (the
+runtime prints a stack trace instead), so presence/absence in the captured
+output is the same real-finding-vs-crash signal (246) used. ci.yml's
+job-level `defaults: run: working-directory: platform` already applies to
+every step in `verify` (unlike the sibling reconcile workflow, which needed
+an explicit per-step fix for this in (246)), so no working-directory gap
+here.
+
+Three existing wiring-guard tests assumed a single-line `run: <runtime>
+scripts/<x>.mjs` shape and would have false-passed (found nothing to check,
+not "checked and clean") against the new multi-line block:
+`ci-tenant-scope-invocation-guard.test.ts` and
+`protected-tenant-guard-wiring.test.ts` (both anchored their invocation
+detector to `run:` appearing on the SAME line as the script name) and
+`preflight-check.test.ts` (its ci.yml/STEPS mirroring check only extracted
+single-line `run:` commands). All three updated to also recognize the
+invocation line inside a multi-line block -- the first two via an
+allowlisted `| tee <file>` suffix (so a dangerous flag like `--all` /
+`--update-baseline` appended instead of, or alongside, the pipe still fails
+them), the third by stripping the tee suffix before comparing to STEPS'
+required commands. Verified each update is a real fix, not a silent
+weakening: `preflight-check.test.ts`'s own regression caught this live --
+after the ci.yml edit and before that test's own fix, the full suite
+reported it RED (STEPS marks the tenant-scope script as REQUIRED but
+ci.yml's verify job does not run it) -- a real regression this item
+introduced and then fixed in the same pass, not hypothetical.
+
+New test file: `ci-notify-failure-gate-vs-error-guard.test.ts`, 11 tests,
+RED-confirmed live (not just reasoned about) by reverting the two new
+`if [ "${{ steps.tenant-scope.outcome }}" = "failure" ]` /
+`steps.protected-tenant.outcome` branches back to (244)'s flat one-liners
+and re-running the file alone -- 8 of 11 failed exactly as expected (the
+tee/PIPESTATUS wiring assertions stayed green, since those two are
+unaffected by that specific revert), then restored and re-confirmed green.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 500/500 files,
+2544/2544 tests (2533 baseline after (246) + 11 new via this item's own new
+file), zero regressions. `eslint src --quiet` reports exactly one
+pre-existing error, in `src/app/api/admin/seo/apply/route.auth.test.ts` (a
+`require()`-style import, unrelated to this session's changes -- confirmed
+via `git status`/`git diff`: that file was never touched, staged, or
+modified this session) -- outside this lane's owned files (the reconcile
+script + CI workflows), not fixed here. The Supabase Management-API token
+was absent this session -- no live reconcile run against Supabase, and this
+item touched neither the reconcile script nor its own workflow file, so
+nothing in that surface needed re-verification against a live token.

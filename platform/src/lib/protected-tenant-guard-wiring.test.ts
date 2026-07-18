@@ -44,20 +44,34 @@ function ciYaml(): string {
 // it stops the identical `.includes()` blind spot from becoming exploitable
 // the moment anyone later adds a flag to verify-protected-tenants.mjs
 // itself, without anyone having to remember to update this wiring test too.
+//
+// UPDATED for item (247): the step's `run:` moved from a single-line `run:
+// node scripts/verify-protected-tenants.mjs` to a multi-line `run: |` block,
+// piped through `tee protected-tenant-output.txt` so identify-failed-step
+// can grep the captured output to tell a real PROTECTED-tenant violation
+// apart from the script itself crashing (the same "two reasons for exit 1"
+// ambiguity (246) closed for tenant-config-reconcile.yml's own drift-gate
+// step). Same detector/allowlist update as ci-tenant-scope-invocation-guard
+// .test.ts's sibling fix: the invocation line no longer carries a literal
+// `run:` prefix, and the tee pipe is the one allowlisted suffix.
 function protectedTenantInvocationLines(yaml: string): Array<{ line: number; cmd: string }> {
   const out: Array<{ line: number; cmd: string }> = []
   yaml.split('\n').forEach((raw, i) => {
-    if (/\bverify-protected-tenants\.mjs\b/.test(raw) && /\brun:/.test(raw)) {
-      out.push({ line: i + 1, cmd: raw.trim() })
+    const trimmed = raw.trim()
+    if (/^(?:run:\s*)?node\s+scripts\/verify-protected-tenants\.mjs\b/.test(trimmed)) {
+      out.push({ line: i + 1, cmd: trimmed })
     }
   })
   return out
 }
 
+const SAFE_TEE_SUFFIX_RE = /^\|\s*tee\s+\S+\.txt$/
 function extraTokensAfterScript(cmd: string): string[] {
   const m = cmd.match(/\bverify-protected-tenants\.mjs\s+(.*)$/)
   if (!m) return []
-  return m[1].split(/\s+/).filter(Boolean)
+  const suffix = m[1].trim()
+  if (SAFE_TEE_SUFFIX_RE.test(suffix)) return []
+  return suffix.split(/\s+/).filter(Boolean)
 }
 
 describe('CI invariant — protected-tenant guard wiring is intact', () => {

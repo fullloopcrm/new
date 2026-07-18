@@ -60,7 +60,23 @@ jobs:
         # Baseline was driven to zero (scripts/.tenant-scope-baseline.json = []) — no
         # grandfathered debt. Any remaining unscoped query is a real gate failure until
         # fixed with .eq('tenant_id', tenantId) or annotated `// tenant-scope-ok: <reason>`.
-        run: node scripts/audit-tenant-scope.mjs
+        #
+        # Item (247), continuing (246)'s surface: audit-tenant-scope.mjs's own exit 1 is
+        # ambiguous between two causes -- new unscoped queries found (a real leak) or an
+        # uncaught exception in the script itself (a bad regex, a grep failure other than
+        # "no matches", a corrupt baseline JSON file) -- the identical "two reasons for
+        # exit 1" shape (246) closed for tenant-config-reconcile.yml's own drift-gate
+        # step. Piped through tee so identify-failed-step below can grep the captured
+        # output for the script's own "✗ tenant-scope guard:" finding-report line as the
+        # real-leak-vs-crash signal, mirroring reconcile-tenant-config.mjs's summarize()
+        # header check. PIPESTATUS[0] preserves the real node exit code through the tee
+        # pipe so this step still fails on a real leak.
+        shell: bash
+        run: |
+          set +e
+          node scripts/audit-tenant-scope.mjs | tee tenant-scope-output.txt
+          exit_code=${PIPESTATUS[0]}
+          exit "$exit_code"
 
       - name: Protected-tenant guard
         id: protected-tenant
@@ -73,7 +89,20 @@ jobs:
         # own build ran prebuild post-merge on main. Run it directly here so a PR
         # that breaks a protected tenant is red BEFORE merge, not caught by whichever
         # deploy happens to run next.
-        run: node scripts/verify-protected-tenants.mjs
+        #
+        # Item (247): verify-protected-tenants.mjs's own exit 1 is ambiguous the same
+        # way -- a real PROTECTED-tenant violation, or an uncaught exception in the
+        # script itself before it ever gets to report one (main() here is a bare
+        # synchronous call with no try/catch of its own, so a thrown error falls
+        # straight through to Node's default uncaught-exception exit 1). Piped through
+        # tee so identify-failed-step below can grep for the script's own
+        # "PROTECTED-TENANT GUARD FAILED" banner as the real-violation-vs-crash signal.
+        shell: bash
+        run: |
+          set +e
+          node scripts/verify-protected-tenants.mjs | tee protected-tenant-output.txt
+          exit_code=${PIPESTATUS[0]}
+          exit "$exit_code"
 
       - name: Lint
         id: lint
@@ -108,8 +137,27 @@ jobs:
           [ "${{ steps.install.outcome }}" = "failure" ] && failed="Install dependencies"
           [ "${{ steps.typecheck.outcome }}" = "failure" ] && failed="Typecheck (tsc --noEmit)"
           [ "${{ steps.test.outcome }}" = "failure" ] && failed="Unit tests (vitest)"
-          [ "${{ steps.tenant-scope.outcome }}" = "failure" ] && failed="Tenant-isolation guard"
-          [ "${{ steps.protected-tenant.outcome }}" = "failure" ] && failed="Protected-tenant guard"
+
+          # Item (247): naming the failing STEP wasn't enough for these two --
+          # each one's own exit 1 means EITHER a real gate finding OR the script
+          # itself crashing before it ever produced one (see the comment above
+          # each step). grep the captured tee output for the script's own report
+          # banner as the disambiguating signal, same technique (246) used for
+          # the sibling tenant-config-reconcile.yml drift-gate step.
+          if [ "${{ steps.tenant-scope.outcome }}" = "failure" ]; then
+            if grep -q '✗ tenant-scope guard:' tenant-scope-output.txt 2>/dev/null; then
+              failed="Tenant-isolation guard -- new unscoped quer(y/ies) found (not a script error; see the run log for which file/line)"
+            else
+              failed="Tenant-isolation guard -- the script itself errored before producing a report (not a real leak -- see the run log)"
+            fi
+          fi
+          if [ "${{ steps.protected-tenant.outcome }}" = "failure" ]; then
+            if grep -q 'PROTECTED-TENANT GUARD FAILED' protected-tenant-output.txt 2>/dev/null; then
+              failed="Protected-tenant guard -- a live tenant would lose its site (not a script error; see the run log for which tenant)"
+            else
+              failed="Protected-tenant guard -- the script itself errored before producing a report (not a real tenant break -- see the run log)"
+            fi
+          fi
           [ "${{ steps.lint.outcome }}" = "failure" ] && failed="Lint"
           echo "failed_step=$failed" >> "$GITHUB_OUTPUT"
 

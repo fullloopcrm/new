@@ -36,8 +36,8 @@ import { join } from 'node:path'
 // against a script that has actual dangerous flags to append, rather than
 // scope-narrowing ones.
 //
-// Verified clean today: ci.yml:55 is exactly `run: node scripts/audit-
-// tenant-scope.mjs`, no trailing tokens.
+// Verified clean today (pre-(247)): ci.yml:55 was exactly `run: node
+// scripts/audit-tenant-scope.mjs`, no trailing tokens.
 //
 // Mutation-verified before writing this guard: appended `--update-baseline`
 // to ci.yml's Tenant-isolation guard line and re-ran tenant-scope-workflow-
@@ -46,6 +46,24 @@ import { join } from 'node:path'
 // the gap this guard closes was real, not a hypothetical. Reverted before
 // writing this file (`git diff --stat .github/workflows/ci.yml` empty
 // afterward).
+//
+// UPDATED for item (247): the step's `run:` moved from a single-line `run:
+// node scripts/audit-tenant-scope.mjs` to a multi-line `run: |` block, piped
+// through `tee tenant-scope-output.txt` so identify-failed-step can grep the
+// captured output to tell a real leak apart from the script itself crashing
+// (the same "two reasons for exit 1" ambiguity (246) closed for tenant-
+// config-reconcile.yml's own drift-gate step). The invocation line no longer
+// carries a literal `run:` prefix on the same line — the old
+// same-line-anchored detector below stopped matching it entirely (verified:
+// re-running this file against the (247) diff with the OLD detector reported
+// zero invocation lines, silently passing the "no trailing flags" test for
+// the wrong reason — nothing to check, not "checked and clean"). The
+// detector now matches the invocation itself, prefixed by an optional
+// `run:` — this still refuses to match a bare mention of the script inside a
+// comment (a comment line starts with `#`, not `node` or `run:`) — and the
+// tee pipe is explicitly allowlisted as the one legitimate suffix, so a
+// dangerous flag (`--all` / `--update-baseline`) appended either instead of
+// or alongside the pipe is still caught.
 //
 // PURE SOURCE-READING of the workflow YAML — no YAML lib, no runner — same
 // approach as ci-lint-scope-guard.test.ts / ci-typecheck-scope-guard.
@@ -63,22 +81,35 @@ function ciYaml(): string {
 function tenantScopeInvocationLines(yaml: string): Array<{ line: number; cmd: string }> {
   const out: Array<{ line: number; cmd: string }> = []
   yaml.split('\n').forEach((raw, i) => {
-    if (/\baudit-tenant-scope\.mjs\b/.test(raw) && /\brun:/.test(raw)) {
-      out.push({ line: i + 1, cmd: raw.trim() })
+    const trimmed = raw.trim()
+    // Matches both the historical single-line `run: node scripts/audit-
+    // tenant-scope.mjs` form and the current (247) multi-line `run: |` block
+    // form, where the invocation is its own line with no `run:` prefix at
+    // all. Anchored to the START of the trimmed line so a comment mentioning
+    // the script filename elsewhere never matches.
+    if (/^(?:run:\s*)?node\s+scripts\/audit-tenant-scope\.mjs\b/.test(trimmed)) {
+      out.push({ line: i + 1, cmd: trimmed })
     }
   })
   return out
 }
 
-// Anything after the script path is a flag audit-tenant-scope.mjs itself
-// reads and reacts to (`--all`, `--update-baseline`) or an unknown future
-// one — all of them are scope-narrowing/neutering risk by construction
-// here, since the bare command is the only invocation that keeps the gate
-// able to fail.
+// The one legitimate suffix after the script path today: (247)'s `| tee
+// <file>` capture, which lets identify-failed-step disambiguate a real leak
+// from a script crash — see the comment above the Tenant-isolation guard
+// step in ci.yml. Anything else after the script path is either a flag
+// audit-tenant-scope.mjs itself reads and reacts to (`--all`,
+// `--update-baseline`) or an unknown future one — all of them are
+// scope-narrowing/neutering risk by construction here. A flag appended
+// ALONGSIDE the tee pipe still fails this check (the allowlist regex
+// requires the suffix to be EXACTLY the tee pipe, nothing more).
+const SAFE_TEE_SUFFIX_RE = /^\|\s*tee\s+\S+\.txt$/
 function extraTokens(cmd: string): string[] {
   const m = cmd.match(/\baudit-tenant-scope\.mjs\s+(.*)$/)
   if (!m) return []
-  return m[1].split(/\s+/).filter(Boolean)
+  const suffix = m[1].trim()
+  if (SAFE_TEE_SUFFIX_RE.test(suffix)) return []
+  return suffix.split(/\s+/).filter(Boolean)
 }
 
 describe('CI invariant — Tenant-isolation guard invocation stays bare (no --all / --update-baseline / other flags)', () => {

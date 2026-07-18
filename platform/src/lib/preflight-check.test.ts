@@ -46,7 +46,7 @@ describe('STEPS', () => {
     // `defaults: / run: / working-directory: platform`) would let `\s*`
     // swallow the line break and capture the FOLLOWING line's unrelated text
     // as a fake "command" — `[ \t]+` forces a real same-line `run: <cmd>`.
-    const ciCommands = [...verifyJobYaml.matchAll(/^[ \t]*run:[ \t]+(\S.*)$/gm)]
+    const singleLineCommands = [...verifyJobYaml.matchAll(/^[ \t]*run:[ \t]+(\S.*)$/gm)]
       .map((m) => m[1].trim())
       // A bare YAML block-scalar indicator (`run: |`, `run: |-`, `run: >`, …)
       // is not itself a command — it's the header introducing a MULTI-line
@@ -60,6 +60,20 @@ describe('STEPS', () => {
       // install (npm ci) and lint (eslint) are excluded by this file's own
       // doc comment ("minus install/lint") — not a mirroring gap.
       .filter((cmd) => cmd !== 'npm ci' && !cmd.startsWith('npx eslint'))
+
+    // Item (247): the Tenant-isolation guard and Protected-tenant guard steps
+    // moved from a single-line `run: <cmd>` to a multi-line `run: |` block,
+    // piped through `tee` so identify-failed-step can tell a real gate
+    // finding apart from a script crash (see ci.yml's own comments on those
+    // two steps). The invocation line inside such a block carries no `run:`
+    // prefix at all, so the single-line regex above never captures it — this
+    // second pass finds a bare `node scripts/<x>.mjs` invocation line
+    // directly and strips the trailing `| tee <file>` capture (alert
+    // plumbing, not part of the command STEPS mirrors) before comparing.
+    const blockInvocationCommands = [...verifyJobYaml.matchAll(/^[ \t]*(node[ \t]+scripts\/\S+\.mjs)\b.*$/gm)].map(
+      (m) => m[1],
+    )
+    const ciCommands = [...singleLineCommands, ...blockInvocationCommands]
 
     expect(ciCommands.length).toBeGreaterThan(0) // sanity: the extraction itself must find real commands
 
