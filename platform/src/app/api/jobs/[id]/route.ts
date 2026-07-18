@@ -1,8 +1,8 @@
 /**
- * A single job: read it with its payment plan, scheduled sessions, and timeline;
- * update its status. Tenant-scoped.
+ * A single job: read it with its payment plan, scheduled sessions, timeline,
+ * client contact info, and the deal/quote it originated from. Tenant-scoped.
  *
- * GET   → { job, payments, sessions, events }
+ * GET   → { job, client, quote, deal, payments, sessions, events }
  * PATCH → { status?: JobStatus, title?, notes?, starts_on?, ends_on? }
  *         status → 'completed' stamps completed_at and logs a timeline event.
  */
@@ -30,7 +30,7 @@ export async function GET(_request: Request, { params }: Params) {
       .single()
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const [payments, sessions, events] = await Promise.all([
+    const [payments, sessions, events, client, quote] = await Promise.all([
       db.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
       db
         .from('bookings')
@@ -41,10 +41,25 @@ export async function GET(_request: Request, { params }: Params) {
         .eq('job_id', id)
         .order('start_time'),
       db.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
+      job.client_id
+        ? db.from('clients').select('id, name, email, phone, address, unit, notes').eq('id', job.client_id).maybeSingle()
+        : Promise.resolve({ data: null }),
+      job.quote_id
+        ? db.from('quotes').select('id, quote_number, deal_id').eq('id', job.quote_id).maybeSingle()
+        : Promise.resolve({ data: null }),
     ])
+
+    // The lead this job originated from: job → quote → deal. Fetched as a
+    // second hop since it's a 2-table chain and only needed when present.
+    const deal = quote.data?.deal_id
+      ? (await db.from('deals').select('id, title, stage, value_cents').eq('id', quote.data.deal_id).maybeSingle()).data
+      : null
 
     return NextResponse.json({
       job,
+      client: client.data ?? null,
+      quote: quote.data ?? null,
+      deal,
       payments: payments.data ?? [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],

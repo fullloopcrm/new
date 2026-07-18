@@ -3,9 +3,22 @@
 import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
+import { stageMeta } from '@/lib/pipeline'
 
 type Assignee = { id: string; name: string }
-type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
+type Job = {
+  id: string
+  title: string | null
+  status: string
+  total_cents: number
+  service_address: string | null
+  notes: string | null
+  starts_on: string | null
+  ends_on: string | null
+}
+type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null; unit: string | null; notes: string | null }
+type Quote = { id: string; quote_number: string | null; deal_id: string | null }
+type Deal = { id: string; title: string; stage: string; value_cents: number }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = {
   id: string
@@ -28,6 +41,12 @@ function when(iso: string | null) { return iso ? new Date(iso).toLocaleString('e
 function dayLabel(iso: string | null) { return iso ? new Date(iso).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' }) : '—' }
 function timeLabel(iso: string | null) { return iso ? new Date(iso).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' }) : '' }
 function monthKey(iso: string | null) { return iso ? new Date(iso).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) : 'Unscheduled' }
+/** DATE-only column (no time component) — parse as local, not UTC, to avoid an off-by-one day. */
+function dateOnlyLabel(d: string | null) {
+  if (!d) return '—'
+  const [y, m, day] = d.split('-').map(Number)
+  return new Date(y, m - 1, day).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
 function durationHrs(s: string | null, e: string | null) {
   if (!s || !e) return null
   const h = (new Date(e).getTime() - new Date(s).getTime()) / 3_600_000
@@ -140,6 +159,9 @@ function SessionEditor({
 export default function JobDetailPage() {
   const id = useParams<{ id: string }>().id
   const [job, setJob] = useState<Job | null>(null)
+  const [client, setClient] = useState<Client | null>(null)
+  const [quote, setQuote] = useState<Quote | null>(null)
+  const [deal, setDeal] = useState<Deal | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [events, setEvents] = useState<EventRow[]>([])
@@ -154,7 +176,8 @@ export default function JobDetailPage() {
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
-      setJob(d.job || null); setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
+      setJob(d.job || null); setClient(d.client || null); setQuote(d.quote || null); setDeal(d.deal || null)
+      setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -211,8 +234,19 @@ export default function JobDetailPage() {
   if (!job) return <div className="p-8 text-slate-500 text-sm">Job not found.</div>
 
   const paidCents = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_cents, 0)
+  const owedCents = Math.max(0, job.total_cents - paidCents)
   const doneCount = sessions.filter(s => s.status === 'completed').length
   const pct = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
+
+  // Everyone who has touched this job: direct session assignees + members of any
+  // crew ever scheduled on it. Derived from sessions/crews already loaded — the
+  // data model has no separate "who worked on this job" table.
+  const crewById = new Map(crews.map(c => [c.id, c]))
+  const workedOn = new Map<string, string>()
+  for (const s of sessions) {
+    for (const a of s.assignees) workedOn.set(a.id, a.name)
+    if (s.crew_id) crewById.get(s.crew_id)?.members.forEach(m => workedOn.set(m.id, m.name))
+  }
 
   // Sessions arrive sorted by start_time asc → group into months preserving order.
   const groups: { month: string; items: Session[] }[] = []
@@ -224,19 +258,26 @@ export default function JobDetailPage() {
   }
 
   return (
-    <div className="max-w-3xl mx-auto">
+    <div>
       <Link href="/dashboard/bookings" className="text-xs text-slate-500 hover:underline">← Schedule</Link>
       <div className="flex items-start justify-between flex-wrap gap-3 mt-1 mb-5">
         <div>
           <div className="flex items-center gap-3">
             <h1 className="font-heading text-2xl font-bold text-slate-900">{job.title || 'Job'}</h1>
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
+            {sessions.length > 0 && <span className="text-xs text-slate-400">{pct}% complete</span>}
           </div>
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
+          {(job.starts_on || job.ends_on) && (
+            <p className="text-xs text-slate-400 mt-1">
+              {job.starts_on ? dateOnlyLabel(job.starts_on) : 'Unscheduled'}
+              {job.ends_on ? ` → est. completion ${dateOnlyLabel(job.ends_on)}` : ''}
+            </p>
+          )}
         </div>
         <div className="text-right">
           <p className="text-2xl font-bold text-slate-900">{money(job.total_cents)}</p>
-          <p className="text-xs text-slate-400">{money(paidCents)} collected</p>
+          <p className="text-xs text-slate-400">{money(paidCents)} collected{owedCents > 0 ? ` · ${money(owedCents)} owed` : ''}</p>
         </div>
       </div>
 
@@ -246,6 +287,16 @@ export default function JobDetailPage() {
         {job.status === 'scheduled' && <button onClick={() => setJobStatus('in_progress')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-amber-500 text-white hover:bg-amber-600 disabled:opacity-50">Start job</button>}
         {job.status !== 'completed' && job.status !== 'cancelled' && <button onClick={() => setJobStatus('completed')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Mark complete</button>}
       </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="lg:col-span-2 min-w-0">
+
+      {job.notes && (
+        <section className="mb-6">
+          <h2 className="text-sm font-semibold text-slate-800 mb-2">Job notes</h2>
+          <p className="text-sm text-slate-600 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3">{job.notes}</p>
+        </section>
+      )}
 
       {/* Payment plan */}
       <section className="mb-6">
@@ -368,6 +419,67 @@ export default function JobDetailPage() {
           {events.length === 0 && <li className="text-sm text-slate-400">No activity yet.</li>}
         </ul>
       </section>
+
+      </div>
+
+      {/* Sidebar */}
+      <div className="space-y-6">
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Client</h2>
+          {client ? (
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-800">{client.name}</p>
+              {client.phone && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500">{client.phone}</span>
+                  <a href={`tel:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
+                  <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                </div>
+              )}
+              {client.email && <p className="text-sm text-slate-500 break-all">{client.email}</p>}
+              {(client.address || client.unit) && (
+                <p className="text-sm text-slate-500">{[client.address, client.unit].filter(Boolean).join(', ')}</p>
+              )}
+              {client.notes && <p className="text-xs text-slate-400 pt-1 border-t border-slate-100 mt-2">{client.notes}</p>}
+              <Link href={`/dashboard/clients/${client.id}`} className="text-xs text-blue-600 hover:underline inline-block pt-1">View client →</Link>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No client on this job.</p>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Source lead</h2>
+          {deal ? (
+            <div className="space-y-1.5">
+              <p className="text-sm font-medium text-slate-800">{deal.title}</p>
+              <span className={`inline-block text-[11px] px-1.5 py-0.5 rounded font-medium ${stageMeta(deal.stage).color}`}>{stageMeta(deal.stage).label}</span>
+              {quote?.quote_number && <p className="text-xs text-slate-400">Quote {quote.quote_number}</p>}
+              <Link href={`/dashboard/sales/pipeline/${deal.id}`} className="text-xs text-blue-600 hover:underline inline-block pt-1">View deal →</Link>
+            </div>
+          ) : quote ? (
+            <div className="space-y-1.5">
+              <p className="text-sm text-slate-500">Converted from quote{quote.quote_number ? ` ${quote.quote_number}` : ''}, not linked to a pipeline deal.</p>
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">Not created from a lead or quote.</p>
+          )}
+        </section>
+
+        <section className="rounded-lg border border-slate-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-slate-800 mb-3">Team on this job</h2>
+          {workedOn.size > 0 ? (
+            <div className="flex flex-wrap gap-1.5">
+              {[...workedOn.entries()].map(([wid, name]) => (
+                <span key={wid} className="text-[11px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600">{name}</span>
+              ))}
+            </div>
+          ) : (
+            <p className="text-sm text-slate-400">No one assigned yet.</p>
+          )}
+        </section>
+      </div>
+      </div>
     </div>
   )
 }
