@@ -58,6 +58,12 @@ export async function PATCH(request: Request, { params }: Params) {
       if (k in body) updates[k] = body[k]
     }
     if ('title' in body) updates.title_override = true
+    if ('follow_up_at' in body) {
+      // Re-arm cron/sales-follow-ups's claim -- see
+      // 2026_07_17_deals_follow_up_notified_at.sql for why this is a
+      // sentinel reset rather than a null clear.
+      updates.follow_up_notified_at = '1970-01-01T00:00:00Z'
+    }
 
     // client_id is a caller-supplied FK — clients has no cross-tenant FK check,
     // and the deals→clients join in every read of this route is unscoped by

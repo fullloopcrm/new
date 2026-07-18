@@ -34,23 +34,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, reminded: 0 })
   }
 
-  // Dedup: skip deals already notified this hour.
-  const dealIds = deals.map(d => d.id)
-  const { data: existing } = await supabaseAdmin
-    .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
-    .select('metadata')
-    .eq('type', 'follow_up')
-    .gte('created_at', oneHourAgo.toISOString())
-
-  const notifiedDealIds = new Set(
-    (existing || [])
-      .map(n => (n.metadata as Record<string, unknown> | null)?.deal_id as string | undefined)
-      .filter((x): x is string => !!x)
-  )
-
   let reminded = 0
   for (const deal of deals) {
-    if (notifiedDealIds.has(deal.id as string)) continue
+    // Claim BEFORE notifying -- compare-and-swap against the deal's own
+    // follow_up_at, same discipline as every other claim-before-send fix
+    // this session. Two overlapping invocations reading the same
+    // not-yet-claimed deal would otherwise both pass the old
+    // notifications-table time-window check and double-notify (see
+    // 2026_07_17_deals_follow_up_notified_at.sql for the sentinel-vs-null
+    // rationale).
+    const { data: claimed } = await supabaseAdmin
+      .from('deals')
+      .update({ follow_up_notified_at: deal.follow_up_at })
+      .eq('id', deal.id as string)
+      .neq('follow_up_notified_at', deal.follow_up_at)
+      .select('id')
+      .maybeSingle()
+
+    if (!claimed) continue
 
     const clientName = (deal.clients as unknown as { name?: string } | null)?.name || 'Unknown'
     const note = (deal.follow_up_note as string | null) || 'Follow up now'

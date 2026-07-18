@@ -129,6 +129,10 @@ export async function PUT(request: Request) {
     if (follow_up_at !== undefined) {
       updates.follow_up_at = follow_up_at
       updates.follow_up_note = follow_up_note || null
+      // Re-arm cron/sales-follow-ups's claim -- see
+      // 2026_07_17_deals_follow_up_notified_at.sql for why this is a
+      // sentinel reset rather than a null clear.
+      updates.follow_up_notified_at = '1970-01-01T00:00:00Z'
       if (follow_up_at) {
         const when = new Date(follow_up_at).toLocaleString('en-US', {
           timeZone: 'America/New_York',
