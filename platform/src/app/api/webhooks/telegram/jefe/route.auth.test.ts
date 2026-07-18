@@ -11,6 +11,15 @@
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 
+// route.ts now claims a dedup row (telegram_webhook_updates) before the
+// owner-chat check — without this mock, the "accepts" case below would make
+// a real network call to the placeholder Supabase URL from this test run.
+vi.mock('@/lib/supabase', () => ({
+  supabaseAdmin: {
+    from: () => ({ insert: () => Promise.resolve({ data: null, error: null }) }),
+  },
+}))
+
 vi.mock('@/lib/jefe/agent', () => ({
   askJefe: vi.fn(async () => ({ text: 'jefe reply' })),
 }))

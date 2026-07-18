@@ -1,0 +1,54 @@
+-- 2026_07_18_telegram_webhook_updates_dedup.sql
+-- FILE ONLY -- do NOT execute here. Leader runs after Jeff approves.
+--
+-- WHY: none of the three Telegram webhook routes
+-- (/api/webhooks/telegram, /api/webhooks/telegram/jefe,
+-- /api/webhooks/telegram/[tenant]) has any idempotency guard against
+-- Telegram's own documented retry behavior -- confirmed via Telegram's
+-- webhook docs (core.telegram.org/bots/webhooks) and corroborating reports:
+-- if the endpoint doesn't respond 200 within a few seconds, Telegram
+-- resends the SAME update (identical top-level update_id) starting quickly
+-- and backing off to a few minutes, until it finally gets a 200. This is
+-- the same "at-least-once delivery on slow response" bug class this
+-- session already found and fixed on Telnyx's inbound webhooks
+-- (2026_07_17_telnyx_webhook_events_dedup.sql) -- never yet audited on
+-- Telegram.
+--
+-- All three routes await a full, sequential AI-agent round-trip
+-- (askSelena / askJefe, which can include tool calls and Anthropic
+-- round-trips) before returning 200 -- a slow turn misses Telegram's
+-- response window and gets the ENTIRE update reprocessed: a second
+-- inbound/outbound sms_conversation_messages row, a second (possibly
+-- DIFFERENT, since it's a fresh LLM call) agent reply, and a second real
+-- sendTelegram() to the human on the other end.
+--
+-- Worse than the Telnyx case on one route: /api/webhooks/telegram/jefe
+-- runs Jefe, the platform GM agent, whose action tools (notify_tenant_owner,
+-- send_tenant_message, rerun_cron -- see src/lib/jefe/agent.ts,
+-- src/lib/jefe/actions.ts) are CONFIRM-GATED by a two-turn conversational
+-- pattern: Jeff sees a preview, then sends a plain "yes" as a SEPARATE
+-- message to trigger the confirm=true call. If THAT confirm message is the
+-- one that gets redelivered, the confirm=true tool call -- a real SMS/email
+-- to a tenant owner, a real in-platform message post, or a real cron
+-- re-fire -- runs TWICE. Nothing downstream of the webhook route dedupes
+-- this; the confirm gate is single-turn-only by design (Jeff typing "yes"
+-- twice on purpose is expected to double-fire).
+--
+-- Fix: insert-first-claim on the Telegram update's own update_id, same
+-- insert-then-23505-short-circuits shape as telnyx_webhook_events. A
+-- single text dedup_key column (not a composite PK) because update_id is
+-- only unique WITHIN one bot's own sequence -- Telegram assigns update_id
+-- per bot token, so the owner bot, Jefe's bot, and every tenant's own bot
+-- each have an independently-numbered sequence that WOULD collide on a
+-- bare update_id alone. dedup_key is `${botKey}:${update_id}` -- 'owner',
+-- 'jefe', or `tenant:${tenant.id}` -- computed in each route, matching the
+-- single-string-key shape of telnyx_webhook_events.event_id rather than
+-- adding composite-unique-constraint support to the test fake for one
+-- call site.
+--
+-- No backfill needed -- brand-new table, nothing to dedupe retroactively.
+
+CREATE TABLE IF NOT EXISTS telegram_webhook_updates (
+  dedup_key text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

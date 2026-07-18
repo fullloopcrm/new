@@ -66,7 +66,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const botToken = decryptSecret(tenant.telegram_bot_token)
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try {
     body = await req.json()
   } catch {
@@ -78,6 +78,25 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const chatId = post?.chat?.id
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Telegram resends the SAME update_id if this route doesn't respond 200
+  // promptly — see the owner-bot sibling route for the confirmed retry
+  // behavior. Scoped per tenant (not just update_id) since update_id is
+  // only unique within one bot token's own sequence — a different tenant's
+  // bot (or the owner/Jefe bots) can independently reuse the same number.
+  if (body.update_id !== undefined) {
+    const { error: claimErr } = await supabaseAdmin
+      .from('telegram_webhook_updates')
+      .insert({ dedup_key: `tenant:${tenant.id}:${body.update_id}` })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ ok: true, action: 'duplicate_delivery' })
+      }
+      console.error('[telegram tenant webhook] update claim failed:', claimErr)
+      // Fall through — an infra hiccup on the dedup table must not
+      // silently drop a real inbound message.
+    }
+  }
 
   // Auth: the update must come from this tenant's registered owner chat.
   // Fail CLOSED when no owner chat id is on file yet (bot token saved but

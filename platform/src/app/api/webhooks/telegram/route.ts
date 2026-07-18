@@ -67,7 +67,7 @@ export async function POST(req: Request) {
     if (!auth.valid) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
+  let body: { update_id?: number; message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()
   } catch {
@@ -79,6 +79,26 @@ export async function POST(req: Request) {
   const text = msg?.text
 
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Telegram resends the SAME update_id if this route doesn't respond 200
+  // promptly (confirmed via Telegram's webhook docs — retries start quickly,
+  // back off to a few minutes). Everything below is a long sequential chain
+  // (Selena round-trip, DB writes, a real sendTelegram) with no dedup key —
+  // a slow turn gets the whole update reprocessed: duplicate message rows,
+  // a second (possibly different) AI reply, a second real Telegram send.
+  if (body.update_id !== undefined) {
+    const { error: claimErr } = await supabaseAdmin
+      .from('telegram_webhook_updates')
+      .insert({ dedup_key: `owner:${body.update_id}` })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ ok: true, action: 'duplicate_delivery' })
+      }
+      console.error('[telegram webhook] update claim failed:', claimErr)
+      // Fall through — an infra hiccup on the dedup table must not
+      // silently drop a real inbound message.
+    }
+  }
 
   if (!ALLOWED_CHAT_IDS.has(String(chatId))) {
     await sendTelegram(chatId, 'This bot is private.')

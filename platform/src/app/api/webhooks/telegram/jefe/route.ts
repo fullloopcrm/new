@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
+import { supabaseAdmin } from '@/lib/supabase'
 import { verifyTelegramSecret } from '@/lib/webhook-verify'
 
 export const maxDuration = 60
@@ -28,13 +29,35 @@ export async function POST(req: Request) {
   if (!BOT_TOKEN) return NextResponse.json({ ok: true, skip: 'no_jefe_bot_token' })
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try { body = await req.json() } catch { return NextResponse.json({ ok: true, parse: 'failed' }) }
 
   const post = body.message || body.channel_post
   const chatId = post?.chat?.id
   const text = post?.text
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
+
+  // Telegram resends the SAME update_id if this route doesn't respond 200
+  // promptly. Worse here than the sibling owner/tenant routes: Jefe's
+  // action tools (notify_tenant_owner, send_tenant_message, rerun_cron —
+  // see lib/jefe/agent.ts) are confirm-gated by Jeff sending a plain "yes"
+  // as a follow-up message. If THAT confirm message is the one redelivered,
+  // the confirm=true tool call — a real SMS/email to a tenant owner, a real
+  // in-platform post, a real cron re-fire — runs twice. Claimed before any
+  // agent call so a redelivery short-circuits before the tool ever fires.
+  if (body.update_id !== undefined) {
+    const { error: claimErr } = await supabaseAdmin
+      .from('telegram_webhook_updates')
+      .insert({ dedup_key: `jefe:${body.update_id}` })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ ok: true, action: 'duplicate_delivery' })
+      }
+      console.error('[telegram jefe webhook] update claim failed:', claimErr)
+      // Fall through — an infra hiccup on the dedup table must not
+      // silently drop a real inbound message.
+    }
+  }
 
   // Fail CLOSED when no owner chat id is configured yet — same class as the
   // [tenant]/route.ts sibling fix: an unset OWNER_CHAT_ID used to skip this
