@@ -12,7 +12,9 @@ export async function GET(request: Request) {
     const { tenant: _authTenant, error: _authError } = await requirePermission('finance.view')
     if (_authError) return _authError
     const { tenantId } = _authTenant
-    const entityId = entityIdFromUrl(new URL(request.url))
+    const url = new URL(request.url)
+    const entityId = entityIdFromUrl(url)
+    const jobId = url.searchParams.get('job_id')
 
     let q = supabaseAdmin
       .from('expenses')
@@ -20,6 +22,7 @@ export async function GET(request: Request) {
       .eq('tenant_id', tenantId)
       .order('date', { ascending: false })
     if (entityId) q = q.eq('entity_id', entityId)
+    if (jobId) q = q.eq('job_id', jobId)
 
     const { data, error } = await q
 

@@ -4,6 +4,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { stageMeta } from '@/lib/pipeline'
+import { CloseoutDetail } from '@/components/closeout-detail'
 
 type Assignee = { id: string; name: string }
 type Job = {
@@ -33,6 +34,7 @@ type Session = {
   assignees: Assignee[]
 }
 type EventRow = { id: string; event_type: string; created_at: string }
+type Expense = { id: string; category: string; subcategory: string | null; description: string | null; vendor_name: string | null; amount: number; date: string; receipt_url: string | null }
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
 
@@ -167,12 +169,14 @@ export default function JobDetailPage() {
   const [events, setEvents] = useState<EventRow[]>([])
   const [crews, setCrews] = useState<Crew[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
+  const [expenses, setExpenses] = useState<Expense[]>([])
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState<SessionForm>(EMPTY_FORM)
+  const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
@@ -186,6 +190,11 @@ export default function JobDetailPage() {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
   }, [])
+  useEffect(() => {
+    // finance.view-gated on the backend — a viewer without finance access just
+    // gets an empty list here rather than a broken page.
+    fetch(`/api/finance/expenses?job_id=${id}`).then(r => r.json()).then(d => setExpenses(d.expenses || [])).catch(() => {})
+  }, [id])
 
   async function act(label: string, fn: () => Promise<Response>) {
     setBusy(label); setErr('')
@@ -229,12 +238,18 @@ export default function JobDetailPage() {
 
   const beginEdit = (s: Session) => { setAdding(false); setEditingId(s.id); setForm(formFromSession(s)) }
   const beginAdd = () => { setEditingId(null); setForm({ ...EMPTY_FORM, service: job?.title ?? '' }); setAdding(true) }
+  const toggleDetail = (sessionId: string) => setExpandedSessions((prev) => {
+    const next = new Set(prev)
+    if (next.has(sessionId)) next.delete(sessionId); else next.add(sessionId)
+    return next
+  })
 
   if (loading) return <div className="p-8 text-slate-400 text-sm">Loading…</div>
   if (!job) return <div className="p-8 text-slate-500 text-sm">Job not found.</div>
 
   const paidCents = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_cents, 0)
   const owedCents = Math.max(0, job.total_cents - paidCents)
+  const expensesTotalCents = expenses.reduce((s, e) => s + (e.amount || 0), 0)
   const doneCount = sessions.filter(s => s.status === 'completed').length
   const pct = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
 
@@ -320,6 +335,30 @@ export default function JobDetailPage() {
         </div>
       </section>
 
+      {/* Supplies & expenses */}
+      {expenses.length > 0 && (
+        <section className="mb-6">
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm font-semibold text-slate-800">Supplies & expenses</h2>
+            <span className="text-sm font-medium text-slate-900">{money(expensesTotalCents)}</span>
+          </div>
+          <div className="space-y-1.5">
+            {expenses.map(e => (
+              <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white">
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{e.category}</span>
+                <span className="flex-1 min-w-0">
+                  <span className="text-sm text-slate-700">{e.vendor_name || e.description || 'Expense'}</span>
+                  {e.vendor_name && e.description && <span className="ml-2 text-xs text-slate-400">{e.description}</span>}
+                  <span className="ml-2 text-[10px] text-slate-400">{dateOnlyLabel(e.date)}</span>
+                </span>
+                {e.receipt_url && <a href={e.receipt_url} target="_blank" rel="noreferrer" className="text-[11px] text-blue-600 hover:underline shrink-0">Receipt</a>}
+                <span className="text-sm font-medium text-slate-900 shrink-0">{money(e.amount)}</span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       {/* Project timeline */}
       <section className="mb-6">
         <div className="flex items-center justify-between mb-2">
@@ -356,6 +395,7 @@ export default function JobDetailPage() {
                 {g.items.map((s) => {
                   const dur = durationHrs(s.start_time, s.end_time)
                   const isEditing = editingId === s.id
+                  const isDetailOpen = expandedSessions.has(s.id)
                   const done = s.status === 'completed'
                   return (
                     <div key={s.id} className="relative">
@@ -381,6 +421,10 @@ export default function JobDetailPage() {
                           </div>
                           {!isEditing && (
                             <div className="flex items-center gap-1 shrink-0">
+                              <button onClick={() => toggleDetail(s.id)} title="Time, bill, payments & payouts for this visit"
+                                className={`text-[11px] px-2 py-1 rounded border ${isDetailOpen ? 'bg-slate-800 text-white border-slate-800' : 'border-slate-300 text-slate-600 hover:bg-slate-50'}`}>
+                                {isDetailOpen ? 'Hide' : 'Details'}
+                              </button>
                               {!done && <button onClick={() => completeSession(s.id)} disabled={busy === `complete-${s.id}`} title="Mark visit complete"
                                 className="text-[11px] px-2 py-1 rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Done</button>}
                               <button onClick={() => beginEdit(s)} title="Move / reassign"
@@ -394,6 +438,11 @@ export default function JobDetailPage() {
                           <div className="px-2.5 pb-2.5">
                             <SessionEditor form={form} setForm={setForm} crews={crews} team={team}
                               onSave={() => saveEdit(s.id)} onCancel={() => setEditingId(null)} saving={busy === `edit-${s.id}`} saveLabel="Save visit" />
+                          </div>
+                        )}
+                        {isDetailOpen && (
+                          <div className="px-2.5 pb-2.5">
+                            <CloseoutDetail bookingId={s.id} onAnyChange={load} />
                           </div>
                         )}
                       </div>
