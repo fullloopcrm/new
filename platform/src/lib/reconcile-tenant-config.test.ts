@@ -26,6 +26,7 @@ import {
   findUnboundedApiPublicRouteCollisions,
   parseAdminBypassPrefixes,
   findShadowedAdminBypassPrefixes,
+  parseJoinCrawlableHosts,
   computeFindings,
   summarize,
   loadToken,
@@ -3262,5 +3263,208 @@ describe('computeFindings — Drift AG (admin-impersonation-bypass prefix shadow
       resolvableSlugs: null,
     })
     expect(findings.filter((f) => f.msg.includes('is dead code'))).toHaveLength(0)
+  })
+})
+
+describe('parseJoinCrawlableHosts', () => {
+  it('extracts the hostnames from a robots.ts JOIN_CRAWLABLE_HOSTS declaration', () => {
+    const src = `
+      const JOIN_CRAWLABLE_HOSTS = new Set([
+        'thenycmobilesalon.com',
+        "www.thenycmobilesalon.com",
+      ])
+    `
+    const set = parseJoinCrawlableHosts(src)
+    expect(set.has('thenycmobilesalon.com')).toBe(true)
+    expect(set.has('www.thenycmobilesalon.com')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+
+  it('returns an empty set when the declaration is absent', () => {
+    expect(parseJoinCrawlableHosts('export default {}').size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AH (JOIN_CRAWLABLE_HOSTS entry with no matching known domain)', () => {
+  it('warns when a join-crawlable host matches no tenants.domain, tenant_domains row, or any-status domain', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'foo.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenantDomains: [{ slug: 'foo', domain: 'foo.com' }],
+      joinCrawlableHosts: new Set(['stale-domain.com']),
+    })
+    const warn = findings.find((f) => f.slug === 'stale-domain.com')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('JOIN_CRAWLABLE_HOSTS')
+  })
+
+  it('does not warn when the host matches tenants.domain', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'thenycmobilesalon.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.slug === 'thenycmobilesalon.com')).toBe(false)
+  })
+
+  it('does not warn when the host matches only an active tenant_domains row (tenants.domain empty)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: null, status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thenycmobilesalon.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'foo' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['foo']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.slug === 'thenycmobilesalon.com')).toBe(false)
+  })
+
+  it('does not warn when the host matches only a stale any-status tenants.domain (out-of-scope tenant)', () => {
+    const tenants: Array<{ id: string; slug: string; domain: string | null; status: string }> = []
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      allTenantDomains: [{ slug: 'suspended-foo', domain: 'thenycmobilesalon.com' }],
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.slug === 'thenycmobilesalon.com')).toBe(false)
+  })
+
+  it('matches through norm() so a www-prefixed or scheme-prefixed known domain still collapses with a bare join-crawlable entry', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'https://www.thenycmobilesalon.com/', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.slug === 'thenycmobilesalon.com')).toBe(false)
+  })
+
+  it('is skipped entirely when joinCrawlableHosts is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'foo', domain: 'foo.com', status: 'active' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('JOIN_CRAWLABLE_HOSTS')).length).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AI (bespoke tenant has a site/<slug>/join folder not covered by JOIN_CRAWLABLE_HOSTS)', () => {
+  // tds always carries a matching active row alongside tenants.domain in these
+  // fixtures so Drift B (tenants.domain with no matching active tenant_domains
+  // row) never fires and pollutes the by-slug finding filter below with an
+  // unrelated warning.
+  it('warns when a bespoke tenant with a join/ folder has a known domain missing from JOIN_CRAWLABLE_HOSTS', () => {
+    const tenants = [{ id: 't1', slug: 'nyc-mobile-salon', domain: 'thenycmobilesalon.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thenycmobilesalon.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nyc-mobile-salon' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nyc-mobile-salon']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['nyc-mobile-salon', ['join', 'contact']]]),
+      joinCrawlableHosts: new Set(), // the live entry was dropped / never added
+    })
+    const warn = findings.find((f) => f.msg.includes("join/ folder"))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.slug).toBe('nyc-mobile-salon')
+    expect(warn!.msg).toContain('site/nyc-mobile-salon/join/')
+    expect(warn!.msg).toContain('thenycmobilesalon.com')
+  })
+
+  it('does not warn when the tenant\'s domain IS in JOIN_CRAWLABLE_HOSTS (the live, correct state)', () => {
+    const tenants = [{ id: 't1', slug: 'nyc-mobile-salon', domain: 'thenycmobilesalon.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thenycmobilesalon.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nyc-mobile-salon' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nyc-mobile-salon']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['nyc-mobile-salon', ['join', 'contact']]]),
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.msg.includes("join/ folder"))).toBe(false)
+  })
+
+  it('matches through norm() so a www-prefixed known domain still collapses with a bare JOIN_CRAWLABLE_HOSTS entry', () => {
+    const tenants = [{ id: 't1', slug: 'nyc-mobile-salon', domain: 'https://www.thenycmobilesalon.com/', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'https://www.thenycmobilesalon.com/', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nyc-mobile-salon' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nyc-mobile-salon']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['nyc-mobile-salon', ['join']]]),
+      joinCrawlableHosts: new Set(['thenycmobilesalon.com']),
+    })
+    expect(findings.some((f) => f.msg.includes("join/ folder"))).toBe(false)
+  })
+
+  it('does not warn for a bespoke tenant with no join/ folder', () => {
+    const tenants = [{ id: 't1', slug: 'nycmaid', domain: 'nycmaid.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'nycmaid.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nycmaid' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nycmaid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['nycmaid', ['contact', 'services']]]),
+      joinCrawlableHosts: new Set(),
+    })
+    expect(findings.some((f) => f.msg.includes("join/ folder"))).toBe(false)
+  })
+
+  it('does not warn when the tenant has a join/ folder but no known domain at all (unresolvable/out-of-scope, covered by Drift C/E/L instead)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['ghost-tenant']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['ghost-tenant', ['join']]]),
+      joinCrawlableHosts: new Set(),
+    })
+    expect(findings.some((f) => f.msg.includes("join/ folder"))).toBe(false)
+  })
+
+  it('is skipped entirely when bespokeSiteTopLevelDirs is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'nyc-mobile-salon', domain: 'thenycmobilesalon.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thenycmobilesalon.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nyc-mobile-salon' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nyc-mobile-salon']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      joinCrawlableHosts: new Set(),
+    })
+    expect(findings.filter((f) => f.msg.includes("join/ folder")).length).toBe(0)
   })
 })

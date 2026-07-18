@@ -339,6 +339,21 @@ export function parseRobotsKilledRoutes(robotsSource) {
   return new Set(block ? [...stripComments(block[1]).matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
 }
 
+// --- parse JOIN_CRAWLABLE_HOSTS out of src/app/robots.ts. This is a THIRD
+// hardcoded hostname list in that file (alongside its own MAIN_HOSTS and
+// KILLED_ROUTES copies above), but unlike those two it is not a copy of
+// anything middleware.ts also declares — it exists only here, as a carve-out
+// exempting specific tenant custom domains from the default '/join/'
+// disallow rule so their public /join/* hiring-funnel pages (JobPosting
+// structured data, crawlable pre-cutover on the standalone site) stay
+// indexed. Because it lives entirely outside every DB source this gate
+// otherwise reconciles, a domain that changes (or a typo at authoring time)
+// gives zero drift signal anywhere else — see Drift AH below.
+export function parseJoinCrawlableHosts(robotsSource) {
+  const block = robotsSource.match(/JOIN_CRAWLABLE_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+}
+
 // --- given KILLED_ROUTES and a map of route -> [relative page/route.ts file
 // paths found on disk directly under src/app/<route>], return the ones that
 // are permanently unreachable in production. isMainHost() && isKilledRoute()
@@ -719,8 +734,8 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  resolved down to its real first URL
  *                                  segment (see collectFirstSegmentDirs in
  *                                  main() and findShadowedAppRootPages).
- *                                  Feeds Drift AE ONLY. Pass an empty Map
- *                                  (default) to skip.
+ *                                  Feeds Drift AE and Drift AI. Pass an empty
+ *                                  Map (default) to skip both.
  * @param {Array}    [input.apiPublicRouteCollisions]  { pattern, literalDir,
  *                                  collidesWithDir } entries from
  *                                  findUnboundedApiPublicRouteCollisions — an
@@ -738,9 +753,17 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  already matches every path under it. Feeds
  *                                  Drift AG ONLY. Pass an empty array (default)
  *                                  to skip.
+ * @param {Set}      [input.joinCrawlableHosts]  hostnames from src/app/robots.ts's
+ *                                  JOIN_CRAWLABLE_HOSTS (see
+ *                                  parseJoinCrawlableHosts) — tenant custom
+ *                                  domains exempted from the default '/join/'
+ *                                  disallow rule. Feeds Drift AH and (as the
+ *                                  coverage set) Drift AI. Pass an empty Set
+ *                                  (default) to skip AH; AI still needs
+ *                                  bespokeSiteTopLevelDirs to run at all.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [], joinCrawlableHosts = new Set() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1488,6 +1511,66 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     )
   }
 
+  // Drift AH: a JOIN_CRAWLABLE_HOSTS entry (src/app/robots.ts — see
+  // parseJoinCrawlableHosts) that matches NO known tenant domain anywhere
+  // (tenants.domain of any status, or any tenant_domains row). Same "two
+  // lists that should agree but don't" shape as Drift O (APEX_CANONICAL_DOMAINS),
+  // just for a different hardcoded hostname list in a different file: this
+  // Set exists purely to carve the tenant's public /join/* hiring-funnel
+  // pages out of the default '/join/' disallow rule, and it lives entirely
+  // outside every DB source this gate otherwise reconciles. A tenant domain
+  // change (or a typo at authoring time — e.g. a dropped 'www.' twin, or a
+  // stale domain left behind after a cutover) gives zero drift signal
+  // anywhere else: robots.ts keeps disallowing '/join/' for the tenant's
+  // REAL current domain (since it never matched the stale entry to begin
+  // with) while the dead entry harmlessly matches nothing, silently hiding
+  // indexed job pages from Google with no CI signal at all. WARN, not CRIT:
+  // this is a crawlability regression, not a live data leak or routing
+  // break — the underlying /join/* pages still render correctly, they just
+  // stop being offered to crawlers.
+  if (joinCrawlableHosts.size) {
+    const knownDomains = new Set()
+    for (const t of tenants) if (t.domain) knownDomains.add(norm(t.domain))
+    for (const r of tds) if (r.domain) knownDomains.add(norm(r.domain))
+    for (const t of allTenantDomains) if (t.domain) knownDomains.add(norm(t.domain))
+    for (const host of joinCrawlableHosts) {
+      if (!knownDomains.has(norm(host))) {
+        add('WARN', host, `in src/app/robots.ts's JOIN_CRAWLABLE_HOSTS (the '/join/' disallow-rule exemption for this tenant's public hiring-funnel pages) but matches NO known tenant domain -> dead entry, or a typo/stale-domain silently defeating the crawlability exemption it exists for; robots.ts still disallows '/join/' for whatever domain the tenant ACTUALLY serves on today`)
+      }
+    }
+  }
+
+  // Drift AI: the reverse of Drift AH -- a bespoke tenant with a real
+  // site/<slug>/join/ folder (a live public hiring-funnel page, JobPosting
+  // structured data) whose known domain(s) are NOT in JOIN_CRAWLABLE_HOSTS.
+  // robots.ts's default '/join/' disallow rule applies to every host NOT in
+  // that Set (see parseJoinCrawlableHosts above), so a tenant that actually
+  // serves /join/* content but was never added to the exemption list -- or
+  // fell out of it after a domain change -- has its indexed job pages
+  // silently hidden from crawlers, with zero drift signal anywhere else in
+  // this file. Same "forgot the code you fixed" shape (182)/(184)
+  // generalized for their own lists, just applied to this one: today's only
+  // bespoke tenant with a site/<slug>/join folder (nyc-mobile-salon) is
+  // already correctly listed, so this check exists to catch the NEXT one.
+  // Skipped for a slug with no known domain at all -- an unresolvable/
+  // out-of-scope tenant is already covered by Drift C/E/L, and warning here
+  // too would just be duplicate noise with no new domain to act on.
+  if (bespokeSiteTopLevelDirs.size) {
+    const normJoinHosts = new Set([...joinCrawlableHosts].map(norm))
+    for (const [slug, dirs] of bespokeSiteTopLevelDirs) {
+      if (!dirs.includes('join')) continue
+      const domains = new Set()
+      for (const t of tenants) if (t.slug === slug && t.domain) domains.add(norm(t.domain))
+      for (const r of tds) if (r.slug === slug && r.domain) domains.add(norm(r.domain))
+      for (const t of allTenantDomains) if (t.slug === slug && t.domain) domains.add(norm(t.domain))
+      if (!domains.size) continue
+      const covered = [...domains].some((d) => normJoinHosts.has(d))
+      if (!covered) {
+        add('WARN', slug, `has a site/${slug}/join/ folder (a live public hiring-funnel page) but its known domain(s) [${[...domains].join(', ')}] are NOT in src/app/robots.ts's JOIN_CRAWLABLE_HOSTS -> robots.ts's default '/join/' disallow rule hides this tenant's indexed job pages from crawlers on its own domain`)
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1559,6 +1642,7 @@ async function main() {
   const robotsSource = readFileSync(join(REPO, 'src', 'app', 'robots.ts'), 'utf8')
   const robotsMainHostsSet = parseRobotsMainHostsSet(robotsSource)
   const robotsKilledRoutesSet = parseRobotsKilledRoutes(robotsSource)
+  const joinCrawlableHosts = parseJoinCrawlableHosts(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -1696,7 +1780,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows, joinCrawlableHosts })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
