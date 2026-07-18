@@ -46,17 +46,51 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   // other tenant page — so unlike '/fullloop', this one was never a
   // candidate for Drift AJ's APP_ROOT_PREFIXES-vs-disallow diff at all; nothing
   // in this file, or in reconcile-tenant-config.mjs, watched it until now.
+  //
+  // The '$'-suffixed entries below (Google's "end of path" anchor) are a
+  // SEPARATE fix from the trailing-slash entries just above each one, not a
+  // duplicate: 'Disallow: /team/' only matches paths STRICTLY under '/team/'
+  // ('/team/dashboard', '/team/foo') — it does NOT match the bare '/team'
+  // path itself (the canonical example in Google's own robots.txt docs).
+  // '/dashboard', '/admin', '/portal', and '/team' each have a real
+  // src/app/<name>/page.tsx that middleware's APP_ROOT_PREFIXES passthrough
+  // serves at that exact bare path — tenant headers injected, no auth gate
+  // at the middleware level — on every tenant custom domain (confirmed live:
+  // /portal and /team are 'use client' pages with only client-side
+  // localStorage auth, so the bare path server-renders real content before
+  // any redirect; /dashboard and /admin do have a server-side layout auth
+  // gate, but the bare URL is still indexable as a redirect target with zero
+  // robots.txt coverage without this). '/api' and '/stripe-onboard' have no
+  // live bare page today, but are included for the same structural reason
+  // reconcile-tenant-config.mjs's Drift AJ checks the full APP_ROOT_PREFIXES
+  // set rather than only currently-populated members — see Drift AJ/AK in
+  // that file (robotsDisallowCoversPath) for the coverage-check fix this
+  // pairs with. '/sign-in', '/sign-up', and '/onboarding' get the same
+  // '$'-anchored fix for the identical bug on the MAIN host: Clerk's
+  // '[[...sign-in]]' / '[[...sign-up]]' catch-alls and onboarding's own
+  // page.tsx both match their bare path too, and isMainHost() requests never
+  // go through rewriteToSite() at all, so they reach those real Next.js
+  // routes directly.
   const disallow = [
     '/dashboard/',
+    '/dashboard$',
     '/admin/',
+    '/admin$',
     '/api/',
+    '/api$',
     '/team/',
+    '/team$',
     '/portal/',
+    '/portal$',
     '/sign-in/',
+    '/sign-in$',
     '/sign-up/',
+    '/sign-up$',
     '/onboarding/',
+    '/onboarding$',
     '/unsubscribe',
     '/stripe-onboard/',
+    '/stripe-onboard$',
     '/fullloop',
     '/reset-pin',
     '/reviews/submit',

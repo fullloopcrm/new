@@ -374,6 +374,31 @@ export function parseRobotsDisallowList(robotsSource) {
   return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
 }
 
+// --- real robots.txt Disallow matching: a literal PREFIX match on the URL
+// path, plus Google's '$' suffix meaning "end of path" (exact match only) —
+// https://developers.google.com/search/docs/crawling-indexing/robots/robots_txt#url-matching-based-on-path-values.
+// Critically, a trailing-slash entry ('/team/') is a STRICTLY NARROWER
+// prefix than the bare path ('/team'): it matches '/team/anything' but
+// NEVER matches '/team' itself — this is the canonical example in Google's
+// own docs ("Disallow: /fish/" does not match "/fish"). Drift AJ and Drift
+// AK originally stripped one trailing '/' from BOTH the disallow entry and
+// the path being checked before comparing, which silently treated
+// '/team/' as equivalent to covering bare '/team' — true for no real
+// robots.txt-consuming crawler. See Drift AJ/AK below for the live
+// instances (bare '/dashboard', '/admin', '/portal', '/team' all resolve
+// to real page.tsx files via middleware's APP_ROOT_PREFIXES passthrough)
+// that false "covered" verdict left permanently invisible to this gate.
+// The no-trailing-slash, no-'$' branch keeps the original path-segment
+// boundary discipline (exact match OR prefix + '/') so an unrelated
+// '/apiary' route still isn't credited to a bare '/api' entry.
+export function robotsDisallowCoversPath(disallowList, path) {
+  return disallowList.some((d) => {
+    if (d.endsWith('$')) return path === d.slice(0, -1)
+    if (d.endsWith('/')) return path.startsWith(d)
+    return path === d || path.startsWith(d + '/')
+  })
+}
+
 // --- parse PRIVATE_CLIENT_LOGIN_HOSTS out of src/app/robots.ts. This is a
 // SECOND per-host disallow carve-out map in that file, alongside
 // JOIN_CRAWLABLE_HOSTS above -- but where JOIN_CRAWLABLE_HOSTS EXEMPTS a
@@ -1660,18 +1685,16 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   // genuinely token-gated '/quote/(.*)', '/invoice/(.*)', '/sign/(.*)'
   // public flows this check deliberately does not flag (those are
   // unguessable per-visit URLs, not reserved fixed prefixes, so being
-  // absent from a static disallow list is correct for them). Coverage is
-  // checked as an exact match OR a path-segment-bounded prefix match
-  // (normalized by stripping one trailing '/' from each side) — the same
-  // boundary discipline Drift AE/AF/AG already apply to this file's other
-  // path-matching checks, so e.g. '/api/' is correctly covered by robots.ts's
-  // own '/api/' entry without also treating an unrelated '/apiary' route as
-  // covered by a bare '/api' entry.
+  // absent from a static disallow list is correct for them). Coverage uses
+  // real robots.txt Disallow semantics (see robotsDisallowCoversPath above)
+  // — a trailing-slash entry like '/team/' only covers paths STRICTLY under
+  // it, never the bare prefix itself, so '/dashboard', '/admin', '/portal',
+  // and '/team' each need their own exact-match ('$'-anchored) disallow
+  // entry alongside the trailing-slash one that covers their subpages.
   if (appRootPrefixes.length) {
-    const normDisallow = robotsDisallowList.map((d) => d.replace(/\/$/, ''))
     for (const prefix of appRootPrefixes) {
       const normPrefix = prefix.replace(/\/$/, '')
-      const covered = normDisallow.some((d) => normPrefix === d || normPrefix.startsWith(d + '/'))
+      const covered = robotsDisallowCoversPath(robotsDisallowList, normPrefix)
       if (!covered) {
         add(
           'WARN',
@@ -1695,19 +1718,20 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   // page, never touching the APP_ROOT_PREFIXES/matchesAppRootPrefix branch
   // Drift AE/AJ watch. That made it invisible to every existing Drift check
   // in this file — including AJ, whose diff is scoped to APP_ROOT_PREFIXES
-  // entries only. Same boundary-matched coverage check AJ uses (exact match
-  // OR a path-segment-bounded prefix match, trailing slash stripped from
-  // each side) so a future '/login/foo' disallow entry would still correctly
-  // count as covering '/login' itself. Concrete instances found live in the
-  // current repo: all four tenants above ship this exact page, unindexed by
-  // no mechanism other than this new check going forward. WARN, not CRIT —
+  // entries only. Same real robots.txt Disallow semantics AJ uses (see
+  // robotsDisallowCoversPath) — a trailing-slash-only '/login/' entry would
+  // NOT actually cover the bare '/login' page in a real crawler, so it does
+  // not count as coverage here either; a future '/login/foo' disallow entry
+  // would still correctly count as covering nested paths, just never the
+  // bare page by itself. Concrete instances found live in the current
+  // repo: all four tenants above ship this exact page, unindexed by no
+  // mechanism other than this new check going forward. WARN, not CRIT —
   // same "crawlability regression, not a live data leak" reasoning as AH/AJ:
   // the page still self-gates via its own PIN submission to
   // /api/client/login or the admin PIN endpoint, it is just indexable when
   // it shouldn't be.
   if (bespokeSiteTopLevelDirs.size) {
-    const normDisallow = robotsDisallowList.map((d) => d.replace(/\/$/, ''))
-    const loginCovered = normDisallow.some((d) => d === '/login' || '/login'.startsWith(d + '/'))
+    const loginCovered = robotsDisallowCoversPath(robotsDisallowList, '/login')
     if (!loginCovered) {
       for (const [slug, dirs] of bespokeSiteTopLevelDirs) {
         if (!dirs.includes('login')) continue

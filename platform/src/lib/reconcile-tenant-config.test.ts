@@ -28,6 +28,7 @@ import {
   findShadowedAdminBypassPrefixes,
   parseJoinCrawlableHosts,
   parseRobotsDisallowList,
+  robotsDisallowCoversPath,
   parsePrivateClientLoginHosts,
   computeFindings,
   summarize,
@@ -3498,6 +3499,31 @@ describe('parseRobotsDisallowList', () => {
   })
 })
 
+describe('robotsDisallowCoversPath (real robots.txt Disallow matching semantics)', () => {
+  it('a trailing-slash entry covers nested paths but NOT the bare path itself', () => {
+    expect(robotsDisallowCoversPath(['/team/'], '/team/dashboard')).toBe(true)
+    expect(robotsDisallowCoversPath(['/team/'], '/team')).toBe(false)
+  })
+
+  it('a "$"-anchored entry covers ONLY the exact bare path, not nested paths', () => {
+    expect(robotsDisallowCoversPath(['/team$'], '/team')).toBe(true)
+    expect(robotsDisallowCoversPath(['/team$'], '/team/dashboard')).toBe(false)
+  })
+
+  it('a bare entry (no trailing slash, no "$") covers the exact path and boundary-matched nested paths', () => {
+    expect(robotsDisallowCoversPath(['/login'], '/login')).toBe(true)
+    expect(robotsDisallowCoversPath(['/reviews/'], '/reviews/submit')).toBe(true)
+  })
+
+  it('does not treat a bare entry as covering an unrelated route sharing only leading characters', () => {
+    expect(robotsDisallowCoversPath(['/api'], '/apiary')).toBe(false)
+  })
+
+  it('returns false against an empty disallow list', () => {
+    expect(robotsDisallowCoversPath([], '/team')).toBe(false)
+  })
+})
+
 describe('computeFindings — Drift AJ (APP_ROOT_PREFIXES entry with no matching robots.ts disallow rule)', () => {
   it('warns when an APP_ROOT_PREFIXES entry has no matching disallow entry at all', () => {
     const findings: Finding[] = computeFindings({
@@ -3516,7 +3542,12 @@ describe('computeFindings — Drift AJ (APP_ROOT_PREFIXES entry with no matching
     expect(warn!.msg).toContain("robots.ts's disallow array")
   })
 
-  it('does not warn when the prefix exact-matches a disallow entry after trailing-slash normalization', () => {
+  it('still warns when the only disallow coverage is trailing-slash-only — that never blocks the bare path in a real crawler', () => {
+    // 'Disallow: /portal/' matches '/portal/anything' but NOT the bare
+    // '/portal' path itself (Google's own canonical robots.txt example).
+    // An earlier version of this check stripped the trailing slash from
+    // both sides before comparing, which wrongly credited '/portal/' with
+    // covering bare '/portal' — this asserts the corrected behavior.
     const findings: Finding[] = computeFindings({
       tenants: [],
       tds: [],
@@ -3525,6 +3556,20 @@ describe('computeFindings — Drift AJ (APP_ROOT_PREFIXES entry with no matching
       resolvableSlugs: null,
       appRootPrefixes: ['/portal', '/dashboard'],
       robotsDisallowList: ['/portal/', '/dashboard/'],
+    })
+    expect(findings.some((f) => f.slug === '/portal')).toBe(true)
+    expect(findings.some((f) => f.slug === '/dashboard')).toBe(true)
+  })
+
+  it('does not warn when a "$"-anchored disallow entry exact-matches the bare prefix', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/portal', '/dashboard'],
+      robotsDisallowList: ['/portal/', '/portal$', '/dashboard/', '/dashboard$'],
     })
     expect(findings.some((f) => f.slug === '/portal' || f.slug === '/dashboard')).toBe(false)
   })
@@ -3616,7 +3661,10 @@ describe('computeFindings — Drift AK (bespoke tenant has a site/<slug>/login f
     expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(false)
   })
 
-  it('matches through trailing-slash normalization, same as Drift AJ\'s coverage check', () => {
+  it('still warns when robots.ts only has trailing-slash "/login/" coverage — same real robots.txt semantics as Drift AJ', () => {
+    // 'Disallow: /login/' matches '/login/anything' but never the bare
+    // '/login' page itself — the same fix Drift AJ's own coverage check
+    // received applies here too.
     const findings: Finding[] = computeFindings({
       tenants: [],
       tds: [],
@@ -3625,6 +3673,19 @@ describe('computeFindings — Drift AK (bespoke tenant has a site/<slug>/login f
       resolvableSlugs: null,
       bespokeSiteTopLevelDirs: new Map([['the-florida-maid', ['login']]]),
       robotsDisallowList: ['/login/'],
+    })
+    expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(true)
+  })
+
+  it('does not warn when a "$"-anchored "/login$" disallow entry exact-matches the bare page', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['the-florida-maid', ['login']]]),
+      robotsDisallowList: ['/login/', '/login$'],
     })
     expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(false)
   })
