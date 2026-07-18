@@ -55,4 +55,14 @@ describe('POST /api/leads — message length cap', () => {
     const res = await POST(req({ ...VALID_BODY, message: 'Interested in a demo.' }))
     expect(res.status).toBe(200)
   })
+
+  // Prior round only capped `message`; `industry` also flows into the leads
+  // row, partner_requests row, and admin email and was left unbounded.
+  it('rejects when industry (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const { POST } = await import('./route')
+    const res = await POST(req({ ...VALID_BODY, industry: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(supabaseFrom).not.toHaveBeenCalled()
+  })
 })

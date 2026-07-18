@@ -70,8 +70,8 @@ export async function POST(request: Request) {
 
     // rateLimitDb above bounds request COUNT, not the SIZE of this
     // questionnaire's long-form free-text answers -- see maxLengthError's
-    // doc comment. This form has 7 such fields (vs. the single `message`
-    // field on sibling public forms), all folded into buildNotes() below.
+    // doc comment. Covers every optional string field on the founding-CEO
+    // questionnaire, all folded into buildNotes() below or written directly.
     const lenErr = maxLengthError({
       marketplaceBackground: body.marketplaceBackground,
       otherPlatforms: body.otherPlatforms,
@@ -80,6 +80,15 @@ export async function POST(request: Request) {
       whySweatEquity: body.whySweatEquity,
       plan306090: body.plan306090,
       anythingElse: body.anythingElse,
+      linkedinUrl: body.linkedinUrl,
+      location: body.location,
+      currentRole: body.currentRole,
+      currentCompany: body.currentCompany,
+      yearsExperience: body.yearsExperience,
+      teamSize: body.teamSize,
+      website: body.website,
+      videoUrl: body.videoUrl,
+      resumeUrl: body.resumeUrl,
     })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 

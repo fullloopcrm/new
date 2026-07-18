@@ -22,11 +22,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Name, email, and business name required' }, { status: 400 })
   }
 
-  // rateLimitDb above bounds request COUNT, not the free-text `message`
-  // field's SIZE -- a single call inside that cap could still stuff an
-  // arbitrarily large string into the leads/partner_requests rows and the
-  // admin notification email built from it.
-  const lenErr = maxLengthError({ message })
+  // rateLimitDb above bounds request COUNT, not the free-text fields' SIZE --
+  // a single call inside that cap could still stuff an arbitrarily large
+  // string into the leads/partner_requests rows and the admin notification
+  // email built from it. `message` was the only field covered previously;
+  // `industry` and `business_name` are also caller-supplied free text.
+  const lenErr = maxLengthError({ message, industry, business_name })
   if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
   const { data: lead, error } = await supabaseAdmin

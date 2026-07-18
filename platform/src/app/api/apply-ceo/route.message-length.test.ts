@@ -62,4 +62,14 @@ describe('POST /api/apply-ceo — questionnaire field length cap', () => {
     const res = await POST(req({ ...BASE, plan306090: 'Ship the roadmap, then iterate.' }))
     expect(res.status).toBe(200)
   })
+
+  // Prior round only capped the 7 long-form questionnaire fields; the
+  // shorter identity/context fields (currentCompany, location, etc.) fed
+  // into buildNotes() the same way and were left unbounded.
+  it('rejects when currentCompany (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ ...BASE, currentCompany: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(supabaseFrom).not.toHaveBeenCalled()
+  })
 })

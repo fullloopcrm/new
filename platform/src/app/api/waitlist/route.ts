@@ -128,9 +128,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'name and phone are required' }, { status: 400 })
   }
 
-  // isRateLimited above bounds request COUNT, not the free-text `notes`
-  // field's SIZE -- see maxLengthError's doc comment.
-  const lenErr = maxLengthError({ notes: body.notes })
+  // isRateLimited above bounds request COUNT, not the SIZE of these
+  // free-text fields -- see maxLengthError's doc comment. `notes` was the
+  // only field covered previously; `service_type`/`address` are also
+  // caller-supplied strings written straight to the waitlist row.
+  const lenErr = maxLengthError({ notes: body.notes, service_type: body.service_type, address: body.address })
   if (lenErr) return NextResponse.json({ ok: false, error: lenErr }, { status: 400 })
 
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)

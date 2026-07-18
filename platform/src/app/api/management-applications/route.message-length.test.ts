@@ -62,4 +62,13 @@ describe('POST /api/management-applications — free-text field length cap', () 
     const res = await POST(req({ ...BASE, why_this_role: 'I love this brand.' }))
     expect(res.status).toBe(200)
   })
+
+  // Prior round only capped why_this_role/notes/references; the remaining
+  // optional string fields (location, current_role, etc.) are written to
+  // the same row and were left unbounded.
+  it('rejects when current_role (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ ...BASE, current_role: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+  })
 })

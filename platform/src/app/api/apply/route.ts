@@ -65,9 +65,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Name and phone are required.' }, { status: 400 })
     }
 
-    // The rateLimitDb call above bounds request COUNT, not the free-text
-    // `message` field's SIZE -- see maxLengthError's doc comment.
-    const lenErr = maxLengthError({ message: body.message })
+    // The rateLimitDb call above bounds request COUNT, not the SIZE of this
+    // form's free-text fields -- see maxLengthError's doc comment. Only
+    // `message` was covered previously; every other optional string field
+    // below also flows straight into buildNotes() (one DB row + the admin
+    // notification email), so it needs the same cap.
+    const lenErr = maxLengthError({
+      message: body.message,
+      specialty: body.specialty,
+      position: body.position,
+      borough: body.borough,
+      driversLicense: body.driversLicense,
+      instagram: body.instagram,
+      experience: body.experience,
+      availability: body.availability,
+      website: body.website,
+      portfolioUrl: body.portfolioUrl,
+      resumeUrl: body.resumeUrl,
+      portfolioFileUrl: body.portfolioFileUrl,
+      videoUrl: body.videoUrl,
+    })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const cleanPhone = phone.replace(/\D/g, '')

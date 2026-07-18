@@ -50,4 +50,14 @@ describe('POST /api/apply — message length cap', () => {
     const res = await POST(req({ name: 'Jane', phone: '5551234567', message: 'Looking forward to it!' }))
     expect(res.status).toBe(200)
   })
+
+  // Prior round only capped `message`; every other optional field (specialty,
+  // instagram, portfolioUrl, etc.) also flows into buildNotes() and was
+  // left unbounded.
+  it('rejects when specialty (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ name: 'Jane', phone: '5551234567', specialty: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(supabaseFrom).not.toHaveBeenCalled()
+  })
 })

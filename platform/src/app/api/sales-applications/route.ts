@@ -77,8 +77,29 @@ export async function POST(request: Request) {
 
     // The in-memory rate limiter above bounds request COUNT, not these
     // free-text fields' SIZE -- see maxLengthError's doc comment.
-    const lenErr = maxLengthError({ sales_background, warm_intros, why, notes })
+    const lenErr = maxLengthError({ sales_background, warm_intros, why, notes, location, lane, referral_source, linkedin_url })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
+
+    // target_segments is a caller-supplied array on this same public,
+    // in-memory-rate-limited-only route -- same "unbounded array on a public
+    // write" class as the documents/public/[token]/sign field_values fix.
+    // Without a cap, a request could carry an arbitrarily long array, or one
+    // whose entries are unbounded strings (or non-strings at all -- the
+    // pre-existing Array.isArray branch passed entries through unvalidated).
+    // Also cap the non-array fallback (below, `[String(target_segments)]`) --
+    // a single giant string would otherwise become an unbounded one-item array.
+    if (Array.isArray(target_segments)) {
+      if (target_segments.length > 50) {
+        return NextResponse.json({ error: 'Too many target segments' }, { status: 400 })
+      }
+      for (const seg of target_segments) {
+        if (typeof seg !== 'string' || seg.length > 200) {
+          return NextResponse.json({ error: 'Invalid target segment' }, { status: 400 })
+        }
+      }
+    } else if (target_segments !== undefined && target_segments !== null && String(target_segments).length > 200) {
+      return NextResponse.json({ error: 'Invalid target segment' }, { status: 400 })
+    }
 
     // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
     // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared

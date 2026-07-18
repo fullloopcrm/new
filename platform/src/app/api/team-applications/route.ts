@@ -76,7 +76,7 @@ export async function POST(request: Request) {
 
     // The in-memory rate limiter above bounds request COUNT, not these
     // free-text fields' SIZE -- see maxLengthError's doc comment.
-    const lenErr = maxLengthError({ experience, availability, notes, references })
+    const lenErr = maxLengthError({ experience, availability, notes, references, address, referral_source })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in

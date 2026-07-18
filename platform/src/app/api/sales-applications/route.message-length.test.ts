@@ -58,4 +58,48 @@ describe('POST /api/sales-applications — free-text field length cap', () => {
     const res = await POST(req({ ...BASE, why: 'I know this market well.' }, '203.0.113.3'))
     expect(res.status).toBe(201)
   })
+
+  // Prior round only capped sales_background/warm_intros/why/notes; `lane`
+  // and the other identity/context fields were left unbounded.
+  it('rejects when lane (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ ...BASE, lane: 'a'.repeat(5001) }, '203.0.113.4'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(notify).not.toHaveBeenCalled()
+  })
+})
+
+describe('POST /api/sales-applications — target_segments array cap', () => {
+  // target_segments is a caller-supplied array with no prior cap on array
+  // length or item shape -- same "unbounded array on a public write" class
+  // as the documents/public/[token]/sign field_values fix.
+  it('rejects target_segments with more than 50 entries', async () => {
+    const res = await POST(req({ ...BASE, target_segments: Array.from({ length: 51 }, (_, i) => `seg-${i}`) }, '203.0.113.5'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too many/i)
+    expect(notify).not.toHaveBeenCalled()
+  })
+
+  it('rejects a target_segments entry over 200 characters', async () => {
+    const res = await POST(req({ ...BASE, target_segments: ['a'.repeat(201)] }, '203.0.113.6'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/invalid target segment/i)
+  })
+
+  it('rejects a target_segments entry that is not a string', async () => {
+    const res = await POST(req({ ...BASE, target_segments: [{ evil: 'object' }] }, '203.0.113.7'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/invalid target segment/i)
+  })
+
+  it('rejects an oversized non-array target_segments value', async () => {
+    const res = await POST(req({ ...BASE, target_segments: 'a'.repeat(201) }, '203.0.113.8'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/invalid target segment/i)
+  })
+
+  it('accepts a normal target_segments array', async () => {
+    const res = await POST(req({ ...BASE, target_segments: ['residential', 'commercial'] }, '203.0.113.9'))
+    expect(res.status).toBe(201)
+  })
 })

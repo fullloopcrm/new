@@ -58,4 +58,15 @@ describe('POST /api/contact — message length cap', () => {
     const res = await POST(req({ ...BASE, message: 'Excited to apply!' }))
     expect(res.status).toBe(200)
   })
+
+  // Prior round only capped `message`; the job-application branch's other
+  // free-text fields (experience, license, etc.) feed buildJobNotes() the
+  // same way and were left unbounded. Also covers the service-quote branch's
+  // fields (subject/pestType/etc.) via the same maxLengthError() call.
+  it('rejects when experience (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ ...BASE, experience: 'a'.repeat(5001) }))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(supabaseFrom).not.toHaveBeenCalled()
+  })
 })

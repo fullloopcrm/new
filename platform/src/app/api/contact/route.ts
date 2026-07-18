@@ -153,9 +153,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Name and a phone or email are required' }, { status: 400 })
     }
 
-    // rateLimitDb above bounds request COUNT, not the free-text `message`
-    // field's SIZE -- see maxLengthError's doc comment.
-    const lenErr = maxLengthError({ message: body.message })
+    // rateLimitDb above bounds request COUNT, not the SIZE of these
+    // free-text fields -- see maxLengthError's doc comment. Only `message`
+    // was covered previously; the rest below also flow into buildLeadNotes()/
+    // buildJobNotes() (one DB row + the admin notification email).
+    const lenErr = maxLengthError({
+      message: body.message,
+      subject: body.subject,
+      pestType: body.pestType,
+      propertyType: body.propertyType,
+      location: body.location,
+      urgency: body.urgency,
+      address: body.address,
+      position: body.position,
+      experience: body.experience,
+      license: body.license,
+      availability: body.availability,
+    })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const formType = inferFormType(body)

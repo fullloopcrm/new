@@ -55,4 +55,14 @@ describe('POST /api/team-applications — free-text field length cap', () => {
     const res = await POST(req({ ...BASE, experience: '3 years of cleaning experience.' }, '203.0.113.13'))
     expect(res.status).toBe(201)
   })
+
+  // Prior round only capped experience/availability/notes/references;
+  // `address`/`referral_source` are also written to the same row and were
+  // left unbounded.
+  it('rejects when address (a previously-uncapped field) exceeds 5000 characters', async () => {
+    const res = await POST(req({ ...BASE, address: 'a'.repeat(5001) }, '203.0.113.14'))
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toMatch(/too long/i)
+    expect(notify).not.toHaveBeenCalled()
+  })
 })

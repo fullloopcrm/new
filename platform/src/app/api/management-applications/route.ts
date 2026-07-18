@@ -61,8 +61,14 @@ export async function POST(request: Request) {
     }
 
     // rateLimitDb above bounds request COUNT, not the free-text fields'
-    // SIZE -- see maxLengthError's doc comment.
-    const lenErr = maxLengthError({ why_this_role, notes, references })
+    // SIZE -- see maxLengthError's doc comment. why_this_role/notes/references
+    // were covered previously; the remaining optional string fields below are
+    // written to the same row and flow into the admin notification too.
+    const lenErr = maxLengthError({
+      why_this_role, notes, references, location, current_role,
+      years_experience, management_experience, availability_start,
+      referral_source, position, resume_url, photo_url, video_url,
+    })
     if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const normalizedEmail = String(email).toLowerCase().trim()

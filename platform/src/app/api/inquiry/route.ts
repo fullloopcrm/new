@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { maxLengthError } from '@/lib/validate'
 
 // POST /api/inquiry — single contact form for the marketing teaser site.
 // Strategy pivot 2026-05-03: no longer selling territory licenses; this form
@@ -93,6 +94,14 @@ export async function POST(req: NextRequest) {
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
     return NextResponse.json({ error: 'invalid_email' }, { status: 400 })
   }
+
+  // rateLimitDb above bounds request COUNT, not the SIZE of these free-text
+  // fields -- see maxLengthError's doc comment. `message` was already capped
+  // (2000 chars, above); `company`/`heardFrom` were not, and both flow into
+  // the inquiries/partner_requests rows and the admin notification email.
+  const lenErr = maxLengthError({ company, heardFrom: body.heardFrom })
+  if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
+
   // Only validate role/budget when supplied; ignore invalid values rather than reject.
   const validRole = ROLES.includes(role) ? role : ('' as Role)
   const validBudget = BUDGETS.includes(budget) ? budget : ('' as Budget)
