@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/admin/comhub/voice/dial
 //   { thread_id?, contact_id?, phone?, admin_phone }
@@ -74,6 +75,21 @@ export async function POST(req: NextRequest) {
       .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: 'voice' })
     if (error || !data) return NextResponse.json({ error: error?.message || 'thread create failed' }, { status: 500 })
     threadId = data as string
+  }
+
+  // body.admin_phone is a free-text number the browser sends (see comhub
+  // page's "ring me at" field) with no server-side check that it belongs to
+  // a tenant member -- unlike comhub/send's SMS/email branches, this places
+  // a real, per-minute-billed outbound PSTN call via the tenant's own Telnyx
+  // account to WHATEVER number is supplied. Without a limit, a compromised
+  // or rogue admin session (or a scripted client) can toll-fraud the
+  // tenant's Telnyx bill by dialing arbitrary (including premium-rate)
+  // numbers with no throttle at all. Shares a bucket with voice/control's
+  // transfer_blind/transfer_warm, which have the same arbitrary-target,
+  // real-call-cost shape.
+  const dialRl = await rateLimitDb(`comhub-voice-dial:${tenantId}`, 20, 10 * 60 * 1000)
+  if (!dialRl.allowed) {
+    return NextResponse.json({ error: 'Too many calls placed. Try again shortly.' }, { status: 429 })
   }
 
   const res = await fetch('https://api.telnyx.com/v2/calls', {

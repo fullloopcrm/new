@@ -3,6 +3,7 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveTenantVoiceConfig } from '@/lib/comhub-voice-config'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Action = 'hold' | 'unhold' | 'mute' | 'unmute' | 'hangup' | 'transfer_blind' | 'transfer_warm' | 'speak' | 'dtmf'
 const ACTIONS: Action[] = ['hold', 'unhold', 'mute', 'unmute', 'hangup', 'transfer_blind', 'transfer_warm', 'speak', 'dtmf']
@@ -137,6 +138,14 @@ export async function POST(req: NextRequest) {
     case 'transfer_blind': {
       const target = String(body.payload?.target || '').trim()
       if (!target) return NextResponse.json({ error: 'payload.target required' }, { status: 400 })
+      // Same arbitrary-target, real-call-cost shape as voice/dial's
+      // admin_phone (transfers the live call to WHATEVER number is
+      // supplied) -- shares that route's per-tenant throttle so switching
+      // to transfer can't be used to route around the dial limit.
+      const transferRl = await rateLimitDb(`comhub-voice-dial:${tenantId}`, 20, 10 * 60 * 1000)
+      if (!transferRl.allowed) {
+        return NextResponse.json({ error: 'Too many calls placed. Try again shortly.' }, { status: 429 })
+      }
       result = await telnyxAction(cfg.apiKey, customerCallId, 'transfer', {
         to: target, from: cfg.fromNumber, time_limit_secs: 60 * 60,
       })
@@ -147,6 +156,10 @@ export async function POST(req: NextRequest) {
       if (!target) return NextResponse.json({ error: 'payload.target required' }, { status: 400 })
       if (!cfg.voiceConnectionId) {
         return NextResponse.json({ error: 'voice connection required (tenant or platform)' }, { status: 503 })
+      }
+      const transferRl = await rateLimitDb(`comhub-voice-dial:${tenantId}`, 20, 10 * 60 * 1000)
+      if (!transferRl.allowed) {
+        return NextResponse.json({ error: 'Too many calls placed. Try again shortly.' }, { status: 429 })
       }
       await telnyxAction(cfg.apiKey, customerCallId, 'hold')
       const consultRes = await fetch('https://api.telnyx.com/v2/calls', {

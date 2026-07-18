@@ -31,6 +31,15 @@ vi.mock('@/lib/comhub-voice-config', () => ({
   })),
 }))
 
+const { transferRateLimitAllowed } = vi.hoisted(() => ({ transferRateLimitAllowed: { value: true } }))
+const rateLimitDbSpy = vi.fn(async (_key: string, _max: number, _windowMs: number) => ({
+  allowed: transferRateLimitAllowed.value,
+  remaining: transferRateLimitAllowed.value ? 1 : 0,
+}))
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: (key: string, max: number, windowMs: number) => rateLimitDbSpy(key, max, windowMs),
+}))
+
 let activeCallRow: { id: string } | null = null
 const updateSpy = vi.fn((patch: Record<string, unknown>) => ({
   eq: () => ({
@@ -71,6 +80,8 @@ describe('POST admin/comhub/voice/control', () => {
   beforeEach(() => {
     activeCallRow = null
     updateSpy.mockClear()
+    transferRateLimitAllowed.value = true
+    rateLimitDbSpy.mockClear()
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(JSON.stringify({ data: {} }), { status: 200 })),
@@ -132,5 +143,73 @@ describe('POST admin/comhub/voice/control', () => {
       expect.stringContaining('my-tenants-call-id'),
       expect.anything(),
     )
+  })
+
+  /**
+   * Regression: transfer_blind/transfer_warm route the live customer call to
+   * a caller-supplied `payload.target` phone number with no validation that
+   * it belongs to the tenant, and (before this fix) no rate limit -- a
+   * compromised/rogue admin session could toll-fraud the tenant's Telnyx
+   * bill or redirect customer calls to an arbitrary number with no throttle.
+   * Both share voice/dial's per-tenant bucket so switching actions can't be
+   * used to route around the limit.
+   */
+  it('transfer_blind 429s once the shared voice-dial rate limit is exhausted, and never calls Telnyx', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+    transferRateLimitAllowed.value = false
+
+    const res = await POST(makeRequest({
+      customer_call_id: 'my-tenants-call-id',
+      action: 'transfer_blind',
+      payload: { target: '+19995550000' },
+    }))
+
+    expect(res.status).toBe(429)
+    expect(fetch).not.toHaveBeenCalled()
+    expect(rateLimitDbSpy).toHaveBeenCalledWith('comhub-voice-dial:tenant-1', expect.any(Number), expect.any(Number))
+  })
+
+  it('transfer_blind proceeds when under the rate limit', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+
+    const res = await POST(makeRequest({
+      customer_call_id: 'my-tenants-call-id',
+      action: 'transfer_blind',
+      payload: { target: '+19995550000' },
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.ok).toBe(true)
+    expect(fetch).toHaveBeenCalled()
+  })
+
+  it('transfer_warm 429s once the shared voice-dial rate limit is exhausted, and never calls Telnyx', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+    transferRateLimitAllowed.value = false
+
+    const res = await POST(makeRequest({
+      customer_call_id: 'my-tenants-call-id',
+      action: 'transfer_warm',
+      payload: { target: '+19995550000' },
+    }))
+
+    expect(res.status).toBe(429)
+    expect(fetch).not.toHaveBeenCalled()
+  })
+
+  it('transfer_warm proceeds when under the rate limit', async () => {
+    activeCallRow = { id: 'active-call-row-1' }
+
+    const res = await POST(makeRequest({
+      customer_call_id: 'my-tenants-call-id',
+      action: 'transfer_warm',
+      payload: { target: '+19995550000' },
+    }))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.ok).toBe(true)
+    expect(fetch).toHaveBeenCalled()
   })
 })
