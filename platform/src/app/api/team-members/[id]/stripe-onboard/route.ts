@@ -43,12 +43,40 @@ export async function POST(_req: NextRequest, { params }: { params: Promise<{ id
         business_type: 'individual',
         metadata: { team_member_id: id, tenant_id: tenantId },
       })
-      accountId = account.id
-      await supabaseAdmin
+
+      // Two concurrent onboarding requests (double-click, retry) both read
+      // stripe_account_id as null and would both create a live Express
+      // account -- an unconditional update() here means the last write wins
+      // with no signal to the loser, so the team member can complete
+      // onboarding on the account that gets discarded while payouts (which
+      // read team_members.stripe_account_id) target the other, never-onboarded
+      // one and fail. Claim atomically on IS NULL; if we lose the race, use
+      // the winner's account id instead of the one we just created so the
+      // onboarding link we return matches what payouts will actually use.
+      const { data: claimed } = await supabaseAdmin
         .from('team_members')
-        .update({ stripe_account_id: accountId })
+        .update({ stripe_account_id: account.id })
         .eq('id', id)
         .eq('tenant_id', tenantId)
+        .is('stripe_account_id', null)
+        .select('id')
+        .maybeSingle()
+
+      if (claimed) {
+        accountId = account.id
+      } else {
+        const { data: fresh } = await supabaseAdmin
+          .from('team_members')
+          .select('stripe_account_id')
+          .eq('id', id)
+          .eq('tenant_id', tenantId)
+          .single()
+        accountId = fresh?.stripe_account_id || account.id
+      }
+    }
+
+    if (!accountId) {
+      return NextResponse.json({ error: 'Failed to resolve Stripe account' }, { status: 500 })
     }
 
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || `https://${process.env.VERCEL_URL}` || 'http://localhost:3000'
