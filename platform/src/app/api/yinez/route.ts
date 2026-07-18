@@ -16,6 +16,13 @@ export async function POST(req: NextRequest) {
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
+    // Same class as chat/route.ts: the frequency rate limit below bounds
+    // request COUNT, not SIZE — without this, one call under that cap could
+    // still stuff a multi-MB message into the Anthropic prompt. 5000 matches
+    // the feedback-form cap; real chat turns are a few hundred characters.
+    if (message.length > 5000) {
+      return NextResponse.json({ error: 'Message is too long (max 5000 characters)' }, { status: 400 })
+    }
 
     // Tenant must come from the middleware-signed header — same guard as
     // chat/route.ts. Without this, a raw x-tenant-id header lets an attacker

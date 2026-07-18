@@ -16,6 +16,14 @@ export async function POST(req: NextRequest) {
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
+    // Frequency rate-limiting (below) bounds request COUNT, not request SIZE —
+    // without this, a single call under that cap could still stuff a
+    // multi-MB message into the Anthropic prompt, burning outsized input-token
+    // spend per request. 5000 matches the feedback-form cap; real chat turns
+    // are a few hundred characters.
+    if (message.length > 5000) {
+      return NextResponse.json({ error: 'Message is too long (max 5000 characters)' }, { status: 400 })
+    }
 
     // Tenant must come from middleware-signed header. A caller-supplied
     // tenantId in the body is accepted only if it matches the signed header.
