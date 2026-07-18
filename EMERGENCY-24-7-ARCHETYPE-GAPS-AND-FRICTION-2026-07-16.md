@@ -10042,3 +10042,73 @@ a Jeff-gated "graduation" decision (see `deploy-prep/idor-lint-guard-
 spec.md`) -- not a drift bug, an intentional deferred state, left
 untouched. No git hooks (`.git/hooks`, husky, or similar) exist in this
 repo to check. No further mirror-list surface found this round.
+
+## (199) New fresh-ground surface -- package.json's npm `prebuild` lifecycle
+script, the ORIGINAL 2026-07-08-outage-class backstop and the only one that
+fires on every Vercel deploy independent of ci.yml, had zero test coverage
+
+Items 168-198 audited the gate scripts themselves (the reconcile script,
+the tenant-scope guard, the protected-tenant guard), their CI workflow
+wiring (`.github/workflows/*.yml`), and a local convenience mirror
+(`scripts/preflight-check.mjs`). This round widened the search to a FOURTH
+kind of file in the same lane: `package.json`'s `scripts` block.
+
+`verify-protected-tenants.mjs`'s own header comment states its build-time
+enforcement mechanism explicitly: "It runs automatically as the npm
+`prebuild` step (see package.json), so `next build` -- and therefore every
+Vercel deploy -- will not proceed while a protected tenant is broken." npm
+automatically runs a `pre<script>` immediately before `<script>` purely by
+naming convention -- there is no explicit reference anywhere to grep for
+tying "build" to "prebuild" together, just two script names that happen to
+share a prefix. That is the ORIGINAL defense line for the 2026-07-08
+outage class, and the only one that fires on every Vercel deploy directly.
+ci.yml's own copy of this same guard -- added LATER, specifically because
+ci.yml never calls `next build` and so never triggers the npm lifecycle
+hook -- is already pinned by `protected-tenant-guard-wiring.test.ts`. But
+nothing in this suite ever reads `package.json` itself.
+
+**Consequence, concretely:** a PR that renames or removes the "prebuild"
+script (an npm-scripts cleanup, a switch to a different build tool, a
+merge conflict resolved carelessly) would go completely undetected: tsc,
+the full vitest suite, the tenant-isolation guard, ci.yml's OWN
+protected-tenant-guard step (which reads ci.yml, not package.json, and is
+structurally blind to a package.json-only edit), and eslint would all stay
+green -- while every subsequent Vercel deploy silently stopped running the
+one guard that exists specifically to stop a protected tenant's site from
+silently disappearing at build time. Confirmed the load-bearing assumption
+still holds today: `vercel.json` has no `buildCommand` override that would
+bypass npm's default `npm run build` invocation (which is what actually
+triggers the "prebuild" lifecycle hook).
+
+**Fixed:** new `src/lib/prebuild-guard-wiring.test.ts`, pure `JSON.parse`
+source-read of `package.json` (no runtime execution, no filesystem writes),
+pinning both (a) "build" stays a defined script (required for npm to
+auto-run "prebuild" at all) and (b) "prebuild" stays exactly
+`node scripts/verify-protected-tenants.mjs` -- same convention as
+`protected-tenant-guard-wiring.test.ts` / `reconcile-gate-wiring.test.ts`
+for the sibling workflow-YAML wiring tests already in this lane.
+
+Mutation-verified (not just written and trusted): removed the "prebuild"
+line from `package.json`, reran the new test -- failed with the exact
+predicted message naming the missing wiring and its deploy-time
+consequence; restored the line -- passed clean, `git diff --stat
+package.json` confirmed empty afterward (no unintended change survived the
+round-trip).
+
+**Continuation check (step 2 of this round's queue):** looked for other npm
+scripts with the same automatic-lifecycle-hook shape (a bare `pre<name>` /
+`post<name>` naming convention with nothing explicit to grep for) that
+might be equally untested. `audit:tenant`, `reconcile:tenants`,
+`verify:tenants`, and `preflight` are all plain named aliases a developer
+runs manually -- nothing auto-invokes them the way npm's build lifecycle
+auto-invokes `prebuild`, so a rename of any of those doesn't carry the same
+"silently stops firing on every deploy with zero signal" risk profile. No
+`postinstall` or other lifecycle script exists in this `package.json`. No
+further lifecycle-hook mirror-gap found this round.
+
+Full suite + tsc re-run clean after this round: 2318/2318 vitest tests pass
+(2315 prior + 3 new), `tsc --noEmit` zero errors, eslint clean on the new
+file. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
+`audit-tenant-scope.mjs`, and the three workflow YAML files were not
+touched this round -- their own coverage (items 168-198 above) is
+unaffected.
