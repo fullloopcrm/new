@@ -34,7 +34,7 @@ export async function resolveTenantVoiceConfig(
   const { data } = await supabaseAdmin
     .from('tenants')
     .select(
-      'telnyx_api_key, telnyx_phone, telnyx_voice_connection_id, telnyx_telephony_credential_id, telnyx_credential_connection_id',
+      'telnyx_api_key, telnyx_phone, sms_number, telnyx_voice_connection_id, telnyx_telephony_credential_id, telnyx_credential_connection_id',
     )
     .eq('id', tenantId)
     .single()
@@ -50,6 +50,10 @@ export async function resolveTenantVoiceConfig(
       (data.telnyx_telephony_credential_id as string) || ENV.telephonyCredentialId,
     credentialConnectionId:
       (data.telnyx_credential_connection_id as string) || ENV.credentialConnectionId,
-    fromNumber: (data.telnyx_phone as string) || ENV.fromNumber,
+    // Same telnyx_phone||sms_number precedence as resolveTenantSmsCredentials()
+    // (lib/sms-credentials.ts) -- sms_number predates telnyx_phone and is still
+    // independently writable, so a tenant with only the legacy column populated
+    // must not silently fall through to the platform's shared number here.
+    fromNumber: (data.telnyx_phone as string) || (data.sms_number as string) || ENV.fromNumber,
   }
 }
