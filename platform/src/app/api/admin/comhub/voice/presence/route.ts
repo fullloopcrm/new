@@ -3,11 +3,14 @@ import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { getActiveAdminMemberId } from '@/lib/admin-member'
 import { supabaseAdmin } from '@/lib/supabase'
+import { capString } from '@/lib/validate'
 
 type PresenceStatus = 'available' | 'busy' | 'away' | 'offline'
 const VALID_STATUSES: PresenceStatus[] = ['available', 'busy', 'away', 'offline']
 
 // POST /api/admin/comhub/voice/presence — softphone heartbeat / register.
+// sip_username/sip_address/device_label/user_agent were stored raw with no
+// type/length cap, same class as admin/comhub/templates' name/body gap.
 export async function POST(req: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
@@ -23,11 +26,12 @@ export async function POST(req: NextRequest) {
     user_agent?: string
   } | null
 
-  if (!body || !body.sip_username) {
+  const sipUsername = capString(body?.sip_username, 100)
+  if (!sipUsername) {
     return NextResponse.json({ error: 'sip_username required' }, { status: 400 })
   }
   const status: PresenceStatus =
-    body.status && (VALID_STATUSES as string[]).includes(body.status)
+    body?.status && (VALID_STATUSES as string[]).includes(body.status)
       ? (body.status as PresenceStatus)
       : 'available'
 
@@ -36,13 +40,13 @@ export async function POST(req: NextRequest) {
     {
       tenant_id: tenantId,
       admin_id: adminId,
-      sip_username: body.sip_username,
-      sip_address: body.sip_address ?? `sip:${body.sip_username}@sip.telnyx.com`,
-      device_label: body.device_label ?? null,
+      sip_username: sipUsername,
+      sip_address: capString(body?.sip_address, 200) ?? `sip:${sipUsername}@sip.telnyx.com`,
+      device_label: capString(body?.device_label, 100),
       status,
       last_seen_at: now,
       registered_at: now,
-      user_agent: body.user_agent ?? req.headers.get('user-agent') ?? null,
+      user_agent: capString(body?.user_agent, 300) ?? capString(req.headers.get('user-agent'), 300),
     },
     { onConflict: 'admin_id', ignoreDuplicates: false },
   )
