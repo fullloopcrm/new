@@ -10260,3 +10260,71 @@ the new file. `reconcile-tenant-config.mjs`, `verify-protected-
 tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
 files' non-exit-code wiring were not touched this round -- their own
 coverage (items 168-200 above) is unaffected.
+
+## (202) New fresh-ground surface -- db-backup.yml's "Encrypt dump" step
+(the ONLY thing standing between every tenant's PII and a public,
+unauthenticated leak) had zero regression coverage on either half of its
+fail-closed contract
+
+Items 168-201 audited the reconcile/tenant-scope/protected-tenant gate
+scripts, their three workflows' triggers/permissions/concurrency/timeout/
+notify-failure/Job-Summary wiring, the Telegram secret-name alignment
+across all three workflows' alert steps, and (201) the reconcile step's
+own exit-code-through-`tee` plumbing. This round moved to the one
+workflow step in this lane's territory (`.github/workflows/*`) that
+guards against something worse than a red gate: db-backup.yml's own
+header comment states the stakes plainly -- fullloopcrm/new is a PUBLIC
+repo, GitHub Actions artifacts are downloadable by ANY GitHub account
+with read access (not just collaborators), and the nightly dump contains
+every tenant's full data including PINs/payroll/SSN-last4. Nothing had
+ever pinned the step that prevents that data from reaching the public
+artifact store in plaintext.
+
+**Consequence, concretely:** the "Encrypt dump" step checks
+`BACKUP_ENCRYPTION_KEY` for empty and `exit 1`s before ever calling `gpg`
+if it's unset -- a deliberate fail-closed design, per the step's own
+comment ("Refusing to upload an unencrypted full-database dump"). But no
+test read that check, so a future edit -- someone "simplifying" the
+bash, a merge-conflict resolution that drops the `if [ -z ... ]; then
+... exit 1; fi` block, or a typo'd `path:` on the following upload step
+pointing at the pre-encryption `.dump` file instead of the encrypted
+`.dump.gpg` -- would silently turn every nightly backup into a public
+leak of every tenant's PII, with the job still going GREEN (`upload-
+artifact` succeeds either way; only the CONTENT of what gets uploaded
+changes, and nothing in CI would notice).
+
+**Fixed:** new `src/lib/db-backup-encryption-fail-closed.test.ts`, pure
+source-reading of `db-backup.yml`, pinning five things: (1) the "Encrypt
+dump" step still exists, (2) it still checks `BACKUP_ENCRYPTION_KEY` for
+empty, (3) that branch still contains a real `exit 1` (not a warn-and-
+continue), (4) the "Encrypt dump" step still runs BEFORE "Upload
+encrypted dump" (ordering can't be silently reversed), and (5) the
+upload step's `path:` still ends in `.dump.gpg`, never the plaintext
+`.dump`.
+
+Mutation-verified three separate ways (not just written and trusted):
+(1) removed the `exit 1` line from the empty-key branch -- failed with
+the exact predicted message; (2) swapped the upload step's `path:` from
+`.dump.gpg` to `.dump` -- failed with the exact predicted message; (3)
+swapped the physical order of the "Encrypt dump" and "Upload encrypted
+dump" step blocks in the YAML -- failed with the exact predicted
+message. All three restores left `git diff --stat db-backup.yml` empty
+afterward (no unintended change survived any round-trip).
+
+**Continuation check (step 2 of this round's queue):** grepped all three
+workflow YAML files for `-z ` empty-checks to find any sibling fail-
+closed-security-gate shape. Found four total: this one, plus three
+`TG_TOKEN`/`TG_CHAT` checks (db-backup.yml, tenant-config-reconcile.yml,
+ci.yml) -- but those guard an ALERT SKIP (missing Telegram secrets ⇒
+skip the notification cleanly), a materially different risk class from a
+fail-closed leak backstop, and are already covered by db-backup-alert-
+guard.test.ts / telegram-alert-secret-name-guard.test.ts. No second
+instance of a public-leak fail-closed gate exists in this lane's
+workflows.
+
+Full suite + tsc re-run clean after this round: 2332/2332 vitest tests
+pass (2326 prior + 6 new), `tsc --noEmit` zero errors, eslint clean on
+the new file. `reconcile-tenant-config.mjs`, `verify-protected-
+tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
+files' non-encryption wiring were not touched this round -- their own
+coverage (items 168-201 above) is unaffected.
