@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { verifyToken } from '../auth/token'
 
+const MAX_MESSAGE_LENGTH = 4000
+
 export async function GET(request: NextRequest) {
   const token = request.headers.get('authorization')?.replace('Bearer ', '')
   if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
@@ -64,6 +66,9 @@ export async function POST(request: NextRequest) {
 
   const { body, channel_id } = await request.json()
   if (!body?.trim()) return NextResponse.json({ error: 'Body required' }, { status: 400 })
+  if (body.length > MAX_MESSAGE_LENGTH) {
+    return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
+  }
 
   try {
     // Get member name

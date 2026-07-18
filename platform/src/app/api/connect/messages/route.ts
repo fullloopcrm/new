@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 
+const MAX_MESSAGE_LENGTH = 4000
+
 export async function GET(request: NextRequest) {
   try {
     const { tenantId, userId } = await getTenantForRequest()
@@ -56,6 +58,9 @@ export async function POST(request: NextRequest) {
 
     if (!channel_id || !body?.trim()) {
       return NextResponse.json({ error: 'channel_id and body required' }, { status: 400 })
+    }
+    if (body.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
     }
 
     // Verify channel belongs to tenant

@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { protectClientAPI } from '@/lib/nycmaid/auth'
 
+const MAX_MESSAGE_LENGTH = 4000
+
 async function getClientThreadId(clientId: string): Promise<{ tenantId: string | null; contactId: string | null; threadId: string | null }> {
   const { data: client } = await supabaseAdmin
     .from('clients')
@@ -69,6 +71,9 @@ export async function POST(req: NextRequest) {
 
   const body = await req.json().catch(() => null) as { body?: string } | null
   if (!body?.body?.trim()) return NextResponse.json({ error: 'body required' }, { status: 400 })
+  if (body.body.length > MAX_MESSAGE_LENGTH) {
+    return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
+  }
 
   const { tenantId, contactId, threadId } = await getClientThreadId(clientId)
   if (!tenantId || !contactId || !threadId) return NextResponse.json({ error: 'no client thread' }, { status: 500 })

@@ -8,6 +8,8 @@ import { requirePortalPermission } from '@/lib/team-portal-auth'
 // token (auth.id), never from the request — a caller-supplied id used to let
 // anyone read/post another team member's (or another tenant's) office thread.
 
+const MAX_MESSAGE_LENGTH = 4000
+
 async function resolveThread(teamMemberId: string): Promise<{ contactId: string | null; threadId: string | null; tenantId: string | null }> {
   const { data: member } = await supabaseAdmin
     .from('team_members')
@@ -62,6 +64,9 @@ export async function POST(req: NextRequest) {
   const body = await req.json().catch(() => null) as { body?: string } | null
   if (!body?.body?.trim()) {
     return NextResponse.json({ error: 'body required' }, { status: 400 })
+  }
+  if (body.body.length > MAX_MESSAGE_LENGTH) {
+    return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
   }
 
   const { contactId, threadId, tenantId } = await resolveThread(auth.id)
