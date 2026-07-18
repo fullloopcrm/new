@@ -652,12 +652,12 @@ unverified gap.
 | `/api/team/[id]` | tenant-scoped(RBAC) | rbac-permission,tenant-req |
 | `/api/tenant-sitemap` | public(no-tenant-auth) | NONE |
 | `/api/tenant/public` | public(token-derived) | tenant-headers |
-| `/api/tenants` | internal(needs-check) | NONE |
+| `/api/tenants` | authenticated(clerk-owner) | owner-session (checked 2026-07-18: `getOwnerUserId()`-gated create-tenant POST, no live gap) |
 | `/api/tenants/public` | public(token-derived) | NONE |
 | `/api/territories/options` | public(tenant-resolved) | NONE |
 | `/api/test-emails` | tenant-scoped(RBAC) | rbac-permission |
-| `/api/test/email-selena` | dev-only(needs-check) | NONE |
-| `/api/test/email-selena/cleanup` | dev-only(needs-check) | NONE |
+| `/api/test/email-selena` | dev-only(env-gated) | SELENA_TEST_TOKEN+safeEqual (checked 2026-07-18: 404s if env unset, no live gap) |
+| `/api/test/email-selena/cleanup` | dev-only(env-gated) | SELENA_TEST_TOKEN+safeEqual (checked 2026-07-18: 404s if env unset, no live gap) |
 | `/api/track` | public(no-tenant-auth) | NONE |
 | `/api/unsubscribe` | public(token-derived) | unsub-token |
 | `/api/uploads` | tenant-scoped(RBAC) | tenant-req |
