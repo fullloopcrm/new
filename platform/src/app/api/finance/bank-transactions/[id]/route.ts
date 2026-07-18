@@ -6,7 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { postJournalEntry, normalizeDescription } from '@/lib/ledger'
+import { postJournalEntry, normalizeDescription, findJournalEntryId } from '@/lib/ledger'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -76,11 +76,16 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ ok: true, already_processed: true })
     }
 
-    // If posting fails (unbalanced/empty entry, transient RPC error), release
-    // the claim back to 'pending' instead of leaving the txn permanently
-    // stuck as 'posted' with no journal_entry_id -- that state is invisible
-    // (looks categorized in the UI) and un-retryable (status !== 'pending'
-    // excludes it from every future claim here and from accept-suggestions).
+    // If posting -- or linking the posted entry back onto this row -- fails
+    // (unbalanced/empty entry, transient RPC/network error), release the
+    // claim back to 'pending' instead of leaving the txn permanently stuck
+    // as 'posted' with no journal_entry_id -- that state is invisible (looks
+    // categorized in the UI) and un-retryable (status !== 'pending' excludes
+    // it from every future claim here and from accept-suggestions). A retry
+    // after release calls postJournalEntry() again; its own (tenant, source,
+    // source_id) dedup claim returns null for the entry this same row
+    // already posted (rather than double-posting it), so the null branch
+    // below looks the real entry id back up instead of writing a null link.
     let entryId: string | null
     try {
       entryId = await postJournalEntry({
@@ -92,6 +97,14 @@ export async function PATCH(request: Request, { params }: Params) {
         source_id: txn.id,
         lines,
       })
+      if (entryId === null) {
+        entryId = await findJournalEntryId(tenantId, 'bank_txn', txn.id)
+      }
+
+      await supabaseAdmin
+        .from('bank_transactions')
+        .update({ journal_entry_id: entryId })
+        .eq('id', id)
     } catch (postErr) {
       await supabaseAdmin
         .from('bank_transactions')
@@ -100,11 +113,6 @@ export async function PATCH(request: Request, { params }: Params) {
         .eq('status', 'posted')
       throw postErr
     }
-
-    await supabaseAdmin
-      .from('bank_transactions')
-      .update({ journal_entry_id: entryId })
-      .eq('id', id)
 
     // Update learning pattern. Looked up by (tenant_id, pattern) only -- that
     // matches the actual unique index (idx_categ_patterns_tenant_pattern),

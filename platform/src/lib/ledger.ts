@@ -191,8 +191,8 @@ export async function getAccountIdByCode(tenantId: string, code: string): Promis
   return (data?.id as string) || null
 }
 
-/** Has a journal entry already been posted for this (source, source_id)? */
-export async function journalEntryExists(tenantId: string, source: string, sourceId: string): Promise<boolean> {
+/** Resolve the existing journal entry id for a (source, source_id), if any. */
+export async function findJournalEntryId(tenantId: string, source: string, sourceId: string): Promise<string | null> {
   const { data } = await supabaseAdmin
     .from('journal_entries')
     .select('id')
@@ -201,5 +201,10 @@ export async function journalEntryExists(tenantId: string, source: string, sourc
     .eq('source_id', sourceId)
     .limit(1)
     .maybeSingle()
-  return !!data
+  return (data?.id as string) || null
+}
+
+/** Has a journal entry already been posted for this (source, source_id)? */
+export async function journalEntryExists(tenantId: string, source: string, sourceId: string): Promise<boolean> {
+  return (await findJournalEntryId(tenantId, source, sourceId)) !== null
 }
