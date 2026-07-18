@@ -10470,3 +10470,71 @@ errors, eslint clean on the new file. `reconcile-tenant-config.mjs`,
 workflow YAML files themselves were not touched this round -- their own
 coverage (items 168-203 above) is unaffected; only new guard coverage was
 added.
+
+## (205) New fresh-ground surface -- no gating CI step OR job had regression
+coverage against silent SKIP via an `if:` conditional, orthogonal to item
+(204)'s continue-on-error/`|| true`
+
+Item (204) pinned that a gating step/job can't be made to RUN and self-report
+fake success (`continue-on-error: true`, a trailing `|| true`). It did not
+ask about the other half of the "outside the script" bypass family: a step
+or job that never RUNS AT ALL, via a YAML `if:` conditional that evaluates
+false. GitHub Actions reports that as status "skipped", not "failure" -- and
+for a required status check under branch protection, "skipped" is treated
+the same as "success": the PR is mergeable. `if:
+github.event_name == 'pull_request' && false` (or any condition a careless
+refactor makes permanently false) added to the `verify` job, or to one
+gating step inside it, would make that gate silently vanish from every PR --
+no red X, not even a visible failed run in the logs, just an absence most
+reviewers would not think to check for. This is the quieter of the two
+bypasses: `continue-on-error` at least still shows the step ran.
+
+**Verified clean today:** grepped all three workflow YAML files for `if:`
+before writing the guard -- the only matches are the three "Alert on
+failure"/notify-failure steps and jobs (`if: failure()`), the same
+intentional exemption item (204) already carves out for their `|| true`.
+
+**Fixed:** new `src/lib/ci-gate-conditional-skip-guard.test.ts`, pure
+source-reading of all three workflow YAML files, mirroring item (204)'s
+step/job block parsers and exemption filters (alert-step name pattern,
+notify-failure job-id pattern). Asserts no remaining gating step or job
+carries an `if:` key at all -- `IF_KEY_RE = /^\s*if:\s*\S/m`, anchored to the
+YAML-key line position so it does not false-match a bash `if [ ... ]; then`
+inside a `run:` script (no colon follows `if` there).
+
+Mutation-verified both levels: (1) added `if:
+github.event_name == 'pull_request'` to ci.yml's "Lint" step -- failed with
+the exact predicted message; (2) added `if:
+github.actor != 'dependabot[bot]'` to ci.yml's `verify` JOB itself -- failed
+with the exact predicted message. Both restores left `git diff --stat
+ci.yml` empty afterward.
+
+**Real bug found and fixed as this round's continuation (step 2 of the
+queue):** the first mutation pass surfaced that item (204)'s own
+`allStepBlocks` parser (which this guard's first draft copied) bounds a
+step's body by the NEXT `- name:` match against the RAW FILE TEXT, not
+within its own job. That means a job's LAST step's body runs past the job's
+own end and bleeds into the next job's header lines (`needs:` / `if:` /
+`runs-on:` / `steps:`) -- so ci.yml's "Lint" step (the last step in `verify`)
+was picking up notify-failure's `if: failure()` and failing a completely
+clean guard. Fixed by finding step boundaries WITHIN each already
+job-bounded slice instead of against the whole file (`ci-gate-conditional-
+skip-guard.test.ts`'s `allStepBlocks` now iterates `allJobBlocks()` first).
+The identical bug exists in item (204)'s own `ci-gate-neutering-guard.
+test.ts` -- harmless there today only because no notify-failure job header
+line happens to match `continue-on-error:` or end a line in `|| true`, but
+it is the same structural flaw, not something distinct to this guard.
+Applied the identical fix there too (separate commit) rather than leave a
+landmine for the next pattern anyone adds to either file. Re-ran item
+(204)'s own step-level mutation (`continue-on-error: true` on "Unit tests
+(vitest)") against the fixed parser to confirm no regression -- caught
+correctly, clean restore.
+
+Full suite + tsc re-run clean after this round: 2353/2353 vitest tests pass
+(2338 prior + 15 across both files), `tsc --noEmit` zero errors, eslint
+clean on both files. `reconcile-tenant-config.mjs`,
+`verify-protected-tenants.mjs`, `audit-tenant-scope.mjs`, and the three
+workflow YAML files themselves were not touched this round (all mutations
+were made, verified, and reverted in-memory during testing only) -- their
+own coverage (items 168-204 above) is unaffected; only new + repaired guard
+coverage was added.
