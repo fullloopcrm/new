@@ -14,6 +14,7 @@ import { NextResponse } from 'next/server'
 import { getStripe } from '@/lib/stripe'
 import { createTenantFromLead } from '@/lib/create-tenant-from-lead'
 import { activateTenant } from '@/lib/activate-tenant'
+import { sendEmail } from '@/lib/email'
 
 export async function POST(request: Request) {
   const secret = process.env.STRIPE_PLATFORM_WEBHOOK_SECRET
@@ -50,6 +51,35 @@ export async function POST(request: Request) {
         console.error('[stripe-platform] tenant create failed:', result.error)
         // Return 500 so Stripe retries — better than silently dropping a paid sale.
         return NextResponse.json({ error: result.error }, { status: 500 })
+      }
+
+      // Welcome email — this webhook is the only tenant-creation door with no
+      // admin in the loop to relay the plaintext PIN by hand (the manual/comp
+      // path at /api/admin/requests/convert returns it to the admin UI for
+      // exactly that reason). pin_hash is a one-way HMAC (see hashAdminPin), so
+      // if this PIN isn't captured here it is gone forever and the customer who
+      // just paid has no way to log in. Best-effort: a failed send must not
+      // fail the webhook — the tenant already exists and can self-serve a PIN
+      // reset once they know to look for the login page.
+      if (result.tenant && !result.alreadyConverted && result.ownerPin) {
+        if (result.tenant.email) {
+          try {
+            await sendEmail({
+              to: result.tenant.email,
+              subject: `Your ${result.tenant.name} account is ready`,
+              html:
+                `<p>Your Full Loop account is ready. Sign in at ` +
+                `<a href="https://${result.tenant.slug}.fullloopcrm.com">https://${result.tenant.slug}.fullloopcrm.com</a> ` +
+                `with this one-time PIN:</p>` +
+                `<p style="font-size:24px;font-weight:bold;">${result.ownerPin}</p>` +
+                `<p>You can change it any time from the login page.</p>`,
+            })
+          } catch (e) {
+            console.error('[stripe-platform] welcome email failed:', e)
+          }
+        } else {
+          console.error('[stripe-platform] tenant created with no owner email on file — PIN not delivered:', result.tenant.id)
+        }
       }
 
       // Paid → drive the tenant to live automatically (seeds team + review dest,

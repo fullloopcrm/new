@@ -47,7 +47,7 @@ export interface CreateFromLeadOptions {
 
 export interface CreateFromLeadResult {
   ok: boolean
-  tenant?: { id: string; slug: string; name: string; status: string }
+  tenant?: { id: string; slug: string; name: string; status: string; email: string | null }
   alreadyConverted?: boolean
   /** Plaintext owner PIN, returned ONCE at creation for the admin to relay. */
   ownerPin?: string | null
@@ -69,7 +69,7 @@ export async function createTenantFromLead(
   if (lead.converted_tenant_id) {
     const { data: existing } = await supabaseAdmin
       .from('tenants')
-      .select('id, slug, name, status')
+      .select('id, slug, name, status, email')
       .eq('id', lead.converted_tenant_id)
       .single()
     return { ok: true, tenant: existing || undefined, alreadyConverted: true }
@@ -101,7 +101,7 @@ export async function createTenantFromLead(
     if (latest?.converted_tenant_id) {
       const { data: existing } = await supabaseAdmin
         .from('tenants')
-        .select('id, slug, name, status')
+        .select('id, slug, name, status, email')
         .eq('id', latest.converted_tenant_id)
         .single()
       return { ok: true, tenant: existing || undefined, alreadyConverted: true }
@@ -208,7 +208,7 @@ export async function createTenantFromLead(
       address: lead.billing_address || null,
       ...(adminNotes && { admin_notes: adminNotes }),
     })
-    .select('id, slug, name, status')
+    .select('id, slug, name, status, email')
     .single()
   if (insErr || !tenant) {
     // Tenant creation failed — release the territory reservation so it doesn't
