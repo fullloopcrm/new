@@ -29,6 +29,7 @@ function makeSupabaseStub(captured: CapturedCall[]) {
       captured.push(call)
       const chain: Record<string, unknown> = {
         select: () => chain,
+        insert: () => Promise.resolve({ data: null, error: null }),
         eq: () => chain,
         neq: () => chain,
         in: () => chain,

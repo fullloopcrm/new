@@ -78,6 +78,24 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Invalid signature' }, { status: 400 })
   }
 
+  // Stripe redelivers at-least-once (retries on non-2xx/timeout, plus manual
+  // Dashboard re-sends) -- claim event.id before any handler runs. Most
+  // branches below have their own type-specific idempotency (stripe_session_id
+  // UNIQUE for checkout.session.completed, journalEntryExists for the ledger
+  // posts), but charge.dispute.created's admin_tasks insert,
+  // payment_intent.payment_failed's notifications+admin_tasks inserts, and
+  // invoice.payment_failed's admin email have none -- this single guard covers
+  // those and any future branch that forgets its own check.
+  const { error: claimErr } = await supabaseAdmin.from('stripe_webhook_events').insert({ event_id: event.id })
+  if (claimErr) {
+    if (claimErr.code === '23505') {
+      return NextResponse.json({ received: true, action: 'duplicate_delivery' })
+    }
+    console.error('[stripe webhook] event claim failed:', claimErr)
+    // Fall through -- an infra hiccup on the dedup table must not silently
+    // drop a real Stripe event.
+  }
+
   switch (event.type) {
     case 'checkout.session.completed': {
       const session = event.data.object as Stripe.Checkout.Session
