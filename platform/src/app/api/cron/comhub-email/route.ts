@@ -8,6 +8,7 @@ import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 function escapeHtml(s: string): string {
   return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -39,12 +40,19 @@ async function collectAccounts(): Promise<MailAccount[]> {
   // Per-tenant: every tenant that has saved IMAP creds in its profile.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, phone, email, address, logo_url, primary_color, imap_host, imap_user, imap_pass, imap_port, resend_api_key, email_from')
+    .select('id, name, phone, email, address, logo_url, primary_color, imap_host, imap_user, imap_pass, imap_port, resend_api_key, email_from, status')
     .not('imap_host', 'is', null)
     .not('imap_user', 'is', null)
     .not('imap_pass', 'is', null)
 
   for (const t of tenants || []) {
+    // Same class of gap fixed across every other slug/host/phone-resolved
+    // entry point this session (Telegram, Telnyx SMS/voice webhooks): this
+    // cron polls IMAP inboxes for every tenant with saved creds without
+    // ever checking tenantServesSite(). Without this, a suspended/
+    // cancelled/deleted tenant's mailbox kept getting polled, mirrored into
+    // comhub_messages, and auto-replied to by Yinez indefinitely.
+    if (!tenantServesSite(t.status)) continue
     try {
       accounts.push({
         tenantId: t.id,
@@ -71,16 +79,23 @@ async function collectAccounts(): Promise<MailAccount[]> {
   // nycmaid env fallback — only if it isn't already covered by a profile entry.
   const envPass = (process.env.EMAIL_PASS || '').trim()
   if (envPass && !accounts.some((a) => a.tenantId === NYCMAID_TENANT_ID)) {
-    accounts.push({
-      tenantId: NYCMAID_TENANT_ID,
-      host: (process.env.EMAIL_HOST || 'mail.thenycmaid.com').trim(),
-      port: 993,
-      user: (process.env.EMAIL_USER || 'hi@thenycmaid.com').trim(),
-      pass: envPass,
-      resendApiKey: null,
-      emailFrom: null,
-      brand: { name: 'The NYC Maid' },
-    })
+    const { data: nycMaidTenant } = await supabaseAdmin
+      .from('tenants')
+      .select('status')
+      .eq('id', NYCMAID_TENANT_ID)
+      .single()
+    if (tenantServesSite(nycMaidTenant?.status)) {
+      accounts.push({
+        tenantId: NYCMAID_TENANT_ID,
+        host: (process.env.EMAIL_HOST || 'mail.thenycmaid.com').trim(),
+        port: 993,
+        user: (process.env.EMAIL_USER || 'hi@thenycmaid.com').trim(),
+        pass: envPass,
+        resendApiKey: null,
+        emailFrom: null,
+        brand: { name: 'The NYC Maid' },
+      })
+    }
   }
 
   return accounts
