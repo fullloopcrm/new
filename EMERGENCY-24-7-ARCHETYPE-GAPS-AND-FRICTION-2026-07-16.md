@@ -10619,3 +10619,109 @@ workflow YAML files themselves were not touched this round (all mutations
 were made, verified, and reverted during testing only) -- their own
 coverage (items 168-205 above) is unaffected; only new guard coverage was
 added.
+
+## (208) New fresh-ground surface -- the Install step (`npm ci`) had zero
+regression coverage of any kind, unlike every other gating step in ci.yml
+
+Items (204)-(207) covered every gating step in ci.yml against the "runs but
+checks less" and "doesn't run at all" bypass families -- Typecheck, Unit
+tests, Tenant-isolation guard, Protected-tenant guard, and Lint. None of
+them, nor any earlier item, ever looked at the one step every other step
+implicitly depends on having correct source to check in the first place:
+"Install dependencies" (`run: npm ci`, ci.yml:42).
+
+`npm ci` and `npm install` both leave a populated `node_modules/` behind and
+both exit 0 on a normal run, which is exactly why swapping one for the other
+reads as a harmless, even more-familiar edit. They are not equivalent: `npm
+ci` requires `package-lock.json` to exactly match `package.json` and FAILS
+the step if they've drifted (a dependency bumped in package.json without
+regenerating the lock, or a hand-edited lockfile). `npm install` does not
+fail on that same drift -- it silently rewrites the lockfile to match and
+continues. A `ci` -> `install` (or `i`) swap keeps the Install step green,
+keeps printing a normal-looking dependency-install log, while quietly
+disabling the one built-in check that catches a lockfile out of sync with
+package.json -- and every downstream step (tsc, vitest, eslint, the tenant
+guards) then runs against whatever the drifted lockfile happened to resolve
+to, with no red X anywhere and nothing in a PR diff pointing at ci.yml at
+all, since ci.yml itself wouldn't even be the file that changed.
+
+**Verified clean today:** `ci.yml:42` is `run: npm ci`, the only npm
+install-family invocation in any workflow file --
+`tenant-config-reconcile.yml`'s job never installs npm dependencies at all
+(`reconcile-tenant-config.mjs` uses only Node built-ins, no `npm ci`/`install`
+step exists there to guard).
+
+**Fixed:** new `src/lib/ci-install-integrity-guard.test.ts`, pure
+source-reading of ci.yml's install-family invocation line(s), same approach
+as ci-lint-scope-guard.test.ts / ci-typecheck-scope-guard.test.ts. Asserts
+every `npm ci|install|i|add` invocation in any workflow file is specifically
+`npm ci`.
+
+Mutation-verified both ways before writing the fix: (1) changed ci.yml:42 to
+`run: npm install` -- failed with the exact predicted message; (2) changed it
+to `run: npm i` -- failed with the exact predicted message. Both restores
+left `git diff --stat ci.yml` empty afterward.
+
+Full suite + tsc re-run clean after this round: 2363/2363 vitest tests pass
+(2360 prior + 3 new), `tsc --noEmit` zero errors, eslint clean on the new
+file. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
+`audit-tenant-scope.mjs`, and the three workflow YAML files themselves were
+not touched this round (all mutations were made, verified, and reverted
+during testing only) -- their own coverage (items 168-207 above) is
+unaffected; only new guard coverage was added.
+
+## (209) Continuation of (208)'s surface -- the Install step's OTHER effect
+(executing untrusted dependency lifecycle scripts) had no coverage tying it
+to the one control that limits its blast radius, `persist-credentials: false`
+
+Item (208) covered `npm ci` for what it enforces (lockfile integrity). It
+did not follow through on what `npm ci` unconditionally DOES on every run
+regardless of lockfile state: execute preinstall/install/postinstall
+lifecycle scripts from every package in the dependency tree -- third-party
+code this repo doesn't author or review, running with the same
+filesystem/process access as the rest of the `verify` job. That is precisely
+the threat model `actions/checkout`'s `persist-credentials: false` exists to
+blunt: without it, checkout writes the job's scoped GITHUB_TOKEN into
+`.git/config` in the workspace so later git commands can authenticate; with
+it, no token ever touches disk. Both `actions/checkout` uses in this repo
+(ci.yml:31, tenant-config-reconcile.yml:34) set it explicitly -- which
+matters precisely because `false` is NOT `actions/checkout`'s own default
+(the action defaults to persisting), so this is an explicit opt-out that a
+"trim the config back to the action's defaults" cleanup edit could plausibly
+drop, believing it harmless boilerplate. Dropping it (or flipping it to
+`true`) leaves CI green -- checkout still succeeds, `npm ci` still runs
+normally -- while quietly leaving a live token on disk for `npm ci`'s
+lifecycle scripts (or any later step) to read. Token-persistence-based
+exfiltration via a compromised install-script dependency is a documented
+supply-chain attack pattern, not a hypothetical unique to this repo.
+`permissions: contents: read` at the workflow level limits what the token
+can do if read, but does not stop it being written to disk in the first
+place -- that's specifically what persist-credentials controls, and nothing
+before this pinned either checkout step keeps it set.
+
+**Verified clean today:** both `actions/checkout` uses (ci.yml:31,
+tenant-config-reconcile.yml:34) carry `persist-credentials: false` on the
+next line. `db-backup.yml` never checks out the repo at all (only
+`actions/upload-artifact`), so there's no checkout step there to guard.
+
+**Fixed:** new `src/lib/ci-checkout-credential-guard.test.ts`, pure
+source-reading of every workflow YAML's `actions/checkout` step and its
+`with:` block window, same approach as every other guard in this lane.
+Asserts every checkout use sets `persist-credentials: false` and that none
+sets it to `true`.
+
+Mutation-verified both ways before writing the fix: (1) removed the
+`persist-credentials: false` line under ci.yml's checkout step entirely --
+failed with the exact predicted message; (2) flipped tenant-config-
+reconcile.yml's to `persist-credentials: true` -- failed both the "stays
+false" and "never true" assertions, as expected since they're independent
+checks over the same offending line. Both restores left `git diff --stat`
+on the workflows directory empty afterward.
+
+Full suite + tsc re-run clean after this round: 2367/2367 vitest tests pass
+(2363 prior + 4 new), `tsc --noEmit` zero errors, eslint clean on the new
+file. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
+`audit-tenant-scope.mjs`, and the three workflow YAML files themselves were
+not touched this round (all mutations were made, verified, and reverted
+during testing only) -- their own coverage (items 168-208 above) is
+unaffected; only new guard coverage was added.
