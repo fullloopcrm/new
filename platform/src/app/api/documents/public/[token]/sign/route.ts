@@ -59,6 +59,13 @@ export async function POST(request: Request, { params }: Params) {
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
+    // Mirror the same terminal-status guard consent/decline already enforce —
+    // without it, a document voided (or otherwise terminal) after a signer was
+    // invited but before they acted could still be signed via this route.
+    if (['voided', 'completed', 'expired', 'declined'].includes(doc.status)) {
+      return NextResponse.json({ error: `Document is ${doc.status}` }, { status: 400 })
+    }
+
     const { data: allSigners } = await supabaseAdmin
       .from('document_signers')
       .select('id, order_index, status')
@@ -128,6 +135,31 @@ export async function POST(request: Request, { params }: Params) {
 
     if (!claimed) {
       return NextResponse.json({ ok: true, already_signed: true })
+    }
+
+    // Post-claim void-race guard — the terminal-status precondition above was
+    // read once, several awaited round-trips before this claim (field-value
+    // writes, the required-fields check). A void() landing in that gap would
+    // otherwise still get silently signed over. Re-verify post-claim and roll
+    // back, mirroring the sequential rollback immediately below.
+    const { data: docAfterClaim } = await supabaseAdmin
+      .from('documents')
+      .select('status')
+      .eq('id', doc.id)
+      .maybeSingle()
+    if (docAfterClaim && ['voided', 'expired', 'declined'].includes(docAfterClaim.status)) {
+      await supabaseAdmin
+        .from('document_signers')
+        .update({
+          status: signer.status,
+          signed_at: null,
+          signed_ip: null,
+          signed_user_agent: null,
+          signature_png: null,
+          signature_name: null,
+        })
+        .eq('id', signer.id)
+      return NextResponse.json({ error: `Document is ${docAfterClaim.status}` }, { status: 400 })
     }
 
     // Sequential post-claim guard — re-verify that no lower-order signer
