@@ -88,6 +88,21 @@ export function invalidateDomainCache(domain: string): void {
   domainCache.delete(cleanDomain)
 }
 
+// Bust one slug's cache entry directly, by slug string — the slugCache
+// counterpart to invalidateDomainCache, for the same reason: invalidateTenantCache
+// sweeps by matching entry.tenant?.id, which can only ever match a POSITIVE
+// cache entry. A negative entry (tenant: null) has no id to match, so a slug
+// that resolved to "no tenant" even once — a bot/crawler probe, a stale
+// bookmark or SEO backlink hitting a just-deleted tenant's old subdomain —
+// stays negatively cached for up to the rest of the 5-minute TTL even after a
+// NEW tenant claims that exact slug (e.g. re-signup under the same business
+// name shortly after a delete). Same lowercase normalization as
+// getTenantBySlug so the key actually matches.
+export function invalidateSlugCache(slug: string): void {
+  const cleanSlug = slug.toLowerCase()
+  slugCache.delete(cleanSlug)
+}
+
 /**
  * Look up a tenant by subdomain slug (cached, 5-min TTL)
  */

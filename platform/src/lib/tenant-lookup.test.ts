@@ -47,7 +47,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: (table: string) => builder(table) }),
 }))
 
-import { getTenantByDomain, getTenantBySlug, invalidateTenantCache, invalidateDomainCache } from './tenant-lookup'
+import { getTenantByDomain, getTenantBySlug, invalidateTenantCache, invalidateDomainCache, invalidateSlugCache } from './tenant-lookup'
 
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 't-1',
@@ -522,5 +522,89 @@ describe('invalidateDomainCache', () => {
 
     await getTenantByDomain('mixed10.com')
     expect(singleCalls.length).toBeGreaterThan(callsAfterFirst)
+  })
+})
+
+describe('invalidateSlugCache', () => {
+  it('forces a fresh DB read on the next lookup for the invalidated slug', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'freshslug12'
+        ? { data: tenantRow({ id: 't-12', slug: 'freshslug12' }), error: null }
+        : { data: null, error: null }
+
+    await getTenantBySlug('freshslug12')
+    const callsAfterFirst = singleCalls.length
+    await getTenantBySlug('freshslug12')
+    expect(singleCalls.length).toBe(callsAfterFirst) // cache hit, confirms baseline
+
+    invalidateSlugCache('freshslug12')
+
+    await getTenantBySlug('freshslug12')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirst)
+  })
+
+  it('clears a NEGATIVE (not-found) cache entry — the exact bug this fixes: a slug that resolved to "no tenant" once (a deleted tenant\'s old subdomain, or a bot probe) would otherwise keep resolving to nobody for the rest of the TTL even after a new tenant claims it', async () => {
+    resolve = () => ({ data: null, error: null }) // slug resolves to nobody
+
+    const before = await getTenantBySlug('wasnegative13')
+    expect(before).toBeNull()
+    const callsAfterNegativeCache = singleCalls.length
+
+    await getTenantBySlug('wasnegative13')
+    expect(singleCalls.length).toBe(callsAfterNegativeCache) // negative cache hit, no re-query
+
+    invalidateSlugCache('wasnegative13')
+
+    // A new tenant has now claimed this exact slug (e.g. re-signup after a
+    // delete) — without the invalidation above this would still return the
+    // stale cached null instead of re-querying.
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'wasnegative13'
+        ? { data: tenantRow({ id: 't-13', slug: 'wasnegative13' }), error: null }
+        : { data: null, error: null }
+
+    const after = await getTenantBySlug('wasnegative13')
+    expect(after?.id).toBe('t-13')
+  })
+
+  it('normalizes case the same way getTenantBySlug does, so invalidating "MixedSlug14" clears the "mixedslug14" cache key', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'mixedslug14'
+        ? { data: tenantRow({ id: 't-14', slug: 'mixedslug14' }), error: null }
+        : { data: null, error: null }
+
+    await getTenantBySlug('mixedslug14')
+    const callsAfterFirst = singleCalls.length
+
+    invalidateSlugCache('MixedSlug14')
+
+    await getTenantBySlug('mixedslug14')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirst)
+  })
+
+  it('is a no-op for a slug with nothing cached', () => {
+    expect(() => invalidateSlugCache('never-cached-slug')).not.toThrow()
+  })
+
+  it('WRONG-TENANT PROBE: invalidating one slug does not evict a different cached slug\'s entry', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenants' && eqs.slug === 'keep-me-15')
+        return { data: tenantRow({ id: 't-15a', slug: 'keep-me-15' }), error: null }
+      if (table === 'tenants' && eqs.slug === 'evict-me-15')
+        return { data: tenantRow({ id: 't-15b', slug: 'evict-me-15' }), error: null }
+      return { data: null, error: null }
+    }
+
+    await getTenantBySlug('keep-me-15')
+    await getTenantBySlug('evict-me-15')
+    const callsAfterBothCached = singleCalls.length
+
+    invalidateSlugCache('evict-me-15')
+
+    await getTenantBySlug('keep-me-15') // untouched slug: still cached, no new DB calls
+    expect(singleCalls.length).toBe(callsAfterBothCached)
+
+    await getTenantBySlug('evict-me-15') // evicted slug: re-queries
+    expect(singleCalls.length).toBeGreaterThan(callsAfterBothCached)
   })
 })

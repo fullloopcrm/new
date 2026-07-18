@@ -515,6 +515,22 @@ export async function DELETE(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust middleware's edge-cached slug/domain entries for this tenant — same
+  // class of gap as the PUT handler above (invalidateTenantCache), but more
+  // severe here: this is a full hard delete, not a status/domain edit, so a
+  // warm edge isolate's cached entry keeps resolving (and tenantServesSite()
+  // evaluating) the NOW-NONEXISTENT tenant's stale data for up to the rest of
+  // the 5-min TTL — a deleted tenant's site keeps serving after it's gone.
+  // invalidateSlugCache(doomed.slug) additionally closes the negative-cache
+  // reuse window invalidateTenantCache can't reach (it only matches cached
+  // entries by tenant id, which a negative "no tenant" entry doesn't have):
+  // without it, a NEW tenant re-claiming this exact slug within the TTL (e.g.
+  // re-signup under the same business name right after a delete) would
+  // inherit whatever this slug's cache is left in.
+  const { invalidateTenantCache, invalidateSlugCache } = await import('@/lib/tenant-lookup')
+  invalidateTenantCache(id)
+  if (doomed?.slug) invalidateSlugCache(doomed.slug)
+
   // Detach Vercel domains — best-effort, never blocks the delete result.
   if (doomed?.slug) {
     const domains = [`${doomed.slug}.fullloopcrm.com`]
