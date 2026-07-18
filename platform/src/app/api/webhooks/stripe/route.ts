@@ -205,13 +205,32 @@ export async function POST(request: Request) {
               const { randomBytes } = await import('node:crypto')
               const token = randomBytes(32).toString('hex')
               const expires_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString()
-              await supabaseAdmin.from('tenant_invites').insert({
+              const { error: inviteInsertError } = await supabaseAdmin.from('tenant_invites').insert({
                 tenant_id: tenant.id,
                 email: prospect.owner_email.toLowerCase(),
                 role: 'owner',
                 token,
                 expires_at,
               })
+              // error checked explicitly: supabase-js resolves a DB-level
+              // rejection (RLS deny, constraint violation) into this call's
+              // returned `error` rather than throwing, so the catch below
+              // never used to fire on a genuine write failure. Left
+              // unchecked, this branch fell straight through to the "Welcome
+              // — your account is set up and ready" email below with a
+              // joinUrl pointing at a token that was never persisted — a
+              // paying customer's invite link would render lookupInvite()'s
+              // generic "Invalid Invite" page, indistinguishable from a
+              // bogus token, with no signal to anyone that provisioning
+              // actually failed. Throwing here routes to the existing catch,
+              // which already has the correct fallback for this exact
+              // situation (tenant is created; admin can manually resend via
+              // /api/admin/invites) — same shape as an email-send failure.
+              if (inviteInsertError) {
+                throw new Error(
+                  `TENANT_INVITE_INSERT_ERROR tenant_id=${tenant.id} error=${inviteInsertError.message}`,
+                )
+              }
               const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'
               const joinUrl = `${appUrl}/join/${token}`
               const { sendEmail } = await import('@/lib/email')
