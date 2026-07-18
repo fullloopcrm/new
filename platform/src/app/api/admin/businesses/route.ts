@@ -3,6 +3,14 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
 import { PRICING } from '@/lib/billing-pricing'
+import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
+
+// Vendor secrets — this is the businesses LIST view, which the frontend
+// (admin/businesses/page.tsx) never reads these for; the per-tenant edit
+// form (admin/businesses/[id]/route.ts) is the legitimate place these get
+// returned raw so Jeff can view/edit them. Stripping here matches the
+// pure-unused-over-exposure fix already applied to cleaners/clients PINs.
+const SENSITIVE_TENANT_FIELDS = new Set<string>([...ENCRYPTED_TENANT_FIELDS, 'google_tokens'])
 
 export async function GET() {
   const authError = await requireAdmin()
@@ -13,7 +21,11 @@ export async function GET() {
     .select('*, tenant_members(id), tenant_invites(id, accepted)')
     .order('created_at', { ascending: false })
 
-  return NextResponse.json({ businesses })
+  const redacted = (businesses || []).map((b) =>
+    Object.fromEntries(Object.entries(b).filter(([key]) => !SENSITIVE_TENANT_FIELDS.has(key)))
+  )
+
+  return NextResponse.json({ businesses: redacted })
 }
 
 export async function POST(request: Request) {
