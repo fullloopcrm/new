@@ -88,6 +88,7 @@ jobs:
       - name: Identify which step failed (for the Telegram alert)
         id: identify-failed-step
         if: failure()
+        working-directory: platform
         run: |
           # Item (244)'s ci.yml fix, continued onto this lane's other gating job
           # (queue item (2): "continue whichever surface (1) opens up"). Same
@@ -105,7 +106,26 @@ jobs:
           [ "${{ steps.checkout.outcome }}" = "failure" ] && failed="Checkout"
           [ "${{ steps.setup-node.outcome }}" = "failure" ] && failed="Setup Node"
           [ "${{ steps.verify-token-guard.outcome }}" = "failure" ] && failed="Verify token-guard skips clean without a secret"
-          [ "${{ steps.reconcile-drift-gate.outcome }}" = "failure" ] && failed="Reconcile tenant config (read-only drift gate)"
+
+          # Item (246): naming the FAILING STEP (above) still left the single
+          # highest-traffic case ambiguous -- reconcile-tenant-config.mjs exits 1
+          # for TWO unrelated reasons (gating CRIT drift found, main()'s own
+          # `process.exit(gatingCrit ? 1 : 0)`; or an uncaught exception, the
+          # `main().catch(...)` handler's `process.exit(1)`), so the old alert
+          # admitted it in the TEXT itself: "check the run log to tell which of
+          # those two". The two are actually distinguishable without a log dive:
+          # the drift-gate step's own `tee reconcile-output.txt` (this job's prior
+          # step) only reaches its summarize()/console.log header line
+          # ("Tenant-config reconcile — N tenants | CRIT:...") when main() ran to
+          # completion -- a thrown exception exits before ever printing it. So its
+          # presence in the captured output IS the CRIT-vs-error signal.
+          if [ "${{ steps.reconcile-drift-gate.outcome }}" = "failure" ]; then
+            if grep -q 'Tenant-config reconcile — ' reconcile-output.txt 2>/dev/null; then
+              failed="Reconcile tenant config (read-only drift gate) -- gating CRIT drift found (not a script error; see the Job Summary for which tenant/finding)"
+            else
+              failed="Reconcile tenant config (read-only drift gate) -- the script/guard itself errored before producing a report (not real drift -- see the run log)"
+            fi
+          fi
           echo "failed_step=$failed" >> "$GITHUB_OUTPUT"
 
   notify-failure:
@@ -130,7 +150,7 @@ jobs:
             exit 0
           fi
           TEXT="❌ tenant-config-reconcile job FAILED
-          failed step: ${{ needs.reconcile.outputs.failed_step }} (if the drift gate step itself, this is EITHER gating CRIT drift OR the script erroring — check the run log to tell which of those two)
+          failed step: ${{ needs.reconcile.outputs.failed_step }}
           branch: ${{ github.ref_name }}
           commit: ${{ github.sha }}
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
