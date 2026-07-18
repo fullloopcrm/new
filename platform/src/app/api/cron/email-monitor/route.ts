@@ -12,6 +12,21 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
+  // Health-monitor marker — proves the every-minute cron ran. Written
+  // unconditionally, before the enabled-tenants precheck: 3 separate
+  // consumers (admin/monitoring/status, cron/health-monitor,
+  // jefe/health.ts) alert if this tick goes silent for 60min. If it were
+  // only written after finding an enabled tenant, a legitimate zero-tenant
+  // state (no one has email monitoring on) would starve the tick forever
+  // and all 3 would falsely and permanently report this cron as dead.
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+    type: 'email_monitor_tick',
+    title: 'cron:email-monitor',
+    message: 'tick',
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   // Cheap precheck — count enabled tenants. If none, bail.
   const { count } = await supabaseAdmin
     .from('tenants')
@@ -33,15 +48,6 @@ export async function GET(request: Request) {
     headers: { 'Authorization': `Bearer ${process.env.CRON_SECRET}` },
   })
   const body = await res.json().catch(() => ({}))
-
-  // Health-monitor marker — proves the every-minute cron ran.
-  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
-    type: 'email_monitor_tick',
-    title: 'cron:email-monitor',
-    message: 'tick',
-    channel: 'system',
-    recipient_type: 'admin',
-  }).then(() => {}, () => {})
 
   return NextResponse.json({ ok: true, downstream: body })
 }
