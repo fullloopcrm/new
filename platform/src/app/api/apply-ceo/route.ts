@@ -10,6 +10,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { safeColor } from '@/lib/safe-color'
 
 interface CeoBody {
   name?: string
@@ -127,7 +128,12 @@ export async function POST(request: Request) {
     // tenant's verified email_from. Non-blocking: never fail the submission.
     const cfg = (tenant.selena_config ?? {}) as Record<string, unknown>
     if (email && cfg.lead_confirmation_enabled === true) {
-      const color = (tenant as { primary_color?: string | null }).primary_color || '#111111'
+      // primary_color is tenant self-serve free text with no format
+      // enforcement (see src/lib/safe-color.ts) — it lands in a `style="color:
+      // ${color}"` CSS-declaration context below, so validate it's an actual
+      // color rather than escaping it (escaping quotes alone wouldn't stop a
+      // `;`-delimited extra CSS declaration from being smuggled in).
+      const color = safeColor((tenant as { primary_color?: string | null }).primary_color, '#111111')
       const html = `<div style="font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;max-width:520px;margin:0 auto;color:#1a1a1a">
         <h2 style="color:${color};margin:0 0 12px">Thanks for applying, ${escapeHtml(name.split(' ')[0])}!</h2>
         <p style="font-size:15px;line-height:1.5;margin:0 0 12px">We received your Founding CEO application and the founder will personally review it and follow up soon.</p>

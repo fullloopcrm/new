@@ -7,6 +7,7 @@ import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { toNaiveET } from '@/lib/dates'
+import { escapeHtml } from '@/lib/escape-html'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -214,21 +215,26 @@ export async function handleResendConfirmation(tenantId: string, input: Record<s
     })
     const time = fmtTime(booking.start_time)
 
+    // client.name/service_type/tm.name/tenant.name all trace back to
+    // free-text fields with no format enforcement (client.name/service_type
+    // reachable via the public unauthenticated /api/client/book, same class
+    // already fixed in campaigns/[id]/send + email-templates.ts) — escape
+    // every one before it lands in this ad-hoc HTML sent to a real client.
     const html = `
       <div style="font-family:system-ui,sans-serif;max-width:600px;margin:0 auto;padding:24px;background:#fff;color:#1a1a1a">
         <h2 style="margin:0 0 16px;font-size:20px;font-weight:600">Booking Confirmation</h2>
-        <p style="margin:0 0 16px">Hi ${client.name}! Your booking is confirmed:</p>
+        <p style="margin:0 0 16px">Hi ${escapeHtml(client.name)}! Your booking is confirmed:</p>
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin:0 0 24px;background:#f9fafb;border-radius:8px">
           <tr><td style="padding:16px">
             <p style="margin:0 0 8px;color:#666">Date: <strong>${date}</strong></p>
             <p style="margin:0 0 8px;color:#666">Time: <strong>${time}</strong></p>
-            <p style="margin:0 0 8px;color:#666">Service: <strong>${booking.service_type}</strong></p>
+            <p style="margin:0 0 8px;color:#666">Service: <strong>${escapeHtml(booking.service_type)}</strong></p>
             <p style="margin:0 0 8px;color:#666">Rate: <strong>$${booking.hourly_rate}/hr</strong></p>
-            ${tm ? `<p style="margin:0 0 8px;color:#666">Pro: <strong>${tm.name}</strong></p>` : ''}
-            ${client.pin ? `<p style="margin:0;color:#666">Portal PIN: <strong>${client.pin}</strong></p>` : ''}
+            ${tm ? `<p style="margin:0 0 8px;color:#666">Pro: <strong>${escapeHtml(tm.name)}</strong></p>` : ''}
+            ${client.pin ? `<p style="margin:0;color:#666">Portal PIN: <strong>${escapeHtml(client.pin)}</strong></p>` : ''}
           </td></tr>
         </table>
-        <p style="margin:0;font-size:13px;color:#999">${tenant?.name || ''}</p>
+        <p style="margin:0;font-size:13px;color:#999">${escapeHtml(tenant?.name || '')}</p>
       </div>`
 
     await sendTenantEmail(tenantId, {
@@ -344,10 +350,10 @@ export async function handleGetInvoice(tenantId: string, _input: Record<string, 
             <p style="margin:0 0 8px;color:#666">Service: <strong>$${service}</strong></p>
             ${Number(tip) > 0 ? `<p style="margin:0 0 8px;color:#666">Tip: <strong>$${tip}</strong></p>` : ''}
             <p style="margin:0 0 8px;font-size:18px;font-weight:700">Total: $${total}</p>
-            <p style="margin:0;color:#666">Method: <strong>${payment.method}</strong></p>
+            <p style="margin:0;color:#666">Method: <strong>${escapeHtml(payment.method)}</strong></p>
           </td></tr>
         </table>
-        <p style="margin:0;font-size:13px;color:#999">${tenant?.name || ''}</p>
+        <p style="margin:0;font-size:13px;color:#999">${escapeHtml(tenant?.name || '')}</p>
       </div>`
 
     await sendTenantEmail(tenantId, {

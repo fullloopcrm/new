@@ -5,6 +5,7 @@ import { sendSMS } from '@/lib/sms'
 import { smsUrgentBroadcast } from '@/lib/sms-templates'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { safeColor } from '@/lib/safe-color'
 
 // POST - Broadcast urgent job to all active team members
 export async function POST(request: Request) {
@@ -109,7 +110,11 @@ export async function POST(request: Request) {
 
     // Email broadcast
     if (member.email) {
-      const color = tenantConfig.primary_color || '#dc2626'
+      // primary_color is tenant self-serve free text with no format
+      // enforcement (see src/lib/safe-color.ts) and lands in a raw `style="
+      // background: ${color}"` CSS-declaration context below — validate it's
+      // an actual color rather than escaping it.
+      const color = safeColor(tenantConfig.primary_color, '#dc2626')
       const broadcastHtml = `
         <div style="font-family: sans-serif; max-width: 500px;">
           <div style="background: ${color}; color: white; padding: 20px; border-radius: 12px 12px 0 0; text-align: center;">

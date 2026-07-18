@@ -9,6 +9,8 @@
  * back to Georgia (the token's declared fallback), so the serif look survives
  * in every inbox.
  */
+import { escapeHtml } from '@/lib/escape-html'
+import { safeColor } from '@/lib/safe-color'
 
 export type CommsBrand = {
   name: string
@@ -31,9 +33,11 @@ const DISPLAY = "'Fraunces', Georgia, 'Times New Roman', serif"
 const SANS = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif"
 const MONO = "'JetBrains Mono', ui-monospace, 'SFMono-Regular', Menlo, monospace"
 
-function esc(s: string): string {
-  return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
-}
+// Delegates to the canonical escaper (also escapes quotes, unlike an earlier
+// version of this local helper) — every field below lands inside a
+// double-quoted HTML attribute or text node, so a tenant-controlled name/url
+// containing a `"` must not be able to break out of it.
+const esc = escapeHtml
 
 export type EmailShellInput = {
   brand: CommsBrand
@@ -50,7 +54,12 @@ export type EmailShellInput = {
 }
 
 export function emailShell({ brand, kicker, heading, bodyHtml, cta, preheader }: EmailShellInput): string {
-  const accent = brand.primaryColor || INK
+  // brand.primaryColor is a tenant's self-serve `primary_color` — free text
+  // with no format enforcement server-side. It lands in `style="...:${accent}"`
+  // below, a CSS-declaration context: HTML-escaping quotes isn't enough there
+  // (an attacker doesn't need to break out of the attribute to inject extra
+  // `;`-delimited CSS declarations), so validate it's an actual color instead.
+  const accent = safeColor(brand.primaryColor, INK)
   const logo = brand.logoUrl
     ? `<img src="${esc(brand.logoUrl)}" alt="${esc(brand.name)}" width="40" height="40" style="border-radius:8px;display:block" />`
     : ''

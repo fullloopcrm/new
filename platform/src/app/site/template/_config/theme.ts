@@ -13,6 +13,7 @@
  * white-on-pale buttons; picking black/white by luminance prevents that.
  */
 import type { SiteTheme } from './types'
+import { safeColor } from '@/lib/safe-color'
 
 /** Relative luminance (WCAG) of a #rrggbb color, 0 (black) … 1 (white). */
 function luminance(hex: string): number {
@@ -37,22 +38,6 @@ function rgbChannels(hex: string): string {
   const m = hex.replace('#', '').match(/^([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i)
   if (!m) return '0 0 0'
   return `${parseInt(m[1], 16)} ${parseInt(m[2], 16)} ${parseInt(m[3], 16)}`
-}
-
-/**
- * Only allow well-formed CSS color values into the inlined <style>. Tenant
- * colors (primary_color / secondary_color) are attacker-settable via the
- * settings + onboarding APIs (the <input type="color"> is client-side only),
- * and are interpolated RAW into `--brand: <value>`. A value like
- * `#fff }</style><script>…</script>` would break out of the style block →
- * stored XSS on the tenant's public site. Anything that isn't a plain hex /
- * named / functional color is replaced with a neutral fallback. Breakout chars
- * (`;{}<>"'` and whitespace inside a bare token) all fail these patterns.
- */
-const SAFE_COLOR = /^#[0-9a-fA-F]{3,8}$|^[a-zA-Z]+$|^(?:rgb|rgba|hsl|hsla|hwb|lab|lch|oklab|oklch|color)\([0-9a-zA-Z%.,/\s+-]+\)$/
-function safeColor(value: string | undefined, fallback: string): string {
-  const v = (value ?? '').trim()
-  return SAFE_COLOR.test(v) ? v : fallback
 }
 
 /**

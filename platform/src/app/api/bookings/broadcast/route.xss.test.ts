@@ -18,7 +18,8 @@ const BOOKING = 'booking-1'
 const PAYLOAD = '<img src=x onerror=alert(1)>'
 
 let bookingRow: Record<string, unknown>
-let notifyMock: ReturnType<typeof vi.fn>
+let notifyMock: ReturnType<typeof vi.fn<(args: unknown) => void>>
+let tenantPrimaryColor: string
 
 vi.mock('@/lib/require-permission', () => ({
   requirePermission: vi.fn(async () => ({ tenant: { tenantId: TENANT }, error: null })),
@@ -28,7 +29,7 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: vi.fn((table: string) => {
       if (table === 'tenants') {
-        return { select: () => ({ eq: () => ({ single: async () => ({ data: { name: 'Acme', telnyx_api_key: null, telnyx_phone: null, resend_api_key: 'rk_1', primary_color: '#000' } }) }) }) }
+        return { select: () => ({ eq: () => ({ single: async () => ({ data: { name: 'Acme', telnyx_api_key: null, telnyx_phone: null, resend_api_key: 'rk_1', primary_color: tenantPrimaryColor } }) }) }) }
       }
       if (table === 'bookings') {
         return { select: () => ({ eq: () => ({ eq: () => ({ single: async () => ({ data: bookingRow }) }) }) }) }
@@ -71,6 +72,7 @@ vi.mock('@/lib/notify', () => ({
 
 beforeEach(() => {
   notifyMock = vi.fn()
+  tenantPrimaryColor = '#000'
   bookingRow = {
     id: BOOKING,
     start_time: '2026-08-01T14:00:00Z',
@@ -96,5 +98,27 @@ describe('POST /api/bookings/broadcast — HTML injection via booking fields', (
     expect(call.message).not.toContain(PAYLOAD)
     expect(call.message).not.toContain('<img')
     expect(call.message).toContain('&lt;img')
+  })
+
+  it('rejects a malformed tenant primary_color instead of splicing it raw into the style attribute', async () => {
+    // primary_color is tenant self-serve free text with no format
+    // enforcement. Unlike client.address/service_type/notes above (text
+    // content, fixed by HTML-escaping), this lands directly inside a
+    // `style="background: ${color}"` CSS-declaration context — a
+    // semicolon-delimited payload doesn't even need a quote to smuggle in
+    // extra CSS declarations, so escaping alone wouldn't close this off.
+    tenantPrimaryColor = 'red;position:fixed;top:0;left:0;width:100%;height:100%;background:url(https://evil.example/track.gif)'
+
+    const { POST } = await import('./route')
+    const res = await POST(new Request('http://x/api/bookings/broadcast', {
+      method: 'POST',
+      body: JSON.stringify({ booking_id: BOOKING }),
+    }))
+    expect(res.status).toBe(200)
+
+    const call = notifyMock.mock.calls[0][0] as { message: string }
+    expect(call.message).not.toContain('position:fixed')
+    expect(call.message).not.toContain('evil.example')
+    expect(call.message).toContain('background: #dc2626')
   })
 })

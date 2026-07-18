@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Runs every 5 min. Sends ONE SMS — Q1 only — 30+ min after the cleaner
 // checked out: "How was your service today?" Reply triggers Q2 in the
@@ -51,8 +52,12 @@ export async function GET(request: Request) {
     if (dueList.length > CAP) {
       cappedAny = true
       const { emailAdmins, smsAdmins } = await import('@/lib/nycmaid/admin-contacts')
+      // tenant.name is tenant self-serve free text with no format
+      // enforcement, and emailAdmins() reaches the PLATFORM's own admin
+      // inbox (admin_users has no tenant_id filter) — a malicious tenant
+      // name would render as HTML there, not just in the tenant's own view.
       const subject = `⚠️ BULK rating-prompt attempted — tenant ${tenant.name}, ${dueList.length} eligible, cap=${CAP}`
-      const html = `<p>The rating-prompt cron tried to send to <strong>${dueList.length}</strong> clients in one run for tenant <strong>${tenant.name}</strong>. Cap is ${CAP}. Sent only the first ${CAP}; the rest are paused and need a human to review.</p>`
+      const html = `<p>The rating-prompt cron tried to send to <strong>${dueList.length}</strong> clients in one run for tenant <strong>${escapeHtml(tenant.name)}</strong>. Cap is ${CAP}. Sent only the first ${CAP}; the rest are paused and need a human to review.</p>`
       await emailAdmins(subject, html).catch(() => {})
       await smsAdmins(`⚠️ Rating-prompt cron blocked at ${CAP}/${dueList.length} for ${tenant.name}.`).catch(() => {})
       await supabaseAdmin.from('notifications').insert({

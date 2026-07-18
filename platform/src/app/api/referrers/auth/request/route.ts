@@ -5,6 +5,8 @@ import { sendEmail } from '@/lib/email'
 import { hashOtp } from '@/lib/referrer-portal-auth'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { randomInt } from 'crypto'
+import { escapeHtml } from '@/lib/escape-html'
+import { safeColor } from '@/lib/safe-color'
 
 const OTP_TTL_MS = 10 * 60 * 1000
 
@@ -67,12 +69,17 @@ export async function POST(request: NextRequest) {
       .eq('id', referrer.id)
 
     const brand = t?.name || 'Referral Portal'
-    const color = t?.primary_color || '#0d9488'
+    // tenant.name/primary_color are self-serve free text with no format
+    // enforcement — they land raw in the HTML body below. `brand` needs
+    // HTML-escaping (text content); `color` needs CSS-color validation
+    // (a `style="..."` CSS-declaration context, where quote-escaping alone
+    // wouldn't stop an extra `;`-delimited declaration being smuggled in).
+    const color = safeColor(t?.primary_color, '#0d9488')
     const from = t?.resend_domain ? `${brand} <noreply@${t.resend_domain}>` : undefined
     const html = `
       <div style="font-family:system-ui,sans-serif;max-width:420px;margin:0 auto;padding:24px">
         <h2 style="color:${color};margin:0 0 8px">Your login code</h2>
-        <p style="color:#475569;font-size:14px;margin:0 0 20px">Enter this code to view your ${brand} referral earnings.</p>
+        <p style="color:#475569;font-size:14px;margin:0 0 20px">Enter this code to view your ${escapeHtml(brand)} referral earnings.</p>
         <div style="background:#f1f5f9;border-radius:12px;padding:20px;text-align:center;font-size:32px;font-weight:700;letter-spacing:6px;color:#0f172a">${code}</div>
         <p style="color:#94a3b8;font-size:12px;margin:20px 0 0">This code expires in 10 minutes. If you didn't request it, ignore this email.</p>
       </div>`
