@@ -6,9 +6,7 @@ import { emailAdmins } from '@/lib/nycmaid/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
 import { safeEqual } from '@/lib/secret-compare'
 import { escapeHtml } from '@/lib/escape-html'
-
-// In-memory rate limiting
-const loginAttempts = new Map<string, { count: number; lastAttempt: number }>()
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export async function POST(request: Request) {
   try {
@@ -16,17 +14,13 @@ export async function POST(request: Request) {
     const ip = request.headers.get('x-forwarded-for') || 'unknown'
     const ua = request.headers.get('user-agent') || 'unknown'
 
-    // Check rate limiting
-    const now = Date.now()
-    const attempts = loginAttempts.get(ip)
-
-    if (attempts) {
-      if (now - attempts.lastAttempt > 5 * 60 * 1000) {
-        loginAttempts.delete(ip)
-      } else if (attempts.count >= 5) {
-        await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 failed attempts` })
-        return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
-      }
+    // Auth-critical: failClosed so a rate-limit DB outage denies rather than
+    // leaving this shared, single-PIN admin login (4 tenant sites) open to
+    // unlimited brute force.
+    const rl = await rateLimitDb(`nycmaid_login:${ip}`, 5, 5 * 60 * 1000, { failClosed: true })
+    if (!rl.allowed) {
+      await notify({ type: 'security', title: 'Login Locked', message: `IP ${ip} locked out after 5 attempts` })
+      return NextResponse.json({ error: 'Too many attempts. Try again in 5 minutes.' }, { status: 429 })
     }
 
     const adminPassword = process.env.ADMIN_PASSWORD?.trim() || null
@@ -45,8 +39,6 @@ export async function POST(request: Request) {
         if (user.status === 'disabled') {
           return NextResponse.json({ error: 'Account disabled. Contact your administrator.' }, { status: 403 })
         }
-
-        loginAttempts.delete(ip)
 
         // Update last_login
         await supabaseAdmin
@@ -85,8 +77,6 @@ export async function POST(request: Request) {
 
     // Fallback: legacy PIN-based login
     if (safeEqual(password, adminPassword)) {
-      loginAttempts.delete(ip)
-
       const session = createSessionCookie()
       const cookieStore = await cookies()
       cookieStore.set('admin_session', session, {
@@ -121,13 +111,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: true, user: { name: 'Admin', role: 'owner' } })
     }
 
-    // Track failed attempt
-    const currentAttempts = loginAttempts.get(ip) || { count: 0, lastAttempt: now }
-    const newCount = currentAttempts.count + 1
-    loginAttempts.set(ip, { count: newCount, lastAttempt: now })
-
-    if (newCount >= 3) {
-      await notify({ type: 'security', title: 'Failed Login', message: `${newCount} failed login attempts from ${ip}` })
+    // rl.remaining reflects this attempt (already recorded by rateLimitDb above).
+    const attemptsInWindow = 5 - rl.remaining
+    if (attemptsInWindow >= 3) {
+      await notify({ type: 'security', title: 'Failed Login', message: `${attemptsInWindow} login attempts from ${ip} in the last 5 minutes` })
     }
 
     return NextResponse.json({ error: 'Invalid credentials' }, { status: 401 })

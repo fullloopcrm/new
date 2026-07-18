@@ -41,6 +41,7 @@ vi.mock('@/lib/supabase', () => ({
 }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ emailAdmins: async () => {} }))
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: async () => {} }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 4 }) }))
 
 import { POST } from './route'
 
