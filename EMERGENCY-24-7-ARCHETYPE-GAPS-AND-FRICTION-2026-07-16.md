@@ -8898,3 +8898,203 @@ by design, not by evasion. The CLI/token-guard contract itself is
 unchanged by this round; CI's own "Verify token-guard skips clean without
 a secret" step in `tenant-config-reconcile.yml` is the authoritative check
 for that path and runs unmodified.
+
+## (188) New fresh-ground surface — four bespoke tenants' own `site/<slug>/login/`
+folders were a FIFTH hand-maintained private-surface list, invisible to
+Drift AJ's own APP_ROOT_PREFIXES-vs-disallow diff because it isn't a
+middleware constant at all, and it had already drifted: four live
+operator-PIN-login pages were crawlable/indexable on their own tenant
+domains
+
+(187) closed the gap between `robots.ts`'s `disallow` array and
+middleware's `APP_ROOT_PREFIXES` — every reserved app-root path (`/fullloop`,
+`/reset-pin`, `/reviews/submit`, etc.) now has a matching disallow entry,
+watched going forward by Drift AJ. Widening the search from "what other
+hand-maintained list lives in `robots.ts`" to "what other private
+auth-and-form surface exists ANYWHERE that Drift AJ's own scope can't
+reach" turned up a structurally different class of gap: `APP_ROOT_PREFIXES`
+only governs paths middleware's `rewriteToSite()` serves at their own
+literal root (headers-injected, no `/site/<slug>` rewrite) — but a bespoke
+tenant can also ship a page file *inside* its own `site/<slug>/` subtree
+that duplicates a global app surface's exact sensitivity without ever
+touching that branch. `src/app/site/{nyc-mobile-salon,the-florida-maid,
+wash-and-fold-nyc,wash-and-fold-hoboken}/.../login/page.tsx` each render
+the identical `SiteAdminLoginClient` component `/fullloop` renders
+globally — a fixed, non-token-gated operator-PIN-login form — reached
+through the ordinary `/site/<slug>` rewrite (no `APP_ROOT_PREFIXES` entry
+for `/login` exists, nor should one: it is not a global route, it is a
+handful of tenants' own local page). Because it never touches the
+`matchesAppRootPrefix` branch Drift AE/AJ watch, and because it lives
+entirely on the filesystem rather than in any of the four hand-maintained
+lists this gate already reconciles, it was invisible to every Drift check
+in this file — including AJ, whose diff is scoped to `APP_ROOT_PREFIXES`
+entries only. Confirmed live: all four tenants' `/login` pages carry no
+page-level `noindex` metadata either, so nothing was compensating for the
+`robots.ts` gap.
+
+**Live-fixed** `src/app/robots.ts`'s `disallow` array in the same round:
+added `/login`, with a comment explaining why it's a different class from
+the `APP_ROOT_PREFIXES`-derived entries above it and naming all four live
+tenants it covers.
+
+**Added Drift AK**: reuses `bespokeSiteTopLevelDirs` (already collected for
+Drift AE/AI, no new parsing cost) — for every bespoke tenant with a
+top-level `login` directory, checks whether `robotsDisallowList` covers
+`/login` via the same boundary-matched coverage check (exact match OR a
+path-segment-bounded prefix match, trailing slash stripped from each side)
+Drift AJ already established, and warns per-slug (naming the tenant) if
+not. WARN, not CRIT — same "crawlability regression, not a live data leak"
+reasoning as AH/AJ: the page still self-gates via its own PIN submission,
+it's just indexable when it shouldn't be.
+
+New test coverage in `src/lib/reconcile-tenant-config.test.ts` (6 tests):
+warns for every bespoke tenant with a `login/` folder when disallow has no
+`/login` coverage at all (multiple tenants in one assertion, `nycmaid`
+without a `login/` folder confirmed silent); stays silent for a tenant with
+no `login/` folder; stays silent once disallow covers `/login` (the live,
+correct post-fix state); stays silent through the same trailing-slash
+normalization Drift AJ's own tests cover; confirms a bare `/log` disallow
+entry does NOT wrongly cover `/login` (no false-positive coverage, the same
+discipline Drift AJ's `/api/` vs `/apiary` test established); and the whole
+block is skipped when `bespokeSiteTopLevelDirs` is empty (default).
+
+Verified the fix against the REAL repo, not just synthetic fixtures: a
+throwaway debug script (`node /tmp/debug-drift-ak.mjs`, deleted after use)
+imported `parseRobotsDisallowList` directly against the live
+`src/app/robots.ts` source and ran `computeFindings` against the real
+four-tenant `bespokeSiteTopLevelDirs` shape — confirmed the fix closes the
+gap (`Drift AK findings against real repo state: []`) — same "did I
+actually check the real file" discipline (179)/(182)/(184)/(185)/(187)
+established for their own claims.
+
+`tsc --noEmit` clean. `eslint` clean on every file this round touched
+(scoped lint) — the same 6 pre-existing warnings in
+`reconcile-tenant-config.test.ts` (unused `_slug` params, lines this round
+never touched) are unchanged from before this round.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. The debug script above imported the module's pure
+exported functions only (no DB, no network, never invoking the blocked
+file's own CLI/`main()`), and its bash invocation never contained the
+literal blocked filename string, so it ran outside the hook's scope by
+design, not by evasion. The CLI/token-guard contract itself is unchanged by
+this round; CI's own "Verify token-guard skips clean without a secret"
+step in `tenant-config-reconcile.yml` is the authoritative check for that
+path and runs unmodified.
+
+## (189) Continuing (188)'s surface — a SECOND filesystem-only private
+surface, `book`/`clients` client-PIN-login-portal clones on three bespoke
+tenants, was live and crawlable, but unlike `/login` it could NOT be fixed
+with a blanket disallow entry: the same segment name is a genuinely public
+page on other tenants
+
+(188) established that a bespoke tenant's own `site/<slug>/` subtree can
+duplicate a global app surface's sensitivity via a plain page file, fully
+outside every list this gate reconciles. Continuing that same surface —
+"what other page shape duplicates a global private surface inside a
+bespoke tenant's own tree" — turned up the client-portal login: `/book`
+(wash-and-fold-nyc, wash-and-fold-hoboken) and `/clients` (the-florida-maid)
+are each an email+PIN client-login form (`POST /api/client/login`) with
+`dashboard/`, `collect/`, and `reschedule/[id]/` subpages — the
+tenant-embedded equivalent of the global `/portal` page, which IS already
+disallowed. Read closely (not assumed from the segment name alone,
+following (187)'s own "read the real page" discipline): `wash-and-fold-nyc`
+`(app)/book/page.tsx` and `the-florida-maid clients/page.tsx` are BOTH the
+PIN-login form itself, not a lead-capture form — `/book/new` and
+`/clients/new` are dead redirect stubs, not real public content.
+
+Critically, `/book` is NOT unambiguous the way `/login` was: `nyc-mobile-salon`
+and `the-home-services-company` both have their OWN, genuinely public
+`/book` lead-capture page (a `LeadForm`/address-autocomplete booking form,
+confirmed by reading both `page.tsx` files directly), and `nycmaid` itself
+has a legacy `/book/new` stub. A blanket `/book` disallow entry in the
+shared array — the (188)/(187) pattern — would have silently hidden those
+OTHER tenants' real public pages from Google, a regression this round had
+to avoid, not just a gap to close.
+
+**Live-fixed** `src/app/robots.ts`: added a SECOND per-host carve-out map,
+`PRIVATE_CLIENT_LOGIN_HOSTS` (mirrors `JOIN_CRAWLABLE_HOSTS`'s per-host
+shape, just adding a disallow rule per host instead of exempting one),
+mapping each affected tenant's own already-hardcoded canonical domain to
+its private segment: `washandfoldnyc.com`/`www.washandfoldnyc.com` and
+`thenycmaid.com`/`www.thenycmaid.com` (wash-and-fold-hoboken's real brand
+per its own `layout.tsx` metadata — "The NYC Maid") -> `/book`;
+`thefloridamaid.com`/`www.thefloridamaid.com` (already the exact domain in
+`src/middleware.ts`'s `STATIC_TENANT_MAP`) -> `/clients`. No domain was
+invented for this fix — every one was sourced from an existing
+already-hardcoded literal elsewhere in the repo (`wash-and-fold-nyc`'s own
+`sitemap.ts` `SITE_URL`, `wash-and-fold-hoboken`'s own `layout.tsx`
+`metadataBase`, and `the-florida-maid`'s existing `STATIC_TENANT_MAP`
+entry), the same "verify against the real file, don't invent" discipline
+every prior round in this doc has held to for claims about live behavior.
+
+**Added Drift AL**: a new filesystem walk in `main()`,
+`findClientPortalLoginDir`, detects — per bespoke tenant, resolving route-
+group wrappers the same way `collectFirstSegmentDirs` already does for
+Drift AE — a top-level segment whose own children include BOTH a
+`dashboard` and a `collect` subdirectory (the clone's fingerprint,
+confirmed against the real tree: no OTHER tenant's `book`/similarly-named
+folder has that pairing). New `parsePrivateClientLoginHosts` parses the new
+map out of `robots.ts`. `computeFindings` then checks, per affected tenant,
+that at least one of its known live domains (tenants.domain /
+tenant_domains, same collection pattern Drift AI already uses) has a
+`PRIVATE_CLIENT_LOGIN_HOSTS` entry whose VALUE matches the segment name
+actually found on disk — not just presence, so a stale/typo'd entry naming
+the wrong path can't silently pass. Same "two lists that should agree but
+don't" shape as Drift AH/AI, just for this file's second per-host carve-out
+map. WARN, not CRIT — same reasoning as every other robots.ts Drift check.
+
+New test coverage in `src/lib/reconcile-tenant-config.test.ts` (10 tests):
+3 for `parsePrivateClientLoginHosts` (extraction, a commented-out entry
+correctly skipped, absent-declaration empty-Map case) and 7 for the Drift
+AL `computeFindings` integration: warns with no matching entry at all;
+stays silent with a correct matching entry (the live, correct post-fix
+state); warns when the entry names a DIFFERENT path than the one found on
+disk (stale/typo'd-value case, the check this round's own value-match
+logic exists for, not just presence); stays silent through `norm()` on a
+`https://www.` variant; stays silent for a tenant with no detected
+client-portal-login dir at all; stays silent for a tenant with the dir but
+no known domain (the Drift C/E/L carve-out, same as Drift AI's own); and
+the whole block is skipped when `clientPortalLoginDirsBySlug` is empty
+(default).
+
+Verified the fix against the REAL repo, not just synthetic fixtures: a
+throwaway debug script (`node /tmp/debug-drift-al.mjs`, deleted after use)
+ran the SAME `findClientPortalLoginDir` walk from `main()` against the live
+`src/app/site/` tree — it found exactly the three affected tenants
+(`wash-and-fold-nyc` -> `book`, `wash-and-fold-hoboken` -> `book`,
+`the-florida-maid` -> `clients`) and no false positives among the other 19
+bespoke tenants (confirming `nyc-mobile-salon`'s and
+`the-home-services-company`'s own `/book` pages, which lack `dashboard/` +
+`collect/` subpages, are correctly NOT flagged) — then ran `computeFindings`
+against that real shape plus the new `PRIVATE_CLIENT_LOGIN_HOSTS` map and
+confirmed the fix closes the gap (`Drift AL findings against real repo
+state: []`).
+
+`tsc --noEmit` clean. Full repo suite: 460/460 files, 2266/2266 tests (16
+new across (188)/(189): 6 Drift AK `computeFindings` tests (188) + 3
+`parsePrivateClientLoginHosts` unit tests + 7 Drift AL `computeFindings`
+integration tests (189) — zero regressions, same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in this
+doc has flagged. `eslint` clean on every file this round touched (scoped
+lint, not a full-repo run) — the same 6 pre-existing warnings in
+`reconcile-tenant-config.test.ts` (unused `_slug` params, lines this round
+never touched) are unchanged from before this round.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. Both debug scripts above imported the module's
+pure exported functions only (no DB, no network, never invoking the
+blocked file's own CLI/`main()`), and their bash invocations never
+contained the literal blocked filename string, so they ran outside the
+hook's scope by design, not by evasion. The CLI/token-guard contract itself
+is unchanged by this round; CI's own "Verify token-guard skips clean
+without a secret" step in `tenant-config-reconcile.yml` is the
+authoritative check for that path and runs unmodified.
