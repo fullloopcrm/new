@@ -82,7 +82,7 @@ type Deal = {
   last_activity_at: string | null
   last_contacted_at: string | null
   created_at: string
-  clients: { name: string | null; address: string | null } | null
+  clients: { name: string | null; email: string | null; phone: string | null; address: string | null } | null
 }
 
 type Activity = {
@@ -390,6 +390,28 @@ function SalesPageInner() {
 
                   {isOpen && (
                     <div className="sl-deal-panel">
+                      {/* Contact info + deal notes */}
+                      {(d.clients?.phone || d.clients?.email || d.clients?.address || d.notes) && (
+                        <div className="sl-proposal">
+                          {(d.clients?.phone || d.clients?.email || d.clients?.address) && (
+                            <>
+                              <div className="sl-proposal-head">Contact</div>
+                              <div className="sl-contact-line">
+                                {d.clients?.phone && <a href={`tel:${d.clients.phone}`} className="sl-contact-item">{d.clients.phone}</a>}
+                                {d.clients?.email && <a href={`mailto:${d.clients.email}`} className="sl-contact-item">{d.clients.email}</a>}
+                                {d.clients?.address && <span className="sl-contact-item">{d.clients.address}</span>}
+                              </div>
+                            </>
+                          )}
+                          {d.notes && (
+                            <>
+                              <div className="sl-proposal-head">Notes</div>
+                              <div className="sl-contact-notes">{d.notes}</div>
+                            </>
+                          )}
+                        </div>
+                      )}
+
                       {/* Stage-driven primary actions */}
                       <div className="sl-actions">
                         {d.stage === 'new' && (
