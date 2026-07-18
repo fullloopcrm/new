@@ -79,26 +79,38 @@ export async function POST(request: Request) {
         updates.journal_entry_id = entryId
       }
 
-      // Bump pattern
+      // Bump pattern. idx_categ_patterns_tenant_pattern uniquely constrains
+      // (tenant_id, pattern) ONLY -- same class of bug fixed in the sibling
+      // PATCH /api/finance/bank-transactions/[id] (662853c5): filtering the
+      // existence check on coa_id too means recategorizing an
+      // already-learned pattern to a DIFFERENT coa_id (an operator's manual
+      // correction, made right here while attaching a receipt) never matches
+      // the existing row, falls into the insert branch, and 23505s on the
+      // 2-column unique index -- silently, since this call never captured
+      // the write's error either. Look up by (tenant_id, pattern) only; same
+      // coa_id reaffirms (increment hit_count), a different coa_id corrects
+      // it (overwrite coa_id, reset hit_count to 1).
       const pattern = normalizeDescription(txn.description).slice(0, 64)
       if (pattern) {
         const { data: existing } = await supabaseAdmin
           .from('categorization_patterns')
-          .select('id, hit_count')
+          .select('id, coa_id, hit_count')
           .eq('tenant_id', tenantId)
           .eq('pattern', pattern)
-          .eq('coa_id', coaId)
           .maybeSingle()
-        if (existing) {
-          await supabaseAdmin
-            .from('categorization_patterns')
-            .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
-            .eq('id', existing.id)
-        } else {
-          await supabaseAdmin.from('categorization_patterns').insert({
-            tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
-          })
-        }
+        const { error: patternErr } = existing
+          ? await supabaseAdmin
+              .from('categorization_patterns')
+              .update(
+                existing.coa_id === coaId
+                  ? { hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() }
+                  : { coa_id: coaId, hit_count: 1, last_used_at: new Date().toISOString() },
+              )
+              .eq('id', existing.id)
+          : await supabaseAdmin.from('categorization_patterns').insert({
+              tenant_id: tenantId, pattern, coa_id: coaId, hit_count: 1,
+            })
+        if (patternErr) console.error('[receipts/attach] failed to update categorization_patterns', patternErr)
       }
     }
 
