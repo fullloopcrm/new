@@ -66,20 +66,35 @@ export async function GET(request: Request) {
         .limit(100)
 
       for (const booking of lateBookings || []) {
-        // Dedup via notifications table
-        const { data: existing } = await supabaseAdmin
-          .from('notifications')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('booking_id', booking.id)
-          .eq('type', 'late_check_in')
-          .limit(1)
-        if (existing && existing.length > 0) continue
-
         const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+
+        // Claim BEFORE sending: insert the notifications row FIRST -- the
+        // partial unique index on (tenant_id, booking_id, type) WHERE
+        // type IN ('late_check_in','late_check_out') is the atomic dedup
+        // boundary, not a pre-send select(). Two overlapping invocations
+        // (this cron loops every active tenant with no run-lock) used to be
+        // able to both read zero existing notifications for the same late
+        // booking and both fire team+admin SMS before either's insert
+        // landed. Same bug class + fix shape as this session's
+        // post-job-followup/outreach/payment-reminder claim-before-send fixes.
+        const { error: claimErr } = await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'late_check_in',
+          title: 'Late Check-In',
+          message: `${memberName} hasn't checked in for ${clientName} (${time})`,
+          booking_id: booking.id,
+          channel: 'sms',
+          status: 'sent',
+        })
+        if (claimErr) {
+          if (!claimErr.message.includes('duplicate key')) {
+            errors.push(`Late check-in claim ${booking.id}: ${claimErr.message}`)
+          }
+          continue // lost the race, or the claim write itself failed -- either way, do not send
+        }
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -110,17 +125,6 @@ export async function GET(request: Request) {
           '/dashboard/bookings'
         ).catch(() => {})
 
-        // In-app notification (also serves as dedup record)
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'late_check_in',
-          title: 'Late Check-In',
-          message: `${memberName} hasn't checked in for ${clientName} (${time})`,
-          booking_id: booking.id,
-          channel: 'sms',
-          status: 'sent',
-        })
-
         lateCheckIns++
       }
 
@@ -138,19 +142,28 @@ export async function GET(request: Request) {
         .limit(100)
 
       for (const booking of lateCheckouts || []) {
-        // Dedup
-        const { data: existing } = await supabaseAdmin
-          .from('notifications')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('booking_id', booking.id)
-          .eq('type', 'late_check_out')
-          .limit(1)
-        if (existing && existing.length > 0) continue
-
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+
+        // Claim BEFORE sending -- see the matching comment in the late
+        // check-in branch above; same fix, same partial unique index
+        // (this type is the other half of its WHERE IN clause).
+        const { error: claimErr } = await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'late_check_out',
+          title: 'Late Check-Out',
+          message: `${memberName} hasn't checked out for ${clientName} — 30+ min since 15-min alert`,
+          booking_id: booking.id,
+          channel: 'sms',
+          status: 'sent',
+        })
+        if (claimErr) {
+          if (!claimErr.message.includes('duplicate key')) {
+            errors.push(`Late check-out claim ${booking.id}: ${claimErr.message}`)
+          }
+          continue // lost the race, or the claim write itself failed -- either way, do not send
+        }
 
         // SMS to team member
         if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
@@ -180,17 +193,6 @@ export async function GET(request: Request) {
           `${memberName} — ${clientName} still on site`,
           '/dashboard/bookings'
         ).catch(() => {})
-
-        // In-app notification (dedup record)
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'late_check_out',
-          title: 'Late Check-Out',
-          message: `${memberName} hasn't checked out for ${clientName} — 30+ min since 15-min alert`,
-          booking_id: booking.id,
-          channel: 'sms',
-          status: 'sent',
-        })
 
         lateCheckOuts++
       }
