@@ -7,6 +7,14 @@ import AddressAutocomplete from '@/components/address-autocomplete'
 import ServiceAreaEditor from '@/components/ServiceAreaEditor'
 import PermissionsTab from './PermissionsTab'
 import CommunicationsTab from './CommunicationsTab'
+import DataExportPanel from './DataExportPanel'
+
+function tenantSiteUrl(tenant: { domain?: string | null; slug?: string | null } | null): string {
+  if (!tenant) return ''
+  if (tenant.domain) return `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
+  if (tenant.slug) return `https://${tenant.slug}.fullloopcrm.com`
+  return ''
+}
 
 type Tenant = {
   id: string
@@ -24,6 +32,8 @@ type Tenant = {
   logo_url: string | null
   tagline: string | null
   website_url: string | null
+  domain: string | null
+  slug: string | null
   resend_api_key: string | null
   resend_domain: string | null
   email_from: string | null
@@ -528,7 +538,14 @@ export default function SettingsPage() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-slate-900 mb-6">Settings</h2>
+      <div className="flex items-center justify-between mb-6">
+        <h2 className="text-2xl font-bold text-slate-900">Settings</h2>
+        {tenantSiteUrl(tenant) && (
+          <a href={tenant.website_url || tenantSiteUrl(tenant)} target="_blank" rel="noreferrer" className="text-sm text-blue-600 hover:underline">
+            View website ↗
+          </a>
+        )}
+      </div>
 
       <div className="flex gap-1 mb-6 border-b border-slate-200 overflow-x-auto">
         {TABS.map((t) => (
@@ -539,7 +556,7 @@ export default function SettingsPage() {
               tab === t ? 'border-white text-slate-900' : 'border-transparent text-slate-400 hover:text-slate-400'
             }`}
           >
-            {t}
+            {t === 'Selena' ? (form.agent_name || 'Selena') : t}
           </button>
         ))}
       </div>
@@ -1115,7 +1132,7 @@ export default function SettingsPage() {
           {/* Anthropic — Selena AI brain */}
           <div className="space-y-3 pb-5 border-b border-slate-100">
             <div className="flex items-center justify-between">
-              <h3 className="text-sm font-semibold text-slate-700">Selena AI (Anthropic)</h3>
+              <h3 className="text-sm font-semibold text-slate-700">{form.agent_name || 'Selena'} AI (Anthropic)</h3>
               <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.anthropic_api_key ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
                 {form.anthropic_api_key ? 'Using your key' : 'Using platform key'}
               </span>
@@ -1314,7 +1331,7 @@ export default function SettingsPage() {
             <div className="space-y-4">
               <div>
                 <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Pricing Display</label>
-                <p className="text-xs text-slate-400 mb-2">Rows of label + price that Selena can reference</p>
+                <p className="text-xs text-slate-400 mb-2">Rows of label + price that {form.agent_name || 'Selena'} can reference</p>
                 {((selenaConfig.pricing_rows as { label: string; price: string }[]) || [{ label: '', price: '' }]).map((row, i) => (
                   <div key={i} className="flex gap-2 mb-2">
                     <input
@@ -1594,7 +1611,7 @@ export default function SettingsPage() {
           {/* Section 6: Common Questions */}
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Common Questions</h3>
-            <p className="text-xs text-slate-400 mb-3">Preset Q&A pairs Selena uses to answer common questions</p>
+            <p className="text-xs text-slate-400 mb-3">Preset Q&A pairs {form.agent_name || 'Selena'} uses to answer common questions</p>
             <div className="space-y-3">
               {((selenaConfig.common_questions as { question: string; answer: string }[]) || [
                 { question: 'Can I leave during the service?', answer: '' },
@@ -1625,7 +1642,7 @@ export default function SettingsPage() {
                   />
                   <input
                     type="text"
-                    placeholder="Selena's response"
+                    placeholder={`${form.agent_name || 'Selena'}'s response`}
                     value={qa.answer}
                     onChange={(e) => {
                       const rows = [...((selenaConfig.common_questions as { question: string; answer: string }[]) || [
@@ -1819,7 +1836,7 @@ export default function SettingsPage() {
           {/* Section 9: Checklist Fields */}
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="text-lg font-semibold text-slate-900 mb-4">Checklist Fields</h3>
-            <p className="text-xs text-slate-400 mb-4">Define what Selena collects during intake and in what order</p>
+            <p className="text-xs text-slate-400 mb-4">Define what {form.agent_name || 'Selena'} collects during intake and in what order</p>
             <div className="space-y-4">
               {((selenaConfig.checklist_fields as { key: string; enabled: boolean; required: boolean; question: string; quick_replies: string }[]) || [
                 { key: 'service_type', enabled: true, required: true, question: 'What type of cleaning do you need?', quick_replies: 'Regular, Deep, Move-in/out, Airbnb, Emergency' },
@@ -1880,7 +1897,7 @@ export default function SettingsPage() {
                       </div>
                     </div>
                     <div>
-                      <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Question Selena Asks</label>
+                      <label className="text-[10px] text-slate-400 uppercase tracking-wide block mb-1">Question {form.agent_name || 'Selena'} Asks</label>
                       <input
                         type="text"
                         value={field.question}
@@ -1937,6 +1954,7 @@ export default function SettingsPage() {
               ))}
             </div>
           </div>
+          <DataExportPanel />
           <div className="border border-slate-200 rounded-lg p-6">
             <h3 className="font-semibold text-slate-900 mb-3">Import Clients from CSV</h3>
 

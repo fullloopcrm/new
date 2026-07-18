@@ -44,21 +44,23 @@ const navMain: Array<{
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
   { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [] },
-  { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
-  { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
-    { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
+  { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [
+    { letter: 'A', label: 'Loop Connect', href: '/dashboard/connect' },
   ]},
-  { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
+  { num: '03', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
+  { num: '04', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
+    { letter: 'A', label: 'Services Catalog', href: '/dashboard/catalog' },
+    { letter: 'B', label: 'Master Budget', href: '/dashboard/sales/budget' },
+  ]},
+  { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
+    { letter: 'B', label: 'Schedule', href: '/dashboard/calendar' },
     { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'D', label: 'Vendors', href: '/dashboard/jobs/vendors' },
   ]},
-  { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
-  { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
-    { letter: 'A', label: 'People', href: '/dashboard/hr' },
-    { letter: 'B', label: 'Roster & Schedule', href: '/dashboard/team' },
-  ] },
-  { num: '07', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
+  { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
+  { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
+  { num: '08', label: 'Marketing', href: '/dashboard/campaigns', fold: 'marketing', perm: 'campaigns.view', subs: [
     { letter: 'A', label: 'Campaigns', href: '/dashboard/campaigns' },
     { letter: 'B', label: 'Reviews', href: '/dashboard/reviews' },
     { letter: 'C', label: 'Referrals', href: '/dashboard/referrals' },
@@ -66,39 +68,33 @@ const navMain: Array<{
     { letter: 'E', label: 'Google', href: '/dashboard/google' },
     { letter: 'F', label: 'Websites', href: '/dashboard/websites' },
     { letter: 'G', label: 'Analytics', href: '/dashboard/analytics' },
-    { letter: 'H', label: 'Map', href: '/dashboard/map' },
   ]},
-  { num: '08', label: 'Messages', href: '/dashboard/messages', fold: 'messages', subs: [] },
 ]
 
 // Routes that conceptually fold under each top-level section. Used to
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/calendar', '/dashboard/bookings'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
-  hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
+  hr: ['/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [
     '/dashboard/campaigns', '/dashboard/reviews', '/dashboard/referrals',
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
-    '/dashboard/analytics', '/dashboard/map',
+    '/dashboard/analytics',
   ],
-  comhub: ['/dashboard/comhub'],
+  comhub: ['/dashboard/comhub', '/dashboard/connect'],
   messages: ['/dashboard/messages'],
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
-  { label: 'Business Profile', href: '/dashboard/onboarding', perm: 'settings.edit' },
+  { label: 'Onboarding', href: '/dashboard/onboarding', perm: 'settings.edit' },
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
   { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
-  { label: 'Selena', href: '/dashboard/selena', perm: 'settings.view' },
-  { label: 'Notifications', href: '/dashboard/notifications', perm: 'notifications.view' },
-  { label: 'Activity', href: '/dashboard/activity', perm: 'audit.view' },
-  { label: 'Docs', href: '/dashboard/docs' },
-  { label: 'Loop Connect', href: '/dashboard/connect' },
-  { label: 'Feedback', href: '/dashboard/feedback' },
+  { label: 'AI (Voice | SMS | Web)', href: '/dashboard/selena', perm: 'settings.view' },
+  { label: 'Platform Docs', href: '/dashboard/docs' },
 ]
 
 function activeFold(pathname: string): string | null {
@@ -115,6 +111,7 @@ function activeFold(pathname: string): string | null {
 const TITLE_OVERRIDES: Record<string, string> = {
   '/dashboard/bookings': 'Schedule',
   '/dashboard/connect': 'Loop Connect',
+  '/dashboard/jobs': 'Production',
 }
 
 function pageTitleFromPath(pathname: string): string {
@@ -222,6 +219,19 @@ export default function DashboardShell({
   useEffect(() => {
     const id = setInterval(() => setMeta(topbarMeta()), 30_000)
     return () => clearInterval(id)
+  }, [])
+
+  // Onboarding wizard completion, for the "X/Y" badge next to the Platform
+  // nav item — fetched once, not polled (it only changes when the tenant
+  // saves a step, which won't happen while this shell is mounted elsewhere).
+  const [onboardingProgress, setOnboardingProgress] = useState<{ completed: number; total: number; done: boolean } | null>(null)
+  useEffect(() => {
+    fetch('/api/dashboard/onboarding/progress')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data.completed === 'number' && typeof data.total === 'number') setOnboardingProgress(data)
+      })
+      .catch(() => {})
   }, [])
 
   // Real notifications from /api/notifications (admin, tenant-scoped). Falls
@@ -415,7 +425,12 @@ export default function DashboardShell({
                 }}
               >
                 <span style={{ width: '18px', flexShrink: 0 }} />
-                <span>{item.label}</span>
+                <span>{item.href === '/dashboard/selena' ? agentName : item.label}</span>
+                {item.href === '/dashboard/onboarding' && onboardingProgress && !onboardingProgress.done && (
+                  <span className="ml-auto" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
+                    {onboardingProgress.completed}/{onboardingProgress.total}
+                  </span>
+                )}
               </Link>
             )
           })}

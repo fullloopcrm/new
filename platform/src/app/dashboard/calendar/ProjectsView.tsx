@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react'
 import { buildMemberColors, colorForMember, type ColorableMember } from './_colors'
+import '../bookings/schedule.css'
 
 // Projects projection — long jobs (multiday / project duration-class) as spans on
 // a horizon, Gantt-style. This is where a weeks-to-year job lives instead of
@@ -111,13 +112,33 @@ export default function ProjectsView() {
     }
   }
 
+  const activeCount = longJobs.filter((b) => b.status === 'in_progress').length
+  const upcomingCount = longJobs.filter((b) => b.status === 'scheduled').length
+  const completedCount = longJobs.filter((b) => b.status === 'completed').length
+
   return (
-    <div>
+    <div className="sched-scope">
+      <div className="sched-outlook" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Total Projects</div>
+          <div className="sched-stat-value">{longJobs.length}</div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Active</div>
+          <div className="sched-stat-value">{activeCount}</div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Upcoming</div>
+          <div className="sched-stat-value">{upcomingCount}</div>
+        </div>
+        <div className="sched-stat">
+          <div className="sched-stat-label">Completed</div>
+          <div className="sched-stat-value">{completedCount}</div>
+        </div>
+      </div>
+
       <div className="mb-3 flex items-center justify-between">
         <p className="text-xs text-slate-500">Long jobs (multi-day / project) as spans.</p>
-        <button onClick={() => setShowForm((s) => !s)} className="rounded-lg bg-teal-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-teal-700">
-          {showForm ? 'Cancel' : '+ New Project'}
-        </button>
       </div>
 
       {showForm && (
