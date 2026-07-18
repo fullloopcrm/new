@@ -19,6 +19,7 @@ const SENSITIVE_TENANT_FIELDS = new Set([
   'imap_host', 'imap_user', 'anthropic_api_key', 'indexnow_key',
   'admin_notes', 'monthly_rate', 'setup_fee',
   'owner_email', 'owner_phone', 'owner_name',
+  'google_tokens',
 ])
 
 export async function GET() {

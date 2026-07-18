@@ -21,6 +21,15 @@ import { describe, it, expect, vi } from 'vitest'
  * dashboard Settings > Integrations tab), despite having no ability to
  * ever set/rotate them. The gate now checks `settings.edit` (owner/admin,
  * the only roles that can actually write these fields) instead.
+ *
+ * Follow-up (2026-07-18): `google_tokens` (the tenant's live Google Business
+ * Profile OAuth grant -- plaintext access_token + encrypted refresh_token,
+ * see src/lib/google.ts) was missing from SENSITIVE_TENANT_FIELDS entirely,
+ * so it passed through to *any* authenticated tenant member of *any* role
+ * (GET has no requirePermission gate at all -- the redaction is the only
+ * protection). No dashboard panel reads tenant.google_tokens from this
+ * route (grepped), so this was pure unintended over-exposure of a live,
+ * directly-usable OAuth credential to the lowest-tier staff role.
  */
 
 const TENANT_ROW = {
@@ -43,6 +52,7 @@ const TENANT_ROW = {
   owner_email: 'owner@example.com',
   owner_phone: '+15559998888',
   owner_name: 'Jane Owner',
+  google_tokens: { access_token: 'ya29.live-access-token', refresh_token: 'v1:iv:ct:tag', expires_at: 1234567890 },
 }
 
 let mockRole = 'staff'
@@ -68,6 +78,7 @@ const SENSITIVE_KEYS = [
   'imap_host', 'imap_user', 'anthropic_api_key', 'indexnow_key',
   'admin_notes', 'monthly_rate', 'setup_fee',
   'owner_email', 'owner_phone', 'owner_name',
+  'google_tokens',
 ]
 
 describe('GET /api/settings — settings.edit redaction', () => {
@@ -107,7 +118,7 @@ describe('GET /api/settings — settings.edit redaction', () => {
     const body = await res.json()
 
     for (const key of SENSITIVE_KEYS) {
-      expect(body.tenant[key]).toBe((TENANT_ROW as Record<string, unknown>)[key])
+      expect(body.tenant[key]).toEqual((TENANT_ROW as Record<string, unknown>)[key])
     }
   })
 
@@ -119,7 +130,7 @@ describe('GET /api/settings — settings.edit redaction', () => {
     const body = await res.json()
 
     for (const key of SENSITIVE_KEYS) {
-      expect(body.tenant[key]).toBe((TENANT_ROW as Record<string, unknown>)[key])
+      expect(body.tenant[key]).toEqual((TENANT_ROW as Record<string, unknown>)[key])
     }
   })
 })
