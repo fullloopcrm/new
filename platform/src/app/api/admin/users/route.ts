@@ -109,6 +109,12 @@ export async function DELETE(request: NextRequest) {
   if (!target) return NextResponse.json({ error: 'Member not found' }, { status: 404 })
 
   if (target.role === 'owner') {
+    // Same escalation as the PUT demotion guard: the last-owner count check
+    // below never protected a non-last owner from a non-owner admin's
+    // DELETE. Removing an owner is exactly as sensitive as demoting one.
+    if (tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can remove another owner' }, { status: 403 })
+    }
     const { count } = await supabaseAdmin
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })

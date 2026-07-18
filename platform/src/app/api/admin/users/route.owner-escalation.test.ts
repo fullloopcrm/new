@@ -20,13 +20,14 @@ let actorRole = 'admin'
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
     const eqs: Row = {}
-    let kind: 'read' | 'insert' | 'update' = 'read'
+    let kind: 'read' | 'insert' | 'update' | 'delete' = 'read'
     let payload: Row = {}
     const match = (r: Row) => Object.entries(eqs).every(([k, v]) => r[k] === v)
     const c: Record<string, unknown> = {
       select: () => c,
       insert: (p: Row) => { kind = 'insert'; payload = p; return c },
       update: (p: Row) => { kind = 'update'; payload = p; return c },
+      delete: () => { kind = 'delete'; return c },
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
       maybeSingle: async () => {
         if (kind === 'read') {
@@ -49,6 +50,10 @@ vi.mock('@/lib/supabase', () => {
           store[table] = (store[table] || []).map((r) => (match(r) ? { ...r, ...payload } : r))
           return res({ data: null, error: null })
         }
+        if (kind === 'delete') {
+          store[table] = (store[table] || []).filter((r) => !match(r))
+          return res({ data: null, error: null })
+        }
         const filtered = (store[table] || []).filter(match)
         return res({ data: filtered, error: null, count: filtered.length })
       },
@@ -67,10 +72,14 @@ vi.mock('@/lib/admin-pin', () => ({
   generateAdminPin: () => '123456',
 }))
 
-import { POST, PUT } from '@/app/api/admin/users/route'
+import { POST, PUT, DELETE } from '@/app/api/admin/users/route'
 
 function req(body: unknown): Request {
   return new Request('https://x/api/admin/users', { method: 'POST', body: JSON.stringify(body) })
+}
+
+function delReq(body: unknown): Request {
+  return new Request('https://x/api/admin/users', { method: 'DELETE', body: JSON.stringify(body) })
 }
 
 describe('POST /api/admin/users — owner grant is owner-only', () => {
@@ -143,5 +152,43 @@ describe('PUT /api/admin/users — owner demotion is owner-only', () => {
     const res = await PUT(req({ id: 'owner1', role: 'admin' }) as any)
     expect(res.status).toBe(400)
     expect(store.tenant_members.find((m) => m.id === 'owner1')?.role).toBe('owner')
+  })
+})
+
+describe('DELETE /api/admin/users — removing an owner is owner-only', () => {
+  beforeEach(() => {
+    store.tenant_members = [
+      { id: 'owner1', tenant_id: TENANT, role: 'owner' },
+      { id: 'owner2', tenant_id: TENANT, role: 'owner' },
+      { id: 'admin1', tenant_id: TENANT, role: 'admin' },
+    ]
+    actorRole = 'admin'
+  })
+
+  it('rejects an admin deleting a non-last owner (previously only the last-owner count was checked)', async () => {
+    const res = await DELETE(delReq({ id: 'owner1' }) as any)
+    expect(res.status).toBe(403)
+    expect(store.tenant_members.some((m) => m.id === 'owner1')).toBe(true)
+  })
+
+  it('allows an owner to delete another owner when a second owner remains', async () => {
+    actorRole = 'owner'
+    const res = await DELETE(delReq({ id: 'owner1' }) as any)
+    expect(res.status).toBe(200)
+    expect(store.tenant_members.some((m) => m.id === 'owner1')).toBe(false)
+  })
+
+  it('still blocks an owner from deleting the last remaining owner', async () => {
+    store.tenant_members = store.tenant_members.filter((m) => m.id !== 'owner2')
+    actorRole = 'owner'
+    const res = await DELETE(delReq({ id: 'owner1' }) as any)
+    expect(res.status).toBe(400)
+    expect(store.tenant_members.some((m) => m.id === 'owner1')).toBe(true)
+  })
+
+  it('still allows an admin to delete a non-owner member', async () => {
+    const res = await DELETE(delReq({ id: 'admin1' }) as any)
+    expect(res.status).toBe(200)
+    expect(store.tenant_members.some((m) => m.id === 'admin1')).toBe(false)
   })
 })

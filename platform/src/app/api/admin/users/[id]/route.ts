@@ -97,6 +97,14 @@ export async function DELETE(_request: NextRequest, { params }: { params: Promis
   if (!target) return NextResponse.json({ error: 'User not found' }, { status: 404 })
 
   if (target.role === 'owner') {
+    // The count check below only ever blocked removing the LAST owner --
+    // with 2+ owners on a tenant, any 'admin' (settings.edit by default)
+    // could DELETE a non-last owner outright with no owner-level
+    // authorization at all. Removing an owner is exactly as sensitive as
+    // demoting one (see the PUT handler above): only an owner may do it.
+    if (tenant.role !== 'owner') {
+      return NextResponse.json({ error: 'Only an owner can remove another owner' }, { status: 403 })
+    }
     const { count } = await supabaseAdmin
       .from('tenant_members')
       .select('id', { count: 'exact', head: true })
