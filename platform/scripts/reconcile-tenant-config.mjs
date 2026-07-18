@@ -594,6 +594,48 @@ export function collectPageFiles(dir, prefix = '') {
   return out
 }
 
+// --- item (238), continuing (237)'s surface: does `dir` render a real
+// homepage at its own root URL? True for a direct page.tsx, OR one nested
+// behind a CHAIN of Next.js route groups ("(name)") at ANY depth — a route
+// group is invisible in the URL, so site/<slug>/(a)/(b)/page.tsx renders at
+// exactly the same URL as site/<slug>/page.tsx, same as the recursion
+// collectFirstSegmentDirs above already applies for the "which top-level
+// segments exist" question. This backs Drift C ("in BESPOKE_SITE_TENANTS
+// but /site/<slug> has no homepage") and Drift D — main() wires it up as
+// `hasHome = (slug) => hasHomePage(join(siteDir, slug))`, the single
+// callback threaded through every hasHome(...) call in computeFindings.
+//
+// Exported for the same "closure inside main() with zero test coverage"
+// reason as collectFirstSegmentDirs/findClientPortalLoginDir/
+// collectPageFiles above: every computeFindings test in this file's own
+// suite injects a hand-written `alwaysHome`/`neverHome` fixture instead of
+// exercising the real filesystem check even once, so a bug in the REAL
+// hasHome implementation — unlike a bug in any parseX/findX — had zero red
+// test anywhere in this file, the same blind spot (237) closed for the
+// three sibling functions.
+//
+// The OLD implementation (`readdirSync(d).some(e => e.startsWith('(') &&
+// e.endsWith(')') && existsSync(join(d, e, 'page.tsx')))`) only checked ONE
+// level of route-group nesting — a page.tsx one route-group-chain deeper
+// (e.g. site/<slug>/(a)/(b)/page.tsx) was invisible to it, which would
+// wrongly report Drift C/D's "no homepage" CRIT for a tenant whose home
+// page renders fine in production. Recursing through the FULL chain (same
+// discipline collectFirstSegmentDirs already applies for segment-name
+// resolution) closes that gap. No CURRENT bespoke tenant nests its
+// homepage two-or-more route groups deep (verified against every
+// src/app/site/<slug>/ folder — every existing page.tsx is either direct or
+// exactly one group deep), so this is landmine-only today, same
+// disposition as (237)'s own fix and items (233)-(235): a parser/fs-walk
+// assumption an ordinary future route-group refactor could silently
+// violate without anyone touching this function itself.
+export function hasHomePage(dir) {
+  if (!existsSync(dir)) return false
+  if (existsSync(join(dir, 'page.tsx'))) return true
+  return readdirSync(dir, { withFileTypes: true }).some(
+    (e) => e.isDirectory() && e.name.startsWith('(') && e.name.endsWith(')') && hasHomePage(join(dir, e.name)),
+  )
+}
+
 // --- given the single-segment (no nested "/") entries of APP_ROOT_PREFIXES
 // and, per bespoke tenant, the top-level route-segment names found on disk
 // under its own site/<slug>/ folder (route groups already resolved down to
@@ -2192,12 +2234,10 @@ async function main() {
   const robotsDisallowList = parseRobotsDisallowList(robotsSource)
   const privateClientLoginHosts = parsePrivateClientLoginHosts(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
-  const hasHome = (slug) => {
-    const d = join(siteDir, slug)
-    if (!existsSync(d)) return false
-    if (existsSync(join(d, 'page.tsx'))) return true
-    return readdirSync(d).some((e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(d, e, 'page.tsx')))
-  }
+  // hasHomePage is now a module-level exported function (see above) — was a
+  // closure here with zero test coverage, and only resolved ONE level of
+  // route-group nesting instead of the full chain.
+  const hasHome = (slug) => hasHomePage(join(siteDir, slug))
   const hasSitemap = (slug) => {
     const d = join(siteDir, slug)
     return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))

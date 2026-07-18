@@ -35,6 +35,7 @@ import {
   collectFirstSegmentDirs,
   collectPageFiles,
   findClientPortalLoginDir,
+  hasHomePage,
   computeFindings,
   summarize,
   loadToken,
@@ -4243,5 +4244,53 @@ describe('findClientPortalLoginDir', () => {
     mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'dashboard'), { recursive: true })
     mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'collect'), { recursive: true })
     expect(findClientPortalLoginDir(dir)).toBe('clients')
+  })
+})
+
+// item (238), continuing (237)'s surface: hasHomePage's real implementation
+// (unlike every parseX/findX above) had zero direct test coverage before
+// this round — every computeFindings test in this file injects a
+// hand-written alwaysHome/neverHome fixture instead of exercising the real
+// filesystem check, and it was a closure inside main() besides.
+describe('hasHomePage', () => {
+  let dir: string | undefined
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+
+  it('returns false for a directory that does not exist', () => {
+    expect(hasHomePage(join(tmpdir(), 'reconcile-does-not-exist-xyz'))).toBe(false)
+  })
+
+  it('returns true for a direct page.tsx', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-home-'))
+    writeFileSync(join(dir, 'page.tsx'), '')
+    expect(hasHomePage(dir)).toBe(true)
+  })
+
+  it('returns true for a page.tsx one route group deep (the live shape, e.g. site/<slug>/(marketing)/page.tsx)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-home-'))
+    mkdirSync(join(dir, '(marketing)'), { recursive: true })
+    writeFileSync(join(dir, '(marketing)', 'page.tsx'), '')
+    expect(hasHomePage(dir)).toBe(true)
+  })
+
+  it('returns false when there is no page.tsx anywhere', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-home-'))
+    mkdirSync(join(dir, '(marketing)', 'about'), { recursive: true })
+    writeFileSync(join(dir, '(marketing)', 'about', 'page.tsx'), '')
+    expect(hasHomePage(dir)).toBe(false)
+  })
+
+  // Mutation-verified live: reverting hasHomePage's recursive call back to
+  // the OLD one-level-only check (`readdirSync(dir).some(e =>
+  // e.startsWith('(') && e.endsWith(')') && existsSync(join(dir, e,
+  // 'page.tsx')))`) makes this assertion fail — the old code only looks
+  // ONE route group deep, so a page.tsx behind a SECOND, nested route group
+  // is invisible to it, wrongly reporting Drift C/D's "no homepage" CRIT
+  // for a tenant whose home page renders fine in production.
+  it('returns true for a page.tsx behind a CHAIN of nested route groups', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-home-'))
+    mkdirSync(join(dir, '(outer)', '(inner)'), { recursive: true })
+    writeFileSync(join(dir, '(outer)', '(inner)', 'page.tsx'), '')
+    expect(hasHomePage(dir)).toBe(true)
   })
 })
