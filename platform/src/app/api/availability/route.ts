@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { checkAvailability } from '@/lib/availability'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 /**
  * Public availability endpoint — returns available time slots for a date.
@@ -8,8 +9,19 @@ import { supabaseAdmin } from '@/lib/supabase'
  * GET /api/availability?date=2026-03-15&duration=4&tenant=slug-or-id
  *
  * Also supports portal token auth via Authorization header.
+ *
+ * Rate-limited per-IP (not per-tenant): the `tenant` param accepts a
+ * free-form slug/UUID and resolves silently to a generic "tenant param
+ * required" error either way, so a per-tenant key would let a caller
+ * rotate slugs to keep enumerating tenants unthrottled.
  */
 export async function GET(request: NextRequest) {
+  const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`availability:${ip}`, 30, 5 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
+  }
+
   const { searchParams } = new URL(request.url)
   const date = searchParams.get('date')
   const duration = Math.min(Math.max(Number(searchParams.get('duration')) || 2, 1), 8)
