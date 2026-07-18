@@ -56,9 +56,25 @@ export async function PUT(request: Request) {
     const { tenantId } = tenant
     const body = await request.json()
 
-    // Don't allow updating id or status through settings
+    // Don't allow updating id, status, or slug through settings. slug is the
+    // subdomain-routing key (getTenantBySlug in tenant-lookup.ts, UNIQUE NOT
+    // NULL at the DB level per supabase/schema.sql) and — like id/status — is
+    // treated as immutable everywhere else in the app: NEITHER admin PUT
+    // route (admin/businesses/[id], admin/tenants/[id]) includes `slug` in
+    // its allowlist, so nothing anywhere else ever mutates it post-creation.
+    // This route is the odd one out (a BLOCKLIST, not an ALLOWLIST — see the
+    // `domain` collision-guard fix below for the sibling gap), so without
+    // this it would sail straight into the blind tenants UPDATE below: every
+    // normal save round-trips the full tenant row through `form` (dashboard/
+    // settings/page.tsx's saveTenant() sends `JSON.stringify(form)`, seeded
+    // from GET's unfiltered response), so `slug` is present on every request
+    // — a crafted request changing it would silently repoint the tenant's
+    // live subdomain with none of the upkeep a real slug-change would need
+    // (busting tenant-lookup.ts's slugCache for both the old AND newly-
+    // claimed slug, updating shared links, SEO redirects, etc.).
     delete body.id
     delete body.status
+    delete body.slug
 
     // Block system-managed fields — only set via OAuth flows or internal processes
     const systemOnlyFields = ['google_tokens', 'google_business', 'stripe_account_id']
