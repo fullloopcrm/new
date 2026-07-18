@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { askSelena, EMPTY_CHECKLIST, getNextStep, getQuickReplies } from '@/lib/selena-legacy'
-import { askSelena as askYinez } from '@/lib/selena/agent'
+import { askSelena as askYinez, isOwnerOfTenant } from '@/lib/selena/agent'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
@@ -11,7 +11,7 @@ export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, sessionId, phone, tenantId: bodyTenantId } = await req.json()
+    const { message, sessionId, phone: rawPhone, tenantId: bodyTenantId } = await req.json()
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
@@ -29,6 +29,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tenant mismatch' }, { status: 400 })
     }
     const tenantId = headerTenantId
+
+    // This endpoint is fully unauthenticated — a self-reported `phone` proves
+    // nothing about who's actually typing (unlike the SMS/Telnyx channel,
+    // where `from` is the carrier-verified sender). askYinez/askSelena feed
+    // this same phone into isOwnerOfTenant() to decide whether the caller
+    // gets owner-gated tools (Stripe refunds, SMS broadcasts, revenue,
+    // settings). Without this check, anyone who knows or guesses the
+    // tenant's registered owner_phone could paste it into the public chat
+    // widget's request body and be granted full admin-tool access with zero
+    // authentication. Strip a phone that would pass the owner check before
+    // it ever reaches the agent.
+    const phone = rawPhone && (await isOwnerOfTenant(rawPhone, tenantId)) ? undefined : rawPhone
 
     // Unauthenticated + no rate limit == a scripted caller could loop this to
     // run up real Anthropic API spend and flood sms_conversation_messages.

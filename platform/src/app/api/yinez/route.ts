@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { askSelena } from '@/lib/selena/agent'
+import { askSelena, isOwnerOfTenant } from '@/lib/selena/agent'
 import { EMPTY_CHECKLIST } from '@/lib/selena/core'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/nycmaid/notify'
@@ -11,7 +11,7 @@ export const maxDuration = 60
 
 export async function POST(req: NextRequest) {
   try {
-    const { message, sessionId, phone } = await req.json()
+    const { message, sessionId, phone: rawPhone } = await req.json()
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
     }
@@ -25,6 +25,18 @@ export async function POST(req: NextRequest) {
     const reqTenantId = hdrTenantId && verifyTenantHeaderSig(hdrTenantId, tenantSig)
       ? hdrTenantId
       : undefined
+
+    // This endpoint is fully unauthenticated — a self-reported `phone` proves
+    // nothing about who's actually typing (unlike the SMS/Telnyx channel,
+    // where `from` is the carrier-verified sender). askSelena feeds this same
+    // phone into isOwnerOfTenant() to decide whether the caller gets
+    // owner-gated tools (Stripe refunds, SMS broadcasts, revenue, settings).
+    // Without this check, anyone who knows or guesses the tenant's
+    // registered owner_phone could paste it into the public chat widget's
+    // request body and be granted full admin-tool access with zero
+    // authentication. Only checkable with a verified tenant (an unverified
+    // request already forgoes tenant-scoped linking below).
+    const phone = rawPhone && reqTenantId && (await isOwnerOfTenant(rawPhone, reqTenantId)) ? undefined : rawPhone
 
     // Same cost-abuse exposure as /api/chat: unauthenticated, invokes the
     // Anthropic API per message. Cap per tenant(+"unknown" if unverified)+IP.

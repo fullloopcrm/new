@@ -79,7 +79,10 @@ vi.mock('@/lib/selena-legacy', () => ({
   getNextStep: () => null,
   getQuickReplies: () => [],
 }))
-vi.mock('@/lib/selena/agent', () => ({ askSelena: vi.fn(async () => ({ text: 'ok', bookingCreated: false })) }))
+vi.mock('@/lib/selena/agent', () => ({
+  askSelena: vi.fn(async () => ({ text: 'ok', bookingCreated: false })),
+  isOwnerOfTenant: vi.fn(async () => false),
+}))
 vi.mock('@/lib/nycmaid/tenant', () => ({ isNycMaid: () => false }))
 vi.mock('@/lib/notify', () => ({ notify: vi.fn(async () => {}) }))
 

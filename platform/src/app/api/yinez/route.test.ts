@@ -62,6 +62,7 @@ vi.mock('@/lib/supabase', () => ({ supabaseAdmin: h.supabaseAdmin }))
 vi.mock('@/lib/selena/core', () => ({ EMPTY_CHECKLIST: {} }))
 vi.mock('@/lib/selena/agent', () => ({
   askSelena: vi.fn(async () => ({ text: 'hello from yinez', bookingCreated: false })),
+  isOwnerOfTenant: vi.fn(async () => false),
 }))
 vi.mock('@/lib/nycmaid/notify', () => ({ notify: vi.fn(async () => {}) }))
 vi.mock('@/lib/nycmaid/conversation-scorer', () => ({
