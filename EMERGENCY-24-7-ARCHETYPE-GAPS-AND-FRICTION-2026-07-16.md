@@ -8149,3 +8149,67 @@ either. `reconcile-tenant-config.mjs` / `verify-protected-tenants.mjs`
 unchanged this round (this round's surface was the CI-wiring half of the
 lane, not the reconcile script itself) — zero diff beyond (176)'s
 `.github/workflows` change and (177)'s doc sweep.
+
+## (178) New fresh-ground surface — (177)'s own doc sweep for stale
+`tenant-scope.yml` references missed two live, non-`.md`/non-`.test.ts`
+files: `db-backup.yml` itself and `idor-lint-guard.sample.yml`
+
+(177) grepped the repo for `tenant-scope.yml` and fixed every present-tense
+claim it found, sorting hits into "historical narration, leave alone" vs.
+"live fact, fix." That sweep's own writeup only mentions Markdown docs and
+`.test.ts` file-header comments in either bucket — it never lists an actual
+`.yml` file. Re-running the same literal grep this round turned up two it
+missed:
+
+- `.github/workflows/db-backup.yml`'s own "Least privilege" comment on its
+  `permissions: {}` block claimed the empty-permissions pattern was "matching
+  ci.yml/tenant-scope.yml/tenant-config-reconcile.yml's existing
+  least-privilege pattern in this repo" — present tense, in a live workflow
+  file that actually runs nightly, not a doc or a test. Same underlying
+  problem class (177) fixed everywhere else: a fact a reader (someone
+  auditing `db-backup.yml`'s permissions model) would take at face value
+  today, wrong since 2026-07-17.
+- `platform/deploy-prep/idor-lint-guard.sample.yml`'s adoption note told a
+  future implementer to name a new dedicated workflow file "matching the
+  style of tenant-scope.yml" — a style precedent that no longer exists to
+  look at.
+
+Neither is high-stakes (the first is a comment with no behavioral effect;
+the second is inside a file explicitly marked "PROPOSAL ONLY, NOT WIRED,"
+lowest urgency in this lane's whole sweep) but both are the exact shape
+(177) itself warned about: "a found instance is not evidence it's the only
+place a fact is recorded." The sweep that makes that claim is not exempt
+from it.
+
+**Fixed** — both updated to note the 2026-07-17 removal inline, same
+convention (177) used elsewhere, rather than just deleting the reference
+(deleting would lose the "why does this comment list two names, not three"
+context for a future reader diffing the workflow's history).
+
+## (179) Continuing (178)'s surface — broadened the search past the literal
+string `tenant-scope.yml` to catch the same bug under a different phrasing;
+found none
+
+(178) was still just re-running (177)'s exact search string. If the miss in
+(178) happened because (177)'s search was too narrow in *scope* (file
+extensions), it could just as easily have been too narrow in *phrasing* —
+a stale reference doesn't have to spell the filename out. Grepped the whole
+repo for the surrounding vocabulary instead — "tenant-scope workflow",
+"Tenant-isolation guard", "dual wir-", "duplicate ... guard", "two ...
+copies ... same ... gate", "runs twice", "both workflows" — across
+`.md`/`.yml`/`.ts`/`.mjs`. Two new files surfaced by this wider net,
+`platform/scripts/audit-tenant-scope.mjs` and
+`platform/deploy-prep/idor-lint-guard-spec.md`; both hits are the still-
+accurate, present-tense "Tenant-isolation guard" step name (the guard step
+itself was never removed, only its duplicate workflow file was) — not
+stale, nothing to fix. Checked before concluding, not assumed: this round
+found zero additional instances of the (176)/(178) bug shape, so there is
+no (180) growing out of this one. `tsc --noEmit` clean (no code touched
+this round). Full repo suite unchanged from (178)'s run: 457/457 files,
+2171/2171 tests green.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session,
+skipped cleanly per standing rule — no live-DB reconcile run this round.
+`reconcile-tenant-config.mjs` / `verify-protected-tenants.mjs` unchanged
+this round (this round's surface, like (176)/(177), was the CI-wiring half
+of the lane) — zero diff beyond (178)'s two-file comment fix.
