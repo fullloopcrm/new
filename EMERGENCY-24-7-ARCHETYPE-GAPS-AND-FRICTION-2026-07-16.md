@@ -13636,3 +13636,64 @@ This lane is now three-for-three on fresh-ground sweeps finding nothing new
 ((255), (256), this one). Per LEADER's queue item (2) ("continue whichever
 surface (1) opens up"): (1) opened nothing new to continue this round,
 same as (256).
+
+## (258) Fourth fresh-ground sweep on W3's own lane, this time NOT a re-read --
+LEADER's 11:04 queue item (1) explicitly said "pick anything not yet swept
+this session", and (255)/(256)/(257) had already exhausted a literal
+line-by-line re-read three times running with nothing new. Instead picked
+concrete angles those three writeups don't mention: `timeout-minutes`
+presence, `permissions:` blocks, `workflow_dispatch` input handling, and
+what actually flows into `$GITHUB_STEP_SUMMARY` -- and that last one found
+something real.
+
+`tenant-config-reconcile.yml`'s "Reconcile tenant config" step pipes
+`reconcile-output.txt` (the drift report) raw through `cat` between ```
+fence lines into the Job Summary. Traced where finding messages get their
+domain values from rather than assuming they're DNS-constrained: `POST
+/api/admin/websites` (`src/app/api/admin/websites/route.ts`) inserts
+`tenant_domains.domain` straight from the request body with **zero
+normalization or format validation** -- confirmed by reading the route, not
+recalled from memory, and it lines up with what
+`reconcile-tenant-config.test.ts` already documents for its own "pasted as
+a full URL (scheme + path)" and "pasted with userinfo" test cases. So a
+finding's `msg` can carry an admin-supplied domain value verbatim into the
+captured report. A domain string containing a run of three backticks would
+close the Job Summary's ``` fence early, letting the rest of the report
+render as live markdown on the run's summary page instead of preformatted
+text.
+
+Calibrating severity honestly rather than either dismissing it as landmine-
+only or overstating it: it requires an authenticated admin actor
+(`requireAdmin()` gates the route -- checked, not assumed), and GitHub
+sanitizes HTML in step summaries, so this is not code execution or XSS. But
+unlike (256)'s Telegram-alert script-injection check (where none of the
+three interpolated fields were actually attacker-steerable) or this same
+item's own re-confirmation of (232)'s db-backup.yml disposition (where the
+alert body is a static single-line literal), this one IS live: the exact
+value that lands in the fence is genuinely unvalidated end-to-end. Real,
+previously-undocumented gap in this lane's own CI wiring, not a repeat of
+an already-dispositioned landmine.
+
+**Fixed** by piping the captured report through `tr -d '`'` before it
+enters the fence, instead of a raw `cat` -- reconcile output is structured
+English diagnostic text interpolating only slugs/domains/enum values, so it
+never legitimately contains a backtick; the strip is a no-op on every real
+report and only neutralizes the attacker-controlled edge case. New test in
+`reconcile-gate-wiring.test.ts` (`strips backticks before writing the
+captured report into the ``` fence`) asserts the step no longer does a raw
+`cat reconcile-output.txt`. Mutation-verified live: reverted just the one
+line back to `cat` via a saved `.bak`, reran the new test, confirmed it
+failed exactly as predicted (`expected true to be false`), restored the
+fix, reconfirmed all 10 tests in that file green.
+
+Checked queue item (2) ("continue whichever surface (1) opens up") before
+calling it dry: grepped `ci.yml` and `db-backup.yml` for the same
+`GITHUB_STEP_SUMMARY` pattern -- neither of the other two owned workflows
+writes to the Job Summary at all, so this exact gap doesn't extend to
+them. Nothing further to continue on this surface this round.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 505/505 files,
+2583/2583 tests (1 new, 0 regressions). `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session (token-guard checked first, per standing instructions)
+-- no live reconcile run against Supabase attempted. Workflow YAML + test
+file only, no push/deploy/DB write.
