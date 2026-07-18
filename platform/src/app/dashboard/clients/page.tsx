@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import dynamic from 'next/dynamic'
 import './clients.css'
 import ClientDrawer from './client-drawer'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 const ClientsMap = dynamic(() => import('@/components/ClientsMap'), { ssr: false })
 
@@ -92,6 +93,8 @@ function stageLabel(stage: Stage): string {
 }
 
 export default function ClientsPage() {
+  const { tenant } = useTenantSettings()
+  const agentName = tenant?.agent_name as string || 'Selena'
   const [clients, setClients] = useState<EnrichedClient[]>([])
   const [totals, setTotals] = useState<Totals | null>(null)
   const [loading, setLoading] = useState(true)
@@ -199,7 +202,7 @@ export default function ClientsPage() {
         <div className="clients-stat">
           <div className="clients-stat-label">At-Risk <span className="clients-stat-tag warn">churn</span></div>
           <div className="clients-stat-value">{totals?.at_risk ?? 0}</div>
-          <div className="clients-stat-sub warn">Selena drafted nudges</div>
+          <div className="clients-stat-sub warn">{agentName} drafted nudges</div>
         </div>
         <div className="clients-stat">
           <div className="clients-stat-label">Avg Health</div>
@@ -234,7 +237,7 @@ export default function ClientsPage() {
       {/* TOOLBAR */}
       <div className="clients-toolbar">
         <div className="clients-ai-search">
-          <span className="clients-ai-search-icon">Ask Selena</span>
+          <span className="clients-ai-search-icon">Ask {agentName}</span>
           <input
             type="text"
             placeholder="biweekly clients in Murray Hill who haven't reviewed yet…"
@@ -454,6 +457,7 @@ export default function ClientsPage() {
         open={!!drawerId}
         onClose={() => setDrawerId(null)}
         onClientUpdated={loadClients}
+        agentName={agentName}
       />
     </div>
   )

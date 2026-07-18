@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect, useCallback } from 'react'
+import { useTenantSettings } from '@/lib/use-tenant-settings'
 
 interface Member {
   id: string
@@ -21,14 +22,18 @@ const ROLE_COLORS: Record<string, string> = {
   staff: 'bg-gray-100 text-gray-800',
 }
 
-const ROLE_DESCRIPTIONS: Record<string, string> = {
-  owner: 'Full access including billing, settings, and member management',
-  admin: 'Full operational access; no billing/settings edits',
-  manager: 'Bookings, clients, calendar, campaigns, Selena',
-  staff: 'Read-only access to dashboard + assigned bookings',
+function roleDescriptions(agentName: string): Record<string, string> {
+  return {
+    owner: 'Full access including billing, settings, and member management',
+    admin: 'Full operational access; no billing/settings edits',
+    manager: `Bookings, clients, calendar, campaigns, ${agentName}`,
+    staff: 'Read-only access to dashboard + assigned bookings',
+  }
 }
 
 export default function UsersPage() {
+  const { tenant } = useTenantSettings()
+  const ROLE_DESCRIPTIONS = roleDescriptions((tenant?.agent_name as string) || 'Selena')
   const [users, setUsers] = useState<Member[]>([])
   const [loading, setLoading] = useState(true)
   const [editingId, setEditingId] = useState<string | null>(null)

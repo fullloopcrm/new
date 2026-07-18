@@ -415,7 +415,7 @@ export default function DashboardShell({
                 }}
               >
                 <span style={{ width: '18px', flexShrink: 0 }} />
-                <span>{item.label}</span>
+                <span>{item.href === '/dashboard/selena' ? agentName : item.label}</span>
               </Link>
             )
           })}

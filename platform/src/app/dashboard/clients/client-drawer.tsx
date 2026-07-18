@@ -47,6 +47,7 @@ type Props = {
   open: boolean
   onClose: () => void
   onClientUpdated?: () => void
+  agentName?: string
 }
 
 function initials(name: string): string {
@@ -97,7 +98,7 @@ type Activity = {
   sentiment?: 'pos' | 'neu' | 'neg'
 }
 
-export default function ClientDrawer({ client, open, onClose, onClientUpdated }: Props) {
+export default function ClientDrawer({ client, open, onClose, onClientUpdated, agentName = 'Selena' }: Props) {
   const router = useRouter()
   const worker = useWorkerLabel()
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
@@ -221,7 +222,7 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated }:
           {/* Selena Next Action */}
           {client.last_booking?.overdue && (
             <div className="clients-next-action">
-              <div className="clients-next-action-head">Selena · Suggested Next Action</div>
+              <div className="clients-next-action-head">{agentName} · Suggested Next Action</div>
               <div className="clients-next-action-suggest">
                 Payment is overdue — recommend a soft check-in before sending a formal reminder.
               </div>
@@ -413,7 +414,7 @@ export default function ClientDrawer({ client, open, onClose, onClientUpdated }:
                   className={`clients-notes-tab ${notesTab === t ? 'active' : ''}`}
                   onClick={() => setNotesTab(t)}
                 >
-                  {t === 'cleaner' ? '⚒ Cleaner' : t === 'operator' ? '⊡ Operator' : '✦ Selena'}
+                  {t === 'cleaner' ? '⚒ Cleaner' : t === 'operator' ? '⊡ Operator' : `✦ ${agentName}`}
                 </span>
               ))}
             </div>

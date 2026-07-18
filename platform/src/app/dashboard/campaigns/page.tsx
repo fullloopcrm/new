@@ -295,7 +295,7 @@ export default function CampaignsPage() {
           <div className="bg-slate-50 border border-slate-200 rounded-lg p-4 mb-5">
             <div className="flex items-center gap-2 mb-2">
               <span className="text-sm">✧</span>
-              <h4 className="text-xs font-semibold text-slate-400 uppercase">Selenas AI — Write Assist</h4>
+              <h4 className="text-xs font-semibold text-slate-400 uppercase">{(tenantSettings.tenant?.agent_name as string) || 'Selena'} AI — Write Assist</h4>
             </div>
             <div className="flex gap-2">
               <input value={aiPrompt} onChange={(e) => setAiPrompt(e.target.value)}
