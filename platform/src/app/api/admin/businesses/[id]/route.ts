@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { removeDomain } from '@/lib/vercel-domains'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 import { encryptSecret, isEncrypted, ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { PRICING } from '@/lib/billing-pricing'
 import { omit } from '@/lib/validate'
@@ -42,6 +43,7 @@ export async function GET(
     { count: clients },
     { count: bookings },
     { count: team_members },
+    primaryDomain,
   ] = await Promise.all([
     supabaseAdmin.from('tenants').select('*').eq('id', id).single(),
     // Explicit column list, NOT select('*') — this is returned wholesale to
@@ -55,6 +57,7 @@ export async function GET(
     supabaseAdmin.from('clients').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
     supabaseAdmin.from('bookings').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
     supabaseAdmin.from('team_members').select('id', { count: 'exact', head: true }).eq('tenant_id', id),
+    getPrimaryTenantDomain(id),
   ])
 
   if (!business) {
@@ -140,7 +143,15 @@ export async function GET(
       content_collected: !!sp.website_content_ready,
       template_configured: !!sp.website_template_configured,
       website_deployed: !!business.website_published,
-      custom_domain_live: !!business.domain_name && !!business.dns_configured && !!business.website_published,
+      // tenant_domains FIRST, tenants.domain FALLBACK — mirrors
+      // tenant-lookup.ts's resolution order. Previously checked
+      // business.domain_name alone, which is the registrar/display field (see
+      // the PUT handler's comment above), never the field the resolver
+      // actually reads or tenant_domains — so a tenant onboarded through the
+      // recommended admin/websites flow (which writes tenant_domains only,
+      // never tenants.domain_name) showed "Custom domain live: false" on this
+      // checklist forever, even with DNS and the site both fully live.
+      custom_domain_live: !!(primaryDomain || business.domain) && !!business.dns_configured && !!business.website_published,
       analytics_installed: !!sp.analytics_installed,
       tracking_on_existing_site: !!sp.tracking_installed,
     },
@@ -474,6 +485,19 @@ export async function DELETE(
     .eq('id', id)
     .single()
 
+  // tenant_domains rows (the P1 primary source — admin/websites' recommended
+  // add-a-domain flow writes ONLY here, never tenants.domain/domain_name) are
+  // ON DELETE CASCADE (migrations/043_tenant_domains.sql) — the DB rows
+  // vanish the instant the tenants delete below runs. Read them out FIRST, or
+  // any domain a tenant owns purely through tenant_domains (which per
+  // admin/websites' own comments is now the common case, not the exception)
+  // never makes it into the Vercel-detach list below and stays attached to
+  // the project forever after the tenant is gone.
+  const { data: ownedDomains } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('domain')
+    .eq('tenant_id', id)
+
   // Hard delete. Every tenant-scoped table cascades from tenants.id EXCEPT two
   // cross-tenant FKs that are ON DELETE NO ACTION and would block the delete:
   // leads.converted_tenant_id and partner_requests.converted_tenant_id. These
@@ -499,7 +523,12 @@ export async function DELETE(
       const apex = custom.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
       domains.push(apex, `www.${apex}`)
     }
-    await Promise.all(domains.map((d) => removeDomain(d)))
+    for (const row of ownedDomains ?? []) {
+      const apex = String(row.domain || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+      if (apex) domains.push(apex, `www.${apex}`)
+    }
+    const uniqueDomains = [...new Set(domains)]
+    await Promise.all(uniqueDomains.map((d) => removeDomain(d)))
   }
 
   return NextResponse.json({ success: true })
