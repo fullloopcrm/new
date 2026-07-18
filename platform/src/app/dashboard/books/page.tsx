@@ -37,8 +37,24 @@ type Booking = {
   team_member_paid: boolean | null
   payment_status: string | null
   status: string
+  team_member_id: string | null
   clients: { name: string | null } | null
   team_members: { name: string | null } | null
+}
+
+type TeamMember = {
+  id: string
+  name: string
+  status: string | null
+  photo_url: string | null
+}
+
+type CleanerRow = {
+  id: string
+  name: string
+  photo_url: string | null
+  jobs: number
+  revenue_cents: number
 }
 
 function fmtDate(iso: string): string {
@@ -58,6 +74,18 @@ export default function BooksPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [rows, setRows] = useState<LedgerRow[]>([])
   const [loading, setLoading] = useState(true)
+  const [bookings, setBookings] = useState<Booking[]>([])
+  const [teamMembers, setTeamMembers] = useState<TeamMember[]>([])
+  const [teamLoading, setTeamLoading] = useState(true)
+
+  useEffect(() => {
+    setTeamLoading(true)
+    fetch('/api/team')
+      .then((r) => r.json())
+      .then((d) => setTeamMembers((d?.team || []) as TeamMember[]))
+      .catch(() => setTeamMembers([]))
+      .finally(() => setTeamLoading(false))
+  }, [])
 
   useEffect(() => {
     setLoading(true)
@@ -65,6 +93,7 @@ export default function BooksPage() {
       .then((r) => r.json())
       .then((d) => {
         const bookings = (d?.bookings || []) as Booking[]
+        setBookings(bookings)
         const built: LedgerRow[] = []
         for (const b of bookings) {
           const price = Number(b.price || 0)
@@ -128,6 +157,22 @@ export default function BooksPage() {
     })
   }, [rows, statusFilter, typeFilter, search])
 
+  const cleanerRows = useMemo<CleanerRow[]>(() => {
+    const active = teamMembers.filter((m) => (m.status || 'active') !== 'inactive')
+    return active
+      .map((m) => {
+        const jobs = bookings.filter((b) => b.team_member_id === m.id)
+        return {
+          id: m.id,
+          name: m.name,
+          photo_url: m.photo_url,
+          jobs: jobs.length,
+          revenue_cents: jobs.reduce((s, b) => s + Number(b.price || 0), 0),
+        }
+      })
+      .sort((a, b) => b.revenue_cents - a.revenue_cents)
+  }, [teamMembers, bookings])
+
   const totalRevenue = rows.filter((r) => r.type === 'revenue').reduce((s, r) => s + r.amount_cents, 0)
   const totalPayroll = rows.filter((r) => r.type === 'payroll').reduce((s, r) => s + r.amount_cents, 0)
   const totalExpenses = rows.filter((r) => r.type === 'expense').reduce((s, r) => s + r.amount_cents, 0)
@@ -187,10 +232,31 @@ export default function BooksPage() {
         </div>
       </div>
 
-      {tab !== 'ledger' && (
+      {tab !== 'ledger' && tab !== 'cleaners' && (
         <div className="books-coming-soon">
           <div className="books-coming-soon-title">Coming soon.</div>
           <div>{TABS.find((t) => t.key === tab)?.label} view will land next pass.</div>
+        </div>
+      )}
+
+      {tab === 'cleaners' && (
+        <div className="books-table books-cleaners-table">
+          <div className="books-thead books-cleaners-thead">
+            <div>Name</div>
+            <div className="right">Jobs</div>
+            <div className="right">Revenue</div>
+          </div>
+
+          {teamLoading && <div className="books-empty">Loading…</div>}
+          {!teamLoading && cleanerRows.length === 0 && <div className="books-empty">No active team members.</div>}
+
+          {cleanerRows.map((c) => (
+            <div key={c.id} className="books-row books-cleaners-row">
+              <div className="books-row-desc">{c.name}</div>
+              <div className="right">{c.jobs}</div>
+              <div className={`right books-row-amount ${c.revenue_cents > 0 ? 'revenue' : ''}`}>{fmtMoney(c.revenue_cents)}</div>
+            </div>
+          ))}
         </div>
       )}
 
