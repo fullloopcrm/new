@@ -473,6 +473,55 @@ export function smsNewApplication(name: string): string {
   return `New cleaner application: ${name}. Review in admin.`
 }
 
+// Sent when an admin/owner adds a team member directly (POST /api/team) —
+// no application was submitted, so unlike teamApplicationApprovedEmail below
+// this must not claim one was "approved". Same PIN + portal-login shell.
+export function teamMemberAddedEmail(data: TemplateData & {
+  memberName: string
+  pin: string
+  portalUrl: string
+  supportPhone?: string
+}): string {
+  const parts = (data.memberName || '').trim().split(/\s+/)
+  const firstName = parts[0] && /^(the|a|an|el|la|los|las)$/i.test(parts[0])
+    ? (parts[1] || 'there')
+    : (parts[0] || 'there')
+  const color = escapeHtml(data.primaryColor || '#111827')
+  const rawDigits = (data.supportPhone || '').replace(/\D/g, '')
+  const ten = rawDigits.length === 11 && rawDigits.startsWith('1') ? rawDigits.slice(1) : rawDigits
+  const phoneDisplay = ten.length === 10 ? `(${ten.slice(0, 3)}) ${ten.slice(3, 6)}-${ten.slice(6)}` : data.supportPhone
+  const phoneLine = data.supportPhone
+    ? `<p style="color:#6b7280;font-size:13px;line-height:1.6;margin:24px 0 0;">
+         Questions? / ¿Preguntas? Text <a href="sms:${ten || rawDigits}" style="color:${color};font-weight:600;">${escapeHtml(phoneDisplay)}</a>
+       </p>`
+    : ''
+  return baseTemplate(`
+    <h2 style="color:#111827;font-size:20px;margin:0 0 4px;">Welcome to the team! / ¡Bienvenido/a al equipo!</h2>
+    <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
+      Hi ${escapeHtml(firstName)} — you've been added to the <strong>${escapeHtml(data.tenantName)}</strong> team.<br>
+      Hola ${escapeHtml(firstName)} — has sido agregado/a al equipo de <strong>${escapeHtml(data.tenantName)}</strong>.
+    </p>
+
+    <div style="background:#f5f5f5;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
+      <p style="margin:0 0 8px;color:#6b7280;font-size:13px;">Your PIN / Tu PIN</p>
+      <p style="margin:0;font-size:36px;font-weight:700;color:#111827;letter-spacing:6px;">${escapeHtml(data.pin)}</p>
+      <p style="margin:12px 0 0;color:#9ca3af;font-size:12px;">Use this to log in to your team portal / Úsalo para entrar a tu portal</p>
+    </div>
+
+    <table width="100%" cellpadding="0" cellspacing="0" style="margin:0 0 24px;"><tr><td align="center">
+      <a href="${safeUrl(data.portalUrl)}" style="display:inline-block;background:${color};color:#ffffff;text-decoration:none;font-size:15px;font-weight:600;padding:14px 28px;border-radius:8px;">Open Team Portal / Abrir Portal</a>
+    </td></tr></table>
+
+    <p style="color:#4b5563;font-size:13px;line-height:1.6;margin:0 0 8px;">
+      <strong>How it works / Cómo funciona:</strong> Log in with your PIN to see your assigned jobs, check in when you arrive, and check out when you finish. Check-in/out is how your hours and pay are calculated.
+    </p>
+    <p style="color:#6b7280;font-size:13px;line-height:1.6;margin:0;">
+      Entra con tu PIN para ver tus trabajos, marca tu llegada (check in) y tu salida (check out). El check-in/out calcula tus horas y tu pago.
+    </p>
+    ${phoneLine}
+  `, data)
+}
+
 // Sent to an applicant when their team application is approved.
 // NYC-Maid-style: shows the team portal PIN + a portal button. Bilingual EN/ES.
 export function teamApplicationApprovedEmail(data: TemplateData & {
