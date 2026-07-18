@@ -23,6 +23,10 @@ import path from 'node:path'
  *     login code to an unrelated referrer matched by wildcard.
  *   - POST /api/pin-reset (send_code / verify_and_set) used a wildcard-driven
  *     match as an account-existence oracle.
+ *   - POST /api/lead (job-application) and POST /api/ingest/application's
+ *     team_applications dedup checks let a wildcard `name` on a known phone
+ *     match an UNRELATED applicant, leaking their row id and silently
+ *     dropping the new submission instead of inserting it.
  *
  * escapeLikeValue() (src/lib/postgrest-safe.ts) neutralizes `%`, `_`, `\`
  * before these values reach `.ilike()`. This file proves every one of those
@@ -45,6 +49,8 @@ const FILES = [
   'src/lib/inbound-email-tenant.ts',
   'src/app/api/cron/comhub-email/route.ts',
   'src/app/api/admin/comhub/contacts/[id]/context/route.ts',
+  'src/app/api/lead/route.ts',
+  'src/app/api/ingest/application/route.ts',
 ]
 
 function ilikeCalls(src: string): string[] {

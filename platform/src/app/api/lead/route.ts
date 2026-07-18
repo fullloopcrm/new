@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
 import { escapeHtml } from '@/lib/escape-html'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -87,7 +88,7 @@ export async function POST(request: NextRequest) {
             .select('id')
             .eq('tenant_id', tenant.id)
             .eq('phone', appPhone)
-            .ilike('name', name)
+            .ilike('name', escapeLikeValue(name))
             .limit(1)
             .maybeSingle()
           if (dupe) return NextResponse.json({ success: true, application_id: dupe.id, deduped: true })

@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantBySlug } from '@/lib/tenant-lookup'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('tenant_id', tenant.id)
         .eq('phone', cleanPhone)
-        .ilike('name', name)
+        .ilike('name', escapeLikeValue(name))
         .limit(1)
         .maybeSingle()
       if (existing) {
