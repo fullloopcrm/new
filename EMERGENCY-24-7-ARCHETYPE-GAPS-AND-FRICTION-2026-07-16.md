@@ -13472,3 +13472,48 @@ portal/auth's verify_code race") -- `client/verify-code/route.ts` was the
 one remaining instance still on the old racy shape, which is exactly what
 the 2026-07-13 audit flagged and no prior commit had touched. No further
 continuation needed on this surface; it's dry.
+
+## (255) Fresh-ground sweep on W3's own lane (scripts/reconcile-tenant-config.mjs
++ the three owned GitHub Actions workflows), zero new findings -- the surface
+is genuinely exhausted, not under-searched
+
+Per LEADER's 10:34 queue item (1) ("new fresh-ground surface"): re-read
+reconcile-tenant-config.mjs end to end (all ~40 Drift A-AM checks, the
+domain-normalization gauntlet, stripComments, extractBalancedBlock/
+STATIC_TENANT_MAP parser, every parseX/findX/hasX helper, main()'s full CLI
+wiring including the token guard, the Promise.all query batch, and the
+per-tenant fs-walk feeds) and cross-checked it against every list-shaped
+constant actually declared in src/middleware.ts and src/app/robots.ts
+(MAIN_HOSTS x2, NON_SERVING_STATUSES, KILLED_ROUTES x2, APEX_CANONICAL_DOMAINS,
+STATIC_TENANT_MAP, TENANTS_WITH_RICH_SITEMAP, APP_ROOT_PREFIXES, ROOT_SITE_TENANTS,
+BESPOKE_SITE_TENANTS, disallow, JOIN_CRAWLABLE_HOSTS, PRIVATE_CLIENT_LOGIN_HOSTS,
+isPublicRoute's patterns, the admin-bypass p.startsWith(...) chain) -- every one
+of them already has a matching Drift check reconciling it against this gate's
+other sources. Also checked next.config.ts's headers() (the one function in
+that file no Drift check reads) for a live conflict: it sets
+`X-Frame-Options: DENY` globally, which only governs whether this site can be
+FRAMED by another origin, not whether it embeds third-party iframes (Maps/
+YouTube embeds found across several tenant sites are the latter) -- no
+tenant-facing embed feature is broken by it, and it isn't a tenant-routing-drift
+source this gate's mission covers anyway. Re-read all three owned workflow
+files (ci.yml, tenant-config-reconcile.yml, db-backup.yml) end to end against
+their own dedicated wiring-guard test files (30 files, 149 tests across
+ci-*/db-backup-*) -- every step has an `id:`, every ambiguous exit-1 step is
+tee-captured and disambiguated in its alert, every action is SHA-pinned,
+permissions/concurrency are least-privilege, secrets are gated fail-closed.
+Confirmed KNOWN_PENDING_ORPHANS (toll-trucks-near-me, wash-and-fold-hoboken)
+are both still genuinely present in BESPOKE_SITE_TENANTS, i.e. not a stale
+allowlist entry Drift V should have caught.
+
+Verification this round (no code changed, so this is confirmation, not a
+fix): `verify-protected-tenants.mjs` run directly -- exit 0, all 22 PROTECTED
+tenants OK. `tsc --noEmit --pretty false` zero errors. Full repo suite --
+505/505 files, 2582/2582 tests. `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this
+session (token-guard checked first, per standing instructions) -- no live
+reconcile run against Supabase attempted; that stays leader/Jeff-run-only in
+this worktree regardless.
+
+Reporting zero rather than manufacturing a fresh item to hit a quota: same
+discipline (243)'s writeup called out. This lane's own surface (not the
+app-code surfaces (244)-(254) opened) is the one queue item (1) asked to
+re-sweep, and it is swept clean.
