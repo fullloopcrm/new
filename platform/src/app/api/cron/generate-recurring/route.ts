@@ -29,10 +29,19 @@ export async function GET(request: Request) {
     .eq('status', 'paused')
     .lte('paused_until', todayStr)
   for (const s of resumable || []) {
+    // Re-assert the SAME conditions (status='paused', paused_until<=today) that
+    // made this row a candidate, inside this update's own WHERE, instead of
+    // trusting the `resumable` SELECT snapshot. Without this, an admin
+    // re-pausing the schedule with a NEW (later) paused_until via
+    // POST /api/admin/recurring-schedules/[id]/pause in the gap between the
+    // SELECT and this row's turn in the loop gets silently overwritten back
+    // to 'active', reactivating a schedule the admin just explicitly extended.
     await supabaseAdmin
       .from('recurring_schedules')
       .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
       .eq('id', s.id)
+      .eq('status', 'paused')
+      .lte('paused_until', todayStr)
   }
 
   const { data: schedules } = await supabaseAdmin
