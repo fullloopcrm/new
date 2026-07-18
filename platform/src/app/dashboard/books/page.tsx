@@ -57,6 +57,9 @@ type CleanerRow = {
   revenue_cents: number
 }
 
+type JobPaymentRow = { id: string; label: string; amount_cents: number; status: string; due_at: string | null; paid_at: string | null }
+type JobRow = { id: string; title: string; client_name: string | null; created_at: string; payments: JobPaymentRow[] }
+
 function fmtDate(iso: string): string {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
 }
@@ -89,47 +92,77 @@ export default function BooksPage() {
 
   useEffect(() => {
     setLoading(true)
-    fetch('/api/bookings?limit=100')
-      .then((r) => r.json())
-      .then((d) => {
-        const bookings = (d?.bookings || []) as Booking[]
-        setBookings(bookings)
-        const built: LedgerRow[] = []
-        for (const b of bookings) {
-          const price = Number(b.price || 0)
-          const pay = Number(b.team_member_pay || 0)
-          if (price > 0) {
-            built.push({
-              id: `rev-${b.id}`,
-              date: b.start_time,
-              type: 'revenue',
-              desc: `${b.clients?.name || 'Unknown'} · ${b.service_type || 'Service'}`,
-              desc_sub: '',
-              account: '4000 · Service Revenue',
-              account_tag: b.service_type || 'service',
-              source: 'Booking',
-              status: b.payment_status === 'paid' ? 'synced' : 'ready',
-              amount_cents: price,
-            })
-          }
-          if (pay > 0 && b.team_members?.name) {
-            built.push({
-              id: `pay-${b.id}`,
-              date: b.start_time,
-              type: 'payroll',
-              desc: `${b.team_members.name} · ${b.clients?.name || 'job'}`,
-              desc_sub: '',
-              account: '5000 · Contractor Pay',
-              account_tag: `1099 · ${b.team_members.name}`,
-              source: 'Auto',
-              status: b.team_member_paid ? 'synced' : 'ready',
-              amount_cents: pay,
-            })
-          }
+    Promise.all([
+      fetch('/api/bookings?limit=100').then((r) => r.json()).catch(() => ({ bookings: [] })),
+      // Jobs/Projects (src/app/dashboard/jobs) money moves through job_payments,
+      // a separate table from bookings.price -- a job's own session bookings
+      // are created with no price (see lib/jobs.ts) so they never show up in
+      // the booking-driven rows below. Without this, a Job's collected/owed
+      // dollars are invisible in this Ledger tab's transaction list even
+      // though they DO post to the real GL (postJobPaymentRevenue) and DO
+      // count in the Finance Overview totals -- this only fixes the itemized
+      // list this tab shows, restoring the drill-down.
+      fetch('/api/jobs').then((r) => r.json()).catch(() => ({ jobs: [] })),
+    ]).then(([bd, jd]) => {
+      const bookings = (bd?.bookings || []) as Booking[]
+      const jobs = (jd?.jobs || []) as JobRow[]
+      setBookings(bookings)
+      const built: LedgerRow[] = []
+      for (const b of bookings) {
+        const price = Number(b.price || 0)
+        const pay = Number(b.team_member_pay || 0)
+        if (price > 0) {
+          built.push({
+            id: `rev-${b.id}`,
+            date: b.start_time,
+            type: 'revenue',
+            desc: `${b.clients?.name || 'Unknown'} · ${b.service_type || 'Service'}`,
+            desc_sub: '',
+            account: '4000 · Service Revenue',
+            account_tag: b.service_type || 'service',
+            source: 'Booking',
+            status: b.payment_status === 'paid' ? 'synced' : 'ready',
+            amount_cents: price,
+          })
         }
-        built.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        setRows(built)
-      })
+        if (pay > 0 && b.team_members?.name) {
+          built.push({
+            id: `pay-${b.id}`,
+            date: b.start_time,
+            type: 'payroll',
+            desc: `${b.team_members.name} · ${b.clients?.name || 'job'}`,
+            desc_sub: '',
+            account: '5000 · Contractor Pay',
+            account_tag: `1099 · ${b.team_members.name}`,
+            source: 'Auto',
+            status: b.team_member_paid ? 'synced' : 'ready',
+            amount_cents: pay,
+          })
+        }
+      }
+      for (const j of jobs) {
+        for (const p of j.payments || []) {
+          // Only paid (collected) and invoiced (owed/due) payments are real
+          // ledger-relevant dollars -- 'pending' hasn't been invoiced yet
+          // (nothing due), 'void' never happened.
+          if (p.status !== 'paid' && p.status !== 'invoiced') continue
+          built.push({
+            id: `job-${p.id}`,
+            date: p.paid_at || p.due_at || j.created_at,
+            type: 'revenue',
+            desc: `${j.client_name || 'Unknown'} · ${j.title} — ${p.label}`,
+            desc_sub: '',
+            account: '4000 · Service Revenue',
+            account_tag: 'project',
+            source: 'Job payment',
+            status: p.status === 'paid' ? 'synced' : 'ready',
+            amount_cents: p.amount_cents,
+          })
+        }
+      }
+      built.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+      setRows(built)
+    })
       .catch(() => setRows([]))
       .finally(() => setLoading(false))
   }, [])

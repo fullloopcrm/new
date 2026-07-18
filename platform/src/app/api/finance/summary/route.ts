@@ -100,8 +100,22 @@ export async function GET() {
     const yearLabor = sum(yearBookings, 'team_member_pay')
     const yearLaborPaid = sumPaidLabor(yearBookings)
 
-    const pendingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => s + (b.price || 0), 0)
+    const pendingBookingClientPayments = (pendingBookings || []).filter(b => b.payment_status !== 'paid').reduce((s, b) => s + (b.price || 0), 0)
     const pendingCleanerPayments = (pendingBookings || []).filter(b => !b.team_member_paid).reduce((s, b) => s + (b.team_member_pay || 0), 0)
+
+    // Jobs/Projects money owed lives on job_payments (deposit/progress/final),
+    // a separate table from bookings -- a job's own session bookings carry no
+    // price (see lib/jobs.ts), so the bookings-only query above silently
+    // undercounts "outstanding" for any tenant running Jobs/Projects. Only
+    // 'invoiced' is real money currently due; 'pending' hasn't been released
+    // yet (nothing to collect), 'paid'/'void' aren't owed.
+    const { data: pendingJobPayments } = await supabaseAdmin
+      .from('job_payments')
+      .select('amount_cents')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'invoiced')
+    const pendingJobClientPayments = (pendingJobPayments || []).reduce((s, p) => s + (Number(p.amount_cents) || 0), 0)
+    const pendingClientPayments = pendingBookingClientPayments + pendingJobClientPayments
 
     const [{ data: monthCommissions }, { data: yearCommissions }, { data: cleanerPayroll }, { data: monthStripePayments }, { data: monthPayouts }] = await Promise.all([
       supabaseAdmin.from('referral_commissions').select('commission_cents').eq('tenant_id', tenantId).gte('created_at', monthStartUtc).lt('created_at', monthEndUtc),

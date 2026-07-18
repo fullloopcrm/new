@@ -1,8 +1,9 @@
 /**
  * Jobs list + money reconciliation. Returns every job for the tenant with a
- * per-job payment rollup (contracted / paid / due / overdue), session progress
- * (completed / total booking sessions), and a tenant-wide total. Read-only,
- * tenant-scoped.
+ * per-job payment rollup (contracted / paid / due / overdue), the itemized
+ * payment rows (so the Finance Ledger tab can list each job payment as its
+ * own line instead of only seeing the rollup), session progress (completed /
+ * total booking sessions), and a tenant-wide total. Read-only, tenant-scoped.
  *
  * GET → { jobs: [...], totals: { contracted, paid, due, overdue } }
  */
@@ -12,9 +13,12 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 
 interface PaymentRow {
+  id: string
+  label: string
   amount_cents: number
   status: string
   due_at: string | null
+  paid_at: string | null
 }
 
 interface SessionRow {
@@ -44,7 +48,7 @@ export async function GET() {
 
     const { data: jobs, error } = await supabaseAdmin
       .from('jobs')
-      .select('id, title, status, total_cents, created_at, starts_on, ends_on, client_id, clients(name), job_payments(amount_cents, status, due_at), bookings(status)')
+      .select('id, title, status, total_cents, created_at, starts_on, ends_on, client_id, clients(name), job_payments(id, label, amount_cents, status, due_at, paid_at), bookings(status)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -69,6 +73,7 @@ export async function GET() {
         ends_on: (j.ends_on as string) || null,
         sessions_total: sessions.length,
         sessions_done: sessionsDone,
+        payments,
         ...money,
       }
     })

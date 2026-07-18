@@ -22,6 +22,9 @@ type Session = {
 type EventRow = { id: string; event_type: string; created_at: string }
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
+type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
+
+const EXPENSE_CATEGORIES = ['Materials', 'Supplies', 'Equipment rental', 'Fuel', 'Permits', 'Subcontractor', 'Other']
 
 function money(c: number) { return ((c || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) }
 function when(iso: string | null) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
@@ -151,6 +154,10 @@ export default function JobDetailPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState<SessionForm>(EMPTY_FORM)
+  const [expenses, setExpenses] = useState<JobExpense[]>([])
+  const [expenseForm, setExpenseForm] = useState({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+  const [expenseFile, setExpenseFile] = useState<File | null>(null)
+  const [uploadingExpense, setUploadingExpense] = useState(false)
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
@@ -158,7 +165,11 @@ export default function JobDetailPage() {
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
+  const loadExpenses = useCallback(() => {
+    fetch(`/api/jobs/${id}/expenses`).then(r => r.json()).then(d => setExpenses(d.expenses || [])).catch(() => {})
+  }, [id])
   useEffect(() => { load() }, [load])
+  useEffect(() => { loadExpenses() }, [loadExpenses])
   useEffect(() => {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
@@ -176,6 +187,46 @@ export default function JobDetailPage() {
 
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
+
+  async function addExpense() {
+    const amount = Number(expenseForm.amount)
+    if (!amount || amount <= 0) { setErr('Enter a valid amount'); return }
+    setUploadingExpense(true); setErr('')
+    try {
+      let receiptUrl: string | null = null
+      if (expenseFile) {
+        const fd = new FormData()
+        fd.set('file', expenseFile)
+        fd.set('folder', 'job-receipts')
+        const upRes = await fetch('/api/uploads', { method: 'POST', body: fd })
+        const upData = await upRes.json()
+        if (!upRes.ok) throw new Error(upData.error || 'Receipt upload failed')
+        receiptUrl = upData.url
+      }
+      const res = await fetch(`/api/jobs/${id}/expenses`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          category: expenseForm.category,
+          amount,
+          vendor_name: expenseForm.vendor.trim() || null,
+          description: expenseForm.note.trim() || null,
+          receipt_url: receiptUrl,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || 'Failed to add receipt')
+      setExpenseForm({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
+      setExpenseFile(null)
+      loadExpenses()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Failed to add receipt')
+    } finally {
+      setUploadingExpense(false)
+    }
+  }
+
+  const deleteExpense = (expenseId: string) => act(`del-expense-${expenseId}`, () =>
+    fetch(`/api/jobs/${id}/expenses/${expenseId}`, { method: 'DELETE' })).then((ok) => { if (ok) loadExpenses() })
 
   /** Assemble a session-write body from the shared form. */
   function formBody(f: SessionForm) {
@@ -211,6 +262,8 @@ export default function JobDetailPage() {
   if (!job) return <div className="p-8 text-slate-500 text-sm">Job not found.</div>
 
   const paidCents = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_cents, 0)
+  const costCents = expenses.reduce((s, e) => s + e.amount, 0)
+  const marginCents = paidCents - costCents
   const doneCount = sessions.filter(s => s.status === 'completed').length
   const pct = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
 
@@ -240,6 +293,25 @@ export default function JobDetailPage() {
         </div>
       </div>
 
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 mb-5">
+        <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">Contracted</p>
+          <p className="text-sm font-semibold text-slate-900">{money(job.total_cents)}</p>
+        </div>
+        <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">Collected</p>
+          <p className="text-sm font-semibold text-green-600">{money(paidCents)}</p>
+        </div>
+        <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">Actual cost</p>
+          <p className="text-sm font-semibold text-red-600">{money(costCents)}</p>
+        </div>
+        <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
+          <p className="text-[10px] uppercase tracking-wide text-slate-400">Margin (collected − cost)</p>
+          <p className={`text-sm font-semibold ${marginCents >= 0 ? 'text-slate-900' : 'text-red-600'}`}>{money(marginCents)}</p>
+        </div>
+      </div>
+
       {err && <div className="mb-3 p-2 rounded bg-red-50 border border-red-200 text-red-700 text-sm">{err}</div>}
 
       <div className="flex flex-wrap gap-2 mb-6">
@@ -266,6 +338,66 @@ export default function JobDetailPage() {
             </div>
           ))}
           {payments.length === 0 && <p className="text-sm text-slate-400">No payments.</p>}
+        </div>
+      </section>
+
+      {/* Costs & receipts */}
+      <section className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Costs & receipts</h2>
+
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 mb-3">
+          <div className="flex flex-wrap gap-2 items-end">
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Vendor</span>
+              <input type="text" value={expenseForm.vendor} onChange={(e) => setExpenseForm({ ...expenseForm, vendor: e.target.value })}
+                placeholder="e.g. Home Depot" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-36" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Amount</span>
+              <input type="number" min="0" step="0.01" value={expenseForm.amount} onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
+                placeholder="0.00" className="px-2 py-1 text-xs rounded border border-slate-300 bg-white w-24" />
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Category</span>
+              <select value={expenseForm.category} onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
+                className="px-2 py-1 text-xs rounded border border-slate-300 bg-white">
+                {EXPENSE_CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Receipt photo</span>
+              <input type="file" accept="image/jpeg,image/png,image/webp,application/pdf"
+                onChange={(e) => setExpenseFile(e.target.files?.[0] ?? null)}
+                className="text-xs w-44" />
+            </label>
+            <label className="flex flex-col gap-1 flex-1 min-w-[140px]">
+              <span className="text-[10px] uppercase tracking-wide text-slate-400">Note (optional)</span>
+              <input type="text" value={expenseForm.note} onChange={(e) => setExpenseForm({ ...expenseForm, note: e.target.value })}
+                className="px-2 py-1 text-xs rounded border border-slate-300 bg-white" />
+            </label>
+          </div>
+          <button onClick={addExpense} disabled={uploadingExpense}
+            className="px-3 py-1 text-xs font-medium rounded bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50">
+            {uploadingExpense ? 'Adding…' : '+ Add receipt'}
+          </button>
+        </div>
+
+        <div className="space-y-1.5">
+          {expenses.map((e) => (
+            <div key={e.id} className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white">
+              <span className="text-[11px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-500 shrink-0">{e.category}</span>
+              <span className="flex-1 min-w-0">
+                <span className="text-sm text-slate-700">{e.vendor_name || 'Receipt'}</span>
+                {e.description && <span className="ml-2 text-[11px] text-slate-400">{e.description}</span>}
+                {e.receipt_url && <a href={e.receipt_url} target="_blank" rel="noreferrer" className="ml-2 text-[11px] text-blue-600 hover:underline">view</a>}
+              </span>
+              <span className="text-[11px] text-slate-400">{dayLabel(e.date)}</span>
+              <span className="text-sm font-medium text-slate-900 w-20 text-right">{money(e.amount)}</span>
+              <button onClick={() => deleteExpense(e.id)} disabled={busy === `del-expense-${e.id}`} title="Remove"
+                className="text-[11px] px-1.5 py-1 rounded border border-slate-200 text-slate-400 hover:text-red-600 hover:border-red-200 disabled:opacity-50">✕</button>
+            </div>
+          ))}
+          {expenses.length === 0 && <p className="text-sm text-slate-400">No receipts logged.</p>}
         </div>
       </section>
 

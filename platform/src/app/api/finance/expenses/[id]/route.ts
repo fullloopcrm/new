@@ -16,7 +16,7 @@ export async function PUT(
     const { tenantId } = _authTenant
     const { id } = await params
     const body = await request.json()
-    const fields = pick(body, ['category', 'subcategory', 'amount', 'description', 'receipt_url', 'date', 'vendor_name', 'payment_method', 'tax_deductible', 'entity_id'])
+    const fields = pick(body, ['category', 'subcategory', 'amount', 'description', 'receipt_url', 'date', 'vendor_name', 'payment_method', 'tax_deductible', 'entity_id', 'job_id'])
 
     if (fields.amount) fields.amount = Math.round(Number(fields.amount) * 100)
 
@@ -26,6 +26,15 @@ export async function PUT(
     if (fields.entity_id) {
       const verified = await verifyEntityId(tenantId, fields.entity_id as string)
       if (!verified) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 400 })
+    }
+
+    // job_id is the same class of cross-table FK — confirm it belongs to
+    // this tenant before writing it, or a caller could reassign their own
+    // expense onto another tenant's job and have it leak into that job's
+    // cost tracking.
+    if (fields.job_id) {
+      const { data: job } = await tenantDb(tenantId).from('jobs').select('id').eq('id', fields.job_id as string).maybeSingle()
+      if (!job) return NextResponse.json({ error: 'Invalid job_id' }, { status: 400 })
     }
 
     const { data, error } = await tenantDb(tenantId)
