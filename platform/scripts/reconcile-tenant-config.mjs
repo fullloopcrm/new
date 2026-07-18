@@ -1910,8 +1910,24 @@ async function main() {
       body: JSON.stringify({ query }),
       signal: AbortSignal.timeout(30_000),
     })
+    // r.ok is false on ANY non-2xx response (401 expired/rotated token, 403,
+    // 429 rate-limited, or a 5xx api.supabase.com outage) -- and a 5xx from a
+    // gateway in front of that API can return an HTML error page, not JSON.
+    // Falling straight into r.json() on that path throws a bare, opaque
+    // SyntaxError ("Unexpected token '<'...") with no HTTP status and no hint
+    // of which of this gate's up-to-5 per-run queries failed -- exactly the
+    // wrong failure mode for a merge-blocking CI gate a human has to triage
+    // fast: it can't be told apart from a real drift-query bug at a glance.
+    // Checking status first, and slicing the query into every thrown message,
+    // means a red run always names the HTTP status and the query, so
+    // "Supabase token expired" and "PR introduced a real drift bug" are never
+    // confused with each other in the log.
+    if (!r.ok) {
+      const body = await r.text().catch(() => '')
+      throw new Error(`SQL ${r.status} ${r.statusText} for query "${query.slice(0, 80)}": ${body.slice(0, 200)}`)
+    }
     const d = await r.json()
-    if (!Array.isArray(d)) throw new Error('SQL: ' + JSON.stringify(d).slice(0, 200))
+    if (!Array.isArray(d)) throw new Error(`SQL for query "${query.slice(0, 80)}": ` + JSON.stringify(d).slice(0, 200))
     return d
   }
 
