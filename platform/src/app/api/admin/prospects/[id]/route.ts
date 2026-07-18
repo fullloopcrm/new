@@ -8,6 +8,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { signupPricing } from '@/lib/tier-prices'
 import { ensurePlatformPrices } from '@/lib/platform-billing'
+import { capString } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -76,7 +77,7 @@ export async function PATCH(request: Request, { params }: Params) {
     updates.monthly_cents = pricing.monthly_cents
   } else if (body.action === 'reject') {
     updates.status = 'rejected'
-    updates.reject_reason = body.reject_reason || null
+    updates.reject_reason = capString(body.reject_reason, 2000)
   } else if (body.action === 'review') {
     updates.status = 'reviewing'
   } else {

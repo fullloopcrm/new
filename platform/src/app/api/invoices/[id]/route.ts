@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logInvoiceEvent } from '@/lib/invoice'
+import { capString } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -167,7 +168,7 @@ export async function DELETE(request: Request, { params }: Params) {
     const db = tenantDb(tenantId)
     const { id } = await params
     const url = new URL(request.url)
-    const reason = url.searchParams.get('reason') || ''
+    const reason = capString(url.searchParams.get('reason'), 2000)
     const hard = url.searchParams.get('hard') === '1'
 
     const { data: existing } = await db
@@ -193,7 +194,7 @@ export async function DELETE(request: Request, { params }: Params) {
 
     const { error } = await db
       .from('invoices')
-      .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason || null })
+      .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason })
       .eq('tenant_id', tenantId)
       .eq('id', id)
     if (error) throw error

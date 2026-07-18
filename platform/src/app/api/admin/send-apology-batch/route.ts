@@ -8,6 +8,13 @@ import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { capString } from '@/lib/validate'
+
+// Same blast-radius/cost class as the sibling find-cleaner/send (cap 50) and
+// message-applicants/send (cap 25) mass-SMS routes, both of which cap
+// recipient count per call — this route had no cap at all.
+const BROADCAST_CAP = 50
+const MESSAGE_MAX_LENGTH = 1600
 
 export async function POST(request: NextRequest) {
   const { tenant, error: authError } = await requirePermission('campaigns.send')
@@ -18,11 +25,17 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const clientIds: string[] = Array.isArray(body.client_ids) ? body.client_ids : []
     const creditPct: number = Number(body.credit_pct) || 10
-    const reason: string = (body.reason as string) || 'Service issue'
-    const message: string = body.message as string
+    const reason = capString(body.reason, 2000) || 'Service issue'
+    const rawMessage = typeof body.message === 'string' ? body.message : undefined
 
     if (clientIds.length === 0) {
       return NextResponse.json({ error: 'client_ids required' }, { status: 400 })
+    }
+    if (clientIds.length > BROADCAST_CAP) {
+      return NextResponse.json({ error: `Cap is ${BROADCAST_CAP} recipients per batch` }, { status: 400 })
+    }
+    if (rawMessage && rawMessage.length > MESSAGE_MAX_LENGTH) {
+      return NextResponse.json({ error: `message is too long (max ${MESSAGE_MAX_LENGTH} characters)` }, { status: 400 })
     }
     if (creditPct < 0 || creditPct > 100) {
       return NextResponse.json({ error: 'credit_pct must be 0-100' }, { status: 400 })
@@ -61,7 +74,7 @@ export async function POST(request: NextRequest) {
       if (c.sms_marketing_opt_out || c.sms_consent === false) { skippedOptOut++; continue }
       if (!c.phone) { skippedNoPhone++; continue }
 
-      const text = (message || `Hi ${c.name?.split(' ')[0] || 'there'} — we owe you an apology. Your next booking is ${creditPct}% off, on us. 😊 — ${tenantRow?.name || ''}`).trim()
+      const text = (rawMessage || `Hi ${c.name?.split(' ')[0] || 'there'} — we owe you an apology. Your next booking is ${creditPct}% off, on us. 😊 — ${tenantRow?.name || ''}`).trim()
 
       // Apply credit
       await supabaseAdmin

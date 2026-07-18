@@ -9,6 +9,8 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
+const MESSAGE_MAX_LENGTH = 1600
+
 export async function POST(req: NextRequest) {
   try {
     const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
@@ -17,6 +19,9 @@ export async function POST(req: NextRequest) {
     const { to, message } = await req.json()
     if (!to || !message) {
       return NextResponse.json({ error: 'to and message required' }, { status: 400 })
+    }
+    if (typeof message === 'string' && message.length > MESSAGE_MAX_LENGTH) {
+      return NextResponse.json({ error: `message is too long (max ${MESSAGE_MAX_LENGTH} characters)` }, { status: 400 })
     }
 
     const { data: tenant } = await supabaseAdmin

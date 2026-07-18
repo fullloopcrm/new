@@ -12,6 +12,7 @@ import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 export const maxDuration = 60
 
 const EXCLUDED_STATUSES = ['accepted', 'rejected']
+const MESSAGE_MAX_LENGTH = 1600
 
 type ApplicantRow = {
   id: string
@@ -41,6 +42,9 @@ export async function POST(request: Request) {
 
   const text = (message || '').trim()
   if (!text) return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+  if (text.length > MESSAGE_MAX_LENGTH) {
+    return NextResponse.json({ error: `Message is too long (max ${MESSAGE_MAX_LENGTH} characters)` }, { status: 400 })
+  }
   if (!applicant_ids || applicant_ids.length === 0) {
     return NextResponse.json({ error: 'No recipients selected' }, { status: 400 })
   }

@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { PIPELINE_STAGES, stageMeta } from '@/lib/pipeline'
+import { capString } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -20,7 +21,7 @@ export async function POST(request: Request, { params }: Params) {
     const { id } = await params
     const body = await request.json()
     const to = String(body.stage || '')
-    const lostReason = typeof body.lost_reason === 'string' ? body.lost_reason.trim() : ''
+    const lostReason = capString(body.lost_reason, 2000) || ''
     if (!VALID.has(to as (typeof PIPELINE_STAGES)[number]['value'])) {
       return NextResponse.json({ error: `Invalid stage: ${to}` }, { status: 400 })
     }

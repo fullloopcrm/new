@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { capString } from '@/lib/validate'
 
 // POST /api/admin/comhub/messages/[id]/flag   { reason?: string }
 //   Marks the message for prompt-improvement review.
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
     .from('comhub_messages')
     .update({
       flagged_for_review: true,
-      flagged_reason: body.reason || null,
+      flagged_reason: capString(body.reason, 2000),
       flagged_at: new Date().toISOString(),
     })
     .eq('id', id)
