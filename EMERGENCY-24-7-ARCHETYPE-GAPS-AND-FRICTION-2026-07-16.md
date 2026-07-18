@@ -10404,3 +10404,69 @@ the new file. `reconcile-tenant-config.mjs`, `verify-protected-
 tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
 files' non-dump-step wiring were not touched this round -- their own
 coverage (items 168-202 above) is unaffected.
+
+## (204) New fresh-ground surface -- no gating CI step OR job had regression
+coverage against `continue-on-error` / trailing `|| true` silently
+neutering it from OUTSIDE the script
+
+Items (198)-(203) each pinned a gate's own INTERNAL fail-closed logic --
+its exit-1 branch, its step ordering, its pinned artifact path, its
+exit-code-through-`tee` plumbing. None of them asked whether that internal
+logic can be bypassed wholesale from OUTSIDE the script, without touching
+it at all: GitHub Actions' own `continue-on-error: true` key, settable on
+either a single STEP or an entire JOB, or a shell-level trailing `|| true`
+appended to a step's run script.
+
+**Consequence, concretely:** any of these three mechanisms makes a
+step -- or, at job level, every step in the job at once -- report success
+to the job runner no matter what its script actually did. A failing
+`tsc`, a red vitest suite, a live cross-tenant query caught by the
+Tenant-isolation guard, a broken protected tenant, an eslint error, a
+gating CRIT drift finding, or a failed/undersized/unencrypted nightly DB
+dump would all still show green. It requires no edit to the script
+itself -- just one line added to the step's or the job's YAML, the kind
+of change a "make CI less flaky" PR could plausibly make to something
+believed to be occasionally flaky, without realizing it silences a real
+security/correctness gate forever. The job-level form is the wider blast
+radius of the two: `jobs.<id>.continue-on-error: true` neuters every step
+in that job at once, not just one.
+
+**Fixed:** new `src/lib/ci-gate-neutering-guard.test.ts`, pure
+source-reading of all three workflow YAML files. Parses every step block
+and every job block (indent-anchored parsing -- job ids sit at a fixed
+2-space indent under `jobs:`, a job-level `continue-on-error:` sits one
+level shallower, at 4-space, than any key inside a step). Excludes the
+three "Alert on failure"/Telegram steps and their `notify-failure` jobs
+at both levels (the one sanctioned use of `|| true` and the one job
+nothing else `needs:`, so its own failure is inconsequential to
+neuter-detection). Asserts no remaining gating step or job carries
+`continue-on-error: true`, and no gating step's run script ends a line in
+a bare `|| true` / `|| exit 0`.
+
+Mutation-verified three separate ways across two commits (not just
+written and trusted): (1) added `continue-on-error: true` to ci.yml's
+"Unit tests (vitest)" STEP -- failed with the exact predicted message;
+(2) appended `|| true` to ci.yml's "Protected-tenant guard" run line --
+failed with the exact predicted message; (3) added
+`continue-on-error: true` to ci.yml's `verify` JOB itself (the
+wider-blast-radius form, caught only after extending the guard past its
+first-commit step-only scope) -- failed with the exact predicted message.
+All three restores left `git diff --stat ci.yml` empty afterward.
+
+**Continuation check (step 2 of this round's queue):** grepped all three
+workflow YAML files for `continue-on-error`, `allow_failure`,
+`soft_fail`, `if: always()` -- no existing instance of any neutering
+pattern exists in this lane's workflows today; the guard exists purely to
+pin the invariant going forward. The continuation itself surfaced a real
+gap in the guard's OWN first-commit coverage: it only parsed step blocks,
+so a job-level `continue-on-error` -- one indent level shallower, and a
+strictly bigger blast radius -- would have sailed through undetected.
+Fixed in a second commit before calling this item closed.
+
+Full suite + tsc re-run clean after this round: 2346/2346 vitest tests
+pass (2338 prior + 8 new across both commits), `tsc --noEmit` zero
+errors, eslint clean on the new file. `reconcile-tenant-config.mjs`,
+`verify-protected-tenants.mjs`, `audit-tenant-scope.mjs`, and the three
+workflow YAML files themselves were not touched this round -- their own
+coverage (items 168-203 above) is unaffected; only new guard coverage was
+added.
