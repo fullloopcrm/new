@@ -13772,3 +13772,60 @@ Supabase attempted.
 
 Per LEADER's queue item (2) ("continue whichever surface (1) opens up"):
 (1) opened nothing new to continue this round, same disposition as (256)/(257).
+
+## (260) LEADER's 11:24 queue item (1) -- lane dry for 5 consecutive rounds,
+broaden the search to a genuinely different surface outside
+reconcile-tenant-config.mjs/ci.yml/db-backup.yml entirely. (258) had already
+surfaced but not chased a lead: `POST /api/admin/websites`
+(`src/app/api/admin/websites/route.ts`) inserts `tenant_domains.domain`
+straight from the admin request body with zero normalization, unlike this
+same lane's reconcile script, which expects (and its own `norm()` produces)
+a bare lowercased host. Picked this route as the "genuinely different
+surface" and chased it to a live finding, not just a repeat of (258)'s
+observation.
+
+Confirmed by reading `src/lib/activate-tenant.ts` (the OTHER live write path
+into `tenant_domains`, for auto-registered domain-routing rows on tenant
+activation): it normalizes every domain before insert
+(`.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
+.replace(/^www\./, '')`) -- the exact same logic already exported as
+`normalizeDomain()` in `src/lib/seo/onboarding.ts` and used there for GSC
+property matching. So two live code paths write the same
+`tenant_domains.domain` column; one normalizes, the admin-UI "add a website
+domain" POST route didn't.
+
+Traced the real-world consequence rather than treating this as cosmetic:
+`src/middleware.ts`'s tenant-domain routing compares an incoming request's
+`cleanHost` (port-stripped, lowercased -- confirmed by reading the relevant
+lines) against `tenant_domains.domain` as stored. An admin who pastes a
+domain from a browser address bar (`https://Example.com/`) or types a
+leading `www.` gets a 201 success response and a row that LOOKS added in
+the admin UI, but the stored value never equals any `cleanHost` middleware
+computes, so the domain silently never routes -- and separately, this
+lane's own reconcile gate's `norm()` would flag the unnormalized row as
+drift the next time it runs. Confirmed via `grep` across `src/app/api` and
+`src/lib` that `tenant_domains` has exactly two write paths in the whole
+codebase (`activate-tenant.ts` and this route) -- no other insert/update
+site needed the same fix, so queue item (2) ("continue whichever surface
+(1) opens up") has nothing further to continue on this table.
+
+**Fixed** by importing the existing `normalizeDomain()` export from
+`src/lib/seo/onboarding.ts` (reusing the already-tested activate-tenant.ts
+logic instead of writing a third copy) and applying it to `domain` before
+the insert, rejecting with 400 if normalization collapses the input to
+something with no `.` (e.g. `https://` alone). New test file
+`route.domain-normalization.test.ts` (3 tests: scheme+path+case stripped,
+leading `www.` stripped, invalid-input rejection) using the existing
+`fake-supabase` + `requireAdmin` mock pattern already established by
+`admin/users/route.rbac.test.ts`. Mutation-verified live: reverted the fix
+via a saved `.bak`, reran the 3 new tests, confirmed all 3 failed exactly as
+predicted (`'www.Example.com'` !== `'example.com'`, `201` !== `400`),
+restored the fix, reconfirmed green.
+
+`npx tsc --noEmit --pretty false` zero errors. Full repo suite: 506/506
+files, 2586/2586 tests (3 new, 0 regressions). `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session (token-guard checked first, per standing instructions)
+-- no live reconcile run against Supabase attempted. This is an API-route +
+test-file change only, outside `reconcile-tenant-config.mjs`/`ci.yml`/
+`db-backup.yml` entirely, per LEADER's queue item (1); no push/deploy/DB
+write.

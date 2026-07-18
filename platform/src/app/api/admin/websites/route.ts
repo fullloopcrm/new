@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { normalizeDomain } from '@/lib/seo/onboarding'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -66,10 +67,22 @@ export async function POST(request: NextRequest) {
   const authError = await requireAdmin()
   if (authError) return authError
 
-  const { tenant_id, domain, is_primary } = await request.json()
+  const { tenant_id, domain: rawDomain, is_primary } = await request.json()
 
-  if (!tenant_id || !domain) {
+  if (!tenant_id || !rawDomain) {
     return NextResponse.json({ error: 'tenant_id and domain are required' }, { status: 400 })
+  }
+
+  // Same trim/lowercase/scheme-and-path-strip/www-strip normalization
+  // activate-tenant.ts applies to auto-registered domain_routing rows —
+  // without it, a domain pasted here as a full URL, with mixed case, or with
+  // a leading www. lands in tenant_domains.domain verbatim, which the
+  // reconcile gate's norm() then flags as drift and which middleware's
+  // lowercased/port-stripped hostname compare never matches, so the domain
+  // silently never routes.
+  const domain = normalizeDomain(String(rawDomain))
+  if (!domain || !domain.includes('.')) {
+    return NextResponse.json({ error: 'domain is not a valid hostname' }, { status: 400 })
   }
 
   const { data, error } = await supabaseAdmin
