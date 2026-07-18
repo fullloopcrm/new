@@ -27,10 +27,19 @@ function propertyToDomain(property: string): string {
 }
 
 export async function linkTenant(domain: string): Promise<string | null> {
+  // .eq('active', true): this function's own doc claims to match tenant.ts's
+  // tenant_domains-first precedence (same as backlinks.ts's loadActiveFleet()
+  // and this file's sibling onboarding.ts's backfillUntrackedDomains(), both
+  // of which filter on active) -- this one didn't. tenant_domains.domain is
+  // globally UNIQUE, so a deactivated row still occupies that domain string;
+  // without this filter, a domain reassigned/deactivated away from this
+  // tenant kept linking every new GSC property to the STALE tenant_id forever
+  // instead of falling through to the tenants.domain fallback below.
   const { data } = await supabaseAdmin
     .from('tenant_domains')
     .select('tenant_id')
     .eq('domain', domain)
+    .eq('active', true)
     .limit(1)
     .maybeSingle()
   if (data?.tenant_id) return data.tenant_id

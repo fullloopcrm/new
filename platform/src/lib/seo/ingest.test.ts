@@ -7,7 +7,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * chain-builder pattern.
  */
 
-type TenantDomainRow = { domain: string; tenant_id: string }
+type TenantDomainRow = { domain: string; tenant_id: string; active?: boolean }
 type TenantRow = { id: string; domain: string | null }
 
 let tenantDomainRows: TenantDomainRow[]
@@ -22,7 +22,9 @@ function builder(table: string) {
     limit: () => chain,
     maybeSingle: async () => {
       if (table === 'tenant_domains') {
-        const row = tenantDomainRows.find((r) => r.domain === eq.domain)
+        const row = tenantDomainRows.find(
+          (r) => r.domain === eq.domain && (eq.active === undefined || (r.active ?? true) === eq.active),
+        )
         return { data: row ? { tenant_id: row.tenant_id } : null, error: null }
       }
       if (table === 'tenants') {
@@ -81,5 +83,25 @@ describe('linkTenant()', () => {
     tenantRows = [{ id: 't2', domain: 'legacyco.com' }]
 
     expect(await linkTenant('unknown-host.com')).toBeNull()
+  })
+
+  it('INACTIVE-ROW PROBE: an inactive tenant_domains row is not treated as authoritative -- falls back to the legacy tenants.domain owner instead', async () => {
+    // tenant_domains.domain is globally UNIQUE, so a deactivated row still
+    // occupies the domain string. Before the active filter was added here,
+    // this stale row kept linking every new GSC property to t-old forever
+    // even after the domain moved on -- diverging from backlinks.ts's
+    // loadActiveFleet() and onboarding.ts's backfillUntrackedDomains(), which
+    // both already filter on active.
+    tenantDomainRows = [{ domain: 'reassigned.com', tenant_id: 't-old', active: false }]
+    tenantRows = [{ id: 't-new', domain: 'reassigned.com' }]
+
+    expect(await linkTenant('reassigned.com')).toBe('t-new')
+  })
+
+  it('an inactive tenant_domains row with no legacy tenants.domain fallback resolves to null, not the stale tenant', async () => {
+    tenantDomainRows = [{ domain: 'orphaned.com', tenant_id: 't-old', active: false }]
+    tenantRows = []
+
+    expect(await linkTenant('orphaned.com')).toBeNull()
   })
 })
