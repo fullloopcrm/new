@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   // Get all active team members
   const { data: members } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, phone, email')
+    .select('id, name, phone, email, sms_consent')
     .eq('tenant_id', tenantId)
     .eq('status', 'active')
 
@@ -99,8 +99,10 @@ export async function POST(request: Request) {
     let smsSent = false
     let emailSent = false
 
-    // SMS broadcast
-    if (member.phone && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
+    // SMS broadcast — gated on sms_consent, same as the other SMS send paths
+    // in this session's sweep (notify-team.ts/payment-processor.ts already
+    // gate; this ad-hoc broadcast loop didn't).
+    if (member.phone && member.sms_consent !== false && tenantConfig.telnyx_api_key && tenantConfig.telnyx_phone) {
       const smsBody = smsUrgentBroadcast(tenantConfig.name, { start_time: booking.start_time, team_pay_rate: payRate })
       try {
         await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenantConfig.telnyx_api_key, telnyxPhone: tenantConfig.telnyx_phone })

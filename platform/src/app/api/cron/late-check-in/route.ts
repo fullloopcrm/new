@@ -58,7 +58,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateBookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, team_member_id, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .in('status', ['scheduled', 'confirmed'])
         .lte('start_time', tenMinAgo)
@@ -81,9 +81,12 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberSmsConsent = (booking.team_members as any)?.sms_consent
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — gated on sms_consent, same as the other SMS
+        // send paths fixed this pass; the admin SMS below isn't (business's
+        // own number, not gated anywhere else in this codebase).
+        if (teamLateOn && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckInTeam(tenant.name, booking as any),
@@ -130,7 +133,7 @@ export async function GET(request: Request) {
       // ============================================
       const { data: lateCheckouts } = await supabaseAdmin
         .from('bookings')
-        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone)')
+        .select('id, start_time, team_member_id, fifteen_min_alert_time, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
         .eq('tenant_id', tenantId)
         .eq('status', 'in_progress')
         .not('fifteen_min_alert_time', 'is', null)
@@ -152,9 +155,10 @@ export async function GET(request: Request) {
         const memberName = (booking.team_members as any)?.name || 'Unassigned'
         const clientName = (booking.clients as any)?.name || 'Client'
         const memberPhone = (booking.team_members as any)?.phone
+        const memberSmsConsent = (booking.team_members as any)?.sms_consent
 
-        // SMS to team member
-        if (teamLateOn && memberPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        // SMS to team member — gated on sms_consent, same as above.
+        if (teamLateOn && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckOutTeam(tenant.name, booking as any),

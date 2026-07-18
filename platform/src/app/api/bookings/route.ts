@@ -239,7 +239,7 @@ export async function POST(request: Request) {
     const { data, error } = await supabaseAdmin
       .from('bookings')
       .insert({ ...validated, tenant_id: tenantId, status: newStatus })
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)')
+      .select('*, clients(name, phone, address, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, sms_consent), client_properties(*)')
       .single()
 
     if (error) {
@@ -279,8 +279,11 @@ export async function POST(request: Request) {
         })
       }
 
-      // Client confirmation SMS
-      if (data.clients?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      // Client confirmation SMS — gated on sms_consent, same as
+      // payment-processor.ts/notify-team.ts/campaign sends. This path called
+      // sendSMS() directly instead of going through those, so a client who'd
+      // replied STOP still got booking-confirmation texts.
+      if (data.clients?.phone && data.clients.sms_consent !== false && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -289,8 +292,8 @@ export async function POST(request: Request) {
         }).catch(err => console.error('Client confirmation SMS error:', err))
       }
 
-      // Team member assignment SMS
-      if (data.team_members?.phone && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
+      // Team member assignment SMS — same sms_consent gate.
+      if (data.team_members?.phone && data.team_members.sms_consent !== false && tenantData?.telnyx_api_key && tenantData?.telnyx_phone) {
         sendSMS({
           to: data.team_members.phone,
           body: smsJobAssignment(bizName, { start_time: data.start_time, clients: data.clients }),

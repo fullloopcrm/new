@@ -170,6 +170,11 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     this.limitN = n
     return this
   }
+  /** No-op, matching real supabase-js: `.returns<T>()` is a compile-time type
+   * assertion only, identity at runtime. */
+  returns<T = Row>(): this {
+    return this
+  }
   /** insert(...).select() etc. — selecting after a write just returns written rows. */
   select(_cols?: string, opts?: { count?: string }): this {
     if (opts?.count) this.wantCount = true
