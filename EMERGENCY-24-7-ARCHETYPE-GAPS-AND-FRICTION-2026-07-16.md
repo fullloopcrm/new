@@ -9727,3 +9727,110 @@ fixes are internal to `audit-tenant-scope.mjs`, `ci.yml`'s OTHER gate step
 check was added to the reconcile script itself. CI's own "Verify
 token-guard skips clean without a secret" step in the reconcile workflow
 file is unaffected and runs unmodified.
+
+## (196) New fresh-ground surface — audited this lane's OWN repo-level GitHub
+Actions secrets configuration (not just the scripts/workflows source text),
+and found the reconcile gate's real drift-detection half has NEVER executed
+in production CI, plus a second, silent alerting gap in the nightly backup job
+
+Every round in this doc's "reconcile gate"/CI-wiring thread so far (168-179,
+191-195) audited the SOURCE of `reconcile-tenant-config.mjs`,
+`audit-tenant-scope.mjs`, and their workflow YAML. None had checked the one
+thing none of that source can see: which secrets actually exist on the
+repo, as opposed to in any one worker's local/session environment. Ran
+`gh secret list` against the real repo (`fullloopcrm/new`) and confirmed no
+workflow job in `ci.yml` / `tenant-config-reconcile.yml` / `db-backup.yml`
+declares a job-level `environment:` key (verified via `grep -n
+"environment:" .github/workflows/*.yml` — zero matches), so GitHub
+Environment-scoped secrets are not in play and repo-level secrets are the
+complete, authoritative set every job actually sees. That set is exactly
+two entries: `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`. Every OTHER
+secret referenced anywhere in these three workflow files —
+`SUPABASE_ACCESS_TOKEN_FULLLOOP`, `SUPABASE_DB_URL`,
+`BACKUP_ENCRYPTION_KEY`, and `TELEGRAM_NOTIFY_CHAT_ID` — does not exist on
+this repo at all.
+
+Two distinct, real consequences follow, of very different severity:
+
+**(a) The reconcile gate's actual drift-detection logic has never run
+against real data in CI, ever.** Every prior round's note that
+"`SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session" (most recently
+logged at the end of item (195)) was written as if it were a limitation of
+that worker's own worktree/session. It is not — the secret has never been
+added to the repo itself, so on every real PR and every push to `main`
+since `tenant-config-reconcile.yml` was introduced, the "Reconcile tenant
+config (read-only drift gate)" step has run with an empty
+`SUPABASE_ACCESS_TOKEN_FULLLOOP`, hit the exact same token-guard skip path
+the workflow's OWN preceding "Verify token-guard skips clean without a
+secret" step deliberately exercises, and exited 0 without issuing a single
+SELECT. The entire CRIT-blocking half of this gate — the part built
+specifically to catch the 2026-07-10 outage class (a domain the DB routes
+bespoke that middleware serves as the generic template) — has been
+dormant since inception. The gate has been green on every run, but "green"
+here has only ever meant "the guard correctly detected a missing secret,"
+never "no drift was found." This is NOT a code defect in
+`reconcile-tenant-config.mjs` itself (the token-guard behaves exactly as
+designed and documented) — it is a deployment/configuration gap: nobody
+has added the secret to the repo yet. **Not fixed — cannot be fixed from
+this worktree.** Adding a live Supabase Management-API token as a repo
+secret is a credentialed, production-facing action outside this lane's
+file-only/no-DB/no-deploy mandate; it is Jeff's call, same disposition
+class as `KNOWN_PENDING_ORPHANS` above. Flagging it here is the deliverable
+for this item: the gate's CRIT-blocking coverage is currently theoretical,
+not real, until `SUPABASE_ACCESS_TOKEN_FULLLOOP` exists as an actual repo
+secret.
+
+**(b) The nightly full-DB backup has almost certainly been failing since
+its own inception, with its own failure alert silently defeated by an
+unrelated bug.** `SUPABASE_DB_URL` (required for `pg_dump`) and
+`BACKUP_ENCRYPTION_KEY` (required for the fail-closed encrypt step) are
+BOTH absent, so the `db-backup.yml` job's "Dump full database" step almost
+certainly errors out under `set -euo pipefail` before ever reaching the
+encrypt step (or, if `pg_dump` somehow succeeded against an empty
+connection string, the encrypt step's own explicit guard refuses to
+upload an unencrypted dump and exits 1 — either way, the job fails). THE
+job's OWN "Alert on failure (Telegram)" step pointed at
+`TELEGRAM_NOTIFY_CHAT_ID` — a secret that was NEVER configured (confirmed
+by the same `gh secret list` output: only `TELEGRAM_BOT_TOKEN` and
+`TELEGRAM_CHAT_ID` exist, not `TELEGRAM_NOTIFY_CHAT_ID`) — so that alert's
+own `if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then ... skip ...; fi`
+guard has fired silently on every single nightly failure since this
+workflow was introduced. The job has presumably been red in the Actions
+tab every night, visible only to someone who checks it directly — with
+zero push notification, unlike `ci.yml` and `tenant-config-reconcile.yml`,
+whose own failure-alert steps use the SAME secret name
+(`TELEGRAM_CHAT_ID`) that already exists and therefore already work.
+
+**Fixed** the alerting half of (b), the only part fixable with a file-only
+change: `db-backup.yml`'s failure-alert step and its header comment now
+read `secrets.TELEGRAM_CHAT_ID` (matching `ci.yml` and
+`tenant-config-reconcile.yml`'s own already-working alert steps) instead
+of the never-configured `TELEGRAM_NOTIFY_CHAT_ID`. This does not fix the
+underlying backup failure itself — `SUPABASE_DB_URL` and
+`BACKUP_ENCRYPTION_KEY` still need to be added as real repo secrets before
+the nightly dump can succeed at all, which is the same
+credentialed-action-outside-this-lane's-mandate class as (a) above and is
+NOT attempted here — but it does mean that the NEXT nightly failure (or
+the next manual `workflow_dispatch` test run) will actually page someone
+through the channel that already works, instead of silently vanishing.
+Verified by inspection (`grep -n "secrets\.TELEGRAM" .github/workflows/db-backup.yml`
+now shows only `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`) and by
+confirming the edited YAML still parses (`ruby -ryaml -e
+"YAML.load_file(...)"` — this environment has no `yamllint`/`actionlint`/
+`yq` installed, so a real YAML parser standing in for one was the
+strongest verification available without those tools).
+
+No code in `reconcile-tenant-config.mjs`, `audit-tenant-scope.mjs`, or
+`verify-protected-tenants.mjs` was touched this round — this item is a
+configuration/secrets audit, not a static-parse defect, and its one
+concrete fix is scoped to `db-backup.yml` alone. `ci.yml`'s own alert step
+and `tenant-config-reconcile.yml` (including its "Verify token-guard skips
+clean without a secret" step, which is UNCHANGED and still correctly
+exercises the always-forced-empty-token path regardless of what the real
+secret's configuration state is) are both unaffected. `SUPABASE_DB_URL`,
+`BACKUP_ENCRYPTION_KEY`, and `SUPABASE_ACCESS_TOKEN_FULLLOOP` remain
+missing at the repo level — this is the single highest-priority item in
+this entire doc for Jeff's direct action, since it means BOTH this lane's
+live-blocking drift gate AND the platform's offsite full-DB backup are
+currently non-functional in ways their own green checkmarks / silent logs
+do not reveal.

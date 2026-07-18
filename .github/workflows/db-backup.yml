@@ -20,7 +20,10 @@ name: Nightly DB Backup (offsite GitHub artifact)
 #                          including PINs/payroll/SSN-last4. The encrypt step below fails the
 #                          job closed (refuses to upload) if this secret is unset, so a dump
 #                          can never reach the public artifact store in plaintext.
-#   (optional) TELEGRAM_BOT_TOKEN + TELEGRAM_NOTIFY_CHAT_ID  — failure ping
+#   (optional) TELEGRAM_BOT_TOKEN + TELEGRAM_CHAT_ID  — failure ping (shared with
+#                          ci.yml / tenant-config-reconcile.yml's own alert steps —
+#                          see item (196): this previously read TELEGRAM_NOTIFY_CHAT_ID,
+#                          a secret that was never configured, silencing every alert)
 #
 # No secret values live in this file. They stay in GitHub's encrypted store.
 # Retention: artifacts keep 90 days (GitHub limit). Supabase PITR is the primary
@@ -116,10 +119,16 @@ jobs:
         if: failure()
         env:
           TG_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TG_CHAT: ${{ secrets.TELEGRAM_NOTIFY_CHAT_ID }}
+          # Item (196): this pointed at TELEGRAM_NOTIFY_CHAT_ID, a secret that has
+          # never existed in this repo (verified via `gh secret list` — only
+          # TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID are configured), so this alert
+          # has silently no-op'd on every nightly failure since the workflow was
+          # introduced. Aligned to TELEGRAM_CHAT_ID, the same secret ci.yml and
+          # tenant-config-reconcile.yml already alert through successfully.
+          TG_CHAT: ${{ secrets.TELEGRAM_CHAT_ID }}
         run: |
           if [ -z "$TG_TOKEN" ] || [ -z "$TG_CHAT" ]; then
-            echo "TELEGRAM_BOT_TOKEN / TELEGRAM_NOTIFY_CHAT_ID not set — skipping alert."
+            echo "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set — skipping alert."
             exit 0
           fi
           curl -sS "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
