@@ -4,6 +4,7 @@ import { sendEmail, tenantSender } from './email'
 import { sendSMS } from './sms'
 import { isCommEnabled } from './comms-prefs'
 import { NOTIFY_COMM_MAP } from './comms-registry'
+import { verifyTenantHeaderSig } from './tenant-header-sig'
 import {
   bookingReminderEmail,
   bookingConfirmationEmail,
@@ -94,12 +95,18 @@ export async function notify({
 }): Promise<{ success: boolean; error?: string }> {
   // Accept nycmaid-style `booking_id` as an alias for bookingId
   bookingId = bookingId || booking_id
-  // Resolve tenant from request headers if caller didn't pass one (nycmaid pattern).
+  // Resolve tenant from request headers if caller didn't pass one (nycmaid
+  // pattern). Must verify x-tenant-sig — an unsigned/forged x-tenant-id on a
+  // public route would otherwise let an unauthenticated caller attribute a
+  // notification (and any SMS/email it sends) to an arbitrary tenant. Same
+  // check every other tenant-resolution helper in this codebase enforces.
   if (!tenantId) {
     try {
       const { headers } = await import('next/headers')
       const h = await headers()
-      tenantId = h.get('x-tenant-id') || undefined
+      const headerTenantId = h.get('x-tenant-id')
+      const sig = h.get('x-tenant-sig')
+      tenantId = headerTenantId && verifyTenantHeaderSig(headerTenantId, sig) ? headerTenantId : undefined
     } catch {
       // headers() only available inside request scope — ignore if outside
     }
