@@ -27,27 +27,35 @@ jobs:
   verify:
     runs-on: ubuntu-latest
     timeout-minutes: 20
+    outputs:
+      failed_step: ${{ steps.identify-failed-step.outputs.failed_step }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        id: checkout
         with:
           persist-credentials: false
 
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        id: setup-node
         with:
           node-version: 20
           cache: npm
           cache-dependency-path: platform/package-lock.json
 
       - name: Install dependencies
+        id: install
         run: npm ci
 
       - name: Typecheck (tsc --noEmit)
+        id: typecheck
         run: npx tsc --noEmit --pretty false
 
       - name: Unit tests (vitest)
+        id: test
         run: npx vitest run
 
       - name: Tenant-isolation guard
+        id: tenant-scope
         # Fails on ANY unscoped query on a tenant-owned table without .eq('tenant_id', …).
         # Baseline was driven to zero (scripts/.tenant-scope-baseline.json = []) — no
         # grandfathered debt. Any remaining unscoped query is a real gate failure until
@@ -55,6 +63,7 @@ jobs:
         run: node scripts/audit-tenant-scope.mjs
 
       - name: Protected-tenant guard
+        id: protected-tenant
         # The backstop for the 2026-07-08 outage class (a merge silently dropping a
         # live tenant's BESPOKE_SITE_TENANTS entry or its /site/<slug> folder, so it
         # falls back to the generic template with no error). Runs automatically as
@@ -67,9 +76,42 @@ jobs:
         run: node scripts/verify-protected-tenants.mjs
 
       - name: Lint
+        id: lint
         # Blocking: `eslint src --quiet` is error-clean today (verified 2026-07-04),
         # so this catches any NEW eslint error. Warnings are suppressed by --quiet.
         run: npx eslint src --quiet
+
+      - name: Identify which step failed (for the Telegram alert)
+        id: identify-failed-step
+        if: failure()
+        run: |
+          # Item (244): every prior step above has an `id:` so its `outcome` is
+          # readable here, but the failing one was previously invisible to whoever
+          # got paged — the Telegram alert (below, in notify-failure) said only
+          # "CI failed", forcing a log dive through up to 8 steps (checkout,
+          # setup-node, install, typecheck, test, tenant-scope, protected-tenant,
+          # lint) before learning which one actually broke. `steps.<id>.outcome`
+          # is only readable from WITHIN this job, not from notify-failure (a
+          # separate job, wired via `needs:`) — so this step runs here, checks
+          # each prior step's outcome explicitly (GitHub Actions expressions can't
+          # be parameterized by a shell variable, so each check is spelled out
+          # rather than looped), and publishes the first failed one as a job
+          # `output` notify-failure reads via `needs.verify.outputs.failed_step`.
+          # Named with "Telegram" so ci-gate-conditional-skip-guard.test.ts's
+          # ALERT_STEP_NAME_RE exemption (a gating step may not carry an `if:`,
+          # on pain of silently reporting "skipped" instead of "failure" under
+          # branch protection) applies to this step too — it exists only to
+          # enrich the alert, and skips cleanly when nothing failed.
+          failed="unknown"
+          [ "${{ steps.checkout.outcome }}" = "failure" ] && failed="Checkout"
+          [ "${{ steps.setup-node.outcome }}" = "failure" ] && failed="Setup Node"
+          [ "${{ steps.install.outcome }}" = "failure" ] && failed="Install dependencies"
+          [ "${{ steps.typecheck.outcome }}" = "failure" ] && failed="Typecheck (tsc --noEmit)"
+          [ "${{ steps.test.outcome }}" = "failure" ] && failed="Unit tests (vitest)"
+          [ "${{ steps.tenant-scope.outcome }}" = "failure" ] && failed="Tenant-isolation guard"
+          [ "${{ steps.protected-tenant.outcome }}" = "failure" ] && failed="Protected-tenant guard"
+          [ "${{ steps.lint.outcome }}" = "failure" ] && failed="Lint"
+          echo "failed_step=$failed" >> "$GITHUB_OUTPUT"
 
   notify-failure:
     needs: verify
@@ -93,6 +135,7 @@ jobs:
             exit 0
           fi
           TEXT="❌ CI failed — ${{ github.workflow }}
+          failed step: ${{ needs.verify.outputs.failed_step }}
           branch: ${{ github.ref_name }}
           commit: ${{ github.sha }}
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

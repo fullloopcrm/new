@@ -48,6 +48,15 @@ describe('STEPS', () => {
     // as a fake "command" — `[ \t]+` forces a real same-line `run: <cmd>`.
     const ciCommands = [...verifyJobYaml.matchAll(/^[ \t]*run:[ \t]+(\S.*)$/gm)]
       .map((m) => m[1].trim())
+      // A bare YAML block-scalar indicator (`run: |`, `run: |-`, `run: >`, …)
+      // is not itself a command — it's the header introducing a MULTI-line
+      // run block on the following lines. Without this filter, item (244)'s
+      // "Identify which step failed" step (a non-required, if: failure()
+      // step that enriches the Telegram alert — not a gate ci.yml's verify
+      // job actually requires, so it was never meant to be mirrored here)
+      // gets mis-captured as the literal fake command "|", which then fails
+      // direction 1 below since no REQUIRED STEPS entry can ever match it.
+      .filter((cmd) => !/^[|>][-+]?$/.test(cmd))
       // install (npm ci) and lint (eslint) are excluded by this file's own
       // doc comment ("minus install/lint") — not a mirroring gap.
       .filter((cmd) => cmd !== 'npm ci' && !cmd.startsWith('npx eslint'))

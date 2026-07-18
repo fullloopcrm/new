@@ -30,11 +30,15 @@ jobs:
   reconcile:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    outputs:
+      failed_step: ${{ steps.identify-failed-step.outputs.failed_step }}
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
+        id: checkout
         with:
           persist-credentials: false
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        id: setup-node
         with:
           node-version: '20'
 
@@ -44,6 +48,7 @@ jobs:
       # ~/.env.local fallback cannot find one either) and assert the clean-skip
       # path fires. Runs first so a broken guard fails fast, before any real query.
       - name: Verify token-guard skips clean without a secret (no secret = green)
+        id: verify-token-guard
         working-directory: platform
         env:
           SUPABASE_ACCESS_TOKEN_FULLLOOP: ''
@@ -63,6 +68,7 @@ jobs:
       # locks in below). PIPESTATUS[0] preserves the real node exit code through the
       # tee pipe so the gate still fails on gating CRIT drift.
       - name: Reconcile tenant config (read-only drift gate)
+        id: reconcile-drift-gate
         working-directory: platform
         shell: bash
         env:
@@ -78,6 +84,29 @@ jobs:
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$exit_code"
+
+      - name: Identify which step failed (for the Telegram alert)
+        id: identify-failed-step
+        if: failure()
+        run: |
+          # Item (244)'s ci.yml fix, continued onto this lane's other gating job
+          # (queue item (2): "continue whichever surface (1) opens up"). Same
+          # problem: this job's own notify-failure alert (below) said only
+          # "reconcile failed", leaving "the token-guard contract itself broke"
+          # (a guard bug, not real tenant drift) indistinguishable from "the real
+          # drift gate found gating CRIT" (an actual routing-config problem) --
+          # the existing TEXT even said so explicitly ("check the run log to
+          # tell which"). Same technique as ci.yml: every real step above now has
+          # an `id:`, and this step (named with "Telegram" so
+          # ci-gate-conditional-skip-guard.test.ts's ALERT_STEP_NAME_RE exemption
+          # applies to it too) checks each one's outcome explicitly and publishes
+          # the first failed one as a job output notify-failure reads.
+          failed="unknown"
+          [ "${{ steps.checkout.outcome }}" = "failure" ] && failed="Checkout"
+          [ "${{ steps.setup-node.outcome }}" = "failure" ] && failed="Setup Node"
+          [ "${{ steps.verify-token-guard.outcome }}" = "failure" ] && failed="Verify token-guard skips clean without a secret"
+          [ "${{ steps.reconcile-drift-gate.outcome }}" = "failure" ] && failed="Reconcile tenant config (read-only drift gate)"
+          echo "failed_step=$failed" >> "$GITHUB_OUTPUT"
 
   notify-failure:
     needs: reconcile
@@ -100,7 +129,8 @@ jobs:
             echo "TELEGRAM_BOT_TOKEN / TELEGRAM_CHAT_ID not set — skipping alert."
             exit 0
           fi
-          TEXT="❌ tenant-config-reconcile job FAILED (CRIT drift found, OR the gate script/guard itself errored — check the run log to tell which)
+          TEXT="❌ tenant-config-reconcile job FAILED
+          failed step: ${{ needs.reconcile.outputs.failed_step }} (if the drift gate step itself, this is EITHER gating CRIT drift OR the script erroring — check the run log to tell which of those two)
           branch: ${{ github.ref_name }}
           commit: ${{ github.sha }}
           ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

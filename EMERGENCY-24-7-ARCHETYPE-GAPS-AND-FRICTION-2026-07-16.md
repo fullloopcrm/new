@@ -12702,3 +12702,116 @@ same discipline (242)'s own writeup called out. The route-group-blindness
 bug class is closed; the honest state of this lane right now is "swept
 clean," not "found a seventh instance of the same shape" or "invented a new
 one that isn't real."
+
+## (244) New track per LEADER's queue -- missing-feature/UX-friction, not a
+correctness bug: ci.yml's and tenant-config-reconcile.yml's Telegram alerts
+never said WHICH step failed
+
+Every prior item in this surface ((196)-(243)) either fixed a correctness bug
+(a drift check with a real or landmine-only blind spot) or hardened the CI
+wiring itself (SHA-pins, timeouts, least-privilege, the notify-failure job
+actually firing). None of them asked what the alert, once it fires, actually
+TELLS a human. Before this item: ci.yml's `verify` job runs 8 real steps
+(checkout, setup-node, install, typecheck, test, tenant-isolation guard,
+protected-tenant guard, lint) and its Telegram alert said only "❌ CI failed —
+CI" plus branch/commit/run-link; tenant-config-reconcile.yml's `reconcile` job
+runs 4 (checkout, setup-node, the token-guard contract check, the real drift
+gate) and its alert said "tenant-config-reconcile job FAILED (CRIT drift
+found, OR the gate script/guard itself errored — check the run log to tell
+which)" -- an explicit admission, in the alert text itself, that the on-call
+recipient learns nothing actionable without a log dive. That is real
+operational friction on every single red run, distinct from every prior
+item's "does the gate correctly fire" question -- this one is "once it fires,
+can a human act on the message alone."
+
+**Fixed** in both workflows, same technique: every real step in the gating
+job (`verify` in ci.yml, `reconcile` in tenant-config-reconcile.yml) now
+carries an explicit `id:`, so `steps.<id>.outcome` is readable later in the
+SAME job (GitHub Actions does not expose step outcomes across a `needs:` job
+boundary, which is why this couldn't be computed from notify-failure itself).
+A new step -- "Identify which step failed (for the Telegram alert)", `id:
+identify-failed-step`, `if: failure()` -- checks each prior step's outcome
+explicitly (GitHub Actions expressions can't be parameterized by a shell
+variable, so this is 4-8 explicit `[ "${{ steps.X.outcome }}" = "failure" ]`
+lines, not a loop) and publishes the first failed one as a job `output`
+(`outputs: failed_step: ${{ steps.identify-failed-step.outputs.failed_step
+}}`). notify-failure's Telegram TEXT now includes `failed step: ${{
+needs.<job>.outputs.failed_step }}` as its own line. The new step is named
+with "Telegram" specifically so ci-gate-conditional-skip-guard.test.ts's
+ALERT_STEP_NAME_RE exemption (no gating step may carry an `if:`, on pain of
+silently reporting "skipped" instead of "failure" under branch protection)
+applies to it too -- it exists only to enrich the alert and is itself never a
+gate.
+
+Two adjacent frictions surfaced and were fixed while wiring this in:
+
+1. tenant-config-reconcile.yml's `reconcile-gate-exit-code-preservation.test.ts`
+   isolates the "Reconcile tenant config" step's own body by scanning up to
+   the NEXT `- name:` (or the `notify-failure:` job key) and asserts its own
+   last non-blank line is `exit "$exit_code"`. A multi-line explanatory
+   comment placed BEFORE the new step's own `- name:` line (the style every
+   other step-doc-comment in these two files already uses) sits, by that
+   test's own boundary logic, INSIDE the prior step's captured block --
+   breaking the "last line" assertion on a step the comment has nothing to
+   do with. Fixed by moving the explanatory comment to live AFTER the new
+   step's own `run: |`, inside its own body, instead of before its `- name:`
+   -- unambiguously part of the new step, and applied to both workflows for
+   consistency even though only tenant-config-reconcile.yml had a test strict
+   enough to catch it.
+2. preflight-check.test.ts extracts every ci.yml verify-job `run:` line via
+   `/^[ \t]*run:[ \t]+(\S.*)$/gm` and asserts each has a matching REQUIRED
+   entry in `scripts/preflight-check.mjs`'s STEPS -- built when every step in
+   that job used a single-line `run: <cmd>`. The new step is the FIRST step
+   in `verify` to use a multi-line `run: |` block, and `|` itself (the block
+   indicator, not a command) matched `(\S.*)`, mis-captured as a fake command
+   literal `"|"` that (correctly) matches no REQUIRED STEPS entry, failing
+   direction 1 of that test's mirror check. Fixed by filtering out bare block
+   -scalar indicators (`/^[|>][-+]?$/`) from the extracted command list before
+   the mirror comparison -- the new step is non-required (`if: failure()`,
+   never gates), so it was never meant to be mirrored by preflight-check.mjs
+   in the first place; the filter just stops it being mis-read as an
+   uncovered required command.
+
+New tests: 13 across two new files (`ci-notify-failure-step-detail-guard.test.ts`,
+6 tests; `reconcile-notify-failure-step-detail-guard.test.ts`, 7 tests), each
+RED-confirmed live (not just reasoned about) by reverting the `failed step:`
+TEXT line in the respective workflow and re-running that file alone --
+failed exactly as expected, restored to green. `tsc --noEmit --pretty false`
+zero errors. eslint clean on every touched file. Live `verify-protected-tenants.mjs`
+run directly: exit 0, 22/22 protected tenants OK. `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session, and a direct invocation of `reconcile-tenant-config.mjs`
+is blocked in this worktree by a local hook regardless of token presence
+(leader-run-only, touches live prod Supabase) -- same discipline as every
+prior item in this lane when the token is absent.
+
+## (245) Continuation of (244)'s surface onto the third owned workflow --
+db-backup.yml's own nightly-backup alert had the identical "doesn't say which
+step failed" friction
+
+Per LEADER queue item (2) ("continue whichever surface (1) opens up"): (244)
+fixed ci.yml and tenant-config-reconcile.yml, both of which run their alert in
+a SEPARATE `notify-failure` job (wired via `needs:`). db-backup.yml's own
+"Alert on failure (Telegram)" step has the exact same gap -- across 4 real
+steps (install pg_dump, dump, encrypt, upload) the alert said only "FullLoop
+nightly DB backup FAILED — run: <id>. Check the Action log.", forcing the same
+log dive on a failed nightly backup as (244) closed for the other two
+workflows.
+
+**Fixed** the same way, but SIMPLER than (244)'s job-output indirection:
+db-backup.yml's alert step lives in the SAME job (`backup`) as the steps it
+reports on, so `steps.<id>.outcome` is directly readable in its own run
+script with no `outputs:`/`needs:` plumbing needed at all. Every real step now
+carries an explicit `id:` (install-pg-dump, dump, encrypt, upload); the alert
+step's run script checks each explicitly (same "no shell-variable-parameterized
+GitHub Actions expression" constraint as (244)) and interpolates the first
+failed one into its existing single-line `-d text=...` Telegram message.
+
+New tests: 5 (`db-backup-notify-failure-step-detail-guard.test.ts`),
+RED-confirmed live by reverting the `— failed step: ${failed}` segment and
+re-running the file alone -- failed exactly as expected, restored to green.
+`tsc --noEmit --pretty false` zero errors. eslint clean. Full repo suite:
+498/498 files, 2526/2526 tests (2521 baseline after (244) + 5 new, zero
+regressions). Live `verify-protected-tenants.mjs` and the reconcile
+token-guard's leader-run-only enforcement are unaffected by this item (no
+change to either script) -- not re-verified redundantly here beyond the full
+suite above.
