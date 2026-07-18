@@ -683,3 +683,4 @@ a.sl-contact-item:hover { text-decoration: underline; }
   font-size: 12px; padding: 5px 8px; border: 1px solid var(--sl-line);
   border-radius: 7px; background: #fff; color: var(--sl-ink); font-family: inherit;
 }
+.sl-sched-arrow { font-size: 12px; color: var(--sl-ink); opacity: 0.5; }

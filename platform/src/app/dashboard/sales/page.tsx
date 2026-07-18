@@ -155,6 +155,9 @@ function SalesPageInner() {
   const [schedTime, setSchedTime] = useState('09:00')
   const [schedDuration, setSchedDuration] = useState('2')
   const [schedCrew, setSchedCrew] = useState('')
+  const [schedShowEnd, setSchedShowEnd] = useState(false)
+  const [schedEndDate, setSchedEndDate] = useState('')
+  const [schedEndTime, setSchedEndTime] = useState('17:00')
   const [crews, setCrews] = useState<Array<{ id: string; name: string }>>([])
 
   const loadDeals = () => {
@@ -229,18 +232,23 @@ function SalesPageInner() {
     setBusyId(dealId)
     try {
       const startIso = new Date(`${schedDate}T${schedTime || '09:00'}`).toISOString()
+      const endIso = schedShowEnd && schedEndDate
+        ? new Date(`${schedEndDate}T${schedEndTime || '17:00'}`).toISOString()
+        : null
       const res = await fetch(`/api/jobs/${jobId}/sessions`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           start_time: startIso,
-          duration_hours: Number(schedDuration) || 2,
+          ...(endIso ? { end_time: endIso } : { duration_hours: Number(schedDuration) || 2 }),
           ...(schedCrew ? { crew_id: schedCrew } : {}),
         }),
       })
       if (res.ok) {
         setSchedFor(null)
         setSchedDate('')
+        setSchedShowEnd(false)
+        setSchedEndDate('')
         await loadActivities(dealId)
       }
     } catch { /* ignore */ }
@@ -462,16 +470,29 @@ function SalesPageInner() {
                               <div className="sl-reason">
                                 <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
                                 <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
-                                <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
+                                {!schedShowEnd && (
+                                  <>
+                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
+                                    <button type="button" className="sl-act-btn ghost" title="Add an end date for multi-day jobs" onClick={() => setSchedShowEnd(true)}>+ End date</button>
+                                  </>
+                                )}
+                                {schedShowEnd && (
+                                  <>
+                                    <span className="sl-sched-arrow">→</span>
+                                    <input type="date" className="sl-sched-input" min={schedDate || undefined} value={schedEndDate} onChange={(e) => setSchedEndDate(e.target.value)} />
+                                    <input type="time" className="sl-sched-input" value={schedEndTime} onChange={(e) => setSchedEndTime(e.target.value)} />
+                                    <button type="button" className="sl-act-btn ghost" title="Use a duration instead" onClick={() => { setSchedShowEnd(false); setSchedEndDate('') }}>✕</button>
+                                  </>
+                                )}
                                 <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
                                   <option value="">No crew</option>
                                   {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
                                 </select>
-                                <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
+                                <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate || (schedShowEnd && !schedEndDate)} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
                                 <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
                               </div>
                             ) : (
-                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
+                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate(''); setSchedShowEnd(false); setSchedEndDate('') }}>+ Schedule a visit</button>
                             )}
                           </div>
                         )
