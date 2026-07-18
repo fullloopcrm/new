@@ -252,6 +252,29 @@ export async function notify({
         dateTime: message,
       })
       break
+    case 'daily_ops_recap':
+      htmlBody = dailyOpsRecapEmail({
+        ...templateData,
+        todayDate: (metadata?.todayDate as string) || '',
+        tomorrowDate: (metadata?.tomorrowDate as string) || '',
+        todayJobs: (metadata?.todayJobs as Parameters<typeof dailyOpsRecapEmail>[0]['todayJobs']) || [],
+        tomorrowJobs: (metadata?.tomorrowJobs as Parameters<typeof dailyOpsRecapEmail>[0]['tomorrowJobs']) || [],
+        todayRevenue: (metadata?.todayRevenue as string) || '$0',
+        todayJobCount: (metadata?.todayJobCount as number) || 0,
+        tomorrowJobCount: (metadata?.tomorrowJobCount as number) || 0,
+        todayPaid: (metadata?.todayPaid as number) || 0,
+        todayUnpaid: (metadata?.todayUnpaid as number) || 0,
+      })
+      break
+    case 'daily_digest':
+      htmlBody = notificationDigestEmail({
+        ...templateData,
+        date: (metadata?.date as string) || '',
+        emailCount: (metadata?.emailCount as number) || 0,
+        smsCount: (metadata?.smsCount as number) || 0,
+        entries: (metadata?.entries as Parameters<typeof notificationDigestEmail>[0]['entries']) || [],
+      })
+      break
     case 'campaign_sent':
       // CAN-SPAM requires a working unsubscribe mechanism on commercial email.
       // Without this case, a campaign sent through this path (POST
