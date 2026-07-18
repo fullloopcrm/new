@@ -31,11 +31,35 @@ export async function PUT(
       if (!owned) return NextResponse.json({ error: 'Invalid entity_id' }, { status: 404 })
     }
 
+    // Mirror the DELETE guard: matched_bank_transaction_id is only set by the
+    // bank-transaction match route, which posts a real journal entry and is
+    // what tax-export/year-end-zip read off this row directly. Without this,
+    // any finance.expenses caller could silently rewrite amount/category/date
+    // on an already-reconciled expense, diverging the tax record from what
+    // was actually matched with no trace and no unmatch endpoint to fix it.
+    const { data: reconciled } = await supabaseAdmin
+      .from('expenses')
+      .select('matched_bank_transaction_id')
+      .eq('id', id)
+      .eq('tenant_id', tenantId)
+      .maybeSingle()
+    if (reconciled?.matched_bank_transaction_id) {
+      return NextResponse.json(
+        { error: 'This expense is reconciled to a bank transaction and already posted to the ledger — it cannot be edited.' },
+        { status: 409 }
+      )
+    }
+
+    // Atomic claim: re-check matched_bank_transaction_id is still null in the
+    // UPDATE's own WHERE clause, closing the race window between the guard
+    // read above and this write -- a match landing in that window must not
+    // let a stale edit through underneath it.
     const { data, error } = await supabaseAdmin
       .from('expenses')
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .is('matched_bank_transaction_id', null)
       .select()
       .single()
 
