@@ -308,7 +308,7 @@ export async function POST(request: Request) {
         const quoteId = session.metadata.quote_id
         const { data: q } = await supabaseAdmin
           .from('quotes')
-          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number, recurring_type, fulfillment_type')
+          .select('id, deal_id, deposit_paid_at, deposit_cents, quote_number, recurring_type, fulfillment_type, linked_job_id')
           .eq('id', quoteId).eq('tenant_id', tenantId).maybeSingle()
         if (!q) return NextResponse.json({ received: true, quote_not_found: true })
         if (q.deposit_paid_at) return NextResponse.json({ received: true, idempotent: true })
@@ -358,7 +358,14 @@ export async function POST(request: Request) {
         // (converted_schedule_id / converted_booking_id / job claim), so this
         // is safe even if a retried webhook delivery reaches here twice.
         try {
-          if (q.recurring_type) {
+          // A change order (linked_job_id set) always attaches to its job —
+          // it overrides recurring/booking routing below, since it's never a
+          // new sale (mirrors the same override in
+          // quotes/public/[token]/accept/route.ts's no-deposit close path).
+          if (q.linked_job_id) {
+            const { convertSaleToJob } = await import('@/lib/jobs')
+            await convertSaleToJob(tenantId, { type: 'quote', quoteId }, {})
+          } else if (q.recurring_type) {
             const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
             await createRecurringSeriesFromQuote(tenantId, quoteId)
           } else if (q.fulfillment_type === 'booking') {

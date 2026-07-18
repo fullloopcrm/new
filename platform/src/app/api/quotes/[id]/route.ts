@@ -71,7 +71,21 @@ export async function PATCH(request: Request, { params }: Params) {
     // allowlist never included it, so a quote's deal link (set correctly on
     // the initial POST create) could never be attached or changed by a
     // later PATCH — silently dropped, not persisted.
-    if ('client_id' in body && body.client_id) {
+    // Change order: linking to an existing job resolves the client FROM the
+    // job, ignoring any client_id sent alongside it — a job already has
+    // exactly one client and the two must never disagree (see
+    // migrations/2026_07_18_quotes_linked_job_id.sql). Same rule as POST
+    // /api/quotes.
+    if ('linked_job_id' in body && body.linked_job_id) {
+      const { data: linkedJob } = await supabaseAdmin
+        .from('jobs')
+        .select('id, client_id')
+        .eq('id', body.linked_job_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!linkedJob) return NextResponse.json({ error: 'Invalid linked_job_id' }, { status: 400 })
+      body.client_id = (linkedJob.client_id as string) || null
+    } else if ('client_id' in body && body.client_id) {
       const { data: client } = await supabaseAdmin
         .from('clients')
         .select('id')
@@ -94,7 +108,7 @@ export async function PATCH(request: Request, { params }: Params) {
     const assignables = [
       'title', 'description',
       'contact_name', 'contact_email', 'contact_phone', 'service_address',
-      'terms', 'notes', 'valid_until', 'client_id', 'deal_id', 'tiers',
+      'terms', 'notes', 'valid_until', 'client_id', 'deal_id', 'linked_job_id', 'tiers',
     ] as const
     for (const k of assignables) if (k in body) updates[k] = body[k]
 

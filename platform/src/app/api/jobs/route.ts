@@ -67,6 +67,7 @@ export async function GET() {
         id: j.id as string,
         title: (j.title as string) || 'Job',
         status: j.status as string,
+        client_id: (j.client_id as string) || null,
         client_name: client?.name ?? null,
         created_at: j.created_at as string,
         starts_on: (j.starts_on as string) || null,

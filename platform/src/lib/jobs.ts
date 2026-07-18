@@ -93,10 +93,61 @@ export interface CreateJobFromQuoteOptions {
 }
 
 /**
+ * Atomic claim: only a still-'accepted', not-yet-converted, not-yet-claimed
+ * quote can proceed past this point. Concurrent callers (e.g. a Stripe
+ * webhook retry racing the first delivery) race this UPDATE — the loser
+ * gets null back instead of falling through to create a duplicate job.
+ * `quotes.status` has no 'converting' value in its CHECK constraint
+ * (026_quotes.sql), so `converted_at` (set here instead of only at the
+ * end) is reused as the claim marker — it's otherwise only read in two
+ * read-only UI display contexts, not used to gate other logic. Shared by
+ * both the new-job path (createJobFromQuote) and the change-order attach
+ * path (attachChangeOrderToJob) — same idempotency contract either way.
+ */
+async function claimQuoteConversion(
+  tenantId: string,
+  quoteId: string,
+): Promise<{ claimed: boolean; convertedJobId: string | null }> {
+  const { data: claim } = await supabaseAdmin
+    .from('quotes')
+    .update({ converted_at: new Date().toISOString() })
+    .eq('id', quoteId).eq('tenant_id', tenantId)
+    .eq('status', 'accepted')
+    .is('converted_job_id', null)
+    .is('converted_at', null)
+    .select('id')
+    .maybeSingle()
+  if (claim) return { claimed: true, convertedJobId: null }
+
+  // Already claimed (in flight or finished) by a concurrent call. If the
+  // winner already finished, the caller can return its job id; otherwise it
+  // should surface a retryable conflict instead of silently duplicating work.
+  const { data: latest } = await supabaseAdmin
+    .from('quotes')
+    .select('converted_job_id')
+    .eq('id', quoteId)
+    .maybeSingle()
+  return { claimed: false, convertedJobId: (latest?.converted_job_id as string) ?? null }
+}
+
+/** Release a claim taken by claimQuoteConversion so a retry after a failed conversion isn't stuck. */
+async function releaseQuoteConversionClaim(tenantId: string, quoteId: string): Promise<void> {
+  await supabaseAdmin
+    .from('quotes')
+    .update({ converted_at: null })
+    .eq('id', quoteId)
+    .eq('tenant_id', tenantId)
+}
+
+/**
  * Convert an ACCEPTED quote into a Job (the project sibling of the cleaning
  * single-booking convert). Idempotent on quotes.converted_job_id. Creates the
  * client if the quote was standalone, then the job, its payment plan, and any
  * pre-scheduled sessions.
+ *
+ * A quote with linked_job_id set is a CHANGE ORDER against an existing job,
+ * not a new sale — it delegates to attachChangeOrderToJob instead of creating
+ * a second job (see src/lib/migrations/2026_07_18_quotes_linked_job_id.sql).
  */
 export async function createJobFromQuote(
   tenantId: string,
@@ -118,36 +169,13 @@ export async function createJobFromQuote(
     throw new Error(`Can only convert accepted quotes (current: ${quote.status})`)
   }
 
-  // Atomic claim: only a still-'accepted', not-yet-converted, not-yet-claimed
-  // quote can proceed past this point. Concurrent callers (e.g. a Stripe
-  // webhook retry racing the first delivery) race this UPDATE — the loser
-  // gets null back instead of falling through to create a duplicate job.
-  // `quotes.status` has no 'converting' value in its CHECK constraint
-  // (026_quotes.sql), so `converted_at` (set here instead of only at the
-  // end) is reused as the claim marker — it's otherwise only read in two
-  // read-only UI display contexts, not used to gate other logic.
-  const { data: claim } = await supabaseAdmin
-    .from('quotes')
-    .update({ converted_at: new Date().toISOString() })
-    .eq('id', quoteId).eq('tenant_id', tenantId)
-    .eq('status', 'accepted')
-    .is('converted_job_id', null)
-    .is('converted_at', null)
-    .select('id')
-    .maybeSingle()
+  if (quote.linked_job_id) {
+    return attachChangeOrderToJob(tenantId, quote, opts)
+  }
 
-  if (!claim) {
-    // Already claimed (in flight or finished) by a concurrent call. If the
-    // winner already finished, return its job id; otherwise surface a
-    // retryable conflict instead of silently creating a second job.
-    const { data: latest } = await supabaseAdmin
-      .from('quotes')
-      .select('converted_job_id')
-      .eq('id', quoteId)
-      .maybeSingle()
-    if (latest?.converted_job_id) {
-      return { job_id: latest.converted_job_id as string, already_converted: true }
-    }
+  const { claimed, convertedJobId } = await claimQuoteConversion(tenantId, quoteId)
+  if (!claimed) {
+    if (convertedJobId) return { job_id: convertedJobId, already_converted: true }
     throw new Error('Quote conversion already in progress')
   }
 
@@ -274,11 +302,96 @@ export async function createJobFromQuote(
   } catch (err) {
     // Creation failed after the claim succeeded — release it so a retry
     // isn't permanently blocked by a stuck "conversion in progress" error.
+    await releaseQuoteConversionClaim(tenantId, quoteId)
+    throw err
+  }
+}
+
+/**
+ * Attach an ACCEPTED change-order quote (quotes.linked_job_id set) to the
+ * job it references, instead of creating a new job. Adds job_payments row(s)
+ * for the change-order amount and a job_events entry noting the source
+ * proposal. Never writes jobs.total_cents — the original contracted amount
+ * stays its own number; the job detail page sums original + accepted change
+ * orders for display (see GET /api/jobs/[id]).
+ *
+ * Idempotent on quotes.converted_job_id, same claim contract as
+ * createJobFromQuote so concurrent accept/webhook retries can't double-post
+ * payments for the same change order.
+ */
+async function attachChangeOrderToJob(
+  tenantId: string,
+  quote: Record<string, unknown>,
+  opts: CreateJobFromQuoteOptions = {},
+): Promise<{ job_id: string; already_converted: boolean }> {
+  const jobId = quote.linked_job_id as string
+  const quoteId = quote.id as string
+
+  const { data: job } = await supabaseAdmin
+    .from('jobs')
+    .select('id')
+    .eq('tenant_id', tenantId)
+    .eq('id', jobId)
+    .maybeSingle()
+  if (!job) throw new Error('Linked job not found')
+
+  const { claimed, convertedJobId } = await claimQuoteConversion(tenantId, quoteId)
+  if (!claimed) {
+    if (convertedJobId) return { job_id: convertedJobId, already_converted: true }
+    throw new Error('Quote conversion already in progress')
+  }
+
+  try {
+    const totalCents = (quote.total_cents as number) || 0
+    const quoteNumber = (quote.quote_number as string) || quoteId
+
+    const plan: PaymentPlanItem[] =
+      opts.payments && opts.payments.length > 0
+        ? opts.payments
+        : [{ label: `Change order — ${quoteNumber}`, kind: 'milestone', amount_cents: totalCents }]
+
+    // New rows sort after whatever payments the job already has.
+    const { count } = await supabaseAdmin
+      .from('job_payments')
+      .select('id', { count: 'exact', head: true })
+      .eq('job_id', jobId)
+    const sortBase = count ?? 0
+
+    const paymentRows = plan.map((p, i) => ({
+      tenant_id: tenantId,
+      job_id: jobId,
+      label: p.label,
+      kind: p.kind,
+      amount_cents: p.amount_cents,
+      due_at: p.due_at ?? null,
+      trigger: p.trigger ?? 'manual',
+      sort_order: sortBase + i,
+    }))
+    const { error: pErr } = await supabaseAdmin.from('job_payments').insert(paymentRows)
+    if (pErr) throw pErr
+
     await supabaseAdmin
       .from('quotes')
-      .update({ converted_at: null })
+      .update({ status: 'converted', converted_job_id: jobId, converted_at: new Date().toISOString() })
       .eq('id', quoteId)
-      .eq('tenant_id', tenantId)
+
+    await logQuoteEvent({
+      quote_id: quoteId,
+      tenant_id: tenantId,
+      event_type: 'converted',
+      detail: { job_id: jobId, change_order: true, payments: plan.length, total_cents: totalCents },
+    })
+
+    await logJobEvent({
+      tenant_id: tenantId,
+      job_id: jobId,
+      event_type: 'change_order_added',
+      detail: { quote_id: quoteId, quote_number: quoteNumber, total_cents: totalCents, payments: plan.length },
+    })
+
+    return { job_id: jobId, already_converted: false }
+  } catch (err) {
+    await releaseQuoteConversionClaim(tenantId, quoteId)
     throw err
   }
 }

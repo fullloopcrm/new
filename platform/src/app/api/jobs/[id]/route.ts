@@ -2,7 +2,7 @@
  * A single job: read it with its payment plan, scheduled sessions, and timeline;
  * update its status. Tenant-scoped.
  *
- * GET   → { job, payments, sessions, events }
+ * GET   → { job, payments, sessions, events, change_orders }
  * PATCH → { status?: JobStatus, title?, notes?, starts_on?, ends_on? }
  *         status → 'completed' stamps completed_at and logs a timeline event.
  */
@@ -33,7 +33,7 @@ export async function GET(_request: Request, { params }: Params) {
       .single()
     if (error || !job) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    const [payments, sessions, events] = await Promise.all([
+    const [payments, sessions, events, changeOrders] = await Promise.all([
       supabaseAdmin.from('job_payments').select('*').eq('job_id', id).order('sort_order'),
       supabaseAdmin
         .from('bookings')
@@ -44,6 +44,15 @@ export async function GET(_request: Request, { params }: Params) {
         .eq('job_id', id)
         .order('start_time'),
       supabaseAdmin.from('job_events').select('*').eq('job_id', id).order('created_at', { ascending: false }),
+      // Change orders — every proposal linked to this job (see
+      // migrations/2026_07_18_quotes_linked_job_id.sql). All statuses, so the
+      // UI can show pending ones as "awaiting review" alongside accepted ones.
+      supabaseAdmin
+        .from('quotes')
+        .select('id, quote_number, title, status, total_cents, created_at, accepted_at')
+        .eq('tenant_id', tenantId)
+        .eq('linked_job_id', id)
+        .order('created_at', { ascending: false }),
     ])
 
     return NextResponse.json({
@@ -51,6 +60,7 @@ export async function GET(_request: Request, { params }: Params) {
       payments: payments.data ?? [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
+      change_orders: changeOrders.data ?? [],
     })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

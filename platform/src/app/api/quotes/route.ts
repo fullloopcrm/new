@@ -84,9 +84,24 @@ export async function POST(request: Request) {
     // tenant's client and exfiltrate that client's name/email/phone/address via
     // the clients() join on this route's own GET and quotes/[id]'s GET (same
     // class already fixed on PATCH /api/quotes/[id] but missed here on create).
-    const client_id = body.client_id || null
+    let client_id = body.client_id || null
     const deal_id = body.deal_id || null
-    if (client_id) {
+    const linked_job_id = body.linked_job_id || null
+
+    // Change order: linking a proposal to an existing job resolves the
+    // client FROM the job, ignoring any client_id the caller sent — a job
+    // already has exactly one client and the two must never disagree (see
+    // migrations/2026_07_18_quotes_linked_job_id.sql).
+    if (linked_job_id) {
+      const { data: linkedJob } = await supabaseAdmin
+        .from('jobs')
+        .select('id, client_id')
+        .eq('id', linked_job_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!linkedJob) return NextResponse.json({ error: 'Invalid linked_job_id' }, { status: 400 })
+      client_id = (linkedJob.client_id as string) || null
+    } else if (client_id) {
       const { data: client } = await supabaseAdmin
         .from('clients')
         .select('id')
@@ -122,6 +137,7 @@ export async function POST(request: Request) {
           tenant_id: tenantId,
           client_id,
           deal_id,
+          linked_job_id,
           quote_number,
           status: 'draft',
           title: body.title || null,

@@ -101,6 +101,10 @@ export async function POST(request: Request, { params }: Params) {
     const isRecurring = !!quote.recurring_type
     // Fulfillment routing: 'booking' → Bookings, else → Job board (default).
     const isBooking = quote.fulfillment_type === 'booking'
+    // A change order (linked_job_id set) always attaches to its job — it
+    // overrides recurring/booking routing below regardless of how those
+    // fields happen to be set, since it's never a new sale.
+    const isChangeOrder = !!quote.linked_job_id
     if (quote.deal_id) {
       try {
         const { data: dealRow } = await supabaseAdmin
@@ -165,7 +169,10 @@ export async function POST(request: Request, { params }: Params) {
     // Best-effort — never fail the customer's accept on a conversion error.
     if (!hasDeposit) {
       try {
-        if (isRecurring) {
+        if (isChangeOrder) {
+          const { convertSaleToJob } = await import('@/lib/jobs')
+          await convertSaleToJob(quote.tenant_id, { type: 'quote', quoteId: quote.id }, {})
+        } else if (isRecurring) {
           const { createRecurringSeriesFromQuote } = await import('@/lib/sale-to-recurring')
           await createRecurringSeriesFromQuote(quote.tenant_id, quote.id)
         } else if (isBooking) {

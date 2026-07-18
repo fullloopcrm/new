@@ -20,6 +20,7 @@ type Session = {
   assignees: Assignee[]
 }
 type EventRow = { id: string; event_type: string; created_at: string }
+type ChangeOrder = { id: string; quote_number: string; title: string | null; status: string; total_cents: number; created_at: string; accepted_at: string | null }
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
 type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
@@ -51,6 +52,21 @@ const SESSION_STATUS_STYLE: Record<string, string> = {
   confirmed: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-green-50 text-green-600', cancelled: 'bg-slate-100 text-slate-400',
   pending: 'bg-slate-100 text-slate-500',
+}
+// Change-order quote statuses that count toward the job's displayed total.
+// 'converted' is included alongside 'accepted' — attachChangeOrderToJob
+// (src/lib/jobs.ts) flips an accepted change order to 'converted' the
+// moment it's attached, so both mean "accepted and applied" here.
+const ACCEPTED_CHANGE_ORDER_STATUSES = ['accepted', 'converted']
+const CHANGE_ORDER_STATUS_LABEL: Record<string, string> = {
+  draft: 'Draft', sent: 'Awaiting review', viewed: 'Awaiting review',
+  accepted: 'Accepted', converted: 'Accepted',
+  declined: 'Declined', expired: 'Expired',
+}
+const CHANGE_ORDER_STATUS_STYLE: Record<string, string> = {
+  draft: 'bg-slate-100 text-slate-500', sent: 'bg-amber-50 text-amber-700', viewed: 'bg-amber-50 text-amber-700',
+  accepted: 'bg-green-50 text-green-600', converted: 'bg-green-50 text-green-600',
+  declined: 'bg-red-50 text-red-600', expired: 'bg-slate-100 text-slate-400',
 }
 
 /** Form state shared by add + edit of a session. */
@@ -146,6 +162,7 @@ export default function JobDetailPage() {
   const [payments, setPayments] = useState<Payment[]>([])
   const [sessions, setSessions] = useState<Session[]>([])
   const [events, setEvents] = useState<EventRow[]>([])
+  const [changeOrders, setChangeOrders] = useState<ChangeOrder[]>([])
   const [crews, setCrews] = useState<Crew[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
@@ -164,6 +181,7 @@ export default function JobDetailPage() {
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
       setJob(d.job || null); setPayments(d.payments || []); setSessions(d.sessions || []); setEvents(d.events || [])
+      setChangeOrders(d.change_orders || [])
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [id])
@@ -283,6 +301,12 @@ export default function JobDetailPage() {
   const paidCents = payments.filter(p => p.status === 'paid').reduce((s, p) => s + p.amount_cents, 0)
   const costCents = expenses.reduce((s, e) => s + e.amount, 0)
   const marginCents = paidCents - costCents
+  // Original contracted amount (job.total_cents) stays its own number —
+  // accepted change orders are summed on top of it for display only.
+  const acceptedChangeOrderCents = changeOrders
+    .filter(c => ACCEPTED_CHANGE_ORDER_STATUSES.includes(c.status))
+    .reduce((s, c) => s + c.total_cents, 0)
+  const jobTotalWithChangeOrdersCents = job.total_cents + acceptedChangeOrderCents
   const doneCount = sessions.filter(s => s.status === 'completed').length
   const pct = sessions.length ? Math.round((doneCount / sessions.length) * 100) : 0
 
@@ -307,7 +331,7 @@ export default function JobDetailPage() {
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
         </div>
         <div className="text-right">
-          <p className="text-2xl font-bold text-slate-900">{money(job.total_cents)}</p>
+          <p className="text-2xl font-bold text-slate-900">{money(jobTotalWithChangeOrdersCents)}</p>
           <p className="text-xs text-slate-400">{money(paidCents)} collected</p>
         </div>
       </div>
@@ -316,6 +340,9 @@ export default function JobDetailPage() {
         <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
           <p className="text-[10px] uppercase tracking-wide text-slate-400">Contracted</p>
           <p className="text-sm font-semibold text-slate-900">{money(job.total_cents)}</p>
+          {acceptedChangeOrderCents > 0 && (
+            <p className="text-[11px] text-teal-700 mt-0.5">+{money(acceptedChangeOrderCents)} change orders</p>
+          )}
         </div>
         <div className="p-2.5 rounded-lg border border-slate-200 bg-white">
           <p className="text-[10px] uppercase tracking-wide text-slate-400">Collected</p>
@@ -380,6 +407,27 @@ export default function JobDetailPage() {
             </div>
           ))}
           {payments.length === 0 && <p className="text-sm text-slate-400">No payments.</p>}
+        </div>
+      </section>
+
+      {/* Change orders — proposals linked to this job (src/lib/jobs.ts attachChangeOrderToJob) */}
+      <section className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Change Orders</h2>
+        <div className="space-y-1.5">
+          {changeOrders.map(co => (
+            <Link key={co.id} href={`/dashboard/sales/quotes/${co.id}`}
+              className="flex items-center gap-3 p-2.5 rounded-lg border border-slate-200 bg-white hover:border-slate-300">
+              <span className={`text-[11px] px-1.5 py-0.5 rounded font-medium shrink-0 ${CHANGE_ORDER_STATUS_STYLE[co.status] || 'bg-slate-100 text-slate-500'}`}>
+                {CHANGE_ORDER_STATUS_LABEL[co.status] || co.status}
+              </span>
+              <span className="flex-1 min-w-0">
+                <span className="text-sm text-slate-700">{co.title || co.quote_number}</span>
+                <span className="ml-2 text-[10px] text-slate-400">{co.quote_number}</span>
+              </span>
+              <span className="text-sm font-medium text-slate-900">{money(co.total_cents)}</span>
+            </Link>
+          ))}
+          {changeOrders.length === 0 && <p className="text-sm text-slate-400">No change orders.</p>}
         </div>
       </section>
 

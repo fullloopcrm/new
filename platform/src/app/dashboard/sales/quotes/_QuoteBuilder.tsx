@@ -14,6 +14,7 @@ import HelpTip from '../../_components/HelpTip'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
+type JobOption = { id: string; title: string; status: string; client_id: string | null; client_name: string | null }
 
 type LineItem = {
   id: string
@@ -46,6 +47,14 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   const [clients, setClients] = useState<Client[]>([])
   const [clientId, setClientId] = useState<string>(clientIdInit || '')
   const [catalog, setCatalog] = useState<CatalogItem[]>([])
+
+  // Change order: link this proposal to an existing job instead of picking a
+  // client — accepting it attaches new job_payments to that job rather than
+  // creating a second one (see src/lib/jobs.ts attachChangeOrderToJob).
+  const [isChangeOrder, setIsChangeOrder] = useState(false)
+  const [jobs, setJobs] = useState<JobOption[]>([])
+  const [linkedJobId, setLinkedJobId] = useState('')
+  const [jobQuery, setJobQuery] = useState('')
 
   const [contactName, setContactName] = useState('')
   const [contactEmail, setContactEmail] = useState('')
@@ -131,6 +140,23 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, clients])
 
+  // Change-order toggle flipped on → lazy-load jobs for the picker.
+  useEffect(() => {
+    if (!isChangeOrder || jobs.length > 0) return
+    fetch('/api/jobs').then(r => r.json())
+      .then(data => setJobs(
+        ((data?.jobs || []) as (JobOption & { status: string })[]).filter(j => j.status !== 'cancelled'),
+      )).catch(() => {})
+  }, [isChangeOrder, jobs.length])
+
+  // Selecting a job auto-fills the client FROM the job — the job already has
+  // exactly one client, so this proposal must never disagree with it.
+  useEffect(() => {
+    if (!linkedJobId) return
+    const j = jobs.find(x => x.id === linkedJobId)
+    if (j) setClientId(j.client_id || '')
+  }, [linkedJobId, jobs])
+
   function addFromCatalog(itemId: string) {
     const it = catalog.find(c => c.id === itemId)
     if (!it) return
@@ -165,6 +191,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     return {
       client_id: clientId || null,
       deal_id: dealId || null,
+      linked_job_id: isChangeOrder ? (linkedJobId || null) : null,
       contact_name: contactName || null,
       contact_email: contactEmail || null,
       contact_phone: contactPhone || null,
@@ -189,7 +216,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       notes: notes || null,
       valid_until: validUntil,
     }
-  }, [clientId, dealId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, fulfillment, terms, notes, validUntilDays])
+  }, [clientId, dealId, isChangeOrder, linkedJobId, contactName, contactEmail, contactPhone, serviceAddress, title, description, items, taxRateBps, discountCents, depositType, depositValueForApi, recurringType, recurringStart, recurringTime, recurringHours, fulfillment, terms, notes, validUntilDays])
 
   const meaningful = title.trim().length > 0 || items.some(li => li.name.trim().length > 0)
 
@@ -236,6 +263,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     setError('')
     if (!title.trim()) { setError('Title required'); return }
     if (items.filter(li => li.name.trim()).length === 0) { setError('At least one line item'); return }
+    if (isChangeOrder && !linkedJobId) { setError('Pick a job for this change order'); return }
     setSending(true)
     try {
       const id = await persist(body)
@@ -261,12 +289,42 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
       {/* Recipient */}
       <section className="bg-white border border-slate-200 rounded-xl p-5 mb-4">
         <h2 className="font-heading font-semibold text-slate-900 mb-3">Recipient</h2>
-        <label className="block text-xs text-slate-500 uppercase mb-1">Existing client (optional)</label>
-        <select value={clientId} onChange={e => setClientId(e.target.value)}
-          className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4">
-          <option value="">— Standalone (no client yet) —</option>
-          {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.email ? ` · ${c.email}` : ''}</option>)}
-        </select>
+
+        <label className="flex items-center gap-2 text-xs text-slate-600 mb-3">
+          <input type="checkbox" checked={isChangeOrder}
+            onChange={e => { const on = e.target.checked; setIsChangeOrder(on); if (!on) { setLinkedJobId(''); setJobQuery('') } }}
+            className="w-3.5 h-3.5" />
+          Change order for an existing job
+        </label>
+
+        {isChangeOrder ? (
+          <>
+            <label className="block text-xs text-slate-500 uppercase mb-1">Job</label>
+            <input list="job-picker" placeholder="Search jobs by title or client…" value={jobQuery}
+              onChange={e => {
+                const v = e.target.value
+                setJobQuery(v)
+                const match = jobs.find(j => `${j.title} — ${j.client_name || 'No client'}` === v)
+                setLinkedJobId(match ? match.id : '')
+              }}
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
+            <datalist id="job-picker">
+              {jobs.map(j => <option key={j.id} value={`${j.title} — ${j.client_name || 'No client'}`} />)}
+            </datalist>
+            <p className={`text-xs mt-1 mb-4 ${linkedJobId ? 'text-teal-700' : 'text-amber-600'}`}>
+              {linkedJobId ? 'Linked — client auto-filled from this job.' : 'Pick a job to attach this change order to.'}
+            </p>
+          </>
+        ) : (
+          <>
+            <label className="block text-xs text-slate-500 uppercase mb-1">Existing client (optional)</label>
+            <select value={clientId} onChange={e => setClientId(e.target.value)}
+              className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-4">
+              <option value="">— Standalone (no client yet) —</option>
+              {clients.map(c => <option key={c.id} value={c.id}>{c.name}{c.email ? ` · ${c.email}` : ''}</option>)}
+            </select>
+          </>
+        )}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <input placeholder="Name" value={contactName} onChange={e => setContactName(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
           <input placeholder="Email" value={contactEmail} onChange={e => setContactEmail(e.target.value)} className="bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
@@ -361,37 +419,43 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
                   className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
               )}
             </div>
-            <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Recurring service <HelpTip text="For repeat visits (weekly cleaning, monthly pest, etc.). On accept this auto-sets the recurring schedule instead of a one-off — the price above is per visit." /></label>
-            <select value={recurringType} onChange={e => setRecurringType(e.target.value as typeof recurringType)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
-              <option value="none">One-time (no repeat)</option>
-              <option value="weekly">Weekly</option>
-              <option value="biweekly">Every 2 weeks</option>
-              <option value="triweekly">Every 3 weeks</option>
-              <option value="monthly_date">Monthly</option>
-            </select>
-            {recurringType !== 'none' && (
-              <div className="grid grid-cols-3 gap-2 mt-2">
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase mb-1">First visit</label>
-                  <input type="date" value={recurringStart} onChange={e => setRecurringStart(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase mb-1">Time</label>
-                  <input type="time" value={recurringTime} onChange={e => setRecurringTime(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
-                </div>
-                <div>
-                  <label className="block text-[10px] text-slate-400 uppercase mb-1">Hours/visit</label>
-                  <input type="text" inputMode="decimal" value={recurringHours} onChange={e => setRecurringHours(e.target.value.replace(/[^\d.]/g, ''))} placeholder="3" className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
-                </div>
-              </div>
-            )}
-            {recurringType === 'none' && (
+            {isChangeOrder ? (
+              <p className="text-xs text-slate-500 mt-3">A change order always attaches to the linked job on accept — recurring/booking routing doesn't apply.</p>
+            ) : (
               <>
-                <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">When accepted <HelpTip text="Project → lands on the Job board (multi-session work like a remodel). Service booking → lands in Bookings (a scheduled visit)." /></label>
-                <select value={fulfillment} onChange={e => setFulfillment(e.target.value as 'project' | 'booking')} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
-                  <option value="project">Project — goes to the Job board</option>
-                  <option value="booking">Service booking — goes to Bookings</option>
+                <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">Recurring service <HelpTip text="For repeat visits (weekly cleaning, monthly pest, etc.). On accept this auto-sets the recurring schedule instead of a one-off — the price above is per visit." /></label>
+                <select value={recurringType} onChange={e => setRecurringType(e.target.value as typeof recurringType)} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                  <option value="none">One-time (no repeat)</option>
+                  <option value="weekly">Weekly</option>
+                  <option value="biweekly">Every 2 weeks</option>
+                  <option value="triweekly">Every 3 weeks</option>
+                  <option value="monthly_date">Monthly</option>
                 </select>
+                {recurringType !== 'none' && (
+                  <div className="grid grid-cols-3 gap-2 mt-2">
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase mb-1">First visit</label>
+                      <input type="date" value={recurringStart} onChange={e => setRecurringStart(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase mb-1">Time</label>
+                      <input type="time" value={recurringTime} onChange={e => setRecurringTime(e.target.value)} className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                    </div>
+                    <div>
+                      <label className="block text-[10px] text-slate-400 uppercase mb-1">Hours/visit</label>
+                      <input type="text" inputMode="decimal" value={recurringHours} onChange={e => setRecurringHours(e.target.value.replace(/[^\d.]/g, ''))} placeholder="3" className="w-full bg-white border border-slate-300 rounded-lg px-2 py-2 text-sm" />
+                    </div>
+                  </div>
+                )}
+                {recurringType === 'none' && (
+                  <>
+                    <label className="block text-xs text-slate-500 uppercase mb-1 mt-3">When accepted <HelpTip text="Project → lands on the Job board (multi-session work like a remodel). Service booking → lands in Bookings (a scheduled visit)." /></label>
+                    <select value={fulfillment} onChange={e => setFulfillment(e.target.value as 'project' | 'booking')} className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm">
+                      <option value="project">Project — goes to the Job board</option>
+                      <option value="booking">Service booking — goes to Bookings</option>
+                    </select>
+                  </>
+                )}
               </>
             )}
           </div>
