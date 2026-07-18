@@ -9227,3 +9227,156 @@ prose in a heredoc, not only an actual invocation. The CLI/token-guard
 contract itself is unchanged by this round; CI's own "Verify token-guard
 skips clean without a secret" step in `tenant-config-reconcile.yml` is the
 authoritative check for that path and runs unmodified.
+
+## (191) New fresh-ground surface, opened directly by (190) — src/middleware.ts's
+own APP_ROOT_PREFIXES array (the REAL PRODUCTION ROUTER, not just a
+robots.txt visibility list) carries the exact same trailing-slash-vs-bare-path
+bug class (190) fixed in robots.ts's coverage-check logic, except here it is
+a live routing break, not a crawler-visibility gap
+
+(190)'s own framing was "does every EXISTING Drift check's own coverage
+logic actually match real behavior" — applied to robots.ts's Disallow
+matching. Continuing that same question one level up the stack, onto the
+PRODUCTION function `matchesAppRootPrefix` that robots.ts's own comments
+(and Drift AJ/AE) say APP_ROOT_PREFIXES entries feed, turned up a
+structurally identical bug in a far higher-severity place:
+`matchesAppRootPrefix(pathname, prefix)` in `src/middleware.ts` is
+`pathname === prefix || pathname.startsWith(prefix + '/')` — a correct,
+already-unit-tested (item 180, `src/middleware.app-root-prefix-boundary.test.ts`)
+boundary matcher, but it REQUIRES the caller to supply a BARE prefix (no
+trailing slash), since it appends its own `'/'` for the sub-path check. Every
+`APP_ROOT_PREFIXES` entry was bare except one: `'/api/'` — present with the
+trailing slash since the array was FIRST introduced (confirmed via `git log
+-p`, unchanged across every later edit that added `/fullloop` and
+`/reset-pin`). `'/api/' + '/' === '/api//'` — a literal double slash no real
+request path ever has — so `matchesAppRootPrefix('/api/contact', '/api/')`
+is `false` for every real request; the exact-match branch only matches the
+single literal string `'/api/'` with nothing after it. Verified directly by
+running the real, character-for-character-copied function against real
+paths before touching anything:
+`matchesAppRootPrefix('/api/contact', '/api/')` → `false`,
+`matchesAppRootPrefix('/api/client/login', '/api/')` → `false`,
+`matchesAppRootPrefix('/api/tenant-sitemap', '/api/')` → `false`. Confirmed
+this is not dead code: `rewriteToSite()` runs for EVERY tenant subdomain
+(line ~299) and custom-domain request (line ~330), and this file's own
+`config.matcher` explicitly INCLUDES `/(api|trpc)(.*)` rather than excluding
+it — real `/api/*` traffic on every tenant domain reaches this exact check.
+`vercel.json` has no rewrites that could intercept `/api/*` before
+middleware runs (only `crons` entries).
+
+**Concrete production impact, as the code reads before this fix:** every
+`/api/*` request on any tenant subdomain or custom domain fails the
+`APP_ROOT_PREFIXES.some(...)` check and falls through to the bottom of
+`rewriteToSite()`, which rewrites it to `/site/<slug>/api/...` instead of
+serving it headers-only at its real, global path. Of the 22
+`BESPOKE_SITE_TENANTS` slugs, only `the-nyc-marketing-company` has an `api/`
+folder on disk (`src/app/site/the-nyc-marketing-company/api/contact/route.ts`,
+a bespoke Resend-backed multipart/file-attachment handler) — for every
+OTHER bespoke tenant, a real `/api/*` call on that tenant's own domain (the
+client-PIN-login-portal `POST /api/client/login` endpoint Drift AL's own
+(188)-(189) fix depends on being globally reachable; `/api/tenant-sitemap`;
+any other global API) would 404, since no `/site/<slug>/api/...` file exists
+to catch it. For `the-nyc-marketing-company` specifically, this bug means
+the OPPOSITE of what Drift AE's own existing writeup (in this file, from an
+earlier round) asserts: Drift AE's comment states the tenant's local
+`api/contact/route.ts` is "permanently shadowed by the global
+`src/app/api/contact/route.ts`" — but that shadowing depends entirely on
+`matchesAppRootPrefix('/api/contact', '/api/')` returning `true`, which,
+per the bug, it does not. As the code read before this round's fix, the
+tenant's own local route was NOT shadowed — it was the one actually
+reachable via the buggy fallthrough, not the global handler Drift AE's
+writeup assumed was authoritative. This round's fix makes Drift AE's
+already-recorded assumption true going forward, rather than contradicting
+newly-recorded intent.
+
+Nobody caught this via the test suite because
+`src/middleware.app-root-prefix-boundary.test.ts`'s own `it.each` boundary
+table pins every OTHER `APP_ROOT_PREFIXES` entry (`/portal`, `/admin`,
+`/dashboard`, `/unsubscribe`, `/stripe-onboard`, `/fullloop`,
+`/reset-pin`) against a realistic false-collision pathname, but conspicuously
+omits `/api` entirely — no test in the whole repo ever exercised
+`matchesAppRootPrefix` with a real `/api/<subpath>` pathname before this
+round. And robots.ts's OWN reconcile-gate check (Drift AJ, this file's
+`reconcile-tenant-config.mjs`) never surfaced the discrepancy either,
+precisely because Drift AJ independently strips a trailing slash from every
+`APP_ROOT_PREFIXES` entry before comparing it against robots.ts's disallow
+array (`prefix.replace(/\/$/, '')`, added for a different reason — coverage
+comparison, not routing) — that defensive normalization happened to mask
+this exact bug from the one consumer that WOULD have surfaced it as a
+drift, while the real production router (no such normalization) was never
+masked at all, it just had no test or gate watching it.
+
+**Live-fixed** `src/middleware.ts`: changed the sole trailing-slash entry
+`'/api/'` to the bare `'/api'`, matching every sibling entry in the array.
+Added a comment above the array explaining the contract (every entry MUST
+be bare — `matchesAppRootPrefix` owns the boundary-slash logic itself) so a
+future edit can't reintroduce this by pattern-matching some other
+convention.
+
+**Fixed the underlying gap** in the reconcile gate: added a new exported
+pure helper, `findTrailingSlashAppRootPrefixes(appRootPrefixes)`, that
+flags any `APP_ROOT_PREFIXES` entry ending in `/` — the exact shape
+`matchesAppRootPrefix` can never match. Wired as a new **Drift AM** check in
+`computeFindings`, CRIT (not WARN, unlike every other robots.ts-only check
+in this file): this is a live production ROUTING bug, not a crawlability
+regression — the entire app-root branch for the affected prefix becomes
+unreachable from any tenant domain, not just less indexable.
+
+Added test coverage: `src/middleware.app-root-prefix-boundary.test.ts` gained
+a new describe block ("must not carry a baked-in trailing slash") with 4
+tests — proving the pre-fix shape (`matchesAppRootPrefix('/api/contact',
+'/api/')` etc. all `false`), proving the bare form matches every real
+sub-path, and guarding the exact-match and false-collision cases don't
+regress. `src/lib/reconcile-tenant-config.test.ts` gained 8 new tests: 4 for
+`findTrailingSlashAppRootPrefixes` directly (flags the live `/api/` shape,
+returns empty for an all-bare array matching the post-fix state, flags
+multiple offenders, empty-list edge case) and 4 for the new Drift AM
+`computeFindings` block (CRITs on the live pre-fix `/api/` shape with the
+exact message asserted, silent once bare, skipped entirely when
+`appRootPrefixes` is empty).
+
+Verified against the real repo, not just synthetic fixtures: `git log -p
+--follow -- src/middleware.ts` confirmed the trailing slash on `'/api/'`
+predates every later edit to the array (the earliest diff hunk already
+shows it as the array's first entry). Cross-checked all 22
+`BESPOKE_SITE_TENANTS` slugs' own `site/<slug>/` top-level directory
+listings directly (`find ... -maxdepth 1 -type d`) to confirm
+`the-nyc-marketing-company` is the ONLY one with an `api/` folder on disk —
+the one tenant this bug's fallthrough branch could accidentally "work" for,
+and only for the one path (`api/contact`) that folder happens to contain.
+
+`tsc --noEmit` clean. Full repo suite: 460/460 files, 2284/2284 tests (11
+new this round) — zero regressions, same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in this
+doc has flagged. `eslint` clean on every file this round touched (scoped
+lint) — the same 6 pre-existing warnings in `reconcile-tenant-config.test.ts`
+(unused `_slug` params, lines this round never touched) are unchanged from
+before this round.
+
+**Flagging severity explicitly, not just logging it as another gap-doc
+entry:** unlike every prior item in this doc (a crawler-visibility gap or a
+CI-time drift), this one — as the code read before this round's fix — was a
+live functional break in production tenant API routing if this branch's
+`src/middleware.ts` matches what's actually deployed. This worker did not
+attempt to verify against a live tenant domain (no network calls to
+production made; file-only fix per this lane's standing rules), so
+"actually broken in production right now" is inferred from the code and git
+history, not confirmed via a live request. Recommend the leader/Jeff
+prioritize confirming current deployed behavior for at least one bespoke
+tenant's `/api/*` custom-domain traffic (e.g. a wash-and-fold-nyc client-PIN
+login POST) before this fix reaches prod, both to confirm the bug's real
+impact and to confirm this fix doesn't change currently-relied-upon
+behavior for `the-nyc-marketing-company`'s local contact-form handler.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior round
+without the token. All verification above ran through the module's pure
+exported functions and the real, already-existing unit test suite only — no
+DB, no network, never invoking the blocked file's own CLI/`main()`. The
+CLI/token-guard contract itself is unchanged by this round; CI's own
+"Verify token-guard skips clean without a secret" step in
+`tenant-config-reconcile.yml` is the authoritative check for that path and
+runs unmodified.
