@@ -11,8 +11,10 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  *   + dangling / inactive tenant_domains pointer -> null (never falls through)
  *
  * This resolver keeps tenant.ts's own contract: it returns the full row and only
- * resolves ACTIVE tenants (id/domain loads filter status='active'); the legacy
- * divergence cross-check is status-agnostic (mirrors tenant-lookup).
+ * resolves tenants tenantServesSite() considers servable (NOT a hardcoded
+ * status==='active' filter — that would wrongly exclude 'setup'/'pending'
+ * tenants); the legacy divergence cross-check is status-agnostic (mirrors
+ * tenant-lookup).
  *
  * Supabase is mocked with a small query builder whose .single() result is
  * decided by a per-test resolver keyed on (table, eq-filters). tenant.ts's other
@@ -135,7 +137,7 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     expect(t?.slug).toBe('primary1')
   })
 
-  it('primary tenant_domains load filters status=active (only serves active tenants)', async () => {
+  it('primary tenant_domains load does NOT filter status at the DB level (a hardcoded status===active filter would wrongly exclude setup/pending tenants)', async () => {
     resolve = (table, eqs) => {
       if (table === 'tenant_domains' && eqs.domain === 'active-only.com')
         return { data: domainRow({ tenant_id: 't-a', domain: 'active-only.com' }), error: null }
@@ -146,7 +148,37 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
 
     await getTenantByDomain('active-only.com')
     const idLoad = singleCalls.find((c) => c.table === 'tenants' && c.eqs.id === 't-a')
-    expect(idLoad?.eqs.status).toBe('active')
+    expect(idLoad?.eqs.status).toBeUndefined()
+  })
+
+  it('a "setup" tenant resolved via tenant_domains still serves (only suspended/cancelled/deleted are dark)', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'setup-tenant.com')
+        return { data: domainRow({ tenant_id: 't-setup', domain: 'setup-tenant.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-setup')
+        return { data: tenantRow({ id: 't-setup', slug: 'setup-tenant', status: 'setup' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const t = await getTenantByDomain('setup-tenant.com')
+    expect(t?.id).toBe('t-setup')
+  })
+
+  it('WRONG-TENANT PROBE: a suspended tenant resolved via tenant_domains returns null and does NOT fall through to a different tenant on the legacy tenants.domain fallback', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'suspended-tenant.com')
+        return { data: domainRow({ tenant_id: 't-susp', domain: 'suspended-tenant.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-susp')
+        return { data: tenantRow({ id: 't-susp', slug: 'susp-tenant', status: 'suspended' }), error: null }
+      // a DIFFERENT tenant's stale legacy row for the same host — must never be served
+      if (table === 'tenants' && eqs.domain === 'suspended-tenant.com')
+        return { data: tenantRow({ id: 't-other-brand', slug: 'other-brand' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const t = await getTenantByDomain('suspended-tenant.com')
+    expect(t).toBeNull()
+    expect(singleCalls.some((c) => c.table === 'tenants' && c.eqs.domain === 'suspended-tenant.com')).toBe(false)
   })
 
   it('falls back to tenants.domain when no tenant_domains row exists', async () => {
@@ -160,9 +192,32 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
     const t = await getTenantByDomain('legacy3.com')
     expect(t?.slug).toBe('legacy3')
     expect(singleCalls.some((c) => c.table === 'tenant_domains')).toBe(true)
-    // fallback load is active-filtered too
+    // fallback load does NOT filter status at the DB level either
     const domLoad = singleCalls.find((c) => c.table === 'tenants' && c.eqs.domain === 'legacy3.com')
-    expect(domLoad?.eqs.status).toBe('active')
+    expect(domLoad?.eqs.status).toBeUndefined()
+  })
+
+  it('a "pending" tenant resolved via the tenants.domain fallback still serves', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return { data: null, error: null }
+      if (table === 'tenants' && eqs.domain === 'pending-legacy.com')
+        return { data: tenantRow({ id: 't-pend', slug: 'pending-legacy', domain: 'pending-legacy.com', status: 'pending' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const t = await getTenantByDomain('pending-legacy.com')
+    expect(t?.id).toBe('t-pend')
+  })
+
+  it('a "cancelled" tenant resolved via the tenants.domain fallback returns null', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return { data: null, error: null }
+      if (table === 'tenants' && eqs.domain === 'cancelled-legacy.com')
+        return { data: tenantRow({ id: 't-canc', slug: 'cancelled-legacy', domain: 'cancelled-legacy.com', status: 'cancelled' }), error: null }
+      return { data: null, error: null }
+    }
+
+    expect(await getTenantByDomain('cancelled-legacy.com')).toBeNull()
   })
 
   it('DIVERGENCE REFUSAL: tenant_domains -> A but legacy tenants.domain -> B refuses (throws, serves nothing)', async () => {
@@ -326,12 +381,13 @@ describe('getTenantByDomain (tenant.ts full-Tenant resolver)', () => {
 describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
   it('MALFORMED-INPUT PROBE: a mixed-case caller-supplied slug resolves the same lowercase-stored, active tenant', async () => {
     resolve = (table, eqs) =>
-      table === 'tenants' && eqs.slug === 'acme' && eqs.status === 'active'
+      table === 'tenants' && eqs.slug === 'acme'
         ? { data: tenantRow(), error: null }
         : { data: null, error: null }
 
     const t = await getTenantBySlug('ACME')
     expect(singleCalls[0].eqs.slug).toBe('acme')
+    expect(singleCalls[0].eqs.status).toBeUndefined()
     expect(t?.id).toBe('t-1')
   })
 
@@ -339,6 +395,28 @@ describe('getTenantBySlug (tenant.ts full-Tenant resolver)', () => {
     resolve = () => ({ data: null, error: null })
     expect(await getTenantBySlug('nobody-slug')).toBeNull()
   })
+
+  it('a "setup" tenant still resolves (only suspended/cancelled/deleted are dark) — NOT a hardcoded status===active filter', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'new-tenant'
+        ? { data: tenantRow({ id: 't-new', slug: 'new-tenant', status: 'setup' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantBySlug('new-tenant')
+    expect(t?.id).toBe('t-new')
+  })
+
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-TENANT PROBE: a %s tenant resolves to null, not the tenant row',
+    async (status) => {
+      resolve = (table, eqs) =>
+        table === 'tenants' && eqs.slug === 'dark-tenant'
+          ? { data: tenantRow({ id: 't-dark', slug: 'dark-tenant', status }), error: null }
+          : { data: null, error: null }
+
+      expect(await getTenantBySlug('dark-tenant')).toBeNull()
+    },
+  )
 
   it('QUERY-ERROR PROBE: a genuine DB failure on the slug lookup refuses rather than silently reporting "unknown slug"', async () => {
     // slug is UNIQUE NOT NULL, so a real failure can only be a genuine query

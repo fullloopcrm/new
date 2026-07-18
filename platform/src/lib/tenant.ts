@@ -248,22 +248,35 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
   // supplied slug from a partner API) would otherwise silently miss a real
   // tenant. Matches this resolver's own getTenantByDomain normalization.
   // maybeSingle() (not single()): mirrors tenant-lookup.ts's fix. slug is
-  // UNIQUE NOT NULL at the DB level, so an unknown/inactive slug legitimately
-  // returns 0 rows — the normal "not found" case, not an error. single() can't
-  // tell that apart from a genuine query failure (both surface as data:null),
-  // so a transient DB error used to look identical to "unknown slug" and
-  // silently returned null instead of throwing.
+  // UNIQUE NOT NULL at the DB level, so an unknown slug legitimately returns 0
+  // rows — the normal "not found" case, not an error. single() can't tell that
+  // apart from a genuine query failure (both surface as data:null), so a
+  // transient DB error used to look identical to "unknown slug" and silently
+  // returned null instead of throwing.
   const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('*')
     .eq('slug', slug.toLowerCase())
-    .eq('status', 'active')
     .maybeSingle()
 
   if (error) {
     console.error(`TENANT_SLUG_LOOKUP_ERROR slug=${slug.toLowerCase()} error=${error.message}`)
     throw new Error(`TENANT_SLUG_LOOKUP_ERROR slug=${slug.toLowerCase()} error=${error.message}`)
   }
+
+  // tenantServesSite() (not a hardcoded status==='active' filter): this
+  // function is exported but has NO production callers today (every real
+  // caller uses tenant-lookup.ts's getTenantBySlug instead — confirmed by
+  // repo-wide grep) — a landmine, not a live bug. It previously filtered
+  // `.eq('status', 'active')` at the DB level, which silently excluded
+  // 'setup'/'pending' tenants — the exact status-gating drift already fixed
+  // on every LIVE resolver in this file (getHeaderTenant, getCurrentTenant)
+  // and in tenant-status.ts's own doc comment ("New tenants are
+  // 'setup'/'pending' and must still be servable immediately"). Left
+  // unfixed, wiring this dead function up later would silently reintroduce
+  // that exact bug. Aligning it to tenantServesSite() now, while it's still
+  // inert, costs nothing and removes the landmine.
+  if (!data || !tenantServesSite(data.status)) return null
 
   return data
 }
@@ -294,9 +307,13 @@ export async function getTenantBySlug(slug: string): Promise<Tenant | null> {
 // Remove this guard once tenants.domain is retired.
 //
 // This resolver keeps tenant.ts's own contract: it returns the FULL Tenant row
-// and only ever resolves ACTIVE tenants (the id/domain loads filter status).
-// The legacy divergence cross-check is status-agnostic (mirrors tenant-lookup)
-// so a stale/inactive legacy row still trips the guard.
+// and only ever resolves tenants tenantServesSite() considers servable (the
+// id/domain loads gate on it — NOT a hardcoded status==='active' filter,
+// which would wrongly exclude 'setup'/'pending' tenants; see the doc comment
+// on getTenantBySlug above for why this matters despite this function having
+// no production caller today). The legacy divergence cross-check is
+// status-agnostic (mirrors tenant-lookup) so a stale/inactive legacy row still
+// trips the guard.
 export async function getTenantByDomain(domain: string): Promise<Tenant | null> {
   // Lowercase THEN strip www. so www.<host> / WWW.<HOST> / <host> all resolve
   // identically (matches tenant-lookup's normalization — otherwise the two
@@ -335,18 +352,20 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
 
   if (domainRow?.tenant_id) {
     // maybeSingle() (not single()), error checked explicitly — mirrors
-    // tenant-lookup.ts's fix. domainRow.tenant_id + status='active' is a PK
-    // lookup with an extra filter (0-or-1 rows only), so 0 rows legitimately
-    // means "dangling pointer or the tenant is inactive" — the expected
-    // not-found case, not an error. single() can't tell that apart from a
-    // genuine transient DB failure (both surface as data:null, error
-    // discarded below), so a real failure here silently looked identical to
-    // "dangling/inactive pointer" instead of surfacing loud.
+    // tenant-lookup.ts's fix. domainRow.tenant_id is a PK lookup (0-or-1 rows
+    // only), so 0 rows legitimately means "dangling pointer, tenant deleted"
+    // — the expected not-found case, not an error. single() can't tell that
+    // apart from a genuine transient DB failure (both surface as data:null,
+    // error discarded below), so a real failure here silently looked
+    // identical to a dangling pointer instead of surfacing loud. No
+    // status filter at the DB level (see the tenantServesSite() check below)
+    // — a hardcoded status==='active' filter would make this branch
+    // indistinguishable from a dangling pointer for a 'setup'/'pending'
+    // tenant too.
     const { data: t, error: tenantByIdError } = await supabaseAdmin
       .from('tenants')
       .select('*')
       .eq('id', domainRow.tenant_id)
-      .eq('status', 'active')
       .maybeSingle()
 
     if (tenantByIdError) {
@@ -356,6 +375,15 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
       throw new Error(
         `TENANT_BY_ID_LOOKUP_ERROR host=${cleanDomain} tenant_id=${domainRow.tenant_id} error=${tenantByIdError.message}`,
       )
+    }
+
+    // A matched tenant that tenantServesSite() considers dark (suspended/
+    // cancelled/deleted) is treated the SAME as a dangling pointer below —
+    // do NOT fall through to tenants.domain, which could serve a DIFFERENT
+    // tenant for this host (the brand-swap failure mode this whole function
+    // exists to prevent).
+    if (t && !tenantServesSite(t.status)) {
+      return null
     }
 
     if (t) {
@@ -414,7 +442,6 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
     .from('tenants')
     .select('*')
     .eq('domain', cleanDomain)
-    .eq('status', 'active')
     .maybeSingle()
 
   if (error) {
@@ -425,6 +452,10 @@ export async function getTenantByDomain(domain: string): Promise<Tenant | null> 
       `TENANT_DOMAIN_FALLBACK_LOOKUP_ERROR host=${cleanDomain} error=${error.message}`,
     )
   }
+
+  // tenantServesSite() (not a hardcoded status==='active' filter) — same
+  // reasoning as the primary branch above and getTenantBySlug's doc comment.
+  if (!data || !tenantServesSite(data.status)) return null
 
   return data
 }
