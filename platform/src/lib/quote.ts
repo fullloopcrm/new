@@ -41,17 +41,27 @@ export function computeLineItemSubtotal(li: Omit<QuoteLineItem, 'subtotal_cents'
   return Math.round(qty * price)
 }
 
+// Caller-supplied array/strings with no other size guard at any of this
+// helper's 4 call sites (quotes + invoices create/update) — each line item's
+// name/description also flows into the generated PDF and public accept
+// page. Truncate rather than reject, matching this codebase's existing
+// pattern for internal/semi-trusted free-text fields (prospects' cap()).
+const MAX_LINE_ITEMS = 500
+const MAX_NAME_LENGTH = 500
+const MAX_DESCRIPTION_LENGTH = 5000
+
 export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineItem[] {
   return (items || [])
     .filter(li => li && (li.name || li.quantity))
+    .slice(0, MAX_LINE_ITEMS)
     .map((li, i) => {
       const quantity = Number(li.quantity) || 0
       const unit_price_cents = Number(li.unit_price_cents) || 0
       const subtotal_cents = Math.round(quantity * unit_price_cents)
       return {
         id: li.id || `li_${i}_${Date.now()}`,
-        name: String(li.name || 'Item'),
-        description: li.description ? String(li.description) : undefined,
+        name: String(li.name || 'Item').slice(0, MAX_NAME_LENGTH),
+        description: li.description ? String(li.description).slice(0, MAX_DESCRIPTION_LENGTH) : undefined,
         quantity,
         unit_price_cents,
         subtotal_cents,
