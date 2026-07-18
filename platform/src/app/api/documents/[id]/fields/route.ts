@@ -22,12 +22,21 @@ interface FieldInput {
   label?: string | null
 }
 
+// label is caller-supplied free text with no other size guard downstream
+// (stamped onto the finalized PDF and returned wholesale in GET) — same
+// unbounded-string class already capped on field_values' value in the
+// sibling public sign route.
+const MAX_LABEL_LENGTH = 5000
+
 function normalizeField(f: Partial<FieldInput>): FieldInput | { error: string } {
   if (!f.signer_id) return { error: 'signer_id required' }
   if (!f.type || !FIELD_TYPES.includes(f.type as FieldType)) return { error: `invalid type: ${f.type}` }
   const x = Number(f.x_pct), y = Number(f.y_pct), w = Number(f.w_pct), h = Number(f.h_pct)
   if ([x, y, w, h].some(v => !Number.isFinite(v) || v < 0 || v > 100)) {
     return { error: 'x_pct/y_pct/w_pct/h_pct must be 0-100' }
+  }
+  if (typeof f.label === 'string' && f.label.length > MAX_LABEL_LENGTH) {
+    return { error: `label is too long (max ${MAX_LABEL_LENGTH} characters)` }
   }
   return {
     signer_id: f.signer_id as string,
@@ -122,7 +131,14 @@ export async function PUT(request: Request, { params }: Params) {
     }
 
     const body = await request.json()
-    const raw: Partial<FieldInput>[] = body.fields || []
+    const raw: Partial<FieldInput>[] = Array.isArray(body.fields) ? body.fields : []
+    // body.fields is a caller-supplied array with no other size guard — an
+    // unbounded batch would drive an unbounded delete+insert (and, per field,
+    // an unbounded PDF-stamp pass at finalize). Same array-cardinality class
+    // already capped on the sibling public sign route's field_values.
+    if (raw.length > 200) {
+      return NextResponse.json({ error: 'Too many fields (max 200)' }, { status: 400 })
+    }
     const normalized: FieldInput[] = []
     for (const f of raw) {
       const n = normalizeField(f)
