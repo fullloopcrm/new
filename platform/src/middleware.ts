@@ -510,8 +510,20 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
   // API routes + tenant-scoped app routes that live at the root are NOT
   // rewritten under /site — they run at their own path with tenant headers
   // injected so getTenantFromHeaders() can resolve them.
+  // Every entry here MUST be bare (no trailing slash) — matchesAppRootPrefix
+  // appends its own '/' for the sub-path boundary check
+  // (`pathname.startsWith(prefix + '/')`), so a pre-slashed entry like the
+  // former '/api/' produces a literal DOUBLE slash ('/api//') that no real
+  // request path ever has, silently making that entry match nothing. See
+  // matchesAppRootPrefix's own comment above and
+  // src/middleware.app-root-prefix-boundary.test.ts's "must not carry a
+  // baked-in trailing slash" describe block for the full writeup — every
+  // tenant custom-domain/subdomain '/api/*' call (client-PIN-login POSTs,
+  // '/api/tenant-sitemap', etc.) fell through to the bottom of
+  // rewriteToSite() instead of this branch until this fix. Guarded going
+  // forward by reconcile-tenant-config.mjs's Drift AM.
   const APP_ROOT_PREFIXES = [
-    '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
+    '/api', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
   ]
   if (APP_ROOT_PREFIXES.some(p => matchesAppRootPrefix(pathname, p))) {

@@ -581,11 +581,38 @@ export function parseNextConfigRedirects(nextConfigSource) {
 // --- parse APP_ROOT_PREFIXES out of the middleware source. This is
 // rewriteToSite()'s list of pathnames that are served at their OWN root path
 // (tenant headers injected, no /site/<slug> prefix applied) rather than
-// rewritten into the tenant-sites tree — /portal, /dashboard, /api/, etc.
-// Feeds Drift X ONLY, as the "safe" destination-prefix allowlist.
+// rewritten into the tenant-sites tree — /portal, /dashboard, /api, etc.
+// Feeds Drift X (as the "safe" destination-prefix allowlist) and Drift AM
+// (see findTrailingSlashAppRootPrefixes below).
 export function parseAppRootPrefixes(middlewareSource) {
   const block = middlewareSource.match(/APP_ROOT_PREFIXES\s*=\s*\[([\s\S]*?)\]/)
   return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+}
+
+// --- given APP_ROOT_PREFIXES's raw entries, return the ones that carry a
+// trailing slash — a shape matchesAppRootPrefix (src/middleware.ts) can
+// never actually match against a real request. That function's own contract
+// is `pathname === prefix || pathname.startsWith(prefix + '/')`: it appends
+// its OWN '/' for the sub-path boundary check, so a caller-supplied prefix
+// that already ends in '/' produces a literal DOUBLE slash
+// ('/api/' + '/' === '/api//') that no real request path ever has — the
+// exact-match branch then only matches the single literal string '/api/'
+// itself (nothing after it), so the entry silently matches nothing a real
+// request would ever send. Every other APP_ROOT_PREFIXES entry ('/portal',
+// '/team', '/dashboard', '/admin', etc.) is bare, by construction — '/api/'
+// was the sole trailing-slash outlier, present since the array was first
+// introduced, and unlike robots.ts's own disallow array (Drift AJ/AK, which
+// independently normalizes a trailing slash via `prefix.replace(/\/$/, '')`
+// before comparing, masking the discrepancy from ever surfacing there) this
+// file's own PRODUCTION ROUTER has no such normalization: every tenant
+// subdomain/custom-domain '/api/*' call (client-PIN-login POSTs,
+// '/api/tenant-sitemap', etc.) fell through past this branch entirely into
+// the tenant-site rewrite at the bottom of rewriteToSite() instead of being
+// served headers-only at its real path. See Drift AM below and
+// src/middleware.app-root-prefix-boundary.test.ts's "must not carry a
+// baked-in trailing slash" describe block for the concrete before/after.
+export function findTrailingSlashAppRootPrefixes(appRootPrefixes) {
+  return appRootPrefixes.filter((p) => p.endsWith('/'))
 }
 
 // --- parse isPublicRoute's pattern array out of the middleware source. These
@@ -766,8 +793,11 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  Pass an empty array (default) to skip.
  * @param {Array}    [input.appRootPrefixes]  prefixes from src/middleware.ts's
  *                                  APP_ROOT_PREFIXES (see parseAppRootPrefixes).
- *                                  Feeds Drift X ONLY, as the safe-destination
- *                                  allowlist. Pass an empty array (default) to skip
+ *                                  Feeds Drift X (as the safe-destination
+ *                                  allowlist), Drift AJ, and Drift AM (a
+ *                                  trailing-slash entry — see
+ *                                  findTrailingSlashAppRootPrefixes).
+ *                                  Pass an empty array (default) to skip
  *                                  (treats every "/site/..." destination as unsafe).
  * @param {Set}      [input.robotsMainHostsSet]  hostnames from src/app/robots.ts's
  *                                  own hand-maintained copy of middleware's MAIN_HOSTS
@@ -1662,6 +1692,36 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
       if (!covered) {
         add('WARN', slug, `has a site/${slug}/join/ folder (a live public hiring-funnel page) but its known domain(s) [${[...domains].join(', ')}] are NOT in src/app/robots.ts's JOIN_CRAWLABLE_HOSTS -> robots.ts's default '/join/' disallow rule hides this tenant's indexed job pages from crawlers on its own domain`)
       }
+    }
+  }
+
+  // Drift AM: an APP_ROOT_PREFIXES entry (src/middleware.ts) carries a
+  // trailing slash — a shape matchesAppRootPrefix can never actually match
+  // against a real request (see findTrailingSlashAppRootPrefixes above for
+  // the full mechanism). CRIT, not WARN: unlike every other robots.ts-only
+  // check in this file (a crawlability regression, not a live break), this
+  // is a real production ROUTING bug — the affected prefix's entire
+  // app-root branch (headers-only passthrough, tenant-scoped API/page
+  // served at its own literal path) is unreachable from any tenant
+  // subdomain or custom domain; every request under it falls through to the
+  // tenant-site rewrite instead. Concrete instance found live in the current
+  // repo: '/api/' (the sole trailing-slash entry, present since the array
+  // was first introduced) meant every tenant's real '/api/*' call — the
+  // client-PIN-login POST endpoint Drift AL's own fix depends on being
+  // globally reachable, '/api/tenant-sitemap', etc. — fell through to
+  // `/site/<slug>/api/...` instead, 404ing on every bespoke tenant except
+  // the-nyc-marketing-company (whose own site/the-nyc-marketing-company/api/
+  // subtree happened to have a matching file, silently serving ITS local,
+  // unshadowed copy instead of the global handler Drift AE's own writeup
+  // already assumed was authoritative).
+  if (appRootPrefixes.length) {
+    const trailingSlashPrefixes = findTrailingSlashAppRootPrefixes(appRootPrefixes)
+    for (const prefix of trailingSlashPrefixes) {
+      add(
+        'CRIT',
+        prefix,
+        `APP_ROOT_PREFIXES entry '${prefix}' (src/middleware.ts) carries a trailing slash -> matchesAppRootPrefix('<pathname>', '${prefix}') can never match a real request (it would require a literal double slash), so every real request under this prefix on every tenant subdomain/custom domain falls through to the tenant-site rewrite instead of being served at its own reserved path -> use the bare form ('${prefix.replace(/\/$/, '')}') instead, matching every other APP_ROOT_PREFIXES entry`,
+      )
     }
   }
 

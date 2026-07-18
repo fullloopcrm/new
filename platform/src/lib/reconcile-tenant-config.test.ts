@@ -20,6 +20,7 @@ import {
   parseAllNextConfigSiteRewriteSources,
   parseNextConfigRedirects,
   parseAppRootPrefixes,
+  findTrailingSlashAppRootPrefixes,
   parseRelativeImportPaths,
   findHardcodedWwwApexDomains,
   parsePublicRoutePatterns,
@@ -2469,6 +2470,65 @@ describe('parseAppRootPrefixes', () => {
 
   it('returns an empty array when APP_ROOT_PREFIXES is absent', () => {
     expect(parseAppRootPrefixes('export default {}')).toEqual([])
+  })
+})
+
+describe('findTrailingSlashAppRootPrefixes', () => {
+  it('flags the live /api/ bug shape', () => {
+    expect(findTrailingSlashAppRootPrefixes(['/api/', '/portal', '/team'])).toEqual(['/api/'])
+  })
+
+  it('returns empty when every entry is bare, matching the post-fix array', () => {
+    expect(findTrailingSlashAppRootPrefixes(['/api', '/portal', '/team', '/dashboard', '/admin', '/fullloop', '/reset-pin'])).toEqual([])
+  })
+
+  it('flags multiple offenders', () => {
+    expect(findTrailingSlashAppRootPrefixes(['/api/', '/team/', '/admin'])).toEqual(['/api/', '/team/'])
+  })
+
+  it('returns empty for an empty list', () => {
+    expect(findTrailingSlashAppRootPrefixes([])).toEqual([])
+  })
+})
+
+describe('computeFindings — Drift AM (APP_ROOT_PREFIXES entry carries a trailing slash matchesAppRootPrefix can never match)', () => {
+  it('CRITs on the live pre-fix /api/ shape', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/api/', '/portal', '/team'],
+    })
+    const crit = findings.find((f) => f.slug === '/api/')
+    expect(crit).toBeDefined()
+    expect(crit!.sev).toBe('CRIT')
+    expect(crit!.msg).toContain('can never match a real request')
+    expect(crit!.msg).toContain("use the bare form ('/api')")
+  })
+
+  it('is silent once the entry is bare, matching the post-fix array', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/api', '/portal', '/team', '/dashboard', '/admin', '/fullloop', '/reset-pin'],
+    })
+    expect(findings.filter((f) => f.msg.includes('can never match a real request'))).toHaveLength(0)
+  })
+
+  it('is skipped entirely when appRootPrefixes is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('can never match a real request'))).toHaveLength(0)
   })
 })
 
