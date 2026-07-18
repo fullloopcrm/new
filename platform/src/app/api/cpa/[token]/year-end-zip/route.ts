@@ -5,12 +5,24 @@ import { NextResponse } from 'next/server'
 import JSZip from 'jszip'
 import { supabaseAdmin } from '@/lib/supabase'
 import { toCsv, buildTrialBalance, buildGeneralLedger } from '@/lib/finance-export'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
 export async function GET(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    // Sibling public-token routes (invoices/public checkout, quotes/public
+    // deposit-checkout) are all capped per-token; this one builds a trial
+    // balance + general ledger over up to 200k journal lines and zips them
+    // on every hit, making it the most expensive of the bunch, yet had no
+    // cap at all. Same rateLimitDb convention used elsewhere in this branch.
+    const rl = await rateLimitDb(`cpa-year-end-zip:${token}`, 20, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many requests. Try again shortly.' }, { status: 429 })
+    }
+
     const url = new URL(request.url)
     const year = url.searchParams.get('year') || String(new Date().getUTCFullYear() - 1)
 
