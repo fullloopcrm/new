@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { encryptSecret, decryptSecret, isEncrypted } from '@/lib/secret-crypto'
 
 export type SocialPlatform = 'facebook' | 'instagram' | 'tiktok'
 
@@ -24,7 +25,20 @@ export async function getSocialAccounts(tenantId: string): Promise<SocialAccount
     .eq('tenant_id', tenantId)
     .order('connected_at', { ascending: false })
 
-  return (data || []) as SocialAccount[]
+  const accounts = (data || []) as SocialAccount[]
+
+  // Decrypt access_token if encrypted; legacy plaintext rows pass through
+  // unchanged (decryptSecret is a no-op on non-"v1:" values). A single
+  // corrupt/undecryptable row shouldn't break the whole list.
+  return accounts.map((a) => {
+    if (!a.access_token || !isEncrypted(a.access_token)) return a
+    try {
+      return { ...a, access_token: decryptSecret(a.access_token) }
+    } catch (err) {
+      console.error(`[social] access_token decrypt failed for account ${a.id}:`, err)
+      return { ...a, access_token: '' }
+    }
+  })
 }
 
 /**
@@ -41,6 +55,22 @@ export async function saveSocialAccount(
     page_id?: string
   },
 ): Promise<void> {
+  // Encrypt the long-lived OAuth token at rest, matching the tenants-table
+  // vendor-secret pattern (encryptTenantSecrets) -- Facebook/Instagram page
+  // tokens derived from a long-lived user token don't expire, so a plaintext
+  // DB row is a standing credential, not a short-lived one. Degrade to
+  // plaintext in dev where SECRET_ENCRYPTION_KEY isn't set, same as
+  // google.ts's saveGoogleTokens.
+  let accessToken = accountData.access_token
+  if (accessToken) {
+    try {
+      accessToken = encryptSecret(accessToken)
+    } catch (err) {
+      if (process.env.NODE_ENV === 'production') throw err
+      console.warn('[social] SECRET_ENCRYPTION_KEY not set — storing access_token in plaintext (dev only)')
+    }
+  }
+
   await supabaseAdmin
     .from('social_accounts')
     .upsert({
@@ -48,7 +78,7 @@ export async function saveSocialAccount(
       platform,
       account_id: accountData.account_id,
       account_name: accountData.account_name,
-      access_token: accountData.access_token,
+      access_token: accessToken,
       token_expires_at: accountData.token_expires_at || null,
       page_id: accountData.page_id || null,
       connected_at: new Date().toISOString(),
