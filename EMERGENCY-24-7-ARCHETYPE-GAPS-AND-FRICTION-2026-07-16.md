@@ -11764,3 +11764,61 @@ existing regex, and every prior test all passing). db-backup.yml WAS
 intentionally touched this round (one-line curl fix) -- a genuine
 production gap on the fourth curl call of this surface, not only a
 coverage gap.
+
+## (231) Fresh ground -- the reconcile GATE's own sql() helper made the SAME
+class of unbounded third-party network call, via fetch() not curl
+
+Items (227)-(230) closed the unbounded-network-call class on four `curl`
+calls across ci.yml/tenant-config-reconcile.yml/db-backup.yml. Re-reading
+scripts/reconcile-tenant-config.mjs (W3's own PR9 script, the drift gate
+tenant-config-reconcile.yml runs) surfaced the identical shape one layer
+deeper: its `sql()` helper's `fetch()` call to
+`https://api.supabase.com/v1/projects/${REF}/database/query` had no
+`signal:`/`AbortSignal.timeout(...)` -- fetch() has no default response
+timeout, same as curl. Grepping every guard test file in this lane for
+"AbortSignal" or "fetch.*timeout" before writing this guard turned up
+nothing.
+
+`sql()` is called up to 5 times per run -- 4 inside `main()`'s
+`Promise.all([...])` (tenants/tenant_domains/allTenantDomains/allTenants)
+plus 1 more sequential call for Drift L's `resolvableSlugs` query, which
+fires whenever `bespokeSet` is non-empty (always true in this repo). A DNS
+hang or slow-drip response from api.supabase.com on ANY one of those 5
+calls would silently consume the `reconcile:` job's entire timeout-minutes
+budget (reconcile-gate-wiring.test.ts pins that job-level bound exists, but
+had no per-call bound underneath it) before the drift report -- the entire
+point of this gate -- is ever produced, instead of failing fast on the one
+hung call and leaving room for a retry or at least a fast, diagnosable
+failure. Same reasoning as (227)-(230), different transport (fetch, not
+curl) and a different file class (the script's own network call, not a CI
+YAML step).
+
+**Fixed:** added `signal: AbortSignal.timeout(30_000)` to the fetch() call
+in `sql()` (same 30s bound already used for every curl `--max-time` in this
+lane). Closed with a new guard,
+`reconcile-sql-fetch-timeout-guard.test.ts`, pure-source-reading
+`scripts/reconcile-tenant-config.mjs`'s `sql()` helper block the same way
+the CI-YAML guards read the workflow files.
+
+**Mutation-verified live:** wrote the new guard against the pre-fix script
+(bare `fetch(url, { method, headers, body })`, no `signal:`) -- failed with
+the exact predicted message. Applied the fix, guard went green. Confirmed
+`git diff --stat platform/scripts/reconcile-tenant-config.mjs` showed only
+the intended one-line-plus-comment fix.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean on both touched files, full vitest suite green
+(492 files / 2457 tests -- the new file's 3 assertions plus every prior
+test still passing). scripts/reconcile-tenant-config.mjs WAS intentionally
+touched this round (one-line `signal:` fix) -- a genuine production gap on
+the gate script itself, not only a coverage gap.
+
+Noticed but OUT of this lane's ownership (W3 owns PR9's
+scripts/reconcile-tenant-config.mjs + CI under .github/workflows only): the
+identical unbounded `fetch()` shape (same `https://api.supabase.com/v1/
+projects/${REF}/database/query` call, no `signal:`) also exists in
+scripts/dedupe-clients-email.mjs:130 and scripts/audit-funnel-mode.mjs:90.
+Neither is wired into any .github/workflows file today (grepped both
+script basenames across .github/workflows/, zero hits) -- they are
+run-manually/local-dev scripts, not CI-gating, so they sit outside this
+lane's CI-wiring scope. Flagging for whichever lane owns those scripts.
