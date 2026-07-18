@@ -27,6 +27,7 @@ import {
   parseAdminBypassPrefixes,
   findShadowedAdminBypassPrefixes,
   parseJoinCrawlableHosts,
+  parseRobotsDisallowList,
   computeFindings,
   summarize,
   loadToken,
@@ -3466,5 +3467,102 @@ describe('computeFindings — Drift AI (bespoke tenant has a site/<slug>/join fo
       joinCrawlableHosts: new Set(),
     })
     expect(findings.filter((f) => f.msg.includes("join/ folder")).length).toBe(0)
+  })
+})
+
+describe('parseRobotsDisallowList', () => {
+  it('extracts the path prefixes from a robots.ts disallow array declaration', () => {
+    const src = `
+      const disallow = [
+        '/dashboard/',
+        '/admin/',
+        "/api/",
+      ]
+      if (isMainHost) disallow.push('/apply')
+    `
+    const list = parseRobotsDisallowList(src)
+    expect(list).toEqual(['/dashboard/', '/admin/', '/api/'])
+  })
+
+  it('does not pick up conditional disallow.push() entries after the array literal', () => {
+    const src = `
+      const disallow = ['/dashboard/']
+      disallow.push('/join/')
+    `
+    expect(parseRobotsDisallowList(src)).toEqual(['/dashboard/'])
+  })
+
+  it('returns an empty array when the declaration is absent', () => {
+    expect(parseRobotsDisallowList('export default {}')).toEqual([])
+  })
+})
+
+describe('computeFindings — Drift AJ (APP_ROOT_PREFIXES entry with no matching robots.ts disallow rule)', () => {
+  it('warns when an APP_ROOT_PREFIXES entry has no matching disallow entry at all', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/fullloop', '/reset-pin'],
+      robotsDisallowList: ['/dashboard/', '/admin/'],
+    })
+    expect(findings.find((f) => f.slug === '/fullloop')).toBeDefined()
+    expect(findings.find((f) => f.slug === '/reset-pin')).toBeDefined()
+    const warn = findings.find((f) => f.slug === '/fullloop')
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain("robots.ts's disallow array")
+  })
+
+  it('does not warn when the prefix exact-matches a disallow entry after trailing-slash normalization', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/portal', '/dashboard'],
+      robotsDisallowList: ['/portal/', '/dashboard/'],
+    })
+    expect(findings.some((f) => f.slug === '/portal' || f.slug === '/dashboard')).toBe(false)
+  })
+
+  it('does not warn when a multi-segment prefix is covered by a shorter, boundary-matched disallow entry', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/reviews/submit'],
+      robotsDisallowList: ['/reviews/'],
+    })
+    expect(findings.some((f) => f.slug === '/reviews/submit')).toBe(false)
+  })
+
+  it('does not treat a bare prefix as covering an unrelated route that merely shares its leading characters', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/apiary'],
+      robotsDisallowList: ['/api/'],
+    })
+    expect(findings.some((f) => f.slug === '/apiary')).toBe(true)
+  })
+
+  it('is skipped entirely when appRootPrefixes is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      robotsDisallowList: [],
+    })
+    expect(findings.filter((f) => f.msg.includes("robots.ts's disallow array")).length).toBe(0)
   })
 })

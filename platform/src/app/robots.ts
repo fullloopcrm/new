@@ -24,7 +24,16 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     ? 'https://homeservicesbusinesscrm.com'
     : `https://${host}`
 
-  // Private app surfaces — disallowed on every host (main + tenant).
+  // Private app surfaces — disallowed on every host (main + tenant). Kept in
+  // sync with middleware.ts's APP_ROOT_PREFIXES by hand (that file can't be
+  // imported here at build time) — every reserved, non-token-gated
+  // APP_ROOT_PREFIXES entry needs an equivalent line here, since each one
+  // serves at its own literal, unauthenticated path on every tenant custom
+  // domain. '/fullloop' (operator PIN login) and '/reset-pin' (PIN reset)
+  // are auth surfaces exactly like '/sign-in/' above; '/reviews/submit' is a
+  // fixed, non-token-gated form (unlike the genuinely token-gated
+  // '/quote/(.*)', '/invoice/(.*)', '/sign/(.*)' public flows, which are
+  // intentionally NOT listed here).
   const disallow = [
     '/dashboard/',
     '/admin/',
@@ -36,6 +45,9 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/onboarding/',
     '/unsubscribe',
     '/stripe-onboard/',
+    '/fullloop',
+    '/reset-pin',
+    '/reviews/submit',
   ]
 
   // /join is invite-acceptance (private) on most hosts, so it's blocked by

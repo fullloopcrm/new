@@ -354,6 +354,26 @@ export function parseJoinCrawlableHosts(robotsSource) {
   return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
+// --- parse src/app/robots.ts's own hardcoded `disallow` array literal — the
+// baseline list of private-app-surface path prefixes disallowed on every
+// host (main + tenant), BEFORE the conditional '/join/' and '/apply'
+// disallow.push() calls below it (those are covered separately: '/apply' by
+// parseRobotsKilledRoutes/Drift AA, '/join/' by JOIN_CRAWLABLE_HOSTS/Drift
+// AH-AI). This is a FOURTH hand-maintained hardcoded list in that file
+// (alongside its MAIN_HOSTS copy, KILLED_ROUTES copy, and
+// JOIN_CRAWLABLE_HOSTS), but unlike the first two it is not a copy of any
+// single middleware.ts array — nothing ties it to middleware's
+// APP_ROOT_PREFIXES (see parseAppRootPrefixes), even though every
+// APP_ROOT_PREFIXES entry serves at its own literal, non-token-gated path on
+// every tenant custom domain and is therefore exactly as globally
+// crawlable/private as '/dashboard/' or '/admin/', which this array already
+// covers. See Drift AJ below for what happens when a new APP_ROOT_PREFIXES
+// entry is added without a matching disallow entry here.
+export function parseRobotsDisallowList(robotsSource) {
+  const block = robotsSource.match(/const disallow = \[([\s\S]*?)\]/)
+  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+}
+
 // --- given KILLED_ROUTES and a map of route -> [relative page/route.ts file
 // paths found on disk directly under src/app/<route>], return the ones that
 // are permanently unreachable in production. isMainHost() && isKilledRoute()
@@ -761,9 +781,16 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  coverage set) Drift AI. Pass an empty Set
  *                                  (default) to skip AH; AI still needs
  *                                  bespokeSiteTopLevelDirs to run at all.
+ * @param {Array}    [input.robotsDisallowList]  path prefixes from
+ *                                  src/app/robots.ts's own hardcoded
+ *                                  `disallow` array literal (see
+ *                                  parseRobotsDisallowList). Feeds Drift AJ
+ *                                  ONLY, as the coverage list checked against
+ *                                  appRootPrefixes. Pass an empty array
+ *                                  (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [], joinCrawlableHosts = new Set() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [], joinCrawlableHosts = new Set(), robotsDisallowList = [] }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1571,6 +1598,48 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AJ: an APP_ROOT_PREFIXES entry (src/middleware.ts — see
+  // parseAppRootPrefixes) has no corresponding rule in src/app/robots.ts's
+  // own hardcoded `disallow` array (see parseRobotsDisallowList).
+  // rewriteToSite()'s matchesAppRootPrefix check (Drift AE above) means
+  // every APP_ROOT_PREFIXES entry serves at its OWN literal path — tenant
+  // headers injected, no auth gate of any kind — on EVERY tenant custom
+  // domain (that routing block runs BEFORE isPublicRoute is ever
+  // consulted), not just the main host. A reserved route missing here is
+  // therefore just as globally crawlable/indexable as '/dashboard/' or
+  // '/admin/' (both of which ARE in the disallow array), with zero drift
+  // signal anywhere else in this file. Concrete instances found live in the
+  // current repo: '/fullloop' (the per-tenant operator PIN login page) and
+  // '/reset-pin' (the self-service PIN reset page) are both real, fixed,
+  // non-token-gated pages reachable on every tenant domain — structurally
+  // identical in sensitivity to '/sign-in/' and '/admin-login', which ARE
+  // disallowed — yet neither has ever been added here. '/reviews/submit' is
+  // the third: a fixed, non-token-gated review-submission FORM, unlike the
+  // genuinely token-gated '/quote/(.*)', '/invoice/(.*)', '/sign/(.*)'
+  // public flows this check deliberately does not flag (those are
+  // unguessable per-visit URLs, not reserved fixed prefixes, so being
+  // absent from a static disallow list is correct for them). Coverage is
+  // checked as an exact match OR a path-segment-bounded prefix match
+  // (normalized by stripping one trailing '/' from each side) — the same
+  // boundary discipline Drift AE/AF/AG already apply to this file's other
+  // path-matching checks, so e.g. '/api/' is correctly covered by robots.ts's
+  // own '/api/' entry without also treating an unrelated '/apiary' route as
+  // covered by a bare '/api' entry.
+  if (appRootPrefixes.length) {
+    const normDisallow = robotsDisallowList.map((d) => d.replace(/\/$/, ''))
+    for (const prefix of appRootPrefixes) {
+      const normPrefix = prefix.replace(/\/$/, '')
+      const covered = normDisallow.some((d) => normPrefix === d || normPrefix.startsWith(d + '/'))
+      if (!covered) {
+        add(
+          'WARN',
+          prefix,
+          `APP_ROOT_PREFIXES entry '${prefix}' (src/middleware.ts) serves at its own literal path — tenant headers injected, no auth gate — on every tenant custom domain, but has no corresponding rule in src/app/robots.ts's disallow array -> this reserved route is crawlable/indexable on every tenant domain even though it is just as private as '/dashboard/' or '/admin/', which the disallow array does cover`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1643,6 +1712,7 @@ async function main() {
   const robotsMainHostsSet = parseRobotsMainHostsSet(robotsSource)
   const robotsKilledRoutesSet = parseRobotsKilledRoutes(robotsSource)
   const joinCrawlableHosts = parseJoinCrawlableHosts(robotsSource)
+  const robotsDisallowList = parseRobotsDisallowList(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -1780,7 +1850,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows, joinCrawlableHosts })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows, joinCrawlableHosts, robotsDisallowList })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
