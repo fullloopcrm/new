@@ -204,8 +204,28 @@ const isPublicRoute = createRouteMatcher([
   '/welcome',                  // Post-Stripe-payment landing page
   '/api/prospects',            // Public prospect intake
   '/api/territories/options',  // Public territory + service-category options for lead forms
-  '/api/client(.*)',           // Ported nycmaid client-portal routes — tenant
-                               // resolved via signed x-tenant-id header, not Clerk
+  '/api/client/(.*)',          // Ported nycmaid client-portal routes — tenant
+                               // resolved via signed x-tenant-id header, not Clerk.
+                               // MUST keep the literal trailing '/' before (.*):
+                               // createRouteMatcher's pattern->regex conversion has
+                               // no path-segment boundary of its own ('(.*)' becomes
+                               // bare '.*', not '(?:/.*)?'), so the old bare
+                               // '/api/client(.*)' matched ANY pathname merely
+                               // PREFIXED by "client" — including /api/clients (the
+                               // full CRM customer API) and /api/client-reviews —
+                               // silently marking them "public" and skipping this
+                               // file's entire Clerk/admin-impersonation gate for
+                               // them. Not a live data leak (both routes self-gate
+                               // via getTenantForRequest()/requirePermission(),
+                               // which still requires a valid Clerk session or
+                               // admin_token), but it silently satisfied
+                               // /api/client-reviews's only currently-working auth
+                               // path — admin PIN impersonation — by accident, since
+                               // isPublicRoute short-circuits before the
+                               // admin-impersonation allowlist below is ever
+                               // consulted. See that allowlist's own new
+                               // '/api/client-reviews' entry for why narrowing this
+                               // pattern required adding it there.
   '/api/cleaner-applications', // Alias → /api/team-applications
   '/api/errors',               // Client-side error reporting — runs from any page
   '/api/track',                // Visit tracking pixel
@@ -328,6 +348,14 @@ export default async function middleware(req: NextRequest) {
     if (adminCookie && verifyAdminTokenEdge(adminCookie, process.env.ADMIN_TOKEN_SECRET)) {
       const p = req.nextUrl.pathname
       if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') || p.startsWith('/api/clients') ||
+          // client-reviews' only real caller (src/app/dashboard/reviews/page.tsx,
+          // reachable from the dashboard nav) hits this via requirePermission() ->
+          // getTenantForRequest(), the same admin-impersonation-aware helper every
+          // other prefix in this list exists to unblock. It was previously
+          // unlisted here because isPublicRoute's old unbounded '/api/client(.*)'
+          // pattern accidentally already let it through — see that pattern's own
+          // comment above for why narrowing it made this entry required.
+          p.startsWith('/api/client-reviews') ||
           p.startsWith('/api/team') || p.startsWith('/api/finance') || p.startsWith('/api/campaigns') ||
           p.startsWith('/api/referrals') || p.startsWith('/api/settings') || p.startsWith('/api/google') ||
           p.startsWith('/api/social') || p.startsWith('/api/changelog') || p.startsWith('/api/feedback') ||

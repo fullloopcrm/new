@@ -8340,3 +8340,156 @@ leaving it. Did not delete the two dead `unsubscribe` page forks either —
 leaving disposition (delete vs. otherwise) to whoever owns that tenant
 pair, same posture as this file's existing `KNOWN_PENDING_ORPHANS`
 convention for other undecided cleanup.
+
+## (181) New fresh-ground surface — `isPublicRoute`'s `/api/client(.*)`
+pattern had no path-segment boundary, silently marking `/api/clients` and
+`/api/client-reviews` fully public
+
+`src/middleware.ts` replaced Clerk's own middleware with a hand-rolled
+`createRouteMatcher()` + `isPublicRoute` allowlist, plus a SEPARATE
+admin-impersonation bypass allowlist (the `p.startsWith(...)` chain a few
+lines below it) for routes that stay behind auth but must still work while
+an admin is PIN-impersonating a tenant. `createRouteMatcher`'s pattern ->
+regex conversion has no path-segment boundary of its own: `'(.*)'` becomes
+a bare `.*`, not `(?:/.*)?` — the exact same shape of bug as (180)'s
+`matchesAppRootPrefix`, just in this file's OTHER boundary-sensitive
+matcher, one this lane's reconcile gate had never examined (every existing
+Drift check reconciles tenant-SITE routing; none looked at this auth-gate
+matcher at all).
+
+`isPublicRoute`'s `'/api/client(.*)'` entry — added, per its own comment,
+only for the ported nycmaid client-portal routes at `/api/client/...` —
+compiles to `^/api/client.*$`, which also matches `/api/clients` (the full
+CRM customer API) and `/api/client-reviews` (the dashboard's
+review-request feature, driven by `src/app/dashboard/reviews/page.tsx`,
+live in the nav). Both were silently marked fully public, skipping
+middleware's entire Clerk-redirect + admin-impersonation-bypass gate —
+`isPublicRoute` is checked first and short-circuits past both.
+
+Traced the actual live impact, since a self-gated route is a documented,
+deliberate pattern elsewhere in this file (`/api/uploads`,
+`/api/push/subscribe`, etc.): both `/api/clients/route.ts` and
+`/api/client-reviews/route.ts` call
+`getTenantForRequest()`/`requirePermission()`, which independently
+requires a valid Clerk session or `admin_token` cookie — an anonymous
+caller still gets a 401 from the route itself, so this is not a live data
+leak. But it IS a real, silent contradiction between two independently-
+maintained lists in this file: `/api/clients` is ALSO explicitly listed in
+the admin-impersonation bypass allowlist (whoever wrote that entry assumed
+`/api/clients` actually reaches that check — it never did, because
+`isPublicRoute` already swallowed it first), and — more consequentially —
+**`/api/client-reviews`'s only currently-working auth path is admin PIN
+impersonation**, since this repo's owner-Clerk-login is dormant
+(`src/middleware.ts`'s own comment: "Owner login is dormant (moved off
+Clerk). Protected owner routes that aren't admin-impersonated redirect to
+sign-in until the session-based owner login is wired (P5)."). Reviews
+worked today only by accident, swallowed as "public" by the same regex
+bug that also over-broadly exposed `/api/clients`.
+
+**Fixed the routing bug**: narrowed the pattern to `'/api/client/(.*)'`
+(matching only the intended nycmaid client-portal subtree), and added the
+now-required `/api/client-reviews` entry to the admin-impersonation bypass
+allowlist (verified its live caller — `src/app/dashboard/reviews/page.tsx`
+— goes through `requirePermission()` -> `getTenantForRequest()`, the exact
+helper every other bypass-list entry exists to unblock). `/api/clients`
+needed no allowlist change — it was already listed there, just
+unreachable. New
+`src/middleware.client-reviews-public-route-boundary.test.ts` (7 tests)
+pins the real `middleware()` function's behavior directly (not a regex
+reimplementation): the intended `/api/client/bookings` path stays fully
+public with no cookie at all; `/api/clients` and `/api/client-reviews` now
+correctly redirect to `/sign-in` when unauthenticated and correctly pass
+through with a valid `admin_token`; `/api/client-analytics` (separately,
+deliberately, already public) is unaffected. Mutation-verified: reverted
+both halves of the fix, 2/7 assertions failed for the right reason,
+re-applied, green again.
+
+## (182) Continuing (181)'s surface — added Drift AF so a future unbounded
+`isPublicRoute` pattern surfaces automatically instead of requiring
+another manual audit
+
+(181)'s bug was found by hand: reading every `isPublicRoute` pattern
+shaped `<literal>(.*)` with no boundary, then checking whether any OTHER
+real `/api/` directory shares its leading characters. That is exactly the
+kind of manual sweep (180)'s Drift AE generalized into an automated check
+for the sibling `APP_ROOT_PREFIXES` matcher — so it gets the same
+treatment here.
+
+New exported `parsePublicRoutePatterns(middlewareSource)` extracts
+`isPublicRoute`'s pattern array (same `stripComments` + quoted-string-
+extraction convention as every other `parseX` in this file). New exported
+`findUnboundedApiPublicRouteCollisions(patterns, apiDirNames)` reproduces
+`createRouteMatcher`'s EXACT regex conversion (not an approximation of
+it) and, for every single-segment `/api/<name>(.*)` pattern, tests it
+against every other real top-level `/api/` directory name; scoped
+deliberately to single-segment patterns only (same scoping Drift AE uses
+for `APP_ROOT_PREFIXES` — a multi-segment pattern like
+`/api/quotes/public(.*)` needs a directory listing one level deeper, and
+no live instance of that shape exists today). `main()` feeds it from a
+plain `readdirSync` of `src/app/api/` — pure static analysis, no DB, no
+network.
+
+**Added Drift AF**: WARN (not CRIT, matching Drift AE's severity —
+self-gating means this is not automatically a live data leak, so it
+surfaces for a human decision rather than gating CI red) for every
+directory an unbounded pattern accidentally makes public. New test
+coverage in `src/lib/reconcile-tenant-config.test.ts` (12 tests:
+`parsePublicRoutePatterns`, `findUnboundedApiPublicRouteCollisions`, and
+the `computeFindings` integration) pins the exact live (181) case —
+`/api/client(.*)` colliding with `clients`/`client-reviews`/
+`client-analytics` — plus the negative cases (self-match excluded,
+unrelated dirs not flagged, the fixed bounded pattern is a no-op,
+multi-segment patterns ignored, a pattern with no `(.*)` ignored,
+non-`/api/` patterns ignored). Mutation-verified: stubbed the
+collision-push condition to `false`, the live-bug test failed for the
+right reason, re-applied, green again.
+
+Ran the new check against this repo's REAL `src/middleware.ts` and
+`src/app/api/` listing before writing this up, not just its synthetic test
+fixtures (checked, not assumed, the same discipline (179) used for its own
+"did I actually broaden the search" claim) — and it found one MORE real
+collision beyond the (181) case: `/api/admin(.*)` also matches
+`/api/admin-auth` and `/api/admin-chat`. Confirmed harmless — both are
+ALSO separately, deliberately, explicitly listed as their own
+`isPublicRoute` entries (`/api/admin-auth(.*)`, `/api/admin-chat(.*)`), so
+the collision changes nothing about either route's live behavior — but
+Drift AF correctly surfaces it anyway (WARN, not suppressed) rather than
+special-casing it out, consistent with this whole file's "surface
+everything a human should confirm, gate nothing that isn't confirmed
+dangerous" policy for WARN-severity checks. Left it unfixed — it is a
+duplicate-but-harmless allowlist pair, not a routing gap, and this lane's
+own precedent (Drift O's benign-dead-entry findings) is to report rather
+than silently prune. No other single-segment `/api/` pattern in the
+current list collides with anything.
+
+`tsc --noEmit` clean. Full repo suite: 459/459 files, 2212/2212 tests (19
+new: 7 in the middleware boundary test, 12 in the reconcile-gate test —
+zero regressions, same pre-existing unrelated `fixture/route.ts`
+tenant-scope baseline warning every prior report in this doc has flagged).
+`eslint` clean on every file this round touched (scoped lint, not a
+full-repo run).
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. Verified the new Drift AF logic against the real
+repo instead via its pure, DB-free functions directly (see above), not by
+running the CLI. The CLI/token-guard contract itself is unchanged by this
+round's fix (only `computeFindings`'s Drift-check surface and the pure
+static-analysis inputs feeding it changed); CI's own "Verify token-guard
+skips clean without a secret" step in `tenant-config-reconcile.yml` is the
+authoritative check for that path and runs unmodified.
+
+Noticed, not fixed (out of this lane's CI-wiring scope — a
+security-posture question for the leader/Jeff, not a code bug): `/api/clients`
+staying explicitly listed in the admin-impersonation bypass allowlist even
+though it was unreachable there (shadowed by `isPublicRoute`) means that
+entry's presence was never actually exercised live — the same "an
+allowlist entry can silently drift from the thing it assumes" risk shape
+Drift V already watches for on the `KNOWN_PENDING_ORPHANS` allowlist, just
+for this different list. Did not generalize Drift V's "stale-allowlist-
+entry" pattern to this admin-impersonation-bypass list in this round —
+flagging it as a natural next surface rather than folding it in
+unannounced.

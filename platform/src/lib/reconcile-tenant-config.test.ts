@@ -22,6 +22,8 @@ import {
   parseAppRootPrefixes,
   parseRelativeImportPaths,
   findHardcodedWwwApexDomains,
+  parsePublicRoutePatterns,
+  findUnboundedApiPublicRouteCollisions,
   computeFindings,
   summarize,
   loadToken,
@@ -3041,5 +3043,109 @@ describe('computeFindings — Drift AE (bespoke tenant folder collides with a re
       bespokeSiteTopLevelDirs: new Map([['acme', ['services', 'about']]]),
     })
     expect(findings.filter((f) => f.msg.includes('permanently unreachable'))).toHaveLength(0)
+  })
+})
+
+describe('parsePublicRoutePatterns', () => {
+  it('extracts every pattern out of the isPublicRoute createRouteMatcher array', () => {
+    const src = `
+const isPublicRoute = createRouteMatcher([
+  '/',
+  '/api/client/(.*)',   // comment
+  '/api/webhooks(.*)',
+])
+`
+    expect(parsePublicRoutePatterns(src)).toEqual(['/', '/api/client/(.*)', '/api/webhooks(.*)'])
+  })
+
+  it('strips a commented-out pattern (same convention as every other parseX here)', () => {
+    const src = `
+const isPublicRoute = createRouteMatcher([
+  '/api/kept',
+  // '/api/removed',
+])
+`
+    expect(parsePublicRoutePatterns(src)).toEqual(['/api/kept'])
+  })
+
+  it('returns an empty array when the block is missing', () => {
+    expect(parsePublicRoutePatterns('export default function middleware() {}')).toEqual([])
+  })
+})
+
+describe('findUnboundedApiPublicRouteCollisions', () => {
+  it('flags the live bug: /api/client(.*) also matching /api/clients and /api/client-reviews', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(
+      ['/api/client(.*)'],
+      ['client', 'clients', 'client-reviews', 'client-analytics', 'bookings'],
+    )
+    const dirs = collisions.map((c) => c.collidesWithDir).sort()
+    expect(dirs).toEqual(['client-analytics', 'client-reviews', 'clients'])
+  })
+
+  it('does not flag the pattern colliding with itself', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(['/api/webhooks(.*)'], ['webhooks'])
+    expect(collisions).toEqual([])
+  })
+
+  it('does not flag an unrelated directory', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(['/api/client(.*)'], ['bookings', 'invoices'])
+    expect(collisions).toEqual([])
+  })
+
+  it('is a no-op once the pattern carries its own path-segment boundary (the fix)', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(
+      ['/api/client/(.*)'],
+      ['client', 'clients', 'client-reviews'],
+    )
+    expect(collisions).toEqual([])
+  })
+
+  it('ignores multi-segment patterns entirely (e.g. /api/quotes/public(.*))', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(['/api/quotes/public(.*)'], ['quotes'])
+    expect(collisions).toEqual([])
+  })
+
+  it('ignores a pattern with no (.*) at all', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(['/api/health'], ['health', 'healthcheck'])
+    expect(collisions).toEqual([])
+  })
+
+  it('ignores a non-/api/ pattern', () => {
+    const collisions = findUnboundedApiPublicRouteCollisions(['/team(.*)'], ['team'])
+    expect(collisions).toEqual([])
+  })
+})
+
+describe('computeFindings — Drift AF (isPublicRoute pattern accidentally matches an unrelated /api/ directory)', () => {
+  it('warns on the live /api/client(.*) case, once per accidentally-public directory', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      apiPublicRouteCollisions: [
+        { pattern: '/api/client(.*)', literalDir: 'client', collidesWithDir: 'clients' },
+        { pattern: '/api/client(.*)', literalDir: 'client', collidesWithDir: 'client-reviews' },
+      ],
+    })
+    const warns = findings.filter((f) => f.msg.includes('has no path-segment boundary'))
+    expect(warns).toHaveLength(2)
+    expect(warns.every((f) => f.sev === 'WARN')).toBe(true)
+    expect(warns.map((f) => f.slug).sort()).toEqual(['client-reviews', 'clients'])
+    expect(warns[0].msg).toContain("isPublicRoute pattern '/api/client(.*)'")
+    expect(warns[0].msg).toContain('skipping its entire Clerk/admin-impersonation gate')
+  })
+
+  it('is skipped entirely when apiPublicRouteCollisions is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('has no path-segment boundary'))).toHaveLength(0)
   })
 })

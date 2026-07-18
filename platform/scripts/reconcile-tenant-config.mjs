@@ -508,6 +508,48 @@ export function parseAppRootPrefixes(middlewareSource) {
   return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
 }
 
+// --- parse isPublicRoute's pattern array out of the middleware source. These
+// patterns are compiled by createRouteMatcher() into anchored regexes —
+// '(.*)' is replaced with a BARE '.*' (no path-segment boundary of its own,
+// unlike matchesAppRootPrefix's explicit `pathname === p || pathname.startsWith(p
+// + '/')` check) — so a single-segment pattern like '/api/client(.*)' can
+// accidentally match a DIFFERENT, unrelated /api/ directory that merely shares
+// the same leading characters. Feeds Drift AF ONLY.
+export function parsePublicRoutePatterns(middlewareSource) {
+  const block = middlewareSource.match(/const isPublicRoute = createRouteMatcher\(\[([\s\S]*?)\]\)/)
+  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+}
+
+// --- given isPublicRoute's patterns and every real top-level directory name under
+// src/app/api/, find a single-segment '/api/<name>(.*)' pattern that also matches a
+// DIFFERENT top-level api directory — reproducing the EXACT regex
+// createRouteMatcher builds (see parsePublicRoutePatterns above), not an
+// approximation of it, so this test can never diverge from the live matcher's real
+// behavior. Concrete instance that motivated this check: '/api/client(.*)'
+// (intended only for the ported nycmaid client-portal routes at /api/client/...)
+// also matched /api/clients (the full CRM customer API) and /api/client-reviews,
+// silently marking both fully public — skipping middleware's ENTIRE
+// Clerk-session-redirect and admin-impersonation-bypass-allowlist gate for them,
+// since isPublicRoute is checked first and short-circuits past both. Scoped
+// deliberately to single-segment patterns only (the same scoping Drift AE uses for
+// APP_ROOT_PREFIXES): a multi-segment pattern like '/api/quotes/public(.*)' needs a
+// directory listing one level deeper to check for a real collision, and no live
+// instance of that shape exists today.
+export function findUnboundedApiPublicRouteCollisions(patterns, apiDirNames) {
+  const collisions = []
+  for (const pattern of patterns) {
+    const m = pattern.match(/^\/api\/([^/]+)\(\.\*\)$/)
+    if (!m) continue
+    const literalDir = m[1]
+    const re = new RegExp('^' + pattern.replace(/\(\.\*\)/g, '.*') + '$')
+    for (const dir of apiDirNames) {
+      if (dir === literalDir) continue
+      if (re.test(`/api/${dir}`)) collisions.push({ pattern, literalDir, collidesWithDir: dir })
+    }
+  }
+  return collisions
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -622,9 +664,17 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  main() and findShadowedAppRootPages).
  *                                  Feeds Drift AE ONLY. Pass an empty Map
  *                                  (default) to skip.
+ * @param {Array}    [input.apiPublicRouteCollisions]  { pattern, literalDir,
+ *                                  collidesWithDir } entries from
+ *                                  findUnboundedApiPublicRouteCollisions — an
+ *                                  isPublicRoute pattern (src/middleware.ts) that
+ *                                  accidentally also matches a different real
+ *                                  /api/ directory than the one it names. Feeds
+ *                                  Drift AF ONLY. Pass an empty array (default) to
+ *                                  skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [] }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1322,6 +1372,34 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AF: an isPublicRoute pattern (src/middleware.ts) whose compiled regex —
+  // createRouteMatcher has NO path-segment boundary before '(.*)', unlike
+  // rewriteToSite()'s explicit matchesAppRootPrefix check — accidentally matches a
+  // DIFFERENT top-level /api/ directory than the one it names (see
+  // findUnboundedApiPublicRouteCollisions above). Any such directory is silently
+  // treated as fully public: middleware's ENTIRE Clerk-session-redirect AND
+  // admin-impersonation-bypass-allowlist gate (the p.startsWith(...) chain a few
+  // lines below isPublicRoute in src/middleware.ts) is skipped for it, because
+  // isPublicRoute is checked first and short-circuits past both. Concrete instance
+  // that motivated this check: '/api/client(.*)' (intended only for the ported
+  // nycmaid client-portal routes at /api/client/...) also matched /api/clients (the
+  // full CRM customer API) and /api/client-reviews. WARN, not CRIT: not
+  // automatically a live data leak — every real route.ts still self-gates via its
+  // own getTenantForRequest()/requirePermission() call, which independently
+  // requires a valid Clerk session or admin_token regardless of what middleware
+  // did — but it is still a real, silent contradiction between two independently-
+  // maintained lists in the same file, the same "two lists that should agree but
+  // don't" shape this whole gate exists to catch elsewhere, just in the auth-gate
+  // subsystem instead of tenant-site routing. Same severity as Drift AE for the
+  // same "surfaces for a human decision, does not gate CI" reasoning.
+  for (const { pattern, literalDir, collidesWithDir } of apiPublicRouteCollisions) {
+    add(
+      'WARN',
+      collidesWithDir,
+      `isPublicRoute pattern '${pattern}' (src/middleware.ts, intended for /api/${literalDir}/...) has no path-segment boundary before its '(.*)' and ALSO matches /api/${collidesWithDir} -> middleware treats /api/${collidesWithDir} as fully public, skipping its entire Clerk/admin-impersonation gate; not necessarily a live data leak (the route may self-gate via getTenantForRequest()/requirePermission()) but silently bypasses a gate two other independently-maintained lists in this file assume is applied`,
+    )
+  }
+
   return findings
 }
 
@@ -1490,6 +1568,16 @@ async function main() {
     if (names.length) bespokeSiteTopLevelDirs.set(slug, names)
   }
 
+  // Feeds Drift AF: pure static analysis over the working tree (no DB, no
+  // network) — computed here alongside the other middleware-source parses above,
+  // ahead of the SQL calls below, purely for locality with its sibling checks.
+  const publicRoutePatterns = parsePublicRoutePatterns(middlewareSource)
+  const apiDir = join(REPO, 'src', 'app', 'api')
+  const apiDirNames = existsSync(apiDir)
+    ? readdirSync(apiDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
+    : []
+  const apiPublicRouteCollisions = findUnboundedApiPublicRouteCollisions(publicRoutePatterns, apiDirNames)
+
   const [tenants, tds, allTenantDomains, allTenants] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
@@ -1514,7 +1602,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)
