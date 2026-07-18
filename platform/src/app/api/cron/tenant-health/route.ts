@@ -37,6 +37,12 @@ const ROUTE_GROUP_TENANTS = new Set<string>(['wash-and-fold-nyc', 'wash-and-fold
 
 const CONCURRENCY = 8
 
+// Re-alert window for an unchanged failing-tenant set. Shorter than
+// cron/health-monitor's 6h: a tenant's own site being down is
+// revenue-critical and customer-visible, not an internal cron-liveness
+// signal, so a tighter nag cadence is warranted while the outage continues.
+const ALERT_WINDOW_MS = 60 * 60 * 1000
+
 async function mapCapped<T, R>(items: T[], fn: (t: T) => Promise<R>, cap: number): Promise<R[]> {
   const out: R[] = []
   let i = 0
@@ -128,8 +134,46 @@ export async function GET(request: Request) {
 
   const failures = results.filter((r) => r.status === 'fail')
   if (failures.length > 0) {
-    const body = failures.map((f) => `• ${f.slug} (${f.domain}): ${f.detail}`).join('\n')
-    await alertOwner(`🚨 Fortress: ${failures.length} tenant site(s) FAILING`, body).catch(() => {})
+    // Dedup -- previously alertOwner() fired unconditionally on every 15-min
+    // tick while any tenant kept failing, re-alerting the owner every 15 min
+    // for the duration of a single ongoing outage (zero dedup at all, not
+    // even a racy check-then-act one). Two-step atomic claim on
+    // tenant_health_alerts(fingerprint), same idiom as cron/health-monitor's
+    // cron_health_alerts: fresh insert first; on a 23505 conflict, an
+    // UPDATE ... WHERE alerted_at is stale reclaims the row. The
+    // failing-slug set is stable (the same tenant can go down, recover, and
+    // go down again days later), so a plain permanent unique constraint
+    // would silently suppress every future recurrence of that exact failure
+    // set forever -- see 2026_07_18_tenant_health_alerts_dedup.sql.
+    const fingerprint = failures.map((f) => f.slug).sort().join(',')
+    const alertedAtNow = new Date().toISOString()
+    const windowStart = new Date(Date.now() - ALERT_WINDOW_MS).toISOString()
+
+    const { error: claimErr } = await supabaseAdmin
+      .from('tenant_health_alerts')
+      .insert({ fingerprint, alerted_at: alertedAtNow })
+
+    let claimed = !claimErr
+    if (claimErr) {
+      if (claimErr.code !== '23505') {
+        console.error('[tenant-health] claim insert failed:', claimErr)
+        claimed = false
+      } else {
+        const { data: reclaimed } = await supabaseAdmin
+          .from('tenant_health_alerts')
+          .update({ alerted_at: alertedAtNow })
+          .eq('fingerprint', fingerprint)
+          .lt('alerted_at', windowStart)
+          .select('fingerprint')
+          .maybeSingle()
+        claimed = !!reclaimed
+      }
+    }
+
+    if (claimed) {
+      const body = failures.map((f) => `• ${f.slug} (${f.domain}): ${f.detail}`).join('\n')
+      await alertOwner(`🚨 Fortress: ${failures.length} tenant site(s) FAILING`, `${body}\nfingerprint=${fingerprint}`).catch(() => {})
+    }
   }
 
   return NextResponse.json({

@@ -59,6 +59,7 @@ export async function GET(request: Request) {
 
       // Upsert reviews
       let newReviews = 0
+      const newReviewIds: string[] = []
       for (const review of allReviews) {
         const r = review as Record<string, unknown>
         const reviewId = (r.reviewId as string) || (r.name as string)?.split('/').pop()
@@ -75,7 +76,10 @@ export async function GET(request: Request) {
           .eq('tenant_id', tenant.id)
           .single()
 
-        if (!existing) newReviews++
+        if (!existing) {
+          newReviews++
+          if (reviewId) newReviewIds.push(reviewId)
+        }
 
         const reviewer = r.reviewer as Record<string, unknown> | undefined
         const reviewReply = r.reviewReply as Record<string, unknown> | undefined
@@ -96,12 +100,36 @@ export async function GET(request: Request) {
       }
 
       if (newReviews > 0) {
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenant.id,
-          type: 'feedback',
-          title: `${newReviews} new Google review${newReviews > 1 ? 's' : ''}`,
-          message: `Synced ${allReviews.length} total reviews from Google Business Profile.`,
-        })
+        // Insert-first claim before notifying: two overlapping invocations
+        // for the same tenant (a slow round-trip across many review pages
+        // bleeding into the next tick, a manual re-trigger) can both read
+        // the same not-yet-synced reviews as "new" before either upsert
+        // above commits, and both would otherwise fire a duplicate
+        // "N new reviews" notification for the identical batch -- same
+        // check-then-act race class this session has repeatedly found and
+        // fixed (cron/comms-monitor, cron/schedule-monitor, every webhook
+        // redelivery-dedup pass). A review's id is permanently written to
+        // `google_reviews` by the upsert above, so the identical fingerprint
+        // (tenant + exact set of newly-seen review ids) reappearing after
+        // the race window closes is structurally unreachable -- same
+        // ephemeral-fingerprint reasoning as comms-monitor's fix, so a plain
+        // permanent unique constraint suffices (see
+        // 2026_07_18_google_review_sync_alerts_dedup.sql).
+        const fingerprint = `${tenant.id}:${newReviewIds.sort().join(',')}`.slice(0, 500)
+        const { error: claimErr } = await supabaseAdmin
+          .from('google_review_sync_alerts')
+          .insert({ fingerprint })
+
+        if (!claimErr) {
+          await supabaseAdmin.from('notifications').insert({
+            tenant_id: tenant.id,
+            type: 'feedback',
+            title: `${newReviews} new Google review${newReviews > 1 ? 's' : ''}`,
+            message: `Synced ${allReviews.length} total reviews from Google Business Profile.`,
+          })
+        } else if (claimErr.code !== '23505') {
+          console.error(`[sync-google-reviews] claim insert failed for ${tenant.name}:`, claimErr)
+        }
       }
 
       results.push({ tenant: tenant.name, synced: allReviews.length, new: newReviews })
