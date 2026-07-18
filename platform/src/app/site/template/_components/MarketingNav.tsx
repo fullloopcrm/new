@@ -52,6 +52,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
   const primaryCta = isCleaning ? 'Self Booking $10 OFF' : isVa ? 'Get an Assistant' : 'Get Started'
   // VA has no cleaning booking funnel; its CTA goes to the on-page lead form.
   const primaryHref = isVa ? '/#get-started' : '/book/new'
+  // Two explicit entry points into the flows that already exist: self-book
+  // (POST /api/client/book, lands status=pending in the dashboard Bookings
+  // tab) and lead capture (CollectForm -> POST /api/contact, lands stage=new
+  // aka "Lead" on the Sales pipeline). VA tenants have no booking flow and
+  // keep their existing single on-page-anchor CTA above.
+  const showBookAndProject = !isVa
   const [mobileOpen, setMobileOpen] = useState(false)
   const [servicesOpen, setServicesOpen] = useState(false)
   const [moreOpen, setMoreOpen] = useState(false)
@@ -197,9 +203,20 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors whitespace-nowrap">
                 Text {config.contact.phone}
               </a>
-              <Link href={primaryHref} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap">
-                {primaryCta}
-              </Link>
+              {showBookAndProject ? (
+                <>
+                  <Link href="/collect" className="inline-block bg-white border border-[var(--brand)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.05)] transition-colors whitespace-nowrap">
+                    Start a Project
+                  </Link>
+                  <Link href="/book/new" className="inline-block bg-[var(--accent)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap">
+                    Book Now
+                  </Link>
+                </>
+              ) : (
+                <Link href={primaryHref} className="inline-block bg-[var(--accent)] text-[var(--brand)] px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors whitespace-nowrap">
+                  {primaryCta}
+                </Link>
+              )}
             </div>
 
             {/* Mobile hamburger */}
@@ -320,7 +337,14 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
-                <Link href={primaryHref} onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">{primaryCta}</Link>
+                {showBookAndProject ? (
+                  <>
+                    <Link href="/book/new" onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Book Now</Link>
+                    <Link href="/collect" onClick={closeMenu} className="block bg-white/10 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Start a Project</Link>
+                  </>
+                ) : (
+                  <Link href={primaryHref} onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">{primaryCta}</Link>
+                )}
                 <a href={`sms:${config.contact.phoneDigits}`} className="block bg-[var(--brand)] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Text {config.contact.phone}</a>
                 {config.contact.supportPhone && (
                   <a href={`sms:${config.contact.supportPhoneDigits}`} className="block bg-white/10 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Text Support: {config.contact.supportPhone}</a>
