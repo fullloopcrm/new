@@ -20,8 +20,40 @@ export async function POST(request: Request) {
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
   }
-  const { type, data } = body as { type?: string; data?: { id?: string; email_addresses?: Array<{ email_address?: string }>; first_name?: string; last_name?: string } }
+  const { type, data } = body as {
+    type?: string
+    data?: {
+      id?: string
+      email_addresses?: Array<{ id?: string; email_address?: string }>
+      primary_email_address_id?: string
+      first_name?: string
+      last_name?: string
+    }
+  }
   if (!type || !data) return NextResponse.json({ ok: true })
+
+  // Clerk delivers via Svix, same at-least-once/retry-on-slow-response
+  // semantics already fixed on Telnyx/Telegram/Resend this session (Svix's
+  // own docs: retries on any non-2xx or >15s response, svix-id constant
+  // across retries of the same logical event). user.updated/user.deleted
+  // below are idempotent against an EXACT redelivery (both are plain
+  // UPDATE/DELETE to a fixed target state), but not against an OUT-OF-ORDER
+  // one: if an earlier user.updated is delayed (queued for retry) past a
+  // later one that already applied, the stale retry re-lands last and
+  // overwrites the newer email/name. Claiming the svix-id closes that gap
+  // the same way the other three surfaces did.
+  const svixId = request.headers.get('svix-id')
+  if (svixId) {
+    const { error: claimErr } = await supabaseAdmin.from('clerk_webhook_events').insert({ event_id: svixId })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ received: true, action: 'duplicate_delivery' })
+      }
+      console.error('[clerk webhook] event claim failed:', claimErr)
+      // Fall through -- an infra hiccup on the dedup table must not silently
+      // drop a real Clerk event.
+    }
+  }
 
   switch (type) {
     case 'user.created': {
@@ -30,40 +62,54 @@ export async function POST(request: Request) {
     }
 
     case 'user.updated': {
-      // Sync email/name changes to tenant_members if they exist
-      const email = data.email_addresses?.[0]?.email_address
+      // Sync email/name changes to tenant_members if they exist.
+      // email_addresses[0] is NOT guaranteed to be the primary address --
+      // Clerk's own User object docs say the array "includes the primary"
+      // but order is unspecified; primary_email_address_id is the field
+      // that identifies which entry actually is primary. Blindly taking
+      // index 0 could sync down a secondary/unverified address instead of
+      // the one the user actually uses.
+      const primaryEmail = data.primary_email_address_id
+        ? data.email_addresses?.find(e => e.id === data.primary_email_address_id)?.email_address
+        : data.email_addresses?.[0]?.email_address
       const firstName = data.first_name || ''
       const lastName = data.last_name || ''
       const fullName = `${firstName} ${lastName}`.trim()
 
-      if (email) {
-        // Update any tenant_members records that reference this Clerk user
-        const { data: members } = await supabaseAdmin
+      if (primaryEmail) {
+        const { error } = await supabaseAdmin
           .from('tenant_members')
-          .select('id')
+          .update({
+            email: primaryEmail,
+            ...(fullName && { name: fullName }),
+          })
           .eq('clerk_user_id', data.id)
-
-        if (members && members.length > 0) {
-          await supabaseAdmin
-            .from('tenant_members')
-            .update({
-              email,
-              ...(fullName && { name: fullName }),
-            })
-            .eq('clerk_user_id', data.id)
+        if (error) {
+          console.error(`[clerk webhook] tenant_members email/name sync failed for clerk_user_id=${data.id}:`, error)
         }
       }
       break
     }
 
     case 'user.deleted': {
-      // Deactivate tenant memberships for deleted users
-      await supabaseAdmin
-        .from('tenant_members')
-        .update({ status: 'inactive' })
-        .eq('clerk_user_id', data.id)
-
-      // User deleted — memberships deactivated above
+      // Remove tenant memberships for a Clerk user deleted directly from
+      // Clerk's own dashboard (not via our /api/admin/users or
+      // /api/admin/businesses/:id/users DELETE endpoints, which already
+      // hard-delete the tenant_members row locally). This previously wrote
+      // `status: 'inactive'` -- tenant_members has never had a `status`
+      // column (confirmed against supabase/schema.sql and every migration
+      // touching this table) and nothing reads tenant_members.status
+      // anywhere in the app (getCurrentTenant()/tenantAuth() resolve
+      // membership by clerk_user_id alone) -- so this silently no-op'd
+      // (uncaught error, no fallthrough log) on every single Clerk-side user
+      // deletion since this handler was written. A member removed directly
+      // in Clerk was never cleaned up locally. Delete matches the existing
+      // removal semantics used by the app's own admin DELETE endpoints; the
+      // one FK (user_preferences.tenant_member_id) is ON DELETE CASCADE.
+      const { error } = await supabaseAdmin.from('tenant_members').delete().eq('clerk_user_id', data.id)
+      if (error) {
+        console.error(`[clerk webhook] tenant_members cleanup failed for deleted clerk_user_id=${data.id}:`, error)
+      }
       break
     }
 
