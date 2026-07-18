@@ -13829,3 +13829,86 @@ absent this session (token-guard checked first, per standing instructions)
 test-file change only, outside `reconcile-tenant-config.mjs`/`ci.yml`/
 `db-backup.yml` entirely, per LEADER's queue item (1); no push/deploy/DB
 write.
+
+## (261) LEADER's 11:34 queue item (1) -- reconcile/CI lane still confirmed
+dry (6th consecutive round), broadened again per the same authorization as
+(260). Chased a lead (260) didn't: `tenant_domains`'s two live write paths
+(`create-tenant-from-lead.ts`, `activate-tenant.ts`) are downstream of a
+completely different door -- the paid-signup checkout webhook
+(`src/app/api/webhooks/stripe-platform/route.ts`) -- so read that webhook
+end-to-end rather than re-walking (260)'s already-closed table.
+
+Found: `createTenantFromLead()` generates a plaintext owner PIN exactly
+once at tenant birth and immediately hashes it (`hashAdminPin` — one-way
+HMAC-SHA256, "we never store or display a PIN after it is first issued"
+per its own doc comment) — the ONLY moment the plaintext value exists.
+The manual/comp conversion door (`/api/admin/requests/convert`) returns
+`result.ownerPin` straight to the admin UI, precisely so a human admin can
+relay it to the new tenant owner by hand. `stripe-platform/route.ts` — the
+automated, no-admin-in-the-loop door a real paying customer's Stripe
+checkout actually goes through — called the identical `createTenantFromLead`
+and then `activateTenant`, but read only `result.ok`/`result.tenant`/
+`result.alreadyConverted` from the first and discarded the entire return
+value of the second (already wrapped in a bare try/catch for error-logging
+only). `result.ownerPin` was never captured anywhere.
+
+Traced the real-world consequence: `activateTenant`'s own owner-login step
+(the only other place a PIN could be regenerated) checks `existingOwner`
+first and short-circuits to `status:'done', detail:'Owner member exists'`
+without minting a new PIN, since `createTenantFromLead` already inserted
+the `role:'owner'` `tenant_members` row moments earlier — so there is no
+second chance for a PIN to surface later either. Checked whether the
+tenant's own self-service `pin-reset` flow could recover it instead: it
+delivers a reset code to `member.phone` (never set for this owner —
+`createTenantFromLead`'s insert has no `phone` field) or `member.email`
+via `sendEmail`, which does fall back to the platform's own default Resend
+key when `tenant.resend_api_key` is unset (true for every brand-new,
+pre-onboarding tenant) — so email-based self-recovery is technically
+*possible*. But nothing in the entire paid-signup path sends the customer
+so much as a single email telling them a tenant now exists, what URL to go
+to, or that a "forgot PIN" flow exists to use — grepped `notify|alert|
+Telegram|slack|sendEmail|welcome` across `stripe-platform/route.ts` and
+`create-tenant-from-lead.ts` with zero hits before this fix. A customer
+who just paid had a fully activated tenant sitting behind a PIN pad with
+no way to discover it exists.
+
+Confirmed via `grep` that `createTenantFromLead` has exactly two callers
+codebase-wide (`admin/requests/convert/route.ts`, already correct;
+`webhooks/stripe-platform/route.ts`, the one fixed here) — queue item (2)
+("continue whichever surface (1) opens up") has nothing further to chase
+on this call graph.
+
+**Fixed** by adding `email` to `CreateFromLeadResult.tenant` (all three
+`tenants` selects in `create-tenant-from-lead.ts` already had the column
+available on the row, just weren't selecting it) and, in
+`stripe-platform/route.ts`, emailing the owner their login URL
+(`https://{slug}.fullloopcrm.com`) plus the one-time PIN via the existing
+`sendEmail` primitive whenever `result.ownerPin` is present on a
+fresh (non-`alreadyConverted`) creation. Gated so an idempotent replay
+delivery never re-sends (no `ownerPin` on that branch to begin with), a
+PIN-issuance failure (`ownerPin: null`) never sends an email with no PIN
+in it, and a missing owner email never throws — activation still proceeds
+in both cases. The send itself is best-effort (try/catch, matching the
+existing `activateTenant` call's own best-effort convention) so a Resend
+outage can never fail the webhook and cause Stripe to retry a real paid
+sale.
+
+New `route.welcome-email.test.ts` (5 tests): sends email + PIN + login
+link on fresh creation; does not re-send on `alreadyConverted` replay;
+does not send when `ownerPin` is null (but still activates); does not
+send when the tenant has no email on file (but still activates); a
+rejected `sendEmail` call does not block activation. Mutation-verified
+live: reverted the route diff via a saved `.patch` (`git apply -R`, stash
+disabled in this worktree per standing hook), reran the primary test,
+confirmed it failed exactly as predicted (`sendEmail` called 0 times
+instead of 1), restored via `git apply`, reconfirmed all 5 green.
+
+`npx tsc --noEmit --pretty false` zero errors. Full repo suite: 507/507
+files, 2591/2591 tests (5 new, 0 regressions) — one pre-existing
+`tenant-scope guard` finding on `src/app/api/fixture/route.ts` surfaced in
+the run, unrelated to this diff (file untouched, not part of this
+session's changes). `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session
+(token-guard checked first, per standing instructions) — no live reconcile
+run against Supabase attempted. Webhook route + lib + test-file change
+only, outside `reconcile-tenant-config.mjs`/`ci.yml`/`db-backup.yml`
+entirely, per LEADER's broadened authorization; no push/deploy/DB write.
