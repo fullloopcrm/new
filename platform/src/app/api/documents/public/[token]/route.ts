@@ -33,18 +33,27 @@ export async function GET(request: Request, { params }: Params) {
       .single()
     if (!doc) return NextResponse.json({ error: 'Document not found' }, { status: 404 })
 
-    // Record view
+    // Record view. View-tracking fields never conflict with a concurrent
+    // sign/decline/void, so they're safe to write unconditionally; the
+    // 'sent'->'viewed' status bumps (on both the signer and the parent
+    // document) are guarded with a compare-and-swap on the status just read
+    // — without it, a concurrent sign()/decline()/void() (all of which claim
+    // atomically) landing in the gap could have its result silently
+    // clobbered back to 'viewed' by this GET's stale read.
     const now = new Date().toISOString()
     const viewUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (signer.view_count || 0) + 1,
     }
     if (!signer.first_viewed_at) viewUpdate.first_viewed_at = now
-    if (signer.status === 'sent') viewUpdate.status = 'viewed'
     await supabaseAdmin.from('document_signers').update(viewUpdate).eq('id', signer.id)
 
+    if (signer.status === 'sent') {
+      await supabaseAdmin.from('document_signers').update({ status: 'viewed' }).eq('id', signer.id).eq('status', 'sent')
+    }
+
     if (doc.status === 'sent') {
-      await supabaseAdmin.from('documents').update({ status: 'viewed' }).eq('id', doc.id)
+      await supabaseAdmin.from('documents').update({ status: 'viewed' }).eq('id', doc.id).eq('status', 'sent')
     }
 
     await logDocEvent({
