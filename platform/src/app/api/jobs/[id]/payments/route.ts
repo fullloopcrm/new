@@ -7,7 +7,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, type PaymentStatus } from '@/lib/jobs'
-import { postJobPaymentRevenue } from '@/lib/finance/post-revenue'
+import { postJobPaymentRevenue, reverseJobPaymentRevenue } from '@/lib/finance/post-revenue'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -27,18 +27,43 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'payment_id and a valid status are required' }, { status: 400 })
     }
 
+    const { data: current, error: readError } = await supabaseAdmin
+      .from('job_payments')
+      .select('status')
+      .eq('tenant_id', tenantId)
+      .eq('job_id', id)
+      .eq('id', payment_id)
+      .maybeSingle()
+    if (readError || !current) return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+    const oldStatus = current.status as PaymentStatus
+
     const patch: Record<string, unknown> = { status }
     if (status === 'paid') patch.paid_at = new Date().toISOString()
 
+    // Check-then-act, not atomic: `current` above is a stale snapshot. Every
+    // sibling status-transition route this session (jobs/[id],
+    // sessions/[sessionId], invoices/[id], quotes/[id]) re-asserts its
+    // pre-read status in the write's own WHERE for exactly this reason -- a
+    // concurrent status change (a second click, another admin editing the
+    // same payment plan) landing between the read and this write must not be
+    // silently clobbered. Re-marking the SAME status (the common double-click
+    // case) still matches its own WHERE and succeeds as a no-op resend.
     const { data: payment, error } = await supabaseAdmin
       .from('job_payments')
       .update(patch)
       .eq('tenant_id', tenantId)
       .eq('job_id', id)
       .eq('id', payment_id)
+      .eq('status', oldStatus)
       .select('id, label, amount_cents, status, paid_at')
-      .single()
-    if (error || !payment) return NextResponse.json({ error: 'Payment not found' }, { status: 404 })
+      .maybeSingle()
+    if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+    if (!payment) {
+      return NextResponse.json(
+        { error: 'This payment changed status concurrently — refresh instead of editing' },
+        { status: 409 },
+      )
+    }
 
     await logJobEvent({
       tenant_id: tenantId,
@@ -57,6 +82,16 @@ export async function PATCH(request: Request, { params }: Params) {
         await postJobPaymentRevenue({ tenantId, jobPaymentId: payment.id })
       } catch (revenueErr) {
         console.error('[jobs/payments] revenue post failed:', revenueErr)
+      }
+    } else if (status === 'void' && oldStatus === 'paid') {
+      // Voiding a payment that had already posted revenue must reverse it, or
+      // the ledger keeps counting money the payment plan no longer shows as
+      // paid — same best-effort/idempotent contract as the post above (see
+      // post-revenue.ts's reverseJobPaymentRevenue doc comment).
+      try {
+        await reverseJobPaymentRevenue({ tenantId, jobPaymentId: payment.id })
+      } catch (reversalErr) {
+        console.error('[jobs/payments] revenue reversal failed:', reversalErr)
       }
     }
 

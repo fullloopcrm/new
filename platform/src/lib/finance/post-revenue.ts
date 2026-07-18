@@ -151,6 +151,65 @@ export async function postJobPaymentRevenue(opts: { tenantId: string; jobPayment
 }
 
 /**
+ * Voiding a job_payment that had already posted revenue (postJobPaymentRevenue
+ * above) must reverse that entry, or the ledger keeps counting money the
+ * payment plan no longer shows as paid — permanently overstating revenue with
+ * nothing explaining why. Same class as charge.refunded's ledger-reversal gap
+ * in webhooks/stripe/route.ts, on the job_payment rail that fix never
+ * touched: PATCH /api/jobs/[id]/payments let 'paid' flip straight to 'void'
+ * with no counterpart. Keyed under a different source ('job_payment_void') so
+ * it can never collide with, or be mistaken for a duplicate of, the original
+ * entry — and only reverses when that original entry actually exists, so
+ * voiding a job_payment that was never actually posted (e.g. invoiced →
+ * void, never paid) can't create an orphan reversal that understates
+ * 1050/4000 with no corresponding sale to cancel out.
+ */
+export async function reverseJobPaymentRevenue(opts: { tenantId: string; jobPaymentId: string }): Promise<PostRevenueResult> {
+  const { tenantId, jobPaymentId } = opts
+
+  if (!(await journalEntryExists(tenantId, 'job_payment', jobPaymentId))) {
+    return { posted: false, reason: 'no_original_entry' }
+  }
+  if (await journalEntryExists(tenantId, 'job_payment_void', jobPaymentId)) {
+    return { posted: false, reason: 'already_posted' }
+  }
+
+  const { data: jobPayment } = await supabaseAdmin
+    .from('job_payments')
+    .select('id, amount_cents, label, kind')
+    .eq('tenant_id', tenantId)
+    .eq('id', jobPaymentId)
+    .maybeSingle()
+  if (!jobPayment) return { posted: false, reason: 'not_found' }
+
+  const amount = Number(jobPayment.amount_cents) || 0
+  if (amount <= 0) return { posted: false, reason: 'zero_amount' }
+
+  await ensureChartAccounts(tenantId)
+  const [undeposited, revenueAcct] = await Promise.all([
+    getAccountIdByCode(tenantId, '1050'),
+    getAccountIdByCode(tenantId, '4000'),
+  ])
+  if (!undeposited || !revenueAcct) return { posted: false, reason: 'accounts_missing' }
+
+  const lines: JournalLineInput[] = [
+    { coa_id: revenueAcct, debit_cents: amount, memo: 'Job payment voided (revenue reversal)' },
+    { coa_id: undeposited, credit_cents: amount, memo: 'Job payment voided' },
+  ]
+
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: nowNaiveET().slice(0, 10),
+    memo: `Job payment voided — ${jobPayment.label || jobPayment.kind}`,
+    source: 'job_payment_void',
+    source_id: jobPaymentId,
+    lines,
+  })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
+  return { posted: true, entryId }
+}
+
+/**
  * Backfill the ledger from the REAL paid signal — bookings.payment_status —
  * because the `payments` table is sparse/stale (most paid bookings have no
  * completed payment row). Posts, per paid/partial booking, idempotently:

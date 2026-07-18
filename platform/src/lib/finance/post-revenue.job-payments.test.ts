@@ -17,7 +17,7 @@ const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<s
 
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 
-import { postJobPaymentRevenue, backfillUnpostedJobPaymentRevenue } from './post-revenue'
+import { postJobPaymentRevenue, reverseJobPaymentRevenue, backfillUnpostedJobPaymentRevenue } from './post-revenue'
 
 const A = 'tenant-A'
 const B = 'tenant-B'
@@ -88,6 +88,51 @@ describe('postJobPaymentRevenue', () => {
     expect(h.store.journal_entries.filter((e) => e.tenant_id === B)).toHaveLength(1)
     expect(linesByCode(legA.entryId!, A)['1050'].debit).toBe(20_000)
     expect(linesByCode(legB.entryId!, B)['1050'].debit).toBe(8_000)
+  })
+})
+
+/** Seed a job_payment as 'paid', post its real revenue entry (via the actual
+ * spine), then flip the row to 'void' -- mirroring what the PATCH route does:
+ * post while paid, then later (a separate request) void it. */
+async function seedPaidThenVoid(id: string, amountCents: number, tenantId = A) {
+  h.store.job_payments.push({ id, tenant_id: tenantId, job_id: 'job-1', amount_cents: amountCents, status: 'paid', label: 'Deposit', kind: 'deposit' })
+  const posted = await postJobPaymentRevenue({ tenantId, jobPaymentId: id })
+  const row = h.store.job_payments.find((p) => p.id === id)!
+  row.status = 'void'
+  return posted
+}
+
+describe('reverseJobPaymentRevenue', () => {
+  it('posts DR 4000 / CR 1050 for the full amount, keyed source=job_payment_void', async () => {
+    const original = await seedPaidThenVoid('jp-void-1', 50_000)
+    expect(original.posted).toBe(true)
+
+    const result = await reverseJobPaymentRevenue({ tenantId: A, jobPaymentId: 'jp-void-1' })
+    expect(result.posted).toBe(true)
+
+    const entry = h.store.journal_entries.find((e) => e.id === result.entryId)!
+    expect(entry).toMatchObject({ tenant_id: A, source: 'job_payment_void', source_id: 'jp-void-1' })
+
+    const byCode = linesByCode(result.entryId!, A)
+    expect(byCode['4000']).toEqual({ debit: 50_000, credit: 0 })
+    expect(byCode['1050']).toEqual({ debit: 0, credit: 50_000 })
+  })
+
+  it('does nothing when the job_payment was never actually posted (no original entry)', async () => {
+    h.store.job_payments.push({ id: 'jp-void-2', tenant_id: A, job_id: 'job-1', amount_cents: 20_000, status: 'void', label: 'Progress', kind: 'progress' })
+    const result = await reverseJobPaymentRevenue({ tenantId: A, jobPaymentId: 'jp-void-2' })
+    expect(result).toMatchObject({ posted: false, reason: 'no_original_entry' })
+    expect(h.store.journal_entries).toHaveLength(0)
+  })
+
+  it('is idempotent: reversing twice does not create a second reversal entry', async () => {
+    await seedPaidThenVoid('jp-void-3', 30_000)
+
+    const first = await reverseJobPaymentRevenue({ tenantId: A, jobPaymentId: 'jp-void-3' })
+    expect(first.posted).toBe(true)
+    const second = await reverseJobPaymentRevenue({ tenantId: A, jobPaymentId: 'jp-void-3' })
+    expect(second).toMatchObject({ posted: false, reason: 'already_posted' })
+    expect(h.store.journal_entries.filter((e) => e.source === 'job_payment_void' && e.source_id === 'jp-void-3')).toHaveLength(1)
   })
 })
 
