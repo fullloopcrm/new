@@ -7645,3 +7645,113 @@ Reconcile-gate lane: token still absent this session, skipped cleanly per
 standing rule, no reconcile-gate work this round. CI workflow files
 (`.github/workflows/tenant-config-reconcile.yml`) and
 `scripts/reconcile-tenant-config.mjs` re-reviewed this round, zero diff.
+
+## (170) New fresh-ground surface, a different bug class again (a CI-gate
+regression from last night's own work, not a schema/schedule drift) — the
+tenant-isolation guard is currently RED on this branch's HEAD
+
+With the reconcile-gate token absent again, checked the other live-blocking
+gate this lane owns: `ci.yml`'s "Tenant-isolation guard" step
+(`node scripts/audit-tenant-scope.mjs`, backstops every service-role query —
+since the service role bypasses RLS, `.eq('tenant_id', …)` is the *only*
+enforcement, and this script is what catches a forgotten one before merge).
+Ran it cold against this branch's current tree (no DB, no network — it's a
+pure text scan) instead of assuming green: it failed. One NEW unscoped query
+on `territory_claims`, in `src/lib/territories/data.ts:166` —
+`claimTerritory()`'s fresh-insert branch.
+
+Bisected to the exact commit: `git audit-tenant-scope.mjs` passes clean
+(0 findings) on `f4c1cca9~1`, the parent of this session's own
+(160)-(161) territory-claim fix, and fails on `f4c1cca9` itself. That commit
+correctly turned `claimTerritory()`'s always-INSERT into an
+update-in-place-or-insert-fresh split, and in the process hoisted the shared
+write payload into a `const fields = { tenant_id: args.tenantId ?? null,
+... }` object built ~20 lines above the `.insert()` call, then spread it in:
+`.insert({ territory_id, category_id, ...fields })`. The guard's `scoped`
+check only text-scans a 12-line window *starting at* the `.from()` line — it
+never resolves a spread back to the variable's own definition, no matter the
+distance. `tenant_id` genuinely was in the insert payload the whole time (via
+the spread); the guard just can't see it once it's one hop removed through a
+named variable. Confirmed this is not the already-documented idLookup blind
+spot (`tenant-scope-guard-idor-blindspot.test.ts` / `deploy-prep/idor-lint-
+guard-spec.md` §7, from an earlier session) — that one is about `.eq('*_id',
+…)` wrongly exempting a genuine leak; this is a *false positive* on already-
+correct code, a different failure mode of the same script.
+
+**Fixed** — destructured `tenant_id` out of `fields` and listed it as an
+explicit literal key at the `.insert()` call site (`tenant_id, ...restFields`
+instead of bare `...fields`), matching the inline-`tenant_id`-key convention
+every other insert already uses in this codebase (campaigns, clients,
+documents/fields, reviews, schedules, settings/services, team routes) —
+this is the same fix pattern `src/lib/team-provisioning.ts` independently
+landed on for the identical shape, just via a `// tenant-scope-ok:` comment
+there instead of an explicit key (both are established idioms here; picked
+the inline-key form since `fields.tenant_id` was already in scope and it
+keeps the property grep-able without a comment doing the load-bearing work).
+A bare `...fields, tenant_id: fields.tenant_id` duplicate-key form was tried
+first and rejected by `tsc` itself (`ts(2783)`), which is a stronger
+guarantee than the CI text-scan alone — TypeScript's own duplicate-key check
+backstops this exact indirection mistake for any *future* refactor of this
+function, not just this one commit.
+
+## (171) Continuing (170)'s surface — before trusting the fix, checked
+whether the same spread-indirection shape is hiding a GENUINE unscoped write
+somewhere else the guard has never been able to see
+
+A guard that produces a false positive on already-correct code (170) is a
+one-sided finding on its own — the more dangerous mirror image is a false
+NEGATIVE: the exact same spread-indirection blind spot silently passing a
+write that's *actually* missing `tenant_id`, because the guard was
+structurally incapable of seeing it in either direction. Swept every
+`.insert(` call in `src` that spreads a variable (not an inline literal) into
+a tenant-owned table's payload (`bookings`, `campaigns`, `clients`,
+`documents/fields`, `reviews`, `schedules`, `settings/services`, `team`,
+`team-provisioning.ts`) and manually traced each spread var back to its
+definition. Every one of the eight route-level sites already inlines
+`tenant_id: tenantId` explicitly alongside its spread (the established
+convention (170)'s fix now matches). The two remaining bare-spread-only sites
+— `bookings/route.ts`'s `.insert({ ...validated, status: newStatus })` and
+`team-provisioning.ts`'s `.insert({ ...base, pin })` — resolved clean on
+inspection: the first runs through `tenantDb(tenantId)` (ADR 0004's
+auto-scoping wrapper, which the guard already recognizes by construction, not
+by text match), and the second already carries an explicit `// tenant-scope-
+ok: insert base carries tenant_id (built above)` comment from an earlier
+session that had independently spotted this exact shape. No new leak found —
+but the *absence* of one was unverified before this pass, and the guard's own
+text-scan couldn't have told us either way.
+
+Also verified `claimTerritory()`'s two OTHER `territory_claims` accesses in
+the same file that (160)-(161) didn't touch — `getClaimsForCategory()`
+(unscoped by category, no tenant filter) and `releaseTerritory()` (deletes by
+territory+category, no tenant filter) — are correctly exempt: both are
+reachable only through `/api/admin/territories`, gated end-to-end by
+`requireAdmin()`, and are intentionally cross-tenant (an admin assigning or
+releasing a territory *for* a tenant, or viewing every tenant's claims on the
+map). Not a gap; confirmed by tracing every caller, not by assuming the
+guard's own `*_id` exemption got it right for the right reason.
+
+New tests in `src/lib/audit-tenant-scope-guard.test.ts` (2 added, 17/17 in
+the file passing): one pins the false positive itself (a synthetic
+`territory_claims`-shaped fixture — payload built as a variable 14 lines
+above the `.insert()` call, still exit 1) so a future session doesn't have to
+re-bisect this from scratch; the other pins that the explicit-inline-key fix
+pattern reliably un-blinds it (same fixture, `tenant_id` destructured out and
+listed literally, exit 0). Mutation-verified the real fix too: `git stash`
+just `src/lib/territories/data.ts`, reran the live gate — reproduced the
+exact original failure (`territory_claims`, line 166); `git stash pop`,
+reran — clean. `tsc --noEmit` clean (the `ts(2783)` duplicate-key catch from
+(170) surfaced during this work, not after). Full repo suite: 454/454 files,
+2155/2155 tests (2 new, zero regressions) — same pre-existing, unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in this
+doc has flagged, not touched here. `eslint --quiet` clean on both changed
+files. Not visually exercised in a browser this round (non-interactive
+worker session, no dev server driven this round) — this fix has no UI
+surface; it is a CI-gate-only change with no runtime behavior difference
+(`fields.tenant_id` was always in the insert payload).
+
+Reconcile-gate lane: token absent this session; the local worker hook
+(`~/.claude/hooks/block-worker-sim-scripts.sh`) additionally blocks this
+lane from running `scripts/reconcile-tenant-config.mjs` directly (leader-run-
+only, touches live prod Supabase) — flagging to the leader rather than
+working around it. `.github/workflows/tenant-config-reconcile.yml` re-
+reviewed this round, zero diff.

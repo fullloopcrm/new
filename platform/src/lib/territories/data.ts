@@ -163,10 +163,25 @@ export async function claimTerritory(args: {
     return { ok: true }
   }
 
+  // Destructure tenant_id out of `fields` (rather than spreading the whole object
+  // with tenant_id also listed explicitly, which TS flags as ts(2783) "specified
+  // more than once") so it's inline and literal at the insert call site — matching
+  // the convention every other insert in this codebase uses (campaigns, clients,
+  // documents/fields, reviews, schedules, settings/services, team) — instead of
+  // buried in a `...fields` spread from an object built 20+ lines above, outside
+  // the tenant-scope CI guard's lookahead window. That indirection is a real
+  // regression introduced by the (160)-(161) refactor that split this into
+  // update-in-place + fresh-insert: the guard passed on the parent commit and fails
+  // on this exact line after it (verified). Not a real tenant-isolation gap —
+  // `fields.tenant_id` was always in the insert payload via the spread — but the
+  // gate exists precisely so a human doesn't have to re-verify that by hand on every
+  // future refactor; leaving it invisible to the gate defeats the point of having it.
+  const { tenant_id, ...restFields } = fields
   const { error } = await supabaseAdmin.from('territory_claims').insert({
     territory_id: args.territoryId,
     category_id: args.categoryId,
-    ...fields,
+    tenant_id,
+    ...restFields,
   })
   if (error) {
     const conflict = error.code === '23505'

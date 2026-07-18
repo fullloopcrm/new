@@ -307,3 +307,74 @@ describe('audit-tenant-scope guard — baseline diffing (accepted legacy debt)',
     expect(after.stderr).toContain('dup.ts')
   })
 })
+
+describe('audit-tenant-scope guard — spread-indirection blind spot (insert payload built as a variable)', () => {
+  // Found and fixed live this session: src/lib/territories/data.ts's
+  // claimTerritory() builds an insert payload as `const fields = { tenant_id:
+  // ..., ... }` well above the .from().insert() call, then does
+  // `.insert({ territory_id, category_id, ...fields })`. The guard's `scoped`
+  // check only text-scans the 12 lines STARTING AT the .from() line — it never
+  // resolves a spread back to the variable's own definition, no matter how
+  // close or far away that definition is. A refactor that separates payload
+  // construction from the insert call (exactly the (160)-(161) territory-claim
+  // fix did, splitting a single-purpose INSERT into shared-fields +
+  // update-in-place/insert-fresh) silently red-gates CI even though the
+  // insert was never actually unscoped. The live fix: destructure tenant_id
+  // out of the spread and list it as an explicit literal key alongside the
+  // other inline fields — the same convention every other insert site in this
+  // codebase already uses (campaigns, clients, documents/fields, reviews,
+  // schedules, settings/services, team routes). This test pins BOTH halves so
+  // a future session doesn't have to rediscover it: the blind spot is real
+  // (spread-only payload false-flags), and the established fix pattern
+  // (explicit inline key) reliably un-blinds it.
+  it('FALSE POSITIVE: flags an insert whose payload comes only from a `...spread` of a variable built above the lookahead window, even though that variable genuinely carries tenant_id', () => {
+    const dir = fixture()
+    const filler = Array.from({ length: 14 }, (_, i) => `      // filler line ${i}`).join('\n')
+    write(dir, 'src/scoped-but-indirect.ts', `
+      export async function makeClaim(sb, tenantId) {
+        const fields = {
+          tenant_id: tenantId,
+          status: 'claimed',
+        }
+${filler}
+        const { error } = await sb${FROM('territory_claims')}.insert({
+          territory_id: 't1',
+          category_id: 'c1',
+          ...fields,
+        })
+        return error
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(
+      status,
+      'if this now passes, the guard learned to resolve spread variables — ' +
+        'update this test to reflect the fix rather than deleting it',
+    ).toBe(1)
+    expect(stderr).toContain('territory_claims')
+  })
+
+  it('FIX PATTERN: an explicit inline `tenant_id:` key alongside the same spread passes clean', () => {
+    const dir = fixture()
+    const filler = Array.from({ length: 14 }, (_, i) => `      // filler line ${i}`).join('\n')
+    write(dir, 'src/scoped-explicit.ts', `
+      export async function makeClaim(sb, tenantId) {
+        const fields = {
+          tenant_id: tenantId,
+          status: 'claimed',
+        }
+${filler}
+        const { tenant_id, ...restFields } = fields
+        const { error } = await sb${FROM('territory_claims')}.insert({
+          territory_id: 't1',
+          category_id: 'c1',
+          tenant_id,
+          ...restFields,
+        })
+        return error
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status, stderr).toBe(0)
+  })
+})
