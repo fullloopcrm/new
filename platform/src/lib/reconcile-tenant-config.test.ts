@@ -16,6 +16,7 @@ import {
   findShadowedAppRootPages,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
+  extractBalancedBlock,
   parseNextConfigSiteRewriteSources,
   parseAllNextConfigSiteRewriteSources,
   parseNextConfigRedirects,
@@ -359,6 +360,82 @@ describe('parseStaticTenantMap', () => {
   it('returns an empty map for a declaration with no entries', () => {
     const src = `const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {}`
     expect(parseStaticTenantMap(src).size).toBe(0)
+  })
+
+  // Item (235): the OLD `\n\s*\}` block terminator matched a Prettier-wrapped
+  // entry's own closing brace before the declaration's real end — see the
+  // comment above extractBalancedBlock. Prettier wraps a `{ id, slug }` value
+  // onto multiple lines whenever the whole entry exceeds the print width
+  // (e.g. a longer hostname key, or simply an ordinary `pnpm prettier --write`
+  // pass — this repo's own PostToolUse hook per web/hooks.md, not an exotic
+  // input). Mutation-verified live against the pre-fix regex: this exact
+  // fixture returned map.size === 0 (not 1, not 2) — the wrapped entry's own
+  // closing brace was consumed as the (wrong) terminator, so its captured
+  // slice held an unclosed '{' entryRe could never complete a match against,
+  // and the second, untouched entry was discarded outright since it never
+  // even entered the captured slice.
+  it('still parses every entry when one is Prettier-wrapped onto multiple lines', () => {
+    const src = `
+      const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+        'somereallyreallyreallylonghostname-example.com': {
+          id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06',
+          slug: 'the-florida-maid',
+        },
+        'nextentry.com': { id: 'aaaa-bbbb', slug: 'next-slug' },
+      }
+    `
+    const map = parseStaticTenantMap(src)
+    expect(map.size).toBe(2)
+    expect(map.get('somereallyreallyreallylonghostname-example.com')).toEqual({
+      id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06',
+      slug: 'the-florida-maid',
+    })
+    expect(map.get('nextentry.com')).toEqual({ id: 'aaaa-bbbb', slug: 'next-slug' })
+  })
+
+  it('still parses every entry when EVERY entry is Prettier-wrapped onto multiple lines', () => {
+    const src = `
+      const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+        'a.com': {
+          id: 'id-a',
+          slug: 'slug-a',
+        },
+        'b.com': {
+          id: 'id-b',
+          slug: 'slug-b',
+        },
+      }
+    `
+    const map = parseStaticTenantMap(src)
+    expect(map.size).toBe(2)
+    expect(map.get('a.com')).toEqual({ id: 'id-a', slug: 'slug-a' })
+    expect(map.get('b.com')).toEqual({ id: 'id-b', slug: 'slug-b' })
+  })
+})
+
+describe('extractBalancedBlock', () => {
+  it('finds the true matching closing brace across nested braces', () => {
+    const src = 'X = { a: { b: 1 }, c: { d: 2 } } // trailing'
+    const openIdx = src.indexOf('{')
+    expect(extractBalancedBlock(src, openIdx)).toBe(' a: { b: 1 }, c: { d: 2 } ')
+  })
+
+  it('ignores a brace character inside a quoted string (any of \', ", `)', () => {
+    const src = `X = { a: '}', b: "}", c: \`}\`, d: 1 }`
+    const openIdx = src.indexOf('{')
+    expect(extractBalancedBlock(src, openIdx)).toBe(` a: '}', b: "}", c: \`}\`, d: 1 `)
+  })
+
+  it('treats an escaped quote inside a string as staying inside that string', () => {
+    const src = String.raw`X = { a: 'it\'s a }', b: 2 }`
+    const openIdx = src.indexOf('{')
+    expect(extractBalancedBlock(src, openIdx)).toBe(String.raw` a: 'it\'s a }', b: 2 `)
+  })
+
+  it('returns null when the braces never balance', () => {
+    const src = 'X = { a: 1, b: { c: 2 }'
+    const openIdx = src.indexOf('{')
+    expect(extractBalancedBlock(src, openIdx)).toBeNull()
   })
 })
 

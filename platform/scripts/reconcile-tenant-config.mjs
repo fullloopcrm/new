@@ -552,12 +552,90 @@ export function parseRootSiteTenantsSet(middlewareSource) {
 // checks status first). A stale id, a typo'd slug, or a tenant that gets
 // suspended/cancelled/deleted after being added here is invisible to every
 // other check in this file and keeps serving live traffic — see Drift U below.
+// --- Find the substring between an opening '{' at `openIdx` in `source` and
+// its TRUE matching closing '}', tracking brace depth one character at a time
+// (quote-aware: a '{'/'}' inside a '/"/` string does not change depth, the
+// same quote-blindness class stripComments above guards against). Every
+// OTHER block-extractor in this file terminates on a fixed-shape anchor right
+// after the block (e.g. `\]\)` for a `new Set([...])`, or the literal
+// `fallback:` keyword for next.config.ts's afterFiles array) that cannot
+// appear mid-block by construction. STATIC_TENANT_MAP has no such anchor —
+// its declaration just ends at "the closing brace of the object literal" —
+// so parseStaticTenantMap used a `\n\s*\}` heuristic instead: "a lone '}' at
+// the start of a line". That heuristic assumes every entry's own
+// `{ id: ..., slug: ... }` value stays on ONE line. It silently breaks the
+// moment a formatter (Prettier, or any editor's format-on-save — not
+// confirmed to be wired into THIS repo specifically, but an entirely
+// ordinary thing for any of them to do) wraps a single long entry (a longer
+// hostname key, or simply running out of the print width) onto multiple
+// lines: the entry's OWN closing '}' is then a lone '}' on its own line,
+// matching `\n\s*\}` before the real end of the STATIC_TENANT_MAP
+// declaration is ever reached. This repo's OWN existing entries are already
+// close to that line length (~100 chars including indentation, comfortably
+// past a default 80-char print width), so this is not a hypothetical shape.
+// Verified live in node: feeding parseStaticTenantMap a 2-entry fixture where
+// only the FIRST entry is Prettier-wrapped onto multiple lines returns an
+// EMPTY map (size 0), not merely a truncated one — the old regex's capture
+// group stops BEFORE the wrapped entry's own closing '}' (that brace is
+// consumed as the terminator, not included in the captured text), so the
+// captured slice contains an unclosed '{' with no matching '}' for entryRe to
+// find at all, and the second, untouched entry is silently discarded outright
+// since it never even makes it into the captured slice. That is Drift U's own
+// input silently going empty: a STATIC_TENANT_MAP entry is the ONE routing
+// source in this file whose rewriteToSite() branch runs UNCONDITIONALLY, with
+// no tenantServesSite() status check at all (see the comment above Drift U) —
+// an empty/corrupted staticTenantMap means a suspended/cancelled tenant
+// hardcoded there keeps serving live traffic with the gate reporting nothing
+// wrong, not because there is no drift, but because this parser never saw
+// the entry that would have proven it. Same root cause, same severity class
+// as items (233)/(234)'s stripComments quote-blindness: a parser assumption
+// ("stays on one line") that the surrounding tooling (Prettier) can silently
+// violate without anyone touching the parser itself.
+export function extractBalancedBlock(source, openIdx) {
+  let depth = 0
+  let quote = null
+  for (let i = openIdx; i < source.length; i++) {
+    const ch = source[i]
+    if (quote) {
+      if (ch === '\\') {
+        i++
+        continue
+      }
+      if (ch === quote) quote = null
+      continue
+    }
+    if (ch === "'" || ch === '"' || ch === '`') {
+      quote = ch
+      continue
+    }
+    if (ch === '{') depth++
+    else if (ch === '}') {
+      depth--
+      if (depth === 0) return source.slice(openIdx + 1, i)
+    }
+  }
+  return null
+}
+
 export function parseStaticTenantMap(middlewareSource) {
-  const block = middlewareSource.match(/STATIC_TENANT_MAP:\s*Record<string,\s*\{[^}]*\}>\s*=\s*\{([\s\S]*?)\n\s*\}/)
+  const head = middlewareSource.match(/STATIC_TENANT_MAP:\s*Record<string,\s*\{[^}]*\}>\s*=\s*\{/)
   const map = new Map()
-  if (!block) return map
-  const entryRe = /['"`]([^'"`]+)['"`]\s*:\s*\{\s*id:\s*['"`]([^'"`]+)['"`]\s*,\s*slug:\s*['"`]([^'"`]+)['"`]\s*\}/g
-  const cleaned = stripComments(block[1])
+  if (!head) return map
+  const block = extractBalancedBlock(middlewareSource, head.index + head[0].length - 1)
+  if (block === null) return map
+  // A trailing comma before the value's closing '}' (`slug: '...' ,\n }`) is
+  // Prettier's own default style for a multi-line object literal — the SAME
+  // wrapping that broke the block boundary above also adds one here. The
+  // ORIGINAL `\s*\}` at the end (no comma tolerance) matches the single-line
+  // style used everywhere in this file today (`{ id: '...', slug: '...' }`,
+  // no trailing comma) but not Prettier's multi-line style, so fixing only
+  // extractBalancedBlock above is not sufficient on its own — verified live:
+  // with a correctly-bounded block but the old `\s*\}` ending, a Prettier-
+  // wrapped entry still failed to match (its trailing comma is not
+  // whitespace), silently dropping that one entry even once the block
+  // itself parsed intact.
+  const entryRe = /['"`]([^'"`]+)['"`]\s*:\s*\{\s*id:\s*['"`]([^'"`]+)['"`]\s*,\s*slug:\s*['"`]([^'"`]+)['"`]\s*,?\s*\}/g
+  const cleaned = stripComments(block)
   let m
   while ((m = entryRe.exec(cleaned))) map.set(m[1], { id: m[2], slug: m[3] })
   return map
