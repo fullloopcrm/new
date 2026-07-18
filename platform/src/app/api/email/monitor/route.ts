@@ -18,6 +18,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-monitor'
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // Constant-time compare — a naive `===` leaks secret bytes via timing,
 // letting an attacker recover CRON_SECRET/ELCHAPO_MONITOR_KEY byte-by-byte
@@ -40,6 +41,7 @@ interface TenantRow {
   email_monitor_enabled: boolean | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
+  sms_number: string | null
 }
 
 async function authorize(req: NextRequest): Promise<boolean> {
@@ -121,16 +123,20 @@ async function processTenant(tenant: TenantRow): Promise<{ tenantId: string; mat
       // Notify client — sms_consent (STOP compliance) / do_not_service, same
       // invariant every other client SMS fan-out enforces (webhooks/stripe's
       // payment-confirmation SMS already does this; this IMAP-parsed
-      // Zelle/Venmo path never did).
+      // Zelle/Venmo path never did). Resolved via resolveTenantSmsCredentials()
+      // (telnyx_phone||sms_number precedence) rather than reading
+      // tenant.telnyx_phone directly -- an sms_number-only tenant's payment
+      // confirmations were silently skipped by the raw column check.
+      const smsCreds = resolveTenantSmsCredentials(tenant)
       if (
-        tenant.telnyx_api_key && tenant.telnyx_phone && matchResult.clientPhone &&
+        smsCreds.apiKey && smsCreds.phone && matchResult.clientPhone &&
         matchResult.clientSmsConsent !== false && !matchResult.clientDoNotService
       ) {
         sendSMS({
           to: matchResult.clientPhone,
           body: `Got your ${payment.method} payment of $${payment.amount.toFixed(0)} — thank you! 😊`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(() => {})
       }
 
@@ -248,7 +254,7 @@ export async function POST(req: NextRequest) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, imap_host, imap_port, imap_user, imap_pass, email_monitor_enabled, telnyx_api_key, telnyx_phone')
+    .select('id, name, imap_host, imap_port, imap_user, imap_pass, email_monitor_enabled, telnyx_api_key, telnyx_phone, sms_number')
     .eq('email_monitor_enabled', true)
     .not('imap_host', 'is', null)
     .not('imap_user', 'is', null)

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { resolveTenantSmsCredentials, hasTenantSms } from '@/lib/sms-credentials'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -12,17 +13,20 @@ export async function GET(request: NextRequest) {
     // Return all tenants with their SMS config status
     const { data: tenants } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone')
+      .select('id, name, telnyx_api_key, telnyx_phone, sms_number')
       .order('name')
 
-    const summary = (tenants || []).map(t => ({
-      tenant_id: t.id,
-      tenant_name: t.name,
-      configured: !!t.telnyx_api_key && !!t.telnyx_phone,
-      has_api_key: !!t.telnyx_api_key,
-      has_phone: !!t.telnyx_phone,
-      phone: t.telnyx_phone || null,
-    }))
+    const summary = (tenants || []).map(t => {
+      const creds = resolveTenantSmsCredentials(t)
+      return {
+        tenant_id: t.id,
+        tenant_name: t.name,
+        configured: hasTenantSms(t),
+        has_api_key: !!t.telnyx_api_key,
+        has_phone: !!creds.phone,
+        phone: creds.phone,
+      }
+    })
 
     return NextResponse.json({ tenants: summary })
   }
@@ -30,7 +34,7 @@ export async function GET(request: NextRequest) {
   // Get SMS config for specific tenant
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', tenantId)
     .single()
 
@@ -56,9 +60,9 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     config: {
-      configured: !!tenant.telnyx_api_key && !!tenant.telnyx_phone,
+      configured: hasTenantSms(tenant),
       has_api_key: !!tenant.telnyx_api_key,
-      phone: tenant.telnyx_phone || null,
+      phone: resolveTenantSmsCredentials(tenant).phone,
     },
     conversations: conversations || [],
     recentMessages: recentMessages || [],

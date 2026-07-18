@@ -1,4 +1,5 @@
 import { supabaseAdmin } from '@/lib/supabase'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 const TELNYX_API_KEY = process.env.TELNYX_API_KEY?.replace(/\s/g, '')
 const TELNYX_FROM_NUMBER = (process.env.TELNYX_FROM_NUMBER || '+18883164019').replace(/\s/g, '')
@@ -134,10 +135,24 @@ export async function sendSMS(to: string, message: string, options?: { skipConse
                 // this flag only silences our own retry noise.) If we can't
                 // resolve the sending tenant, do nothing rather than write across
                 // tenants.
+                // Matches telnyx_phone OR the legacy sms_number column (same
+                // telnyx_phone||sms_number precedence as resolveTenantSmsCredentials()
+                // and webhooks/telnyx's own tenant lookup) — a tenant whose number
+                // only ever landed in sms_number would otherwise never match, and
+                // this opt-out silently no-ops for them on every STOP block.
+                // limit(2), not .single(): a mis-seeded duplicate number would
+                // make .single() error and no-op the whole opt-out silently.
                 const fromNum = options?.from
-                const { data: ownerTenant } = fromNum
-                  ? await supabaseAdmin.from('tenants').select('id').eq('telnyx_phone', fromNum).single()
+                const safeFrom = fromNum ? sanitizePostgrestValue(fromNum) : ''
+                const { data: ownerMatches } = safeFrom
+                  ? await supabaseAdmin
+                      .from('tenants')
+                      .select('id')
+                      .or(`telnyx_phone.eq.${safeFrom},sms_number.eq.${safeFrom}`)
+                      .order('id', { ascending: true })
+                      .limit(2)
                   : { data: null }
+                const ownerTenant = ownerMatches?.[0] || null
                 if (ownerTenant?.id) {
                   const last10 = cleanPhone.replace(/\D/g, '').slice(-10)
                   await supabaseAdmin.from('clients').update({ sms_consent: false }).eq('tenant_id', ownerTenant.id).ilike('phone', `%${last10}%`)

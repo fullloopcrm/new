@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { supabaseAdmin } from '@/lib/supabase'
+import { hasTenantSms } from '@/lib/sms-credentials'
 
 async function verifyAdmin() {
   const cookieStore = await cookies()
@@ -87,14 +88,18 @@ export async function POST() {
   try {
     const { data: tenants } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, stripe_api_key')
+      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, sms_number, stripe_api_key')
       .eq('status', 'active')
 
     const issues: string[] = []
     for (const t of tenants || []) {
       const missing: string[] = []
       if (!t.resend_api_key) missing.push('email')
-      if (!t.telnyx_api_key || !t.telnyx_phone) missing.push('sms')
+      // hasTenantSms() (telnyx_phone||sms_number precedence), not a raw
+      // telnyx_phone check -- otherwise this diagnostic falsely flags every
+      // sms_number-only tenant as missing SMS when their SMS actually works,
+      // same carry-forward bug already closed on the cron/system-check twin.
+      if (!hasTenantSms(t)) missing.push('sms')
       if (!t.stripe_api_key) missing.push('payments')
       if (missing.length > 0) issues.push(`${t.name}: no ${missing.join(', ')}`)
     }
