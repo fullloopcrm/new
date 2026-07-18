@@ -36,6 +36,9 @@ export default function AdminWebsitesPage() {
   const [newDomain, setNewDomain] = useState('')
   const [newTenantId, setNewTenantId] = useState('')
   const [saving, setSaving] = useState(false)
+  const [reassignTarget, setReassignTarget] = useState<Website | null>(null)
+  const [reassignTenantId, setReassignTenantId] = useState('')
+  const [reassigning, setReassigning] = useState(false)
 
   useEffect(() => { fetchData() }, [])
 
@@ -76,6 +79,33 @@ export default function AdminWebsitesPage() {
       console.error('Failed to add domain:', err)
     }
     setSaving(false)
+  }
+
+  // Moves a domain to a different tenant via a direct PATCH — the "reassign
+  // it" half of POST's own collision-error promise, which previously had no
+  // UI path at all (an admin's only option was manually clearing the OTHER
+  // tenant's legacy domain field on its own admin page, with no cross-link).
+  const reassignDomain = async () => {
+    if (!reassignTarget || !reassignTenantId) return
+    setReassigning(true)
+    try {
+      const res = await fetch('/api/admin/websites', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: reassignTarget.id, tenant_id: reassignTenantId })
+      })
+      if (res.ok) {
+        setReassignTarget(null)
+        setReassignTenantId('')
+        fetchData()
+      } else {
+        const err = await res.json()
+        alert(err.error || 'Failed to reassign domain')
+      }
+    } catch (err) {
+      console.error('Failed to reassign domain:', err)
+    }
+    setReassigning(false)
   }
 
   const filteredWebsites = websites.filter(site => {
@@ -226,6 +256,7 @@ export default function AdminWebsitesPage() {
                     <th className="px-5 py-3.5 text-right">Visits (30d)</th>
                     <th className="px-5 py-3.5 text-right">Total</th>
                     <th className="px-5 py-3.5">Added</th>
+                    <th className="px-5 py-3.5">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-50">
@@ -257,6 +288,14 @@ export default function AdminWebsitesPage() {
                       <td className="px-5 py-3.5 text-right text-sm text-gray-500">{formatNumber(site.visits_total || 0)}</td>
                       <td className="px-5 py-3.5 text-sm text-gray-400">
                         {new Date(site.created_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}
+                      </td>
+                      <td className="px-5 py-3.5">
+                        <button
+                          onClick={() => { setReassignTarget(site); setReassignTenantId('') }}
+                          className="text-xs font-medium text-teal-600 hover:text-teal-700 hover:underline transition-colors"
+                        >
+                          Reassign
+                        </button>
                       </td>
                     </tr>
                   ))}
@@ -379,6 +418,49 @@ export default function AdminWebsitesPage() {
                 className="px-5 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {saving ? 'Adding...' : 'Add Domain'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reassign Domain Modal */}
+      {reassignTarget && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center z-50" onClick={() => setReassignTarget(null)}>
+          <div className="bg-white rounded-xl p-6 w-full max-w-md shadow-xl" onClick={e => e.stopPropagation()}>
+            <h3 className="text-lg font-semibold text-slate-900 mb-1">Reassign Domain</h3>
+            <p className="text-sm text-gray-400 mb-5">
+              Move <span className="font-mono text-slate-700">{reassignTarget.domain}</span> from{' '}
+              <span className="font-medium text-slate-700">{reassignTarget.tenant_name}</span> to a different tenant
+            </p>
+            <div className="space-y-4">
+              <div>
+                <label className="block text-xs font-medium uppercase tracking-wide text-gray-500 mb-1.5">New Tenant *</label>
+                <select
+                  value={reassignTenantId}
+                  onChange={(e) => setReassignTenantId(e.target.value)}
+                  className="w-full px-3.5 py-2.5 border border-gray-200 rounded-lg text-slate-900 focus:ring-2 focus:ring-teal-600/30 focus:border-teal-600 outline-none transition"
+                >
+                  <option value="">Select a tenant...</option>
+                  {tenants.filter(t => t.id !== reassignTarget.tenant_id).map(t => (
+                    <option key={t.id} value={t.id}>{t.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+            <div className="flex justify-end gap-3 mt-6">
+              <button
+                onClick={() => setReassignTarget(null)}
+                className="px-4 py-2.5 text-gray-500 hover:text-gray-700 font-medium rounded-lg hover:bg-gray-100 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={reassignDomain}
+                disabled={reassigning || !reassignTenantId}
+                className="px-5 py-2.5 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {reassigning ? 'Reassigning...' : 'Reassign'}
               </button>
             </div>
           </div>

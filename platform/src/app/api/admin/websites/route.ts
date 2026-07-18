@@ -205,3 +205,117 @@ export async function POST(request: NextRequest) {
 
   return NextResponse.json({ domain: data }, { status: 201 })
 }
+
+// Reassign an existing tenant_domains row to a different tenant.
+//
+// Before this, the ONLY way to move a domain between tenants was DELETE (on
+// the owning tenant's own admin row) + POST (re-add under the new tenant) —
+// which this route didn't even support (no DELETE handler existed here) and
+// which for a LEGACY tenants.domain collision meant navigating to the OTHER
+// tenant's admin/businesses page and manually clearing its domain field,
+// with no cross-link from the collision error message that names them. The
+// POST 409/23505 error text has always promised "remove it there first, or
+// reassign it" — this is the missing "reassign it" half. A direct PATCH also
+// avoids the DELETE+POST round trip re-triggering a full Vercel domain
+// detach/reattach cycle (registerCustomDomain's cert issuance, DNS
+// propagation wait) for a domain that's already correctly attached at the
+// Vercel layer — only tenant OWNERSHIP is changing, not routing.
+export async function PATCH(request: NextRequest) {
+  const authError = await requireAdmin()
+  if (authError) return authError
+
+  const { id, tenant_id } = await request.json()
+
+  if (!id || !tenant_id) {
+    return NextResponse.json({ error: 'id and tenant_id are required' }, { status: 400 })
+  }
+
+  const { data: existing, error: fetchError } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('*')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (fetchError) {
+    return NextResponse.json({ error: fetchError.message }, { status: 500 })
+  }
+  if (!existing) {
+    return NextResponse.json({ error: 'Domain not found' }, { status: 404 })
+  }
+  if (existing.tenant_id === tenant_id) {
+    return NextResponse.json({ error: 'Domain is already assigned to this tenant' }, { status: 400 })
+  }
+
+  const { data: destTenant, error: destTenantError } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name')
+    .eq('id', tenant_id)
+    .maybeSingle()
+
+  if (destTenantError) {
+    return NextResponse.json({ error: destTenantError.message }, { status: 500 })
+  }
+  if (!destTenant) {
+    return NextResponse.json({ error: 'Destination tenant not found' }, { status: 404 })
+  }
+
+  // Legacy-collision guard, narrowed to ONLY the tenants.domain source. The
+  // full findDomainOwner() (used by POST) also checks tenant_domains itself,
+  // which would false-positive here: this exact domain already has an active
+  // tenant_domains row (the one we're reassigning), so a tenant_domains-vs-
+  // itself check excluding only the DESTINATION tenant would always find the
+  // row under its CURRENT (pre-move) tenant_id and report it as "owned by
+  // another tenant" on every single reassignment. What actually needs
+  // checking is whether some THIRD, not-yet-migrated tenant already serves
+  // this exact host via the legacy tenants.domain column — moving the row to
+  // destTenant doesn't fix that collision, it just relocates which tenant the
+  // resolver's TRANSITION divergence guard fires against.
+  const { data: legacyOwner, error: legacyError } = await supabaseAdmin
+    .from('tenants')
+    .select('id, name')
+    .eq('domain', existing.domain)
+    .neq('id', tenant_id)
+    .maybeSingle()
+
+  if (legacyError) {
+    return NextResponse.json({ error: legacyError.message }, { status: 500 })
+  }
+  if (legacyOwner) {
+    return NextResponse.json(
+      {
+        error: `${existing.domain} is already registered to ${legacyOwner.name || 'another tenant'} via its legacy domain field. Clear it there first, then retry the reassignment.`,
+      },
+      { status: 409 },
+    )
+  }
+
+  const previousTenantId = existing.tenant_id
+
+  // Force is_primary false on the destination side rather than carrying the
+  // source tenant's flag over — destTenant may already have its own primary
+  // domain, and blindly setting a second is_primary=true row would recreate
+  // the exact non-deterministic-primary bug the demote-before-set logic in
+  // POST exists to prevent. The admin can re-flag it primary as a separate,
+  // explicit action once it's confirmed live under the new tenant.
+  const { data, error } = await supabaseAdmin
+    .from('tenant_domains')
+    .update({ tenant_id, is_primary: false })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Bust the edge cache on all three fronts that just went stale: the domain
+  // itself now resolves to a different tenant (invalidateDomainCache), and
+  // both the old and new tenant's own cached lookups (slug/id-keyed) can
+  // carry stale domain-set assumptions (invalidateTenantCache).
+  const { invalidateDomainCache, invalidateTenantCache } = await import('@/lib/tenant-lookup')
+  invalidateDomainCache(existing.domain)
+  invalidateTenantCache(previousTenantId)
+  invalidateTenantCache(tenant_id)
+
+  return NextResponse.json({ domain: data })
+}
