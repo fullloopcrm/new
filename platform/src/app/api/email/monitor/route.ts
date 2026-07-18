@@ -19,6 +19,7 @@ import { fetchUnreadEmails, markEmailRead, type ImapConfig } from '@/lib/email-m
 import { detectPaymentEmail, parsePaymentEmail, type EmailPayment } from '@/lib/payment-email-parser'
 import { sendSMS } from '@/lib/sms'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Constant-time compare — a naive `===` leaks secret bytes via timing,
 // letting an attacker recover CRON_SECRET/ELCHAPO_MONITOR_KEY byte-by-byte
@@ -34,6 +35,7 @@ export const maxDuration = 60
 interface TenantRow {
   id: string
   name: string | null
+  status: string | null
   imap_host: string | null
   imap_port: number | null
   imap_user: string | null
@@ -252,21 +254,29 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: tenants } = await supabaseAdmin
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, imap_host, imap_port, imap_user, imap_pass, email_monitor_enabled, telnyx_api_key, telnyx_phone, sms_number')
+    .select('id, name, status, imap_host, imap_port, imap_user, imap_pass, email_monitor_enabled, telnyx_api_key, telnyx_phone, sms_number')
     .eq('email_monitor_enabled', true)
     .not('imap_host', 'is', null)
     .not('imap_user', 'is', null)
     .not('imap_pass', 'is', null)
     .limit(1000)
 
-  if (!tenants || tenants.length === 0) {
+  // Same class of gap fixed across comhub-email/Telegram/Telnyx this session:
+  // this loop polled every enabled tenant's IMAP inbox and, on a Zelle/Venmo
+  // match, INSERTed into payments, flipped a booking to paid, and texted the
+  // client — with no tenant status check at all. A suspended/cancelled/
+  // deleted tenant's inbox kept getting polled and its "payments" kept
+  // getting recorded and its customers kept getting SMS receipts forever.
+  const tenants = ((allTenants ?? []) as TenantRow[]).filter((t) => tenantServesSite(t.status))
+
+  if (tenants.length === 0) {
     return NextResponse.json({ ok: true, tenants: 0, summary: 'No tenants with email monitor enabled' })
   }
 
   const results = []
-  for (const t of tenants as TenantRow[]) {
+  for (const t of tenants) {
     const r = await processTenant(t)
     results.push(r)
   }

@@ -4,6 +4,7 @@ import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { hasTenantSms } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 120
 
@@ -40,11 +41,27 @@ export async function GET(request: Request) {
       .order('created_at', { ascending: true })
       .limit(50) // process up to 50 per run
 
+    // Same messaging-on-behalf-of-a-dead-tenant gap fixed across Telegram/
+    // Telnyx/comhub-email/email-monitor this session: this retry loop calls
+    // notify() (real sendEmail/sendSMS) for whatever tenant_id the original
+    // failed notification carries, with no status check at all — a
+    // suspended/cancelled/deleted tenant's failed sends kept getting
+    // re-attempted (up to 3x within the hour) indefinitely.
+    const failedTenantIds = Array.from(new Set((failedNotifs || []).map((n) => n.tenant_id).filter(Boolean) as string[]))
+    const { data: failedNotifTenants } = await supabaseAdmin
+      .from('tenants')
+      .select('id, status')
+      .in('id', failedTenantIds)
+    const retryServingTenantIds = new Set(
+      (failedNotifTenants || []).filter((t) => tenantServesSite(t.status)).map((t) => t.id as string),
+    )
+
     let retried = 0
     let retrySuccess = 0
 
     for (const notif of failedNotifs || []) {
       if (!notif.tenant_id) continue
+      if (!retryServingTenantIds.has(notif.tenant_id)) continue
 
       // Increment retry count first to prevent infinite loops
       await supabaseAdmin
