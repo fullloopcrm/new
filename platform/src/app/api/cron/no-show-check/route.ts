@@ -52,11 +52,28 @@ export async function GET(request: Request) {
 
   for (const b of candidates) {
     try {
-      await supabaseAdmin
+      // Re-assert the SAME conditions that made this row a candidate, inside
+      // this update's own WHERE, instead of trusting the `candidates` SELECT
+      // snapshot. Without this, a team member checking in for real (which
+      // sets check_in_time + status='in_progress') in the gap between the
+      // SELECT above and this row's turn in the loop -- easily seconds on a
+      // 500-row batch, since check-in requests aren't blocked on this cron --
+      // gets silently overwritten back to 'no_show' by this unconditional
+      // update, corrupting a legitimately in-progress/completed booking's
+      // status (feeds finance/cash-flow, the calendar, and client-facing
+      // state). `.select().maybeSingle()` reports whether the claim actually
+      // landed so a lost race skips the notify too.
+      const { data: claimed } = await supabaseAdmin
         .from('bookings')
         .update({ status: 'no_show' })
         .eq('id', b.id)
         .eq('tenant_id', b.tenant_id)
+        .in('status', ['scheduled', 'confirmed', 'pending'])
+        .is('check_in_time', null)
+        .select('id')
+        .maybeSingle()
+
+      if (!claimed) continue // checked in (or already flipped) since the SELECT above
 
       const client = b.clients as unknown as { name: string } | null
       const member = b.team_members as unknown as { name: string } | null

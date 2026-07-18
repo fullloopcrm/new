@@ -213,20 +213,40 @@ export async function GET(request: Request) {
     const fourHoursAgo = new Date(Date.now() - 4 * 60 * 60 * 1000).toISOString()
     const { data: staleBookings } = await supabaseAdmin
       .from('bookings')
-      .select('id, tenant_id')
+      .select('id, tenant_id, notes')
       .eq('status', 'in_progress')
       .lt('end_time', fourHoursAgo)
       .limit(100)
 
     if (staleBookings && staleBookings.length > 0) {
-      // Auto-complete them
-      const ids = staleBookings.map(b => b.id)
-      await supabaseAdmin
-        .from('bookings')
-        .update({ status: 'completed', notes: '[Auto-completed by system — end time passed]' })
-        .in('id', ids)
+      // Auto-complete them one at a time, not a bulk `.in('id', ids)` update:
+      // (1) the old bulk update set `notes` to a fixed literal, silently
+      // WIPING any real notes already on the booking (arrival details, GPS
+      // flags, damage reports) -- every other write path on this column
+      // (e.g. team-portal/checkin's GPS flag) appends, never overwrites, so
+      // this needs each row's own current notes to append onto. (2) the
+      // update now re-asserts `.eq('status', 'in_progress')` in its own
+      // WHERE instead of trusting the SELECT snapshot, so a team member who
+      // genuinely checks out in the gap between the SELECT and this write
+      // can't have their real completion silently reverted back to
+      // 'completed' with a fabricated system note stapled on.
+      let completedCount = 0
+      for (const b of staleBookings) {
+        const { data: claimed } = await supabaseAdmin
+          .from('bookings')
+          .update({
+            status: 'completed',
+            notes: `${b.notes || ''}\n\n[Auto-completed by system — end time passed]`.trim(),
+          })
+          .eq('id', b.id)
+          .eq('tenant_id', b.tenant_id)
+          .eq('status', 'in_progress')
+          .select('id')
+          .maybeSingle()
+        if (claimed) completedCount++
+      }
 
-      fixes.push(`Auto-completed ${staleBookings.length} stale in-progress bookings`)
+      if (completedCount > 0) fixes.push(`Auto-completed ${completedCount} stale in-progress bookings`)
     }
   } catch {
     // Non-critical
