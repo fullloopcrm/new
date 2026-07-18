@@ -41,15 +41,31 @@ vi.mock('@/lib/supabase', () => {
   function from(table: string) {
     const eqs: Record<string, unknown> = {}
     const neqs: Record<string, unknown> = {}
+    const notIns: Array<{ col: string; vals: string[] }> = []
     let updatePatch: Record<string, unknown> | null = null
     const matches = (row: (typeof sessionsStore)[number]) =>
       Object.entries(eqs).every(([k, v]) => (row as Record<string, unknown>)[k] === v) &&
-      Object.entries(neqs).every(([k, v]) => (row as Record<string, unknown>)[k] !== v)
-    const resolve = () => {
+      Object.entries(neqs).every(([k, v]) => (row as Record<string, unknown>)[k] !== v) &&
+      notIns.every(({ col, vals }) => !vals.includes(String((row as Record<string, unknown>)[col])))
+    const resolveOne = () => {
       const idx = sessionsStore.findIndex(matches)
       if (idx === -1) return { data: updatePatch ? null : null, error: updatePatch ? null : { message: 'not found' } }
       if (updatePatch) sessionsStore[idx] = { ...sessionsStore[idx], ...updatePatch } as (typeof sessionsStore)[number]
       return { data: sessionsStore[idx], error: null }
+    }
+    const resolveList = () => {
+      // Used by PATCH's `.select('id')` after `.update()` with no
+      // `.single()/.maybeSingle()` -- array-shaped result, same as real
+      // supabase-js. Applies the update to every matching row (just this one
+      // store, so effectively 0 or 1) and returns the matched rows.
+      if (updatePatch) {
+        const idx = sessionsStore.findIndex(matches)
+        if (idx === -1) return { data: [], error: null }
+        sessionsStore[idx] = { ...sessionsStore[idx], ...updatePatch } as (typeof sessionsStore)[number]
+        return { data: [sessionsStore[idx]], error: null }
+      }
+      const idx = sessionsStore.findIndex(matches)
+      return { data: idx === -1 ? [] : [sessionsStore[idx]], error: null }
     }
     const chain: Record<string, unknown> = {
       select: () => chain,
@@ -62,14 +78,21 @@ vi.mock('@/lib/supabase', () => {
         neqCalls.push({ col, val })
         return chain
       },
+      not: (col: string, op: string, val: string) => {
+        if (op === 'in') {
+          const vals = val.replace(/^\(|\)$/g, '').split(',')
+          notIns.push({ col, vals })
+        }
+        return chain
+      },
       update: (patch: Record<string, unknown>) => {
         updatePatch = patch
         return chain
       },
-      maybeSingle: async () => resolve(),
-      single: async () => resolve(),
+      maybeSingle: async () => resolveOne(),
+      single: async () => resolveOne(),
       then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) =>
-        Promise.resolve(resolve()).then(onFulfilled, onRejected),
+        Promise.resolve(updatePatch ? resolveList() : resolveOne()).then(onFulfilled, onRejected),
     }
     return chain
   }

@@ -172,6 +172,19 @@ export async function PATCH(request: Request, { params }: Params) {
       if (!SESSION_STATUS.includes(body.status as SessionStatus)) {
         return NextResponse.json({ error: `Invalid status: ${body.status}` }, { status: 400 })
       }
+      // Mirror bookings/[id] PUT's guard on this same `bookings` table: a
+      // completed/paid session has no downstream reconciliation (payroll
+      // team_member_pay, referral commission clawback) anywhere in this
+      // codebase, so nothing may silently flip it back to 'cancelled' or any
+      // other status. This route writes the identical `bookings.status`
+      // column through a different door and had no equivalent check --
+      // PATCH {status:'cancelled'} on an already-completed session sailed
+      // through with no guard at all.
+      if (body.status !== 'completed' && (current.status === 'completed' || current.status === 'paid')) {
+        return NextResponse.json({
+          error: `Cannot change status of a session that is already ${current.status}`,
+        }, { status: 400 })
+      }
       patch.status = body.status
       if (body.status === 'completed') {
         // Atomic claim: `current.status` above was read via a separate
@@ -200,12 +213,26 @@ export async function PATCH(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })
     }
 
-    const { error: uErr } = await supabaseAdmin
+    // Atomic claim on a status regression: re-check the row hasn't completed
+    // or been paid out between the `current` read above and this write,
+    // closing the same TOCTOU window bookings/[id] PUT closes on its own
+    // status CAS.
+    let updateQuery = supabaseAdmin
       .from('bookings')
       .update(patch)
       .eq('id', sessionId)
       .eq('tenant_id', tenantId)
+    const isStatusRegression = patch.status !== undefined && patch.status !== 'completed'
+    if (isStatusRegression) {
+      updateQuery = updateQuery.not('status', 'in', '(completed,paid)')
+    }
+    const { data: updatedRows, error: uErr } = await updateQuery.select('id')
     if (uErr) throw uErr
+    if (isStatusRegression && (!updatedRows || updatedRows.length === 0)) {
+      return NextResponse.json({
+        error: 'Session status changed and can no longer be updated this way.',
+      }, { status: 409 })
+    }
 
     // Replace the assignee set after the booking row is updated.
     if (didReassign) {
