@@ -230,7 +230,7 @@ export async function GET(request: Request) {
     status: 'sent',
   })
 
-  // Email alert on any failure
+  // Alert on any failure
   if (failures.length > 0) {
     try {
       await trackError(
@@ -238,15 +238,55 @@ export async function GET(request: Request) {
         { source: 'cron/system-check', severity: 'high' }
       )
 
-      const detail = checks.map(c => {
-        const icon = c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'
-        return `${icon} ${c.name} — ${c.detail}`
-      }).join('\n')
+      // Dedup -- previously alertOwner() fired unconditionally on every
+      // hourly run while any check kept failing (zero dedup at all, not even
+      // a racy check-then-act window), so a single persistent condition (an
+      // env var silently unset, DB connectivity degraded) re-alerted the
+      // owner every hour for as long as it stayed broken. Two-step atomic
+      // claim on system_check_alerts(fingerprint), same idiom as
+      // cron/health-monitor's cron_health_alerts: fresh insert first
+      // (fingerprint = sorted failing check names); on a 23505 conflict, an
+      // UPDATE ... WHERE alerted_at is stale reclaims the row -- see
+      // 2026_07_18_system_check_alerts_dedup.sql for why a plain permanent
+      // unique constraint isn't enough (the same failing-check set can
+      // legitimately recur after recovery) and for why trackError's own
+      // internal alert cooldown doesn't cover this call.
+      const fingerprint = failures.map(f => f.name).sort().join(',')
+      const alertedAtNow = new Date().toISOString()
+      const windowStart = new Date(Date.now() - 6 * 60 * 60 * 1000).toISOString()
 
-      await alertOwner(
-        `🚨 System Check FAILED — ${failures.length} issue${failures.length > 1 ? 's' : ''}`,
-        detail,
-      ).catch(() => {})
+      const { error: claimErr } = await supabaseAdmin
+        .from('system_check_alerts')
+        .insert({ fingerprint, alerted_at: alertedAtNow })
+
+      let claimed = !claimErr
+      if (claimErr) {
+        if (claimErr.code !== '23505') {
+          console.error('[system-check] claim insert failed:', claimErr)
+          claimed = false
+        } else {
+          const { data: reclaimed } = await supabaseAdmin
+            .from('system_check_alerts')
+            .update({ alerted_at: alertedAtNow })
+            .eq('fingerprint', fingerprint)
+            .lt('alerted_at', windowStart)
+            .select('fingerprint')
+            .maybeSingle()
+          claimed = !!reclaimed
+        }
+      }
+
+      if (claimed) {
+        const detail = checks.map(c => {
+          const icon = c.status === 'pass' ? '✅' : c.status === 'warn' ? '⚠️' : '❌'
+          return `${icon} ${c.name} — ${c.detail}`
+        }).join('\n')
+
+        await alertOwner(
+          `🚨 System Check FAILED — ${failures.length} issue${failures.length > 1 ? 's' : ''}`,
+          detail,
+        ).catch(() => {})
+      }
     } catch {
       // If email fails, error is already tracked above
     }
