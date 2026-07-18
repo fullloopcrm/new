@@ -5290,3 +5290,48 @@ process (PID 2278, still running alongside this session's PID 18990 per
 `ps`), not this lane. Left completely untouched.
 
 File-only, no push/deploy/DB.
+
+---
+
+## 2026-07-18 09:58 round (W2) — P91, fixed: `POST /api/admin/broadcast-guidelines`
+had zero permission check + a dead frontend URL
+
+Resumed the broad-hunt after a seomgr side-quest (see 09:07-09:47 entries in
+LEADER-CHANNEL.md, unrelated to this register). Same detection signal as
+P70-P90: grepped every `api/**/route.ts` calling `getTenantForRequest`/
+`tenantDb` with no `requirePermission` gate, cross-referenced against
+`rbac.ts`.
+
+`admin/broadcast-guidelines/route.ts` (texts every active team member's
+phone via `notify()`, SMS cost, on demand) only called
+`getTenantForRequest()` — proves tenant membership at ANY role, no
+permission check. Its direct sibling on the exact same settings-page UI
+card, "Save Guidelines" (`PUT /api/settings`, which writes the same
+`guidelines_en`/`guidelines_es` fields this broadcast announces), already
+gates behind `settings.edit`. By default `rbac.ts` grants `settings.edit`
+to owner/admin but **not** manager or staff — so either tier could already
+trigger an unrestricted tenant-wide SMS broadcast with zero role check.
+
+**Also found while confirming this route's real caller:** the live
+"Broadcast to All Team Members" button in `dashboard/settings/page.tsx`
+was `fetch`-ing `/api/settings/broadcast-guidelines` — no route exists at
+that path (the real route is at `/api/admin/broadcast-guidelines`, one
+directory over) — so every click has always 404'd, while the frontend
+never checked `res.ok` and unconditionally alerted "sent" to the user. Not
+a cross-tenant leak, but the exact same "route fully executes for any
+authenticated tenant member, just no live caller wired up right" shape as
+P83/P89/P90 made this worth confirming rather than skipping as dead code —
+and it wasn't fully dead, just misrouted.
+
+**Fix:** `requirePermission('settings.edit')` on the real route (matching
+the sibling save action on the same card), plus pointed the frontend fetch
+at the correct path with an error alert on non-ok response instead of a
+silent false-success.
+
+**Regression lock:** 6 new `route.rbac.test.ts` tests (owner/admin-succeeds,
+manager-forbidden, staff-forbidden, override-revoke-admin,
+override-grant-staff), RED/GREEN confirmed (3 of 6 probes red pre-fix).
+`npx tsc --noEmit` clean. Full suite: 776 files, 3357/3394 pass, 37
+pre-existing skipped, 0 regressions.
+
+1 commit (fix + test), file-only, no push/deploy/DB.
