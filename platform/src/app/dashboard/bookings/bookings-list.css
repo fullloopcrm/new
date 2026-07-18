@@ -551,3 +551,16 @@
 .bk-page-btn:hover:not(:disabled) { background: var(--bk-bg); border-color: var(--bk-line); color: var(--bk-ink); }
 .bk-page-btn:disabled { opacity: 0.3; cursor: not-allowed; }
 .bk-page-btn.active { background: var(--bk-ink); border-color: var(--bk-ink); color: var(--bk-canvas); }
+
+/* Mechanical dark-navy (#1E2A4A) -> design-system ink (#1C1C1C) token swap.
+ * Used across the Advanced Filters panel, Pending Bookings section, mobile
+ * card view, and all 3 modals -- color-only, no layout/structure change. */
+.bk-ink-text { color: var(--bk-ink); }
+.bk-ink-border { border-color: var(--bk-ink); }
+.bk-ink-bg { background: var(--bk-ink); border-color: var(--bk-ink); }
+.bk-ink-bg-overlay { background: rgba(28,28,28,0.5); }
+.bk-ink-spinner { border-color: var(--bk-ink); border-top-color: transparent; }
+.bk-muted-hover-ink { color: var(--bk-muted); }
+.bk-muted-hover-ink:hover { color: var(--bk-ink); }
+.bk-focus-ink:focus { outline: none; border-color: var(--bk-ink); }
+.bk-hover-ink:hover { color: var(--bk-ink); }
