@@ -3,11 +3,18 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { askSelena } from '@/lib/selena/agent'
+import { capString } from '@/lib/validate'
 
 export const maxDuration = 60
 
 const ADMIN_YINEZ_CONTACT_PHONE = '+0000000000'
 const ADMIN_YINEZ_NAME = 'Yinez (admin)'
+// comhub_messages.body had no type check or length cap here -- same class as
+// admin/comhub/send's body gap. Worse: (payload?.body || '').trim() threw an
+// uncaught TypeError on any truthy non-string body (object/number lack
+// .trim()) instead of a clean 400, and an uncapped body was forwarded
+// straight into the Selena AI call. 5000 matches that sibling's cap.
+const MAX_BODY_LENGTH = 5000
 
 // POST /api/admin/comhub/yinez/send
 //   { body: string }
@@ -19,7 +26,7 @@ export async function POST(req: NextRequest) {
   const tenantId = await getCurrentTenantId()
 
   const payload = await req.json().catch(() => null) as { body?: string } | null
-  const text = (payload?.body || '').trim()
+  const text = capString(payload?.body, MAX_BODY_LENGTH)
   if (!text) return NextResponse.json({ error: 'body required' }, { status: 400 })
 
   const { data: contactId, error: cErr } = await supabaseAdmin
