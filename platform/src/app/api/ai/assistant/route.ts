@@ -9,6 +9,24 @@ import { overridesFor } from '@/lib/require-permission'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { pick } from '@/lib/validate'
 
+// Same risk/convention as admin/translate's MAX_TEXT_LENGTH: the rate limit
+// below caps call *volume*, not payload size — and this route loops up to 10
+// Anthropic calls per request. Without a per-message and array-length cap,
+// one authenticated tenant member (any role) could send a single oversized
+// `messages` array and have it replayed across every tool-use iteration,
+// driving real Anthropic spend against the tenant's (or platform's) stored key.
+const MAX_MESSAGES = 40
+const MAX_MESSAGE_LENGTH = 4000
+
+function validateMessages(input: unknown): { role: 'user' | 'assistant'; content: string }[] | null {
+  if (!Array.isArray(input) || input.length === 0 || input.length > MAX_MESSAGES) return null
+  for (const m of input) {
+    if (!m || (m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') return null
+    if (m.content.length > MAX_MESSAGE_LENGTH) return null
+  }
+  return input as { role: 'user' | 'assistant'; content: string }[]
+}
+
 // Tool `updates` objects are LLM-generated. The declared input_schema is a
 // hint to the model, not an enforced contract — nothing stops a tool call
 // (e.g. one steered by a prompt-injection payload sitting in a client's
@@ -391,15 +409,19 @@ export async function POST(request: Request) {
     // Tenant's own Anthropic key if set, platform key otherwise.
     const anthropic = anthropicFromStoredKey(tenant.anthropic_api_key)
 
-    const { messages } = await request.json()
+    const { messages: rawMessages } = await request.json()
 
-    if (!messages || !Array.isArray(messages)) {
-      return NextResponse.json({ error: 'messages array required' }, { status: 400 })
+    const messages = validateMessages(rawMessages)
+    if (!messages) {
+      return NextResponse.json(
+        { error: `Invalid messages — max ${MAX_MESSAGES} messages, ${MAX_MESSAGE_LENGTH} characters each` },
+        { status: 400 },
+      )
     }
 
     const systemPrompt = buildSystemPrompt(tenant.name, tenant.industry?.replace(/_/g, ' ') || 'service')
 
-    let currentMessages = [...messages]
+    let currentMessages: Anthropic.MessageParam[] = [...messages]
     let maxIterations = 10
 
     while (maxIterations-- > 0) {

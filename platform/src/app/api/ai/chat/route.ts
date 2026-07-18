@@ -4,6 +4,24 @@ import { anthropicFromStoredKey } from '@/lib/anthropic-client'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Same risk/convention as admin/translate's MAX_TEXT_LENGTH: the rate limit
+// below caps call *volume*, not payload size. Without a per-message and
+// array-length cap, one authenticated tenant member (any role) could send a
+// single oversized `messages` array — still just 30 calls per 10 min, but
+// each one arbitrarily large — driving real Anthropic spend against the
+// tenant's (or platform's) stored key.
+const MAX_MESSAGES = 40
+const MAX_MESSAGE_LENGTH = 4000
+
+function validateMessages(input: unknown): { role: 'user' | 'assistant'; content: string }[] | null {
+  if (!Array.isArray(input) || input.length === 0 || input.length > MAX_MESSAGES) return null
+  for (const m of input) {
+    if (!m || (m.role !== 'user' && m.role !== 'assistant') || typeof m.content !== 'string') return null
+    if (m.content.length > MAX_MESSAGE_LENGTH) return null
+  }
+  return input as { role: 'user' | 'assistant'; content: string }[]
+}
+
 export async function POST(request: Request) {
   try {
     const { tenant, tenantId } = await getTenantForRequest()
@@ -23,7 +41,15 @@ export async function POST(request: Request) {
     // Tenant's own Anthropic key if set, platform key otherwise.
     const anthropic = anthropicFromStoredKey(tenant.anthropic_api_key)
 
-    const { messages, context } = await request.json()
+    const { messages: rawMessages, context } = await request.json()
+
+    const messages = validateMessages(rawMessages)
+    if (!messages) {
+      return NextResponse.json(
+        { error: `Invalid messages — max ${MAX_MESSAGES} messages, ${MAX_MESSAGE_LENGTH} characters each` },
+        { status: 400 },
+      )
+    }
 
     // Get business context for grounding
     const [
@@ -61,10 +87,7 @@ Keep responses concise and actionable. Format with markdown when helpful. Always
       model: 'claude-sonnet-4-6',
       max_tokens: 1024,
       system: systemPrompt,
-      messages: messages.map((m: { role: string; content: string }) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
+      messages,
     })
 
     const text = response.content[0].type === 'text' ? response.content[0].text : ''
