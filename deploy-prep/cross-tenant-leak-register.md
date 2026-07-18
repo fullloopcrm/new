@@ -5416,3 +5416,47 @@ tsc --noEmit` clean. Full suite: 779 files, 3381/3418 tests pass, 37
 pre-existing skipped, 0 regressions.
 
 1 commit (fix + test, 620d138c), file-only, no push/deploy/DB.
+
+## 2026-07-18 11:00 round (W2) — P94, fixed: `GET /api/admin/analytics/live-feed`
+had zero permission check
+
+Fresh-ground surface for this round (same detection signal as P70-P93):
+grepped every `api/**/route.ts` calling `getTenantForRequest`/`tenantDb`
+with no `requirePermission`/`hasPermission` gate, cross-referenced against
+`rbac.ts`. Out of ~55 raw hits, most were false positives already gated by
+`requireAdmin()` (platform-admin cookie, a different/stricter gate than
+tenant-role RBAC — e.g. `admin/comhub/threads`, `admin/comhub/contacts/
+[id]/*`) or webhook/cron routes correctly ungated by design (signature- or
+cron-secret-verified, not tenant-session auth).
+
+`admin/analytics/live-feed/route.ts` (visitor tracking feed: page,
+referrer, device, time-on-page off `lead_clicks`, ported from nycmaid)
+called only `getTenantForRequest()` — proves tenant membership at ANY
+role, no permission gate. Its sibling on the exact same table, `GET
+/api/leads/feed` (already fixed in an earlier round per that route's own
+`route.rbac.test.ts`), gates behind `requirePermission('leads.view')` —
+`rbac.ts` grants `leads.view` to owner/admin/manager but **not** staff.
+Grepped every frontend caller of this path and found none — no live
+`fetch` anywhere in `app/` references `/api/admin/analytics/live-feed` or
+`live-feed` at all (the platform-admin `/admin/analytics` page is a
+server component reading `supabaseAdmin` directly, unrelated). Same
+"fully executes for any authenticated tenant member, just not wired to a
+live caller" shape as P83/P89/P90/P91 — worth closing rather than leaving
+a reachable, unguarded endpoint live.
+
+**Fix:** `requirePermission('leads.view')`, matching `leads/feed` exactly
+(same permission, same table, same visitor-tracking domain).
+
+**Regression lock:** 4 new `route.rbac.test.ts` tests (owner-succeeds,
+manager-succeeds, staff-forbidden, tenant-override-grant-to-staff).
+Mutation-verified via `git diff > patch` / `git apply -R patch` (worker
+worktrees block `git stash` — shared `.git` dir across 4 worktrees, one
+stash stack): staff-forbidden probe went 200 pre-fix (RED), 403 post-fix
+(GREEN), other 3 probes unaffected either way. `npx tsc --noEmit` clean.
+Full suite: 780 files, 3385/3422 pass, 37 pre-existing skipped, 0
+regressions (was 779/3418). `npm run audit:tenant`: same 4 pre-existing
+findings as every prior round (`tenant-lookup.ts:214`, `tenant.ts:338`
+domain-lookup queries, `cron/recurring-expenses` intentional fan-out,
+`route.entity-insert-error.test.ts` JSDoc false-positive), none new.
+
+1 commit (fix + test, cc571748), file-only, no push/deploy/DB.
