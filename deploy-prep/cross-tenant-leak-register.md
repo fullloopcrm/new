@@ -5335,3 +5335,55 @@ override-grant-staff), RED/GREEN confirmed (3 of 6 probes red pre-fix).
 pre-existing skipped, 0 regressions.
 
 1 commit (fix + test), file-only, no push/deploy/DB.
+
+---
+
+## 2026-07-18 10:08 round (W2) — P92, fixed: `POST /api/ai/assistant`
+tool dispatch had zero permission check
+
+Continued the broad-hunt (same detection signal as P70-P91): grepped
+every `api/**/route.ts` calling `getTenantForRequest`/`tenantDb` with no
+`requirePermission`/permission-map gate, cross-referenced against
+`rbac.ts`.
+
+The Selena AI assistant's `executeTool()` ran `update_bookings`,
+`cancel_bookings`, `update_client`, and `get_revenue_stats` for any
+authenticated tenant member — only `getTenantForRequest()` was checked,
+which proves tenant membership at ANY role, no permission gate. The
+sibling route `admin/ai-chat/route.ts` already has its own
+`TOOL_PERMISSIONS` map and its comment explicitly flagged this exact
+route as having "the same gap (unguarded), not fixed here." By default
+`rbac.ts` denies `staff` `bookings.edit`/`clients.edit`/`finance.view`
+— so any staff-tier member reaching the Selena chat bar
+(`dashboard/selena-bar.tsx`) could have the assistant update/cancel
+bookings, edit client records, or pull revenue stats, all of which the
+equivalent REST endpoints already 403 on for staff.
+
+**Fix:** `TOOL_PERMISSIONS` map + `hasPermission()` check inside
+`executeTool`, mirroring `admin/ai-chat/route.ts`'s existing pattern
+exactly (including tenant `selena_config.role_permissions` overrides
+via `overridesFor()`).
+
+**Regression lock:** 12 new `route.rbac.test.ts` tests (4 staff-forbidden
+probes across all 4 gated tools, 4 manager-succeeds controls, 1
+tenant-override-grant-to-staff, 1 read-only-tool-remains-ungated
+control). `npx tsc --noEmit` clean. Full suite: 777 files, 3367/3404
+pass, 37 pre-existing skipped, 0 regressions (1 unrelated flaky timeout
+in `finance-export.test.ts` under parallel load, confirmed passing in
+isolation).
+
+**Noticed, not touched:** `npm run audit:tenant` currently reports 4
+"NEW" unscoped-query findings against an empty baseline —
+`tenant-lookup.ts:214` and `tenant.ts:338` (both the `tenant_domains`
+domain-lookup queries themselves, unscoped by design since resolving
+`tenant_id` from a host IS the resolver's job), `cron/recurring-expenses/
+route.ts:60` (intentional cross-tenant fan-out, already gated downstream
+by `tenantServesSite()` per this session's earlier fix), and
+`route.entity-insert-error.test.ts:8` (a false-positive regex match
+inside a JSDoc comment describing old, already-fixed code — the test
+file has no live `.from('entities')` call). None are real leaks; all
+pre-date this round's uncommitted diff. Left untouched — outside this
+lane's current fix, flagging for whoever owns the audit-script/baseline
+upkeep.
+
+1 commit (fix + test), file-only, no push/deploy/DB.
