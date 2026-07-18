@@ -29,7 +29,7 @@ const statusTabs = [
   { value: '', label: 'All' },
   { value: 'scheduled', label: 'Scheduled' },
   { value: 'completed', label: 'Completed' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'cancelled', label: 'Canceled' },
 ]
 
 const dateRanges = [

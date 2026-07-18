@@ -161,7 +161,7 @@ export default function KanbanView() {
       {(() => {
         const hidden = bookings.filter((b) => !COLUMNS.some((c) => c.key === b.status)).length
         return hidden > 0 ? (
-          <p className="mt-3 text-xs text-slate-400">{hidden} cancelled / other status not shown on the board.</p>
+          <p className="mt-3 text-xs text-slate-400">{hidden} canceled / other status not shown on the board.</p>
         ) : null
       })()}
     </div>
