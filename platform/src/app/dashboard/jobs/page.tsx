@@ -5,6 +5,7 @@ import Link from 'next/link'
 
 type JobRow = {
   id: string
+  job_number: string | null
   title: string
   status: string
   client_name: string | null
@@ -75,6 +76,7 @@ export default function JobsPage() {
               <tr key={j.id} className="hover:bg-slate-50">
                 <td className="px-4 py-3">
                   <Link href={`/dashboard/jobs/${j.id}`} className="font-medium text-slate-900 hover:underline">{j.title}</Link>
+                  <p className="text-xs text-slate-400 font-mono">{j.job_number || j.id.slice(0, 8)}</p>
                   {j.client_name && <p className="text-xs text-slate-500">{j.client_name}</p>}
                 </td>
                 <td className="px-4 py-3"><span className={`text-[11px] px-2 py-0.5 rounded font-medium ${STATUS_STYLE[j.status] || 'bg-slate-100'}`}>{j.status}</span></td>

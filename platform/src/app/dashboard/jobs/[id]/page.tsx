@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Assignee = { id: string; name: string }
-type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
+type Job = { id: string; job_number: string | null; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = {
   id: string
@@ -241,6 +241,7 @@ export default function JobDetailPage() {
             <h1 className="font-heading text-2xl font-bold text-slate-900">{job.title || 'Job'}</h1>
             <span className={`text-xs px-2 py-0.5 rounded font-medium ${JOB_STATUS_STYLE[job.status] || 'bg-slate-100'}`}>{job.status}</span>
           </div>
+          <p className="text-xs text-slate-400 font-mono mt-0.5">{job.job_number || job.id.slice(0, 8)}</p>
           {job.service_address && <p className="text-slate-500 text-sm mt-1">{job.service_address}</p>}
         </div>
         <div className="text-right">

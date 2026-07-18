@@ -29,6 +29,9 @@ function rollup(payments: PaymentRow[], nowIso: string) {
   return { contracted, paid, due, overdue }
 }
 
+const JOB_LIST_COLUMNS =
+  'id, title, status, total_cents, created_at, client_id, clients(name), job_payments(amount_cents, status, due_at)'
+
 export async function GET() {
   try {
     const { tenant: authTenant, error: authError } = await requirePermission('bookings.view')
@@ -36,12 +39,25 @@ export async function GET() {
     const { tenantId } = authTenant
     const nowIso = new Date().toISOString()
 
-    const { data: jobs, error } = await supabaseAdmin
+    // job_number's migration is prepared but not yet applied everywhere — select it
+    // optimistically and fall back to the column set without it if the column
+    // doesn't exist yet (undefined_column), so this route keeps working either way.
+    let jobs: Record<string, unknown>[] | null
+    let error: { code?: string; message?: string } | null
+    ;({ data: jobs, error } = await supabaseAdmin
       .from('jobs')
-      .select('id, title, status, total_cents, created_at, client_id, clients(name), job_payments(amount_cents, status, due_at)')
+      .select(`job_number, ${JOB_LIST_COLUMNS}`)
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
-      .limit(500)
+      .limit(500))
+    if (error?.code === '42703') {
+      ;({ data: jobs, error } = await supabaseAdmin
+        .from('jobs')
+        .select(JOB_LIST_COLUMNS)
+        .eq('tenant_id', tenantId)
+        .order('created_at', { ascending: false })
+        .limit(500))
+    }
     if (error) {
       console.error('GET /api/jobs', error)
       return NextResponse.json({ error: 'Failed' }, { status: 500 })
@@ -53,6 +69,7 @@ export async function GET() {
       const client = j.clients as { name?: string } | null
       return {
         id: j.id as string,
+        job_number: (j.job_number as string | undefined) ?? null,
         title: (j.title as string) || 'Job',
         status: j.status as string,
         client_name: client?.name ?? null,
