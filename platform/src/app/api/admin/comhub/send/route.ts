@@ -6,6 +6,16 @@ import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { capString } from '@/lib/validate'
+
+// comhub_messages.body/subject had no type check or length cap -- same class
+// as connect/messages' body cap. Worse here: body.body.slice(0, ...) was
+// called directly on the raw value below, so a non-string body (e.g. a
+// number) would throw an uncaught TypeError instead of a clean 400. 5000
+// matches connect/messages' free-text precedent; 200 matches
+// admin/comhub/channels' description cap for the subject line.
+const MAX_MESSAGE_BODY_LENGTH = 5000
+const MAX_SUBJECT_LENGTH = 200
 
 // Resolve @firstname / @first.last mentions to tenant_members rows.
 async function resolveMentions(tenantId: string, body: string): Promise<string[]> {
@@ -56,7 +66,7 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
   const smsCreds = resolveTenantSmsCredentials(tenant)
 
-  const body = await req.json().catch(() => null) as {
+  const payload = await req.json().catch(() => null) as {
     thread_id?: string
     contact_id?: string
     phone?: string
@@ -67,17 +77,20 @@ export async function POST(req: NextRequest) {
     author_id?: string | null
   } | null
 
-  if (!body || !body.channel || !body.body) {
+  const messageBody = capString(payload?.body, MAX_MESSAGE_BODY_LENGTH)
+  const subject = capString(payload?.subject, MAX_SUBJECT_LENGTH)
+
+  if (!payload || !payload.channel || !messageBody) {
     return NextResponse.json({ error: 'channel and body are required' }, { status: 400 })
   }
 
   // Web (portal) reply
-  if (body.channel === 'web') {
-    if (!body.thread_id) return NextResponse.json({ error: 'thread_id required for web' }, { status: 400 })
+  if (payload.channel === 'web') {
+    if (!payload.thread_id) return NextResponse.json({ error: 'thread_id required for web' }, { status: 400 })
     const { data: t } = await supabaseAdmin
       .from('comhub_threads')
       .select('id, contact_id')
-      .eq('id', body.thread_id)
+      .eq('id', payload.thread_id)
       .eq('tenant_id', tenantId)
       .single()
     if (!t) return NextResponse.json({ error: 'thread not found' }, { status: 404 })
@@ -86,13 +99,13 @@ export async function POST(req: NextRequest) {
       .from('comhub_messages')
       .insert({
         tenant_id: tenantId,
-        thread_id: body.thread_id,
+        thread_id: payload.thread_id,
         contact_id: t.contact_id,
         channel: 'web',
         direction: 'out',
         author: 'admin',
-        author_id: body.author_id || null,
-        body: body.body,
+        author_id: payload.author_id || null,
+        body: messageBody,
         sent_at: new Date().toISOString(),
       })
       .select()
@@ -103,55 +116,55 @@ export async function POST(req: NextRequest) {
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
-        last_message_preview: body.body.slice(0, 140),
+        last_message_preview: messageBody.slice(0, 140),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', body.thread_id)
+      .eq('id', payload.thread_id)
       .eq('tenant_id', tenantId)
 
-    return NextResponse.json({ ok: true, message_id: msg.id, thread_id: body.thread_id })
+    return NextResponse.json({ ok: true, message_id: msg.id, thread_id: payload.thread_id })
   }
 
   // Internal channel post
-  if (body.channel === 'internal') {
-    if (!body.thread_id) return NextResponse.json({ error: 'thread_id required for internal channel' }, { status: 400 })
+  if (payload.channel === 'internal') {
+    if (!payload.thread_id) return NextResponse.json({ error: 'thread_id required for internal channel' }, { status: 400 })
     const { data: ch } = await supabaseAdmin
       .from('comhub_threads')
       .select('id, kind, name, slug')
-      .eq('id', body.thread_id)
+      .eq('id', payload.thread_id)
       .eq('tenant_id', tenantId)
       .single()
     if (!ch || ch.kind !== 'channel') {
       return NextResponse.json({ error: 'thread is not an internal channel' }, { status: 400 })
     }
 
-    const authorId = body.author_id || null
+    const authorId = payload.author_id || null
 
     const { data: msg, error: insErr } = await supabaseAdmin
       .from('comhub_messages')
       .insert({
         tenant_id: tenantId,
-        thread_id: body.thread_id,
+        thread_id: payload.thread_id,
         contact_id: null,
         channel: 'internal',
         direction: 'out',
         author: 'admin',
         author_id: authorId,
-        body: body.body,
+        body: messageBody,
         sent_at: new Date().toISOString(),
       })
       .select()
       .single()
     if (insErr) return NextResponse.json({ error: insErr.message }, { status: 500 })
 
-    const mentionedIds = await resolveMentions(tenantId, body.body)
+    const mentionedIds = await resolveMentions(tenantId, messageBody)
     const others = mentionedIds.filter(uid => uid !== authorId)
     if (others.length > 0) {
       await supabaseAdmin.from('comhub_mentions').insert(
         others.map(uid => ({
           tenant_id: tenantId,
           user_id: uid,
-          thread_id: body.thread_id,
+          thread_id: payload.thread_id,
           message_id: msg.id,
           mentioned_by: authorId,
         }))
@@ -162,20 +175,20 @@ export async function POST(req: NextRequest) {
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
-        last_message_preview: body.body.slice(0, 140),
+        last_message_preview: messageBody.slice(0, 140),
         updated_at: new Date().toISOString(),
       })
-      .eq('id', body.thread_id)
+      .eq('id', payload.thread_id)
       .eq('tenant_id', tenantId)
 
-    return NextResponse.json({ ok: true, message_id: msg.id, thread_id: body.thread_id, mentioned: others.length })
+    return NextResponse.json({ ok: true, message_id: msg.id, thread_id: payload.thread_id, mentioned: others.length })
   }
 
   // External channels (sms/email) — resolve contact + thread, send, log
-  let contactId = body.contact_id || null
-  let threadId = body.thread_id || null
-  let phone: string | null = body.phone || null
-  let email: string | null = body.email || null
+  let contactId = payload.contact_id || null
+  let threadId = payload.thread_id || null
+  let phone: string | null = payload.phone || null
+  let email: string | null = payload.email || null
 
   if (threadId) {
     const { data: t } = await supabaseAdmin
@@ -210,7 +223,7 @@ export async function POST(req: NextRequest) {
   }
 
   if (!contactId) {
-    if (body.channel === 'sms') {
+    if (payload.channel === 'sms') {
       if (!phone) return NextResponse.json({ error: 'phone required for sms' }, { status: 400 })
       const { data, error } = await supabaseAdmin
         .rpc('comhub_get_or_create_contact_by_phone', { p_tenant_id: tenantId, p_phone: phone })
@@ -227,19 +240,19 @@ export async function POST(req: NextRequest) {
 
   if (!threadId) {
     const { data, error } = await supabaseAdmin
-      .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: body.channel })
+      .rpc('comhub_get_or_create_thread', { p_tenant_id: tenantId, p_contact_id: contactId, p_channel: payload.channel })
     if (error || !data) return NextResponse.json({ error: error?.message || 'thread create failed' }, { status: 500 })
     threadId = data as string
   }
 
-  if (body.channel === 'sms') {
+  if (payload.channel === 'sms') {
     if (!phone) return NextResponse.json({ error: 'no phone on contact' }, { status: 400 })
     if (!smsCreds.apiKey || !smsCreds.phone) {
       return NextResponse.json({ error: 'SMS is not configured for this business.' }, { status: 400 })
     }
     let smsExternalId: string | null = null
     try {
-      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
+      const result = await sendSMS({ to: phone, body: messageBody, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
       smsExternalId = (result as { data?: { id?: string } } | null)?.data?.id ?? null
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : 'sms send failed' }, { status: 502 })
@@ -254,7 +267,7 @@ export async function POST(req: NextRequest) {
         channel: 'sms',
         direction: 'out',
         author: 'admin',
-        body: body.body,
+        body: messageBody,
         to_address: phone,
         external_id: smsExternalId,
         sent_at: new Date().toISOString(),
@@ -269,7 +282,7 @@ export async function POST(req: NextRequest) {
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
-        last_message_preview: body.body.slice(0, 140),
+        last_message_preview: messageBody.slice(0, 140),
         bot_paused_until: pauseUntil,
         updated_at: new Date().toISOString(),
       })
@@ -279,13 +292,13 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, message_id: msg.id, thread_id: threadId, bot_paused_until: pauseUntil })
   }
 
-  if (body.channel === 'email') {
+  if (payload.channel === 'email') {
     if (!email) return NextResponse.json({ error: 'no email on contact' }, { status: 400 })
     if (!tenant?.resend_api_key) {
       return NextResponse.json({ error: 'Email is not configured for this business.' }, { status: 400 })
     }
-    const subj = body.subject || `Message from ${tenant?.name || 'us'}`
-    const bodyHtml = body.body
+    const subj = subject || `Message from ${tenant?.name || 'us'}`
+    const bodyHtml = messageBody
       .split(/\n{2,}/)
       .map((p) => `<p style="margin:0 0 14px">${escapeHtml(p).replace(/\n/g, '<br/>')}</p>`)
       .join('')
@@ -318,8 +331,8 @@ export async function POST(req: NextRequest) {
         channel: 'email',
         direction: 'out',
         author: 'admin',
-        subject: body.subject || null,
-        body: body.body,
+        subject: subject || null,
+        body: messageBody,
         to_address: email,
         external_id: externalId,
         sent_at: new Date().toISOString(),
@@ -332,8 +345,8 @@ export async function POST(req: NextRequest) {
       .from('comhub_threads')
       .update({
         last_message_at: msg.sent_at,
-        last_message_preview: (body.subject ? body.subject + ' — ' : '') + body.body.slice(0, 120),
-        subject: body.subject || undefined,
+        last_message_preview: (subject ? subject + ' — ' : '') + messageBody.slice(0, 120),
+        subject: subject || undefined,
         updated_at: new Date().toISOString(),
       })
       .eq('id', threadId)
