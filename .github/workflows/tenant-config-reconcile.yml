@@ -98,7 +98,16 @@ jobs:
       - name: Identify which step failed (for the Telegram alert)
         id: identify-failed-step
         if: failure()
-        working-directory: platform
+        # Item (264), same fix as ci.yml's sibling step: `working-directory:
+        # platform` here depends on the checkout step having actually created
+        # that directory. If `checkout` is the step that failed, `platform/`
+        # never exists, so this step -- which explicitly names "Checkout" as
+        # the failed step below -- fails on its own missing working directory
+        # before it ever gets there, and `failed_step` is never set. Overridden
+        # to `github.workspace`, which the runner creates before any step runs
+        # regardless of checkout's outcome; reconcile-output.txt now needs the
+        # `platform/` prefix since this step no longer implicitly cd's there.
+        working-directory: ${{ github.workspace }}
         run: |
           # Item (244)'s ci.yml fix, continued onto this lane's other gating job
           # (queue item (2): "continue whichever surface (1) opens up"). Same
@@ -130,7 +139,7 @@ jobs:
           # completion -- a thrown exception exits before ever printing it. So its
           # presence in the captured output IS the CRIT-vs-error signal.
           if [ "${{ steps.reconcile-drift-gate.outcome }}" = "failure" ]; then
-            if grep -q 'Tenant-config reconcile — ' reconcile-output.txt 2>/dev/null; then
+            if grep -q 'Tenant-config reconcile — ' platform/reconcile-output.txt 2>/dev/null; then
               failed="Reconcile tenant config (read-only drift gate) -- gating CRIT drift found (not a script error; see the Job Summary for which tenant/finding)"
             else
               failed="Reconcile tenant config (read-only drift gate) -- the script/guard itself errored before producing a report (not real drift -- see the run log)"

@@ -70,12 +70,12 @@ describe('CI invariant — tenant-config-reconcile.yml alert distinguishes gatin
     expect(existsSync(RECONCILE_WORKFLOW), `no tenant-config-reconcile.yml at ${RECONCILE_WORKFLOW}`).toBe(true)
   })
 
-  it('identify-failed-step runs in the platform/ working directory (reconcile-output.txt lives at platform/reconcile-output.txt)', () => {
+  it('identify-failed-step runs in github.workspace, not platform/, and greps the platform/-prefixed output file (item 264: platform/ only exists once checkout has succeeded)', () => {
     const body = reconcileJobBody(reconcileYaml())
-    const stepMatch = body.match(/id:\s*identify-failed-step\s*\n\s*if:\s*failure\(\)\s*\n\s*working-directory:\s*platform/)
+    const stepMatch = body.match(/id:\s*identify-failed-step\s*\n\s*if:\s*failure\(\)[\s\S]*?\n\s*working-directory:\s*\$\{\{\s*github\.workspace\s*\}\}/)
     expect(
       stepMatch,
-      'identify-failed-step no longer sets working-directory: platform — a bare `grep reconcile-output.txt` would look in the repo root, where the file was never written, and silently fall through to the "script errored" branch even when CRIT drift was the real cause',
+      'identify-failed-step no longer overrides working-directory to github.workspace — if it instead inherits (or hardcodes) working-directory: platform, then a checkout failure (platform/ never created) makes THIS diagnostic step itself fail on its own missing working directory before it can ever check steps.checkout.outcome, so the one case it exists to name ("Checkout") is the one case it silently can\'t (item 264)',
     ).not.toBeNull()
   })
 
@@ -90,8 +90,8 @@ describe('CI invariant — tenant-config-reconcile.yml alert distinguishes gatin
   it('the branch greps reconcile-output.txt for the summarize() header line to detect a completed run', () => {
     const stepBody = identifyFailedStepBody(reconcileYaml())
     expect(
-      /grep\s+-q\s+'Tenant-config reconcile — '\s+reconcile-output\.txt/.test(stepBody),
-      'expected a `grep -q \'Tenant-config reconcile — \' reconcile-output.txt` check — this is the only signal (short of parsing exit codes that are identical either way) that main() ran to completion rather than throwing',
+      /grep\s+-q\s+'Tenant-config reconcile — '\s+platform\/reconcile-output\.txt/.test(stepBody),
+      'expected a `grep -q \'Tenant-config reconcile — \' platform/reconcile-output.txt` check — this is the only signal (short of parsing exit codes that are identical either way) that main() ran to completion rather than throwing. The platform/ prefix (item 264) is required because identify-failed-step overrides working-directory to github.workspace, not platform/',
     ).toBe(true)
   })
 

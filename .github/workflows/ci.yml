@@ -113,6 +113,21 @@ jobs:
       - name: Identify which step failed (for the Telegram alert)
         id: identify-failed-step
         if: failure()
+        # Item (264): this step's `run:` inherited the job-level `defaults.run.
+        # working-directory: platform` (top of this file) like every other step
+        # here — but that directory is created by the checkout step itself. If
+        # `checkout` is the one that failed, `platform/` never exists, so THIS
+        # step (which explicitly checks `steps.checkout.outcome` below, on pain
+        # of naming "Checkout" as the failed step) fails immediately on its own
+        # missing working directory before ever reaching that check — the one
+        # case this diagnostic step exists to name is the one case it can't
+        # execute for. `failed_step` is then never set, and the Telegram alert
+        # reports a blank "failed step: " instead of "Checkout". Overridden to
+        # `github.workspace`, which the runner creates before any step runs and
+        # is therefore safe regardless of whether checkout succeeded; the two
+        # tee-captured files this step greps now need the `platform/` prefix
+        # since it's no longer implicitly cd'd there.
+        working-directory: ${{ github.workspace }}
         run: |
           # Item (244): every prior step above has an `id:` so its `outcome` is
           # readable here, but the failing one was previously invisible to whoever
@@ -145,14 +160,14 @@ jobs:
           # banner as the disambiguating signal, same technique (246) used for
           # the sibling tenant-config-reconcile.yml drift-gate step.
           if [ "${{ steps.tenant-scope.outcome }}" = "failure" ]; then
-            if grep -q '✗ tenant-scope guard:' tenant-scope-output.txt 2>/dev/null; then
+            if grep -q '✗ tenant-scope guard:' platform/tenant-scope-output.txt 2>/dev/null; then
               failed="Tenant-isolation guard -- new unscoped quer(y/ies) found (not a script error; see the run log for which file/line)"
             else
               failed="Tenant-isolation guard -- the script itself errored before producing a report (not a real leak -- see the run log)"
             fi
           fi
           if [ "${{ steps.protected-tenant.outcome }}" = "failure" ]; then
-            if grep -q 'PROTECTED-TENANT GUARD FAILED' protected-tenant-output.txt 2>/dev/null; then
+            if grep -q 'PROTECTED-TENANT GUARD FAILED' platform/protected-tenant-output.txt 2>/dev/null; then
               failed="Protected-tenant guard -- a live tenant would lose its site (not a script error; see the run log for which tenant)"
             else
               failed="Protected-tenant guard -- the script itself errored before producing a report (not a real tenant break -- see the run log)"

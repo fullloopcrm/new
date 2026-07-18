@@ -131,16 +131,16 @@ describe('CI invariant — ci.yml alert distinguishes a real gate finding from a
   it('the tenant-scope branch greps for the script\'s own finding-report line to detect a real leak', () => {
     const body = identifyFailedStepBody(ciYaml())
     expect(
-      /grep\s+-q\s+'✗ tenant-scope guard:'\s+tenant-scope-output\.txt/.test(body),
-      "expected a `grep -q '✗ tenant-scope guard:' tenant-scope-output.txt` check — this line is only ever printed by audit-tenant-scope.mjs itself after it ran to completion and found a real leak, never by an uncaught exception",
+      /grep\s+-q\s+'✗ tenant-scope guard:'\s+platform\/tenant-scope-output\.txt/.test(body),
+      "expected a `grep -q '✗ tenant-scope guard:' platform/tenant-scope-output.txt` check — this line is only ever printed by audit-tenant-scope.mjs itself after it ran to completion and found a real leak, never by an uncaught exception. The platform/ prefix (item 264) is required because identify-failed-step overrides working-directory to github.workspace, not the job-default platform/",
     ).toBe(true)
   })
 
   it('the protected-tenant branch greps for the script\'s own failure banner to detect a real violation', () => {
     const body = identifyFailedStepBody(ciYaml())
     expect(
-      /grep\s+-q\s+'PROTECTED-TENANT GUARD FAILED'\s+protected-tenant-output\.txt/.test(body),
-      "expected a `grep -q 'PROTECTED-TENANT GUARD FAILED' protected-tenant-output.txt` check — this banner is only ever printed by verify-protected-tenants.mjs itself after it ran to completion and found a real violation, never by an uncaught exception",
+      /grep\s+-q\s+'PROTECTED-TENANT GUARD FAILED'\s+platform\/protected-tenant-output\.txt/.test(body),
+      "expected a `grep -q 'PROTECTED-TENANT GUARD FAILED' platform/protected-tenant-output.txt` check — this banner is only ever printed by verify-protected-tenants.mjs itself after it ran to completion and found a real violation, never by an uncaught exception. The platform/ prefix (item 264) is required because identify-failed-step overrides working-directory to github.workspace, not the job-default platform/",
     ).toBe(true)
   })
 
