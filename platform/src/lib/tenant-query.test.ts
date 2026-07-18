@@ -243,6 +243,57 @@ describe('getTenantForRequest — signed tenant-domain header path', () => {
     expect(singleCalls.length).toBe(0)
   })
 
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-STATUS PROBE: a per-tenant admin token for a %s tenant is refused (403), same rule the Clerk normal flow already enforces',
+    async (status) => {
+      mockHeaderStore.set('x-tenant-id', 't-1')
+      mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+      mockCookieStore.set('admin_token', 'tenant-scoped-token')
+      verifyTenantHeaderSig.mockReturnValue(true)
+      verifyAdminToken.mockReturnValue(false) // not the global token
+      verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+        tenantId === 't-1' ? { memberId: 'member-5', role: 'manager' } : null,
+      )
+      getOwnerUserId.mockResolvedValue(null)
+      resolve = (table, eqs) =>
+        table === 'tenants' && eqs.id === 't-1' ? { data: tenantRow({ status }), error: null } : { data: null, error: null }
+
+      await expect(getTenantForRequest()).rejects.toMatchObject({ status: 403, message: 'Tenant account is not active' })
+    },
+  )
+
+  it('a pending tenant\'s per-tenant admin token is still authorized (only suspended/cancelled/deleted are dark)', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(false)
+    verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+      tenantId === 't-1' ? { memberId: 'member-5', role: 'manager' } : null,
+    )
+    getOwnerUserId.mockResolvedValue(null)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-1' ? { data: tenantRow({ status: 'pending' }), error: null } : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('t-1')
+  })
+
+  it('ESCAPE HATCH: the global super-admin token reaching a suspended tenant via its own domain header is still authorized (support must still reach dark accounts)', async () => {
+    mockHeaderStore.set('x-tenant-id', 't-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'global-token')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(true)
+    getOwnerUserId.mockResolvedValue(null)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-1' ? { data: tenantRow({ status: 'suspended' }), error: null } : { data: null, error: null }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.userId).toBe('admin')
+    expect(ctx.tenantId).toBe('t-1')
+  })
+
   it('falls through to Clerk when the header tenant row itself does not resolve', async () => {
     mockHeaderStore.set('x-tenant-id', 't-ghost')
     mockHeaderStore.set('x-tenant-sig', 'valid-sig')

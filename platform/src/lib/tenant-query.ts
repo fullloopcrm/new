@@ -105,6 +105,24 @@ export async function getTenantForRequest(): Promise<TenantContext> {
         if (ta) {
           const tenant = await fetchTenantById(headerTenantId, 'TENANT_HEADER_MEMBER_ADMIN_LOOKUP_ERROR')
           if (tenant) {
+            // This is a REAL (non-impersonated) tenant-owner login — the
+            // member authenticated with their own PIN at <domain>/fullloop,
+            // not admin impersonation. Every other real-owner-login path in
+            // this function (the Clerk normal flow below) gates on
+            // tenantServesSite() before authorizing; this branch didn't,
+            // so a suspended/cancelled/deleted tenant's own operator kept
+            // full API write access (bookings, clients, finance, everything
+            // requirePermission() guards) through this ~195-route-shared
+            // function for as long as their 24h PIN token stayed valid and
+            // middleware's per-isolate cache still signed the header — the
+            // exact status this function's own sibling gate three lines
+            // below exists to enforce. The global super-admin branch above
+            // is intentionally NOT gated here — that's real impersonation/
+            // support access, same exemption every other impersonation path
+            // in this codebase gets.
+            if (!tenantServesSite(tenant.status)) {
+              throw new AuthError('Tenant account is not active', 403)
+            }
             return { userId: ta.memberId, tenantId: tenant.id, tenant, role: ta.role }
           }
         }

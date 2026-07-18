@@ -62,7 +62,11 @@ vi.mock('next/headers', () => ({
   headers: async () => ({ get: (name: string) => mockHeaderStore.get(name) ?? null }),
 }))
 const verifyAdminToken = vi.fn<(token: string) => boolean>()
-vi.mock('@/app/api/admin-auth/route', () => ({ verifyAdminToken: (t: string) => verifyAdminToken(t) }))
+const verifyTenantAdminToken = vi.fn<(token: string, tenantId: string) => { memberId: string; role: string } | null>()
+vi.mock('@/app/api/admin-auth/route', () => ({
+  verifyAdminToken: (t: string) => verifyAdminToken(t),
+  verifyTenantAdminToken: (t: string, id: string) => verifyTenantAdminToken(t, id),
+}))
 const verifyImpersonationCookie = vi.fn<(raw: string | undefined) => string | null>()
 vi.mock('./impersonation', () => ({ IMPERSONATE_COOKIE: 'imp', verifyImpersonationCookie: (raw: string | undefined) => verifyImpersonationCookie(raw) }))
 const verifyTenantHeaderSig = vi.fn<(id: string, sig: string | null) => boolean>()
@@ -97,6 +101,7 @@ beforeEach(() => {
   mockHeaderStore.clear()
   getOwnerUserId.mockReset().mockResolvedValue(null)
   verifyAdminToken.mockReset().mockReturnValue(false)
+  verifyTenantAdminToken.mockReset().mockReturnValue(null)
   verifyImpersonationCookie.mockReset().mockReturnValue(null)
   verifyTenantHeaderSig.mockReset().mockReturnValue(false)
 })
@@ -396,6 +401,72 @@ describe('getCurrentTenant — real-owner status gate (Clerk membership path)', 
         ? { data: tenantRow({ id: 't-dark', status: 'suspended' }), error: null }
         : { data: null, error: null }
 
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-dark')
+  })
+})
+
+describe('getCurrentTenant — real-owner status gate (signed tenant-domain header path)', () => {
+  // dashboard/layout.tsx's own pre-gate accepts the header path on EITHER the
+  // global super-admin token OR a per-tenant member token minted for THIS
+  // tenant (login at <domain>/fullloop with the member's own PIN). The latter
+  // is a REAL (non-impersonated) tenant-owner login — same class as the Clerk
+  // membership path above — but getHeaderTenant() had no status check at all,
+  // unlike its Clerk-membership sibling. A suspended/cancelled/deleted
+  // tenant's own operator could keep rendering (and, via getCurrentTenantId(),
+  // driving) the full dashboard through this path indefinitely.
+
+  function mockHeaderTenant(status: string) {
+    mockHeaderStore.set('x-tenant-id', 't-dark')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.id === 't-dark'
+        ? { data: tenantRow({ id: 't-dark', status }), error: null }
+        : { data: null, error: null }
+  }
+
+  it('positive control: an active tenant\'s own PIN-authenticated operator is authorized', async () => {
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    verifyTenantAdminToken.mockImplementation((_t, id) => (id === 't-dark' ? { memberId: 'm-1', role: 'manager' } : null))
+    mockHeaderTenant('active')
+
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-dark')
+  })
+
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'WRONG-STATUS PROBE: a %s tenant\'s own PIN-authenticated operator is refused, not silently authorized',
+    async (status) => {
+      mockCookieStore.set('admin_token', 'tenant-scoped-token')
+      verifyTenantAdminToken.mockImplementation((_t, id) => (id === 't-dark' ? { memberId: 'm-1', role: 'manager' } : null))
+      mockHeaderTenant(status)
+
+      const t = await getCurrentTenant()
+      expect(t).toBeNull()
+    },
+  )
+
+  it('a pending tenant\'s own PIN-authenticated operator is still authorized (only suspended/cancelled/deleted are dark)', async () => {
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    verifyTenantAdminToken.mockImplementation((_t, id) => (id === 't-dark' ? { memberId: 'm-1', role: 'manager' } : null))
+    mockHeaderTenant('pending')
+
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-dark')
+  })
+
+  it('ESCAPE HATCH: the global super-admin token reaching a suspended tenant via its own domain is still authorized (support must still reach dark accounts)', async () => {
+    mockCookieStore.set('admin_token', 'global-token')
+    verifyAdminToken.mockReturnValue(true)
+    mockHeaderTenant('suspended')
+
+    const t = await getCurrentTenant()
+    expect(t?.id).toBe('t-dark')
+  })
+
+  it('a suspended tenant with NO PIN/admin cookie at all is unaffected by this gate (unauthenticated access is refused upstream by dashboard/layout.tsx\'s own pre-check, not here)', async () => {
+    mockHeaderTenant('suspended')
     const t = await getCurrentTenant()
     expect(t?.id).toBe('t-dark')
   })

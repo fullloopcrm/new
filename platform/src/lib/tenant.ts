@@ -1,7 +1,7 @@
 import { getOwnerUserId } from '@/lib/owner-session'
 import { cookies, headers } from 'next/headers'
 import { supabaseAdmin } from './supabase'
-import { verifyAdminToken } from '@/app/api/admin-auth/route'
+import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import { tenantServesSite } from './tenant-status'
@@ -139,6 +139,27 @@ async function getHeaderTenant(): Promise<Tenant | null> {
     console.error(`HEADER_TENANT_LOOKUP_ERROR id=${tenantId} error=${error.message}`)
     throw new Error(`HEADER_TENANT_LOOKUP_ERROR id=${tenantId} error=${error.message}`)
   }
+
+  if (!data) return null
+
+  // dashboard/layout.tsx's own pre-gate accepts this header path on EITHER
+  // the global super-admin token OR a per-tenant member token minted for
+  // THIS tenant (login at <domain>/fullloop with the member's own PIN) — the
+  // latter is a REAL (non-impersonated) tenant-owner login, not admin
+  // impersonation. This function's own Clerk normal-flow branch below gates
+  // a real owner login on tenantServesSite(); this header branch didn't, so
+  // a suspended/cancelled/deleted tenant's own operator could still render
+  // the full dashboard (and every getCurrentTenantId() consumer) through
+  // this path for as long as their 24h PIN token stayed valid and
+  // middleware's per-isolate cache still signed the header. Only the global
+  // super-admin token is exempt here — that's real impersonation/support
+  // access, same exemption every other impersonation branch in this file
+  // gets (getAdminImpersonatedTenant, getClerkImpersonatedTenant).
+  const cookieStore = await cookies()
+  const adminToken = cookieStore.get('admin_token')?.value
+  const isGlobalAdmin = !!adminToken && verifyAdminToken(adminToken)
+  const isTenantOwnerToken = !!adminToken && !!verifyTenantAdminToken(adminToken, tenantId)
+  if (isTenantOwnerToken && !isGlobalAdmin && !tenantServesSite(data.status)) return null
 
   return data
 }
