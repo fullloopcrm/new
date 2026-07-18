@@ -6,6 +6,22 @@ import { sendSMS } from '@/lib/sms'
 import { getSettings } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 
+// client.name/tenant.name/tenant.address are merge-field inputs, not
+// campaign authorship — client.name in particular comes straight from the
+// public, unauthenticated /api/client/book endpoint. Escape them before
+// splicing into the HTML email body so a booking name like
+// `<a href="https://evil.example">click</a>` can't inject markup into
+// every tenant's outbound marketing email. SMS stays on the raw value
+// since it's plain text, not HTML.
+function escapeHtml(value: string): string {
+  return String(value)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;')
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -102,9 +118,12 @@ export async function POST(
     const fromHeader = `${fromName} <${fromEmail}>`
 
     for (const client of clients) {
-      const personalizedBody = campaign.body
+      const smsBody = campaign.body
         .replace(/\{name\}/g, client.name)
         .replace(/\{business\}/g, tenant.name)
+      const emailPersonalizedBody = campaign.body
+        .replace(/\{name\}/g, escapeHtml(client.name))
+        .replace(/\{business\}/g, escapeHtml(tenant.name))
 
       // Tenant rule: auto_unsubscribe appends a reply-STOP / unsubscribe
       // footer to every outbound email body so each send is one-click
@@ -112,10 +131,10 @@ export async function POST(
       // CAN-SPAM also requires the sender's physical postal address — appended
       // whenever it's on file, independent of the unsubscribe toggle.
       const tenantAddress = (tenant as { address?: string | null }).address
-      const addressLine = tenantAddress ? `<br>${tenant.name} · ${tenantAddress}` : ''
+      const addressLine = tenantAddress ? `<br>${escapeHtml(tenant.name)} · ${escapeHtml(tenantAddress)}` : ''
       const emailBody = settings.campaign_auto_unsubscribe
-        ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${tenant.name} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
-        : (tenantAddress ? `${personalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${tenant.name} · ${tenantAddress}</p>` : personalizedBody)
+        ? `${emailPersonalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${escapeHtml(tenant.name)} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
+        : (tenantAddress ? `${emailPersonalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${escapeHtml(tenant.name)} · ${escapeHtml(tenantAddress)}</p>` : emailPersonalizedBody)
 
       if (sendEmails && client.email && !client.email_marketing_opt_out) {
         try {
@@ -136,7 +155,7 @@ export async function POST(
         try {
           await sendSMS({
             to: client.phone,
-            body: personalizedBody,
+            body: smsBody,
             telnyxApiKey: tenant.telnyx_api_key!,
             telnyxPhone: tenant.telnyx_phone!,
           })

@@ -26,14 +26,14 @@ function baseTemplate(content: string, data: TemplateData): string {
 <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#F5F1E8;border:1px solid #D8D2C4;border-radius:16px;overflow:hidden">
 <tr><td style="padding:22px 28px;border-bottom:1px solid #1C1C1C">
 <table role="presentation" cellpadding="0" cellspacing="0"><tr>
-${data.logoUrl ? `<td width="40" style="padding-right:12px"><img src="${data.logoUrl}" width="40" height="40" style="border-radius:8px;display:block" alt="${data.tenantName}"></td>` : ''}
-<td style="font-family:${DISPLAY};font-size:20px;font-weight:600;color:#1C1C1C;letter-spacing:-0.01em">${data.tenantName}</td>
+${data.logoUrl ? `<td width="40" style="padding-right:12px"><img src="${escapeHtml(data.logoUrl)}" width="40" height="40" style="border-radius:8px;display:block" alt="${escapeHtml(data.tenantName)}"></td>` : ''}
+<td style="font-family:${DISPLAY};font-size:20px;font-weight:600;color:#1C1C1C;letter-spacing:-0.01em">${escapeHtml(data.tenantName)}</td>
 </tr></table></td></tr>
 <tr><td style="padding:28px;font-family:${SANS};font-size:15px;line-height:1.6;color:#1C1C1C">
 ${content}
 </td></tr>
 <tr><td style="padding:16px 28px;border-top:1px solid #D8D2C4;background:#E7E1D3;font-family:${SANS};font-size:11px;color:#807B70;line-height:1.55">
-© ${year} ${data.tenantName} · powered by <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:#1C1C1C">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:#807B70">&nbsp;CRM</span></a><br>Autonomous Home Service Business CRM Systems${data.businessAddress ? `<br>${data.businessAddress}` : ''}${data.unsubscribeUrl ? `<br><a href="${data.unsubscribeUrl}" style="color:#807B70;text-decoration:underline">Unsubscribe from these emails</a>` : ''}
+© ${year} ${escapeHtml(data.tenantName)} · powered by <a href="https://homeservicesbusinesscrm.com/" style="text-decoration:none"><span style="font-family:${DISPLAY};font-weight:600;color:#1C1C1C">Full&nbsp;Loop</span><span style="font-family:${MONO};font-size:8px;letter-spacing:0.18em;color:#807B70">&nbsp;CRM</span></a><br>Autonomous Home Service Business CRM Systems${data.businessAddress ? `<br>${escapeHtml(data.businessAddress)}` : ''}${data.unsubscribeUrl ? `<br><a href="${escapeHtml(data.unsubscribeUrl)}" style="color:#807B70;text-decoration:underline">Unsubscribe from these emails</a>` : ''}
 </td></tr>
 </table></td></tr></table></body></html>`
 }
@@ -80,7 +80,7 @@ export function followUpEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Thank You!</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 16px;">
-      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${data.tenantName}! We hope you enjoyed your ${escapeHtml(data.serviceName)}.
+      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${escapeHtml(data.tenantName)}! We hope you enjoyed your ${escapeHtml(data.serviceName)}.
     </p>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
       We'd love to hear your feedback. Your opinion helps us improve!
@@ -102,7 +102,7 @@ export function dailySummaryEmail(data: TemplateData & {
 }): string {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Good Morning!</h2>
-    <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">Here's your daily summary for ${data.tenantName}.</p>
+    <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">Here's your daily summary for ${escapeHtml(data.tenantName)}.</p>
     <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
     <tr>
       <td style="background:#eff6ff;border-radius:8px;padding:16px;text-align:center;width:33%;">
@@ -131,7 +131,7 @@ export function reviewRequestEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">How'd We Do?</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, we'd love to hear your feedback about your recent experience with ${data.tenantName}.
+      Hi ${escapeHtml(data.clientName)}, we'd love to hear your feedback about your recent experience with ${escapeHtml(data.tenantName)}.
     </p>
     <table width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
       <a href="${escapeHtml(data.feedbackUrl)}" style="display:inline-block;background:${data.primaryColor || '#111827'};color:#ffffff;padding:12px 32px;border-radius:8px;font-size:14px;font-weight:600;text-decoration:none;">
@@ -156,7 +156,7 @@ export function bookingConfirmationEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Booking Confirmed!</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, your appointment with ${data.tenantName} is confirmed.
+      Hi ${escapeHtml(data.clientName)}, your appointment with ${escapeHtml(data.tenantName)} is confirmed.
     </p>
     <table width="100%" style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
     <tr><td style="padding:8px 16px;">
@@ -201,7 +201,7 @@ export function bookingReceivedEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">We Received Your Booking Request!</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${data.tenantName}. We're reviewing your request and will confirm shortly.
+      Hi ${escapeHtml(data.clientName)}, thank you for choosing ${escapeHtml(data.tenantName)}. We're reviewing your request and will confirm shortly.
     </p>
     <table width="100%" style="background:#f9fafb;border-radius:8px;padding:16px;margin-bottom:24px;">
     <tr><td style="padding:8px 16px;">
@@ -339,7 +339,7 @@ export function paymentReceiptEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 16px;">Payment Receipt</h2>
     <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
-      Hi ${escapeHtml(data.clientName)}, here's your receipt from ${data.tenantName}.
+      Hi ${escapeHtml(data.clientName)}, here's your receipt from ${escapeHtml(data.tenantName)}.
     </p>
     <table width="100%" style="border:1px solid #e5e7eb;border-radius:8px;overflow:hidden;margin-bottom:24px;">
     <tr style="background:#f9fafb;">
@@ -501,8 +501,8 @@ export function teamApplicationApprovedEmail(data: TemplateData & {
   return baseTemplate(`
     <h2 style="color:#111827;font-size:20px;margin:0 0 4px;">Welcome to the team! / ¡Bienvenido/a al equipo!</h2>
     <p style="color:#4b5563;font-size:14px;line-height:1.6;margin:0 0 20px;">
-      Hi ${escapeHtml(firstName)} — your application to join <strong>${data.tenantName}</strong> has been approved.<br>
-      Hola ${escapeHtml(firstName)} — su solicitud para unirse a <strong>${data.tenantName}</strong> ha sido aprobada.
+      Hi ${escapeHtml(firstName)} — your application to join <strong>${escapeHtml(data.tenantName)}</strong> has been approved.<br>
+      Hola ${escapeHtml(firstName)} — su solicitud para unirse a <strong>${escapeHtml(data.tenantName)}</strong> ha sido aprobada.
     </p>
 
     <div style="background:#f5f5f5;border-radius:8px;padding:24px;margin:0 0 24px;text-align:center;">
