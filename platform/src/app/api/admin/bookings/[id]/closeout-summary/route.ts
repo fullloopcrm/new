@@ -118,8 +118,18 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const payRate = (teamMembers.find(t => t.is_lead)?.hourly_rate) || booking.pay_rate || (hourlyRate <= 60 ? 25 : 30)
     return Math.round(billedHours * payRate * 100)
   })()
-  const tipShareCents = teamSize > 0 ? Math.floor(tipCents / teamSize) : 0
-  const tipShareRemainder = tipCents - tipShareCents * teamSize
+  // Split the tip across the crew actually assigned to the job
+  // (booking_team_members), not `teamSize` (bookings.team_size) -- team_size
+  // is only a billing multiplier for the CLIENT's gross charge and can be set
+  // ahead of every crew member being named (PUT /api/bookings/[id]/team
+  // allows team_size > booking_team_members.length while slots are still
+  // being filled). Dividing by team_size there split the tip across more
+  // people than actually appear in cleaner_payouts below, so the unassigned
+  // slots' share was computed but never attributed to anyone -- money
+  // silently missing from every real crew member's payout with zero trace.
+  const payoutCount = teamMembers.length
+  const tipShareCents = payoutCount > 0 ? Math.floor(tipCents / payoutCount) : 0
+  const tipShareRemainder = tipCents - tipShareCents * payoutCount
 
   const cleanerSummaries = teamMembers.map(member => {
     const tip = tipShareCents + (member.is_lead ? tipShareRemainder : 0)
