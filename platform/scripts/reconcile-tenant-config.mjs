@@ -550,6 +550,63 @@ export function findUnboundedApiPublicRouteCollisions(patterns, apiDirNames) {
   return collisions
 }
 
+// --- parse the admin-impersonation bypass allowlist's own `p.startsWith('...')`
+// prefixes out of the middleware source — the chain a few lines below
+// isPublicRoute in src/middleware.ts that lets a verified admin_token cookie
+// skip Clerk on specific dashboard/API prefixes. Uses the same stripComments +
+// quoted-string-extraction convention as every other parseX in this file.
+// `p.startsWith(` is this exact chain's own unique receiver name — no other
+// startsWith call anywhere else in the file uses a bare `p.` (they use
+// `pathname.`, `req.nextUrl.pathname.`, `canonicalHost.`, etc.) — so this
+// regex can't accidentally pick up an unrelated startsWith call elsewhere in
+// the file. Operates on the FULL middleware source (not a sub-block, unlike
+// parsePublicRoutePatterns/parseAppRootPrefixes) because that unique-receiver
+// property is what scopes it, not source position. Feeds Drift AG ONLY.
+export function parseAdminBypassPrefixes(middlewareSource) {
+  return [...stripComments(middlewareSource).matchAll(/\bp\.startsWith\(['"]([^'"]+)['"]\)/g)].map((m) => m[1])
+}
+
+// --- given isPublicRoute's patterns and the admin-impersonation bypass
+// allowlist's own prefixes (see parseAdminBypassPrefixes above), find a
+// bypass-list prefix that is fully unreachable because an isPublicRoute
+// pattern already matches EVERY path under it — meaning
+// `if (!isPublicRoute(req))` in src/middleware.ts is always false for that
+// prefix, so the bypass allowlist below it is never even evaluated for any
+// request under that prefix. Generalizes the exact shape (181) found by hand
+// for '/api/client-reviews' (unreachable there, shadowed by the old unbounded
+// '/api/client(.*)' pattern, before that pattern was narrowed) into an
+// automated check — same escalation Drift AF gave (181)'s OTHER half (the
+// isPublicRoute-vs-real-API-directory collision) in (182). Concrete instance
+// this check found live in the current repo: a `p.startsWith('/api/selena')`
+// bypass entry, fully shadowed by isPublicRoute's own unbounded
+// '/api/selena(.*)' pattern — removed in (183); this check exists so that
+// shape can't silently return. Reproduces createRouteMatcher's EXACT regex
+// conversion (see parsePublicRoutePatterns above), not an approximation: an
+// unbounded '/api/...(.*)' pattern's match set is exactly "every path
+// starting with <the pattern's '(.*)'-stripped literal prefix>" (no
+// path-segment boundary), so a bypass prefix P is fully contained in that
+// set iff P itself starts with the same literal prefix — P's own match set
+// (every path starting with P) is then necessarily a subset. NOT scoped to
+// single-segment patterns like Drift AF's collision check (that scoping was
+// AF-specific, needed because AF checks a pattern against a REAL DIRECTORY
+// LISTING one level deep for multi-segment patterns; this check compares two
+// hand-maintained string-literal lists directly against each other, so no
+// filesystem-depth limitation applies here).
+export function findShadowedAdminBypassPrefixes(publicRoutePatterns, bypassPrefixes) {
+  const shadowed = []
+  for (const pattern of publicRoutePatterns) {
+    const m = pattern.match(/^(\/api\/.+)\(\.\*\)$/)
+    if (!m) continue
+    const literalPrefix = m[1]
+    for (const bypassPrefix of bypassPrefixes) {
+      if (bypassPrefix.startsWith(literalPrefix)) {
+        shadowed.push({ bypassPrefix, shadowedByPattern: pattern })
+      }
+    }
+  }
+  return shadowed
+}
+
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
 // currently unresolvable (no tenants row) but are AWAITING JEFF'S DISPOSITION —
 // the orphan question (delete the middleware entry + build-guard slug, or
@@ -672,9 +729,18 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  /api/ directory than the one it names. Feeds
  *                                  Drift AF ONLY. Pass an empty array (default) to
  *                                  skip.
+ * @param {Array}    [input.adminBypassPrefixShadows]  { bypassPrefix,
+ *                                  shadowedByPattern } entries from
+ *                                  findShadowedAdminBypassPrefixes — an
+ *                                  admin-impersonation-bypass allowlist prefix
+ *                                  (src/middleware.ts) that is fully unreachable
+ *                                  dead code because an isPublicRoute pattern
+ *                                  already matches every path under it. Feeds
+ *                                  Drift AG ONLY. Pass an empty array (default)
+ *                                  to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [] }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1400,6 +1466,28 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     )
   }
 
+  // Drift AG: an admin-impersonation-bypass allowlist prefix (the
+  // `p.startsWith(...)` chain in src/middleware.ts, below isPublicRoute) that
+  // is fully unreachable dead code because an isPublicRoute pattern already
+  // matches EVERY path under it (see findShadowedAdminBypassPrefixes above).
+  // `if (!isPublicRoute(req))` is always false for such a prefix, so the
+  // bypass allowlist entry below it is never even evaluated for any real
+  // request. Concrete instance that motivated this check: a
+  // `p.startsWith('/api/selena')` entry, fully shadowed by isPublicRoute's own
+  // unbounded '/api/selena(.*)' pattern — removed in (183). WARN, not CRIT:
+  // by construction a shadowed entry can never change live behavior (its
+  // whole prefix was already public before the bypass check would have run),
+  // so this is a forgotten-cleanup / stale-allowlist-entry signal, the same
+  // "two lists that should agree but don't" shape Drift V already watches for
+  // on KNOWN_PENDING_ORPHANS, just applied to this different list.
+  for (const { bypassPrefix, shadowedByPattern } of adminBypassPrefixShadows) {
+    add(
+      'WARN',
+      bypassPrefix,
+      `admin-impersonation-bypass allowlist entry '${bypassPrefix}' (src/middleware.ts) is dead code -> isPublicRoute pattern '${shadowedByPattern}' already matches every path under it, so \`if (!isPublicRoute(req))\` is always false there and this bypass entry is never evaluated for any real request`,
+    )
+  }
+
   return findings
 }
 
@@ -1578,6 +1666,12 @@ async function main() {
     : []
   const apiPublicRouteCollisions = findUnboundedApiPublicRouteCollisions(publicRoutePatterns, apiDirNames)
 
+  // Feeds Drift AG: same pure static analysis, no DB, no network — the admin
+  // bypass allowlist's own prefixes compared directly against isPublicRoute's
+  // patterns (both already parsed from middlewareSource above).
+  const adminBypassPrefixes = parseAdminBypassPrefixes(middlewareSource)
+  const adminBypassPrefixShadows = findShadowedAdminBypassPrefixes(publicRoutePatterns, adminBypassPrefixes)
+
   const [tenants, tds, allTenantDomains, allTenants] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
@@ -1602,7 +1696,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

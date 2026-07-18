@@ -367,7 +367,21 @@ export default async function middleware(req: NextRequest) {
           p.startsWith('/api/waitlist') || p.startsWith('/api/referrers') || p.startsWith('/api/dashboard') ||
           p.startsWith('/api/indexnow') || p.startsWith('/api/management-applications') ||
           p.startsWith('/api/import-clients') || p.startsWith('/api/sms') || p.startsWith('/api/schedules') ||
-          p.startsWith('/api/send-booking-emails') || p.startsWith('/api/selena') ||
+          p.startsWith('/api/send-booking-emails') ||
+          // NOTE: no '/api/selena' entry here — isPublicRoute's own
+          // '/api/selena(.*)' pattern (unbounded, see that entry's comment)
+          // already matches every path under this prefix unconditionally,
+          // so `if (!isPublicRoute(req))` above is always false for it and
+          // this allowlist is never even reached. A `p.startsWith('/api/selena')`
+          // entry lived here for a while as fully dead code — same shape as
+          // (181)'s '/api/client-reviews' bug, just inverted (there, an
+          // entry was MISSING and should have been reachable; here, an
+          // entry was PRESENT and could never be reached at all). Removed
+          // (183); Drift AG below now catches this shape automatically so
+          // it can't silently return. route.ts self-gates via
+          // requirePermission('settings.view'/'settings.edit') regardless,
+          // so this was always a zero-behavior-change dead entry, not a
+          // live auth gap.
           p.startsWith('/api/quotes') || p.startsWith('/api/quote-templates') ||
           p.startsWith('/api/jobs') || p.startsWith('/api/catalog') || p.startsWith('/api/crews') ||
           p.startsWith('/api/referral-commissions') ||

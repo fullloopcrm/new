@@ -24,6 +24,8 @@ import {
   findHardcodedWwwApexDomains,
   parsePublicRoutePatterns,
   findUnboundedApiPublicRouteCollisions,
+  parseAdminBypassPrefixes,
+  findShadowedAdminBypassPrefixes,
   computeFindings,
   summarize,
   loadToken,
@@ -3147,5 +3149,118 @@ describe('computeFindings — Drift AF (isPublicRoute pattern accidentally match
       resolvableSlugs: null,
     })
     expect(findings.filter((f) => f.msg.includes('has no path-segment boundary'))).toHaveLength(0)
+  })
+})
+
+describe('parseAdminBypassPrefixes', () => {
+  it('extracts every p.startsWith(...) prefix out of the admin-impersonation bypass chain', () => {
+    const src = `
+if (adminCookie && verifyAdminTokenEdge(adminCookie, secret)) {
+  const p = req.nextUrl.pathname
+  if (p.startsWith('/dashboard') || p.startsWith('/api/bookings') ||
+      p.startsWith('/api/selena')) {
+    return
+  }
+}
+`
+    expect(parseAdminBypassPrefixes(src)).toEqual(['/dashboard', '/api/bookings', '/api/selena'])
+  })
+
+  it('strips a commented-out prefix (same convention as every other parseX here)', () => {
+    const src = `
+      if (p.startsWith('/api/kept') ||
+          // p.startsWith('/api/removed') ||
+          p.startsWith('/api/also-kept')) {
+`
+    expect(parseAdminBypassPrefixes(src)).toEqual(['/api/kept', '/api/also-kept'])
+  })
+
+  it('does not pick up an unrelated startsWith call on a different receiver', () => {
+    const src = `
+      if (!canonicalHost.startsWith('www.') && !pathname.startsWith('/api/')) {
+        return NextResponse.next()
+      }
+    `
+    expect(parseAdminBypassPrefixes(src)).toEqual([])
+  })
+
+  it('returns an empty array when there is no p.startsWith(...) chain at all', () => {
+    expect(parseAdminBypassPrefixes('export default function middleware() {}')).toEqual([])
+  })
+})
+
+describe('findShadowedAdminBypassPrefixes', () => {
+  it('flags the live bug: /api/selena bypass entry fully shadowed by /api/selena(.*) public pattern', () => {
+    const shadowed = findShadowedAdminBypassPrefixes(
+      ['/api/selena(.*)'],
+      ['/dashboard', '/api/bookings', '/api/selena'],
+    )
+    expect(shadowed).toEqual([{ bypassPrefix: '/api/selena', shadowedByPattern: '/api/selena(.*)' }])
+  })
+
+  it('flags a nested bypass prefix shadowed by the same unbounded pattern', () => {
+    const shadowed = findShadowedAdminBypassPrefixes(['/api/selena(.*)'], ['/api/selena/admin-tools'])
+    expect(shadowed).toEqual([{ bypassPrefix: '/api/selena/admin-tools', shadowedByPattern: '/api/selena(.*)' }])
+  })
+
+  it('does not flag a prefix only partially overlapping an exact-match public pattern', () => {
+    // '/api/feedback' is public as an EXACT literal (no '(.*)') -- it only
+    // covers the bare path, not '/api/feedback/123', so the bypass entry is
+    // still required for sub-paths and must NOT be flagged as dead.
+    const shadowed = findShadowedAdminBypassPrefixes(['/api/feedback'], ['/api/feedback'])
+    expect(shadowed).toEqual([])
+  })
+
+  it('does not flag a prefix only partially overlapping a bounded sub-path pattern', () => {
+    // '/api/quotes/public(.*)' only covers the /public/... sub-tree; the
+    // broader '/api/quotes' bypass entry is still required for everything
+    // else under /api/quotes (e.g. /api/quotes/123) and must NOT be flagged.
+    const shadowed = findShadowedAdminBypassPrefixes(['/api/quotes/public(.*)'], ['/api/quotes'])
+    expect(shadowed).toEqual([])
+  })
+
+  it('is a no-op once a pattern carries a path-segment boundary the bypass prefix does not reach (the (181)/(182) fix)', () => {
+    const shadowed = findShadowedAdminBypassPrefixes(['/api/client/(.*)'], ['/api/clients', '/api/client-reviews'])
+    expect(shadowed).toEqual([])
+  })
+
+  it('does not flag an unrelated bypass prefix', () => {
+    const shadowed = findShadowedAdminBypassPrefixes(['/api/selena(.*)'], ['/api/team', '/api/finance'])
+    expect(shadowed).toEqual([])
+  })
+
+  it('ignores a non-/api/ public pattern', () => {
+    const shadowed = findShadowedAdminBypassPrefixes(['/team(.*)'], ['/api/team'])
+    expect(shadowed).toEqual([])
+  })
+})
+
+describe('computeFindings — Drift AG (admin-impersonation-bypass prefix shadowed dead by isPublicRoute)', () => {
+  it('warns on the live /api/selena bypass entry, fully shadowed by isPublicRoute', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      adminBypassPrefixShadows: [{ bypassPrefix: '/api/selena', shadowedByPattern: '/api/selena(.*)' }],
+    })
+    const warns = findings.filter((f) => f.msg.includes('is dead code'))
+    expect(warns).toHaveLength(1)
+    expect(warns[0].sev).toBe('WARN')
+    expect(warns[0].slug).toBe('/api/selena')
+    expect(warns[0].msg).toContain("isPublicRoute pattern '/api/selena(.*)'")
+    expect(warns[0].msg).toContain('never evaluated for any real request')
+  })
+
+  it('is skipped entirely when adminBypassPrefixShadows is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+    })
+    expect(findings.filter((f) => f.msg.includes('is dead code'))).toHaveLength(0)
   })
 })

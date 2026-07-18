@@ -8493,3 +8493,159 @@ for this different list. Did not generalize Drift V's "stale-allowlist-
 entry" pattern to this admin-impersonation-bypass list in this round —
 flagging it as a natural next surface rather than folding it in
 unannounced.
+
+## (183) Picking up (182)'s own "noticed, not fixed" trail — a bypass-list
+entry can be dead code from the START, not just after a later routing
+change, and this repo had a live instance of it
+
+(182) flagged, but didn't chase, the risk that an admin-impersonation-bypass
+allowlist entry (the `p.startsWith(...)` chain in `src/middleware.ts`,
+consulted only when `!isPublicRoute(req)`) can silently stop mattering if
+`isPublicRoute` already swallows its whole prefix — the exact shape that
+made `/api/clients` unreachable there before (181)'s fix, just generalized.
+Chased it by hand this round: read every bypass-list prefix against every
+`isPublicRoute` pattern, looking for one where the public pattern's match
+set fully contains the bypass prefix's match set (every path under the
+prefix is already public, unconditionally, before the bypass check would
+ever run).
+
+`/api/clients` and `/api/client-reviews` are both clean now — (181) already
+fixed the pattern that used to swallow them. But a THIRD, previously
+unexamined case was live: `p.startsWith('/api/selena')` in the bypass list
+(added at some earlier point, presumably defensively, alongside the H-01
+sweep entries around it) sits directly below `isPublicRoute`'s own
+unbounded `/api/selena(.*)` entry (`src/middleware.ts`, "Selena API
+routes"). `(.*)` compiles to a bare `.*` with no path-segment boundary (the
+same conversion (180)/(181) already established), so `/api/selena(.*)`'s
+regex is `^/api/selena.*$` — it matches the bare string `/api/selena`
+itself (empty `.*`) and everything under it, unconditionally, for every
+caller. `if (!isPublicRoute(req))` is therefore always `false` for any
+`/api/selena...` request, and the bypass-list chain below it — including
+its own `/api/selena` entry — is never even reached. Unlike (181)'s bug,
+this isn't a case of a routing change making a previously-live entry go
+stale; nothing suggests `/api/selena` was ever reachable there. It reads
+as an entry added out of an abundance of caution when the H-01 owner-API
+sweep (see the block comment above it) went through, without checking
+whether `isPublicRoute` already covered it.
+
+Confirmed zero live-behavior risk before touching anything:
+`src/app/api/selena/route.ts` self-gates both its GET and POST handlers via
+`requirePermission('settings.view'/'settings.edit')` regardless of how
+middleware routed the request — the same public-but-self-gated pattern
+`/api/uploads`, `/api/push/subscribe`, and `/api/client-analytics` already
+document elsewhere in this file. The dead bypass entry never changed
+whether an admin-impersonated request to `/api/selena` succeeded; it was
+inert either way.
+
+**Removed the dead entry** and left an explanatory `NOTE:` in its place
+(`src/middleware.ts`) rather than a silent deletion, since a future reader
+scanning the bypass-list chain for `/api/selena` and not finding it should
+see why, not have to re-derive it. New
+`src/middleware.selena-dead-bypass-entry.test.ts` (3 tests) pins the real
+`middleware()` function directly: `/api/selena` and a nested
+`/api/selena/chat` both fall through as public with no `admin_token` at
+all, and — the actual proof this was dead code, not just risky-looking —
+a THIRD test shows a valid `admin_token` cookie produces the byte-identical
+result. Mutation-verified in the inverse direction from usual (there's no
+"the bug" to revert-and-see-fail here, since the fix is a *removal*): git-
+stashed the removal, re-ran the new test suite against the OLD code (entry
+still present), confirmed it passes identically — proving the entry really
+was inert in both states, not merely deleted-and-hoped.
+
+## (184) Continuing (183)'s surface — added Drift AG so a future dead
+bypass-list entry surfaces automatically, the same escalation (182) gave
+(181)'s other half
+
+Same two-step shape this lane has repeated since (180)/(181): find a bug
+by hand, then generalize the hand-audit into an automated, opt-in Drift
+check so the next instance doesn't require another manual read-through.
+
+New exported `parseAdminBypassPrefixes(middlewareSource)` extracts the
+admin-impersonation bypass chain's own `p.startsWith('...')` prefixes (same
+`stripComments` + quoted-string-extraction convention as every other
+`parseX` here). Scoped safely by the receiver name alone — `p.startsWith(`
+is this exact chain's own unique variable name; every OTHER `startsWith`
+call in `src/middleware.ts` uses a different receiver (`pathname.`,
+`req.nextUrl.pathname.`, `canonicalHost.`) — so it operates on the FULL
+middleware source with no need to isolate a sub-block first, unlike
+`parsePublicRoutePatterns`/`parseAppRootPrefixes`.
+
+New exported `findShadowedAdminBypassPrefixes(publicRoutePatterns,
+bypassPrefixes)` reproduces `createRouteMatcher`'s EXACT regex conversion
+(not an approximation), same discipline as `findUnboundedApiPublicRouteCollisions`.
+For any `isPublicRoute` pattern ending in an unbounded `(.*)`, its match set
+is exactly "every path starting with the pattern's `(.*)`-stripped literal
+prefix" — so a bypass prefix `P` is fully contained in that set (fully dead)
+iff `P` itself starts with the same literal prefix; `P`'s own match set
+(every path starting with `P`) is then necessarily a subset. Deliberately
+NOT scoped to single-segment patterns the way Drift AF's collision check
+is — that scoping was AF-specific (AF needs a real directory listing one
+level deeper to check multi-segment patterns against); this check compares
+two hand-maintained string-literal lists directly against each other, so no
+filesystem-depth limitation applies, and it correctly ignores partial
+overlaps: an exact-match public pattern like `/api/feedback` (no `(.*)` at
+all) only covers its own bare literal path, so the broader
+`/api/feedback` bypass prefix (which also covers `/api/feedback/123`, etc.)
+is correctly left unflagged; a bounded sub-path pattern like
+`/api/quotes/public(.*)` only shadows bypass prefixes nested under
+`/api/quotes/public`, not the broader `/api/quotes` entry.
+
+**Added Drift AG**: WARN, matching Drift V/AF's severity for the same
+reason — a fully-shadowed entry can never change live behavior by
+construction (its whole prefix was already public before the bypass check
+would run), so this is a forgotten-cleanup signal for a human to confirm,
+not something CI should gate red on. New test coverage in
+`src/lib/reconcile-tenant-config.test.ts` (11 tests: `parseAdminBypassPrefixes`,
+`findShadowedAdminBypassPrefixes`, and the `computeFindings` integration)
+pins the exact live (183) case (`/api/selena` shadowed by
+`/api/selena(.*)`), a nested-prefix variant, both partial-overlap negative
+cases above, the (181)/(182)-fixed `/api/client/(.*)` boundary case staying
+a no-op, an unrelated-prefix negative, and a non-`/api/` pattern being
+ignored. Mutation-verified: stubbed the containment condition to `false`,
+both live-case tests failed for the right reason, re-applied, green again.
+
+Ran the new check against this repo's REAL `src/middleware.ts` before
+writing this up (same discipline (179)/(182) used for their own "did I
+actually check the real file" claims), not just synthetic fixtures — it
+found exactly one live case: the `/api/selena` entry fixed in (183). Both
+`/api/clients` and `/api/client-reviews` — the (181) case — are confirmed
+clean post-fix; no other bypass-list prefix collides with any unbounded
+`isPublicRoute` pattern today.
+
+`tsc --noEmit` clean. Full repo suite: 460/460 files, 2228/2228 tests (16
+new: 3 in the new middleware dead-entry test, 13 in the reconcile-config
+test file — 4 `parseAdminBypassPrefixes` + 7 `findShadowedAdminBypassPrefixes`
++ 2 `computeFindings` Drift-AG integration tests — zero regressions, same
+pre-existing unrelated `fixture/route.ts` tenant-scope baseline warning
+every prior report in this doc has flagged).
+`eslint` clean on every file this round touched (scoped lint, not a
+full-repo run) — 6 pre-existing warnings in
+`reconcile-tenant-config.test.ts` (unused `_slug` params, lines this round
+never touched) are unchanged from before this round.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. Verified the new Drift AG logic against the real
+repo instead via its pure, DB-free functions directly (see above, run
+through `src/lib/reconcile-tenant-config.test.ts` under vitest, never
+through the `.mjs` file's own `main()`), not by running the CLI. The
+CLI/token-guard contract itself is unchanged by this round's fix (only
+`computeFindings`'s Drift-check surface and the pure static-analysis
+inputs feeding it changed); CI's own "Verify token-guard skips clean
+without a secret" step in `tenant-config-reconcile.yml` is the
+authoritative check for that path and runs unmodified.
+
+Noticed, not fixed (out of this lane's CI-wiring scope): this round only
+checked bypass-list prefixes against unbounded `(.*)`-suffixed
+`isPublicRoute` patterns. A public pattern with a wildcard in the MIDDLE
+(e.g. a hypothetical `/api/(.*)-selena`) could in principle also fully
+shadow a bypass prefix under some inputs, but no such pattern shape exists
+anywhere in the current `isPublicRoute` list — every real entry either has
+no wildcard, or has it only at the very end — so Drift AG's `/^(\/api\/.+)\(\.\*\)$/`
+extraction (end-anchored) is a complete check against everything actually
+in the file today, not a narrowed approximation of a real gap. Flagging the
+scoping assumption explicitly rather than leaving it implicit, the same
+discipline (182) used for its own single-segment scoping note.
