@@ -113,6 +113,38 @@ export function parseBespokeSetFromMiddleware(mwSource) {
   }
 }
 
+// --- fresh ground, same "closure with zero test coverage, and only resolved
+// ONE level of route-group nesting instead of the full chain" bug class
+// reconcile-tenant-config.mjs's own hasHomePage had before item (238) fixed
+// it there. This script's OWN independent homepage check — until now an
+// inline main() closure (`hasHome`/`groupHome`) — never got the same fix,
+// and this script is the ACTUAL npm `prebuild` step (see
+// prebuild-guard-wiring.test.ts): a false "no homepage" HERE blocks
+// `next build`, and therefore every Vercel deploy, for a PROTECTED tenant
+// whose homepage legitimately renders two-or-more route groups deep — a
+// higher-stakes gate than reconcile-tenant-config.mjs's own non-gating CI
+// check, since this one fails the build itself rather than just reporting
+// a WARN/CRIT in a separate job.
+//
+// Does `dir` render a real homepage at its own root URL — i.e. does
+// page.tsx exist directly, or nested behind a Next.js route group ("(name)")
+// at ANY depth (a route group is invisible in the URL, so a page.tsx one or
+// more levels deep behind a group renders at the SAME effective root URL).
+// Exported so it can be unit-tested directly against a fixture directory,
+// same convention as reconcile-tenant-config.mjs's own hasHomePage.
+//
+// Landmine-only today, same disposition as (238): no CURRENT PROTECTED
+// tenant nests its page.tsx two-or-more route groups deep (verified against
+// every real src/app/site/<slug>/ folder, including wash-and-fold-nyc/
+// hoboken's own one-level (marketing)/page.tsx).
+export function hasProtectedTenantHomepage(dir) {
+  if (!existsSync(dir)) return false
+  if (existsSync(join(dir, 'page.tsx'))) return true
+  return readdirSync(dir, { withFileTypes: true }).some(
+    (e) => e.isDirectory() && e.name.startsWith('(') && e.name.endsWith(')') && hasProtectedTenantHomepage(join(dir, e.name)),
+  )
+}
+
 function main() {
   const violations = []
 
@@ -134,15 +166,12 @@ function main() {
         `the global template instead of its own site. Re-add it to the set in src/middleware.ts.`
       )
     }
-    // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route group
-    // (e.g. wash-and-fold's (marketing)/page.tsx), at <slug>/(group)/page.tsx.
+    // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route
+    // group (e.g. wash-and-fold's (marketing)/page.tsx) — at ANY depth of
+    // nested route groups, resolved by hasProtectedTenantHomepage above (was
+    // previously an inline one-level-only check with zero test coverage).
     const siteDir = join(REPO, 'src', 'app', 'site', t.slug)
-    const groupHome = existsSync(siteDir)
-      ? readdirSync(siteDir).some(
-          (e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(siteDir, e, 'page.tsx'))
-        )
-      : false
-    const hasHome = existsSync(join(siteDir, 'page.tsx')) || groupHome
+    const hasHome = hasProtectedTenantHomepage(siteDir)
     if (!hasHome) {
       violations.push(
         `'${t.slug}' (${t.domain}) has no homepage (src/app/site/${t.slug}/page.tsx or ` +
