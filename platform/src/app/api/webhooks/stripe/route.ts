@@ -746,21 +746,37 @@ export async function POST(request: Request) {
       // failed). Flip billing_status so dashboard can gate features, but do
       // not delete the tenant — data retention window is separate.
       const sub = event.data.object as Stripe.Subscription
-      // Fetch customer to get email for tenant lookup
+      // Fetch customer to get email for tenant lookup. Stripe API failures
+      // here stay best-effort (existing behavior, unchanged) — this call
+      // just resolves the lookup key, not our own DB.
+      let cancelledCustomerEmail: string | null = null
       try {
         const stripeClient = stripe ?? getStripe()
         const customer = await stripeClient.customers.retrieve(sub.customer as string)
         if (customer && !customer.deleted) {
-          const email = (customer as Stripe.Customer).email
-          if (email) {
-            await supabaseAdmin
-              .from('tenants')
-              .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
-              .eq('owner_email', email)
-          }
+          cancelledCustomerEmail = (customer as Stripe.Customer).email
         }
       } catch (e) {
-        console.error('[stripe] subscription.deleted lookup failed:', e)
+        console.error('[stripe] subscription.deleted customer retrieve failed:', e)
+      }
+      if (cancelledCustomerEmail) {
+        // error checked explicitly (not discarded), OUTSIDE the try/catch
+        // above — same masked-error class fixed for invoice.paid /
+        // invoice.payment_failed just above: this write's own returned
+        // `error` used to never be destructured at all, so a genuine DB
+        // failure silently skipped flipping billing_status to 'cancelled' on
+        // a real cancellation — the tenant keeps full dashboard access and
+        // billing keeps treating them as active/past_due indefinitely,
+        // with zero signal and no chance for Stripe's retry policy to
+        // redeliver once the DB recovers.
+        const { error: cancelUpdateError } = await supabaseAdmin
+          .from('tenants')
+          .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
+          .eq('owner_email', cancelledCustomerEmail)
+        if (cancelUpdateError) {
+          console.error(`STRIPE_SUBSCRIPTION_DELETED_UPDATE_ERROR owner_email=${cancelledCustomerEmail} error=${cancelUpdateError.message}`)
+          throw new Error(`STRIPE_SUBSCRIPTION_DELETED_UPDATE_ERROR owner_email=${cancelledCustomerEmail} error=${cancelUpdateError.message}`)
+        }
       }
       break
     }
