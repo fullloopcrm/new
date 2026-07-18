@@ -200,11 +200,12 @@ export const norm = (d) => {
 // "✅ ... OK" (exit 0) while middleware would actually route it to
 // /site/template at runtime — see the sibling fix there.
 //
-// The line-comment strip is quote-aware (matches a full quoted string OR a
-// `//...` comment, and only erases the comment branch) rather than a bare
-// `/\/\/.*$/gm`. A bare version treats the FIRST `//` on a line as a comment
-// start even when it appears INSIDE a quoted value — and three of this
-// file's own parsers (parseNextConfigSiteRewriteSources,
+// The comment strip is quote-aware (matches a full quoted string OR a
+// `//...` comment OR a `/*...*/` block comment, all in ONE pass, and only
+// erases the two comment branches) rather than two separate passes. A bare
+// line-comment version treats the FIRST `//` on a line as a comment start
+// even when it appears INSIDE a quoted value — and three of this file's own
+// parsers (parseNextConfigSiteRewriteSources,
 // parseAllNextConfigSiteRewriteSources, parseNextConfigRedirects) extract
 // next.config.ts `destination` values, which can legitimately be a full
 // external URL (`'https://partner-site.com/path'` — an ordinary Next.js
@@ -222,16 +223,38 @@ export const norm = (d) => {
 // `source` also vanishes from findShadowedKilledRoutePages'
 // `redirectSources` set (Drift AD), so a killed route legitimately rescued
 // by that redirect would get wrongly reported as permanently unreachable —
-// a false positive from the gate's OWN parser, not a real config bug. No
-// current next.config.ts destination is external (verified: `grep
-// destination: platform/next.config.ts` — every value is a relative path
-// today), so this was landmine-only until now, same prospective-bug shape
-// as Drift T/W above, just one layer lower in the gate's own parsing
-// infrastructure rather than in the config it parses.
+// a false positive from the gate's OWN parser, not a real config bug.
+//
+// The SAME unquoted-scan hazard applies to the block-comment branch
+// (`/\/\*[\s\S]*?\*\//g`), and it used to run as a SEPARATE, quote-BLIND
+// first pass over the raw block text before the quote-aware line-comment
+// pass ever saw it. A destination value containing a literal `/*` (e.g.
+// `'/site/bar/*baz'` — a wildcard-shaped path segment, no different in kind
+// from the `//`-bearing external-URL case above) was treated as a block-
+// comment START regardless of being inside a quote, and the non-greedy
+// `[\s\S]*?\*\/` then matched forward to the NEXT literal `*/` ANYWHERE
+// later in the block — including a genuine block comment on a LATER,
+// unrelated array entry — silently deleting every real entry in between.
+// Mutation-verified live: a block containing `destination: '/site/bar/*baz'`
+// followed on a later line by an unrelated real `/* trailing comment */`
+// had the entire span between the quoted `/*` and that real `*/` erased,
+// truncating the first entry's destination AND deleting the second entry
+// outright. No current next.config.ts source/destination contains a literal
+// `/*` (verified: `grep '/\*' next.config.ts src/middleware.ts
+// src/app/robots.ts scripts/verify-protected-tenants.mjs` — every hit is in
+// a real code comment, none inside a parsed quoted value), so like the
+// line-comment fix above this is landmine-only today, same prospective-bug
+// shape as Drift T/W and the line-comment fix itself, just the sibling
+// branch of the SAME shared helper the line-comment fix left "untouched."
+// Folding both comment forms into the SAME quoted-string-first alternation
+// closes both at once: whichever alternative matches at a given position
+// wins that span, and the quoted-string alternative is tried first, so a
+// `/*` or `//` already inside an open quote is consumed as part of the
+// string match and never separately reaches either comment branch.
 function stripComments(text) {
-  return text
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/(['"`])(?:(?!\1)[^\\]|\\.)*\1|\/\/.*$/gm, (m) => (m.startsWith('//') ? '' : m))
+  return text.replace(/(['"`])(?:(?!\1)[^\\]|\\.)*\1|\/\/.*$|\/\*[\s\S]*?\*\//gm, (m) =>
+    m.startsWith('//') || m.startsWith('/*') ? '' : m,
+  )
 }
 
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---

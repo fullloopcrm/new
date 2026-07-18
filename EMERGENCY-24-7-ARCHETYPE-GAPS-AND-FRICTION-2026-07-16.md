@@ -11999,3 +11999,97 @@ than forcing a symmetrical defensive change for a call site with no
 reachable failure mode -- step (2) of this round's queue folds into this
 single item, same as item (232)'s precedent (checked for a sibling, found
 the same regex SHAPE but confirmed no independently exploitable instance).
+
+## (234) Continuation of item (233)'s surface -- the reconcile gate's own
+shared comment-stripping helper had the SAME quote-blindness bug on its
+OTHER comment form: a bare block-comment strip corrupts a quoted value
+containing `/*`
+
+Item (233) made the comment-stripping helper's line-comment branch (`//`)
+quote-aware but explicitly left the block-comment branch
+(`/\/\*[\s\S]*?\*\//g`) "untouched" -- it still ran as a separate,
+quote-BLIND FIRST pass over the raw block text, before the quote-aware
+line-comment pass ever saw it. Swept the same call sites item (233) flagged
+as at-risk (parseNextConfigSiteRewriteSources,
+parseAllNextConfigSiteRewriteSources, parseNextConfigRedirects -- the three
+`destination`-value parsers) for the mirror-image hazard: a destination
+value containing a literal `/*` is an ordinary wildcard-shaped path segment
+(e.g. `/site/bar/*baz`), no different in kind from the `//`-bearing
+external-URL shape item (233) fixed. A bare, quote-blind block-comment strip
+run on `{ source: '/old', destination: '/site/bar/*baz' }, { source: '/x',
+destination: '/y' }, /* real trailing comment */` treats the quoted `/*` as
+a comment START and the non-greedy `[\s\S]*?\*\/` matches forward to the
+NEXT literal `*/` anywhere later in the block -- including a genuine block
+comment on a completely unrelated, LATER array entry -- silently erasing
+every real entry in between.
+
+Verified live in node (not just reasoned about): ran the pre-fix two-pass
+version (block-comment strip first, quote-aware line-comment strip second
+-- i.e. exactly item (233)'s own landed code) against that shape and
+confirmed the corruption directly -- the first entry's destination was
+truncated mid-value at the quoted `/*`, and the second entry vanished
+entirely, swallowed into the gap between the quoted `/*` and the real,
+unrelated `*/` two lines later. Same "gate's OWN parser produces a false
+positive/negative on real config, not a real config bug" consequence as
+item (233): a lost `source` still vanishes from findShadowedKilledRoutePages'
+`redirectSources` set (Drift AD), wrongly reporting a legitimately-rescued
+killed route as permanently unreachable. No current next.config.ts source or
+destination, nor any middleware.ts/robots.ts/verify-protected-tenants.mjs
+parsed value, contains a literal `/*` today (verified: grepped for `/\*`
+across next.config.ts, src/middleware.ts, src/app/robots.ts, and
+scripts/verify-protected-tenants.mjs -- every hit lands inside a real code
+comment, none inside a quoted value any parseX function extracts), so like
+item (233) this was landmine-only until now, same prospective-bug shape as
+Drift T/W and item (233) itself -- just the sibling branch of the exact same
+shared helper item (233) left unfixed.
+
+**Fixed:** folded both comment forms into ONE quoted-string-first
+alternation (`quoted-string | //-comment | /*-comment`) in a single regex
+pass, replacing the prior two-pass structure (separate quote-blind
+block-comment strip, then a quote-aware line-comment strip). Regex
+alternation is tried left-to-right at each position and commits to the
+first branch that matches there, so the quoted-string alternative --
+listed first -- always wins when the current position opens a real quote;
+a `/*` or `//` already inside that open quote is consumed as part of the
+string match and never separately reaches either comment branch, no matter
+which comment form it resembles. Closed with 2 new assertions appended to
+the existing comment-strip regression test file (same file, new `describe`
+block): a destination containing a literal `/*` does not bleed into a later
+real block comment (all 3 entries, including the untouched middle one,
+parse intact), and a real `/* ... */` block comment is still stripped when
+a preceding value on an earlier line is quoted (regression guard against
+the fix being too narrow and no longer stripping real block comments).
+
+**Mutation-verified live:** reverted the helper to item (233)'s own landed
+two-pass version, ran the new assertions -- the block-comment test failed
+exactly as predicted (destination truncated at the quoted `/*`, second
+entry deleted outright, third entry survived since it followed the real
+`*/` that terminated the over-matched span). Reapplied this round's fix,
+guard went green (5/5 in the file, both old and new assertions). Restored
+from a saved pre-mutation backup (`cp` before mutating, `cp` back after),
+confirmed a stat-only diff showed only the intended fix before and after
+the round-trip.
+
+Full suite + tsc + eslint clean after this round: `tsc --noEmit --pretty
+false` zero errors, eslint clean on both touched files, full vitest suite
+green (494 files / 2467 tests -- the file's 2 new assertions plus every
+prior test still passing, including item (233)'s own 3 assertions in the
+same file, unaffected by folding both comment forms into one pass).
+The reconcile gate script itself is leader-run-only (blocked by a local
+hook -- it touches live prod Supabase even in the clean-skip path);
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` was absent in this session's environment
+too, so the token-guard clean-skip contract was verified via the existing
+gate-wiring and token-guard-home-isolation regression tests (both green in
+the full-suite run) rather than a direct local invocation -- same as items
+(232)-(233)'s sessions.
+
+Swept ci.yml, tenant-config-reconcile.yml, and db-backup.yml fresh before
+landing on this surface -- all three workflows' third-party curl calls
+(items (227)-(230)) and the reconcile gate's own fetch() call (item (231))
+already carry a `--max-time`/`AbortSignal.timeout` bound, and the
+token-guard contract test in tenant-config-reconcile.yml still correctly
+force-skips with an empty secret and empty HOME. No new gap found there
+this round -- step (2) of this round's queue folds into this single item,
+same precedent as items (232)-(233) (a fix that closes its shared helper's
+OTHER branch, with no separate sibling call site left uncovered beyond the
+same three `destination`-value parsers item (233) already scoped).

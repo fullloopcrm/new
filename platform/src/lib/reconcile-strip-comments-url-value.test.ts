@@ -92,3 +92,58 @@ describe('reconcile-gate stripComments does not corrupt a quoted value containin
     expect(set.size).toBe(2)
   })
 })
+
+// Fresh-ground bug (item 234, W3 lane), sibling to the // fix above and
+// continuing the SAME item (233)'s surface: stripComments()'s block-comment
+// branch (`/\/\*[\s\S]*?\*\//g`) used to run as a SEPARATE, quote-BLIND pass
+// over the raw block text BEFORE the quote-aware line-comment pass ever saw
+// it — item (233)'s own closing note called this branch "untouched." A
+// destination value containing a literal `/*` (an ordinary wildcard-shaped
+// path segment, no different in kind from the `//`-bearing external-URL
+// case above) was treated as a block-comment START regardless of being
+// inside a quote, and the non-greedy `[\s\S]*?\*\/` matched forward to the
+// NEXT literal `*/` ANYWHERE later in the block — including a genuine block
+// comment on a LATER, unrelated array entry — silently deleting every real
+// entry in between. Mutation-verified live: reverted stripComments to the
+// pre-fix two-pass version (block-comment strip first, quote-aware
+// line-comment strip second), ran this file — the redirects assertion
+// failed with the first entry's destination truncated at the quoted `/*`
+// and the second entry deleted outright. Reapplied the fix (folding both
+// comment forms into the SAME quoted-string-first alternation), reran — all
+// 2 green. Restored from a saved pre-mutation backup, confirmed `git diff
+// --stat scripts/reconcile-tenant-config.mjs` showed only the intended fix
+// before and after the round-trip.
+describe('reconcile-gate stripComments does not corrupt a quoted value containing /*', () => {
+  it('parseNextConfigRedirects: a destination containing a literal /* does not bleed into a later real block comment', () => {
+    const src = `
+      async redirects() {
+        return [
+          { source: '/old-wildcard-page', destination: '/site/bar/*baz', permanent: true },
+          { source: '/another', destination: '/site/foo', permanent: true }, /* trailing real comment */
+          { source: '/third', destination: '/site/third', permanent: true },
+        ]
+      }
+    `
+    const redirects = parseNextConfigRedirects(src)
+    expect(redirects).toEqual([
+      { source: '/old-wildcard-page', destination: '/site/bar/*baz' },
+      { source: '/another', destination: '/site/foo' },
+      { source: '/third', destination: '/site/third' },
+    ])
+  })
+
+  it('real /* */ block comments are still stripped when a preceding value on an earlier line is quoted', () => {
+    const src = `
+      const BESPOKE_SITE_TENANTS = new Set<string>([
+        'nycmaid',
+        /* 'nyc-tow', // dropped during a merge, not here */
+        'nyc-tow-real',
+      ])
+    `
+    const set = parseBespokeSet(src)
+    expect(set.has('nycmaid')).toBe(true)
+    expect(set.has('nyc-tow')).toBe(false)
+    expect(set.has('nyc-tow-real')).toBe(true)
+    expect(set.size).toBe(2)
+  })
+})
