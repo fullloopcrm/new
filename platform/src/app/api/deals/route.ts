@@ -5,6 +5,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { checkDealDeletable } from '@/lib/deal-delete-guard'
 
 export async function GET() {
   try {
@@ -175,6 +176,19 @@ export async function DELETE(request: Request) {
     const { tenantId } = _authTenant
     const { id } = await request.json()
     if (!id) return NextResponse.json({ error: 'id is required' }, { status: 400 })
+
+    // This is a second door onto the same `deals` table as DELETE
+    // /api/deals/[id] — that route blocks deleting a deal marked Sold or
+    // with a real accepted/deposit-paid/converted quote (checkDealDeletable),
+    // since deal_activities carries a NOT NULL ON DELETE CASCADE to deals
+    // (migration 011) and a hard delete would silently wipe the audit trail
+    // of a deal that already closed real revenue. This route hard-deleted
+    // through the identical `deals` row with no such check, letting the same
+    // sales.edit caller bypass the sibling route's guard entirely.
+    const guard = await checkDealDeletable(tenantId, id)
+    if (!guard.deletable) {
+      return NextResponse.json({ error: guard.reason }, { status: 409 })
+    }
 
     const { error } = await supabaseAdmin.from('deals').delete().eq('id', id).eq('tenant_id', tenantId)
     if (error) throw error
