@@ -11032,3 +11032,94 @@ passing). None of the three workflow YAML files themselves were touched this
 round (all mutations were made, verified, and reverted during testing only) --
 their own coverage (items 168-212 above) is unaffected; only new guard
 coverage was added.
+
+## (215) New fresh-ground surface -- ci.yml and tenant-config-reconcile.yml's
+own `on:` trigger blocks had zero regression coverage against an ADDED
+`pull_request_target` trigger, even though every existing guard confirms
+`pull_request` itself is still present
+
+`reconcile-gate-wiring.test.ts` and `ci-gate-conditional-skip-guard.test.ts`
+both assert `pull_request` IS the trigger on these workflows. Neither, nor
+anything else in this lane, asserts `pull_request_target` is NOT also a
+trigger. Those are not the same check: an edit that ADDS
+`pull_request_target:` alongside the existing `pull_request:` block (rather
+than replacing it) sails past every current test.
+
+Why it matters -- the "pwn request" class, a well-known GitHub Actions
+vulnerability pattern: `pull_request` runs with a read-only `GITHUB_TOKEN` and
+no access to repo secrets when the head is a fork, safe even though ci.yml
+executes untrusted code from that fork (`npm ci` runs arbitrary postinstall
+scripts from the PR's package-lock.json; `npx vitest run` / `npx eslint`
+execute the PR's own test/lint config). `pull_request_target` instead runs in
+the BASE repo's context: a write-scoped `GITHUB_TOKEN` and full access to
+every configured secret (`TELEGRAM_BOT_TOKEN`,
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` on the sibling reconcile workflow,
+`SUPABASE_DB_URL` / `BACKUP_ENCRYPTION_KEY` on db-backup.yml) -- while still
+checking out and executing that same untrusted fork code, if the checkout
+step is also pointed at the fork's head (see item (216) below). Adding
+`pull_request_target` here, even innocently (e.g. "so status checks also post
+from forks"), would let any external fork PR exfiltrate every secret this
+lane's workflows use.
+
+**Mutation-verified before writing the fix:** added `pull_request_target: {}`
+as an EXTRA trigger alongside the existing `pull_request:` block in ci.yml,
+then independently in tenant-config-reconcile.yml -- the full 477-file /
+2383-test vitest suite stayed 100% green both times. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/ci-no-pull-request-target-guard.test.ts`, pure
+source-reading of all three workflow YAML files (db-backup.yml checked too
+for symmetry, though it has no pull_request trigger at all today). Asserts
+none of the three ever contains the substring `pull_request_target`, plus a
+sanity check that ci.yml still triggers on plain `pull_request` (proving the
+guard is distinguishing the two, not just checking either is absent).
+Re-ran both mutations above against the new guard -- each failed with the
+exact predicted message; restore left `git diff --stat .github/workflows/`
+empty afterward.
+
+Full suite + tsc re-run clean after this round: `tsc --noEmit` zero errors,
+full vitest suite green (478 files / 2389 tests). None of the three workflow
+YAML files themselves were touched this round (all mutations were made,
+verified, and reverted during testing only).
+
+## (216) Continuation (step 2 of the queue) -- investigating (215)'s
+trigger-safety surface surfaced the OTHER half of the same pwn-request combo:
+no guard anywhere in this lane, including item (215)'s own, catches a
+checkout step's `ref:` being pointed at the fork PR's own head
+
+`pull_request_target`'s danger only materializes when a step ALSO explicitly
+overrides `ref:` to the fork PR's head
+(`github.event.pull_request.head.sha` / `.ref`) -- the default checkout under
+`pull_request_target` is the safe base-branch ref. Item (215) closed the
+trigger half of this combo; nothing closed the checkout half.
+
+This is defense-in-depth, not a currently-live exploit path: every checkout
+step here today uses the default ref under a plain `pull_request` trigger
+(already read-only, no secrets, so an explicit fork-head ref there would be a
+no-op on the security posture). It matters if item (215)'s guard is ever
+regressed or bypassed some other way, or if a second `pull_request_target`
+workflow is added to this directory later -- an explicit fork-head ref
+override on ITS checkout step is the second ingredient that turns the trigger
+into real secret exfiltration, and nothing today would catch that override
+being added. Same "close the currently-inert other half" shape as item
+(210)'s Protected-tenant-guard trailing-flags check.
+
+**Mutation-verified before writing the fix:** added
+`ref: ${{ github.event.pull_request.head.sha }}` under ci.yml's checkout
+step's existing `with:` block (alongside `persist-credentials: false`) -- the
+full 478-file / 2389-test vitest suite stayed 100% green. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/ci-checkout-no-untrusted-ref-guard.test.ts`, pure
+source-reading of all three workflow YAML files' checkout step blocks.
+Asserts no checkout step's body matches `ref:\s*.*pull_request\.head`.
+Re-ran the same mutation against the new guard -- failed with the exact
+predicted message; restore left `git diff --stat .github/workflows/` empty
+afterward.
+
+Full suite + tsc re-run clean after this round: `tsc --noEmit` zero errors,
+full vitest suite green (479 files / 2394 tests -- both new files' 11 total
+assertions plus every prior test still passing). None of the three workflow
+YAML files themselves were touched this round (all mutations were made,
+verified, and reverted during testing only) -- their own coverage (items
+168-214 above) is unaffected; only new guard coverage was added.
