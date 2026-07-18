@@ -7755,3 +7755,142 @@ lane from running `scripts/reconcile-tenant-config.mjs` directly (leader-run-
 only, touches live prod Supabase) — flagging to the leader rather than
 working around it. `.github/workflows/tenant-config-reconcile.yml` re-
 reviewed this round, zero diff.
+
+## (172) New fresh-ground surface, a different bug class again (a CI-wiring
+gap, not a script bug) — the protected-tenant guard, the exact backstop for
+the 2026-07-08 "route ALL tenants except nycmaid to the template" outage,
+has never once run in this repo's own CI
+
+With the reconcile-gate token still absent, swept the rest of this lane's
+territory (`scripts/verify-protected-tenants.mjs`, the sibling gate to
+`reconcile-tenant-config.mjs` that asserts every PROTECTED tenant is both in
+`BESPOKE_SITE_TENANTS` and has a live `/site/<slug>` homepage) instead of
+assuming its own header comment is still true. That comment says it "runs
+automatically as the npm `prebuild` step ... so `next build` — and
+therefore every Vercel deploy — will not proceed while a protected tenant is
+broken." True as far as it goes, but `ci.yml` (the PR-blocking gate) never
+calls `next build` or `npm run build` at all — its `verify` job only runs
+`npm ci`, `tsc --noEmit`, `vitest run`, `audit-tenant-scope.mjs`, and
+`eslint`. Grepped every workflow file for `next build`/`npm run build`:
+zero matches. `package.json` even carries a standalone `verify:tenants`
+script alias for this exact guard, unused by any workflow. Net effect: a PR
+that drops a protected tenant from `BESPOKE_SITE_TENANTS`, or deletes its
+`/site/<slug>` folder, passes every existing CI check green and merges to
+main; the break is only ever caught when a deploy's own `next build` runs
+`prebuild` — by then it's already on `main`, and (since Vercel won't
+re-deploy `main` until the build succeeds) it silently blocks every
+subsequent unrelated PR's deploy too, until someone notices and traces it
+back to this specific commit.
+
+Verified the gap empirically before trusting it, not just from reading the
+YAML: temporarily removed `'nyc-tow'` (a live PROTECTED entry) from
+`BESPOKE_SITE_TENANTS` in `src/middleware.ts` and ran every check `ci.yml`'s
+`verify` job actually runs, in order — `tsc --noEmit` (clean), the full
+`vitest run` (454/454 files, 2155/2155 tests, all green — including this
+repo's own drift-parser tests, none of which touch the live file), `node
+scripts/audit-tenant-scope.mjs` (clean — unrelated concern), `eslint src
+--quiet` (clean — no rule catches a missing Set-literal entry). Only `node
+scripts/verify-protected-tenants.mjs` itself caught it: `❌ 'nyc-tow' ... is
+NOT in BESPOKE_SITE_TENANTS → it would render the global template`, exit 1.
+Reverted the mutation via a clean restore from a pre-edit backup and
+reconfirmed all-green before touching anything else. (First mutation attempt
+was itself broken and had to be redone: commenting out the Set entry instead
+of deleting it left the guard passing, because `verify-protected-tenants.mjs`
+parses `BESPOKE_SITE_TENANTS` via the same quoted-string regex this lane's
+other scripts use, and that regex matches a quoted literal sitting inside a
+`/* ... */` comment just as readily as a live one — worth remembering for any
+future mutation test against this file's Set literals.)
+
+**Fixed** — added a `Protected-tenant guard` step to `ci.yml`'s `verify` job
+(`node scripts/verify-protected-tenants.mjs`, placed after the tenant-
+isolation guard and before lint, in the same job as every other PR-blocking
+check, so `notify-failure`'s existing `needs: verify` / `if: failure()`
+Telegram alert covers it for free — no new job, no new secret, no new
+permission). The script needs no DB/network access (pure filesystem +
+regex over the checked-out tree), so it costs one more `node` invocation on
+an already-checked-out repo, not a second `npm ci` or a real `next build`.
+
+New test `protected-tenant-guard-wiring.test.ts` (3 tests, pure source-read
+of `ci.yml`'s text — no YAML lib, no runner — matching the established
+pattern in `reconcile-gate-wiring.test.ts` / `ci-full-suite-guard.test.ts`):
+asserts the workflow still runs the guard script, and that the step sits
+inside the `verify` job specifically (not some orphaned job with no
+PR-blocking effect) rather than just anywhere in the file. Mutation-verified
+the test itself, not just the fix: removed the new CI step from `ci.yml`,
+reran — both wiring assertions failed for the right reason (`the protected-
+tenant guard step is not inside the verify job`); restored the step,
+reran — clean. Full suite after the fix: 455/455 files, 2158/2158 tests (3
+new, zero regressions). `tsc --noEmit` clean.
+
+Noticed, not fixed (out of this lane's scope — a lint/code-quality issue in
+an unrelated application file, not a gate/CI-wiring gap): `eslint src
+--quiet` is currently failing on HEAD independent of anything this round
+touched — `src/app/api/admin/seo/apply/route.auth.test.ts:94` uses a
+`require()`-style import (`@typescript-eslint/no-require-imports`),
+introduced by `4fc1e998` (2026-07-15, unrelated CRON_SECRET timing-safe-
+compare fix, not this session). `ci.yml`'s own Lint-step comment claims
+"error-clean today (verified 2026-07-04)" — that verification date is now
+stale by 11 days and one commit. This means CI is presently red end-to-end
+on this branch for a reason unrelated to (172)'s fix; the new Protected-
+tenant guard step sits before Lint in the job and passes on its own, but the
+job as a whole won't go green until this pre-existing lint error is
+addressed by whoever owns that file. Flagging to the leader rather than
+fixing it myself — outside the reconcile-gate/CI-wiring lane this session
+covers.
+
+Reconcile-gate lane: token still absent this session, skipped cleanly per
+standing rule, no reconcile-gate work this round beyond the sweep above.
+`scripts/reconcile-tenant-config.mjs` (1412 lines, Drift A-AD) re-read in
+full this round looking for a fresh gap in its own logic before pivoting to
+(172) — found nothing new to fix there; every check already has an inverse/
+mirror-image companion (Drift Q/Y, Drift W/AC, Drift O/AB, etc.) and the
+manual SQL-string building for the `resolvableSlugs` query (`slugList`) is
+already correctly quote-escaped and only ever fed developer-controlled slugs
+parsed from `middleware.ts` source, not user input.
+
+## (173) Continuing (172)'s surface — same sweep, checked whether any OTHER
+lane-adjacent script makes the same "runs automatically" claim without
+actually being wired anywhere
+
+(172) was found by not trusting a script's own header comment about how it
+runs. Applied the same skepticism to the rest of `scripts/` before closing
+the surface out, rather than assuming one hit was the only one. Two other
+non-token-gated, non-DB scripts exist alongside `verify-protected-tenants.mjs`:
+`preflight-check.mjs` and `audit-funnel-mode.mjs`. Neither is a second
+instance of (172)'s bug, on inspection —
+
+`preflight-check.mjs`'s own header is explicit that it is NOT meant to be in
+CI: it exists because fleet workers were self-reporting DONE in
+`LEADER-CHANNEL.md` after running some ad-hoc local subset of tsc/vitest/
+audit, and this script is "the same gate CI runs" bundled into one local
+command for a worker to check before reporting, deliberately mirroring
+`ci.yml`'s `verify` job minus install/lint. It has no independent gating
+purpose CI itself doesn't already cover — it is a local convenience wrapper
+around the SAME checks `ci.yml` runs, not a distinct guard with its own
+blind spot. Not a gap.
+
+`audit-funnel-mode.mjs` is token-gated like `reconcile-tenant-config.mjs`
+(reads `SUPABASE_ACCESS_TOKEN_FULLLOOP`, skips clean without it) and its own
+header explicitly documents intended CI wiring ("If absent, SKIPS CLEANLY
+... so it's safe to wire into CI") — but it is a live-DATA classification
+audit (finds tenants whose `selena_config.funnel_mode` was never backfilled
+after a provisioning-default fix), not a code/config-drift gate over this
+repo's own source. It finds rows needing a prod backfill and prints the
+`UPDATE` template for Jeff to review — there is no "PR breaks it" failure
+mode analogous to (172), because nothing in a PR's diff can retroactively
+change already-provisioned tenants' `funnel_mode`. Whether it should become
+a scheduled/periodic CI job of its own is a real question, but it is a data-
+hygiene decision for whoever owns that surface, not a reconcile-gate/CI-
+wiring bug this lane's mandate covers — flagging rather than acting on it
+unilaterally.
+
+No second instance of (172)'s specific bug class found. Not visually
+exercised in a browser this round (non-interactive worker session, no dev
+server driven) — (172)'s fix has no UI surface; it is a CI-workflow-YAML-only
+change with no runtime behavior difference for any tenant (the guard script
+itself is unchanged, only where it runs from is new).
+
+Reconcile-gate lane: token absent this session; `.github/workflows/tenant-
+config-reconcile.yml` and `scripts/reconcile-tenant-config.mjs` unchanged
+this round (already re-reviewed under (172) above), zero diff beyond what
+(172)/(173) touched (`ci.yml`, `protected-tenant-guard-wiring.test.ts`).
