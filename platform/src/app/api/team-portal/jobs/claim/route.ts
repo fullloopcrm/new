@@ -72,10 +72,30 @@ export async function POST(request: Request) {
   // booking_team_members-sync gap fixed at every other team_member_id write
   // site this session, including this route's own release sibling (which
   // deletes this same row on the way out).
-  await supabaseAdmin.from('booking_team_members').upsert(
-    { tenant_id: auth.tid, booking_id: booking_id, team_member_id: auth.id, is_lead: true, position: 1 },
-    { onConflict: 'booking_id,team_member_id' }
-  )
+  //
+  // The upsert's error was previously never checked. A concurrent writer to
+  // this SAME booking's team (PUT /api/bookings/[id]/team, or the
+  // recurring-schedules exception 'reassign' path) can land a competing
+  // is_lead=true row for this booking between the CAS'd claim above and this
+  // upsert -- the DB-level backstop (booking_team_members_one_lead_per_booking,
+  // migration 2026_07_18_booking_team_members_one_lead_per_booking.sql)
+  // rejects the resulting second "true" lead with 23505. This booking's
+  // bookings.team_member_id is now authoritatively `auth.id` (the CAS above
+  // already won), so clear whatever stale lead row lost the race and retry
+  // once -- same pattern as reassign's own fix for this gap.
+  const upsertLead = () =>
+    supabaseAdmin.from('booking_team_members').upsert(
+      { tenant_id: auth.tid, booking_id: booking_id, team_member_id: auth.id, is_lead: true, position: 1 },
+      { onConflict: 'booking_id,team_member_id' }
+    )
+  let { error: leadSyncErr } = await upsertLead()
+  if (leadSyncErr) {
+    await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
+    ;({ error: leadSyncErr } = await upsertLead())
+  }
+  if (leadSyncErr) {
+    console.error('[claim] booking_team_members lead sync failed after retry:', leadSyncErr)
+  }
 
   await audit({
     tenantId: auth.tid,

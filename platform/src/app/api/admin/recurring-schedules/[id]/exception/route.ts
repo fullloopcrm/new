@@ -108,11 +108,33 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
         // booking_team_members-sync gap already fixed for cron/generate-
         // recurring's refill and the regenerate route, found here in the
         // per-occurrence exception path.
+        //
+        // The upsert's error was previously never checked. A concurrent
+        // writer to this SAME booking's team (PUT /api/bookings/[id]/team,
+        // team-portal/jobs/{claim,reassign}) can land a competing
+        // is_lead=true row for this booking between our delete above and
+        // this upsert -- the DB-level backstop
+        // (booking_team_members_one_lead_per_booking, migration
+        // 2026_07_18_booking_team_members_one_lead_per_booking.sql) rejects
+        // the resulting second "true" lead with 23505. Our delete above
+        // already cleared any pre-existing lead row (including one just
+        // inserted by that concurrent writer), so a single retry clears the
+        // transient collision -- same pattern as reassign's/claim's own fix
+        // for this gap.
         await db.from('booking_team_members').delete().eq('booking_id', b.id).eq('is_lead', true)
-        await db.from('booking_team_members').upsert(
-          { tenant_id: tenantId, booking_id: b.id, team_member_id: new_team_member_id, is_lead: true, position: 1 },
-          { onConflict: 'booking_id,team_member_id' }
-        )
+        const upsertLead = () =>
+          db.from('booking_team_members').upsert(
+            { tenant_id: tenantId, booking_id: b.id, team_member_id: new_team_member_id, is_lead: true, position: 1 },
+            { onConflict: 'booking_id,team_member_id' }
+          )
+        let { error: leadSyncErr } = await upsertLead()
+        if (leadSyncErr) {
+          await db.from('booking_team_members').delete().eq('booking_id', b.id).eq('is_lead', true)
+          ;({ error: leadSyncErr } = await upsertLead())
+        }
+        if (leadSyncErr) {
+          console.error('[recurring-schedules/exception] booking_team_members lead sync failed after retry:', leadSyncErr)
+        }
       }
     }
   }

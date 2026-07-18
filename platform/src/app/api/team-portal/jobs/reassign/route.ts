@@ -84,11 +84,35 @@ export async function POST(request: Request) {
   // showing the OLD member after a field reassign — same
   // booking_team_members-sync gap already fixed for cron/generate-recurring's
   // refill, the regenerate route, and the admin exception reassign path.
+  // The upsert's error was previously never checked. A concurrent writer to
+  // this SAME booking's team (PUT /api/bookings/[id]/team, which does its own
+  // delete-all+insert-all of booking_team_members) can land an is_lead=true
+  // row for this booking between OUR delete above and this upsert — the
+  // DB-level backstop (booking_team_members_one_lead_per_booking, migration
+  // 2026_07_18_booking_team_members_one_lead_per_booking.sql) rejects the
+  // resulting second "true" lead with 23505. Left unchecked, that failure was
+  // silently swallowed and this booking was left with NO is_lead row at all
+  // (our delete above already ran) — closeout-summary sources tip-share
+  // attribution from `booking_team_members.is_lead`, and only falls back to
+  // bookings.team_member_id when the table has ZERO rows for the booking, not
+  // merely zero is_lead rows, so a multi-tech job in that state would silently
+  // misattribute the lead's tip remainder to nobody. Our own delete above
+  // already cleared any pre-existing lead row (including one just inserted by
+  // that concurrent writer), so a single retry clears the transient collision.
   await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
-  await supabaseAdmin.from('booking_team_members').upsert(
-    { tenant_id: auth.tid, booking_id: booking_id, team_member_id: to_member_id, is_lead: true, position: 1 },
-    { onConflict: 'booking_id,team_member_id' }
-  )
+  const upsertLead = () =>
+    supabaseAdmin.from('booking_team_members').upsert(
+      { tenant_id: auth.tid, booking_id: booking_id, team_member_id: to_member_id, is_lead: true, position: 1 },
+      { onConflict: 'booking_id,team_member_id' }
+    )
+  let { error: leadSyncErr } = await upsertLead()
+  if (leadSyncErr) {
+    await supabaseAdmin.from('booking_team_members').delete().eq('booking_id', booking_id).eq('is_lead', true)
+    ;({ error: leadSyncErr } = await upsertLead())
+  }
+  if (leadSyncErr) {
+    console.error('[reassign] booking_team_members lead sync failed after retry:', leadSyncErr)
+  }
 
   await audit({
     tenantId: auth.tid,
