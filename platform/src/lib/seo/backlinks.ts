@@ -123,13 +123,35 @@ const normDomain = (raw: string): string =>
   raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
 
 export async function loadActiveFleet(): Promise<TenantFleetRow[]> {
-  const { data: domains } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id').eq('active', true)
-  const byTenant = new Map<string, string>()
+  // Ordered oldest-first and grouped per tenant, then reduced with the exact
+  // same precedence as getPrimaryTenantDomain() (oldest is_primary row wins;
+  // falls back to the oldest active row when none is flagged). A tenant with
+  // 2+ active tenant_domains rows (mid-rebrand, a neighborhood-scoped domain
+  // alongside the primary) would otherwise get whatever row Postgres happened
+  // to return first for an unordered select — non-deterministic, and here
+  // that wrong pick flows straight into citation/editorial proposals that get
+  // manually submitted to Yelp/BBB/Angi/etc., which are hard to correct once
+  // live on a third-party directory.
+  const { data: domains } = await supabaseAdmin
+    .from('tenant_domains')
+    .select('domain,tenant_id,is_primary,created_at')
+    .eq('active', true)
+    .order('created_at', { ascending: true })
+
+  const rowsByTenant = new Map<string, Array<{ domain: string; is_primary: boolean }>>()
   for (const d of domains ?? []) {
     const tenantId = d.tenant_id as string | null
     const domain = normDomain(String(d.domain ?? ''))
-    if (!tenantId || !domain || !domain.includes('.') || domain.endsWith('.fullloopcrm.com') || byTenant.has(tenantId)) continue
-    byTenant.set(tenantId, domain)
+    if (!tenantId || !domain || !domain.includes('.') || domain.endsWith('.fullloopcrm.com')) continue
+    const rows = rowsByTenant.get(tenantId) ?? []
+    rows.push({ domain, is_primary: Boolean(d.is_primary) })
+    rowsByTenant.set(tenantId, rows)
+  }
+
+  const byTenant = new Map<string, string>()
+  for (const [tenantId, rows] of rowsByTenant) {
+    const primary = rows.find((r) => r.is_primary)?.domain ?? rows[0]?.domain
+    if (primary) byTenant.set(tenantId, primary)
   }
 
   // Fallback: tenant_domains registration is best-effort (activate-tenant.ts's

@@ -9,7 +9,7 @@ import type { IndustryKey } from '@/lib/industry-presets'
  * pattern so the "DB" state is plain in-memory arrays the tests control.
  */
 
-type TenantDomainRow = { domain: string; tenant_id: string }
+type TenantDomainRow = { domain: string; tenant_id: string; is_primary?: boolean; created_at?: string }
 type TenantRow = {
   id: string
   name: string
@@ -45,6 +45,10 @@ function builder(table: string) {
     eq: (col: string, val: unknown) => { eq[col] = val; return chain },
     in: (col: string, vals: unknown[]) => { inCol = col; inVals = vals; return chain },
     not: (col: string, _op: string, _val: unknown) => { notNullCol = col; return chain },
+    // loadActiveFleet()'s tenant_domains query orders by created_at ascending
+    // -- fixtures below are written in the order they should be returned in
+    // (this mock does not itself sort; it's a no-op like domains.test.ts's).
+    order: () => chain,
     insert: async (rows: Record<string, unknown> | Record<string, unknown>[]) => {
       const arr = Array.isArray(rows) ? rows : [rows]
       insertCalls.push({ table, rows: arr })
@@ -168,6 +172,37 @@ describe('loadActiveFleet()', () => {
 
     expect(byId.get('t4')).toBe('covered.com')
     expect(byId.get('t5')).toBe('fallback.com')
+  })
+
+  it('picks the row flagged is_primary, not merely the first active tenant_domains row, when a tenant has 2+', async () => {
+    // Rows arrive created_at-ascending (query order) -- the OLDER row here is
+    // NOT primary (a stale pre-rebrand domain kept active for redirects), the
+    // NEWER row IS. Before this fix, loadActiveFleet() took whichever row it
+    // saw first per tenant with no is_primary check at all -- it would have
+    // picked the stale domain here, exactly the non-deterministic-pick bug
+    // class already fixed in referrers/[code] and site-export.
+    tenantDomainRows = [
+      { domain: 'old-dead-domain.com', tenant_id: 't9', is_primary: false, created_at: '2026-01-01T00:00:00Z' },
+      { domain: 'new-primary-domain.com', tenant_id: 't9', is_primary: true, created_at: '2026-02-01T00:00:00Z' },
+    ]
+    tenantRows = [{ id: 't9', name: 'Rebranded Co', phone: null, website_url: null, industry: 'hvac' }]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet).toHaveLength(1)
+    expect(fleet[0].domain).toBe('new-primary-domain.com')
+  })
+
+  it('falls back to the oldest active row when no row is flagged is_primary (mirrors getPrimaryTenantDomain)', async () => {
+    tenantDomainRows = [
+      { domain: 'oldest.com', tenant_id: 't10', is_primary: false, created_at: '2026-01-01T00:00:00Z' },
+      { domain: 'newer.com', tenant_id: 't10', is_primary: false, created_at: '2026-02-01T00:00:00Z' },
+    ]
+    tenantRows = [{ id: 't10', name: 'No Primary Flagged Co', phone: null, website_url: null, industry: 'hvac' }]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet[0].domain).toBe('oldest.com')
   })
 
   it('flags googleBusinessConnected true only when tenants.google_business has a location_name', async () => {
