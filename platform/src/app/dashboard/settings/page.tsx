@@ -443,8 +443,21 @@ export default function SettingsPage() {
 
   async function broadcastGuidelines() {
     if (!confirm('This will send a notification to ALL team members to review the updated guidelines. Continue?')) return
-    await fetch('/api/settings/broadcast-guidelines', { method: 'POST' })
-    alert('Guidelines broadcast sent to all team members.')
+    try {
+      // Was pointed at /api/settings/broadcast-guidelines, which has never
+      // existed (404 every time) — the real route lives at
+      // /api/admin/broadcast-guidelines. Also never checked the response, so
+      // this always showed the "sent" alert even on failure.
+      const res = await fetch('/api/admin/broadcast-guidelines', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Broadcast failed: ${data.error || res.statusText}`)
+        return
+      }
+      alert(`Guidelines broadcast sent to ${data.sent ?? 0} of ${data.total ?? 0} team members.`)
+    } catch {
+      alert('Broadcast failed.')
+    }
   }
 
   async function exportData(type: string) {
@@ -463,7 +476,19 @@ export default function SettingsPage() {
   async function runBackup() {
     if (!confirm('Run a manual backup now?')) return
     try {
-      await fetch('/api/cron/backup', { method: 'POST' })
+      // Was POSTing to /api/cron/backup, which (a) only exports a GET handler
+      // so this always 405'd, (b) is CRON_SECRET-gated and the browser never
+      // sent that header so it would have 401'd anyway, and (c) backs up
+      // EVERY tenant platform-wide — wrong scope for a single tenant's own
+      // "Run Backup Now". The real per-tenant route lives at
+      // /api/settings/backup. Also never checked the response, so this always
+      // showed the "completed successfully" alert even though nothing ran.
+      const res = await fetch('/api/settings/backup', { method: 'POST' })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`Backup failed: ${data.error || res.statusText}`)
+        return
+      }
       alert('Backup completed successfully.')
     } catch {
       alert('Backup failed.')
