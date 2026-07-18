@@ -35,6 +35,24 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&')
 }
 
+// Platform-subscription invoice events must key off the subscription id
+// stored on `tenants.stripe_subscription_id` at signup (see the tenant
+// insert in checkout.session.completed below), NOT the payer's email.
+// `owner_email` is not unique (multi-location owners can legitimately
+// share one email) and is fully attacker-chosen: /api/prospects is public,
+// unauthenticated intake for `owner_email`, and once an admin approves a
+// prospect its email becomes the Stripe Checkout `customer_email` (see
+// admin/prospects/[id]/route.ts). Anyone willing to run their OWN Stripe
+// subscription through to invoice.paid/payment_failed/subscription.deleted
+// with that spoofed email would flip an unrelated, already-provisioned
+// tenant's billing_status by email match alone. The subscription id Stripe
+// attaches to the invoice/subscription object is unforgeable and unique.
+function subscriptionIdFromInvoice(invoice: Stripe.Invoice): string | null {
+  const sub = invoice.parent?.subscription_details?.subscription
+  if (!sub) return null
+  return typeof sub === 'string' ? sub : sub.id
+}
+
 export async function POST(request: Request) {
   const body = await request.text()
   const sig = request.headers.get('stripe-signature')
@@ -742,15 +760,15 @@ export async function POST(request: Request) {
 
     case 'invoice.paid': {
       // Monthly subscription renewal succeeded for a Full Loop tenant.
-      // Look up the tenant by the Stripe customer email (subscription was
-      // created from the prospect's checkout session).
+      // Look up the tenant by the Stripe subscription id stored at signup —
+      // see subscriptionIdFromInvoice() above for why not by email.
       const invoice = event.data.object as Stripe.Invoice
-      const customerEmail = invoice.customer_email
-      if (!customerEmail) break
+      const subscriptionId = subscriptionIdFromInvoice(invoice)
+      if (!subscriptionId) break
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
         .select('id')
-        .eq('owner_email', customerEmail)
+        .eq('stripe_subscription_id', subscriptionId)
         .maybeSingle()
       if (!tenant) break
       await supabaseAdmin
@@ -762,12 +780,12 @@ export async function POST(request: Request) {
 
     case 'invoice.payment_failed': {
       const invoice = event.data.object as Stripe.Invoice
-      const customerEmail = invoice.customer_email
-      if (!customerEmail) break
+      const subscriptionId = subscriptionIdFromInvoice(invoice)
+      if (!subscriptionId) break
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
         .select('id, name, owner_email')
-        .eq('owner_email', customerEmail)
+        .eq('stripe_subscription_id', subscriptionId)
         .maybeSingle()
       if (!tenant) break
       await supabaseAdmin
@@ -794,23 +812,13 @@ export async function POST(request: Request) {
       // Tenant cancelled subscription (or Stripe cancelled after all retries
       // failed). Flip billing_status so dashboard can gate features, but do
       // not delete the tenant — data retention window is separate.
+      // Match by the subscription's own id (unique, unforgeable) — see
+      // subscriptionIdFromInvoice() above for why not by customer email.
       const sub = event.data.object as Stripe.Subscription
-      // Fetch customer to get email for tenant lookup
-      try {
-        const stripeClient = stripe ?? getStripe()
-        const customer = await stripeClient.customers.retrieve(sub.customer as string)
-        if (customer && !customer.deleted) {
-          const email = (customer as Stripe.Customer).email
-          if (email) {
-            await supabaseAdmin
-              .from('tenants')
-              .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
-              .eq('owner_email', email)
-          }
-        }
-      } catch (e) {
-        console.error('[stripe] subscription.deleted lookup failed:', e)
-      }
+      await supabaseAdmin
+        .from('tenants')
+        .update({ billing_status: 'cancelled', subscription_cancelled_at: new Date().toISOString() })
+        .eq('stripe_subscription_id', sub.id)
       break
     }
   }

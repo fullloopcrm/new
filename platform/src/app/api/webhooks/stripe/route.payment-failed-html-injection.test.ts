@@ -21,6 +21,7 @@ const h = vi.hoisted(() => {
         id: 'tenant-1',
         name: '<img src=x onerror=alert(1)>',
         owner_email: 'owner@example.com',
+        stripe_subscription_id: 'sub_123',
         billing_status: 'active',
       },
     ],
@@ -78,13 +79,13 @@ vi.mock('@/lib/email', () => ({
 
 import { POST } from './route'
 
-function paymentFailedEvent(customerEmail: string) {
+function paymentFailedEvent(subscriptionId: string) {
   return new Request('https://app.fullloop.example/api/webhooks/stripe', {
     method: 'POST',
     headers: { 'content-type': 'application/json', 'stripe-signature': 'sig_test' },
     body: JSON.stringify({
       type: 'invoice.payment_failed',
-      data: { object: { customer_email: customerEmail } },
+      data: { object: { parent: { subscription_details: { subscription: subscriptionId } } } },
     }),
   })
 }
@@ -99,7 +100,7 @@ beforeEach(() => {
 
 describe('POST /api/webhooks/stripe invoice.payment_failed — HTML injection via tenant.name', () => {
   it('escapes an HTML-bearing tenant.name in the internal admin-alert email', async () => {
-    const res = await POST(paymentFailedEvent('owner@example.com'))
+    const res = await POST(paymentFailedEvent('sub_123'))
     expect(res.status).toBe(200)
 
     expect(lastHtml).not.toContain(maliciousTenantName)
