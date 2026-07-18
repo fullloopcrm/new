@@ -10,6 +10,27 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { revertOverride } from './overrides'
 
+/**
+ * `seo_overrides` is keyed by `url` alone (one active row per URL) — if a
+ * human/AI-approved change (`/api/admin/seo/apply`, applied_by:'admin') lands
+ * on the SAME url after autopilot's own change, the upsert overwrites
+ * `change_id` to point at that newer change, silently detaching autopilot's
+ * change_id from the row it originally created. This function proves the
+ * live override still belongs to (one of) the autopilot change ids being
+ * judged before we act on it — otherwise a stale verdict on autopilot's old
+ * change would `revertOverride()` a completely different, newer edit that
+ * happens to share the same url.
+ */
+async function overrideStillOwnedBy(url: string, ids: string[]): Promise<boolean> {
+  const { data } = await supabaseAdmin
+    .from('seo_overrides')
+    .select('change_id')
+    .eq('url', url)
+    .maybeSingle()
+  const owner = (data?.change_id as string | null | undefined) ?? null
+  return owner != null && ids.includes(owner)
+}
+
 const VERIFY_WEEKS = 4 // wait this long before judging (GSC lags + ranking noise)
 const LOOKBACK_DAYS = 21 // window of recent metrics to read the current position
 const REVERT_THRESHOLD = 3 // positions worse than baseline before we roll back
@@ -105,17 +126,30 @@ export async function runVerifyRevert(): Promise<VerifyResult> {
 
     // Lower position is better. Reverting only on a clear regression.
     if (current > baseline + REVERT_THRESHOLD) {
-      await revertOverride(url)
+      // Only touch the live override if it's still autopilot's own change —
+      // a newer human/AI-approved apply to the same url must not be clobbered
+      // by a stale verdict on the change it superseded.
+      const stillOwned = await overrideStillOwnedBy(url, ids)
+      if (stillOwned) await revertOverride(url)
       await supabaseAdmin
         .from('seo_changes')
         .update({
           status: 'rolled_back',
           verified_at: now,
-          after_metric: { query, baseline, current: Math.round(current * 10) / 10, verdict: 'reverted' },
+          after_metric: {
+            query,
+            baseline,
+            current: Math.round(current * 10) / 10,
+            verdict: stillOwned ? 'reverted' : 'reverted_superseded',
+          },
         })
         .in('id', ids)
       out.reverted++
-      out.details.push(`REVERT ${url} "${query}" ${baseline}→${current.toFixed(1)}`)
+      out.details.push(
+        stillOwned
+          ? `REVERT ${url} "${query}" ${baseline}→${current.toFixed(1)}`
+          : `REVERT (superseded, override untouched) ${url} "${query}" ${baseline}→${current.toFixed(1)}`,
+      )
     } else {
       const verdict = current < baseline - 0.5 ? 'improved' : 'held'
       await markVerified(ids, { query, baseline, current: Math.round(current * 10) / 10, verdict }, now)
