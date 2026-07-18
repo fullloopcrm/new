@@ -127,13 +127,30 @@ export async function POST(request: Request) {
     // number (mis-seeded row) and the message gets silently dropped — that
     // took SMS down during a cutover test. Pick the first deterministically
     // and log loudly if it's ambiguous.
+    //
+    // error checked explicitly (not discarded) — same masked-error class
+    // already fixed across tenant.ts/tenant-lookup.ts/tenant-query.ts/
+    // domains.ts/tenant-site.ts and the 6 slug-resolver-twins, just never
+    // applied to this phone-number resolver. The error used to be silently
+    // dropped (only `data` destructured), so a genuine DB failure looked
+    // identical to "no tenant owns this number" and fell into the same
+    // `if (!tenant) return { received: true }` no-op below — every inbound
+    // text (STOP/START TCPA compliance replies, booking confirmations, the
+    // Selena AI conversation) would silently vanish with zero error surfaced
+    // for the length of the outage, instead of failing loud so Telnyx's own
+    // delivery-retry policy gets a chance to redeliver once the DB recovers.
     const safeTo = sanitizePostgrestValue(to)
-    const { data: tenantMatches } = await supabaseAdmin
+    const { data: tenantMatches, error: tenantLookupError } = await supabaseAdmin
       .from('tenants')
       .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone')
       .or(`telnyx_phone.eq.${safeTo},sms_number.eq.${safeTo}`)
       .order('id', { ascending: true })
       .limit(2)
+
+    if (tenantLookupError) {
+      console.error(`TELNYX_INBOUND_TENANT_LOOKUP_ERROR to=${to} error=${tenantLookupError.message}`)
+      throw new Error(`TELNYX_INBOUND_TENANT_LOOKUP_ERROR to=${to} error=${tenantLookupError.message}`)
+    }
 
     if (tenantMatches && tenantMatches.length > 1) {
       console.error(`[telnyx] telnyx_phone ${to} matches ${tenantMatches.length} tenants — dedupe needed; routing to ${tenantMatches[0].name}`)
