@@ -1,5 +1,5 @@
 import { describe, it, expect, afterEach } from 'vitest'
-import { mkdtempSync, writeFileSync, rmSync } from 'node:fs'
+import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -32,6 +32,9 @@ import {
   parseRobotsDisallowList,
   robotsDisallowCoversPath,
   parsePrivateClientLoginHosts,
+  collectFirstSegmentDirs,
+  collectPageFiles,
+  findClientPortalLoginDir,
   computeFindings,
   summarize,
   loadToken,
@@ -4135,5 +4138,110 @@ describe('computeFindings — Drift AL (bespoke tenant has a client-PIN-login-po
       privateClientLoginHosts: new Map(),
     })
     expect(findings.filter((f) => f.msg.includes('client-PIN-login-portal clone')).length).toBe(0)
+  })
+})
+
+// item (237) fresh ground — collectFirstSegmentDirs, collectPageFiles, and
+// findClientPortalLoginDir used to be closures defined INSIDE main(), the
+// only three non-trivial pieces of logic in this file with zero test
+// coverage (main() only runs with a real Supabase token; none of the
+// describe blocks above exercise them — they feed computeFindings via
+// fixture Maps built by hand instead). Promoted to module-level exported
+// functions, like every other pure parseX/findX in this file, so they can
+// be covered directly against real temp-directory fixtures below.
+describe('collectFirstSegmentDirs', () => {
+  let dir: string | undefined
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+
+  it('returns an empty array for a directory that does not exist', () => {
+    expect(collectFirstSegmentDirs(join(tmpdir(), 'reconcile-does-not-exist-xyz'))).toEqual([])
+  })
+
+  it('resolves a route group down to its real first URL segment', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-segs-'))
+    mkdirSync(join(dir, '(app)', 'book'), { recursive: true })
+    mkdirSync(join(dir, '(app)', 'team'), { recursive: true })
+    mkdirSync(join(dir, 'unsubscribe'), { recursive: true })
+    const names = collectFirstSegmentDirs(dir)
+    expect(new Set(names)).toEqual(new Set(['book', 'team', 'unsubscribe']))
+    expect(names).not.toContain('(app)')
+  })
+
+  it('recurses through a route group nested inside another route group', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-segs-'))
+    mkdirSync(join(dir, '(outer)', '(inner)', 'book'), { recursive: true })
+    expect(collectFirstSegmentDirs(dir)).toEqual(['book'])
+  })
+})
+
+describe('collectPageFiles', () => {
+  let dir: string
+  afterEach(() => rmSync(dir, { recursive: true, force: true }))
+
+  it('collects page.tsx/page.ts/route.ts relative paths, recursively', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-pages-'))
+    mkdirSync(join(dir, '[slug]'), { recursive: true })
+    writeFileSync(join(dir, 'page.tsx'), '')
+    writeFileSync(join(dir, '[slug]', 'page.tsx'), '')
+    writeFileSync(join(dir, 'not-a-page.tsx'), '')
+    const files = collectPageFiles(dir)
+    expect(new Set(files)).toEqual(new Set(['page.tsx', '[slug]/page.tsx']))
+  })
+
+  it('returns an empty array for a directory with no page/route files', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-pages-'))
+    writeFileSync(join(dir, 'layout.tsx'), '')
+    expect(collectPageFiles(dir)).toEqual([])
+  })
+})
+
+describe('findClientPortalLoginDir', () => {
+  let dir: string | undefined
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+
+  it('finds a top-level segment whose direct children are dashboard + collect (the live shape, e.g. site/wash-and-fold-nyc/(app)/book)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, '(app)', 'book', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, '(app)', 'book', 'collect'), { recursive: true })
+    mkdirSync(join(dir, '(app)', 'team'), { recursive: true })
+    expect(findClientPortalLoginDir(dir)).toBe('book')
+  })
+
+  it('returns null when no segment has both a dashboard and a collect subdirectory', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, 'book', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, 'book', 'new'), { recursive: true }) // no 'collect' sibling
+    expect(findClientPortalLoginDir(dir)).toBeNull()
+  })
+
+  it('returns null for a directory that does not exist', () => {
+    expect(findClientPortalLoginDir(join(tmpdir(), 'reconcile-does-not-exist-xyz'))).toBeNull()
+  })
+
+  // Mutation-verified live: reverting the inner check from
+  // collectFirstSegmentDirs(childDir) back to the OLD raw
+  // `readdirSync(childDir, {withFileTypes:true}).filter(isDirectory).map(name)`
+  // makes this assertion fail — the old code only ever sees the group's own
+  // literal "(portal-app)" name as portal/'s child, never "dashboard"/
+  // "collect" themselves, so it returns null instead of 'portal', silently
+  // missing the exact client-PIN-login-portal fingerprint Drift AL exists to
+  // catch. No CURRENT bespoke tenant's dashboard/collect pair is itself
+  // route-grouped (wash-and-fold-nyc/hoboken's book/(collect|dashboard) and
+  // the-florida-maid's clients/(collect|dashboard) are both bare) — this
+  // pins the fix against the next tenant that route-groups its portal an
+  // ordinary one segment deeper, the same "surrounding code can silently
+  // violate a parser assumption" shape as items (233)-(235).
+  it('resolves a route group wrapping the dashboard/collect pair itself, not just the candidate segment', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, 'portal', '(portal-app)', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, 'portal', '(portal-app)', 'collect'), { recursive: true })
+    expect(findClientPortalLoginDir(dir)).toBe('portal')
+  })
+
+  it('recurses through nested route groups to find the candidate segment', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'collect'), { recursive: true })
+    expect(findClientPortalLoginDir(dir)).toBe('clients')
   })
 })

@@ -498,10 +498,106 @@ export function findShadowedKilledRoutePages(killedRoutes, appFilesByRoute, redi
   return shadowed
 }
 
+// --- walk `dir` one level at a time collecting real top-level URL segment
+// names, resolving a Next.js route group ("(name)") down to ITS children
+// (a route group is invisible in the URL, so its children are the real
+// first path segment — see the comment on findShadowedAppRootPages below
+// for why this matters for Drift AE, and findClientPortalLoginDir below for
+// Drift AL). Recurses into a route group so a doubly-wrapped segment
+// (a group nested inside a group) still resolves correctly.
+//
+// Exported at module scope — like every other pure parseX/findX in this
+// file (per the header comment: "the pure drift logic ... is exported so
+// it can be unit-tested without a DB or network") — rather than left as a
+// closure inside main(). Before this round it was defined INSIDE main()
+// alongside findClientPortalLoginDir and collectPageFiles below: the only
+// three non-trivial pieces of logic in this whole file with ZERO test
+// coverage, invisible to this file's own 4000+-line test suite, because
+// main() only runs with a real Supabase token (see the token guard) and
+// none of the 60+ existing describe blocks exercise it. A bug here would
+// ship with no red test anywhere, unlike a bug in any parseX/findX, which
+// this file's test suite exhaustively covers.
+export function collectFirstSegmentDirs(dir) {
+  if (!existsSync(dir)) return []
+  const names = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
+      names.push(...collectFirstSegmentDirs(join(dir, entry.name)))
+    } else {
+      names.push(entry.name)
+    }
+  }
+  return names
+}
+
+// --- given a bespoke tenant's own site/<slug>/ folder, find a top-level
+// route-segment directory whose own children include BOTH a 'dashboard' and
+// a 'collect' subdirectory — the client-PIN-login-portal clone fingerprint
+// (see Drift AL in computeFindings: an email+PIN form at the segment root,
+// POST /api/client/login, structurally identical to the global '/portal'
+// page, just forked per tenant). Recurses into a route group ("(name)")
+// wrapping the CANDIDATE segment itself, same as collectFirstSegmentDirs.
+//
+// The inner children check now reuses collectFirstSegmentDirs (previously a
+// raw readdirSync call) so a route group wrapping the 'dashboard'/'collect'
+// PAIR — e.g. site/<slug>/portal/(app)/dashboard + (app)/collect, an
+// entirely ordinary Next.js layout choice, no different in kind from the
+// (app)/(marketing) split 2 of this check's own 3 concrete instances
+// (wash-and-fold-nyc, wash-and-fold-hoboken) already use one level up —
+// resolves correctly instead of silently failing to match. The OLD raw
+// readdirSync here only ever saw the group's own literal "(app)" name as a
+// child, never "dashboard"/"collect" themselves, so the fingerprint check
+// would never fire for a tenant whose portal folder happened to be
+// route-grouped at that exact depth: the tenant's real client-login portal
+// would stay fully crawlable/indexable with zero drift signal, the exact
+// failure mode Drift AL exists to catch, defeated by this function's own
+// blind spot rather than a config gap. No CURRENT bespoke tenant's
+// dashboard/collect pair is itself route-grouped (verified: wash-and-fold-
+// nyc/hoboken's own book/(collect|dashboard) and the-florida-maid's
+// clients/(collect|dashboard) are both bare, one level under a bare or
+// singly-grouped segment) — landmine-only today, same disposition as items
+// (233)'s block-comment branch and (234): a parser assumption the
+// surrounding code (an ordinary route-group refactor) can silently violate
+// without anyone touching this function itself.
+export function findClientPortalLoginDir(dir) {
+  if (!existsSync(dir)) return null
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
+      const nested = findClientPortalLoginDir(join(dir, entry.name))
+      if (nested) return nested
+      continue
+    }
+    const children = collectFirstSegmentDirs(join(dir, entry.name))
+    if (children.includes('dashboard') && children.includes('collect')) return entry.name
+  }
+  return null
+}
+
+// --- feeds Drift AD: for every KILLED_ROUTES entry, collect the relative
+// path of every page.tsx/page.ts/route.ts that still exists on disk under a
+// given directory — used against src/app/<route>, the top-level tree
+// isMainHost()+isKilledRoute() 410s, NOT src/app/site/<slug> (a different
+// physical tree entirely, reached via middleware's rewriteToSite() instead,
+// which this walk never touches — see findShadowedKilledRoutePages above).
+// Exported for the same reason as collectFirstSegmentDirs/
+// findClientPortalLoginDir above — this was the third fs-walking closure
+// living inside main() with zero test coverage.
+export function collectPageFiles(dir, prefix = '') {
+  const out = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) out.push(...collectPageFiles(join(dir, entry.name), rel))
+    else if (entry.name === 'page.tsx' || entry.name === 'page.ts' || entry.name === 'route.ts') out.push(rel)
+  }
+  return out
+}
+
 // --- given the single-segment (no nested "/") entries of APP_ROOT_PREFIXES
 // and, per bespoke tenant, the top-level route-segment names found on disk
 // under its own site/<slug>/ folder (route groups already resolved down to
-// their real first segment — see collectFirstSegmentDirs in main()), return
+// their real first segment — see collectFirstSegmentDirs above), return
 // the tenant slugs whose own site folder contains a directory that collides
 // with a reserved app-root name. Multi-segment prefixes (e.g.
 // '/reviews/submit') are deliberately out of scope: a first-level-only
@@ -955,8 +1051,8 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  names under its own site/<slug>/ folder,
  *                                  with any wrapping Next.js route group
  *                                  resolved down to its real first URL
- *                                  segment (see collectFirstSegmentDirs in
- *                                  main() and findShadowedAppRootPages).
+ *                                  segment (see collectFirstSegmentDirs
+ *                                  above and findShadowedAppRootPages).
  *                                  Feeds Drift AE, Drift AI, and Drift AK.
  *                                  Pass an empty Map (default) to skip all
  *                                  three.
@@ -1011,7 +1107,7 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  'dashboard' and a 'collect' subdirectory
  *                                  — the client-PIN-login-portal clone
  *                                  fingerprint (see findClientPortalLoginDir
- *                                  in main()). Feeds Drift AL ONLY. Pass an
+ *                                  above). Feeds Drift AL ONLY. Pass an
  *                                  empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
@@ -1933,8 +2029,8 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
   }
 
   // Drift AL: a bespoke tenant with a detected client-PIN-login-portal
-  // directory (see clientPortalLoginDirsBySlug / findClientPortalLoginDir in
-  // main() — a top-level site/<slug>/ segment whose own children include
+  // directory (see clientPortalLoginDirsBySlug / findClientPortalLoginDir
+  // above — a top-level site/<slug>/ segment whose own children include
   // BOTH a 'dashboard' and a 'collect' subdirectory, the fingerprint of the
   // tenant-embedded client-login-portal clone: an email+PIN form at the
   // segment root, POST /api/client/login, structurally identical to the
@@ -2112,15 +2208,8 @@ async function main() {
   // src/app/<route> — the top-level tree isMainHost()+isKilledRoute() 410s,
   // NOT src/app/site/<slug> (a different physical tree entirely, reached via
   // middleware's rewriteToSite() instead, which this walk never touches).
-  const collectPageFiles = (dir, prefix = '') => {
-    const out = []
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      const rel = prefix ? `${prefix}/${entry.name}` : entry.name
-      if (entry.isDirectory()) out.push(...collectPageFiles(join(dir, entry.name), rel))
-      else if (entry.name === 'page.tsx' || entry.name === 'page.ts' || entry.name === 'route.ts') out.push(rel)
-    }
-    return out
-  }
+  // collectPageFiles is now a module-level exported function (see above) —
+  // was a closure here with zero test coverage.
   const killedRouteAppFiles = new Map()
   for (const route of killedRoutesSet) {
     const dir = join(REPO, 'src', 'app', route.replace(/^\//, ''))
@@ -2173,19 +2262,8 @@ async function main() {
   // path segment — recurse one level into a group rather than reporting the
   // group's own literal name (which can never appear in a real pathname and
   // would never collide with anything in matchesAppRootPrefix's real input).
-  const collectFirstSegmentDirs = (dir) => {
-    if (!existsSync(dir)) return []
-    const names = []
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
-        names.push(...collectFirstSegmentDirs(join(dir, entry.name)))
-      } else {
-        names.push(entry.name)
-      }
-    }
-    return names
-  }
+  // collectFirstSegmentDirs is now a module-level exported function (see
+  // above) — was a closure here with zero test coverage.
   const bespokeSiteTopLevelDirs = new Map()
   for (const slug of bespokeSet) {
     const names = collectFirstSegmentDirs(join(siteDir, slug))
@@ -2195,26 +2273,9 @@ async function main() {
   // Feeds Drift AL: for every bespoke tenant, find a top-level route-segment
   // directory whose own children include BOTH a 'dashboard' and a 'collect'
   // subdirectory — the client-PIN-login-portal clone fingerprint (see the
-  // comment above Drift AL in computeFindings). Route-group wrappers
-  // ("(name)") are resolved the same way collectFirstSegmentDirs resolves
-  // them above — a group is invisible in the URL, so requests still land on
-  // its children, and this walk recurses into one to check them the same
-  // way a real request would reach them.
-  const findClientPortalLoginDir = (dir) => {
-    if (!existsSync(dir)) return null
-    for (const entry of readdirSync(dir, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
-        const nested = findClientPortalLoginDir(join(dir, entry.name))
-        if (nested) return nested
-        continue
-      }
-      const childDir = join(dir, entry.name)
-      const children = readdirSync(childDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-      if (children.includes('dashboard') && children.includes('collect')) return entry.name
-    }
-    return null
-  }
+  // comment above Drift AL in computeFindings). findClientPortalLoginDir is
+  // now a module-level exported function (see above) — was a closure here
+  // with zero test coverage.
   const clientPortalLoginDirsBySlug = new Map()
   for (const slug of bespokeSet) {
     const found = findClientPortalLoginDir(join(siteDir, slug))
