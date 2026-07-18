@@ -24,6 +24,13 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
         ? { label: 'Request a quote', href: '/book/new' }
         : { label: 'Book now', href: '/book/new' }
 
+  // Two entry-point CTAs into the flows that already exist: self-book
+  // (/book/new → /api/client/book, defaults status=pending) and lead capture
+  // (/collect → /api/contact, lands a stage='new' ["Lead"] deal on the Sales
+  // pipeline). lead_only tenants surface no booking CTA (funnelMode is
+  // documented as "no booking or pricing surfaced" for that mode).
+  const showBookNow = config.funnelMode !== 'lead_only'
+
   const orgLd = {
     '@context': 'https://schema.org',
     '@type': 'LocalBusiness',
@@ -62,8 +69,13 @@ export default function GenericHome({ config }: { config: SiteConfig }) {
           </h1>
           <p className="text-white/75 text-lg md:text-xl max-w-2xl mb-8">{c.intro}</p>
           <div className="flex flex-wrap gap-3">
-            <Link href={cta.href} className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
-              {cta.label}
+            {showBookNow && (
+              <Link href="/book/new" className="inline-flex items-center bg-[var(--accent)] text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-[var(--accent-hover)] transition-colors">
+                Book Now
+              </Link>
+            )}
+            <Link href="/collect" className="inline-flex items-center bg-white text-[var(--brand)] px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/90 transition-colors">
+              Start a Project
             </Link>
             <a href={smsHref} className="inline-flex items-center bg-white/10 border border-white/30 text-white px-8 py-4 rounded-lg font-bold text-base tracking-widest uppercase hover:bg-white/20 transition-colors">
               Text {config.contact.phone}
