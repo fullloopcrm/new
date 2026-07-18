@@ -10188,3 +10188,75 @@ Full suite + tsc re-run clean after this round: 2322/2322 vitest tests pass
 config.mjs`, `verify-protected-tenants.mjs`, `audit-tenant-scope.mjs`, and
 the three workflow YAML files' non-Telegram wiring were not touched this
 round -- their own coverage (items 168-199 above) is unaffected.
+
+## (201) New fresh-ground surface -- tenant-config-reconcile.yml's own
+exit-code-through-`tee` dance (`set +e` / `PIPESTATUS[0]` / a trailing
+`exit "$exit_code"`) had zero regression coverage, so dropping the last
+line would silently make the gate always green regardless of a real
+gating CRIT
+
+Items 168-200 audited the gate scripts themselves, their CI workflow
+wiring (existence, trigger, permissions, concurrency, timeout,
+notify-failure, Job Summary write -- see reconcile-gate-wiring.test.ts),
+a local convenience mirror, `package.json`'s lifecycle scripts, and a
+prior fix's own regression coverage. This round went one level deeper
+into wiring already covered by reconcile-gate-wiring.test.ts: that test
+confirms the "Reconcile tenant config" step still runs the drift script
+and still writes to `$GITHUB_STEP_SUMMARY`, but it never reads what
+happens to the script's real exit code AFTER it's piped through `tee`.
+
+The step (`tenant-config-reconcile.yml`, "Reconcile tenant config
+(read-only drift gate)") pipes `node scripts/reconcile-tenant-config.mjs`
+through `tee reconcile-output.txt` so the drift report can also be written
+to the Job Summary, then deliberately `set +e`s so that summary write
+still runs even when the script found a gating CRIT (exit 1) --
+capturing the real exit code via bash's `PIPESTATUS[0]` array (a bare
+`$?` read after `tee` would give tee's own exit status, not node's) and
+re-asserting it as the step's actual exit status with a trailing `exit
+"$exit_code"`.
+
+**Consequence, concretely:** that trailing `exit "$exit_code"` line is
+load-bearing and easy to lose in a future edit -- a merge-conflict
+resolution, or someone deciding the tee dance looks like unnecessary
+boilerplate and trimming the script's tail. If it goes missing, `set +e`
+is still in effect, so the step's actual exit status becomes whatever the
+LAST command in the script returns -- the summary-file append, which
+always succeeds -- regardless of what the reconcile script found.
+Verified empirically before writing the fix: `set +e; false | tee out;
+code=${PIPESTATUS[0]}; echo ok >> out2` exits 0 even though `code`
+correctly captured `1`. The Job Summary would still print the CRIT
+findings in plain text, but the PR check itself would show green -- a
+silent, review-proof defeat of the exact 2026-07-10 outage-class gate
+this workflow exists to enforce, with no existing test (including
+reconcile-gate-wiring.test.ts's own Job-Summary-write assertion) able to
+catch it, since that test only checks the string `GITHUB_STEP_SUMMARY`
+appears, not what happens to the exit code around it.
+
+**Fixed:** new `src/lib/reconcile-gate-exit-code-preservation.test.ts`,
+pure source-reading of `tenant-config-reconcile.yml`, isolating the
+"Reconcile tenant config" step's own run block and pinning all three
+pieces: `set +e` is present, `<var>=${PIPESTATUS[0]}` is present, and the
+block's actual LAST executable line is `exit "$<that same var>"` (not a
+hardcoded `exit 0`, not merely present somewhere earlier in the script).
+
+Mutation-verified three separate ways (not just written and trusted):
+(1) removed the trailing `exit "$exit_code"` line entirely -- failed with
+the exact predicted message; (2) swapped `${PIPESTATUS[0]}` for a bare
+`$?` -- failed (no PIPESTATUS capture found); (3) confirmed both restores
+left `git status --short` / `git diff --stat` on the workflow file empty
+afterward (no unintended change survived either round-trip).
+
+**Continuation check (step 2 of this round's queue):** grepped all three
+workflow YAML files for `| tee`, `PIPESTATUS`, and `set +e` -- this exact
+shape is unique to this one step. `ci.yml` and `db-backup.yml`'s steps
+each run a single command with no `tee` pipe, so GitHub Actions' native
+exit-code propagation already covers them without needing this dance
+(nothing there for this specific gap class to hide in). No sibling
+instance found.
+
+Full suite + tsc re-run clean after this round: 2326/2326 vitest tests
+pass (2322 prior + 4 new), `tsc --noEmit` zero errors, eslint clean on
+the new file. `reconcile-tenant-config.mjs`, `verify-protected-
+tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
+files' non-exit-code wiring were not touched this round -- their own
+coverage (items 168-200 above) is unaffected.
