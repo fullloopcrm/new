@@ -3849,9 +3849,24 @@ async function runProjectArchetype(cfg: ProjectScenario, idx: number): Promise<T
       await supabase.from('tenant_domains').update({ active: true }).eq('tenant_id', tenant.id)
     }
 
-    // ---- 5a-48. tenant.ts's getTenantByDomain() — TRANSITION ASSERT-AND-REFUSE DIVERGENCE-GUARD PROBE (archetype depth; 5a-45/5a-46/5a-47 all proved the FALLBACK side of the tenant_domains/tenants.domain resolver contract -- a host resolving correctly when only ONE source has it. This probes the OTHER safety property the same resolver promises and that has never been exercised in this harness: when BOTH sources have a row for the same host but they point at DIFFERENT tenants -- e.g. a custom domain re-pointed to a new tenant in tenant_domains while a stale tenants.domain row for the OLD tenant was never cleared -- the resolver must REFUSE to pick one rather than silently serve either tenant's data under the disputed host. This is the guard standing between a stale legacy row and the brand-swap failure mode getTenantByDomain's own doc comment names explicitly. tenant.ts's getTenantByDomain() is the exact function middleware.ts calls on every custom-domain request; zero prior exercise here.) ----
+    // ---- 5a-48. tenant-lookup.ts's getTenantByDomain() — TRANSITION ASSERT-AND-REFUSE DIVERGENCE-GUARD PROBE (archetype depth; 5a-45/5a-46/5a-47 all proved the FALLBACK side of the tenant_domains/tenants.domain resolver contract -- a host resolving correctly when only ONE source has it. This probes the OTHER safety property the same resolver promises and that has never been exercised in this harness: when BOTH sources have a row for the same host but they point at DIFFERENT tenants -- e.g. a custom domain re-pointed to a new tenant in tenant_domains while a stale tenants.domain row for the OLD tenant was never cleared -- the resolver must REFUSE to pick one rather than silently serve either tenant's data under the disputed host. This is the guard standing between a stale legacy row and the brand-swap failure mode getTenantByDomain's own doc comment names explicitly.
+    //
+    // WRONG MODULE (fixed here): this probe previously imported getTenantByDomain
+    // from '../src/lib/tenant' under the comment "the exact function middleware.ts
+    // calls on every custom-domain request" — that claim was false. middleware.ts
+    // imports getTenantByDomain/getTenantBySlug exclusively from
+    // '@/lib/tenant-lookup' (see src/middleware.ts's own import line); tenant.ts
+    // exports its own separate getTenantByDomain/getTenantBySlug pair that carries
+    // an IDENTICAL divergence guard but has ZERO production callers anywhere in the
+    // app (grepped: only its own tenant.test.ts imports it) — a fully dead,
+    // unreachable duplicate. This probe was therefore exercising the dead copy
+    // against the live schema while the actual production-critical resolver behind
+    // every real custom-domain request had NEVER been proven here — only covered by
+    // tenant-lookup.test.ts's mocked-supabaseAdmin unit tests, never against a real
+    // conflicting live row. Repointed to '../src/lib/tenant-lookup' so this probe
+    // finally exercises the function that's actually live.
     {
-      const { getTenantByDomain } = await import('../src/lib/tenant')
+      const { getTenantByDomain } = await import('../src/lib/tenant-lookup')
       const foreignSlugDiv = slugify('divergence-probe', randomUUID())
       const { data: foreignTenantDiv, error: foreignTenantDivErr } = await supabase.from('tenants').insert({
         name: 'Divergence Probe Co', slug: foreignSlugDiv, industry: ind, status: 'active', plan: 'growth',
