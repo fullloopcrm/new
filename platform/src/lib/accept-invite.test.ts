@@ -31,6 +31,7 @@ const holder = vi.hoisted(() => ({
   tenantActivated: null as string | null,
   existingMember: null as { id: string } | null,
   existingMemberError: null as { message: string } | null,
+  memberInsertError: null as { message: string } | null,
   inviteLookupData: null as Record<string, unknown> | null,
   inviteLookupError: null as { message: string } | null,
   inviteAcceptError: null as { message: string } | null,
@@ -54,7 +55,7 @@ vi.mock('@/lib/supabase', () => ({
           }),
           insert: (row: Record<string, unknown>) => {
             holder.tenantMembersInserted.push(row)
-            return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: null }) }
+            return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: holder.memberInsertError }) }
           },
         }
       }
@@ -105,6 +106,7 @@ beforeEach(() => {
   holder.tenantActivated = null
   holder.existingMember = null
   holder.existingMemberError = null
+  holder.memberInsertError = null
   holder.inviteLookupData = null
   holder.inviteLookupError = null
   holder.inviteAcceptError = null
@@ -170,6 +172,22 @@ describe('acceptInviteForAdmin — signed-in identity must match the invite', ()
     )
     expect(holder.tenantMembersInserted).toHaveLength(0)
     expect(holder.inviteMarkedAcceptedId).toBeNull()
+  })
+
+  // MASKED-ERROR PROBE: the membership insert had zero error handling — a
+  // genuine DB failure here used to fall through silently and mark the
+  // invite accepted anyway, leaving the admin with no tenant_members row AND
+  // an invite stuck at accepted:true (unrecoverable — already_accepted blocks
+  // any retry of the join link).
+  it('MASKED-ERROR PROBE: throws on a genuine tenant_members insert failure instead of marking the invite accepted', async () => {
+    holder.memberInsertError = { message: 'connection reset' }
+    const recipient = { id: 'admin_recipient', email: 'owner@victim-biz.com' }
+
+    await expect(acceptInviteForAdmin(TENANT_INVITE, recipient)).rejects.toThrow(
+      /TENANT_MEMBER_INSERT_ERROR/,
+    )
+    expect(holder.inviteMarkedAcceptedId).toBeNull()
+    expect(holder.tenantActivated).toBeNull()
   })
 
   // MASKED-ERROR PROBE: neither write below had its returned `error`

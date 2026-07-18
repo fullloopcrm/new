@@ -82,11 +82,25 @@ export async function acceptInviteForAdmin(
   }
 
   if (!existingMember) {
-    await supabaseAdmin.from('tenant_members').insert({
+    // error checked explicitly (not discarded) — this insert previously had
+    // zero error handling, so a genuine DB failure here (e.g. a unique-
+    // constraint race) was invisible: the function fell through to mark the
+    // invite accepted anyway, leaving the admin with no tenant_members row
+    // AND an invite now stuck at accepted:true (lookupInvite's
+    // already-accepted check blocks ever retrying), a silent, unrecoverable
+    // lockout. Throwing here — before either write below runs — keeps the
+    // invite unaccepted so the admin can simply retry the join link.
+    const { error: memberInsertError } = await supabaseAdmin.from('tenant_members').insert({
       tenant_id: invite.tenant_id,
       clerk_user_id: admin.id,
       role: invite.role || 'owner',
     })
+
+    if (memberInsertError) {
+      throw new Error(
+        `TENANT_MEMBER_INSERT_ERROR tenant_id=${invite.tenant_id} clerk_user_id=${admin.id} error=${memberInsertError.message}`,
+      )
+    }
   }
 
   // error checked explicitly (not discarded) — same masked-error class fixed
