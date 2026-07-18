@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { maxLengthError } from '@/lib/validate'
 
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
@@ -73,6 +74,11 @@ export async function POST(request: Request) {
     if (!tenant_slug || !name || !email || !phone || !location || !video_url) {
       return NextResponse.json({ error: 'Business, name, email, phone, location, and selfie video are required.' }, { status: 400 })
     }
+
+    // The in-memory rate limiter above bounds request COUNT, not these
+    // free-text fields' SIZE -- see maxLengthError's doc comment.
+    const lenErr = maxLengthError({ sales_background, warm_intros, why, notes })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
     // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared

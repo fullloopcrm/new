@@ -9,6 +9,7 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
+import { maxLengthError } from '@/lib/validate'
 
 interface ApplyBody {
   name?: string
@@ -63,6 +64,11 @@ export async function POST(request: Request) {
     if (!name || !phone) {
       return NextResponse.json({ error: 'Name and phone are required.' }, { status: 400 })
     }
+
+    // The rateLimitDb call above bounds request COUNT, not the free-text
+    // `message` field's SIZE -- see maxLengthError's doc comment.
+    const lenErr = maxLengthError({ message: body.message })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const cleanPhone = phone.replace(/\D/g, '')
 

@@ -14,6 +14,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { escapeHtml } from '@/lib/escape-html'
+import { maxLengthError } from '@/lib/validate'
 
 interface WaitlistEntry {
   id: string
@@ -126,6 +127,11 @@ export async function POST(request: Request) {
   if (!name || !phone) {
     return NextResponse.json({ ok: false, error: 'name and phone are required' }, { status: 400 })
   }
+
+  // isRateLimited above bounds request COUNT, not the free-text `notes`
+  // field's SIZE -- see maxLengthError's doc comment.
+  const lenErr = maxLengthError({ notes: body.notes })
+  if (lenErr) return NextResponse.json({ ok: false, error: lenErr }, { status: 400 })
 
   const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)

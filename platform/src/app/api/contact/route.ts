@@ -25,6 +25,7 @@ import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
+import { maxLengthError } from '@/lib/validate'
 import { randomInt } from 'crypto'
 
 interface ContactBody {
@@ -151,6 +152,11 @@ export async function POST(request: NextRequest) {
     if (!name || (!phone && !email)) {
       return NextResponse.json({ error: 'Name and a phone or email are required' }, { status: 400 })
     }
+
+    // rateLimitDb above bounds request COUNT, not the free-text `message`
+    // field's SIZE -- see maxLengthError's doc comment.
+    const lenErr = maxLengthError({ message: body.message })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const formType = inferFormType(body)
 

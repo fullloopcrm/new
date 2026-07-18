@@ -12,6 +12,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { resolveVisitorKey } from '@/lib/apply-visitor-key'
+import { maxLengthError } from '@/lib/validate'
 
 // Same gating as the sibling team-applications route: viewing/deciding hiring
 // applications requires team.view/team.edit, not just tenant membership —
@@ -58,6 +59,11 @@ export async function POST(request: Request) {
     if (!name || !email || !phone || !location || !resume_url || !photo_url || !video_url) {
       return NextResponse.json({ error: 'Name, email, phone, location, resume, photo, and selfie video are required.' }, { status: 400 })
     }
+
+    // rateLimitDb above bounds request COUNT, not the free-text fields'
+    // SIZE -- see maxLengthError's doc comment.
+    const lenErr = maxLengthError({ why_this_role, notes, references })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const normalizedEmail = String(email).toLowerCase().trim()
     const { data: existing } = await supabaseAdmin

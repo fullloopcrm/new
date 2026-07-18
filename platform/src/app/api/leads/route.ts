@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml, safeUrl } from '@/lib/escape-html'
 import { rateLimitDb } from '@/lib/rate-limit-db'
+import { maxLengthError } from '@/lib/validate'
 
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
@@ -20,6 +21,13 @@ export async function POST(request: Request) {
   if (!name || !email || !business_name) {
     return NextResponse.json({ error: 'Name, email, and business name required' }, { status: 400 })
   }
+
+  // rateLimitDb above bounds request COUNT, not the free-text `message`
+  // field's SIZE -- a single call inside that cap could still stuff an
+  // arbitrarily large string into the leads/partner_requests rows and the
+  // admin notification email built from it.
+  const lenErr = maxLengthError({ message })
+  if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
   const { data: lead, error } = await supabaseAdmin
     .from('leads')

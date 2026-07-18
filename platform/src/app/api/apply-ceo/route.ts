@@ -10,6 +10,7 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
 import { sendEmail } from '@/lib/email'
 import { escapeHtml } from '@/lib/escape-html'
+import { maxLengthError } from '@/lib/validate'
 
 interface CeoBody {
   name?: string
@@ -66,6 +67,21 @@ export async function POST(request: Request) {
     if (!name || !email || !phone) {
       return NextResponse.json({ error: 'Name, email, and phone are required.' }, { status: 400 })
     }
+
+    // rateLimitDb above bounds request COUNT, not the SIZE of this
+    // questionnaire's long-form free-text answers -- see maxLengthError's
+    // doc comment. This form has 7 such fields (vs. the single `message`
+    // field on sibling public forms), all folded into buildNotes() below.
+    const lenErr = maxLengthError({
+      marketplaceBackground: body.marketplaceBackground,
+      otherPlatforms: body.otherPlatforms,
+      plExperience: body.plExperience,
+      biggestScale: body.biggestScale,
+      whySweatEquity: body.whySweatEquity,
+      plan306090: body.plan306090,
+      anythingElse: body.anythingElse,
+    })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     const cleanPhone = phone.replace(/\D/g, '')
 

@@ -90,6 +90,22 @@ export function validate<T extends Record<string, unknown>>(body: unknown, schem
   return { data: result as T, error: null }
 }
 
+// Reject the first field whose string value exceeds `max` characters.
+// Guards public-form free-text fields (application notes, background
+// answers, etc.) that are rate-limited by request COUNT (rateLimitDb) but
+// were never bounded by request SIZE — a single call inside the count limit
+// could still stuff an arbitrarily large string into a DB row and the admin
+// notification email/SMS built from it. Same class as the chat/yinez/feedback
+// message-length caps; this is the multi-field form-application version.
+export function maxLengthError(fields: Record<string, unknown>, max = 5000): string | null {
+  for (const [name, val] of Object.entries(fields)) {
+    if (typeof val === 'string' && val.length > max) {
+      return `${name} is too long (max ${max} characters)`
+    }
+  }
+  return null
+}
+
 // Pick only allowed fields from body (for simpler cases)
 export function pick<T extends Record<string, unknown>>(body: unknown, fields: string[]): Partial<T> {
   if (!body || typeof body !== 'object') return {}

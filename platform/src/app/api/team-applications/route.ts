@@ -5,6 +5,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { escapeHtml } from '@/lib/escape-html'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
+import { maxLengthError } from '@/lib/validate'
 
 // Rate limiting: 3 applications per 10 minutes per IP
 // NOTE: In-memory — resets on server restart (serverless cold start).
@@ -72,6 +73,11 @@ export async function POST(request: Request) {
     if (!tenant_slug || !name || !phone) {
       return NextResponse.json({ error: 'Tenant, name, and phone are required' }, { status: 400 })
     }
+
+    // The in-memory rate limiter above bounds request COUNT, not these
+    // free-text fields' SIZE -- see maxLengthError's doc comment.
+    const lenErr = maxLengthError({ experience, availability, notes, references })
+    if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
     // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
     // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
