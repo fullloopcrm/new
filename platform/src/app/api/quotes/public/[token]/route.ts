@@ -32,26 +32,65 @@ export async function GET(request: Request, { params }: Params) {
       .maybeSingle()
     if (!quote) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
-    // Expire if past valid_until
+    let effectiveStatus = quote.status as string
+
+    // Expire if past valid_until. Guarded with a compare-and-swap on the
+    // status just read — without it, a concurrent accept()/decline() that
+    // already moved this quote to a terminal state (both of which claim
+    // atomically) could have that result silently clobbered back to
+    // 'expired' by this GET's stale read landing right after.
     if (quote.valid_until && quote.status === 'sent') {
       const validUntil = new Date(quote.valid_until as string)
       if (validUntil < new Date()) {
-        await supabaseAdmin.from('quotes').update({ status: 'expired' }).eq('id', quote.id)
-        quote.status = 'expired'
-        await logQuoteEvent({ quote_id: quote.id, tenant_id: quote.tenant_id, event_type: 'expired' })
+        const { data: claimedExpire } = await supabaseAdmin
+          .from('quotes')
+          .update({ status: 'expired' })
+          .eq('id', quote.id)
+          .eq('status', 'sent')
+          .select('id')
+          .maybeSingle()
+        if (claimedExpire) {
+          effectiveStatus = 'expired'
+          await logQuoteEvent({ quote_id: quote.id, tenant_id: quote.tenant_id, event_type: 'expired' })
+        }
       }
     }
 
-    // Record view — first view bumps status to 'viewed'
+    // Record view. View-tracking fields never conflict with a concurrent
+    // accept/decline/expire, so they're safe to write unconditionally; the
+    // 'sent'->'viewed' status bump is guarded the same compare-and-swap way
+    // so it can't clobber a status this same request (or a concurrent
+    // request) already moved on from.
     const now = new Date().toISOString()
-    const update: Record<string, unknown> = {
+    const viewUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (quote.view_count || 0) + 1,
     }
-    if (!quote.first_viewed_at) update.first_viewed_at = now
-    if (quote.status === 'sent') update.status = 'viewed'
+    if (!quote.first_viewed_at) viewUpdate.first_viewed_at = now
+    await supabaseAdmin.from('quotes').update(viewUpdate).eq('id', quote.id)
 
-    await supabaseAdmin.from('quotes').update(update).eq('id', quote.id)
+    if (effectiveStatus === 'sent') {
+      const { data: claimedView } = await supabaseAdmin
+        .from('quotes')
+        .update({ status: 'viewed' })
+        .eq('id', quote.id)
+        .eq('status', 'sent')
+        .select('status')
+        .maybeSingle()
+      if (claimedView) {
+        effectiveStatus = claimedView.status as string
+      } else {
+        // Lost the race — a concurrent accept()/decline() already moved this
+        // quote on. Re-fetch so the response reflects the row's real current
+        // status instead of our stale 'sent' read.
+        const { data: fresh } = await supabaseAdmin
+          .from('quotes')
+          .select('status')
+          .eq('id', quote.id)
+          .maybeSingle()
+        effectiveStatus = (fresh?.status as string) || (quote.status as string)
+      }
+    }
 
     await logQuoteEvent({
       quote_id: quote.id,
@@ -65,7 +104,7 @@ export async function GET(request: Request, { params }: Params) {
     const publicQuote = {
       id: quote.id,
       quote_number: quote.quote_number,
-      status: update.status || quote.status,
+      status: effectiveStatus,
       title: quote.title,
       description: quote.description,
       contact_name: quote.contact_name,

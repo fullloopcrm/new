@@ -26,22 +26,51 @@ export async function GET(request: Request, { params }: Params) {
     if (!invoice) return NextResponse.json({ error: 'Not found' }, { status: 404 })
 
     const now = new Date().toISOString()
-    const update: Record<string, unknown> = {
+    // View-tracking fields never conflict with a concurrent payment/void, so
+    // they're safe to write unconditionally.
+    const viewUpdate: Record<string, unknown> = {
       last_viewed_at: now,
       view_count: (invoice.view_count || 0) + 1,
     }
-    if (!invoice.first_viewed_at) update.first_viewed_at = now
-    if (invoice.status === 'sent') update.status = 'viewed'
+    if (!invoice.first_viewed_at) viewUpdate.first_viewed_at = now
+    await supabaseAdmin.from('invoices').update(viewUpdate).eq('id', invoice.id)
 
-    // Check overdue
+    // Status transition derived from the status this request just read. A
+    // concurrent Stripe webhook marking this invoice 'paid' (or void/refund)
+    // in the gap between that read and this write would otherwise have its
+    // terminal status silently clobbered back to 'viewed'/'overdue' by this
+    // GET — guard the write with the read value (compare-and-swap) so a row
+    // that changed underneath is left alone instead of overwritten.
+    let effectiveStatus = invoice.status as string
+    if (invoice.status === 'sent') effectiveStatus = 'viewed'
     if (invoice.due_date && !['paid', 'void', 'refunded'].includes(invoice.status)) {
       const due = new Date(invoice.due_date as string)
       if (due < new Date() && invoice.status !== 'overdue') {
-        update.status = 'overdue'
+        effectiveStatus = 'overdue'
       }
     }
-
-    await supabaseAdmin.from('invoices').update(update).eq('id', invoice.id)
+    if (effectiveStatus !== invoice.status) {
+      const { data: claimed } = await supabaseAdmin
+        .from('invoices')
+        .update({ status: effectiveStatus })
+        .eq('id', invoice.id)
+        .eq('status', invoice.status)
+        .select('status')
+        .maybeSingle()
+      if (claimed) {
+        effectiveStatus = claimed.status as string
+      } else {
+        // Lost the race — something else (e.g. a payment webhook) already
+        // moved this row past the status we read. Re-fetch so the response
+        // reflects the row's real current status instead of our stale guess.
+        const { data: fresh } = await supabaseAdmin
+          .from('invoices')
+          .select('status')
+          .eq('id', invoice.id)
+          .maybeSingle()
+        effectiveStatus = (fresh?.status as string) || (invoice.status as string)
+      }
+    }
 
     await logInvoiceEvent({
       invoice_id: invoice.id,
@@ -55,7 +84,7 @@ export async function GET(request: Request, { params }: Params) {
     const publicInvoice = {
       id: invoice.id,
       invoice_number: invoice.invoice_number,
-      status: update.status || invoice.status,
+      status: effectiveStatus,
       title: invoice.title,
       description: invoice.description,
       contact_name: invoice.contact_name,
