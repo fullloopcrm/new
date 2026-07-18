@@ -25,8 +25,10 @@ vi.mock('@/lib/supabase', () => ({
         eq: () => chain,
         gt: () => chain,
         gte: () => chain,
+        lt: () => chain,
         not: () => chain,
         is: () => chain,
+        update: () => chain,
         insert: async () => ({ data: null, error: null }),
         then: (resolve: (v: { data: unknown[]; error: null; count?: number }) => void) => {
           if (table === 'tenants') {

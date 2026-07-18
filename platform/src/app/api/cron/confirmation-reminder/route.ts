@@ -53,14 +53,24 @@ export async function GET(request: Request) {
 
       if (typeof booking.notes === 'string' && /\[Client (confirmed|accepted) terms /.test(booking.notes)) continue
 
-      const { count } = await supabaseAdmin
-        .from('sms_logs')
-        .select('id', { count: 'exact', head: true })
+      // Claim BEFORE sending: the old dedup queried sms_logs for
+      // sms_type='confirmation_reminder', but that row is only written
+      // AFTER sendSMS's Telnyx call resolves (see lib/nycmaid/sms.ts) --
+      // same sent-before-claim race already fixed elsewhere this session
+      // (rating-prompt/payment-reminder/etc). This cron runs every 5 min
+      // with no run-lock, so two overlapping invocations could both pass
+      // the sms_logs check before either write landed and both text the
+      // client. The conditional `.is(...)` update is atomic per-row, so
+      // the losing invocation's claim affects 0 rows and it skips.
+      const { data: claimed } = await supabaseAdmin
+        .from('bookings')
+        .update({ confirmation_reminder_sent_at: new Date().toISOString() })
+        .eq('id', booking.id)
         .eq('tenant_id', tenantId)
-        .eq('booking_id', booking.id)
-        .eq('sms_type', 'confirmation_reminder')
+        .is('confirmation_reminder_sent_at', null)
+        .select('id')
 
-      if ((count || 0) > 0) continue
+      if (!claimed || claimed.length === 0) continue // lost the race, or already claimed by a prior run
 
       await sendClientSMS(booking.client_id, clientSms.confirmationReminder(booking), {
         smsType: 'confirmation_reminder',

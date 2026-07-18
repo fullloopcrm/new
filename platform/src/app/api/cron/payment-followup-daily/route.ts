@@ -97,18 +97,43 @@ export async function GET(request: Request) {
       // for money every slot until paid.
       if (client.sms_consent === false) continue
 
-      // Per-slot idempotency: already chased this booking this slot?
-      const { count } = await supabaseAdmin
-        .from('sms_logs')
-        .select('id', { count: 'exact', head: true })
-        .eq('booking_id', booking.id)
-        .eq('sms_type', SMS_TYPE)
-        .gte('created_at', idempotencyCutoff)
-      if (count && count > 0) continue
+      if (dryRun) {
+        // Dry run only estimates -- no send and no claim happen, so the old
+        // sms_logs count-check is fine here (nothing to race against).
+        const { count } = await supabaseAdmin
+          .from('sms_logs')
+          .select('id', { count: 'exact', head: true })
+          .eq('booking_id', booking.id)
+          .eq('sms_type', SMS_TYPE)
+          .gte('created_at', idempotencyCutoff)
+        if (!count) wouldText++
+        continue
+      }
+
+      // Claim BEFORE sending: the old per-slot idempotency check queried
+      // sms_logs (SELECT count WHERE sms_type=SMS_TYPE AND created_at >=
+      // idempotencyCutoff), but that row was only inserted AFTER sendSMS()
+      // resolved -- same sent-before-claim race already fixed elsewhere
+      // this session (rating-prompt/payment-reminder/confirmation-reminder/
+      // etc). This cron has no run-lock, so two overlapping invocations in
+      // the same send slot (a Vercel cron retry/duplicate trigger, an
+      // already-observed risk class) could both read zero matching
+      // sms_logs rows before either write landed and both text the client
+      // asking for money. `last_payment_followup_sent_at` defaults to the
+      // epoch (never NULL), so `.lt(idempotencyCutoff)` alone -- no
+      // separate IS NULL branch needed -- both admits a booking's first
+      // attempt and is an atomic per-row compare-and-swap: the losing
+      // invocation's claim affects 0 rows and it skips.
+      const { data: claimed } = await supabaseAdmin
+        .from('bookings')
+        .update({ last_payment_followup_sent_at: now.toISOString() })
+        .eq('id', booking.id)
+        .eq('tenant_id', tenant.id)
+        .lt('last_payment_followup_sent_at', idempotencyCutoff)
+        .select('id')
+      if (!claimed || claimed.length === 0) continue // lost the race, or already chased this slot
 
       const amount = (booking.price / 100).toFixed(2)
-      if (dryRun) { wouldText++; continue }
-
       const firstName = client.name?.split(' ')[0] || 'there'
       const payLink = `${tenant.payment_link}?client_reference_id=${booking.id}`
       const text = [
@@ -121,6 +146,8 @@ export async function GET(request: Request) {
 
       try {
         await sendSMS({ to: client.phone, body: text, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+        // Audit trail only now -- last_payment_followup_sent_at above is the
+        // dedup source of truth.
         await supabaseAdmin.from('sms_logs').insert({
           tenant_id: tenant.id,
           booking_id: booking.id,
