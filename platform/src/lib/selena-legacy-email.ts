@@ -15,6 +15,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { askSelena, EMPTY_CHECKLIST } from '@/lib/selena-legacy'
 import { sendEmail } from '@/lib/email'
 import { notify } from '@/lib/notify'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 import type { ParsedEmail } from '@/lib/email-monitor'
 import type { Tenant } from '@/lib/tenant'
 
@@ -88,12 +89,24 @@ export async function handleInboundEmail(tenant: TenantLike, email: ParsedEmail)
     return { handled: false, skipped_reason: 'auto_responder' }
   }
 
-  // Look up client in tenant scope by email
+  // Look up client in tenant scope by email. `from` is the inbound
+  // envelope/header sender address, fully attacker-controlled (anyone who
+  // emails the tenant's public inbox chooses their own From address) --
+  // `%` is a legal literal in an email local-part (historic sendmail
+  // percent-hack routing), so an unescaped exact-match ilike() here lets a
+  // crafted From address wildcard-match an UNRELATED existing client. The
+  // attacker's message then gets appended to that client's conversation
+  // and Selena's AI-generated reply (built from that client's real
+  // phone/booking context) gets emailed back to the attacker's address --
+  // same unescaped-exact-match-ilike class already fixed and enforced
+  // (like-wildcard-routes.test.ts) on this file's sibling,
+  // inbound-email-tenant.ts, which resolves the TENANT for this same
+  // inbound path but was never applied to this CLIENT-matching lookup.
   let { data: client } = await supabaseAdmin
     .from('clients')
     .select('id, name, phone, email, do_not_service')
     .eq('tenant_id', tenant.id)
-    .ilike('email', from)
+    .ilike('email', escapeLikeValue(from))
     .limit(1)
     .maybeSingle()
 

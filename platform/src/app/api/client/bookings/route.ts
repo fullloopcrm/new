@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { protectClientAPI } from '@/lib/client-auth'
 import { nowNaiveET } from '@/lib/recurring'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 export async function GET(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -31,11 +32,19 @@ export async function GET(request: Request) {
   const clientIds = [clientId]
 
   if (clientRecord?.email) {
+    // clients.email isn't guaranteed clean -- unvalidated insert paths (e.g.
+    // inbound email intake) can store a raw sender address verbatim, and `%`
+    // is a legal literal in an email local-part. An unescaped exact-match
+    // ilike() here would wildcard-match every OTHER client in the tenant
+    // whose email contains that substring, merging an unrelated client's
+    // booking history into this client's own portal view. Same
+    // unescaped-exact-match-ilike class already fixed and enforced
+    // (like-wildcard-routes.test.ts) elsewhere.
     const { data: emailMatches } = await supabaseAdmin
       .from('clients')
       .select('id')
       .eq('tenant_id', tenant.id)
-      .ilike('email', clientRecord.email.trim())
+      .ilike('email', escapeLikeValue(clientRecord.email.trim()))
     if (emailMatches) {
       for (const m of emailMatches) if (!clientIds.includes(m.id)) clientIds.push(m.id)
     }

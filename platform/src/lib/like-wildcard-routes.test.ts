@@ -27,6 +27,17 @@ import path from 'node:path'
  *     team_applications dedup checks let a wildcard `name` on a known phone
  *     match an UNRELATED applicant, leaking their row id and silently
  *     dropping the new submission instead of inserting it.
+ *   - Inbound-email → Selena (selena-legacy-email.ts) matched clients by the
+ *     raw From-header sender address — `%` is a legal literal in an email
+ *     local-part, so a crafted From address wildcard-matched an unrelated
+ *     client, appending the attacker's message to that client's real
+ *     conversation and emailing back an AI reply built from their data.
+ *   - GET /api/client/bookings re-matched a client's OWN stored email against
+ *     `clients` to collect legacy-import duplicates — a `%`-containing email
+ *     already sitting in the DB (e.g. from the inbound-email path above,
+ *     pre-fix) merged every other client's booking history into one portal.
+ *   - POST /api/deals/manual's client dedupe let an operator-submitted
+ *     `email: '%'` attach a new deal to an ARBITRARY existing client.
  *
  * escapeLikeValue() (src/lib/postgrest-safe.ts) neutralizes `%`, `_`, `\`
  * before these values reach `.ilike()`. This file proves every one of those
@@ -51,6 +62,9 @@ const FILES = [
   'src/app/api/admin/comhub/contacts/[id]/context/route.ts',
   'src/app/api/lead/route.ts',
   'src/app/api/ingest/application/route.ts',
+  'src/lib/selena-legacy-email.ts',
+  'src/app/api/client/bookings/route.ts',
+  'src/app/api/deals/manual/route.ts',
 ]
 
 function ilikeCalls(src: string): string[] {

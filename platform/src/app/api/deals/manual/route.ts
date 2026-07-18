@@ -12,6 +12,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 export async function POST(request: Request) {
   try {
@@ -51,11 +52,18 @@ export async function POST(request: Request) {
       if (match) clientId = match.id
     }
     if (!clientId && email) {
+      // Exact-match ilike() as an unescaped operator dedup check -- an
+      // operator (or an integration relaying this endpoint) submitting
+      // email: '%' would match an ARBITRARY existing client in this tenant
+      // and silently attach the new deal to the wrong client instead of
+      // creating one. Same unescaped-exact-match-ilike class already fixed
+      // and enforced (like-wildcard-routes.test.ts) on this route's own
+      // sibling dedupe paths (/api/contact, /api/lead).
       const { data } = await supabaseAdmin
         .from('clients')
         .select('id')
         .eq('tenant_id', tenantId)
-        .ilike('email', email)
+        .ilike('email', escapeLikeValue(email))
         .maybeSingle()
       if (data) clientId = data.id
     }
