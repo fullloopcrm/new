@@ -13,6 +13,7 @@ import {
   parseKilledRoutes,
   parseRobotsKilledRoutes,
   findShadowedKilledRoutePages,
+  findShadowedAppRootPages,
   parseRootSiteTenantsSet,
   parseStaticTenantMap,
   parseNextConfigSiteRewriteSources,
@@ -2928,5 +2929,117 @@ describe('computeFindings — Drift AD (KILLED_ROUTES prefix shadows a real page
       nextConfigRedirects: [{ source: '/apply/operations-coordinator', destination: '/site/careers/operations-coordinator' }],
     })
     expect(findings.filter((f) => f.msg.includes('unreachable in production'))).toHaveLength(0)
+  })
+})
+
+describe('findShadowedAppRootPages', () => {
+  it('flags a bespoke tenant whose site folder has a top-level dir matching a reserved prefix', () => {
+    const shadowed = findShadowedAppRootPages(
+      new Set(['the-nyc-marketing-company']),
+      ['/api/', '/portal', '/unsubscribe'],
+      new Map([['the-nyc-marketing-company', ['api', 'contact', 'about']]]),
+    )
+    expect(shadowed.get('the-nyc-marketing-company')).toEqual(['api'])
+  })
+
+  it('flags multiple colliding dirs for the same tenant', () => {
+    const shadowed = findShadowedAppRootPages(
+      new Set(['wash-and-fold-hoboken']),
+      ['/unsubscribe', '/dashboard'],
+      new Map([['wash-and-fold-hoboken', ['unsubscribe', 'dashboard', 'services']]]),
+    )
+    expect(shadowed.get('wash-and-fold-hoboken')).toEqual(['unsubscribe', 'dashboard'])
+  })
+
+  it('does not flag a dir that merely shares a prefix as a substring (matches matchesAppRootPrefix boundary semantics)', () => {
+    const shadowed = findShadowedAppRootPages(
+      new Set(['acme']),
+      ['/team'],
+      new Map([['acme', ['teamwork']]]),
+    )
+    expect(shadowed.has('acme')).toBe(false)
+  })
+
+  it('ignores multi-segment prefixes entirely (e.g. /reviews/submit)', () => {
+    const shadowed = findShadowedAppRootPages(
+      new Set(['acme']),
+      ['/reviews/submit'],
+      new Map([['acme', ['reviews']]]),
+    )
+    expect(shadowed.has('acme')).toBe(false)
+  })
+
+  it('only checks slugs in bespokeSlugs, not every key in the dirs map', () => {
+    const shadowed = findShadowedAppRootPages(
+      new Set(['acme']),
+      ['/api/'],
+      new Map([
+        ['acme', ['services']],
+        ['not-bespoke', ['api']],
+      ]),
+    )
+    expect(shadowed.size).toBe(0)
+  })
+
+  it('returns an empty map when no tenant has any colliding dir', () => {
+    const shadowed = findShadowedAppRootPages(new Set(['acme']), ['/api/', '/team'], new Map([['acme', ['services', 'about']]]))
+    expect(shadowed.size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AE (bespoke tenant folder collides with a reserved APP_ROOT_PREFIXES name)', () => {
+  it('warns on the live the-nyc-marketing-company/api case', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-nyc-marketing-company']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/api/', '/portal', '/unsubscribe'],
+      bespokeSiteTopLevelDirs: new Map([['the-nyc-marketing-company', ['api']]]),
+    })
+    const warn = findings.find((f) => f.slug === 'the-nyc-marketing-company')
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.msg).toContain('src/app/site/the-nyc-marketing-company/api/')
+    expect(warn!.msg).toContain('permanently unreachable')
+  })
+
+  it('warns once per colliding dir for a tenant with more than one', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['wash-and-fold-hoboken']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/unsubscribe', '/dashboard'],
+      bespokeSiteTopLevelDirs: new Map([['wash-and-fold-hoboken', ['unsubscribe', 'dashboard']]]),
+    })
+    expect(findings.filter((f) => f.slug === 'wash-and-fold-hoboken')).toHaveLength(2)
+  })
+
+  it('is skipped entirely when bespokeSiteTopLevelDirs is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-nyc-marketing-company']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/api/'],
+    })
+    expect(findings.filter((f) => f.msg.includes('permanently unreachable'))).toHaveLength(0)
+  })
+
+  it('does not fire when the tenant has no colliding top-level dir', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['acme']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      appRootPrefixes: ['/api/', '/team'],
+      bespokeSiteTopLevelDirs: new Map([['acme', ['services', 'about']]]),
+    })
+    expect(findings.filter((f) => f.msg.includes('permanently unreachable'))).toHaveLength(0)
   })
 })

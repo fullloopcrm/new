@@ -381,6 +381,28 @@ export default async function middleware(req: NextRequest) {
   }
 }
 
+// Exported (pure, no I/O) so the boundary behavior is directly unit-testable —
+// see src/middleware.app-root-prefix-boundary.test.ts. Used by rewriteToSite's
+// APP_ROOT_PREFIXES check below to decide whether an incoming pathname is a
+// reserved app-root route (headers-only passthrough) vs a tenant's own site
+// content (rewritten under /site/<slug>). MUST require a path-segment
+// boundary (exact match, or the prefix followed by "/") — a bare
+// `pathname.startsWith(prefix)` with no boundary check (the pre-fix bug here)
+// also matches any longer pathname that merely shares the same leading
+// characters, e.g. '/teamwork' or '/administration' incorrectly matching
+// prefix '/team' or '/admin'. That false match sends a real tenant content
+// page down the app-root branch (NextResponse.next(), no rewrite) instead of
+// into /site/<slug>/..., where Next's top-level router has no matching route
+// and the page 404s — permanently unreachable on that tenant's own domain,
+// with no error at build or deploy time. No live tenant page collided with
+// this false-positive shape at the time of the fix (verified: no bespoke
+// tenant's site folder has a first-level segment merely PREFIXED by, rather
+// than equal to, an APP_ROOT_PREFIXES entry) — this closes the bug before a
+// future page addition can silently hit it.
+export function matchesAppRootPrefix(pathname: string, prefix: string): boolean {
+  return pathname === prefix || pathname.startsWith(prefix + '/')
+}
+
 /**
  * Rewrite the request to the /site route group, passing tenant context via headers.
  * External URL stays clean (e.g. the-nyc-maid.homeservicesbusinesscrm.com/services)
@@ -450,7 +472,7 @@ function rewriteToSite(req: NextRequest, tenantId: string, tenantSlug: string): 
     '/api/', '/portal', '/team', '/reviews/submit', '/unsubscribe',
     '/stripe-onboard', '/dashboard', '/admin', '/fullloop', '/reset-pin',
   ]
-  if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p))) {
+  if (APP_ROOT_PREFIXES.some(p => matchesAppRootPrefix(pathname, p))) {
     const requestHeaders = new Headers(req.headers)
     requestHeaders.delete('x-tenant-sig')
     requestHeaders.set('x-tenant-id', tenantId)

@@ -368,6 +368,36 @@ export function findShadowedKilledRoutePages(killedRoutes, appFilesByRoute, redi
   return shadowed
 }
 
+// --- given the single-segment (no nested "/") entries of APP_ROOT_PREFIXES
+// and, per bespoke tenant, the top-level route-segment names found on disk
+// under its own site/<slug>/ folder (route groups already resolved down to
+// their real first segment — see collectFirstSegmentDirs in main()), return
+// the tenant slugs whose own site folder contains a directory that collides
+// with a reserved app-root name. Multi-segment prefixes (e.g.
+// '/reviews/submit') are deliberately out of scope: a first-level-only
+// directory listing can't tell whether a deeper path collides with a
+// two-segment prefix, and no live instance of that shape exists today. See
+// Drift AE below for what this collision means at runtime.
+export function findShadowedAppRootPages(bespokeSlugs, appRootPrefixes, siteTopLevelDirsBySlug) {
+  // Strip leading/trailing slashes FIRST, then check for an internal "/" —
+  // '/api/' carries a trailing slash as part of its own literal (unlike
+  // '/team', '/admin', etc.) but is still a single segment ('api'); checking
+  // slash-presence before stripping would wrongly treat it as multi-segment
+  // and exclude the one entry this check found its first two real hits under.
+  const bareSingleSegment = new Set(
+    appRootPrefixes
+      .map((p) => p.replace(/^\/+|\/+$/g, ''))
+      .filter((p) => p && !p.includes('/')),
+  )
+  const shadowed = new Map()
+  for (const slug of bespokeSlugs) {
+    const dirs = siteTopLevelDirsBySlug.get(slug) || []
+    const hits = dirs.filter((d) => bareSingleSegment.has(d))
+    if (hits.length) shadowed.set(slug, hits)
+  }
+  return shadowed
+}
+
 // --- parse ROOT_SITE_TENANTS out of the middleware source. This is the legacy
 // "no /site/<slug> subtree, serve the shared /site root" set — middleware's
 // siteBase ternary checks it FIRST: `ROOT_SITE_TENANTS.has(slug) ? '/site' :
@@ -583,9 +613,18 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  under src/app/<route> (see
  *                                  findShadowedKilledRoutePages). Feeds Drift AD
  *                                  ONLY. Pass an empty Map (default) to skip.
+ * @param {Map}      [input.bespokeSiteTopLevelDirs]  bespoke tenant slug ->
+ *                                  array of top-level route-segment directory
+ *                                  names under its own site/<slug>/ folder,
+ *                                  with any wrapping Next.js route group
+ *                                  resolved down to its real first URL
+ *                                  segment (see collectFirstSegmentDirs in
+ *                                  main() and findShadowedAppRootPages).
+ *                                  Feeds Drift AE ONLY. Pass an empty Map
+ *                                  (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map() }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1243,6 +1282,46 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AE: a BESPOKE_SITE_TENANTS tenant's own site/<slug>/ folder
+  // contains a top-level route directory whose name is IDENTICAL to a
+  // reserved, single-segment APP_ROOT_PREFIXES entry (see
+  // findShadowedAppRootPages and parseAppRootPrefixes). rewriteToSite() in
+  // src/middleware.ts checks APP_ROOT_PREFIXES BEFORE the tenant-site
+  // rewrite (matchesAppRootPrefix: exact match, or the prefix followed by
+  // "/"): a request whose pathname collides is served via NextResponse.next()
+  // from whatever the TOP-LEVEL src/app/<prefix>/ tree resolves — it can
+  // never reach /site/<slug>/<prefix>/..., no matter what the tenant built
+  // there. Concrete instance that motivated this check:
+  // site/the-nyc-marketing-company/api/contact/route.ts (a bespoke,
+  // Resend-backed, multipart/file-attachment contact handler, 187 lines) is
+  // permanently shadowed by the global src/app/api/contact/route.ts
+  // (JSON-only, tenant resolved via header). The tenant's own frontend
+  // (_lib/submitLead.ts) already migrated its main lead form to POST JSON at
+  // the global handler — but the RFP form's file picker (ContactPageClient.tsx)
+  // still lets a visitor attach up to 5 files and then silently drops them,
+  // sending only a text note ("Attached N file(s)... uploaded separately on
+  // request") to the global JSON handler, which has no attachment support —
+  // the one handler that COULD accept them is unreachable. Same root cause
+  // also affects wash-and-fold-hoboken/wash-and-fold-nyc's own
+  // site/<slug>/unsubscribe/ pages, shadowed by the global,
+  // already-tenant-aware src/app/unsubscribe/page.tsx (harmless there — the
+  // global page correctly brands per tenant via /api/tenant/public — but the
+  // per-tenant pages are dead, unreachable forks; wash-and-fold-hoboken's
+  // copy also hardcodes NYC Maid's own name/phone, a stale copy-paste that
+  // would be visibly wrong branding if it were ever somehow reached).
+  if (bespokeSiteTopLevelDirs.size) {
+    const shadowed = findShadowedAppRootPages(bespokeSet, appRootPrefixes, bespokeSiteTopLevelDirs)
+    for (const [slug, dirs] of shadowed) {
+      for (const d of dirs) {
+        add(
+          'WARN',
+          slug,
+          `src/app/site/${slug}/${d}/ collides with reserved APP_ROOT_PREFIXES entry '/${d}' in src/middleware.ts -> rewriteToSite()'s app-root check (matchesAppRootPrefix) matches before the /site/${slug} rewrite ever runs, so this tenant's own /${d} page or route is permanently unreachable on its own domain, shadowed by whatever src/app/${d}/ resolves to instead`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1386,6 +1465,31 @@ async function main() {
     }
   }
 
+  // Feeds Drift AE: for every bespoke tenant, the top-level route-segment
+  // directory names under its own site/<slug>/ folder. A Next.js route group
+  // ("(name)") is invisible in the URL, so its CHILDREN are the real first
+  // path segment — recurse one level into a group rather than reporting the
+  // group's own literal name (which can never appear in a real pathname and
+  // would never collide with anything in matchesAppRootPrefix's real input).
+  const collectFirstSegmentDirs = (dir) => {
+    if (!existsSync(dir)) return []
+    const names = []
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
+        names.push(...collectFirstSegmentDirs(join(dir, entry.name)))
+      } else {
+        names.push(entry.name)
+      }
+    }
+    return names
+  }
+  const bespokeSiteTopLevelDirs = new Map()
+  for (const slug of bespokeSet) {
+    const names = collectFirstSegmentDirs(join(siteDir, slug))
+    if (names.length) bespokeSiteTopLevelDirs.set(slug, names)
+  }
+
   const [tenants, tds, allTenantDomains, allTenants] = await Promise.all([
     sql("select id, slug, domain, status from tenants where status in ('active','live','setup')"),
     sql(
@@ -1410,7 +1514,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

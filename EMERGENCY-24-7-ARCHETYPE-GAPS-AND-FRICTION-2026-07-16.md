@@ -8213,3 +8213,130 @@ skipped cleanly per standing rule — no live-DB reconcile run this round.
 `reconcile-tenant-config.mjs` / `verify-protected-tenants.mjs` unchanged
 this round (this round's surface, like (176)/(177), was the CI-wiring half
 of the lane) — zero diff beyond (178)'s two-file comment fix.
+
+## (180) New fresh-ground surface — `rewriteToSite()`'s `APP_ROOT_PREFIXES`
+boundary check had a redundant, buggy third disjunct; the live consequence
+is a bespoke tenant's own `/api/contact` handler being permanently shadowed
+
+`src/middleware.ts`'s `APP_ROOT_PREFIXES` gate (the list of reserved root
+paths — `/api/`, `/admin`, `/dashboard`, `/team`, `/unsubscribe`, etc. — that
+must NOT be rewritten into a tenant's `/site/<slug>` tree) read:
+
+```ts
+if (APP_ROOT_PREFIXES.some(p => pathname === p || pathname.startsWith(p + '/') || pathname.startsWith(p)))
+```
+
+The third disjunct, `pathname.startsWith(p)`, is redundant with (subsumed
+by) the first two — anything matching `pathname === p` or
+`pathname.startsWith(p + '/')` already satisfies `startsWith(p)` — AND it
+is a boundary bug: `pathname.startsWith(p)` alone also matches any pathname
+that merely shares the same leading characters as a reserved prefix with no
+path-segment boundary at all. Verified with plain Node: `'/teamwork'.startsWith('/team')`,
+`'/administration'.startsWith('/admin')`, `'/dashboard-demo'.startsWith('/dashboard')`,
+`'/unsubscribed-newsletter'.startsWith('/unsubscribe')` — all `true`. Any of
+those pathnames on a tenant's own domain would be silently routed down the
+app-root branch (`NextResponse.next()`, no `/site/<slug>` rewrite) instead of
+reaching the tenant's real content, 404ing with zero drift signal from any
+existing check.
+
+No live tenant page currently has a first-level route segment that only
+*shares a prefix* (rather than exactly equaling one) with a reserved name —
+checked directly (`find -maxdepth 1` across every bespoke tenant's site
+folder) — so this specific false-positive shape was latent, not yet firing.
+But the same sweep surfaced three EXACT-boundary collisions, which the old
+code (and the fixed code — exact-boundary matching is intentional reserved-
+namespace behavior, not the bug) both already shadow:
+
+- `site/the-nyc-marketing-company/api/contact/route.ts` — a bespoke,
+  Resend-backed, multipart/file-attachment contact handler (187 lines,
+  accepts up to 10MB per file) — shadowed by the global
+  `src/app/api/contact/route.ts` (JSON-only, tenant resolved via header).
+- `site/wash-and-fold-hoboken/unsubscribe/page.tsx` and
+  `site/wash-and-fold-nyc/unsubscribe/page.tsx` — shadowed by the global,
+  already tenant-aware `src/app/unsubscribe/page.tsx` (fetches
+  `/api/tenant/public` client-side and brands correctly per tenant).
+
+Traced the actual live impact of the first one, since `/api/` shadowing is
+architecturally intentional (per-tenant API route folders violate this
+repo's own Global Rule in `platform/CLAUDE.md` — tenant differences must
+come from config/data resolved via headers, not forked per-tenant code) —
+so the real question was whether anything still depends on the shadowed
+per-tenant handler. `_lib/submitLead.ts`'s own comment confirms the
+tenant's main lead form already migrated to the global JSON handler
+("Replaces the old window.location self-redirect that dropped every
+lead."). But `ContactPageClient.tsx`'s `RFPForm` still has a live file
+picker (up to 5 files) whose `handleSubmit` does NOT upload the files
+anywhere — it builds a text note ("Attached N file(s)... uploaded
+separately on request") and sends only that string through the JSON-only
+global handler, because the one handler that could actually accept
+attachments (the shadowed per-tenant route) is unreachable. A prospective
+client attaching a brief/deck/RFP doc today has it silently dropped, with
+only an unenforced "we'll follow up" promise. This is a genuine, live,
+customer-facing gap — not a crash, not yet fixed here (out of this lane's
+scope: fixing it means either building attachment support into the global
+handler or re-pointing the form, both product decisions, not a CI/reconcile-
+gate fix) — flagging for the leader/Jeff to decide the right resolution.
+The two `unsubscribe` cases are lower-stakes: the global page already
+handles them correctly (per-tenant branding via the header-resolved tenant),
+so those two files are genuinely dead, unreachable forks — and
+`wash-and-fold-hoboken`'s copy has a stale copy-paste bug baked in (hardcodes
+"The NYC Maid" / nycmaid's phone number instead of its own name/number),
+which would have been visibly wrong branding had it ever somehow been
+reached.
+
+**Fixed the routing bug**: extracted the boundary check into an exported,
+directly-unit-testable pure function, `matchesAppRootPrefix(pathname,
+prefix)`, dropping the buggy third disjunct — `pathname === prefix ||
+pathname.startsWith(prefix + '/')`. New
+`src/middleware.app-root-prefix-boundary.test.ts` (12 tests) pins the
+boundary behavior directly, including the exact false-positive shapes
+above. Mutation-verified: temporarily restored the buggy disjunct — 8/9
+relevant assertions failed for the right reason — then re-applied the fix,
+green again.
+
+**Added Drift AE** to this lane's own reconcile gate so this class of bug —
+a bespoke tenant's own site folder shadowed by a reserved app-root name —
+surfaces automatically going forward instead of requiring another manual
+`find` sweep: new exported `findShadowedAppRootPages(bespokeSlugs,
+appRootPrefixes, siteTopLevelDirsBySlug)`, fed by a new `main()` walk
+(`collectFirstSegmentDirs`, which resolves a wrapping Next.js route group —
+invisible in the URL — down to its real first path segment before
+comparing). Scoped deliberately to single-segment `APP_ROOT_PREFIXES`
+entries only (e.g. `/reviews/submit` is out of scope — a first-level-only
+directory listing can't tell whether a deeper path collides with a
+two-segment prefix, and no live instance of that shape exists). Caught a
+real bug in the filter itself while writing the pinning test: stripping
+the `/api/` entry's literal trailing slash AFTER checking for an internal
+`/` wrongly excluded it as "multi-segment" (`'api/'.includes('/')` is
+true) — fixed by stripping first, then checking; the two new tests that
+exercise the actual `/api/` collision caught this immediately (red before
+the strip-order fix, green after).
+
+Confirmed no other currently-serving bespoke tenant collides beyond the
+three found above (WARN, not CRIT — same severity tier as the sibling
+Drift AD, since nothing here gates CI red; it surfaces for a human
+decision, matching this whole file's "read-only drift gate" charter).
+
+`tsc --noEmit` clean. Full repo suite: 458/458 files, 2193/2193 tests (18
+new: 12 in the middleware boundary test, 6 in the reconcile-gate test —
+zero regressions, same pre-existing unrelated `fixture/route.ts`
+tenant-scope baseline warning every prior report in this doc has flagged).
+`eslint src --quiet` clean except the same pre-existing, out-of-lane
+`route.auth.test.ts:94` `require()`-import error (this has been present and
+flagged elsewhere in this doc across multiple prior sessions — not
+re-litigating it again here per the standing "don't repeat an ignored
+flag" rule; noting only that it is unchanged, not new).
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session,
+skipped cleanly per standing rule — no live-DB reconcile run this round.
+
+Noticed, not fixed (a product decision, not a CI-wiring fix — flagging for
+the leader/Jeff): the-nyc-marketing-company's RFP form silently drops every
+file a prospective client attaches. Fixing it means either (a) adding
+attachment support to the global contact handler (would need Resend's
+attachment API or a Supabase Storage upload step), or (b) deciding the
+"uploaded separately on request" text-note fallback is acceptable UX and
+leaving it. Did not delete the two dead `unsubscribe` page forks either —
+leaving disposition (delete vs. otherwise) to whoever owns that tenant
+pair, same posture as this file's existing `KNOWN_PENDING_ORPHANS`
+convention for other undecided cleanup.
