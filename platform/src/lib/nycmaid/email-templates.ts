@@ -231,7 +231,16 @@ export function clientConfirmationEmail(booking: any) {
   const date = new Date(booking.start_time).toLocaleDateString('en-US', { timeZone: 'America/New_York', weekday: 'long', month: 'long', day: 'numeric' })
   const startTime = clientArrivalWindow(booking.start_time)
   const cleanerName = cleaner?.name || 'Your cleaner'
-  const cleanerFirst = (cleaner?.name || 'Your cleaner').split(' ')[0]
+  // cleaner.name traces back to team_applications.name (see
+  // provisionApprovedApplicant in team-provisioning.ts), which is copied
+  // verbatim from a public, unauthenticated job-application form -- fully
+  // attacker-controlled. cleanerName above is already escapeHtml()'d at each
+  // of its own usage sites below; cleanerFirst must be too, since it's
+  // interpolated raw into HTML content (the "What to expect" paragraph, the
+  // supplies noteBox) and into an unquoted-context-adjacent `alt="..."`
+  // attribute (cleanerPhotoHtml) that a `"` breaks out of. Escaping once here
+  // covers every downstream usage.
+  const cleanerFirst = escapeHtml((cleaner?.name || 'Your cleaner').split(' ')[0])
   const clientName = booking.clients?.name?.split(' ')[0] || 'there'
   const hourlyRate = booking.hourly_rate || 69
   const isRecurring = booking.recurring_type ? true : false
