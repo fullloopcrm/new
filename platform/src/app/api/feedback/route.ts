@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendEmail } from '@/lib/email'
 import { requireAdmin } from '@/lib/require-admin'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // SQL to create table:
 // CREATE TABLE platform_feedback (
@@ -39,6 +40,12 @@ export async function GET() {
 
 export async function POST(request: Request) {
   try {
+    const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`feedback:${ip}`, 5, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many submissions' }, { status: 429 })
+    }
+
     const body = await request.json()
     const { message, category } = body
 

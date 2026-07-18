@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 // POST /api/inquiry — single contact form for the marketing teaser site.
 // Strategy pivot 2026-05-03: no longer selling territory licenses; this form
@@ -63,6 +64,12 @@ async function sendOwnerSms(text: string): Promise<void> {
 }
 
 export async function POST(req: NextRequest) {
+  const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+  const rl = await rateLimitDb(`inquiry:${ip}`, 3, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many submissions' }, { status: 429 })
+  }
+
   let body: InquiryBody
   try {
     body = (await req.json()) as InquiryBody

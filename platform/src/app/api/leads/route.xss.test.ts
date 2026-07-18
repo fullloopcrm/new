@@ -13,6 +13,7 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
 
 const { sendEmail } = vi.hoisted(() => ({ sendEmail: vi.fn(async (..._args: { html: string }[]) => {}) }))
 vi.mock('@/lib/email', () => ({ sendEmail }))
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 4 })) }))
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: () => ({
