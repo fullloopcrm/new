@@ -140,13 +140,14 @@ export async function POST(request: Request) {
         .catch(err => console.error('[payroll] ledger post failed:', err))
     }
 
-    // Mark related bookings as paid
-    await supabaseAdmin
-      .from('bookings')
-      .update({ status: 'paid' })
-      .eq('tenant_id', tenantId)
-      .eq('team_member_id', team_member_id)
-      .eq('status', 'completed')
+    // NOTE: this route intentionally does NOT touch bookings.status or
+    // team_member_paid. bookings.status='paid' means the CLIENT paid
+    // (set only by /api/bookings/[id]/payment and the Stripe webhook,
+    // gating ar-aging, finance/summary, and BookingsAdmin's close-out
+    // queue on status==='completed'). A manual payroll payment here is
+    // a lump sum against a team member for a period, not a 1:1 mapping
+    // to specific booking rows -- there is no correct per-booking value
+    // to write. See gap doc w1-finance-payroll-corrupts-booking-status.
 
     return NextResponse.json({ payment: data }, { status: 201 })
   } catch (e) {
