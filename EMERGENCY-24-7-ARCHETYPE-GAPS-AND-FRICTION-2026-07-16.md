@@ -10538,3 +10538,84 @@ workflow YAML files themselves were not touched this round (all mutations
 were made, verified, and reverted in-memory during testing only) -- their
 own coverage (items 168-204 above) is unaffected; only new + repaired guard
 coverage was added.
+
+## (206) New fresh-ground surface -- ci-full-suite-guard.test.ts pinned that
+ci.yml's vitest step can't be silently narrowed, but that treatment never
+extended to the Lint step's own command
+
+Item (205)'s closing note swept the "outside the script" bypass family
+(continue-on-error, `|| true`, `if:` skip) across every gating step and job.
+It did not ask whether a gating step that keeps RUNNING and keeps EXITING
+NON-ZERO ON REAL FAILURES could still be silently checking LESS than it used
+to. ci-full-suite-guard.test.ts already codifies exactly this risk for
+ci.yml's vitest step ("If anyone later adds --shard/--changed/--project/
+--dir/-t/--include ... to speed CI up, this guarantee breaks") -- but its own
+scope, and preflight-check.test.ts's own doc comment ("mirrors ci.yml's
+verify job minus install/lint" -- lint explicitly excluded), both stop at
+vitest. Nothing in this lane's existing coverage reads the Lint step's own
+command line (`npx eslint src --quiet`) to check what directory it actually
+targets.
+
+The identical "speed CI up" pressure applies just as easily here: `npx
+eslint src --quiet` -> `npx eslint src/app --quiet` is a one-token edit that
+still prints "Lint passed" and still exits 0 on every violation-free file
+left in scope, while silently no longer catching a NEW eslint error
+introduced in `src/lib`, `src/components`, `src/hooks`, or any other sibling
+directory under src/ that fell out of scope. No red X, no log line calling
+out what got dropped. `--ignore-pattern` opens the identical blind spot
+without even touching the visible directory argument.
+
+**Fixed:** new `src/lib/ci-lint-scope-guard.test.ts`, pure source-reading of
+ci.yml's eslint invocation line(s), mirroring ci-full-suite-guard.test.ts's
+own line-finder approach. Asserts the eslint invocation's target argument is
+exactly `src` (not a narrower subdirectory or glob) and that no
+`--ignore-pattern` / `--no-eslintrc` flag has been added.
+
+Mutation-verified both ways before writing the fix: (1) changed the Lint
+step's target from `src` to `src/app` -- failed with the exact predicted
+message; (2) appended `--ignore-pattern "lib/**"` -- failed with the exact
+predicted message. Both restores left `git diff --stat ci.yml` empty
+afterward.
+
+## (207) Continuation of (206)'s surface -- the identical narrowing gap exists
+on the Typecheck step (`npx tsc --noEmit --pretty false`), also excluded from
+every existing guard
+
+Same surface as (206), same root cause: full-suite guard coverage stopped at
+vitest, preflight-check.test.ts's "minus install/lint" exclusion never
+covered tsc either way (tsc isn't lint or install, and nothing else names
+it), and ci-gate-neutering-guard.test.ts only pins that the Typecheck step
+can't be neutered via continue-on-error/`|| true`/`if:` -- not that it keeps
+checking the same surface it always has. Adding `-p <path>` / `--project
+<path>` pointing at a narrower tsconfig, or a positional file list (which
+makes tsc check only those files and ignore tsconfig.json's own `include`
+entirely), is the one-token "speed CI up" edit here: still exits 0 on every
+file left in scope, still prints "Typecheck (tsc --noEmit)" green, while a
+new type error in whatever fell out of scope ships straight to main.
+
+Deliberately did NOT flag removal of `--noEmit` itself as part of this guard
+-- tsc's exit code reflects real compile errors regardless of `--noEmit` (it
+only controls whether .js output is written), so dropping it changes side
+effects, not the gate's pass/fail outcome. Asserting otherwise would be a
+guard that fails on a harmless edit, the opposite of what this lane is for.
+
+**Fixed:** new `src/lib/ci-typecheck-scope-guard.test.ts`, pure
+source-reading of ci.yml's tsc invocation line. Asserts every token after
+`tsc` is one of the two known flags (`--noEmit`, `--pretty`) or their known
+values (`true`/`false`) -- anything else (a `-p`/`--project` override, a
+positional file) fails the guard.
+
+Mutation-verified both ways before writing the fix: (1) appended `-p
+tsconfig.narrow.json` to the Typecheck step's run line -- failed with the
+exact predicted message; (2) appended a bare positional file
+(`src/lib/telegram.ts`) -- failed with the exact predicted message. Both
+restores left `git diff --stat ci.yml` empty afterward.
+
+Full suite + tsc re-run clean after this round: 2360/2360 vitest tests pass
+(2353 prior + 7 new across both files), `tsc --noEmit` zero errors, eslint
+clean on both new files. `reconcile-tenant-config.mjs`,
+`verify-protected-tenants.mjs`, `audit-tenant-scope.mjs`, and the three
+workflow YAML files themselves were not touched this round (all mutations
+were made, verified, and reverted during testing only) -- their own
+coverage (items 168-205 above) is unaffected; only new guard coverage was
+added.
