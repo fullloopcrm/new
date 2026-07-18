@@ -10328,3 +10328,79 @@ the new file. `reconcile-tenant-config.mjs`, `verify-protected-
 tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
 files' non-encryption wiring were not touched this round -- their own
 coverage (items 168-201 above) is unaffected.
+
+## (203) New fresh-ground surface -- db-backup.yml's "Dump full database"
+step's own fail-closed contract (its `set -euo pipefail` and its
+undersized-dump sanity gate) had zero regression coverage
+
+Item (202) covered db-backup.yml's "Encrypt dump" step -- the backstop
+against a CONFIDENTIALITY failure (plaintext PII reaching this PUBLIC
+repo's artifact store). This round moved one step earlier in the same
+workflow, to the "Dump full database" step itself, and asked the
+INTEGRITY-side version of the same question: is there anything pinning
+this step's own guarantee that a broken backup can't silently pass as a
+good one?
+
+The step runs `set -euo pipefail` before invoking `pg_dump`, then computes
+`SIZE=$(stat -c%s "fullloop-$STAMP.dump")` and gates with `if [ "$SIZE"
+-lt 100000 ]; then ... exit 1; fi`. Two independent guarantees live here:
+(1) `set -e` means a failing `pg_dump` (bad `SUPABASE_DB_URL`, an auth
+failure, a dropped connection) halts the step immediately instead of
+falling through to `stat` a missing or partial file; (2) the size check
+catches the case where `pg_dump` exits 0 but the connection dropped
+mid-dump, producing a small-but-nonzero file that `set -e` alone would
+never catch. Neither guarantee had a test. `db-backup-encryption-fail-
+closed.test.ts` starts its coverage AFTER this step ("Encrypt dump"
+onward); `db-backup-alert-guard.test.ts` covers only the failure-alert
+step.
+
+**Consequence, concretely:** a future edit that "cleans up" the dump
+step's bash (dropping `set -euo pipefail` as apparently-redundant
+boilerplate, the same trap item (201) named for the reconcile step's
+`tee` dance), or that adjusts the size threshold and drops the `exit 1`
+in the process, would let a broken or truncated dump sail through
+"Encrypt dump" and "Upload encrypted dump" unchanged -- both of those
+steps succeed regardless of whether their input is a valid full-database
+dump or a few KB of garbage. The nightly job would go GREEN, the Telegram
+alert would never fire (there's no failure to alert on), and the first
+sign of trouble would be a failed restore during an actual incident --
+the exact silent-corruption failure mode a "backup" system exists to
+prevent.
+
+**Fixed:** new `src/lib/db-backup-dump-size-sanity-gate.test.ts`, pure
+source-reading of `db-backup.yml`, pinning: (1) the "Dump full database"
+step still exists, (2) `set -euo pipefail` still runs before the
+`pg_dump` invocation in this same step, (3) `SIZE` is still computed via
+`stat -c%s` on the actual dump file `pg_dump` just produced, (4) the
+`-lt 100000` branch still ends in a real `exit 1` (not a warn-and-
+continue), and (5) the SIZE check still runs after `pg_dump`, not against
+a stale artifact from a prior run.
+
+Mutation-verified three separate ways (not just written and trusted):
+(1) removed `set -euo pipefail` from the step -- failed with the exact
+predicted message; (2) swapped the `exit 1` branch for an
+`::warning::`-only echo -- failed with the exact predicted message; (3)
+replaced the `stat`-derived `SIZE=` assignment with a hardcoded
+`SIZE=999999999` -- failed (no `stat`-based computation found, and the
+ordering check also failed since there was nothing to locate). All three
+restores left `git diff --stat db-backup.yml` empty afterward (no
+unintended change survived any round-trip).
+
+**Continuation check (step 2 of this round's queue):** grepped all three
+workflow YAML files for `stat -c%s`, `-lt [0-9]`, and `SIZE` -- this exact
+sanity-gate shape is unique to this one step; no sibling instance exists
+in `ci.yml` or `tenant-config-reconcile.yml`. Also checked `set -e`
+adoption across all `run:` blocks in the three workflows: only
+db-backup.yml's "Dump full database" and "Encrypt dump" steps use it
+(both single, atomic bash sequences where a mid-script failure must halt
+immediately); `ci.yml` and `tenant-config-reconcile.yml`'s `run:` blocks
+either call a single command or already have their own exit-code handling
+covered by items (201)/(199). No further instance of this specific gap
+shape found this round.
+
+Full suite + tsc re-run clean after this round: 2338/2338 vitest tests
+pass (2332 prior + 6 new), `tsc --noEmit` zero errors, eslint clean on
+the new file. `reconcile-tenant-config.mjs`, `verify-protected-
+tenants.mjs`, `audit-tenant-scope.mjs`, and the three workflow YAML
+files' non-dump-step wiring were not touched this round -- their own
+coverage (items 168-202 above) is unaffected.
