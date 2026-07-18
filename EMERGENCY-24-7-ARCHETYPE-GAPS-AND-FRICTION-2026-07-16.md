@@ -8649,3 +8649,153 @@ extraction (end-anchored) is a complete check against everything actually
 in the file today, not a narrowed approximation of a real gap. Flagging the
 scoping assumption explicitly rather than leaving it implicit, the same
 discipline (182) used for its own single-segment scoping note.
+
+## (185) New fresh-ground surface — `src/app/robots.ts`'s `JOIN_CRAWLABLE_HOSTS`
+was a THIRD hardcoded hostname list in that file, invisible to every Drift
+check so far
+
+(180)-(184) mined `src/middleware.ts` deep: `APP_ROOT_PREFIXES` boundaries,
+`isPublicRoute` collisions, the admin-impersonation bypass chain's own
+shadowing. That file is now well-covered (Drift A through AG). Widening the
+search to the rest of the domain-routing surface this gate's own header
+comment claims ("which domain -> which tenant -> which site -> which Vercel
+project") turned up `src/app/robots.ts` again — already home to two
+hand-maintained COPIES of middleware consts (`MAIN_HOSTS`, `KILLED_ROUTES`;
+Drift Z/AA watch those) — but this time for a hardcoded list that isn't a
+copy of anything: `JOIN_CRAWLABLE_HOSTS`, a `Set` of tenant custom domains
+exempted from the file's default `/join/` disallow rule so their public
+`/join/*` hiring-funnel pages (job postings with `JobPosting` structured
+data, crawlable pre-cutover on the standalone site) stay indexed. Today it
+holds exactly one tenant's domain pair: `thenycmobilesalon.com` /
+`www.thenycmobilesalon.com`. Confirmed by reading every `site/*/join`
+folder on disk: nyc-mobile-salon is the ONLY bespoke tenant with one, and
+its own site code (`page.tsx`, `sitemap.ts`, the `join/[slug]/[borough]`
+pages) consistently hardcodes that exact domain as its canonical URL — so
+the live entry is correct today. But this Set lives entirely OUTSIDE every
+DB source this gate otherwise reconciles: nothing checks it against
+`tenants.domain` / `tenant_domains`, the same "two lists that should agree
+but don't" shape as `APEX_CANONICAL_DOMAINS` (Drift O), just for a
+different file and a different disallow rule. A tenant domain change (or a
+typo at authoring time, or a dropped `www.` twin) would silently defeat the
+crawlability exemption with zero drift signal anywhere else — robots.ts
+keeps disallowing `/join/` for whatever domain the tenant ACTUALLY serves
+on, while the stale entry harmlessly matches nothing.
+
+New exported `parseJoinCrawlableHosts(robotsSource)` (same
+`stripComments` + quoted-string-extraction convention as
+`parseRobotsMainHostsSet`/`parseApexCanonicalSet`) extracts the Set's
+hostnames. **Added Drift AH**: for each `JOIN_CRAWLABLE_HOSTS` entry,
+cross-reference it against the same three known-domain sources Drift O
+already uses (`tenants.domain` of any status, any `tenant_domains` row) via
+`norm()` — the exact template Drift O established, just pointed at a
+different hardcoded list. WARN, not CRIT: a stale entry is a crawlability
+regression (hidden job pages), not a live data leak or routing break.
+
+New test coverage in `src/lib/reconcile-tenant-config.test.ts` (10 tests):
+2 for `parseJoinCrawlableHosts` (extraction + absent-declaration empty-set
+case) and 6 for the Drift AH `computeFindings` integration (a
+`stale-domain.com` entry matching nothing warns; matches via
+`tenants.domain`, via an active `tenant_domains` row only, via a
+stale/out-of-scope any-status domain, and via `norm()` collapsing a
+`https://www.` variant all correctly stay silent; empty
+`joinCrawlableHosts` skips the whole block). Wired into `main()`:
+`robotsSource` was already read for Drift Z/AA, so `joinCrawlableHosts =
+parseJoinCrawlableHosts(robotsSource)` just adds one more parse over
+data already in memory, threaded into the same `computeFindings` call.
+
+Ran the parser against the real `src/app/robots.ts` fixture text (copied
+verbatim into the new unit tests — same `'thenycmobilesalon.com'` /
+`'www.thenycmobilesalon.com'` strings, same `new Set([...])` shape) rather
+than only synthetic data, the same "did I actually check the real file"
+discipline (179)/(182)/(184) used for their own claims — confirmed the
+extraction matches the live declaration exactly. Did not run the live
+DB-comparison half of Drift AH itself (`SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session, same reconcile-gate token-guard caveat every prior
+round without the secret has flagged); CI's live run is the authoritative
+check for whether `thenycmobilesalon.com` actually still matches a real
+`tenants.domain`/`tenant_domains` row today.
+
+## (186) Continuing (185)'s surface — added Drift AI as the REVERSE check:
+a bespoke tenant with a real `/join` folder missing from
+`JOIN_CRAWLABLE_HOSTS`
+
+Drift AH (185) catches a stale/typo entry in `JOIN_CRAWLABLE_HOSTS` that
+matches no tenant. It does NOT catch the opposite and, going forward, more
+likely failure: a tenant that actually ships a `/join` hiring-funnel folder
+but was never added to the exemption list — because the tenant is new, or
+because an existing tenant's domain changed and the old entry silently
+stopped matching (exactly what Drift AH would flag as dead, while THIS
+gap — the tenant's CURRENT domain missing from the list — gets no signal
+at all from AH, since AH only walks the Set's own entries, never the
+reverse direction from tenant to Set). Same shape as Drift AF/AG being two
+halves of one bug class (an unbounded pattern silently granting access vs.
+a bypass entry silently never granting it) — here it's a hardcoded
+exemption list silently missing a tenant instead of silently keeping a
+dead one.
+
+The check reuses data this gate already collects for Drift AE
+(`bespokeSiteTopLevelDirs` — bespoke tenant slug -> top-level
+route-segment directory names under its own `site/<slug>/` folder, built
+once in `main()` via `collectFirstSegmentDirs`) — no new filesystem
+scanning needed. For every bespoke tenant whose top-level dirs include
+`'join'`, collect its known domain(s) from the same three sources Drift AH
+(and Drift O before it) already cross-reference, normalize via `norm()`,
+and check whether ANY of them appears in `joinCrawlableHosts`. No match ->
+WARN naming the tenant, its `site/<slug>/join/` folder, and its actual
+known domain(s), so a human fixing it knows exactly which string to add
+without re-deriving it. Deliberately skipped (not warned) when a slug has
+NO known domain at all — an unresolvable/out-of-scope tenant is already
+Drift C/E/L's job to flag, and warning here too would be duplicate noise
+with no new domain to act on.
+
+Ran it against the real repo's current `site/*/join` folders (see (185)):
+nyc-mobile-salon is the only bespoke tenant with one, and it's already
+correctly in `JOIN_CRAWLABLE_HOSTS` — so, like Drift AG's `/api/selena`
+check before its own live fix landed, this round's check is currently
+GREEN with zero live findings; it exists to catch the next tenant that
+adds a `/join` funnel without remembering robots.ts, same forward-looking
+posture (182)/(184) established for their own new checks.
+
+New test coverage in `src/lib/reconcile-tenant-config.test.ts` (6 tests):
+warns when a bespoke tenant's `join/` folder has a domain missing from the
+Set; stays silent when the domain IS present; stays silent through
+`norm()` on a `https://www.` variant; stays silent for a bespoke tenant
+with no `join/` folder at all; stays silent for a `join/`-having tenant
+with no known domain (the Drift C/E/L carve-out above); and the whole block
+is skipped when `bespokeSiteTopLevelDirs` is empty (default). Each
+tenants/tds fixture pair intentionally carries a matching active
+`tenant_domains` row so Drift B (`tenants.domain` with no matching active
+`tenant_domains` row) never fires and pollutes the by-message finding
+filter with an unrelated warning — caught by an initial test run where
+`findings.some(f => f.slug === 'nyc-mobile-salon')` came back `true` for
+the wrong reason (Drift B, not Drift AI); switched every assertion in this
+block to filter on the Drift AI message substring instead of the bare slug
+for that reason.
+
+`tsc --noEmit` clean. Full repo suite: 460/460 files, 2242/2242 tests (14
+new across (185)/(186): 2 `parseJoinCrawlableHosts` unit tests + 6 Drift AH
+`computeFindings` integration tests (185) + 6 Drift AI `computeFindings`
+integration tests (186) — zero regressions, same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in this
+doc has flagged). `eslint` clean on every file
+this round touched (scoped lint, not a full-repo run) — the same 6
+pre-existing warnings in `reconcile-tenant-config.test.ts` (unused `_slug`
+params, lines this round never touched) are unchanged from before this
+round.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. Verified both new Drift checks against the real
+repo instead via their pure, DB-free functions directly, run through
+`src/lib/reconcile-tenant-config.test.ts` under vitest — including one
+debug script (`node /tmp/debug-drift-ai.mjs`, deleted after use) that
+imported `computeFindings` directly to diagnose the Drift B fixture-
+pollution bug above without ever invoking the blocked `.mjs` file's own
+CLI/`main()`. The CLI/token-guard contract itself is unchanged by this
+round (only `computeFindings`'s Drift-check surface and the pure
+static-analysis inputs feeding it changed); CI's own "Verify token-guard
+skips clean without a secret" step in `tenant-config-reconcile.yml` is the
+authoritative check for that path and runs unmodified.
