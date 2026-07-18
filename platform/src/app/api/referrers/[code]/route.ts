@@ -53,18 +53,15 @@ export async function GET(
 
   if (!tenant) return NextResponse.json({ error: 'Business not found' }, { status: 404 })
 
-  // Resolve the tenant's public booking URL. Prefer the primary custom domain,
-  // fall back to tenants.domain, then the slug host. The shared referral link is
-  // this booking URL with ?ref=CODE — NOT the dashboard URL.
-  const { data: domainRows } = await supabaseAdmin
-    .from('tenant_domains')
-    .select('domain, is_primary')
-    .eq('tenant_id', referrer.tenant_id)
-    .eq('active', true)
-  const primaryDomain = domainRows?.find((d) => d.is_primary)?.domain || tenant.domain || null
-  const base = primaryDomain
-    ? `https://${primaryDomain.replace(/^https?:\/\//, '').replace(/\/$/, '')}`
-    : await tenantSiteUrl({ slug: tenant.slug })
+  // Resolve the tenant's public booking URL. tenantSiteUrl() already encodes
+  // this exact precedence (tenant_domains PRIMARY via getPrimaryTenantDomain's
+  // deterministic created_at ordering, tenants.domain FALLBACK, slug host
+  // LAST) — this route used to hand-roll its own unordered
+  // `.find(d => d.is_primary)` over tenant_domains, reintroducing the
+  // non-deterministic-primary bug getPrimaryTenantDomain was hardened
+  // against. The shared referral link is this booking URL with ?ref=CODE —
+  // NOT the dashboard URL.
+  const base = await tenantSiteUrl({ id: referrer.tenant_id, domain: tenant.domain, slug: tenant.slug })
   const shareUrl = base ? `${base}/book/new?ref=${code}` : null
 
   // Commission history — keyed by referrer_id. Amounts are stored in cents in

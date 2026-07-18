@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { exportSiteToZip } from '@/lib/site-export'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 // Crawling + zipping a live site can take a while for larger sites.
 export const runtime = 'nodejs'
@@ -21,17 +22,13 @@ export async function GET(
 
   const { id } = await params
 
-  // Resolve the tenant's primary public domain. Prefer the primary flag, else
-  // the first active domain. (tenant_domains uses is_primary in prod.)
-  const { data: domains } = await supabaseAdmin
-    .from('tenant_domains')
-    .select('domain, is_primary')
-    .eq('tenant_id', id)
-    .eq('active', true)
-
-  let primary =
-    (domains || []).find((d) => (d as { is_primary?: boolean }).is_primary)?.domain ||
-    (domains || [])[0]?.domain
+  // Resolve the tenant's primary public domain via the canonical resolver
+  // (domains.ts's getPrimaryTenantDomain — deterministic created_at ordering
+  // when 2+ rows are flagged is_primary; see its own doc comment). This route
+  // used to hand-roll an unordered `.find(d => d.is_primary)` over an
+  // unordered select, reintroducing the exact non-deterministic-primary bug
+  // getPrimaryTenantDomain was hardened against.
+  let primary = (await getPrimaryTenantDomain(id)) || undefined
 
   // Fallback: tenants.domain (legacy source of truth, retained per P1 spec —
   // see getTenantByDomain in tenant.ts / tenant-lookup.ts, same precedence).

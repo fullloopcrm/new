@@ -80,4 +80,14 @@ describe('GET /api/admin/businesses/[id]/site-export — domain fallback probe',
     expect(res.status).toBe(400)
     expect(exportSiteToZip).not.toHaveBeenCalled()
   })
+
+  it('MULTI-PRIMARY DETERMINISM PROBE: with 2 is_primary rows (seeded pre-sorted oldest-first, matching getPrimaryTenantDomain\'s own created_at-ascending ORDER BY), resolves via the OLDER row — this route previously hand-rolled an unordered `.find(d => d.is_primary)` that reintroduced the exact non-determinism getPrimaryTenantDomain (domains.ts) was hardened against', async () => {
+    h.seed.tenant_domains.push(
+      { tenant_id: TENANT_A, domain: 'older-primary.com', is_primary: true, active: true, created_at: '2026-01-01T00:00:00Z' },
+      { tenant_id: TENANT_A, domain: 'newer-primary.com', is_primary: true, active: true, created_at: '2026-06-01T00:00:00Z' },
+    )
+    const res = await get(TENANT_A)
+    expect(res.status).toBe(200)
+    expect(exportSiteToZip).toHaveBeenCalledWith('https://older-primary.com')
+  })
 })
