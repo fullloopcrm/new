@@ -85,6 +85,16 @@ export async function PUT(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust tenant-lookup.ts's 5-min slug/domain cache when status changed, same
+  // as admin/tenants/[id] and admin/businesses/[id]'s own status writes.
+  // Without this, a tenant just suspended/cancelled/reactivated from the sales
+  // pipeline keeps resolving through a warm edge isolate's cached entry
+  // (tenantServesSite() evaluates the STALE status) for up to the rest of the TTL.
+  if (status) {
+    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    invalidateTenantCache(tenantId)
+  }
+
   return NextResponse.json({ success: true })
 }
 
@@ -105,6 +115,10 @@ export async function POST(request: Request) {
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
+
+  // Same cache-bust as the PUT handler above — this route flips status too.
+  const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+  invalidateTenantCache(tenantId)
 
   return NextResponse.json({ success: true })
 }

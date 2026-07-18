@@ -42,6 +42,15 @@ export async function POST() {
       .single()
     if (error || !tenant) return NextResponse.json({ error: 'Activation failed' }, { status: 500 })
 
+    // Bust tenant-lookup.ts's 5-min slug/domain cache — same class already
+    // fixed for the admin-side status writes (admin/tenants/[id],
+    // admin/businesses/[id]). Without this, a tenant who just clicked "Go
+    // live" can still resolve through a warm edge isolate's cached pre-active
+    // entry (tenantServesSite() evaluates the STALE status) for up to the rest
+    // of the TTL — the exact scenario this route exists to flip on.
+    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    invalidateTenantCache(tenantId)
+
     // Platform record that a tenant went live (visible to Jefe / admin).
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,

@@ -97,6 +97,15 @@ export async function acceptInviteForAdmin(
     .eq('id', invite.tenant_id)
     .eq('status', 'setup')
 
+  // Bust tenant-lookup.ts's 5-min slug/domain cache — same class already fixed
+  // for the admin-side status writes (admin/tenants/[id], admin/businesses/[id]).
+  // Without this, a tenant an owner just brought out of 'setup' by accepting
+  // their invite can still resolve through a warm edge isolate's cached
+  // pre-active entry (tenantServesSite() evaluates the STALE status) for up to
+  // the rest of the TTL.
+  const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+  invalidateTenantCache(invite.tenant_id)
+
   await logSecurityEvent({
     tenantId: invite.tenant_id,
     type: 'login',

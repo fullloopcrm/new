@@ -482,7 +482,20 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       .from('tenants')
       .update({ status: 'active' })
       .eq('id', tenantId)
-    if (!upErr) activated = true
+    if (!upErr) {
+      activated = true
+      // Bust tenant-lookup.ts's 5-min slug/domain cache — same class already
+      // fixed for the admin-side status writes (admin/tenants/[id],
+      // admin/businesses/[id]). This is THE activation path every creation
+      // door funnels through (see file header) — without this, a tenant whose
+      // slug/domain got resolved (and negatively/stale-cached) at any point in
+      // the run-up to activation keeps resolving through a warm edge isolate's
+      // cached pre-active entry (tenantServesSite() evaluates the STALE
+      // status) for up to the rest of the TTL, immediately after this
+      // function reports the tenant as newly live.
+      const { invalidateTenantCache } = await import('./tenant-lookup')
+      invalidateTenantCache(tenantId)
+    }
   }
 
   await crumb(tenantId, 'done')

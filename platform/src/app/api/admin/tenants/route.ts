@@ -50,5 +50,13 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust tenant-lookup.ts's 5-min slug/domain cache, same as admin/tenants/[id]
+  // and admin/businesses/[id]'s own status writes. Without this, a tenant just
+  // suspended/cancelled/reactivated here keeps resolving through a warm edge
+  // isolate's cached entry (tenantServesSite() evaluates the STALE status) for
+  // up to the rest of the TTL after this route reports success.
+  const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+  invalidateTenantCache(id)
+
   return NextResponse.json({ success: true })
 }
