@@ -2414,11 +2414,24 @@ async function main() {
   // Feeds Drift AF: pure static analysis over the working tree (no DB, no
   // network) — computed here alongside the other middleware-source parses above,
   // ahead of the SQL calls below, purely for locality with its sibling checks.
+  // Fresh ground, same "closure inside main() with zero test coverage, direct
+  // children only" bug class as (237)-(240): this used to be a raw
+  // `readdirSync(apiDir, {withFileTypes:true}).filter(isDirectory).map(name)`
+  // — blind to a route group wrapping a real /api/ directory (e.g.
+  // src/app/api/(v2)/client-reviews), which would surface here as the
+  // literal, never-matchable name "(v2)" instead of "client-reviews", the
+  // real directory findUnboundedApiPublicRouteCollisions needs to compare
+  // against isPublicRoute's patterns. collectFirstSegmentDirs already
+  // resolves a route-group chain down to its real first segment for this
+  // exact "list of real top-level directory names" question (see its use for
+  // Drift AE's bespokeSiteTopLevelDirs below) — reusing it here closes the
+  // gap instead of re-implementing the same resolution a seventh time.
+  // No CURRENT src/app/api/ directory is route-grouped (verified: `find
+  // src/app/api -maxdepth 1 -type d -name '(*)'` — no hits), so this is
+  // landmine-only today, same disposition as every prior item in this surface.
   const publicRoutePatterns = parsePublicRoutePatterns(middlewareSource)
   const apiDir = join(REPO, 'src', 'app', 'api')
-  const apiDirNames = existsSync(apiDir)
-    ? readdirSync(apiDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
-    : []
+  const apiDirNames = collectFirstSegmentDirs(apiDir)
   const apiPublicRouteCollisions = findUnboundedApiPublicRouteCollisions(publicRoutePatterns, apiDirNames)
 
   // Feeds Drift AG: same pure static analysis, no DB, no network — the admin
