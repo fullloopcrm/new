@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
 import VideoUpload from '@/components/VideoUpload'
 import PhotoCapture from '@/components/PhotoCapture'
+import TeamChecklist from '@/components/TeamChecklist'
 
 export default function CheckOutPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -95,6 +96,7 @@ export default function CheckOutPage() {
               onUploaded={() => {}}
             />
             <PhotoCapture bookingId={bookingId} photoType="after" token={auth!.token} t={t} />
+            <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
           </div>
           <button onClick={checkOut} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium">
             {t('Confirm Check Out', 'Confirmar Salida')}

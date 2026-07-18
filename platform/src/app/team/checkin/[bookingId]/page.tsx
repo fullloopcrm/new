@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
 import VideoUpload from '@/components/VideoUpload'
 import PhotoCapture from '@/components/PhotoCapture'
+import TeamChecklist from '@/components/TeamChecklist'
 
 export default function CheckInPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -110,6 +111,7 @@ export default function CheckInPage() {
               onUploaded={() => {}}
             />
             <PhotoCapture bookingId={bookingId} photoType="before" token={auth!.token} t={t} />
+            <TeamChecklist bookingId={bookingId} token={auth!.token} t={t} />
           </div>
           <button
             onClick={() => router.push('/team')}

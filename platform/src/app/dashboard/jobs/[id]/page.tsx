@@ -25,8 +25,10 @@ type TeamMember = { id: string; name: string | null }
 type JobPhoto = {
   id: string; url: string; photo_type: 'before' | 'after' | 'progress'
   source: 'crew' | 'client'; caption: string | null; uploaded_by: string | null; taken_at: string
+  tags: string[]; pair_id: string | null
 }
 type PhotoComment = { id: string; body: string | null; author: string; created_at: string }
+type ChecklistItem = { id: string; label: string; done: boolean; done_at: string | null }
 
 function money(c: number) { return ((c || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) }
 function when(iso: string | null) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
@@ -148,11 +150,13 @@ const PHOTO_TYPE_STYLE: Record<string, string> = {
 }
 
 function PhotoLightbox({
-  photo, jobId, onClose,
-}: { photo: JobPhoto; jobId: string; onClose: () => void }) {
+  photo, jobId, allPhotos, onClose, onChanged,
+}: { photo: JobPhoto; jobId: string; allPhotos: JobPhoto[]; onClose: () => void; onChanged: () => void }) {
   const [comments, setComments] = useState<PhotoComment[]>([])
   const [text, setText] = useState('')
   const [sending, setSending] = useState(false)
+  const [tagInput, setTagInput] = useState('')
+  const [pairing, setPairing] = useState(false)
 
   const loadComments = useCallback(() => {
     fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`).then(r => r.json())
@@ -172,11 +176,40 @@ function PhotoLightbox({
     } finally { setSending(false) }
   }
 
+  const patchPhoto = async (patch: Record<string, unknown>) => {
+    await fetch(`/api/jobs/${jobId}/photos/${photo.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch),
+    })
+    onChanged()
+  }
+
+  const addTag = async () => {
+    const t = tagInput.trim()
+    if (!t || photo.tags.includes(t.toLowerCase())) { setTagInput(''); return }
+    await patchPhoto({ tags: [...photo.tags, t] })
+    setTagInput('')
+  }
+  const removeTag = (t: string) => patchPhoto({ tags: photo.tags.filter((x) => x !== t) })
+
+  const pair = photo.pair_id ? allPhotos.find((p) => p.id === photo.pair_id) : null
+  const pairCandidates = allPhotos.filter((p) =>
+    p.id !== photo.id && !p.pair_id &&
+    ((photo.photo_type === 'before' && p.photo_type === 'after') || (photo.photo_type === 'after' && p.photo_type === 'before')))
+
   return (
     <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
       <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={photo.url} alt={photo.caption || 'Job photo'} className="w-full max-h-[60vh] object-contain bg-slate-900" />
+        {pair ? (
+          <div className="grid grid-cols-2 gap-px bg-slate-900">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={(photo.photo_type === 'before' ? photo : pair).url} alt="Before" className="w-full max-h-[50vh] object-contain bg-slate-900" />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={(photo.photo_type === 'before' ? pair : photo).url} alt="After" className="w-full max-h-[50vh] object-contain bg-slate-900" />
+          </div>
+        ) : (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={photo.url} alt={photo.caption || 'Job photo'} className="w-full max-h-[60vh] object-contain bg-slate-900" />
+        )}
         <div className="p-3">
           <div className="flex items-center gap-2 mb-1">
             <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[photo.photo_type]}`}>{PHOTO_TYPE_LABEL[photo.photo_type]}</span>
@@ -184,6 +217,37 @@ function PhotoLightbox({
             <span className="text-[10px] text-slate-400">{when(photo.taken_at)}</span>
           </div>
           {photo.caption && <p className="text-sm text-slate-700 mb-2">{photo.caption}</p>}
+
+          <div className="flex flex-wrap items-center gap-1 mb-2">
+            {photo.tags.map((t) => (
+              <span key={t} className="text-[10px] px-1.5 py-0.5 rounded-full bg-slate-100 text-slate-600 flex items-center gap-1">
+                {t}
+                <button onClick={() => removeTag(t)} className="text-slate-400 hover:text-red-600">✕</button>
+              </span>
+            ))}
+            <input value={tagInput} onChange={(e) => setTagInput(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') addTag() }}
+              placeholder="+ tag" className="text-[10px] w-16 px-1 py-0.5 rounded border border-slate-200" />
+          </div>
+
+          {(photo.photo_type === 'before' || photo.photo_type === 'after') && (
+            <div className="mb-2">
+              {pair
+                ? <button onClick={() => patchPhoto({ pair_id: null })} className="text-[11px] text-slate-400 hover:underline">Unpair from {PHOTO_TYPE_LABEL[pair.photo_type]}</button>
+                : pairing
+                  ? (
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      {pairCandidates.length === 0 && <span className="text-[11px] text-slate-400">No unpaired {photo.photo_type === 'before' ? 'after' : 'before'} photos.</span>}
+                      {pairCandidates.map((c) => (
+                        <button key={c.id} onClick={() => { patchPhoto({ pair_id: c.id }); setPairing(false) }}
+                          className="text-[10px] px-1.5 py-0.5 rounded border border-slate-300 hover:bg-slate-50">{when(c.taken_at)}</button>
+                      ))}
+                      <button onClick={() => setPairing(false)} className="text-[10px] text-slate-400">cancel</button>
+                    </div>
+                  )
+                  : <button onClick={() => setPairing(true)} className="text-[11px] text-slate-500 hover:underline">Pair with {photo.photo_type === 'before' ? 'an after' : 'a before'} photo</button>}
+            </div>
+          )}
 
           <div className="space-y-1.5 mb-2">
             {comments.map(c => (
@@ -213,13 +277,20 @@ function PhotoGallery({ jobId }: { jobId: string }) {
   const [photos, setPhotos] = useState<JobPhoto[]>([])
   const [uploading, setUploading] = useState(false)
   const [photoType, setPhotoType] = useState<'before' | 'after' | 'progress'>('progress')
-  const [selected, setSelected] = useState<JobPhoto | null>(null)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [activeTag, setActiveTag] = useState<string | null>(null)
   const [err, setErr] = useState('')
+  const [shareLink, setShareLink] = useState('')
+  const [sharing, setSharing] = useState(false)
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${jobId}/photos`).then(r => r.json()).then(d => setPhotos(d.photos || [])).catch(() => {})
   }, [jobId])
   useEffect(() => { load() }, [load])
+
+  const allTags = Array.from(new Set(photos.flatMap((p) => p.tags))).sort()
+  const visible = activeTag ? photos.filter((p) => p.tags.includes(activeTag)) : photos
+  const selected = selectedId ? photos.find((p) => p.id === selectedId) || null : null
 
   const onUpload = async (files: FileList | null) => {
     if (!files || files.length === 0) return
@@ -238,11 +309,27 @@ function PhotoGallery({ jobId }: { jobId: string }) {
     } finally { setUploading(false) }
   }
 
+  const share = async () => {
+    setSharing(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/share`, { method: 'POST' })
+      const d = await res.json()
+      if (res.ok) {
+        const url = `${window.location.origin}${d.path}`
+        setShareLink(url)
+        navigator.clipboard?.writeText(url).catch(() => {})
+      }
+    } finally { setSharing(false) }
+  }
+
   return (
     <section className="mb-6">
       <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
         <h2 className="text-sm font-semibold text-slate-800">Job photos</h2>
         <div className="flex items-center gap-1.5">
+          <button onClick={share} disabled={sharing} className="text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-600 hover:bg-slate-50 disabled:opacity-50">
+            {sharing ? 'Creating link…' : 'Share with client'}
+          </button>
           <select value={photoType} onChange={(e) => setPhotoType(e.target.value as typeof photoType)}
             className="text-[11px] px-1.5 py-1 rounded border border-slate-300">
             <option value="progress">Progress</option>
@@ -257,24 +344,104 @@ function PhotoGallery({ jobId }: { jobId: string }) {
         </div>
       </div>
 
+      {shareLink && (
+        <p className="text-[11px] text-green-600 mb-2">Link copied: <span className="text-slate-500">{shareLink}</span></p>
+      )}
       {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
 
-      {photos.length === 0
-        ? <p className="text-sm text-slate-400">No photos yet.</p>
+      {allTags.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {allTags.map((t) => (
+            <button key={t} onClick={() => setActiveTag(activeTag === t ? null : t)}
+              className={`text-[10px] px-1.5 py-0.5 rounded-full ${activeTag === t ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+              {t}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {visible.length === 0
+        ? <p className="text-sm text-slate-400">{photos.length === 0 ? 'No photos yet.' : 'No photos with this tag.'}</p>
         : (
           <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
-            {photos.map(p => (
-              <button key={p.id} onClick={() => setSelected(p)} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group">
+            {visible.map(p => (
+              <button key={p.id} onClick={() => setSelectedId(p.id)} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img src={p.url} alt={p.caption || 'Job photo'} className="w-full h-full object-cover group-hover:opacity-90" />
                 <span className={`absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[p.photo_type]}`}>{PHOTO_TYPE_LABEL[p.photo_type]}</span>
                 {p.source === 'client' && <span className="absolute top-1 right-1 text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Client</span>}
+                {p.pair_id && <span className="absolute bottom-1 right-1 text-[9px] px-1 py-0.5 rounded bg-white/90 text-slate-600 font-medium">Paired</span>}
               </button>
             ))}
           </div>
         )}
 
-      {selected && <PhotoLightbox photo={selected} jobId={jobId} onClose={() => setSelected(null)} />}
+      {selected && (
+        <PhotoLightbox photo={selected} jobId={jobId} allPhotos={photos} onClose={() => setSelectedId(null)} onChanged={load} />
+      )}
+    </section>
+  )
+}
+
+function Checklist({ jobId }: { jobId: string }) {
+  const [items, setItems] = useState<ChecklistItem[]>([])
+  const [newLabel, setNewLabel] = useState('')
+  const [adding, setAdding] = useState(false)
+
+  const load = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/checklist`).then(r => r.json()).then(d => setItems(d.items || [])).catch(() => {})
+  }, [jobId])
+  useEffect(() => { load() }, [load])
+
+  const toggle = async (item: ChecklistItem) => {
+    setItems(items.map(i => i.id === item.id ? { ...i, done: !i.done } : i))
+    await fetch(`/api/jobs/${jobId}/checklist/${item.id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ done: !item.done }),
+    })
+  }
+
+  const remove = async (id: string) => {
+    setItems(items.filter(i => i.id !== id))
+    await fetch(`/api/jobs/${jobId}/checklist/${id}`, { method: 'DELETE' })
+  }
+
+  const add = async () => {
+    if (!newLabel.trim()) return
+    setAdding(true)
+    try {
+      const res = await fetch(`/api/jobs/${jobId}/checklist`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ label: newLabel }),
+      })
+      if (res.ok) { setNewLabel(''); load() }
+    } finally { setAdding(false) }
+  }
+
+  const doneCount = items.filter(i => i.done).length
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-2">
+        <h2 className="text-sm font-semibold text-slate-800">Checklist</h2>
+        {items.length > 0 && <span className="text-[11px] text-slate-400">{doneCount} of {items.length} done</span>}
+      </div>
+
+      <div className="space-y-1 mb-2">
+        {items.map(i => (
+          <div key={i.id} className="flex items-center gap-2 p-1.5 rounded border border-slate-200 bg-white group">
+            <input type="checkbox" checked={i.done} onChange={() => toggle(i)} className="shrink-0" />
+            <span className={`flex-1 text-sm ${i.done ? 'line-through text-slate-400' : 'text-slate-700'}`}>{i.label}</span>
+            <button onClick={() => remove(i.id)} className="text-slate-300 hover:text-red-600 opacity-0 group-hover:opacity-100 text-xs">✕</button>
+          </div>
+        ))}
+        {items.length === 0 && <p className="text-sm text-slate-400">No checklist items yet.</p>}
+      </div>
+
+      <div className="flex gap-1.5">
+        <input value={newLabel} onChange={(e) => setNewLabel(e.target.value)} placeholder="Add a checklist item…"
+          onKeyDown={(e) => { if (e.key === 'Enter') add() }}
+          className="flex-1 px-2 py-1 text-xs rounded border border-slate-300" />
+        <button onClick={add} disabled={adding || !newLabel.trim()} className="text-xs px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">Add</button>
+      </div>
     </section>
   )
 }
@@ -497,6 +664,7 @@ export default function JobDetailPage() {
         </div>
       </section>
 
+      <Checklist jobId={id} />
       <PhotoGallery jobId={id} />
 
       {/* Activity log */}

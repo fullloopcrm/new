@@ -56,3 +56,32 @@ CREATE INDEX IF NOT EXISTS idx_job_photos_tenant   ON job_photos(tenant_id, crea
 ALTER TABLE crm_notes DROP CONSTRAINT IF EXISTS crm_notes_subject_type_check;
 ALTER TABLE crm_notes ADD CONSTRAINT crm_notes_subject_type_check
   CHECK (subject_type IN ('lead', 'tenant', 'job_photo'));
+
+-- ─── job_checklist_items — on-site to-do list per job/visit ──
+-- Same anchor pattern as job_photos: most bookings have no jobs row, so a
+-- checklist item can anchor on booking_id alone.
+CREATE TABLE IF NOT EXISTS job_checklist_items (
+  id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  tenant_id    UUID NOT NULL REFERENCES tenants(id) ON DELETE CASCADE,
+  job_id       UUID REFERENCES jobs(id) ON DELETE CASCADE,
+  booking_id   UUID REFERENCES bookings(id) ON DELETE CASCADE,
+
+  CONSTRAINT job_checklist_anchor_required CHECK (job_id IS NOT NULL OR booking_id IS NOT NULL),
+
+  label        TEXT NOT NULL,
+  done         BOOLEAN NOT NULL DEFAULT false,
+  done_at      TIMESTAMPTZ,
+  done_by      TEXT,
+
+  sort_order   INTEGER NOT NULL DEFAULT 0,
+  created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_job_checklist_job     ON job_checklist_items(job_id, sort_order);
+CREATE INDEX IF NOT EXISTS idx_job_checklist_booking ON job_checklist_items(booking_id, sort_order);
+
+-- ─── jobs gains a public share token for the client photo timeline ──
+-- Same pattern as quotes.public_token: generated on demand, unique, no auth
+-- needed to view — the token itself is the credential.
+ALTER TABLE jobs ADD COLUMN IF NOT EXISTS public_token TEXT UNIQUE;
+CREATE INDEX IF NOT EXISTS idx_jobs_public_token ON jobs(public_token) WHERE public_token IS NOT NULL;
