@@ -39,6 +39,27 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: 'Already matched' }, { status: 409 })
     }
 
+    // Atomic claim BEFORE any side effect: the read above is not enough on
+    // its own — two concurrent confirm-match calls (double-click, or two
+    // admins working the same reconciliation queue) would both pass the
+    // `unmatched.status === 'matched'` check above and each insert their own
+    // `payments` row + mark the booking paid, double-recording real money
+    // received for a single Zelle/Venmo transfer. `.neq('status','matched')`
+    // guards the transition itself; only the caller who actually wins the
+    // claim proceeds to record the payment. Same pattern as the sibling
+    // `finance/bank-transactions/[id]/match` route.
+    const { data: claim } = await supabaseAdmin
+      .from('unmatched_payments')
+      .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
+      .eq('id', unmatchedPaymentId)
+      .eq('tenant_id', tenantId)
+      .neq('status', 'matched')
+      .select('id')
+      .maybeSingle()
+    if (!claim) {
+      return NextResponse.json({ error: 'Already matched' }, { status: 409 })
+    }
+
     const { data: booking } = await supabaseAdmin
       .from('bookings')
       .select('id, client_id, team_member_id, hourly_rate, actual_hours, price, clients(name, phone), team_members!bookings_team_member_id_fkey(name, phone, preferred_language)')
@@ -47,6 +68,15 @@ export async function POST(req: Request) {
       .single()
 
     if (!booking) {
+      // Claim already committed above — release it so the payment isn't
+      // stuck looking "matched" with nothing actually recorded, and the
+      // admin can retry against the correct booking.
+      await supabaseAdmin
+        .from('unmatched_payments')
+        .update({ status: 'pending', matched_booking_id: null, matched_at: null })
+        .eq('id', unmatchedPaymentId)
+        .eq('tenant_id', tenantId)
+        .then(() => {}, () => {})
       return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
     }
 
@@ -66,14 +96,7 @@ export async function POST(req: Request) {
       }
     }
 
-    // 1. Mark unmatched as matched
-    await supabaseAdmin
-      .from('unmatched_payments')
-      .update({ status: 'matched', matched_booking_id: bookingId, matched_at: new Date().toISOString() })
-      .eq('id', unmatchedPaymentId)
-      .eq('tenant_id', tenantId)
-
-    // 2. Insert payment row
+    // 1. Insert payment row
     await supabaseAdmin.from('payments').insert({
       tenant_id: tenantId,
       booking_id: bookingId,
@@ -85,7 +108,7 @@ export async function POST(req: Request) {
       payment_sender_name: unmatched.sender_name,
     })
 
-    // 3. Update booking
+    // 2. Update booking
     await supabaseAdmin
       .from('bookings')
       .update({
@@ -99,7 +122,7 @@ export async function POST(req: Request) {
       .eq('id', bookingId)
       .eq('tenant_id', tenantId)
 
-    // 4. Notify team member of tip if any (bilingual)
+    // 3. Notify team member of tip if any (bilingual)
     const tm = booking.team_members as unknown as { name?: string; phone?: string; preferred_language?: string } | null
     const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
@@ -126,7 +149,7 @@ export async function POST(req: Request) {
       }).catch(err => console.error('[confirm-match] team SMS failed:', err))
     }
 
-    // 5. In-app notification
+    // 4. In-app notification
     await supabaseAdmin.from('notifications').insert({
       tenant_id: tenantId,
       type: 'payment_received',

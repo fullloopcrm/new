@@ -20,9 +20,15 @@ function chain(table: string) {
   const c: Record<string, unknown> = {
     select: () => c,
     eq: (col: string, val: unknown) => { filters.push((r) => r[col] === val); return c },
+    neq: (col: string, val: unknown) => { filters.push((r) => r[col] !== val); return c },
     update: (payload: Row) => { updatePayload = payload; return c },
     insert: (payload: Row) => { rowsOf().push(payload); return Promise.resolve({ data: payload, error: null }) },
     single: () => {
+      const matched = rowsOf().filter((r) => filters.every((f) => f(r)))
+      if (updatePayload) matched.forEach((r) => Object.assign(r, updatePayload))
+      return Promise.resolve({ data: matched[0] || null, error: null })
+    },
+    maybeSingle: () => {
       const matched = rowsOf().filter((r) => filters.every((f) => f(r)))
       if (updatePayload) matched.forEach((r) => Object.assign(r, updatePayload))
       return Promise.resolve({ data: matched[0] || null, error: null })
