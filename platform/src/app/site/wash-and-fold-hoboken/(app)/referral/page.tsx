@@ -245,7 +245,7 @@ export default function ReferrerPortalPage() {
             <input type="text" value={'https://www.thenycmaid.com/book/new?ref=' + referrer?.ref_code} readOnly className="flex-1 px-4 py-2 bg-gray-50 border rounded-lg text-gray-600 text-sm" />
             <button onClick={copyLink} className="px-4 py-2 bg-[#1E2A4A] text-white rounded-lg hover:bg-[#1E2A4A]/90">Copy</button>
           </div>
-          <p className="text-sm text-gray-500 mt-2">Share this link. You earn 10% of every cleaning!</p>
+          <p className="text-sm text-gray-500 mt-2">Share this link. You earn {referrer?.commission_rate ?? 10}% of every cleaning!</p>
         </div>
         <div className="bg-white rounded-lg shadow p-6 mb-6">
           <h2 className="font-semibold text-[#1E2A4A] mb-4">📊 Link Performance</h2>

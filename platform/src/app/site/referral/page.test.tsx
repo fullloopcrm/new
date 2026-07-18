@@ -87,6 +87,40 @@ describe('site/referral referrer portal (OTP-gated)', () => {
     expect(JSON.parse(storage.getItem('referrer_auth')!)).toEqual({ token: 'tok_abc', code: 'PAT123' })
   })
 
+  it('shows the referrer\'s actual configured commission rate, not a hardcoded 10%', async () => {
+    // Regression for the referral-copy bug: this page fetched commission_rate
+    // into state but the "Share this link" caption hardcoded "10%" verbatim,
+    // so a tenant that configured a non-default rate (e.g. 15%) showed every
+    // referrer the wrong number. Using 15% here (not the 10% default) so this
+    // test would have failed against the old hardcoded string.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/referrers/auth/verify') {
+        return { ok: true, json: async () => ({ token: 'tok_abc', referral_code: 'PAT123' }) } as Response
+      }
+      if (url === '/api/referrers/PAT123') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            referrer: { id: 'r1', name: 'Pat Referrer', email: 'pat@example.com', referral_code: 'PAT123', commission_rate: 15, total_earned: 5000, total_paid: 2000 },
+            tenant: { name: 'The NYC Maid', slug: 'nycmaid', primary_color: '#1E2A4A' },
+            share_url: 'https://www.thenycmaid.com/book/new?ref=PAT123',
+            stats: { total_clicks: 0, total_referrals: 0, total_converted: 0, total_earned: 5000, total_pending: 3000 },
+            commissions: [],
+          }),
+        } as Response
+      }
+      throw new Error('unexpected fetch: ' + url)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    storage.setItem('referrer_auth', JSON.stringify({ token: 'tok_abc', code: 'PAT123' }))
+
+    render(<ReferrerPortalPage />)
+
+    expect(await screen.findByText('Share this link. You earn 15% of every cleaning!')).toBeInTheDocument()
+    expect(screen.queryByText(/you earn 10% of every cleaning/i)).not.toBeInTheDocument()
+  })
+
   it('wrong-tenant/foreign-referrer probe: a stored token that the server rejects for this code never renders cached dashboard data and drops back to login', async () => {
     // Simulates a token minted for a different referrer/tenant (or a stale/
     // revoked session) being replayed against this code -- the server-side

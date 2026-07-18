@@ -80,6 +80,37 @@ describe('site/template referral portal (per-tenant, not hardcoded)', () => {
     await waitFor(() => expect(document.title).toBe('Referral Program | Sparkle Cleaning Co'))
   })
 
+  it('shows the referrer\'s actual configured commission rate, not a hardcoded 10%', async () => {
+    // Regression for the referral-copy bug: this shared template page fetched
+    // commission_rate into state but the "Share this link" caption hardcoded
+    // "10%" verbatim, so a tenant that configured a non-default rate showed
+    // every referrer the wrong number. Using 20% here (not the 10% default)
+    // so this test would have failed against the old hardcoded string.
+    const fetchMock = vi.fn(async (url: string) => {
+      if (url === '/api/referrers/PAT789') {
+        return {
+          ok: true,
+          status: 200,
+          json: async () => ({
+            referrer: { id: 'r3', name: 'Jordan Referrer', email: 'jordan@example.com', referral_code: 'PAT789', commission_rate: 20, total_earned: 0, total_paid: 0 },
+            tenant: { name: 'Sparkle Cleaning Co', slug: 'sparkle-cleaning', primary_color: '#1E2A4A', email: 'support@sparklecleaning.com' },
+            share_url: 'https://sparklecleaning.com/book/new?ref=PAT789',
+            stats: { total_clicks: 0, total_referrals: 0, total_converted: 0, total_earned: 0, total_pending: 0 },
+            commissions: [],
+          }),
+        } as Response
+      }
+      throw new Error('unexpected fetch: ' + url)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    storage.setItem('referrer_auth', JSON.stringify({ token: 'tok_abc', code: 'PAT789' }))
+
+    render(<ReferrerPortalPage />)
+
+    expect(await screen.findByText('Share this link. You earn 20% of every cleaning!')).toBeInTheDocument()
+    expect(screen.queryByText(/you earn 10% of every cleaning/i)).not.toBeInTheDocument()
+  })
+
   it('shows the neutral "Contact the business directly" fallback (not a fake email) when the tenant has no email set', async () => {
     const fetchMock = vi.fn(async (url: string) => {
       if (url === '/api/referrers/PAT456') {
