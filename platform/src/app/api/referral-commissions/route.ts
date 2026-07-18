@@ -15,7 +15,7 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { postCommissionAccrual, postCommissionPayment } from '@/lib/finance/post-adjustments'
 import { getReferrerAuth } from '@/lib/referrer-portal-auth'
-import { bumpReferrerTotal } from '@/lib/referrer-ledger'
+import { bumpReferrerTotalOrFlag } from '@/lib/referrer-ledger'
 
 export async function GET(request: Request) {
   try {
@@ -157,7 +157,13 @@ export async function POST(request: Request) {
     // the same starting total_earned and the second write clobbers the
     // first (the UNIQUE(booking_id) dedup above only guards the SAME
     // booking being double-submitted, not two different ones racing here).
-    await bumpReferrerTotal(tenantId, ref.id, 'total_earned', commission)
+    // OrFlag: a failed bump (retries exhausted) opens an admin_tasks row
+    // instead of silently leaving total_earned behind this real commission.
+    await bumpReferrerTotalOrFlag(tenantId, ref.id, 'total_earned', commission, {
+      relatedType: 'referral_commission',
+      relatedId: commissionRow.id,
+      referrerName: ref.name,
+    })
 
     if (ref.email) {
       notify({
@@ -235,7 +241,12 @@ export async function PUT(request: Request) {
       // clobbers the first (the `.neq('status','paid')` guard above only
       // protects the same commission row from being double-paid, not the
       // referrer's aggregate total_paid across different rows).
-      await bumpReferrerTotal(tenantId, data.referrer_id as string, 'total_paid', data.commission_cents as number)
+      // OrFlag: a failed bump opens an admin_tasks row instead of silently
+      // leaving total_paid behind this real payout.
+      await bumpReferrerTotalOrFlag(tenantId, data.referrer_id as string, 'total_paid', data.commission_cents as number, {
+        relatedType: 'referral_commission',
+        relatedId: data.id as string,
+      })
       // Marking paid clears the payable against cash in the ledger.
       postCommissionPayment({ tenantId, commissionId: data.id })
         .catch(err => console.error('[ref-comm] payment post failed:', err))

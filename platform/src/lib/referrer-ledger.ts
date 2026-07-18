@@ -2,6 +2,12 @@ import { supabaseAdmin } from '@/lib/supabase'
 
 const MAX_CAS_ATTEMPTS = 5
 
+export interface LedgerDriftContext {
+  relatedType: 'referral_commission' | 'booking'
+  relatedId: string
+  referrerName?: string | null
+}
+
 /**
  * Atomically add `delta` to a referrer's total_earned/total_paid column.
  *
@@ -44,5 +50,41 @@ export async function bumpReferrerTotal(
     if (updated) return true
     // else: field changed between our read and write (concurrent bump) -- retry
   }
+  return false
+}
+
+/**
+ * Same as bumpReferrerTotal, but every one of its 3 call sites
+ * (referral-commissions create/mark-paid, team-portal checkout) previously
+ * awaited or fire-and-forgot the result without checking it -- a false
+ * return (read error, or all MAX_CAS_ATTEMPTS retries lost the race) left
+ * referrers.total_earned/total_paid silently out of sync with the
+ * referral_commissions row that WAS created/paid, with zero trace anywhere.
+ * This wraps the call so a failure always leaves an admin_tasks row instead
+ * of vanishing.
+ */
+export async function bumpReferrerTotalOrFlag(
+  tenantId: string,
+  referrerId: string,
+  field: 'total_earned' | 'total_paid',
+  delta: number,
+  context: LedgerDriftContext,
+): Promise<boolean> {
+  const ok = await bumpReferrerTotal(tenantId, referrerId, field, delta)
+  if (ok) return true
+
+  console.error(
+    `[referrer-ledger] bumpReferrerTotal failed after ${MAX_CAS_ATTEMPTS} attempts -- referrer ${referrerId} (tenant ${tenantId}) ${field} is missing a ${delta} cent adjustment`
+  )
+  await supabaseAdmin.from('admin_tasks').insert({
+    tenant_id: tenantId,
+    type: 'referrer_ledger_drift',
+    priority: 'high',
+    title: `Referrer ${field} out of sync${context.referrerName ? ` — ${context.referrerName}` : ''}`,
+    description: `Failed to apply a ${delta} cent adjustment to referrers.${field} for referrer ${referrerId} after ${MAX_CAS_ATTEMPTS} retries. The underlying ${context.relatedType} record was saved correctly -- reconcile referrers.${field} manually.`,
+    related_type: context.relatedType,
+    related_id: context.relatedId,
+  }).then(() => {}, (err) => console.error('[referrer-ledger] admin_tasks flag insert failed:', err))
+
   return false
 }

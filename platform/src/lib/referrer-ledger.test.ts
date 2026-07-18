@@ -21,7 +21,7 @@ vi.mock('@/lib/supabase', async () => {
 })
 
 import { supabaseAdmin } from '@/lib/supabase'
-import { bumpReferrerTotal } from './referrer-ledger'
+import { bumpReferrerTotal, bumpReferrerTotalOrFlag } from './referrer-ledger'
 
 const fake = supabaseAdmin as unknown as FakeSupabase
 
@@ -72,5 +72,49 @@ describe('bumpReferrerTotal', () => {
     expect(ok).toBe(false)
     const row = fake._all('referrers').find((r) => r.id === REFERRER_ID)
     expect(row?.total_earned).toBe(1000)
+  })
+})
+
+describe('bumpReferrerTotalOrFlag', () => {
+  it('behaves like a normal bump on success -- no admin_tasks row', async () => {
+    const ok = await bumpReferrerTotalOrFlag(TENANT_ID, REFERRER_ID, 'total_earned', 500, {
+      relatedType: 'referral_commission',
+      relatedId: 'commission-1',
+    })
+    expect(ok).toBe(true)
+    const row = fake._all('referrers').find((r) => r.id === REFERRER_ID)
+    expect(row?.total_earned).toBe(1500)
+    expect(fake._all('admin_tasks')).toHaveLength(0)
+  })
+
+  it('opens a high-priority admin_tasks row instead of silently dropping a failed bump', async () => {
+    // Every 3 real call sites (referral-commissions create/mark-paid,
+    // team-portal checkout) used to await/fire-and-forget the plain
+    // bumpReferrerTotal with zero check -- a false return (retries
+    // exhausted, or referrer/tenant mismatch as here) meant
+    // referrers.total_earned silently never reflected a commission that HAD
+    // already been saved. This proves the failure now leaves a trace.
+    const ok = await bumpReferrerTotalOrFlag('wrong-tenant', REFERRER_ID, 'total_earned', 500, {
+      relatedType: 'referral_commission',
+      relatedId: 'commission-1',
+      referrerName: 'Jane Referrer',
+    })
+    expect(ok).toBe(false)
+    // The referrer's total is untouched -- exactly the silent-drift state
+    // this fix must surface rather than leave invisible.
+    const row = fake._all('referrers').find((r) => r.id === REFERRER_ID)
+    expect(row?.total_earned).toBe(1000)
+
+    const tasks = fake._all('admin_tasks')
+    expect(tasks).toHaveLength(1)
+    expect(tasks[0]).toMatchObject({
+      tenant_id: 'wrong-tenant',
+      type: 'referrer_ledger_drift',
+      priority: 'high',
+      related_type: 'referral_commission',
+      related_id: 'commission-1',
+    })
+    expect(tasks[0].title).toContain('Jane Referrer')
+    expect(tasks[0].description).toContain('total_earned')
   })
 })

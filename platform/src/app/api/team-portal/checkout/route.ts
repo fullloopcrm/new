@@ -9,7 +9,7 @@ import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
-import { bumpReferrerTotal } from '@/lib/referrer-ledger'
+import { bumpReferrerTotalOrFlag } from '@/lib/referrer-ledger'
 import { escapeHtml } from '@/lib/escape-html'
 
 export async function POST(request: Request) {
@@ -184,7 +184,16 @@ export async function POST(request: Request) {
         // clobbers the first. Also tenant-scoped now (matches every other
         // referrers write in this codebase; id is already unique so this
         // wasn't cross-tenant exploitable, just missing defense-in-depth).
-        bumpReferrerTotal(auth.tid, ref.id, 'total_earned', commissionCents).catch(() => {})
+        // OrFlag, and no longer a bare `.catch(() => {})` -- a failed bump
+        // (retries exhausted) used to vanish with zero trace; it now opens
+        // an admin_tasks row so total_earned drift against this real
+        // commission gets reconciled instead of silently understating what
+        // the referrer is owed.
+        bumpReferrerTotalOrFlag(auth.tid, ref.id, 'total_earned', commissionCents, {
+          relatedType: 'booking',
+          relatedId: booking.id as string,
+          referrerName: (ref as { name?: string | null }).name,
+        }).catch((err) => console.error('[team-portal-checkout] referrer ledger flag failed:', err))
         await supabaseAdmin.from('notifications').insert({
           tenant_id: auth.tid,
           type: 'referral_converted',

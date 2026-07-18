@@ -30,7 +30,10 @@ vi.mock('../auth/token', () => ({
 vi.mock('@/lib/payment-processor', () => ({ processPayment: vi.fn(() => Promise.resolve(null)) }))
 vi.mock('@/lib/push', () => ({ sendPushToClient: vi.fn(() => Promise.resolve()) }))
 vi.mock('@/lib/nycmaid/admin-contacts', () => ({ smsAdmins: vi.fn(() => Promise.resolve()) }))
-vi.mock('@/lib/referrer-ledger', () => ({ bumpReferrerTotal: vi.fn(() => Promise.resolve(true)) }))
+vi.mock('@/lib/referrer-ledger', () => ({
+  bumpReferrerTotal: vi.fn(() => Promise.resolve(true)),
+  bumpReferrerTotalOrFlag: vi.fn(() => Promise.resolve(true)),
+}))
 vi.mock('@/lib/nycmaid/email', () => ({ sendEmail: h.sendEmailSpy }))
 
 vi.mock('@/lib/supabase', () => {
