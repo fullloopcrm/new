@@ -11897,3 +11897,105 @@ which each opened onto another file's curl call, this fix's request-side and
 response-side halves are both in the SAME shared `sql()` helper used by all 5
 per-run calls uniformly, so there is no separate call site left uncovered) --
 step (2) of this round's queue folds into this single item.
+
+## (233) Fresh ground -- the reconcile gate's own shared `stripComments()`
+helper corrupts a parsed value that legitimately contains `//`
+
+Before touching anything, swept the full reconcile script (all Drift A-AM
+checks, every parseX function, the norm() URL normalizer, the token guard,
+the CLI) plus ci.yml/db-backup.yml/tenant-config-reconcile.yml again looking
+for a genuinely new gap on top of the 28 guard files already in this lane.
+Nearly every angle checked (the `pending` flag plumbing into
+summarize()'s gatingCrit math, the `if (isMainHost) { ... }` non-greedy
+brace-match in parseRobotsKilledRoutes, findHardcodedWwwApexDomains'
+narrower-than-Drift-AB-comment scope) turned out to be either already
+correct or a deliberate, documented scoping choice, not a real gap.
+
+The one real, unguarded gap: `stripComments()` (shared by all 15+ parseX
+call sites in this file) line-comment-strips with a bare `/\/\/.*$/gm`. That
+regex cannot tell a `//` comment-start apart from a `//` INSIDE a quoted
+value it is scanning past. The function's own comment claimed this was safe
+because "every value these parsers extract is a bare slug, path, or
+hostname... none legitimately contain `//`" -- true for
+parseBespokeSet/parseApexCanonicalSet/etc., but FALSE for three call sites:
+parseNextConfigSiteRewriteSources, parseAllNextConfigSiteRewriteSources, and
+parseNextConfigRedirects, which extract next.config.ts `destination`
+values -- and a Next.js redirect/rewrite `destination` pointing at a full
+external URL (`'https://partner-site.com/x'`) is a completely ordinary
+shape, no different in kind from '/site/careers' or '/portal'.
+
+Verified live in node (not just reasoned about) what a bare strip actually
+does to `{ source: '/old-partner-page', destination:
+'https://partner-site.com/new-page', permanent: true },` followed by a
+second entry on the next line: it does NOT cleanly drop the entry. entryRe's
+destination capture (`[^'"`]+`) is not end-of-line anchored, so with the
+closing quote deleted by the truncation it keeps matching PAST the newline
+and swallows the START of the next array entry as part of the same
+destination value -- merging two real `{ source, destination }` pairs into
+one garbled one, rather than dropping one cleanly. Either way the affected
+entry's real source/destination is lost. A lost `source` also vanishes from
+findShadowedKilledRoutePages' `redirectSources` set (Drift AD): a killed
+route legitimately rescued by that redirect would be wrongly reported as
+permanently unreachable -- a false positive produced by the gate's OWN
+parser, not a real config bug, on a merge-blocking CI check. No current
+next.config.ts destination is external (verified: `grep destination:
+platform/next.config.ts` -- every value is a relative path today), so this
+was landmine-only until now, same prospective-bug shape as Drift T/W (both
+already-accepted findings in this file despite currently having zero live
+instances) -- just one layer lower, in the gate's own parsing
+infrastructure rather than in the config it parses.
+
+**Fixed:** made the line-comment branch of `stripComments()` quote-aware --
+match a full quoted string (any of `'`/`"`/`` ` ``, with escape handling) OR
+a `//...` comment in the SAME regex pass, and only erase the comment branch.
+`//` encountered while already inside an open quoted value is consumed as
+part of the string-match branch and never reaches the comment branch at
+all. Block-comment stripping (`/\* ... \*/`) is untouched. Closed with a new
+guard, `reconcile-strip-comments-url-value.test.ts`, covering: a redirect to
+a full external-URL destination still parses correctly
+(parseNextConfigRedirects), a URL-bearing afterFiles entry does not corrupt
+a sibling bare-segment entry on the next line (parseNextConfigSiteRewriteSources),
+and real `// comment` stripping still works on a line following a quoted
+value (regression guard against the fix being too narrow and no longer
+stripping real comments).
+
+**Mutation-verified live:** ran the new guard against the pre-fix bare
+`/\/\/.*$/gm` -- failed on 2 of 3 assertions, with the destination value
+showing exactly the predicted cross-line merge-corruption (not a clean
+disappearance -- the actual failure mode differs from the naive prediction,
+confirmed by reading the actual diff output rather than assuming). Reapplied
+the fix, guard went green (3/3). Restored from a saved pre-mutation backup
+(`cp` before mutating, `cp` back after), confirmed `git diff --stat
+scripts/reconcile-tenant-config.mjs` showed only the intended fix before and
+after the round-trip.
+
+Full suite + tsc + eslint clean after this round: `tsc --noEmit --pretty
+false` zero errors, eslint clean on both touched files, full vitest suite
+green (494 files / 2465 tests -- the new file's 3 assertions plus every
+prior test still passing, including reconcile-gate-comment-strip.test.ts's
+own pre-existing coverage of the SAME helper's comment-stripping behavior,
+unaffected by this fix).
+The reconcile script itself is leader-run-only (blocked by a local hook --
+it touches live prod Supabase even in the clean-skip path);
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` was absent in this session's environment
+too, so the token-guard clean-skip contract was verified via
+reconcile-gate-wiring.test.ts / reconcile-token-guard-home-isolation.test.ts
+(both green in the full-suite run) rather than a direct local invocation --
+same as item (232)'s session.
+
+Checked for a sibling surface before closing: scripts/verify-protected-tenants.mjs
+inlines the SAME bare-`//` line-comment-strip pattern (not via a shared
+helper, since it's a separate script) at its own parseBespokeSetFromMiddleware,
+extracting BESPOKE_SITE_TENANTS slugs. Confirmed this is NOT independently
+exploitable, unlike the fix above: every value that call site parses is a
+bare tenant slug (e.g. 'nycmaid', 'nyc-tow') -- the same domain of values
+parseBespokeSet in THIS file already safely handles, and PROTECTED's own
+`domain` field (free-text descriptions like 'thenycmaid.com — live primary',
+'hoboken laundry') is never itself regex-parsed for slugs, only `slug:` is.
+No legitimate BESPOKE_SITE_TENANTS entry has ever been, or could ever be, a
+full URL -- unlike next.config.ts's `destination` field, which is
+Next.js's own designated place for exactly that shape. Left as-is rather
+than forcing a symmetrical defensive change for a call site with no
+reachable failure mode -- step (2) of this round's queue folds into this
+single item, same as item (232)'s precedent (checked for a sibling, found
+the same regex SHAPE but confirmed no independently exploitable instance).
