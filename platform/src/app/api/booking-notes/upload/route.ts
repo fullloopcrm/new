@@ -61,8 +61,16 @@ export async function POST(request: NextRequest) {
     if (!allowedTypes.includes(file.type)) return NextResponse.json({ error: 'Only JPEG, PNG, WebP, or HEIC allowed' }, { status: 400 })
     if (file.size > 5 * 1024 * 1024) return NextResponse.json({ error: 'File must be under 5MB' }, { status: 400 })
 
-    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase()
-    const path = `booking-notes/${bookingId}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`
+    // bookingId reaches this point as a raw client-supplied string (see MODE 1
+    // above — no format check before it's used as-is). It gets spliced
+    // straight into the storage object path below, same unvalidated-string-in-
+    // storage-path class already fixed for `folder` in /api/uploads: restrict
+    // to a safe slug charset and cap length so an oversized or control-
+    // character bookingId can't produce a malformed/huge storage key in this
+    // public bucket.
+    const safeBookingId = bookingId.replace(/[^a-zA-Z0-9_-]/g, '').slice(0, 64) || 'unknown'
+    const ext = (file.name.split('.').pop() || 'jpg').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
+    const path = `booking-notes/${safeBookingId}/${Date.now()}-${randomBytes(6).toString('hex')}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabaseAdmin.storage
