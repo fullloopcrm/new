@@ -44,8 +44,8 @@ beforeEach(() => {
   h.audit.mockResolvedValue(undefined)
   h.store = {
     entities: [
-      { id: 'ent-A-default', tenant_id: 'tenant-A', is_default: true },
-      { id: 'ent-A-other', tenant_id: 'tenant-A', is_default: false },
+      { id: 'ent-A-default', tenant_id: 'tenant-A', is_default: true, active: true },
+      { id: 'ent-A-other', tenant_id: 'tenant-A', is_default: false, active: true },
     ],
     expenses: [
       { id: 'exp-A1', tenant_id: 'tenant-A', entity_id: 'ent-A-default', category: 'utilities', amount: 5000, date: '2026-07-01' },

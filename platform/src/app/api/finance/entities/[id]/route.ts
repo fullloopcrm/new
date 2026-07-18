@@ -16,9 +16,15 @@ export async function PATCH(request: Request, { params }: Params) {
     for (const k of ['name','legal_name','ein','entity_type','address','city','state','zip','fiscal_year_start','active']) {
       if (k in body) updates[k] = body[k]
     }
+    // make_default goes through the atomic set_default_entity RPC instead of
+    // a separate demote-then-set pair — same race/collision reasons as the
+    // POST route. See 2026_07_18_entity_default_must_be_active.sql.
     if (body.make_default) {
-      await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
-      updates.is_default = true
+      const { error: rpcErr } = await supabaseAdmin.rpc('set_default_entity', {
+        p_tenant_id: tenantId,
+        p_entity_id: id,
+      })
+      if (rpcErr) throw rpcErr
     }
     const { data, error } = await supabaseAdmin
       .from('entities')
@@ -42,10 +48,26 @@ export async function DELETE(_request: Request, { params }: Params) {
     const { tenantId } = _authTenant
     const { id } = await params
     const { data: ent } = await supabaseAdmin
-      .from('entities').select('is_default').eq('tenant_id', tenantId).eq('id', id).single()
+      .from('entities').select('id').eq('tenant_id', tenantId).eq('id', id).maybeSingle()
     if (!ent) return NextResponse.json({ error: 'Not found' }, { status: 404 })
-    if (ent.is_default) return NextResponse.json({ error: 'Cannot archive the default entity. Set another as default first.' }, { status: 400 })
-    await supabaseAdmin.from('entities').update({ active: false }).eq('tenant_id', tenantId).eq('id', id)
+    // The is_default check happens IN the archive UPDATE's own WHERE clause
+    // (not a preceding SELECT) so it's atomic against a concurrent
+    // PATCH .../[id] {make_default:true} on this same entity — a
+    // check-then-act SELECT-then-UPDATE here could archive an entity the
+    // instant after it became the default, leaving the tenant's default
+    // entity archived (every fallback that resolves "the default entity"
+    // when no entity_id is given would then silently keep resolving to a
+    // dead entity — see 2026_07_18_entity_default_must_be_active.sql).
+    const { data: archived, error } = await supabaseAdmin
+      .from('entities')
+      .update({ active: false })
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .eq('is_default', false)
+      .select('id')
+      .maybeSingle()
+    if (error) throw error
+    if (!archived) return NextResponse.json({ error: 'Cannot archive the default entity. Set another as default first.' }, { status: 400 })
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

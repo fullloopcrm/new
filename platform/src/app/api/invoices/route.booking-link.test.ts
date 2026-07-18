@@ -52,7 +52,7 @@ beforeEach(() => {
       },
     ],
     clients: [{ id: 'client-A', tenant_id: TENANT, name: 'Jane Doe' }],
-    entities: [{ id: 'ent-1', tenant_id: TENANT, name: 'Acme Co', is_default: true }],
+    entities: [{ id: 'ent-1', tenant_id: TENANT, name: 'Acme Co', is_default: true, active: true }],
   }
 })
 

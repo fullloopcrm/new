@@ -14,11 +14,18 @@ import { supabaseAdmin } from './supabase'
 
 /** Ensure the tenant has a default entities row. Returns true if it created one. */
 export async function ensureDefaultEntity(tenantId: string, name: string): Promise<boolean> {
+  // `active` matters: this is the self-healing path for the exact invariant
+  // this function's own doc comment promises ("every tenant must own
+  // exactly one default entity"). Without the filter, a default entity that
+  // was ever archived (see 2026_07_18_entity_default_must_be_active.sql)
+  // reads back as "existing" here forever, and this function no-ops instead
+  // of healing — permanently defeating the one thing it exists to guarantee.
   const { data: existing } = await supabaseAdmin
     .from('entities')
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('is_default', true)
+    .eq('active', true)
     .maybeSingle()
   if (existing) return false
 

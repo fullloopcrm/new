@@ -41,6 +41,15 @@
 -- backfill re-derives a distinct per-period source_id for them. See that
 -- file's header for the full explanation. Do not manually reverse/void
 -- 'recurring' hits from the pre-flight query — re-run the backfill instead.
+--
+-- NOTE (2026-07-18, fresh-ground sibling fix): the entity-fallback SELECT
+-- below now carries `AND active = TRUE`, ported from
+-- 2026_07_18_entity_default_must_be_active.sql. That file's CREATE OR
+-- REPLACE targets migration 039's current (pre-idempotent) body specifically
+-- so it's safe to apply before this one lands; whichever of the two migrations
+-- the leader applies LAST is the one that wins on disk, so this copy needs
+-- the same fix or applying this file after that one would silently regress
+-- it back to resolving an archived default entity.
 
 -- ── 1: the DB-level guard ──────────────────────────────────────────────
 CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entries_source_unique
@@ -89,11 +98,13 @@ BEGIN
   END IF;
 
   -- Resolve entity — fall back to tenant's default entity if not given.
+  -- `active` filter added 2026-07-18: an archived entity must never win
+  -- this fallback even if is_default was left TRUE on it by a race.
   _entity_id := p_entity_id;
   IF _entity_id IS NULL THEN
     SELECT id INTO _entity_id
       FROM entities
-      WHERE tenant_id = p_tenant_id AND is_default = TRUE
+      WHERE tenant_id = p_tenant_id AND is_default = TRUE AND active = TRUE
       LIMIT 1;
   END IF;
 

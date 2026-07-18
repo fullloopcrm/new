@@ -83,6 +83,7 @@ export async function GET() {
         .from('entities')
         .select('name, legal_name, ein, entity_type, address, city, state, zip, fiscal_year_start')
         .eq('is_default', true)
+        .eq('active', true)
         .maybeSingle(),
     ])
 
@@ -183,6 +184,7 @@ export async function POST(request: Request) {
       .from('entities')
       .select('id')
       .eq('is_default', true)
+      .eq('active', true)
       .maybeSingle()
     if (existingEntity) {
       await db.from('entities').update(entityFields).eq('id', existingEntity.id)

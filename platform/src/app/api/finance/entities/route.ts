@@ -25,11 +25,12 @@ export async function POST(request: Request) {
     const body = await request.json()
     if (!body.name) return NextResponse.json({ error: 'name required' }, { status: 400 })
 
-    // If make_default, unset any existing default first (unique partial index enforces one)
-    if (body.make_default) {
-      await supabaseAdmin.from('entities').update({ is_default: false }).eq('tenant_id', tenantId).eq('is_default', true)
-    }
-
+    // Always insert as non-default first, then promote atomically via
+    // set_default_entity — a two-step "demote existing, then insert with
+    // is_default:true" raced on the unique partial index
+    // (idx_entities_tenant_default), throwing a raw unhandled 500 on two
+    // concurrent make_default requests instead of deterministically landing
+    // one. See 2026_07_18_entity_default_must_be_active.sql.
     const { data, error } = await supabaseAdmin
       .from('entities')
       .insert({
@@ -43,11 +44,21 @@ export async function POST(request: Request) {
         state: body.state || null,
         zip: body.zip || null,
         fiscal_year_start: body.fiscal_year_start || 1,
-        is_default: !!body.make_default,
+        is_default: false,
       })
       .select('*')
       .single()
     if (error) throw error
+
+    if (body.make_default) {
+      const { error: rpcErr } = await supabaseAdmin.rpc('set_default_entity', {
+        p_tenant_id: tenantId,
+        p_entity_id: data.id,
+      })
+      if (rpcErr) throw rpcErr
+      data.is_default = true
+    }
+
     return NextResponse.json({ entity: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

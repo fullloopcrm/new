@@ -31,11 +31,19 @@ export async function listEntities(tenantId: string): Promise<Entity[]> {
 }
 
 export async function getDefaultEntityId(tenantId: string): Promise<string | null> {
+  // `active` matters here: DELETE /api/finance/entities/[id] guards against
+  // archiving the current default, but that guard used to be a
+  // check-then-act race (see set_default_entity migration notes). If a
+  // default entity was ever archived through that window, every writer that
+  // falls back to "the default entity" when no entity_id is given (this
+  // function's 4 callers, plus post_journal_entry's own SQL-side fallback)
+  // must not keep silently resolving to a dead entity.
   const { data } = await supabaseAdmin
     .from('entities')
     .select('id')
     .eq('tenant_id', tenantId)
     .eq('is_default', true)
+    .eq('active', true)
     .limit(1)
     .maybeSingle()
   return data?.id || null

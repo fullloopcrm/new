@@ -34,8 +34,8 @@ beforeEach(() => {
   h.store = {
     tenants: [{ id: 'tenant-A', name: 'Acme A', selena_config: {}, compliance: {} }],
     entities: [
-      { id: 'ent-A1', tenant_id: 'tenant-A', is_default: true, name: 'Acme A LLC', legal_name: 'Acme A Holdings LLC' },
-      { id: 'ent-B1', tenant_id: 'tenant-B', is_default: true, name: 'Acme B LLC', legal_name: 'Acme B Secret Holdings LLC' },
+      { id: 'ent-A1', tenant_id: 'tenant-A', is_default: true, active: true, name: 'Acme A LLC', legal_name: 'Acme A Holdings LLC' },
+      { id: 'ent-B1', tenant_id: 'tenant-B', is_default: true, active: true, name: 'Acme B LLC', legal_name: 'Acme B Secret Holdings LLC' },
     ],
   }
 })

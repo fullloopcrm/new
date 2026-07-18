@@ -37,8 +37,8 @@ beforeEach(() => {
   h.store = {
     bank_accounts: [],
     entities: [
-      { id: 'ent-A1', tenant_id: TENANT_A, name: 'Acme A', is_default: true },
-      { id: 'ent-B1', tenant_id: TENANT_B, name: 'Acme B (secret)', is_default: true },
+      { id: 'ent-A1', tenant_id: TENANT_A, name: 'Acme A', is_default: true, active: true },
+      { id: 'ent-B1', tenant_id: TENANT_B, name: 'Acme B (secret)', is_default: true, active: true },
     ],
     chart_of_accounts: [
       { id: 'coa-A1', tenant_id: TENANT_A, code: '1000', name: 'Cash' },

@@ -80,6 +80,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         .from('entities')
         .update(entityCols)
         .eq('is_default', true)
+        .eq('active', true)
       if (error) throw new Error(`entity: ${error.message}`)
     }
 

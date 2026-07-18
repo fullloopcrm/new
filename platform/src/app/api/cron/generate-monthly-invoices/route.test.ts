@@ -62,7 +62,7 @@ beforeEach(() => {
     ],
     invoices: [],
     invoice_activity: [],
-    entities: [{ id: 'ent-1', tenant_id: 'tenant-A', is_default: true }],
+    entities: [{ id: 'ent-1', tenant_id: 'tenant-A', is_default: true, active: true }],
     notifications: [],
   }
 })

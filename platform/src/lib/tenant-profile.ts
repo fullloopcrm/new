@@ -305,6 +305,7 @@ export async function getTenantProfile(tenantId: string): Promise<TenantProfile 
       .select('name, legal_name, ein, entity_type, address, city, state, zip, currency, fiscal_year_start')
       .eq('tenant_id', tenantId)
       .eq('is_default', true)
+      .eq('active', true)
       .maybeSingle(),
     supabaseAdmin
       .from('service_types')

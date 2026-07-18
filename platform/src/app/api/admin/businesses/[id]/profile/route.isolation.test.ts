@@ -44,8 +44,8 @@ beforeEach(() => {
   h.store = {
     tenants: [{ id: 'tenant-A', name: 'Acme A' }, { id: 'tenant-B', name: 'Acme B' }],
     entities: [
-      { id: 'e-A1', tenant_id: 'tenant-A', is_default: true, phone: 'old-A' },
-      { id: 'e-B1', tenant_id: 'tenant-B', is_default: true, phone: 'old-B' },
+      { id: 'e-A1', tenant_id: 'tenant-A', is_default: true, active: true, phone: 'old-A' },
+      { id: 'e-B1', tenant_id: 'tenant-B', is_default: true, active: true, phone: 'old-B' },
     ],
   }
 })
