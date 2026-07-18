@@ -10,6 +10,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { fetchTitleMeta } from './remediate'
+import { nonServingTenantIds } from './tenant-gate'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -114,7 +115,10 @@ export async function generateCompetitorProposals(opts?: { limit?: number }): Pr
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = (data ?? []) as GapIssue[]
+  const nonServing = await nonServingTenantIds()
+  const issues = ((data ?? []) as GapIssue[]).filter(
+    (i) => !(i.tenant_id && nonServing.has(i.tenant_id)),
+  )
   let proposals = 0
   for (const issue of issues) proposals += await proposeForGap(issue)
   return { issues: issues.length, proposals }

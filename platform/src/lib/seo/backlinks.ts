@@ -33,6 +33,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import type { IndustryKey } from '@/lib/industry-presets'
 import { mapIndustry } from '@/lib/industry-presets'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // ---------------------------------------------------------------------------
 // Citation source catalog
@@ -173,10 +174,17 @@ export async function loadActiveFleet(): Promise<TenantFleetRow[]> {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id,name,phone,website_url,industry,google_business')
+    .select('id,name,phone,website_url,industry,google_business,status')
     .in('id', [...byTenant.keys()])
 
-  return (tenants ?? []).map((t): TenantFleetRow => ({
+  // "Active" in this function's name means "has a resolvable domain" — it
+  // never actually checked tenant status, so a suspended/cancelled/deleted
+  // tenant kept getting citation/editorial proposals drafted (AI spend) and,
+  // if a human approved one, a real submission to a third-party directory for
+  // a business that no longer exists on the platform.
+  return (tenants ?? [])
+    .filter((t) => tenantServesSite(t.status as string | null))
+    .map((t): TenantFleetRow => ({
     tenant_id: t.id as string,
     domain: byTenant.get(t.id as string) as string,
     name: (t.name as string) || '',

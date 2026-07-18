@@ -15,6 +15,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { fetchSerp, serpEnabled, urlToDomain, type SerpOrganic } from './serp'
 import { commercialIntent, commercialWeight, type Commercial } from './commercial'
+import { nonServingTenantIds } from './tenant-gate'
 
 // --- tuning knobs -----------------------------------------------------------
 const KEYWORDS_PER_PROPERTY = 15 // SERP calls per property per run (cost cap)
@@ -280,7 +281,10 @@ export async function runCompetitorScan(opts?: { propertyLimit?: number }): Prom
     .from('seo_properties')
     .select('property,domain,tenant_id')
     .eq('enabled', true)
-  let properties = (props ?? []) as Property[]
+  const nonServing = await nonServingTenantIds()
+  let properties = ((props ?? []) as Property[]).filter(
+    (p) => !(p.tenant_id && nonServing.has(p.tenant_id)),
+  )
   if (opts?.propertyLimit) properties = properties.slice(0, opts.propertyLimit)
 
   let serpCalls = 0

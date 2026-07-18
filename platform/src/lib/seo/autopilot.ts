@@ -10,6 +10,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { applyOverride } from './overrides'
 import { evaluateSafety, type SafetyInput } from './safety-gate'
+import { nonServingTenantIds } from './tenant-gate'
 
 const CANARY_PAGES_PER_RUN = 3 // new pages auto-applied per site, per run
 const RATE_CAP_PER_WEEK = 5 // max autopilot applies per site in a rolling 7 days
@@ -91,7 +92,12 @@ export async function runAutopilot(): Promise<AutopilotResult> {
     .order('proposed_at', { ascending: true })
     .limit(500)
 
-  const changes = (data ?? []) as ChangeRow[]
+  // Never auto-apply live site changes for a suspended/cancelled/deleted
+  // tenant — the property/tenant link can outlive the tenant's own status.
+  const nonServing = await nonServingTenantIds()
+  const changes = (data ?? []).filter(
+    (c) => !(c.tenant_id && nonServing.has(c.tenant_id)),
+  ) as ChangeRow[]
 
   // Bundle title + meta for the same URL so a page applies as one unit.
   const bundles = new Map<string, UrlBundle>()

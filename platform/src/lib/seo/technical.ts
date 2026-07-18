@@ -15,6 +15,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { listSitemaps, inspectUrl, type UrlInspection } from './gsc'
 import { safeFetch } from '../ssrf'
+import { nonServingTenantIds } from './tenant-gate'
 
 const URLS_PER_PROPERTY = 20 // URL Inspection calls per property per run
 const SITEMAP_URL_CAP = 800 // max <loc> entries we parse per property
@@ -243,7 +244,10 @@ export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promi
     .from('seo_properties')
     .select('property,domain,tenant_id')
     .eq('enabled', true)
-  let properties = (props ?? []) as Property[]
+  const nonServing = await nonServingTenantIds()
+  let properties = ((props ?? []) as Property[]).filter(
+    (p) => !(p.tenant_id && nonServing.has(p.tenant_id)),
+  )
   if (opts?.propertyLimit) properties = properties.slice(0, opts.propertyLimit)
 
   const out: TechnicalScanResult = {

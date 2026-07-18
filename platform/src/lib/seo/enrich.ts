@@ -19,6 +19,7 @@ import { resolveAnthropic } from '@/lib/anthropic-client'
 import { getPersona, renderPersonaExtras } from '@/lib/selena/persona-file'
 import { getAgentConfig } from '@/lib/selena/agent-config-loader'
 import { safeFetch } from '../ssrf'
+import { nonServingTenantIds } from './tenant-gate'
 
 const MODEL = 'claude-sonnet-5'
 const MIN_LEN = 350 // enrichment must be substantial
@@ -232,7 +233,8 @@ export async function generateEnrichments(opts?: { limit?: number }): Promise<{
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = (data ?? []) as Issue[]
+  const nonServing = await nonServingTenantIds()
+  const issues = ((data ?? []) as Issue[]).filter((i) => !nonServing.has(i.tenant_id))
   const knowledgeCache = new Map<string, { block: string; facts: string[] }>()
   let proposed = 0
   let rejected = 0

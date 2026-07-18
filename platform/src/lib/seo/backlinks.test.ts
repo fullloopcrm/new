@@ -18,6 +18,7 @@ type TenantRow = {
   industry: string | null
   domain?: string | null
   google_business?: { location_name?: string } | null
+  status?: string | null
 }
 type BacklinkRow = { tenant_id: string; kind: string; source_key: string; status: string; [k: string]: unknown }
 
@@ -223,6 +224,56 @@ describe('loadActiveFleet()', () => {
     expect(byId.get('t6')).toBe(true)
     expect(byId.get('t7')).toBe(false)
     expect(byId.get('t8')).toBe(false)
+  })
+
+  it('excludes a suspended, cancelled, or deleted tenant despite having a resolvable domain (status-gate gap)', async () => {
+    // "Active" in this function's name previously meant only "has a
+    // resolvable domain" -- it never checked tenants.status, so a dead
+    // tenant's site kept getting citation/editorial proposals drafted forever.
+    tenantDomainRows = [
+      { domain: 'suspended-co.com', tenant_id: 't-susp' },
+      { domain: 'cancelled-co.com', tenant_id: 't-cancel' },
+      { domain: 'deleted-co.com', tenant_id: 't-del' },
+    ]
+    tenantRows = [
+      { id: 't-susp', name: 'Suspended Co', phone: null, website_url: null, industry: 'hvac', status: 'suspended' },
+      { id: 't-cancel', name: 'Cancelled Co', phone: null, website_url: null, industry: 'hvac', status: 'cancelled' },
+      { id: 't-del', name: 'Deleted Co', phone: null, website_url: null, industry: 'hvac', status: 'deleted' },
+    ]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet).toHaveLength(0)
+  })
+
+  it('includes a setup/pending tenant (new tenants are servable before full activation)', async () => {
+    tenantDomainRows = [
+      { domain: 'setup-co.com', tenant_id: 't-setup' },
+      { domain: 'pending-co.com', tenant_id: 't-pending' },
+    ]
+    tenantRows = [
+      { id: 't-setup', name: 'Setup Co', phone: null, website_url: null, industry: 'hvac', status: 'setup' },
+      { id: 't-pending', name: 'Pending Co', phone: null, website_url: null, industry: 'hvac', status: 'pending' },
+    ]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet.map((t) => t.tenant_id).sort()).toEqual(['t-pending', 't-setup'])
+  })
+
+  it('wrong-tenant probe: a cancelled tenant never suppresses a different, still-serving tenant', async () => {
+    tenantDomainRows = [
+      { domain: 'dead-co.com', tenant_id: 't-dead' },
+      { domain: 'live-co.com', tenant_id: 't-live' },
+    ]
+    tenantRows = [
+      { id: 't-dead', name: 'Dead Co', phone: null, website_url: null, industry: 'hvac', status: 'cancelled' },
+      { id: 't-live', name: 'Live Co', phone: null, website_url: null, industry: 'hvac', status: 'active' },
+    ]
+
+    const fleet = await loadActiveFleet()
+
+    expect(fleet.map((t) => t.tenant_id)).toEqual(['t-live'])
   })
 })
 
@@ -509,6 +560,23 @@ describe('generateBacklinkProposals()', () => {
     const t2Keys = backlinkRows.filter((r) => r.tenant_id === 't2' && r.kind === 'citation').map((r) => r.source_key)
     expect(t1Keys).not.toContain('google_business_profile')
     expect(t2Keys).toContain('google_business_profile')
+  })
+
+  it('drafts nothing for a cancelled tenant, still drafts for an active one (status-gate)', async () => {
+    tenantDomainRows = [
+      { domain: 'cancelled-co.com', tenant_id: 't-cancel' },
+      { domain: 'active-co.com', tenant_id: 't-active' },
+    ]
+    tenantRows = [
+      { id: 't-cancel', name: 'Cancelled Co', phone: null, website_url: null, industry: 'towing', status: 'cancelled' },
+      { id: 't-active', name: 'Active Co', phone: null, website_url: null, industry: 'towing', status: 'active' },
+    ]
+
+    const summary = await generateBacklinkProposals({ limit: 10 })
+
+    expect(summary.tenants).toBe(1)
+    expect(backlinkRows.some((r) => r.tenant_id === 't-cancel')).toBe(false)
+    expect(backlinkRows.some((r) => r.tenant_id === 't-active')).toBe(true)
   })
 
   it('respects the limit and skips tenants without a name', async () => {

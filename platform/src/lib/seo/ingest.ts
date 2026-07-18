@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { listSites, querySearchAnalytics, type GscSite } from './gsc'
 import { classifyIntent } from './intent'
 import { commercialIntent } from './commercial'
+import { nonServingTenantIds } from './tenant-gate'
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -60,7 +61,7 @@ export async function linkTenant(domain: string): Promise<string | null> {
   return legacy?.id ?? null
 }
 
-async function upsertProperty(site: GscSite): Promise<void> {
+async function upsertProperty(site: GscSite): Promise<string | null> {
   const domain = propertyToDomain(site.siteUrl)
   const tenant_id = await linkTenant(domain)
   await supabaseAdmin.from('seo_properties').upsert(
@@ -73,6 +74,7 @@ async function upsertProperty(site: GscSite): Promise<void> {
     },
     { onConflict: 'property' },
   )
+  return tenant_id
 }
 
 type IngestResult = { property: string; rows: number; error?: string }
@@ -141,12 +143,22 @@ export async function ingestAllProperties(opts?: { days?: number }): Promise<{
 
   const sites = await listSites()
 
-  // Register/refresh the property registry first.
-  for (const site of sites) await upsertProperty(site)
+  // Register/refresh the property registry first, and remember each site's
+  // linked tenant so a suspended/cancelled/deleted tenant's properties still
+  // get tracked (harmless) but skip the GSC Search Analytics pull below —
+  // that's the actual quota-metered cost, spent indefinitely otherwise.
+  const nonServing = await nonServingTenantIds()
+  const tenantBySite = new Map<string, string | null>()
+  for (const site of sites) tenantBySite.set(site.siteUrl, await upsertProperty(site))
 
   // Then ingest metrics per property.
   const results: IngestResult[] = []
   for (const site of sites) {
+    const tenantId = tenantBySite.get(site.siteUrl)
+    if (tenantId && nonServing.has(tenantId)) {
+      results.push({ property: site.siteUrl, rows: 0, error: 'skipped: tenant not serving' })
+      continue
+    }
     results.push(await ingestProperty(site, startDate, endDate))
   }
 

@@ -10,6 +10,7 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { safeFetch } from '../ssrf'
+import { nonServingTenantIds } from './tenant-gate'
 
 const MODEL = 'claude-sonnet-5'
 
@@ -124,7 +125,10 @@ export async function generateProposals(opts?: { limit?: number }): Promise<{
     .order('value', { ascending: false })
     .limit(limit)
 
-  const issues = (data ?? []) as Issue[]
+  const nonServing = await nonServingTenantIds()
+  const issues = ((data ?? []) as Issue[]).filter(
+    (i) => !(i.tenant_id && nonServing.has(i.tenant_id)),
+  )
   let proposals = 0
   for (const issue of issues) proposals += await proposeForIssue(issue)
   return { issues: issues.length, proposals }
