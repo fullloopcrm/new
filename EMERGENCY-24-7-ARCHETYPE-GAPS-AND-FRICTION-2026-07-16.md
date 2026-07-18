@@ -11714,3 +11714,53 @@ clean, full vitest suite green (490 files / 2451 tests -- the new file's 2
 assertions plus every prior test still passing). db-backup.yml WAS
 intentionally touched this round (one-line curl fix) -- a genuine
 production gap on the third file of this surface, not only a coverage gap.
+
+## (230) Fresh ground -- db-backup.yml's OWN "Install latest pg_dump" step had
+a FOURTH unbounded third-party curl call, worse-positioned than (227)-(229)
+
+Items (227)/(228)/(229) closed the unbounded-curl class on three Telegram
+notify-failure calls (ci.yml, tenant-config-reconcile.yml, db-backup.yml's
+own "Alert on failure" step). Re-reading db-backup-pg-dump-source-pin-
+guard.test.ts's own "Install latest pg_dump" step block for its unrelated
+URL-pin check (items 217/218) surfaced a sibling gap in the SAME step:
+`curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg
+--dearmor ...` (db-backup.yml:62) had no `--max-time` either -- grepping
+every guard test file in this lane for "max-time" before writing this guard
+turned up exactly two hits (db-backup-alert-max-time-guard.test.ts,
+notify-failure-hang-bound-guard.test.ts), neither reading this step.
+
+This instance is WORSE-positioned than (227)-(229): those were all trailing
+best-effort alert steps; (229)'s was bounded by whatever budget remained
+after the real backup work already finished. This is the FIRST step of the
+`backup` job (timeout-minutes: 30) -- a DNS hang or slow-drip response from
+postgresql.org here would silently consume the ENTIRE 30-minute job budget
+before the dump/encrypt/upload steps ever run, turning a transient network
+blip into a fully-skipped nightly backup with zero partial progress,
+instead of failing in a couple seconds.
+
+**Fixed:** added `--max-time 30` to the curl call (same bound used for
+227/228/229). Closed with a new guard,
+`db-backup-pg-dump-key-fetch-max-time-guard.test.ts`, isolating the
+"Install latest pg_dump" step block the same way db-backup-pg-dump-source-
+pin-guard.test.ts already does. That existing guard's own URL-pin regex
+anchored `curl -fsSL` directly against the URL with nothing in between --
+adding `--max-time 30` broke it (caught live by the full-suite re-run, not
+missed), so its regex was widened to allow ONLY an optional
+`--max-time <n>` in that gap, keeping the pin exactly as tight against any
+other token.
+
+**Mutation-verified live:** wrote the new guard against the pre-fix file
+(bare `curl -fsSL https://...`, no --max-time) -- failed with the exact
+predicted message. Applied the fix, guard went green. Reverted
+`curl -fsSL --max-time 30` back to bare `curl -fsSL` -- guard caught it
+again. Restored from a saved pre-mutation backup, confirmed
+`git diff --stat .github/workflows/db-backup.yml` showed only the intended
+one-line fix before and after the round-trip.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean on both touched test files, full vitest suite
+green (491 files / 2454 tests -- the new file's 3 assertions, the widened
+existing regex, and every prior test all passing). db-backup.yml WAS
+intentionally touched this round (one-line curl fix) -- a genuine
+production gap on the fourth curl call of this surface, not only a
+coverage gap.
