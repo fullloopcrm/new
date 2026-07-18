@@ -99,7 +99,6 @@ const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
   { label: 'Activity', href: '/dashboard/activity', perm: 'audit.view' },
   { label: 'Docs', href: '/dashboard/docs' },
   { label: 'Loop Connect', href: '/dashboard/connect' },
-  { label: 'Feedback', href: '/dashboard/feedback' },
 ]
 
 function activeFold(pathname: string): string | null {
@@ -460,6 +459,23 @@ export default function DashboardShell({
             <span style={{ fontFamily: 'var(--mono)', fontSize: '11px', color: 'var(--color-loop-muted)', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               {meta}
             </span>
+            <Link
+              href="/dashboard/feedback"
+              className="flex-shrink-0 rounded-md transition-transform hover:scale-105"
+              style={{
+                fontFamily: 'var(--mono)',
+                fontSize: '10.5px',
+                letterSpacing: '0.04em',
+                textTransform: 'uppercase',
+                fontWeight: 600,
+                color: '#fff',
+                background: '#E5484D',
+                padding: '7px 12px',
+                boxShadow: '0 0 0 3px rgba(229,72,77,0.15)',
+              }}
+            >
+              Feedback / Suggestions?
+            </Link>
             <button
               type="button"
               onClick={() => setNotifPanelOpen(true)}
