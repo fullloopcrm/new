@@ -263,6 +263,34 @@ describe('audit-tenant-scope guard — tenantDb() wrapper recognition (ADR 0004)
     expect(status).toBe(1)
     expect(stderr).toContain('clients')
   })
+
+  it('does NOT let a variable name RE-DECLARED for a non-tenantDb value in a different function inherit an earlier same-named tenantDb var\'s safety', () => {
+    // Regression guard: tenantDbVars was a flat, file-global Set of NAMES —
+    // "was `db` EVER assigned from tenantDb(...) anywhere in this file" —
+    // with no notion of WHICH declaration is in scope at a given call site.
+    // An ordinary, unremarkable variable-name collision (`db` used for a
+    // tenantDb-bound client in one handler, reused for a plain/unscoped
+    // client in a different handler of the same file) let the second
+    // declaration's genuinely unscoped query silently inherit the first
+    // declaration's "safe" status by name alone. Verified live before the
+    // fix: this exact fixture passed with exit 0.
+    const dir = fixture()
+    write(dir, 'src/leak.ts', `
+      export async function scoped(tenantId) {
+        const db = tenantDb(tenantId)
+        await db${FROM('bookings')}.select('*')
+      }
+      export async function leaky(supabaseAdmin) {
+        const db = supabaseAdmin
+        const { data } = await db${FROM('clients')}.select('*')
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status, stderr).toBe(1)
+    expect(stderr).toContain('clients')
+    expect(stderr).toContain('leak.ts')
+  })
 })
 
 describe('audit-tenant-scope guard — explicit overrides and exclusions', () => {

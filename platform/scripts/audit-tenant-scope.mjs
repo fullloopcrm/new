@@ -115,6 +115,43 @@ for (const file of files) {
     if (vm) tenantDbVars.add(vm[1])
   }
 
+  // Fresh ground, same class as the "root line only" fix documented below (a
+  // same-named tenantDb var in unrelated code falsely suppressing a real
+  // leak): `tenantDbVars` only records that SOME line in the file assigns a
+  // given name from tenantDb(...) — it says nothing about whether THAT
+  // specific declaration is the one in scope at a given `.from()` call. A
+  // name re-declared later in the SAME file for something else entirely
+  // (`const db = tenantDb(tenantId)` in one function, `const db =
+  // supabaseAdmin` in another — an ordinary, unremarkable variable-name
+  // collision across two unrelated handlers in one route.ts) still matches
+  // `/\bdb\b/` against the second declaration's own chain-root line, so the
+  // genuinely unscoped query there is silently treated as tenantDb-wrapped
+  // and never flagged — a real cross-tenant leak invisible to the one gate
+  // that exists to catch it. Verified live: a fixture with `scoped()`
+  // declaring `const db = tenantDb(tenantId)` and an unrelated `leaky()`
+  // declaring `const db = supabaseAdmin` then querying `clients` with no
+  // tenant_id filter passed with exit 0 before this fix. Track every
+  // declaration of each tenantDb-tracked name with its line number and
+  // whether THAT declaration itself was `= tenantDb(...)`, so a lookup can
+  // resolve to the NEAREST PRECEDING declaration (ordinary variable
+  // shadowing/reassignment semantics) instead of "was this name EVER
+  // tenantDb-bound anywhere in the file."
+  const declsByName = new Map()
+  const DECL_RX = /\b(?:const|let)\s+(\w+)\s*=\s*(tenantDb\()?/
+  for (let i = 0; i < lines.length; i++) {
+    const dm = lines[i].match(DECL_RX)
+    if (!dm || !tenantDbVars.has(dm[1])) continue
+    if (!declsByName.has(dm[1])) declsByName.set(dm[1], [])
+    declsByName.get(dm[1]).push({ line: i, isTenantDb: !!dm[2] })
+  }
+  const isTenantDbVarAt = (name, atOrBeforeLine) => {
+    let latest = null
+    for (const d of declsByName.get(name) || []) {
+      if (d.line <= atOrBeforeLine && (!latest || d.line > latest.line)) latest = d
+    }
+    return latest ? latest.isTenantDb : false
+  }
+
   for (let i = 0; i < lines.length; i++) {
     // Quote-agnostic: idor-route-guard.ts's own TABLE_RE already matches
     // single/double/backtick quotes (see src/lib/idor-route-guard.ts). This
@@ -139,7 +176,7 @@ for (const file of files) {
     while (root > Math.max(0, i - LOOKBEHIND_LINES) && lines[root].trim().startsWith('.')) root--
     const chainRootLine = lines[root]
     const tenantDbWrapped = TENANT_DB_CALL_RX.test(lookBehind) ||
-      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(chainRootLine))
+      [...tenantDbVars].some((v) => new RegExp(`\\b${v}\\b`).test(chainRootLine) && isTenantDbVarAt(v, root))
     if (tenantDbWrapped) continue
 
     const chain = lines.slice(i, i + 12).join('\n')
