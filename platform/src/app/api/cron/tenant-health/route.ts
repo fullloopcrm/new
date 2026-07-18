@@ -83,6 +83,7 @@ export async function GET(request: Request) {
   }
 
   // Source 2 (fallback): active tenant_domains, only for tenants not covered above
+  const source1Ids = new Set(byTenant.keys())
   const { data: tdRows } = await supabaseAdmin
     .from('tenant_domains')
     .select('tenant_id, domain, is_primary')
@@ -93,7 +94,7 @@ export async function GET(request: Request) {
     for (const t of extra ?? []) slugById.set(t.id, t.slug)
   }
   for (const r of tdRows ?? []) {
-    if (byTenant.has(r.tenant_id)) continue // tenants.domain already won
+    if (source1Ids.has(r.tenant_id)) continue // tenants.domain already won
     const slug = slugById.get(r.tenant_id)
     if (!slug || SKIP_SLUGS.has(slug) || EXCLUDED_TENANTS.has(slug)) continue
     const cur = byTenant.get(r.tenant_id)
