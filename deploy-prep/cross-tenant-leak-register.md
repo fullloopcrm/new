@@ -5515,3 +5515,97 @@ today. Left untouched; flagging in case a future round finds a reason a
 narrower role shouldn't reach them.
 
 1 commit (fix + test, b3e0286b), file-only, no push/deploy/DB.
+
+## 2026-07-18 11:29 round (W2) — POST /api/projects title/service_type + admin/comhub/channels name/description had zero free-text cap
+
+Followed up on last round's flagged next-candidate: a genuinely fresh
+`capString` audit of raw `.insert()`/`.update()` route.ts hits. Narrowed
+~276 raw hits to 27 plausible free-text candidates via a keyword filter
+(message/caption/notes/reason/comment/description/feedback/content/title/
+label/bio/summary/instructions), then cross-referenced `git log` per file
+to exclude everything already closed by this session's prior cap rounds.
+2 genuinely untouched:
+
+`POST /api/projects` (authenticated, `bookings.create`) — `title`/
+`service_type` written raw to both the `projects` insert and the derived
+span-booking insert, zero cap. Fixed: `capString(title, 500)`,
+`capString(service_type, 200)`.
+
+`POST /api/admin/comhub/channels` (`requireAdmin`-gated — platform-admin
+only, lower severity than a tenant self-serve surface, but same unbounded-
+write shape) — `name`/`description` written raw into `comhub_threads`.
+Fixed: `capString(name, 200)` (falling back to the existing `#slug`
+default), `capString(description, 2000)`.
+
+Re-verified resolver lane this round (read `tenant-lookup.ts`'s resolution
+order + cross-check guard, `tenant.ts`'s `tenants` queries): still
+tenant_domains-first with proper `tenants.domain` fallback and cross-
+tenant refuse-to-fall-through intact. Confirmed dry, 6+ consecutive rounds.
+
+**Verification:** 2 new test files (`route.post-text-cap.test.ts` × 2, 4
+tests each). RED/GREEN via `git diff > patch` / `git apply -R patch`
+(worktree `git stash` hook-blocked — shared `.git` dir across 4 worker
+worktrees). `npx tsc --noEmit` clean. Full suite: 783 files (780 passed +
+3 flaky full-suite-only timeouts — `finance-export.test.ts`, 2×
+`site/template` branding tests — confirmed unrelated, pass in isolated
+re-run), 3402/3442 + 37 pre-existing skipped, 0 real regressions (prior
+round: 781/3397). `npm run audit:tenant`: same 4 pre-existing findings,
+none new.
+
+1 commit (fix + tests, 1912c6e5), file-only, no push/deploy/DB.
+
+## 2026-07-18 11:29 round (W2) — GET /api/google/auth had zero permission check + POST /api/connect/{channels,messages} name/body uncapped
+
+Fresh-ground surface: audited every remaining `getTenantForRequest()`-only
+route (no `requirePermission` anywhere in the file) not yet swept this
+session — 46 candidates. Two genuine gaps:
+
+**`GET /api/google/auth`** (Dashboard-level Google Business Profile OAuth
+authorize step) — zero permission check, exact same class as P95's
+`social/connect/{facebook,instagram}`: any authenticated tenant member,
+including staff, could hit "Connect Google" and bind their own personal
+Google Business Profile as the tenant's, since the OAuth callback trusts
+only the signed `state` param and can't re-check role itself. Confirmed
+by the codebase's own evidence — `social/connect/facebook/route.test.ts`'s
+doc comment already says "matching the pattern already used by
+`/api/google/auth`," but google/auth never actually had it. Fixed:
+`requirePermission('settings.integrations')`, matching the social OAuth
+siblings exactly (owner-only by default). Also switched
+`signOAuthState(tenant.id)` → `signOAuthState(tenant.tenantId)` to match
+`requirePermission`'s returned shape (no behavior change). `google/status`
+(read-only connection status) and `google/reviews`, `google/posts`
+(already `requirePermission`-gated on their write paths) were checked and
+are fine as-is.
+
+**Continuation:** while walking the Connect inbox (`/dashboard/connect`,
+the tenant's client-messaging hub, sibling surface to `dashboard/messages`
+flagged last round) to check whether it needed the same permission
+differential as google/social OAuth, found it doesn't (no sibling
+endpoint establishes a specific permission tier for sending a Connect
+message — matches the standing "no differential to match" disposition
+already given to `dashboard/messages`/`dashboard/comms-preview`) — but
+`POST /api/connect/channels` (`name`) and `POST /api/connect/messages`
+(`body`) both wrote free text raw into `connect_channels`/
+`connect_messages` with zero type/length cap, same class as the
+social/post and admin/comhub/channels caps from the last two rounds.
+Fixed: `capString(name, 200)`, `capString(body, 5000)`.
+
+**Verification:** 6 new tests on `google/auth` (2 authorize-shape + 4
+permission-probe: owner-succeeds, admin-forbidden, staff-forbidden,
+tenant-override-grant-to-manager), 7 new tests on
+`connect/{channels,messages}` (oversized-truncated / non-string-rejected
+/ normal-passthrough per field, plus whitespace-only-rejected on body).
+RED/GREEN mutation-verified via `git diff > patch` / `git apply -R patch`
+(worktree `git stash` hook-blocked): google/auth's 2 permission-probe
+tests went 200 pre-fix (RED), correct post-fix; connect's 4 of 7 probes
+were wrong pre-fix (untruncated lengths, non-string name forwarded, and a
+`TypeError` crash on non-string body via `.trim()`), all correct
+post-fix. `npx tsc --noEmit` clean. Full suite: 786 files, 3418/3455 pass
++ 37 pre-existing skipped, 0 regressions (was 784/3448). `npm run
+audit:tenant`: same 4 pre-existing findings, none new.
+
+Re-verified resolver lane is confirmed dry per leader's 11:29 order —
+dropped from queue for the rest of this session, not re-checked.
+
+2 commits (fix + tests, e1ac262f google/auth; 1d8d87c8 connect
+channels/messages), file-only, no push/deploy/DB.
