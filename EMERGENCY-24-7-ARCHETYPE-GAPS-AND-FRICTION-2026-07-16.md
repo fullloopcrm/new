@@ -11586,3 +11586,86 @@ zero errors, eslint clean on the new file, full vitest suite green
 test still passing). Neither ci.yml nor tenant-config-reconcile.yml was
 touched this round (all mutations were made, verified, and reverted during
 testing only); only new guard coverage was added.
+
+## (227) Fresh ground -- ci.yml's `notify-failure` job had NEITHER a
+job-level `timeout-minutes` NOR a per-call `--max-time` bound on its own
+`curl` POST to a third-party API, unlike every other job in this lane
+
+`verify:` (timeout-minutes: 20), `reconcile:` (timeout-minutes: 10), and
+`backup:` (timeout-minutes: 30) all carry an explicit timeout specifically
+so a hung step can't block the runner indefinitely --
+ci-workflow-resilience-guard.test.ts and reconcile-gate-wiring.test.ts both
+pin this, anchored specifically to those jobs. Neither `notify-failure` job
+appeared in either regex, by design: ci-workflow-resilience-guard.test.ts's
+own comment calls notify-failure "the trivial one-step" job when explaining
+why its timeout checks are deliberately anchored elsewhere (so a timeout
+migrating off the real long-running job onto notify-failure wouldn't
+silently satisfy an anywhere-in-file check). That reasoning covers the shell
+logic inside the step, but not the one thing the step actually does: POST to
+`api.telegram.org`, a third-party endpoint this job has zero control over.
+
+`curl` has no default response timeout. A DNS hang, a slow-drip response, or
+Telegram's API simply not answering would block the step -- and therefore the
+job -- indefinitely. Without a job-level `timeout-minutes`, GitHub's own
+360-minute default applies: a single network hiccup reaching Telegram would
+occupy a runner for up to six hours on a job whose entire purpose is a fast
+failure ping, burning runner-minutes and, worse, leaving the actual CI
+failure this job exists to announce unreported for that whole window instead
+of failing fast. Grepping every guard test file in this lane for
+"max-time" turned up nothing.
+
+**Fixed:** added `timeout-minutes: 5` to the notify-failure job and
+`--max-time 30` to its curl call (comfortably above a normal Telegram API
+round-trip, well under the job's own 5-minute bound) -- this is a real
+production change, not just new test coverage, since the gap was live in
+ci.yml itself, not merely uncovered-but-correct behavior. Closed with
+`notify-failure-hang-bound-guard.test.ts`, source-reading ci.yml and
+isolating the notify-failure job block by walking to the next unindented
+line (same approach as this lane's other job-block isolators).
+
+**Mutation-verified live before AND after the fix:** confirmed the pre-fix
+files (no timeout-minutes, no --max-time) would fail this guard's two new
+assertions with the exact predicted messages; applied the fix; then
+mutation-verified the fix itself two ways, each restored before the next:
+(1) deleted `timeout-minutes: 5` from the notify-failure job -- guard caught
+it, full suite otherwise green. (2) reverted `curl -s --max-time 30` back to
+bare `curl -s` -- guard caught it, full suite otherwise green. Both restores
+left `git diff --stat .github/workflows/` matching only the intended fix
+(`git diff --stat` showed the same 2-file/14-insertion/2-deletion diff before
+and after each mutation round-trip).
+
+## (228) Continuation (step 2 of the queue) -- the identical gap existed
+verbatim on tenant-config-reconcile.yml's own `notify-failure` job
+
+Same shape as (227): `needs: reconcile` + `if: failure()`, no
+`timeout-minutes`, curl call with no `--max-time`, POSTing to the same
+`api.telegram.org` endpoint. reconcile-gate-wiring.test.ts's own timeout
+check is anchored to the `reconcile:` job specifically, for the same
+already-documented reason -- notify-failure was never in scope for either
+file's timeout coverage.
+
+**Fixed:** identical fix as (227) -- `timeout-minutes: 5` on the
+notify-failure job, `--max-time 30` on the curl call. Both files closed by
+the SAME guard file (`notify-failure-hang-bound-guard.test.ts`), via
+`describe.each` over `[ci.yml, tenant-config-reconcile.yml]` (same
+cross-file pattern as `telegram-alert-body-encoding-guard.test.ts` from
+items (225)/(226)) -- so a future one-file-only regression on either surfaces
+independently, not just in aggregate.
+
+**Mutation-verified live, both regressions, independently restored:** (1)
+`timeout-minutes: 5` deleted from tenant-config-reconcile.yml's
+notify-failure job -- guard caught it. (2) `--max-time 30` reverted to bare
+`curl -s` -- guard caught it. All four mutations across both items (227)/(228)
+(2 regressions x 2 files) were applied and reverted one at a time, confirmed
+against a saved pre-mutation backup of each file, with the actual kept fix's
+`git diff --stat .github/workflows/` (2 files, 14 insertions, 2 deletions)
+unchanged before and after every mutation round-trip.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit` zero
+errors, `eslint src/lib/notify-failure-hang-bound-guard.test.ts --quiet`
+clean, full vitest suite green (489 files / 2449 tests -- the new file's 6
+assertions plus every prior test still passing). Unlike prior rounds in this
+queue, ci.yml and tenant-config-reconcile.yml WERE intentionally touched
+this round (timeout-minutes + --max-time added to both notify-failure jobs)
+-- a genuine production gap, not only a coverage gap -- alongside the new
+guard test.
