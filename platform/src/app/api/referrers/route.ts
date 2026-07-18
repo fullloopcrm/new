@@ -118,6 +118,18 @@ export async function POST(request: NextRequest) {
 
   const referralCode = generateRefCode(name)
 
+  // tenants.commission_rate (whole percent, e.g. 10) is what the admin sets
+  // in Settings > Referrals & Policies / dashboard/referrals -- but every
+  // signup used to hardcode 0.10 here regardless, so that setting had no
+  // effect on what a new referrer actually earns. null/undefined (never
+  // configured) falls back to the same 10% default used elsewhere
+  // (settings.ts, dashboard/referrals); an explicit 0 is honored, not
+  // treated as falsy-missing.
+  const tenantRate = (tenant as { commission_rate?: number | null }).commission_rate
+  const commissionRate = tenantRate === null || tenantRate === undefined
+    ? 0.10
+    : Math.max(0, Number(tenantRate)) / 100
+
   const { data, error } = await supabaseAdmin
     .from('referrers')
     .insert({
@@ -127,10 +139,8 @@ export async function POST(request: NextRequest) {
       phone: phone || null,
       referral_code: referralCode,
       preferred_payout: preferred_payout || 'zelle',
-      // Stored as a fraction (0.10 = 10%), matching the schema default and the
-      // existing rows. The old code wrote `10` here (into the wrong table), which
-      // would read as 1000% wherever commission_rate is applied to a gross amount.
-      commission_rate: 0.10,
+      // Stored as a fraction (0.10 = 10%), matching the schema default.
+      commission_rate: commissionRate,
       total_earned: 0,
       total_paid: 0,
       status: 'active',
