@@ -160,13 +160,14 @@ async function inspectOne(
   prop: Property,
   url: string,
   now: string,
-): Promise<{ inspected: boolean; problem?: Record<string, unknown> }> {
+): Promise<{ inspected: boolean; failed?: boolean; failReason?: string; problem?: Record<string, unknown> }> {
   let r: UrlInspection
   try {
     r = await inspectUrl(prop.property, url)
   } catch (e) {
-    console.error(`[seo/technical] inspect ${url}: ${e instanceof Error ? e.message : e}`)
-    return { inspected: false }
+    const failReason = e instanceof Error ? e.message : String(e)
+    console.error(`[seo/technical] inspect ${url}: ${failReason}`)
+    return { inspected: false, failed: true, failReason }
   }
 
   await supabaseAdmin.from('seo_url_status').upsert(
@@ -212,10 +213,15 @@ async function inspectOne(
   }
 }
 
-async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspected: number; problems: number }> {
+async function inspectAndDetect(
+  prop: Property,
+  urls: string[],
+): Promise<{ inspected: number; failed: number; failReason?: string; problems: number }> {
   const now = new Date().toISOString()
   const problems: Record<string, unknown>[] = []
   let inspected = 0
+  let failed = 0
+  let failReason: string | undefined
 
   // Inspect in small concurrent batches — sequential is too slow for the cron.
   for (let i = 0; i < urls.length; i += INSPECT_CONCURRENCY) {
@@ -223,6 +229,10 @@ async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspe
     const results = await Promise.all(batch.map((u) => inspectOne(prop, u, now)))
     for (const res of results) {
       if (res.inspected) inspected++
+      if (res.failed) {
+        failed++
+        failReason = failReason ?? res.failReason
+      }
       if (res.problem) problems.push(res.problem)
     }
   }
@@ -231,7 +241,7 @@ async function inspectAndDetect(prop: Property, urls: string[]): Promise<{ inspe
     const { error } = await supabaseAdmin.from('seo_issues').insert(problems)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
     if (error) throw new Error(`not_indexed insert ${prop.property}: ${error.message}`)
   }
-  return { inspected, problems: problems.length }
+  return { inspected, failed, failReason, problems: problems.length }
 }
 
 // ---------------------------------------------------------------------------
@@ -272,10 +282,25 @@ export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promi
         out.skipped.push(`${prop.domain ?? propertyToDomain(prop.property)}: no URLs to inspect`)
         continue
       }
-      const { inspected, problems } = await inspectAndDetect(prop, urls)
+      const { inspected, failed, failReason, problems } = await inspectAndDetect(prop, urls)
       out.urlsInspected += inspected
       out.notIndexed += problems
-      out.scanned++
+      // Every attempted inspection failing (GSC permission, quota, transient API
+      // error — see inspectUrl's throw) previously looked identical to "scanned,
+      // confirmed zero indexing problems": inspected=0/problems=0 either way, no
+      // trace beyond a console.error nobody reads. A newly-verified property
+      // whose service-account grant covers Search Analytics but not URL
+      // Inspection would then permanently report clean with real ingest data
+      // flowing in — the exact "fresh ingest, zero not_indexed rows" shape.
+      // Surface it as skipped (same diagnostic channel as the no-URLs case)
+      // instead of silently counting it as a clean scan.
+      if (inspected === 0 && failed > 0) {
+        out.skipped.push(
+          `${prop.domain ?? propertyToDomain(prop.property)}: ${failed}/${urls.length} URL inspections failed, 0 succeeded (last error: ${failReason ?? 'unknown'}) — check seo_properties.permission for this property`,
+        )
+      } else {
+        out.scanned++
+      }
     } catch (e) {
       out.skipped.push(`${prop.domain ?? propertyToDomain(prop.property)}: ${e instanceof Error ? e.message : String(e)}`)
     }
