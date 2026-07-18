@@ -190,24 +190,36 @@ export async function POST(request: NextRequest) {
     // name/email/notes then get overwritten below with attacker-supplied
     // data on this unauthenticated public form.
     const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
-    let existing: { id: string }[] | null = null
+    let existing: { id: string; email: string | null }[] | null = null
     if (cleanPhone.length >= 10) {
       const target = nat(cleanPhone)
       const { data: candidates } = await supabaseAdmin
         .from('clients')
-        .select('id, phone')
+        .select('id, phone, email')
         .eq('tenant_id', tenant.id)
       const match = (candidates || []).find(c => {
         const cDigits = nat((c.phone || '').replace(/\D/g, ''))
         return cDigits.length >= 10 && cDigits === target
       })
-      existing = match ? [{ id: match.id }] : []
+      existing = match ? [{ id: match.id, email: match.email ?? null }] : []
     }
 
     if (existing && existing.length > 0) {
       const { data: updated, error } = await supabaseAdmin
         .from('clients')
-        .update({ name, email, notes, active: true, status: 'active' })
+        .update({
+          name,
+          // Never overwrite an email already on file via this unauthenticated
+          // form — clients.email doubles as the client-portal login
+          // identifier (/api/client/verify-code matches by phone, then by
+          // email), so letting a phone match reassign it would let anyone
+          // who merely knows a client's phone number redirect their login
+          // email to an address they control and hijack the account.
+          ...(existing[0].email ? {} : { email }),
+          notes,
+          active: true,
+          status: 'active',
+        })
         .eq('id', existing[0].id)
         .eq('tenant_id', tenant.id)
         .select('id')

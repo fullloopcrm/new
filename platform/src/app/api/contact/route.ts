@@ -237,20 +237,20 @@ export async function POST(request: NextRequest) {
     // to an arbitrary client, since a match here gets its name/email/
     // address/notes silently overwritten below with attacker-supplied data.
     const cleanPhone = phone ? phone.replace(/\D/g, '') : ''
-    let existing: { id: string }[] | null = null
+    let existing: { id: string; email: string | null }[] | null = null
     if (cleanPhone.length >= 10) {
       const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
       const target = nat(cleanPhone)
       const { data: candidates } = await supabaseAdmin
-        .from('clients').select('id, phone').eq('tenant_id', tenant.id)
+        .from('clients').select('id, phone, email').eq('tenant_id', tenant.id)
       const match = (candidates || []).find(c => {
         const cDigits = nat((c.phone || '').replace(/\D/g, ''))
         return cDigits.length >= 10 && cDigits === target
       })
-      existing = match ? [{ id: match.id }] : []
+      existing = match ? [{ id: match.id, email: match.email ?? null }] : []
     } else if (email) {
       const r = await supabaseAdmin
-        .from('clients').select('id').eq('tenant_id', tenant.id)
+        .from('clients').select('id, email').eq('tenant_id', tenant.id)
         .eq('email', email).limit(1)
       existing = r.data
     }
@@ -262,7 +262,15 @@ export async function POST(request: NextRequest) {
         .from('clients') // tenant-scope-ok: update is scoped by .eq('tenant_id', tenant.id) below
         .update({
           name,
-          email: email || null,
+          // Never overwrite an email already on file via this unauthenticated
+          // form — clients.email doubles as the client-portal login
+          // identifier (/api/client/verify-code matches by phone, then by
+          // email), so letting a phone match reassign it would let anyone
+          // who merely knows a client's phone number redirect their login
+          // email to an address they control and hijack the account. (The
+          // email-match branch above is a no-op either way, since it already
+          // matched on this exact value.)
+          ...(existing[0].email ? {} : { email: email || null }),
           ...(address ? { address } : {}),
           ...(body.selfBook ? { source: leadSource } : {}),
           // Only ever UPGRADE consent — a returning lead who now opts in becomes
