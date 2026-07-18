@@ -28,6 +28,7 @@ interface Booking {
   hourly_rate?: number
   recurring_type?: string | null
   schedule_id?: string | null
+  duration_class?: string | null
 }
 
 interface BookingEvent {
@@ -170,8 +171,14 @@ export default function CalendarBoard() {
     if (selectedStatuses.length > 0) filtered = filtered.filter(b => selectedStatuses.includes(b.status))
 
     const events: BookingEvent[] = filtered.map((b) => {
+      // Any booking longer than a day (multiday) or tied to a Production job
+      // (project) is a project touchpoint (see src/lib/schedule/duration-class.ts)
+      // \u2014 flag it here too so a project reads as a project wherever its dates
+      // fall, not just siloed in the Projects tab.
+      const classPrefix = b.duration_class === 'project' ? '\uD83D\uDDC2\uFE0F ' : b.duration_class === 'multiday' ? '\uD83D\uDCC6 ' : ''
       const prefix = b.status === 'pending' ? '\u23F3 ' : b.status === 'in_progress' ? '\u25B6\uFE0F ' : ''
       const bg = b.status === 'pending' ? '#dc2626' : memberColors[b.team_member_id] || '#0d9488'
+      const border = b.duration_class === 'project' ? '#7c3aed' : b.duration_class === 'multiday' ? '#d97706' : bg
       const clientName = (b.clients?.name || 'Client').split(' ')[0]
       const [, timePart] = b.start_time.split('T')
       const [h, m] = (timePart || '00:00').split(':').map(Number)
@@ -180,11 +187,11 @@ export default function CalendarBoard() {
       const timeStr = m > 0 ? `${hr}:${String(m).padStart(2, '0')}${ampm}` : `${hr}${ampm}`
       return {
         id: b.id,
-        title: `${timeStr} ${prefix}${clientName}`,
+        title: `${timeStr} ${classPrefix}${prefix}${clientName}`,
         start: b.start_time,
         end: b.end_time,
         backgroundColor: bg,
-        borderColor: bg,
+        borderColor: border,
         extendedProps: { booking: b, teamMemberId: b.team_member_id }
       }
     })
@@ -599,6 +606,7 @@ export default function CalendarBoard() {
                         <div className="w-1 self-stretch rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
                         <div className="flex-1 min-w-0">
                           <p className="font-medium text-sm text-slate-900 truncate">
+                            {b.duration_class === 'project' && '\uD83D\uDDC2\uFE0F '}{b.duration_class === 'multiday' && '\uD83D\uDCC6 '}
                             {b.status === 'pending' && '\u23F3 '}{b.status === 'in_progress' && '\u25B6\uFE0F '}{b.clients?.name || 'Client'}
                           </p>
                           <p className="text-xs text-slate-500 truncate">{b.service_type} — {b.team_members?.name || 'Unassigned'}</p>

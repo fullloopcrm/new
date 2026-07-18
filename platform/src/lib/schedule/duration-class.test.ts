@@ -22,6 +22,10 @@ describe('duration-class deriver', () => {
     expect(deriveDurationClass({ start_time: '2026-07-05T09:00:00', end_time: '2026-07-05T10:00:00', project_id: 'p1' })).toBe('project')
   })
 
+  it('classifies any Production-job session booking as project regardless of its own single-day span', () => {
+    expect(deriveDurationClass({ start_time: '2026-07-05T09:00:00', end_time: '2026-07-05T17:00:00', job_id: 'j1' })).toBe('project')
+  })
+
   it('honors an explicit stored override', () => {
     expect(deriveDurationClass({ start_time: '2026-07-05T09:00:00', end_time: '2026-07-05T10:00:00', duration_class: 'project' })).toBe('project')
   })

@@ -11,6 +11,11 @@
  *
  * `duration_class` may be stored on the booking as an explicit override; when
  * absent, derive it here so existing rows (nycmaid cleaning) need no backfill.
+ *
+ * A booking tied to a Production job (`job_id` set — see 2026_07_02_jobs_projects.sql)
+ * is a session of that job, so it is always `project` regardless of its own
+ * single-day span: the umbrella job is the multi-day/long-duration work, even
+ * though each individual session booking is a single day.
  */
 
 export type DurationClass = 'slot' | 'multiday' | 'project'
@@ -44,19 +49,20 @@ export interface DurationClassInput {
   start_time: string
   end_time?: string | null
   project_id?: string | null
+  job_id?: string | null
   duration_class?: string | null
 }
 
 /**
  * Resolve a booking's duration class. Explicit stored value wins; otherwise
- * derive from project linkage + span. A booking tied to a project is always
- * `project` (it's a touchpoint of a long job).
+ * derive from project/job linkage + span. A booking tied to a calendar project
+ * OR a Production job is always `project` (it's a touchpoint of a long job).
  */
 export function deriveDurationClass(b: DurationClassInput): DurationClass {
   if (b.duration_class === 'slot' || b.duration_class === 'multiday' || b.duration_class === 'project') {
     return b.duration_class
   }
-  if (b.project_id) return 'project'
+  if (b.project_id || b.job_id) return 'project'
   const days = spanDays(b.start_time, b.end_time)
   if (days == null) return 'slot'
   if (days > MULTIDAY_MAX_DAYS) return 'project'

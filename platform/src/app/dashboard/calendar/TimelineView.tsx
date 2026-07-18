@@ -17,6 +17,7 @@ interface Booking {
   service_type: string | null
   team_member_id: string | null
   clients: { name: string } | null
+  duration_class?: string | null
 }
 
 const DAY_START_MIN = 6 * 60   // 6 AM
@@ -189,6 +190,12 @@ export default function TimelineView() {
                     const left = ((s - DAY_START_MIN) / RANGE) * 100
                     const width = ((e - s) / RANGE) * 100
                     const bg = row.id ? colorFor[row.id] : '#94a3b8'
+                    // Same project/multiday flagging as Month + Kanban (see
+                    // src/lib/schedule/duration-class.ts) — a project reads as a
+                    // project on every view its dates touch, not just the Projects tab.
+                    const isProject = b.duration_class === 'project'
+                    const isMultiday = b.duration_class === 'multiday'
+                    const ring = isProject ? '#7c3aed' : isMultiday ? '#d97706' : undefined
                     return (
                       <div
                         key={b.id}
@@ -196,9 +203,10 @@ export default function TimelineView() {
                         onDragStart={() => setDragId(b.id)}
                         onDragEnd={() => setDragId(null)}
                         className={`absolute top-1.5 flex h-9 cursor-grab items-center overflow-hidden rounded px-1.5 text-white active:cursor-grabbing ${dragId === b.id ? 'opacity-40' : ''}`}
-                        style={{ left: `${left}%`, width: `${Math.max(2, width)}%`, background: bg }}
-                        title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'} — drag to move`}
+                        style={{ left: `${left}%`, width: `${Math.max(2, width)}%`, background: bg, boxShadow: ring ? `inset 0 0 0 2px ${ring}` : undefined }}
+                        title={`${b.clients?.name || 'Client'} · ${b.service_type || 'Job'}${isProject ? ' · Project' : isMultiday ? ' · Multi-day' : ''} — drag to move`}
                       >
+                        {(isProject || isMultiday) && <span className="mr-1 flex-shrink-0 text-[10px]">{isProject ? '🗂️' : '📆'}</span>}
                         <span className="cal-chip-sm truncate text-[10px] font-medium">{b.clients?.name || 'Client'}</span>
                       </div>
                     )

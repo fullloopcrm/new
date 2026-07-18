@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
     // lane each job without re-deriving client-side; derived when the column is null.
     for (const b of data || []) {
       applyPropertyToBookingClient(b as Parameters<typeof applyPropertyToBookingClient>[0])
-      const row = b as { start_time: string; end_time?: string | null; project_id?: string | null; duration_class?: string | null }
+      const row = b as { start_time: string; end_time?: string | null; project_id?: string | null; job_id?: string | null; duration_class?: string | null }
       row.duration_class = deriveDurationClass(row)
     }
 

@@ -1,7 +1,8 @@
 /**
  * Jobs list + money reconciliation. Returns every job for the tenant with a
- * per-job payment rollup (contracted / paid / due / overdue) and a tenant-wide
- * total. Read-only, tenant-scoped.
+ * per-job payment rollup (contracted / paid / due / overdue), session progress
+ * (completed / total booking sessions), and a tenant-wide total. Read-only,
+ * tenant-scoped.
  *
  * GET → { jobs: [...], totals: { contracted, paid, due, overdue } }
  */
@@ -14,6 +15,10 @@ interface PaymentRow {
   amount_cents: number
   status: string
   due_at: string | null
+}
+
+interface SessionRow {
+  status: string
 }
 
 function rollup(payments: PaymentRow[], nowIso: string) {
@@ -39,7 +44,7 @@ export async function GET() {
 
     const { data: jobs, error } = await supabaseAdmin
       .from('jobs')
-      .select('id, title, status, total_cents, created_at, client_id, clients(name), job_payments(amount_cents, status, due_at)')
+      .select('id, title, status, total_cents, created_at, starts_on, ends_on, client_id, clients(name), job_payments(amount_cents, status, due_at), bookings(status)')
       .eq('tenant_id', tenantId)
       .order('created_at', { ascending: false })
       .limit(500)
@@ -52,12 +57,18 @@ export async function GET() {
       const payments = (j.job_payments as PaymentRow[]) ?? []
       const money = rollup(payments, nowIso)
       const client = j.clients as { name?: string } | null
+      const sessions = (j.bookings as SessionRow[]) ?? []
+      const sessionsDone = sessions.filter((s) => s.status === 'completed').length
       return {
         id: j.id as string,
         title: (j.title as string) || 'Job',
         status: j.status as string,
         client_name: client?.name ?? null,
         created_at: j.created_at as string,
+        starts_on: (j.starts_on as string) || null,
+        ends_on: (j.ends_on as string) || null,
+        sessions_total: sessions.length,
+        sessions_done: sessionsDone,
         ...money,
       }
     })
