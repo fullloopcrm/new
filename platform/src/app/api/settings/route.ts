@@ -6,7 +6,7 @@ import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { encryptTenantSecrets } from '@/lib/secret-crypto'
-import { getPrimaryTenantDomain } from '@/lib/domains'
+import { getPrimaryTenantDomain, findDomainOwner } from '@/lib/domains'
 
 // Fields the settings UI has zero read-back consumers for (grepped
 // dashboard/**, no component reads these) — stripped even for authorized
@@ -64,6 +64,42 @@ export async function PUT(request: Request) {
     const systemOnlyFields = ['google_tokens', 'google_business', 'stripe_account_id']
     for (const f of systemOnlyFields) {
       delete body[f]
+    }
+
+    // Normalize + collision-guard `domain` — this route is a BLOCKLIST (delete
+    // body.id/status/systemOnlyFields, everything else flows straight into the
+    // blind tenants UPDATE below), unlike the ALLOWLIST-based admin routes
+    // (admin/businesses POST, admin/businesses/[id] PUT, admin/tenants/[id]
+    // PUT) that already special-case `domain` with this same normalize +
+    // findDomainOwner guard (see domains.ts's findDomainOwner doc comment).
+    // Being a blocklist, `domain` was never special-cased here and sailed
+    // through raw and uncollision-checked. Worse than the admin routes: this
+    // one is reachable by any TENANT owner/admin via their own dashboard
+    // (requirePermission('settings.edit') — no platform-admin gate), so any
+    // tenant could set its own `domain` to a host already claimed by ANOTHER
+    // tenant (via tenant_domains or that tenant's legacy tenants.domain),
+    // tripping the resolver's TRANSITION ASSERT-AND-REFUSE divergence guard on
+    // the very next request to that host and darkening the OTHER,
+    // already-live tenant's site. `domain_name` is left raw, same as the
+    // admin routes — it's the display/registrar-facing field, not what the
+    // resolver queries.
+    if (typeof body.domain === 'string') {
+      const cleanDomain = body.domain
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, '')
+        .replace(/\/.*$/, '')
+        .replace(/^www\./, '')
+      body.domain = cleanDomain || null
+    }
+    if (body.domain) {
+      const owner = await findDomainOwner(body.domain as string, tenantId)
+      if (owner) {
+        return NextResponse.json(
+          { error: `${body.domain} is already registered to ${owner.tenantName}. Remove it there first, or reassign it, before adding it here.` },
+          { status: 409 },
+        )
+      }
     }
 
     // Track sensitive field changes for security audit log
@@ -131,6 +167,17 @@ export async function PUT(request: Request) {
 
     // Bust per-tenant settings cache so getSettings() reflects the change immediately.
     clearSettingsCache(tenantId)
+
+    // Bust middleware's edge-cached slug/domain entries when `domain` changed
+    // — same fix already applied to the admin PUT route for this exact class
+    // of gap (tenant-lookup.ts's own 5-min-TTL cache). Without this, the new
+    // domain (or a stale negative-cache entry from a pre-save probe) keeps
+    // resolving through a warm edge isolate for up to the rest of the TTL.
+    if (body.domain !== undefined) {
+      const { invalidateTenantCache, invalidateDomainCache } = await import('@/lib/tenant-lookup')
+      invalidateTenantCache(tenantId)
+      if (body.domain) invalidateDomainCache(body.domain as string)
+    }
 
     // Bust Selena config cache if selena_config was touched so persona/
     // config changes take effect immediately (default cache TTL is 5 min).
