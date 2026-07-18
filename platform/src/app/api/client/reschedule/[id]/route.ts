@@ -110,7 +110,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     const newTime = body.start_time ? fmtTime(body.start_time, tz) : ''
 
     // 1. Client confirmation email
-    if (updated.clients?.email && tenant.resend_api_key) {
+    if (updated.clients?.email) {
       const html = `<div style="font-family:system-ui;-apple-system,sans-serif;max-width:520px;margin:0 auto;padding:24px;">
         <h2>Your booking has been rescheduled</h2>
         <p><strong>${escapeHtml(tenant.name)}</strong> moved your appointment.</p>

@@ -87,7 +87,6 @@ export async function POST(_request: Request, { params }: Params) {
     const appUrl = process.env.NEXT_PUBLIC_APP_URL || ''
     const baseUrl = tenant?.domain ? `https://${tenant.domain}` : appUrl
     const telnyxKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-    const resendKey = tenant?.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
     const fromEmail = tenant?.email_from || `docs@${tenant?.domain || 'fullloopcrm.com'}`
 
     // Determine which signers to notify now
@@ -98,7 +97,7 @@ export async function POST(_request: Request, { params }: Params) {
       const signUrl = `${baseUrl}/sign/${s.public_token}`
       const r: { signer_id: string; email?: { ok: boolean; detail?: string }; sms?: { ok: boolean; detail?: string } } = { signer_id: s.id }
 
-      if (s.email && resendKey) {
+      if (s.email) {
         try {
           const html = renderInviteEmail({
             businessName: tenant?.name || '',
@@ -112,7 +111,7 @@ export async function POST(_request: Request, { params }: Params) {
             subject: `${tenant?.name || 'Full Loop'}: please sign — ${doc.title}`,
             html,
             from: fromEmail,
-            resendApiKey: resendKey,
+            resendApiKey: tenant?.resend_api_key,
           })
           r.email = { ok: true }
         } catch (e) {

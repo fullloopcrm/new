@@ -73,8 +73,9 @@ export async function POST(request: Request, { params }: Params) {
 
     if ((via === 'email' || via === 'both') && toEmail) {
       try {
-        const apiKey = tenant.resend_api_key ? decryptSecret(tenant.resend_api_key) : null
-        if (!apiKey) throw new Error('No Resend API key for tenant')
+        // No per-tenant key falls back to the platform's default Resend
+        // sender inside sendEmail() — don't gate the send on the tenant
+        // having configured their own key (see feedback_client_comms_platform_fallback).
         const fromEmail = tenant.email_from || `invoices@${tenant.domain || 'fullloopcrm.com'}`
         const html = renderInvoiceEmail({
           businessName: tenant.name,
@@ -92,7 +93,7 @@ export async function POST(request: Request, { params }: Params) {
           subject: `Invoice ${invoice.invoice_number} from ${tenant.name} — ${formatInvoiceCents(amountOwed)}`,
           html,
           from: fromEmail,
-          resendApiKey: apiKey,
+          resendApiKey: tenant.resend_api_key,
         })
         results.email = { ok: true }
       } catch (e) {

@@ -428,7 +428,7 @@ export async function POST(request: Request) {
           })
         }
 
-        if (data.clients?.email && tenant.resend_api_key) {
+        if (data.clients?.email) {
           const { subject, html } = bookingReceivedEmail(tenant, data)
           await sendEmail({
             to: data.clients.email,
