@@ -429,6 +429,7 @@ function SalesPageInner() {
                           <a href={`/dashboard/sales/quotes/new?deal=${d.id}`} className="sl-act-btn go">
                             {(quotesByDeal[d.id]?.length ?? 0) > 0 ? '+ New proposal' : 'Build Proposal →'}
                           </a>
+                          <span className="sl-action-hint">Send pricing to the client — they can view and accept it online.</span>
                         </div>
                       )}
 
@@ -440,17 +441,32 @@ function SalesPageInner() {
                           <div className="sl-proposal">
                             <div className="sl-proposal-head">Schedule</div>
                             {schedFor === d.id ? (
-                              <div className="sl-reason">
-                                <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
-                                <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
-                                <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
-                                <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
-                                  <option value="">No crew</option>
-                                  {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-                                </select>
-                                <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
-                                <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
-                              </div>
+                              <>
+                                <div className="sl-reason">
+                                  <div className="sl-sched-field">
+                                    <label>Date</label>
+                                    <input type="date" className="sl-sched-input" value={schedDate} onChange={(e) => setSchedDate(e.target.value)} />
+                                  </div>
+                                  <div className="sl-sched-field">
+                                    <label>Start Time</label>
+                                    <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
+                                  </div>
+                                  <div className="sl-sched-field">
+                                    <label>Hours</label>
+                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
+                                  </div>
+                                  <div className="sl-sched-field">
+                                    <label>Crew</label>
+                                    <select className="sl-sched-input" value={schedCrew} onChange={(e) => setSchedCrew(e.target.value)} title="Crew">
+                                      <option value="">No crew</option>
+                                      {crews.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+                                    </select>
+                                  </div>
+                                  <button type="button" className="sl-act-btn go" disabled={busyId === d.id || !schedDate} onClick={() => scheduleSession(d.id, jobId)}>Add to calendar</button>
+                                  <button type="button" className="sl-act-btn ghost" onClick={() => setSchedFor(null)}>Cancel</button>
+                                </div>
+                                <span className="sl-action-hint">Pick a date + crew, or leave crew unassigned for now.</span>
+                              </>
                             ) : (
                               <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
                             )}
@@ -460,6 +476,7 @@ function SalesPageInner() {
 
                       {/* Ongoing-notes composer — carries through every stage */}
                       <div className="sl-composer">
+                        <span className="sl-action-hint">Log a note, call, text, or email — it's saved to this deal's timeline.</span>
                         <div className="sl-composer-types">
                           {ACT_TYPES.map((a) => (
                             <button key={a.key} type="button" className={`sl-chan ${composer.type === a.key ? 'active' : ''}`} onClick={() => setComposer((c) => ({ ...c, type: a.key }))}>{a.label}</button>

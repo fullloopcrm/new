@@ -679,3 +679,8 @@ a.sl-act-btn { display: inline-block; text-decoration: none; text-align: center;
   font-size: 12px; padding: 5px 8px; border: 1px solid var(--sl-line);
   border-radius: 7px; background: #fff; color: var(--sl-ink); font-family: inherit;
 }
+.sl-sched-field { display: flex; flex-direction: column; gap: 2px; }
+.sl-sched-field label {
+  font-family: var(--sl-mono); font-size: 9px; text-transform: uppercase;
+  letter-spacing: 0.06em; color: var(--sl-muted); font-weight: 600;
+}
