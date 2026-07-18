@@ -3,12 +3,20 @@
  * client contact info, and the deal/quote it originated from. Tenant-scoped.
  *
  * GET   → { job, client, quote, deal, payments, sessions, events }
+ *         Gated on `bookings.view` (matches the Production nav gate) so any
+ *         role that can see the jobs list can open a job. Financial fields
+ *         (job.total_cents, the full payments plan, deal.value_cents) are
+ *         additionally gated on `finance.view` and stripped/emptied for
+ *         viewers without it — same class of leak already fixed on the
+ *         sibling budget-variance route, split rather than blocking the
+ *         whole page for roles like `staff` that need job-core info.
  * PATCH → { status?: JobStatus, title?, notes?, starts_on?, ends_on? }
  *         status → 'completed' stamps completed_at and logs a timeline event.
  */
 import { NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
-import { requirePermission } from '@/lib/require-permission'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission, overridesFor } from '@/lib/require-permission'
+import { hasPermission } from '@/lib/rbac'
 import { tenantDb } from '@/lib/tenant-db'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type JobStatus, type RawSession } from '@/lib/jobs'
 
@@ -18,7 +26,10 @@ const VALID_STATUS: JobStatus[] = ['unscheduled', 'scheduled', 'in_progress', 'c
 
 export async function GET(_request: Request, { params }: Params) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant, error: authError } = await requirePermission('bookings.view')
+    if (authError) return authError
+    const { tenantId } = tenant
+    const canViewFinance = hasPermission(tenant.role, 'finance.view', overridesFor(tenant))
     const db = tenantDb(tenantId)
     const { id } = await params
 
@@ -55,12 +66,15 @@ export async function GET(_request: Request, { params }: Params) {
       ? (await db.from('deals').select('id, title, stage, value_cents').eq('id', quote.data.deal_id).maybeSingle()).data
       : null
 
+    const { total_cents: _totalCents, ...jobCore } = job as Record<string, unknown>
+    const dealCore = deal ? (({ value_cents: _valueCents, ...rest }) => rest)(deal as Record<string, unknown>) : null
+
     return NextResponse.json({
-      job,
+      job: canViewFinance ? job : jobCore,
       client: client.data ?? null,
       quote: quote.data ?? null,
-      deal,
-      payments: payments.data ?? [],
+      deal: canViewFinance ? deal : dealCore,
+      payments: canViewFinance ? payments.data ?? [] : [],
       sessions: (sessions.data ?? []).map((s) => shapeSession(s as unknown as RawSession)),
       events: events.data ?? [],
     })
