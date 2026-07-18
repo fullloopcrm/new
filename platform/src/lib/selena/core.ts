@@ -1558,7 +1558,17 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
 
     // Find their active recurring schedule
     let scheduleId = input.schedule_id as string | undefined
-    if (!scheduleId) {
+    if (scheduleId) {
+      // Client-ownership: a caller-supplied schedule_id must belong to THIS
+      // client, not merely to their tenant — same trust boundary as
+      // reschedule_booking/cancel_booking above. Without this, any client
+      // could pause/resume/cancel another client's recurring schedule (and
+      // cascade-cancel their upcoming bookings) just by supplying that
+      // schedule's id.
+      const { data: owned } = await supabaseAdmin.from('recurring_schedules')
+        .select('id').eq('id', scheduleId).eq('tenant_id', tid).eq('client_id', convo.client_id).maybeSingle()
+      if (!owned) return JSON.stringify({ error: 'not_your_schedule', message: 'That recurring schedule is not on your account.' })
+    } else {
       const { data: schedule } = await supabaseAdmin.from('recurring_schedules')
         .select('id').eq('tenant_id', tid).eq('client_id', convo.client_id).eq('status', 'active').limit(1).single()
       scheduleId = schedule?.id
