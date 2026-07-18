@@ -40,6 +40,9 @@ const UNITS: Array<{ v: string; l: string }> = [
 ]
 const UNIT_SHORT: Record<string, string> = { hour: 'hr', job: 'job', unit: 'ea', sqft: 'sqft', linear_ft: 'ln ft', visit: 'visit', day: 'day' }
 
+function cap(s: string): string {
+  return s.length ? s.charAt(0).toUpperCase() + s.slice(1) : s
+}
 function money(cents: number | null | undefined): string {
   return '$' + Math.round((cents || 0) / 100).toLocaleString('en-US')
 }
@@ -165,7 +168,7 @@ export default function CatalogTab() {
       <div style={{ background: 'var(--sl-canvas,#fff)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 12, padding: 14, marginBottom: 18 }}>
         <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
           <div><label style={lbl}>Type <HelpTip text="Service = labor you perform. Project = a larger, multi-visit job. Product = a physical thing you sell." /></label>
-            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+            <select style={inp} value={form.item_type} onChange={(e) => setForm({ ...form, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{cap(t)}</option>)}</select>
           </div>
           <div><label style={lbl}>Name <HelpTip text="What shows on the proposal line. Keep it clear and customer-facing." /></label><input style={inp} value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} placeholder="Deep Clean / Kitchen Remodel / HEPA Filter" /></div>
           <div><label style={lbl}>Category <HelpTip text="Optional grouping (e.g. Add-ons, Materials) to organize the catalog picker." /></label><input style={inp} value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })} placeholder="e.g. Add-ons" /></div>
@@ -206,7 +209,7 @@ export default function CatalogTab() {
           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
           return (
             <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.active ? 1 : 0.5 }}>
-              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{it.item_type}</span>
+              <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{cap(it.item_type)}</span>
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>
                 {it.category && <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{it.category}</span>}
