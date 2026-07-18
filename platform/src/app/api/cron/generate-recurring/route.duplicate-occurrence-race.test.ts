@@ -33,9 +33,19 @@ let schedule: Row
 const insertedOccurrences = new Set<string>() // key: schedule_id|start_time
 const notifications: Row[] = []
 
+// Computed once at module load, not per call -- generateRecurringDates() must
+// return the IDENTICAL Date (down to the millisecond) on both of the second
+// test's overlapping GET invocations, since the mocked bookings insert keys
+// duplicate detection on `${schedule_id}|${start_time}` (an ISO string with
+// millisecond precision). A per-call `new Date(Date.now() + ...)` here would
+// pick up the real wall-clock jitter between the two GET calls and produce
+// two different start_time values, breaking the "same occurrence, overlapping
+// invocation" scenario this test exists to simulate.
+const FIXED_OCCURRENCE_DATE = new Date(Date.now() + 24 * 60 * 60 * 1000)
+
 vi.mock('@/lib/recurring', () => ({
   // One fixed, controlled occurrence date — bypasses real recurring-date math.
-  generateRecurringDates: () => [new Date(Date.now() + 24 * 60 * 60 * 1000)],
+  generateRecurringDates: () => [FIXED_OCCURRENCE_DATE],
 }))
 vi.mock('@/lib/day-availability', () => ({
   worksScheduledDay: () => true,

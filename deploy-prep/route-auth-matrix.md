@@ -5,6 +5,16 @@
 into a full auth-class matrix: every `/api/**/route.ts` → expected auth class → the guard
 actually present in the file → flag any mismatch.
 
+**Update 2026-07-18 (W4):** re-diffed the live route tree (505 `route.ts` files) against
+this matrix's 499. 6 new routes since the 2026-07-12 pass: `cron/hr-document-reminders`,
+`cron/seo-health`, `cron/seo-improve`, `dashboard/hr/requirements`,
+`dashboard/hr/requirements/[id]`, `team-portal/photo-upload`. All 6 hand-read — each
+matches its expected auth class with no gap (cron-secret-inline on the 3 cron routes,
+rbac-permission tenant-scoped on the 2 dashboard/hr routes, team-token on photo-upload).
+`team-portal/photo-upload` is proposed/not-wired code (depends on an unapplied migration,
+no UI calls it) but its guard is already correct if/when it goes live. Rows added below;
+no findings, no code changes from this update.
+
 ## Method
 
 1. Enumerated all `src/app/api/**/route.ts` files: **499** (498 at the time of the original
@@ -162,10 +172,10 @@ checks, the Vercel deploy-hook protected by HMAC-SHA1 + `timingSafeEqual`).
 - "Public(tenant-resolved)" routes were spot-checked for the *existence* of tenant
   resolution, not for whether every downstream write in that handler is itself
   tenant-scoped — that's the `idor-scan-note.md` sweep's job, not this one's.
-- 499 is a point-in-time count (2026-07-12, this branch). New routes added after this pass
-  won't appear until the matrix is regenerated.
+- 499 is a point-in-time count (2026-07-12, this branch); 505 as of the 2026-07-18 re-diff
+  (see Update note above). New routes added after that will again need a fresh re-diff.
 
-## Full route table (499 routes)
+## Full route table (505 routes)
 
 Legend: **Expected class** is what the path convention implies; **Guard(s) found** is what
 the file actually calls. A blank/`NONE` guard next to a `public(...)`/`internal(...)`/
@@ -386,6 +396,7 @@ unverified gap.
 | `/api/cron/generate-recurring` | cron(secret) | cron-secret-inline |
 | `/api/cron/health-check` | cron(secret) | cron-secret-inline |
 | `/api/cron/health-monitor` | cron(secret) | cron-secret-inline |
+| `/api/cron/hr-document-reminders` | cron(secret) | cron-secret-inline |
 | `/api/cron/jefe-heartbeat` | cron(secret) | cron-secret-inline |
 | `/api/cron/late-check-in` | cron(secret) | cron-secret-inline |
 | `/api/cron/lifecycle` | cron(secret) | cron-secret-inline |
@@ -408,6 +419,8 @@ unverified gap.
 | `/api/cron/seo-competitors` | cron(secret) | cron-secret-inline |
 | `/api/cron/seo-detect` | cron(secret) | cron-secret-inline |
 | `/api/cron/seo-enrich` | cron(secret) | cron-secret-inline |
+| `/api/cron/seo-health` | cron(secret) | cron-secret-inline |
+| `/api/cron/seo-improve` | cron(secret) | cron-secret-inline |
 | `/api/cron/seo-ingest` | cron(secret) | cron-secret-inline |
 | `/api/cron/seo-propose` | cron(secret) | cron-secret-inline |
 | `/api/cron/seo-technical` | cron(secret) | cron-secret-inline |
@@ -421,6 +434,8 @@ unverified gap.
 | `/api/dashboard/hr/[id]` | tenant-scoped(RBAC) | rbac-permission |
 | `/api/dashboard/hr/[id]/documents` | tenant-scoped(RBAC) | rbac-permission |
 | `/api/dashboard/hr/[id]/notes` | tenant-scoped(RBAC) | rbac-permission |
+| `/api/dashboard/hr/requirements` | tenant-scoped(RBAC) | rbac-permission |
+| `/api/dashboard/hr/requirements/[id]` | tenant-scoped(RBAC) | rbac-permission |
 | `/api/dashboard/import/analyze` | tenant-scoped(RBAC) | tenant-req |
 | `/api/dashboard/import/batch/[id]` | tenant-scoped(RBAC) | rbac-permission |
 | `/api/dashboard/import/stage` | tenant-scoped(RBAC) | rbac-permission |
@@ -643,6 +658,7 @@ unverified gap.
 | `/api/team-portal/jobs/release` | tenant-scoped(team-token) | portal-token |
 | `/api/team-portal/messages` | tenant-scoped(team-token) | portal-token |
 | `/api/team-portal/notifications` | tenant-scoped(team-token) | team-token |
+| `/api/team-portal/photo-upload` | tenant-scoped(team-token) | team-token (PROPOSED — not wired, migration-dependent, see route.ts header) |
 | `/api/team-portal/preferences` | tenant-scoped(team-token) | team-token |
 | `/api/team-portal/rating` | tenant-scoped(team-token) | portal-token |
 | `/api/team-portal/running-late` | tenant-scoped(team-token) | portal-token |
