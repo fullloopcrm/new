@@ -166,7 +166,11 @@ export const PROFILE_FIELDS: FieldDef[] = [
   { key: 'resendDomain', label: 'Sending domain', section: 'comms', store: 'tenant', col: 'resend_domain', tier: 'recommended', read: (x) => t(x, 'resend_domain') },
   { key: 'emailFrom', label: 'From address', section: 'comms', store: 'tenant', col: 'email_from', tier: 'recommended', read: (x) => t(x, 'email_from') },
   { key: 'telnyxKey', label: 'SMS key (Telnyx)', section: 'comms', store: 'tenant', col: 'telnyx_api_key', tier: 'recommended', read: (x) => t(x, 'telnyx_api_key') },
-  { key: 'telnyxPhone', label: 'SMS number', section: 'comms', store: 'tenant', col: 'telnyx_phone', tier: 'recommended', read: (x) => t(x, 'telnyx_phone') },
+  // Read falls back to legacy sms_number (same telnyx_phone||sms_number precedence
+  // as resolveTenantSmsCredentials(), lib/sms-credentials.ts) so a tenant with only
+  // the legacy column populated doesn't show a false "not filled" here; writes still
+  // go to the canonical telnyx_phone column via `col`.
+  { key: 'telnyxPhone', label: 'SMS number', section: 'comms', store: 'tenant', col: 'telnyx_phone', tier: 'recommended', read: (x) => t(x, 'telnyx_phone') || t(x, 'sms_number') },
   { key: 'telegramBotToken', label: 'Telegram bot token', section: 'comms', store: 'tenant', col: 'telegram_bot_token', tier: 'optional', read: (x) => t(x, 'telegram_bot_token') },
   { key: 'telegramChatId', label: 'Telegram chat ID', section: 'comms', store: 'tenant', col: 'telegram_chat_id', tier: 'optional', read: (x) => t(x, 'telegram_chat_id') },
   { key: 'anthropicKey', label: 'Anthropic key (AI)', section: 'comms', store: 'tenant', col: 'anthropic_api_key', tier: 'optional', read: (x) => t(x, 'anthropic_api_key') },
