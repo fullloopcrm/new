@@ -12323,3 +12323,120 @@ within `loadToken`, a pure function with no network I/O even when a real
 token IS present (it only reads a local file), so the full mutation-verify
 above ran end-to-end through vitest with no live Supabase call anywhere in
 the loop -- same discipline as every prior item in this lane's sessions.
+
+## (237) Fresh ground -- three fs-walking closures inside `main()` had ZERO
+test coverage, and one (`findClientPortalLoginDir`) was blind to a route
+group wrapping its own fingerprint children
+
+Every `parseX`/`findX` in `scripts/reconcile-tenant-config.mjs` is exported
+at module scope per the file's own documented architecture ("the pure
+drift logic ... is exported so it can be unit-tested without a DB or
+network") and has a dedicated `describe` block in the 4000+-line test
+suite -- this file's tests are otherwise exhaustive; every Drift letter
+A-AM has direct coverage. Three functions were the exception:
+`collectFirstSegmentDirs`, `findClientPortalLoginDir`, and
+`collectPageFiles` lived as closures INSIDE `main()`, which only runs with
+a real Supabase token -- none of the 60+ existing `describe` blocks
+exercised them (every `computeFindings` test passes hand-built fixture
+Maps instead of the real filesystem walk), so a bug in any of the three
+would ship with zero red test anywhere in this file's own suite.
+
+Promoting them to module-level exported functions surfaced a real,
+concrete bug in `findClientPortalLoginDir`'s own fingerprint check (feeds
+Drift AL -- the client-PIN-login-portal-clone crawlability warning): it
+looked for `'dashboard'` and `'collect'` as DIRECT children of each
+top-level candidate segment via a raw `readdirSync`, but a Next.js route
+group (`"(name)"`) wrapping that pair -- e.g.
+`site/<slug>/portal/(app)/dashboard` + `(app)/collect`, an entirely
+ordinary layout choice, no different in kind from the `(app)/(marketing)`
+split 2 of this check's own 3 concrete instances (wash-and-fold-nyc,
+wash-and-fold-hoboken) already use one level up -- was invisible to it.
+The OUTER loop already resolves a route group wrapping the CANDIDATE
+segment itself; the inner check never extended that same resolution one
+level deeper. A tenant whose portal folder happened to be route-grouped at
+that exact depth would have its client-PIN-login portal go undetected --
+Drift AL's own crawlability warning silently never fires, the exact
+failure mode that check exists to catch, defeated by this function's own
+blind spot rather than a real `robots.ts` config gap.
+
+**Fixed** by having the inner check reuse `collectFirstSegmentDirs`
+(which already resolves route groups correctly) instead of a raw
+`readdirSync`. **Mutation-verified live:** reverted the fix, ran the new
+"resolves a route group wrapping the dashboard/collect pair itself"
+assertion against the pre-fix code -- failed exactly as predicted
+(returned `null` instead of `'portal'`); reapplied the fix, it and all 5
+sibling assertions in the same `describe` block went green. No CURRENT
+bespoke tenant's dashboard/collect pair is itself route-grouped (verified
+against the actual site folders -- wash-and-fold-nyc/hoboken's
+`book/(collect|dashboard)` and the-florida-maid's
+`clients/(collect|dashboard)` are both bare) -- landmine-only today, same
+disposition as items (233)'s block-comment branch and (234)/(235): a
+parser assumption the surrounding code (an ordinary route-group refactor)
+can silently violate without anyone touching this function itself.
+
+Closed with 10 new tests across 3 new `describe` blocks
+(`collectFirstSegmentDirs`, `collectPageFiles`, `findClientPortalLoginDir`),
+covering route-group resolution, nested-route-group recursion, and the
+concrete fix above.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 494/494 files,
+2485/2485 tests -- zero regressions, same pre-existing unused-`_slug`
+eslint warnings every prior report in this lane has flagged (eslint clean,
+0 errors, on both touched files). `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent
+this session -- no live reconcile run; this item's fix and verification
+are entirely within pure, no-network filesystem-walking functions, run
+end-to-end through vitest with real temp-directory fixtures, same
+discipline as every prior item in this lane's sessions.
+
+## (238) Continuation of item (237)'s surface -- `hasHome` only resolved
+ONE level of route-group nesting, and its real implementation had zero
+test coverage same as (237)'s three fixed functions
+
+Same "closure inside `main()` with zero test coverage" gap (237) closed
+for `collectFirstSegmentDirs`/`findClientPortalLoginDir`/`collectPageFiles`
+applied to a fourth function: `hasHome`. Every `computeFindings` test in
+this file's own suite injects a hand-written `alwaysHome`/`neverHome`
+fixture instead of exercising the real filesystem check -- a bug in the
+REAL `hasHome` implementation had zero red test anywhere in this file's
+otherwise exhaustive suite, same blind spot as (237).
+
+Promoting it to a module-level exported function (`hasHomePage`, wired up
+in `main()` as `hasHome = (slug) => hasHomePage(join(siteDir, slug))`)
+surfaced the same bug SHAPE (237) just fixed one function over: the old
+check (`readdirSync(d).some(e => e.startsWith('(') && e.endsWith(')') &&
+existsSync(join(d, e, 'page.tsx')))`) only resolved ONE level of Next.js
+route-group nesting when looking for a tenant's homepage -- a `page.tsx`
+behind a SECOND, nested route group (e.g.
+`site/<slug>/(a)/(b)/page.tsx`, an entirely ordinary layout choice, no
+different in kind from the `(app)/(marketing)` split every current
+bespoke tenant already uses one level) was invisible to it. `hasHome`
+backs Drift C ("in BESPOKE_SITE_TENANTS but /site/<slug> has no homepage")
+and Drift D -- a false "no homepage" CRIT for a tenant whose home page
+renders correctly in production would be exactly the kind of
+false-positive that erodes trust in a merge-blocking gate, the mirror
+image of every prior false-NEGATIVE this lane has closed.
+
+**Fixed** by recursing through the FULL route-group chain, same
+discipline `collectFirstSegmentDirs` (fixed/exported in (237)) already
+applies for segment-name resolution. **Mutation-verified live:** reverted
+to the old one-level-only check, ran the new "returns true for a
+page.tsx behind a CHAIN of nested route groups" assertion against the
+pre-fix code -- failed exactly as predicted (returned `false`); reapplied
+the fix, it and all 4 sibling assertions in the same `describe` block went
+green. No CURRENT bespoke tenant nests its homepage two-or-more route
+groups deep (verified against every real `src/app/site/<slug>/` folder) --
+landmine-only today, same disposition as (237)'s own fix and items
+(233)-(235).
+
+Closed with 5 new tests in a new `hasHomePage` `describe` block (direct
+`page.tsx`, one-level route group, chain of nested route groups, absent
+directory, no homepage anywhere).
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 494/494 files,
+2490/2490 tests -- zero regressions, same pre-existing unused-`_slug`
+eslint warnings every prior report in this lane has flagged (eslint
+clean, 0 errors, on both touched files). `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session -- no live reconcile run; this item's fix and
+verification are entirely within a pure, no-network filesystem-walking
+function, run end-to-end through vitest with real temp-directory
+fixtures, same discipline as every prior item in this lane's sessions.
