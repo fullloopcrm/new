@@ -75,10 +75,10 @@ export function RecurringOptions({
   return (
     <div className="border-t pt-4 mt-4">
       <div className="flex justify-between items-center mb-3">
-        <h4 className="font-medium text-[#1E2A4A]">Repeat</h4>
+        <h4 className="font-medium text-[#1C1C1C]">Repeat</h4>
         <div 
           onClick={() => onEnabledChange(!enabled)}
-          className={`w-10 h-6 rounded-full transition-colors ${enabled ? 'bg-[#1E2A4A]' : 'bg-gray-300'} relative cursor-pointer`}
+          className={`w-10 h-6 rounded-full transition-colors ${enabled ? 'bg-[#1C1C1C]' : 'bg-gray-300'} relative cursor-pointer`}
         >
           <div className={`w-4 h-4 bg-white rounded-full absolute top-1 transition-transform ${enabled ? 'translate-x-5' : 'translate-x-1'}`} />
         </div>
@@ -88,11 +88,11 @@ export function RecurringOptions({
         <div className="space-y-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
           {/* Repeat Type */}
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-2">Repeats</label>
+            <label className="block text-sm font-medium text-[#1C1C1C] mb-2">Repeats</label>
             <select 
               value={repeatType} 
               onChange={(e) => onRepeatTypeChange(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] bg-white focus:ring-2 focus:ring-[#1E2A4A] outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C] bg-white focus:ring-2 focus:ring-[#1C1C1C] outline-none"
             >
               {repeatOptions.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -110,7 +110,7 @@ export function RecurringOptions({
                   onClick={() => onCustomIntervalChange(Math.max(1, customInterval - 1))}
                   className="px-3 py-2 text-gray-500 hover:bg-gray-100 rounded-l-lg"
                 >−</button>
-                <span className="px-4 py-2 text-[#1E2A4A] font-medium min-w-[40px] text-center">{customInterval}</span>
+                <span className="px-4 py-2 text-[#1C1C1C] font-medium min-w-[40px] text-center">{customInterval}</span>
                 <button
                   type="button"
                   onClick={() => onCustomIntervalChange(customInterval + 1)}
@@ -123,11 +123,11 @@ export function RecurringOptions({
 
           {/* End Options */}
           <div>
-            <label className="block text-sm font-medium text-[#1E2A4A] mb-2">End repeating</label>
+            <label className="block text-sm font-medium text-[#1C1C1C] mb-2">End repeating</label>
             <select 
               value={repeatEnd} 
               onChange={(e) => onRepeatEndChange(e.target.value)} 
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] bg-white focus:ring-2 focus:ring-[#1E2A4A] outline-none"
+              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C] bg-white focus:ring-2 focus:ring-[#1C1C1C] outline-none"
             >
               <option value="never">Never</option>
               <option value="after">After X occurrences</option>
@@ -144,7 +144,7 @@ export function RecurringOptions({
                 max="52"
                 value={repeatEndCount} 
                 onChange={(e) => onRepeatEndCountChange(parseInt(e.target.value) || 1)}
-                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-center"
+                className="w-20 px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C] text-center"
               />
               <span className="text-sm text-gray-600">occurrences</span>
             </div>
@@ -157,7 +157,7 @@ export function RecurringOptions({
                 type="date" 
                 value={repeatEndDate} 
                 onChange={(e) => onRepeatEndDateChange(e.target.value)}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1C1C1C]"
               />
             </div>
           )}
@@ -165,7 +165,7 @@ export function RecurringOptions({
           {/* Preview */}
           <div className="bg-white border border-gray-200 rounded-lg p-3">
             <p className="text-sm text-gray-600 mb-2">
-              Recurring schedule — first <span className="font-semibold text-[#1E2A4A]">{Math.min(previewDates.length, 4)}</span> bookings created, then auto-generated weekly:
+              Recurring schedule — first <span className="font-semibold text-[#1C1C1C]">{Math.min(previewDates.length, 4)}</span> bookings created, then auto-generated weekly:
             </p>
             <div className="max-h-24 overflow-y-auto text-xs text-gray-500 space-y-1">
               {previewDates.slice(0, 4).map((date, i) => (
