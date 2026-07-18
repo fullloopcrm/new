@@ -37,9 +37,11 @@ on:
 ```
 
 - `push` only fires for pushes **to `main`**. Pushing a branch like `p1-w3`
-  directly does **not** trigger `ci.yml` (or `tenant-scope.yml` /
-  `tenant-config-reconcile.yml` — both use the identical `push: branches:
-  [main]` + `pull_request:` pattern, lines 9–11 and 15–17 respectively).
+  directly does **not** trigger `ci.yml` (or `tenant-config-reconcile.yml` —
+  both use the identical `push: branches: [main]` + `pull_request:` pattern,
+  lines 9–11 and 15–17 respectively). (`tenant-scope.yml` was removed
+  2026-07-17 as a pure duplicate of ci.yml's own "Tenant-isolation guard"
+  step — it is no longer part of this matrix.)
 - `pull_request` fires only when a PR **exists** for that branch (any base).
   No open PR ⇒ no run, regardless of how many commits sit on the branch.
 
@@ -69,8 +71,10 @@ p1-w3 → p1-w2`, now with `p1-w5`/`p1-w6` also needing a slot).
 ## 3. Options, cheapest first
 
 **(a) Open a (draft) PR per `p1-wN` branch against `main`.** Zero workflow
-edits — `pull_request:` (already present, all three workflows) fires
-immediately. Gives independent tsc + FULL vitest + tenant-scope + lint per
+edits — `pull_request:` (already present, both PR-triggered workflows —
+`ci.yml` and `tenant-config-reconcile.yml`; `db-backup.yml` is
+schedule/dispatch-only) fires immediately. Gives independent tsc + FULL
+vitest + tenant-scope + lint per
 branch, visible as normal PR checks. Cost: six PRs appear in the repo's PR
 list (visible to others — a push/PR-creation action, so this is a leader/Jeff
 call, not something this lane does unilaterally). Recommended default.

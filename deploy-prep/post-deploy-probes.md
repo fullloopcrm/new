@@ -101,9 +101,12 @@ gh run list --branch main --limit 8 \
   --json workflowName,status,conclusion,headSha \
   | jq -r '.[] | "\(.conclusion // .status)\t\(.workflowName)"'
 ```
-**Expect:** the runs for **CI** (`ci.yml`), **tenant-scope** (`tenant-scope.yml`), and
+**Expect:** the runs for **CI** (`ci.yml`) and
 **tenant-config-reconcile** (`tenant-config-reconcile.yml`) all `success` on the
-Phase-A merge SHA. For the reconcile job to actually check (not skip), the Vercel/Actions
+Phase-A merge SHA. (A separate `tenant-scope` run, `tenant-scope.yml`, no longer
+exists as of 2026-07-17 — it was a pure duplicate of ci.yml's own
+"Tenant-isolation guard" step; do not wait on it.) For the reconcile job to
+actually check (not skip), the Vercel/Actions
 secret `SUPABASE_ACCESS_TOKEN_FULLLOOP` must be set — confirm it is:
 ```bash
 gh secret list | grep -i SUPABASE_ACCESS_TOKEN_FULLLOOP

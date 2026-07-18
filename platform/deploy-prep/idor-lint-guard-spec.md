@@ -155,8 +155,8 @@ refactor-noise.
 
 The platform already has a **blocking** tenant-isolation gate —
 `scripts/audit-tenant-scope.mjs`, wired into `.github/workflows/ci.yml`
-("Tenant-isolation guard" step) and `.github/workflows/tenant-scope.yml` — that
-sounds like it covers the same ground. It does not, for one specific reason:
+("Tenant-isolation guard" step) — that sounds like it covers the same ground.
+It does not, for one specific reason:
 its `idLookup` exemption treats **any** `.eq('id'|'*_id'|'*token*', …)` match as
 inherently safe ("globally unique keys are row-scoped, not a leak"). That
 reasoning holds for tokens (unguessable secrets) but not for `id` — a caller
@@ -173,8 +173,8 @@ Regression-locked in `src/lib/tenant-scope-guard-idor-blindspot.test.ts`
 logic changes, then proves a textbook by-id IDOR chain is `idLookup`-exempted
 by the live gate but flagged by this prototype's analyzer).
 
-**Not touched:** `audit-tenant-scope.mjs` / `ci.yml` / `tenant-scope.yml` are
-live, already-blocking gates. Tightening the `idLookup` exemption would newly
+**Not touched:** `audit-tenant-scope.mjs` / `ci.yml` are live,
+already-blocking gates. Tightening the `idLookup` exemption would newly
 red-gate an unknown share of the 178 candidates fleet-wide — a call for the
 leader/Jeff, not a unilateral edit from this prototype lane. Flagged, not
 applied.

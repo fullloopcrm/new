@@ -25,7 +25,8 @@ the owner_phone backfill; D depends on the Telegram webhook secret existing firs
 
 ## ARTIFACT LOCATIONS (be explicit about what exists where)
 - **In this worktree (`p1-w3`):** `deploy-prep/migration-verify.sql` (read-only
-  PRE/POST probe pack for 060/061/062), `.github/workflows/{ci,tenant-scope,tenant-config-reconcile,db-backup}.yml`,
+  PRE/POST probe pack for 060/061/062), `.github/workflows/{ci,tenant-config-reconcile,db-backup}.yml`
+  (`tenant-scope.yml` removed 2026-07-17, folded into `ci.yml`),
   `platform/scripts/reconcile-tenant-config.mjs`.
 - **On other worker branches (gated-prep, NOT yet on `main`):**
   - `p1-w2` (`ee8943a`): resolver flip + `TENANT_DIVERGENCE` assert-guard + `tenant.ts` reconcile.
@@ -97,7 +98,9 @@ SELECT or a RAISE-only DO block):
 - **061.POST:** a UNIQUE index over `{tenant_id, source, source_id}` exists.
 - **062.POST:** `inbound_emails.tenant_id` is `uuid` + FK→`tenants(id)` + indexed.
 - CI: after the RLS-migration commit + reconcile-secret set, confirm `ci.yml`,
-  `tenant-scope.yml`, `tenant-config-reconcile.yml` are **green** on the push.
+  `tenant-config-reconcile.yml` are **green** on the push. (`tenant-scope.yml`
+  was removed 2026-07-17 — it duplicated ci.yml's own "Tenant-isolation guard"
+  step; that check now lives only in `ci.yml`.)
 
 ### Go / No-Go
 - **GO to Phase B** when: all three POST blocks emit their `... POST OK` NOTICE (no

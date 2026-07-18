@@ -38,10 +38,11 @@ At time of writing, the include glob matches **38 test files** under `platform/s
 
 ### 4. The other workflows are separate gates, not a vitest subset
 
-Two other workflows run Node but are **not** part of the test suite (so they don't create a false impression that "some tests run elsewhere"):
+One other workflow runs Node but is **not** part of the test suite (so it doesn't create a false impression that "some tests run elsewhere"):
 
-- `tenant-scope.yml` → runs `node scripts/audit-tenant-scope.mjs` (the cross-tenant-query guard). Also invoked as a step inside `ci.yml` (line 51).
 - `tenant-config-reconcile.yml` → runs the reconcile script under a token-guard (no `SUPABASE_ACCESS_TOKEN` secret ⇒ skips green). Not a test-runner.
+
+(`tenant-scope.yml` was removed 2026-07-17 — it duplicated ci.yml's own "Tenant-isolation guard" step, same command/triggers/baseline; `node scripts/audit-tenant-scope.mjs` now runs only as a step inside `ci.yml`.)
 
 `db-backup.yml` is unrelated (scheduled backup).
 
