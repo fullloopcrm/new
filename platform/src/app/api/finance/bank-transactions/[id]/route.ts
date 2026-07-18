@@ -82,29 +82,44 @@ export async function PATCH(request: Request, { params }: Params) {
       })
       .eq('id', id)
 
-    // Update learning pattern
+    // Update learning pattern. idx_categ_patterns_tenant_pattern uniquely
+    // constrains (tenant_id, pattern) ONLY -- one row per pattern, coa_id is
+    // mutable on that row (categorize-ai.ts's cascading lookup keys on
+    // `pattern` alone and trusts whatever coa_id is on that single row as the
+    // current best category). The lookup here used to also filter on
+    // `coa_id`, so re-categorizing an already-learned pattern to a DIFFERENT
+    // category never matched the existing row and fell into the insert
+    // branch, which then hit the 2-column unique index and 23505'd -- an
+    // error this call never even captured, let alone checked, so the
+    // correction silently vanished and the AI kept suggesting the old wrong
+    // category forever. Look up by (tenant_id, pattern) only now: same coa_id
+    // reaffirms (increment hit_count), a different coa_id is a correction
+    // (overwrite coa_id, reset hit_count to 1 -- the old count measured
+    // confidence in the old mapping, not this one).
     const pattern = normalizeDescription(txn.description).slice(0, 64)
     if (pattern) {
       const { data: existing } = await supabaseAdmin
         .from('categorization_patterns')
-        .select('id, hit_count')
+        .select('id, coa_id, hit_count')
         .eq('tenant_id', tenantId)
         .eq('pattern', pattern)
-        .eq('coa_id', body.coa_id)
         .maybeSingle()
-      if (existing) {
-        await supabaseAdmin
-          .from('categorization_patterns')
-          .update({ hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() })
-          .eq('id', existing.id)
-      } else {
-        await supabaseAdmin.from('categorization_patterns').insert({
-          tenant_id: tenantId,
-          pattern,
-          coa_id: body.coa_id,
-          hit_count: 1,
-        })
-      }
+      const { error: patternErr } = existing
+        ? await supabaseAdmin
+            .from('categorization_patterns')
+            .update(
+              existing.coa_id === body.coa_id
+                ? { hit_count: (existing.hit_count || 0) + 1, last_used_at: new Date().toISOString() }
+                : { coa_id: body.coa_id, hit_count: 1, last_used_at: new Date().toISOString() },
+            )
+            .eq('id', existing.id)
+        : await supabaseAdmin.from('categorization_patterns').insert({
+            tenant_id: tenantId,
+            pattern,
+            coa_id: body.coa_id,
+            hit_count: 1,
+          })
+      if (patternErr) console.error('[bank-transactions] failed to update categorization_patterns', patternErr)
     }
 
     return NextResponse.json({ ok: true, journal_entry_id: entryId })

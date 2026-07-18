@@ -70,7 +70,16 @@ export async function POST(request: Request) {
       })
       .select('*')
       .single()
-    if (error) throw error
+    if (error) {
+      // idx_coa_tenant_code (tenant_id, code) is a caller-chosen identifier,
+      // same class as invoices/quotes' own numbers -- a collision is a real
+      // conflict (not safe to silently auto-renumber), so surface a clean 409
+      // instead of letting it fall through to the generic 500 below.
+      if (error.code === '23505') {
+        return NextResponse.json({ error: 'That account code is already in use' }, { status: 409 })
+      }
+      throw error
+    }
     return NextResponse.json({ account: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
