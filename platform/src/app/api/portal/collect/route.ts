@@ -74,19 +74,19 @@ export async function POST(request: NextRequest) {
     // client, since a match below gets its name/email/address/notes
     // silently overwritten with attacker-supplied data.
     const cleanPhone = phone.replace(/\D/g, '')
-    let existing: { id: string; status: string }[] | null = null
+    let existing: { id: string; status: string; email: string | null }[] | null = null
     if (cleanPhone.length >= 10) {
       const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
       const target = nat(cleanPhone)
       const { data: candidates } = await supabaseAdmin
         .from('clients')
-        .select('id, status, phone')
+        .select('id, status, phone, email')
         .eq('tenant_id', tenant.id)
       const match = (candidates || []).find(c => {
         const cDigits = nat((c.phone || '').replace(/\D/g, ''))
         return cDigits.length >= 10 && cDigits === target
       })
-      existing = match ? [{ id: match.id, status: match.status }] : []
+      existing = match ? [{ id: match.id, status: match.status, email: match.email ?? null }] : []
     }
 
     const existingClient = existing?.[0]
@@ -155,7 +155,14 @@ export async function POST(request: NextRequest) {
         .from('clients')  // tenant-scope-ok: tenant-scoped (id + tenant_id filter just below)
         .update({
           name,
-          email: email || null,
+          // Never overwrite an email already on file via this unauthenticated
+          // form — clients.email doubles as the client-portal login
+          // identifier (/api/client/verify-code matches by phone, then by
+          // email), so letting a phone match reassign it would let anyone
+          // who merely knows a client's phone number redirect their login
+          // email to an address they control and hijack the account. Same
+          // fix as /api/lead and /api/contact.
+          ...(existingClient.email ? {} : { email: email || null }),
           address: address || null,
           notes: notesValue,
           referrer_id: referrerId || undefined,
