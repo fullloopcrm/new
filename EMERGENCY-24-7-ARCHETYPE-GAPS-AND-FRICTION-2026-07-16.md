@@ -13461,3 +13461,14 @@ zero warnings. This item touched neither the reconcile-gate script nor any
 `.github/workflows` file, so `SUPABASE_ACCESS_TOKEN_FULLLOOP` (absent this
 session) was never needed -- token-guard re-checked and confirmed still
 absent. App-code-only, no push/deploy/DB write, no CI workflow edit.
+
+Per LEADER's queue item (2) ("continue whichever surface (1) opens up"):
+grepped the rest of the codebase for this same single-use-code
+check-then-mutate shape before calling this class closed rather than
+assuming. `portal/auth/route.ts`'s `verify_code` action, `pin-reset/route.ts`'s
+`verify_and_set`, and `referrers/auth/verify/route.ts` all already use the
+identical atomic-claim pattern (their own comments read "Same fix as
+portal/auth's verify_code race") -- `client/verify-code/route.ts` was the
+one remaining instance still on the old racy shape, which is exactly what
+the 2026-07-13 audit flagged and no prior commit had touched. No further
+continuation needed on this surface; it's dry.
