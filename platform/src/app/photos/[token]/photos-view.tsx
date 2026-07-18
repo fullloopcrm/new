@@ -4,12 +4,40 @@ import { useEffect, useState } from 'react'
 
 type Tenant = { name: string; logo_url: string | null; primary_color: string | null }
 type Job = { title: string | null; service_address: string | null; status: string; tenant: Tenant }
-type Photo = { id: string; url: string; photo_type: 'before' | 'after' | 'progress'; pair_id: string | null; caption: string | null; taken_at: string }
+type Annotation =
+  | { type: 'arrow'; x1: number; y1: number; x2: number; y2: number }
+  | { type: 'text'; x: number; y: number; text: string }
+  | { type: 'circle'; x: number; y: number; r: number }
+type Photo = {
+  id: string; url: string; photo_type: 'before' | 'after' | 'progress'; pair_id: string | null
+  caption: string | null; taken_at: string; annotations: Annotation[]
+}
 
 const TYPE_LABEL: Record<string, string> = { before: 'Before', after: 'After', progress: 'Progress' }
 
 function when(iso: string) {
   return new Date(iso).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
+}
+
+/** Read-only render of stored shapes. Same viewBox contract as the office
+ * lightbox's AnnotationOverlay — the image must fill its container edge to
+ * edge (w-full h-auto, no object-contain) for percentage coords to align. */
+function AnnotationOverlay({ annotations }: { annotations: Annotation[] }) {
+  if (!annotations || annotations.length === 0) return null
+  return (
+    <svg viewBox="0 0 100 100" preserveAspectRatio="none" className="absolute inset-0 w-full h-full pointer-events-none">
+      <defs>
+        <marker id="arrowhead-public" markerWidth="4" markerHeight="4" refX="3" refY="2" orient="auto">
+          <path d="M0,0 L4,2 L0,4 Z" fill="#ef4444" />
+        </marker>
+      </defs>
+      {annotations.map((a, i) => {
+        if (a.type === 'arrow') return <line key={i} x1={a.x1} y1={a.y1} x2={a.x2} y2={a.y2} stroke="#ef4444" strokeWidth="0.6" markerEnd="url(#arrowhead-public)" vectorEffect="non-scaling-stroke" />
+        if (a.type === 'circle') return <circle key={i} cx={a.x} cy={a.y} r={a.r} fill="none" stroke="#ef4444" strokeWidth="0.6" vectorEffect="non-scaling-stroke" />
+        return <text key={i} x={a.x} y={a.y} fontSize="4" fill="#ef4444" fontWeight="bold" style={{ paintOrder: 'stroke', stroke: 'white', strokeWidth: 0.8 }}>{a.text}</text>
+      })}
+    </svg>
+  )
 }
 
 export default function PhotosView({ token }: { token: string }) {
@@ -72,8 +100,11 @@ export default function PhotosView({ token }: { token: string }) {
                 <img src={(selected.photo_type === 'before' ? selectedPair : selected).url} alt="After" className="w-full max-h-[50vh] object-contain bg-slate-900" />
               </div>
             ) : (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={selected.url} alt={selected.caption || 'Job photo'} className="w-full max-h-[70vh] object-contain bg-slate-900" />
+              <div className="relative bg-slate-900">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={selected.url} alt={selected.caption || 'Job photo'} className="w-full h-auto block" />
+                <AnnotationOverlay annotations={selected.annotations} />
+              </div>
             )}
             <div className="p-3">
               {selected.caption && <p className="text-sm text-slate-700 mb-1">{selected.caption}</p>}

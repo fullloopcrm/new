@@ -1,8 +1,11 @@
 /**
- * Update a single job photo: tags, before/after pairing, caption.
+ * Update a single job photo: tags, before/after pairing, caption, annotations.
  * Tenant-scoped, office-only (requirePermission).
  *
- * PATCH { tags?: string[], pair_id?: string | null, caption?: string } → { photo }
+ * Annotations are overlay-only — stored as shape data and rendered client-side
+ * (office lightbox + public share view), never baked into the image itself.
+ *
+ * PATCH { tags?: string[], pair_id?: string | null, caption?: string, annotations?: object[] } → { photo }
  */
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
@@ -22,6 +25,7 @@ export async function PATCH(request: Request, { params }: Params) {
       tags?: string[]
       pair_id?: string | null
       caption?: string
+      annotations?: unknown[]
     }
 
     const patch: Record<string, unknown> = {}
@@ -30,6 +34,7 @@ export async function PATCH(request: Request, { params }: Params) {
     }
     if (body.pair_id !== undefined) patch.pair_id = body.pair_id
     if (body.caption !== undefined) patch.caption = body.caption.trim() || null
+    if (Array.isArray(body.annotations)) patch.annotations = body.annotations.slice(0, 50)
 
     if (Object.keys(patch).length === 0) {
       return NextResponse.json({ error: 'Nothing to update' }, { status: 400 })

@@ -25,7 +25,7 @@ export async function GET(_request: Request, { params }: Params) {
 
     const { data: photos } = await supabaseAdmin
       .from('job_photos')
-      .select('id, url, photo_type, pair_id, caption, taken_at')
+      .select('id, url, photo_type, pair_id, caption, taken_at, annotations')
       .eq('job_id', job.id)
       .order('taken_at', { ascending: false })
 
