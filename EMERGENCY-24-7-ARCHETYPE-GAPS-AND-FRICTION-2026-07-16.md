@@ -9380,3 +9380,202 @@ CLI/token-guard contract itself is unchanged by this round; CI's own
 "Verify token-guard skips clean without a secret" step in
 `tenant-config-reconcile.yml` is the authoritative check for that path and
 runs unmodified.
+
+## (192) New fresh-ground surface, opened by continuing (190)/(191)'s own
+question one axis further — not "does a trailing-slash boundary match real
+semantics" but "does an untested INPUT SHAPE (character case) match real
+semantics" — against `isMainHost` and `extractSubdomain` in
+`src/middleware.ts`, the two functions that decide which of middleware's
+THREE top-level routing branches (main-site/Clerk-auth, tenant-subdomain,
+custom-domain) a request takes
+
+Both functions compared the raw, un-normalized `hostname` (from
+`req.headers.get('host')`) directly against all-lowercase data: `isMainHost`
+did `MAIN_HOSTS.has(host)` against an all-lowercase `Set`; `extractSubdomain`
+matched `host` against a lowercase-only regex (`[a-z0-9-]+`). Every OTHER
+host comparison in this same file already guards against this —
+`canonicalHost` and `cleanHost` both call `.toLowerCase()` explicitly a few
+lines away from each of these two functions — but these two, uniquely, did
+not. Verified mechanically before touching anything (a throwaway Node
+script running the real, character-for-character-copied functions, deleted
+after use): `isMainHost('FULLLOOPCRM.COM')` → `false`;
+`isMainHost('WWW.fullloopcrm.com')` → `false`;
+`extractSubdomain('NYCMAID.FULLLOOPCRM.COM')` → `null` (vs. `'nycmaid'` for
+the lowercase form).
+
+**Concrete production effect, traced through the actual control flow, as
+the code read before this round's fix:**
+
+- A mixed-case Host header already carrying the `www.` prefix (e.g.
+  `WWW.FullLoopCRM.com`) skips the canonical-redirect block entirely — that
+  block's own guard is `!canonicalHost.startsWith('www.')`, and
+  `canonicalHost` IS correctly lowercased, so the guard sees `'www.fullloop
+  crm.com'.startsWith('www.')` = true and never fires, regardless of the raw
+  header's actual casing. The request then reaches `isMainHost(hostname)`
+  with the ORIGINAL un-lowercased value, which misses `MAIN_HOSTS` → `false`.
+  `extractSubdomain` also misses (not a subdomain shape) → `null`. Falling
+  through to `if (!isMainHost(hostname))` (still `true`, same bug) enters the
+  CUSTOM-DOMAIN branch: `getTenantByDomain(cleanHost)` (cleanHost IS
+  lowercased) finds no tenant row for the platform's own main domain, and the
+  branch's own dead-end is `return NextResponse.next()` — which is BEFORE
+  the "Main site / dashboard" block (isPublicRoute + Clerk-redirect +
+  admin-impersonation-bypass allowlist) ever runs. The request reaches the
+  real Next.js route with none of that logic applied.
+- A mixed-case TENANT SUBDOMAIN Host header (e.g.
+  `NYCMAID.FULLLOOPCRM.COM` — a real shape any non-browser HTTP client, cron
+  job, or webhook replay can send; HTTP Host matching is case-INSENSITIVE
+  per spec but nothing guarantees a caller NORMALIZES it) fails
+  `extractSubdomain` (`null`) and `isMainHost` (`false`, not in `MAIN_HOSTS`
+  either), falls into the same custom-domain branch, finds no
+  `tenant_domains`/`tenants.domain` row for the synthetic
+  `*.fullloopcrm.com` carrying-domain form (those aren't real domain rows —
+  tenant subdomains resolve via `getTenantBySlug`, never reached here), and
+  serves the bare, tenant-header-less Next.js route — not a 404, just
+  silently the wrong content with zero tenant context.
+
+**Honestly assessing severity, not overselling it (unlike (191), which was
+a live unauthenticated-reachable routing break):** before treating the
+first bullet as a Clerk-auth bypass, this worker traced every downstream
+consumer that would matter and confirmed defense-in-depth actually holds
+here. `src/app/dashboard/layout.tsx` and `src/app/admin/layout.tsx` each
+run their OWN independent server-side auth check
+(`admin_token`/`verifyAdminToken`/`getCurrentTenant()`/`verifyTenantHeaderSig`)
+regardless of whether middleware's own redirect ran, and redirect
+unauthenticated requests themselves. Every API route this bug could reach
+resolves tenant/auth via the shared `getTenantForRequest()`
+(`src/lib/tenant-query.ts`), which throws `AuthError('Unauthorized', 401)`
+when neither a valid impersonation cookie, a valid signed `x-tenant-id`
+header, nor a real Clerk session is present — none of which this bypass
+path produces. So: the bug is real and reproducible, but it is a
+**routing-correctness gap** (wrong middleware branch taken, main-host
+killed-route 410 and public-route checks skipped) with existing
+defense-in-depth at the layout/route layer preventing actual data exposure
+for the main-host case — WARN, not CRIT. The tenant-subdomain case has no
+such mitigation (there's no "correct" fallback content to defend into) —
+it's a straightforward availability/correctness bug: the tenant's real site
+silently fails to render for a case-varied Host header, same practical
+class as (191)'s misrouting, just gated on Host casing instead of a URL
+prefix's own shape.
+
+**Fixed** `src/middleware.ts`: `isMainHost` and `extractSubdomain` now
+`.toLowerCase()` the port-stripped host before comparing, matching the
+`canonicalHost`/`cleanHost` convention already used elsewhere in this same
+file. Both are now `export function` (previously private), following the
+exact precedent `matchesAppRootPrefix` set in (180) — a routing primitive
+this critical stays directly unit-testable without exercising the full
+`middleware()` function's edge-runtime `NextRequest` plumbing.
+
+Added `src/middleware.host-case-normalization.test.ts` (10 new tests): 5
+for `isMainHost` (lowercase form, all-uppercase, mixed-case
+`www`-prefixed, port-suffixed + uppercase together, and an unrelated host
+still correctly `false`), 5 for `extractSubdomain` (lowercase form,
+all-uppercase, mixed-case, `www` still correctly excluded case-
+insensitively, and an unrelated host still correctly `null`).
+
+## (193) Continuing (192) directly — the SAME root-cause class ("a function's
+contract silently assumes the caller already normalized case") reproduces
+in the shared, Edge-compatible tenant-resolution primitives middleware.ts
+itself calls — except here it's already reachable through an EXTERNAL,
+partner-controlled input, with NO defense-in-depth layer behind it
+
+(192) fixed the branch-SELECTION logic (which of middleware's three
+routing paths a request takes). This item asks the natural next question:
+once a request DOES reach a lookup, do the lookup functions themselves
+tolerate case the way their callers assume? The slug-lookup helper ran a
+case-sensitive `supabase.eq('slug', slug)` against a lowercase-only stored
+column (every real slug — `BESPOKE_SITE_TENANTS`, `tenants.slug` — is
+lowercase-hyphenated by convention) with no normalization of its own,
+trusting each caller to have already lowercased. `grep`-ing every real call
+site (not just middleware's) found three: `src/middleware.ts`'s
+subdomain branch (now normalized by (192)'s `extractSubdomain` fix), and
+two EXTERNAL-facing routes — `src/app/api/ingest/lead/route.ts` and
+`src/app/api/ingest/application/route.ts` (both listed in
+`isPublicRoute` as `/api/ingest(.*)`, `INGEST_SECRET`-gated but otherwise
+open to any partner integration) — both of which do
+`const slug = body.tenant_slug?.trim()`: trimmed, but never
+`.toLowerCase()`'d, before passing straight into the slug lookup. A
+partner sending `tenant_slug: "NycMaid"` instead of `"nycmaid"` — a
+plausible shape for a title-cased business-name field a partner's own form
+or CRM export might carry — silently misses the real row. Unlike (192)'s
+main-host case, there is no second gate behind this: the miss is
+negatively cached (5-minute TTL) and the route's handler almost certainly
+treats "no tenant found" as "drop this lead/application" — a genuine,
+currently-live, silent lead-loss bug for any partner whose slug casing
+doesn't happen to already match, with no error surfaced to anyone. The
+domain-lookup helper had the identical shape (case-sensitive
+`.eq('domain', ...)`), though this worker's audit of its own three real
+call sites (`src/middleware.ts`'s `cleanHost`, the inbound-email tenant
+resolver's own domain-extraction helper) found both already lowercase
+their input before calling in — so, for THIS function specifically,
+today's callers happen to be safe; the fix here is prospective (closing
+the contract gap before a future un-normalized caller reopens it), not a
+live-bug fix the way the slug lookup's is. Also caught in passing: the
+domain-lookup helper's own `www.` strip (a `replace(/^www\./, '')` regex)
+is itself case-sensitive, so an un-lowercased `"WWW.acme.com"` would have
+skipped the strip AND cached under the wrong, un-stripped key —
+compounding rather than merely repeating the case bug.
+
+**Fixed the root cause once, on the primitive, instead of patching each
+call site** (the same "fix the contract, not the caller" approach (192)
+took with `isMainHost`/`extractSubdomain`, and (191) took with
+`matchesAppRootPrefix`): both tenant-resolution lookup functions in the
+shared, Edge-compatible tenant-lookup module now `.toLowerCase()` their
+input as the very first step — before the cache lookup, before stripping
+`www.`, before the query — so every current caller (including the two
+ingest routes, unchanged by this fix) and every future one is covered
+without needing to remember this contract. As a side benefit this also
+closes a related, smaller bug: the in-memory per-function cache (keyed by
+the pre-fix raw string) previously fragmented one real tenant across
+multiple differently-cased cache entries instead of sharing one —
+confirmed via a new test asserting a second, differently-cased lookup is a
+cache hit (no second DB `.single()` call).
+
+Added test coverage in the shared tenant-lookup module's existing test file
+(5 new tests): 2 for the domain-lookup helper (a mixed-case
+`www.`-prefixed domain resolves and queries under the correctly-stripped
+lowercase key; a differently-cased repeat lookup shares one cache entry)
+and a new describe block for the slug-lookup helper (3 tests: a mixed-case
+slug resolves and queries lowercase; a differently-cased repeat lookup
+shares one cache entry; a genuinely nonexistent slug still correctly
+returns `null`) — the same mock-Supabase query-builder harness the
+pre-existing domain-lookup tests already established, reused rather than
+rebuilt.
+
+`tsc --noEmit` clean. Full repo suite: 461/461 files, 2299/2299 tests (15
+new this round: 10 from (192), 5 from (193)) — zero regressions, same
+pre-existing unrelated `fixture/route.ts` tenant-scope baseline warning
+every prior report in this doc has flagged. `eslint` clean, scoped to
+every file this round touched.
+
+**Not verified this round, flagging explicitly rather than silently
+assuming:** this worker did not confirm whether Vercel's edge network
+itself normalizes Host header case before middleware ever sees it (which
+would make the main-host branch of (192) unreachable in practice even
+pre-fix) — the fix and tests stand regardless (defense-in-depth for exactly
+this kind of platform-behavior assumption is the point), but the actual
+current production likelihood of a real mixed-case Host header reaching
+this code path in the FIRST place — as opposed to the DEMONSTRATED-live
+partner-input case in (193) — is inferred from the code and HTTP spec, not
+confirmed against live edge behavior. (193)'s ingest-endpoint case needs no
+such caveat: the partner-supplied slug field is untouched by any edge
+normalization, it's an ordinary JSON body field a partner's own client
+sends verbatim.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local sim-script-blocking hook additionally blocks
+direct invocation of the reconcile gate script from this worktree
+regardless of token state ("leader-run-only, touches live prod Supabase")
+— no live-DB reconcile run this round, same as every prior round without
+the token. Neither (192) nor (193) touched the reconcile gate script
+itself — both are host/slug/domain NORMALIZATION bugs in the resolution
+primitives the reconcile gate's own static-parse checks sit downstream of,
+not a drift between two hand-maintained lists the gate's existing
+Drift-letter checks are shaped to catch, so no new Drift check was added
+this round. All verification above ran through the real, already-existing
+(or newly added) unit test suite and a throwaway, deleted-after-use debug
+script exercising the real functions directly — no DB, no network, never
+invoking the blocked reconcile script's own CLI/entry point. The
+CLI/token-guard contract itself is unchanged by this round; CI's own
+"Verify token-guard skips clean without a secret" step in the reconcile
+workflow file is the authoritative check for that path and runs
+unmodified.

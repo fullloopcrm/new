@@ -32,9 +32,19 @@ function tenantServesSite(status: string | null | undefined): boolean {
   return !NON_SERVING_STATUSES.has(status ?? '')
 }
 
-function isMainHost(hostname: string): boolean {
+// Exported (pure, no I/O) for direct unit testing — see
+// src/middleware.host-case-normalization.test.ts. MAIN_HOSTS is an
+// all-lowercase Set; a mixed-case Host header (e.g. "WWW.FullLoopCRM.com" —
+// canonicalHost.startsWith('www.') is already true after ITS OWN
+// .toLowerCase() a few lines below in middleware(), so the canonical-redirect
+// block's `!canonicalHost.startsWith('www.')` guard short-circuits and never
+// fires for that shape) reached this function's un-normalized `host` and
+// silently missed the Set, sending a real main-host request down the
+// custom-domain branch instead of the main-site/Clerk-auth block below.
+// Verified directly: isMainHost('FULLLOOPCRM.COM') was `false` pre-fix.
+export function isMainHost(hostname: string): boolean {
   // Strip port for comparison
-  const host = hostname.split(':')[0]
+  const host = hostname.split(':')[0].toLowerCase()
   return MAIN_HOSTS.has(host)
 }
 
@@ -52,8 +62,21 @@ function isKilledRoute(pathname: string): boolean {
   return KILLED_ROUTES.some(p => pathname === p || pathname.startsWith(p + '/'))
 }
 
-function extractSubdomain(hostname: string): string | null {
-  const host = hostname.split(':')[0]
+// Exported (pure, no I/O) for direct unit testing — see
+// src/middleware.host-case-normalization.test.ts. The match regex is
+// lowercase-only ([a-z0-9-]+); an un-normalized mixed-case tenant subdomain
+// Host header (e.g. "NYCMAID.FULLLOOPCRM.COM" — a real shape a non-browser
+// HTTP client can send; DNS/HTTP Host matching is case-insensitive but not
+// case-NORMALIZING) failed to match here, returned null, and fell through
+// past both the subdomain branch AND isMainHost (also case-sensitive, see
+// above) into the custom-domain branch, where getTenantByDomain found no
+// matching row for a synthetic *.fullloopcrm.com carrying domain (those
+// aren't real tenant_domains rows) and served the bare Next.js route with
+// no tenant headers at all — not a 404, just silently the wrong page.
+// Verified directly: extractSubdomain('NYCMAID.FULLLOOPCRM.COM') was `null`
+// pre-fix; extractSubdomain('nycmaid.fullloopcrm.com') was 'nycmaid'.
+export function extractSubdomain(hostname: string): string | null {
+  const host = hostname.split(':')[0].toLowerCase()
   // Match *.homeservicesbusinesscrm.com or *.fullloopcrm.com (carrying/holding
   // domain — tenants are served at <slug>.fullloopcrm.com until their real
   // custom domain is pointed at the platform).

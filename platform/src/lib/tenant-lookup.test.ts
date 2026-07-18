@@ -33,7 +33,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: (table: string) => builder(table) }),
 }))
 
-import { getTenantByDomain } from './tenant-lookup'
+import { getTenantByDomain, getTenantBySlug } from './tenant-lookup'
 
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 't-1',
@@ -119,5 +119,78 @@ describe('getTenantByDomain', () => {
     expect(second?.slug).toBe('cached5')
     expect(second).toEqual(first)
     expect(singleCalls.length).toBe(callsAfterFirst) // no new DB calls on the cache hit
+  })
+
+  /**
+   * Every real slug/domain is stored lowercase, but not every caller
+   * normalizes case before calling in: middleware's cleanHost already
+   * lowercases, but a mixed-case Host header reaching getTenantByDomain any
+   * other way (or a future caller) must still resolve. Lowercasing INSIDE
+   * the function — not trusting each call site — is what closes this.
+   */
+  it('lowercases before stripping www — a case-varied www prefix does not survive into the query key', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.domain === 'caseinsensitive6.com'
+        ? { data: tenantRow({ slug: 'caseinsensitive6', domain: 'caseinsensitive6.com' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantByDomain('WWW.CaseInsensitive6.COM')
+    expect(singleCalls[0].eqs.domain).toBe('caseinsensitive6.com')
+    expect(t?.slug).toBe('caseinsensitive6')
+  })
+
+  it('shares a cache entry between differently-cased Host values for the same domain', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.domain === 'caseshare7.com'
+        ? { data: tenantRow({ slug: 'caseshare7', domain: 'caseshare7.com' }), error: null }
+        : { data: null, error: null }
+
+    await getTenantByDomain('caseshare7.com')
+    const callsAfterFirst = singleCalls.length
+    const second = await getTenantByDomain('CASESHARE7.COM')
+
+    expect(second?.slug).toBe('caseshare7')
+    expect(singleCalls.length).toBe(callsAfterFirst) // no new DB call — same cache key
+  })
+})
+
+describe('getTenantBySlug', () => {
+  /**
+   * The external /api/ingest/lead and /api/ingest/application routes pass a
+   * partner-supplied `tenant_slug` body field straight through with only
+   * `.trim()` — no case normalization. A case-sensitive `.eq('slug', slug)`
+   * against a mixed-case value silently misses the real, lowercase-stored
+   * row (and negatively caches the miss), so a partner sending "NycMaid"
+   * instead of "nycmaid" would silently drop every lead. Lowercasing here
+   * fixes it for every caller, present and future.
+   */
+  it('lowercases the slug before querying', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'nycmaid'
+        ? { data: tenantRow({ slug: 'nycmaid', domain: 'nycmaid.com' }), error: null }
+        : { data: null, error: null }
+
+    const t = await getTenantBySlug('NycMaid')
+    expect(singleCalls[0].eqs.slug).toBe('nycmaid')
+    expect(t?.slug).toBe('nycmaid')
+  })
+
+  it('shares a cache entry between differently-cased slug values', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'sharedslug'
+        ? { data: tenantRow({ slug: 'sharedslug', domain: 'sharedslug.com' }), error: null }
+        : { data: null, error: null }
+
+    await getTenantBySlug('sharedslug')
+    const callsAfterFirst = singleCalls.length
+    const second = await getTenantBySlug('SharedSlug')
+
+    expect(second?.slug).toBe('sharedslug')
+    expect(singleCalls.length).toBe(callsAfterFirst) // no new DB call — same cache key
+  })
+
+  it('returns null when no row matches, case-insensitively', async () => {
+    resolve = () => ({ data: null, error: null })
+    expect(await getTenantBySlug('NoSuchSlug')).toBeNull()
   })
 })
