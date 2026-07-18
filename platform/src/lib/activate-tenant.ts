@@ -154,7 +154,7 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
 
   // 2. Settings — services, Selena config, hours, payment methods, guidelines.
   try {
-    const prov = await provisionTenant({ tenantId, industry: tenant.industry || undefined })
+    const prov = await provisionTenant({ tenantId, industry: tenant.industry || undefined, zeroPricing: true })
     const seededCount = Object.values(prov.seeded).filter(Boolean).length
     steps.push({
       key: 'settings',

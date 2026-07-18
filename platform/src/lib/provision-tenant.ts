@@ -64,6 +64,13 @@ Never leave a job early without manager approval.`
 export interface ProvisionOptions {
   tenantId: string
   industry?: IndustryKey
+  /**
+   * Seed service_types with default_hourly_rate/price_cents forced to 0
+   * instead of the industry preset's dollar amounts. Used by the activation
+   * flow so auto-seeded services carry real names/durations but no invented
+   * pricing — operators fill in their own rates before selling.
+   */
+  zeroPricing?: boolean
   overrides?: Partial<{
     services: DefaultService[]
     selena_config: Record<string, unknown>
@@ -112,14 +119,18 @@ export async function provisionTenant(opts: ProvisionOptions): Promise<Provision
     // Seed BOTH the old booking columns (default_hourly_rate/duration) and the
     // SKU columns the quote builder reads (price_cents/item_type/per_unit) so
     // seeded services don't render as $0 in proposals. Presets are hourly.
-    const rows = services.map(s => ({
-      ...s,
-      tenant_id: tenantId,
-      active: true,
-      item_type: 'service',
-      per_unit: 'hour',
-      price_cents: Math.round(s.default_hourly_rate * 100),
-    }))
+    const rows = services.map(s => {
+      const hourlyRate = opts.zeroPricing ? 0 : s.default_hourly_rate
+      return {
+        ...s,
+        tenant_id: tenantId,
+        active: true,
+        item_type: 'service',
+        per_unit: 'hour',
+        default_hourly_rate: hourlyRate,
+        price_cents: Math.round(hourlyRate * 100),
+      }
+    })
     const { data: inserted } = await supabaseAdmin.from('service_types').insert(rows).select('id')
     result.seeded.services = inserted?.length || 0
   } else {
