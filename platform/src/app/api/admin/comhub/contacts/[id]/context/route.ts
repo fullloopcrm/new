@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 // GET /api/admin/comhub/contacts/[id]/context
 // Enriched info for the right-side panel: contact + linked client + team_member +
@@ -41,12 +42,17 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
     const match = candidates?.find((c) => nat((c.phone || '').replace(/\D/g, '')) === normalizedContactPhone)
     if (match) clientId = match.id
   }
+  // Same misattribution class as the phone match above, via LIKE-wildcard
+  // injection instead of a missing length floor -- contact.email traces back
+  // to an inbound sender address (attacker-influenceable), so it must be
+  // escaped before reaching ilike() or a crafted `%`/`_` can match an
+  // unrelated client's email and get that wrong id PERSISTED below.
   if (!clientId && contact.email) {
     const { data: matched } = await supabaseAdmin
       .from('clients')
       .select('id')
       .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
+      .ilike('email', escapeLikeValue(contact.email))
       .limit(1)
     if (matched && matched.length > 0) clientId = matched[0].id
   }
@@ -63,7 +69,7 @@ export async function GET(req: NextRequest, ctx: { params: Promise<{ id: string 
       .from('team_members')
       .select('id')
       .eq('tenant_id', tenantId)
-      .ilike('email', contact.email)
+      .ilike('email', escapeLikeValue(contact.email))
       .limit(1)
     if (matched && matched.length > 0) teamMemberId = matched[0].id
   }

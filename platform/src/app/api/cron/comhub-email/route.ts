@@ -8,6 +8,7 @@ import { sendEmail as sendTenantEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { sendEmail as sendNycmaidEmail } from '@/lib/nycmaid/email'
 import { verifyCronSecret } from '@/lib/cron-auth'
+import { escapeLikeValue } from '@/lib/postgrest-safe'
 
 function escapeHtml(s: string): string {
   return s
@@ -215,7 +216,7 @@ async function pollAccount(account: MailAccount): Promise<{ scanned: number; mir
             .from('clients')
             .select('do_not_service')
             .eq('tenant_id', tenantId)
-            .ilike('email', fromAddr)
+            .ilike('email', escapeLikeValue(fromAddr))
             .limit(1)
             .single()
           if (!paused && !dnsClient?.do_not_service) {

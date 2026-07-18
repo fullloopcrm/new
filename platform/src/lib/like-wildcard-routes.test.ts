@@ -43,6 +43,8 @@ const FILES = [
   'src/app/api/referrers/auth/verify/route.ts',
   'src/app/api/pin-reset/route.ts',
   'src/lib/inbound-email-tenant.ts',
+  'src/app/api/cron/comhub-email/route.ts',
+  'src/app/api/admin/comhub/contacts/[id]/context/route.ts',
 ]
 
 function ilikeCalls(src: string): string[] {
