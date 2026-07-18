@@ -681,11 +681,20 @@ export async function POST(request: Request) {
       const invoice = event.data.object as Stripe.Invoice
       const customerEmail = invoice.customer_email
       if (!customerEmail) break
-      const { data: tenant } = await supabaseAdmin
+      // error checked explicitly (not discarded) — same masked-error class
+      // fixed across tenant.ts/tenant-lookup.ts/domains.ts and the telnyx
+      // inbound-SMS tenant resolver: a genuine DB failure here used to look
+      // identical to "no tenant with this owner_email" and silently skipped
+      // flipping billing_status back to active on a real renewal payment.
+      const { data: tenant, error: tenantLookupError } = await supabaseAdmin
         .from('tenants')
         .select('id')
         .eq('owner_email', customerEmail)
         .maybeSingle()
+      if (tenantLookupError) {
+        console.error(`STRIPE_INVOICE_PAID_TENANT_LOOKUP_ERROR owner_email=${customerEmail} error=${tenantLookupError.message}`)
+        throw new Error(`STRIPE_INVOICE_PAID_TENANT_LOOKUP_ERROR owner_email=${customerEmail} error=${tenantLookupError.message}`)
+      }
       if (!tenant) break
       await supabaseAdmin
         .from('tenants')
@@ -698,11 +707,19 @@ export async function POST(request: Request) {
       const invoice = event.data.object as Stripe.Invoice
       const customerEmail = invoice.customer_email
       if (!customerEmail) break
-      const { data: tenant } = await supabaseAdmin
+      // error checked explicitly — same masked-error class as invoice.paid
+      // above: a genuine DB failure used to look identical to "no matching
+      // tenant" and silently skip flipping billing_status to past_due AND
+      // the admin/dunning alert on a real failed payment.
+      const { data: tenant, error: tenantLookupError } = await supabaseAdmin
         .from('tenants')
         .select('id, name, owner_email')
         .eq('owner_email', customerEmail)
         .maybeSingle()
+      if (tenantLookupError) {
+        console.error(`STRIPE_INVOICE_PAYMENT_FAILED_TENANT_LOOKUP_ERROR owner_email=${customerEmail} error=${tenantLookupError.message}`)
+        throw new Error(`STRIPE_INVOICE_PAYMENT_FAILED_TENANT_LOOKUP_ERROR owner_email=${customerEmail} error=${tenantLookupError.message}`)
+      }
       if (!tenant) break
       await supabaseAdmin
         .from('tenants')
