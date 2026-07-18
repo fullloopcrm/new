@@ -24,7 +24,10 @@ const h = vi.hoisted(() => {
     id: 'tenant-msg-tag',
     slug: 'acme',
     telegram_bot_token: 'encrypted-token',
-    telegram_chat_id: null as string | null,
+    // Must match the inbound chat.id (12345) below — an unset/mismatched
+    // chat_id is now rejected before reaching askSelena (see the sibling
+    // route.owner-chat-id-required.test.ts for that regression lock).
+    telegram_chat_id: '12345' as string | null,
   }
 
   function makeBuilder(table: string) {

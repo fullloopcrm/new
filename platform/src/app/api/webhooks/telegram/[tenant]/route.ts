@@ -78,7 +78,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   if (!chatId || !text) return NextResponse.json({ ok: true, skip: 'no_chat_or_text' })
 
   // Auth: the update must come from this tenant's registered owner chat.
-  if (tenant.telegram_chat_id && String(chatId) !== String(tenant.telegram_chat_id)) {
+  // Fail CLOSED when telegram_chat_id isn't set yet — registerTelegramWebhook
+  // fires as soon as telegram_bot_token is saved (admin/businesses/[id]/route.ts),
+  // independently of chat_id, which is a separate optional field an admin may
+  // not have filled in yet. Treating "not configured" as "no restriction"
+  // let ANY Telegram user who found the tenant's (publicly discoverable) bot
+  // drive askSelena with the platform owner phone as caller — for the nycmaid
+  // tenant specifically that phone passes isOwnerOfTenant()'s OWNER_PHONES
+  // fallback, granting full owner-tool access (refunds, broadcasts, revenue,
+  // settings, cron) to an unverified stranger. The sibling routes
+  // (webhooks/telegram/route.ts, webhooks/telegram/jefe/route.ts) never had
+  // this gap — both always allowlist-check rather than skip when unset.
+  if (!tenant.telegram_chat_id || String(chatId) !== String(tenant.telegram_chat_id)) {
     await sendTelegram(chatId, 'This bot is private.', botToken)
     return NextResponse.json({ ok: true, private: true })
   }
