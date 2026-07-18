@@ -32,7 +32,11 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'verification_codes') {
         return {
           select: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ maybeSingle: async () => ({ data: CODE, error: null }) }) }) }) }),
-          delete: () => ({ eq: () => ({ eq: async () => ({ data: null, error: null }) }) }),
+          // The CAS-consume delete chains 3 `.eq()`s then `.select()`, reading
+          // back whether a row actually matched (RETURNING-equivalent) — this
+          // fixture always "wins" the race (matches CODE), same as the
+          // pre-existing no-op delete this replaced.
+          delete: () => ({ eq: () => ({ eq: () => ({ eq: () => ({ select: async () => ({ data: [CODE], error: null }) }) }) }) }),
         }
       }
       if (table === 'clients') {

@@ -53,21 +53,45 @@ let clients: (typeof VICTIM)[] = []
 let nextId = 0
 
 function verificationCodesTable() {
-  const state: { eqs: Record<string, unknown> } = { eqs: {} }
+  const state: { eqs: Record<string, unknown>; op: 'select' | 'delete'; selectAfterWrite: boolean } = {
+    eqs: {},
+    op: 'select',
+    selectAfterWrite: false,
+  }
   const builder = {
-    select: () => builder,
+    select: () => {
+      if (state.op === 'delete') state.selectAfterWrite = true
+      return builder
+    },
     eq(col: string, val: unknown) {
       state.eqs[col] = val
       return builder
     },
-    delete: () => builder,
+    delete: () => {
+      state.op = 'delete'
+      return builder
+    },
     maybeSingle: async () => {
       const row = CODES.find(
         (c) => c.tenant_id === state.eqs.tenant_id && c.identifier === state.eqs.identifier && c.code === state.eqs.code
       )
       return { data: row || null, error: null }
     },
-    then: (resolve: (r: { data: null; error: null }) => void) => resolve({ data: null, error: null }),
+    // The CAS-consume delete chains `.delete().eq(...).eq(...).eq(...).select()`
+    // and reads back whether a row actually matched (the same shape as the
+    // real Postgres RETURNING) — a real, matching CODES row means the delete
+    // "won" the race. Rows aren't actually removed from CODES since no test
+    // in this file re-verifies the same code twice in one case.
+    then: (resolve: (r: { data: unknown; error: null }) => void) => {
+      if (state.op === 'delete' && state.selectAfterWrite) {
+        const rows = CODES.filter(
+          (c) => c.tenant_id === state.eqs.tenant_id && c.identifier === state.eqs.identifier && c.code === state.eqs.code
+        )
+        resolve({ data: rows, error: null })
+        return
+      }
+      resolve({ data: null, error: null })
+    },
   }
   return builder
 }

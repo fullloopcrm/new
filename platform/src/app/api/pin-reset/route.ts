@@ -228,6 +228,29 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Code expired or incorrect.' }, { status: 400 })
     }
 
+    // Compare-and-swap the consume, BEFORE writing the new PIN. The SELECT
+    // above only proves the code was unused at READ time -- two concurrent
+    // verify_and_set calls for the same still-valid code (e.g. an attacker
+    // racing a leaked code against the legitimate owner's own request, each
+    // submitting a different new_pin) both used to pass that SELECT before
+    // either write landed, and the old code wrote tenant_members.pin_hash
+    // unconditionally with no CAS at all -- last write silently won, and the
+    // separate "mark used" update at the end had no used=false re-check
+    // either, so it would happily flip an already-consumed code back to used
+    // a second time. Re-asserting used=false in this UPDATE's own WHERE
+    // means only one of two racing requests can ever consume the code; the
+    // loser is rejected here, before it ever touches tenant_members.
+    const { data: consumedCode } = await supabaseAdmin
+      .from('member_pin_reset_codes')
+      .update({ used: true })
+      .eq('id', stored.id)
+      .eq('used', false)
+      .select()
+      .maybeSingle()
+    if (!consumedCode) {
+      return NextResponse.json({ error: 'Code already used — request a new one.' }, { status: 400 })
+    }
+
     // Enforce per-tenant PIN uniqueness (a DB index also enforces it).
     const pinHash = hashAdminPin(newPin)
     const { data: clash } = await supabaseAdmin
@@ -249,8 +272,6 @@ export async function POST(request: Request) {
     if (updErr) {
       return NextResponse.json({ error: 'Could not set PIN. Try again.' }, { status: 500 })
     }
-
-    await supabaseAdmin.from('member_pin_reset_codes').update({ used: true }).eq('id', stored.id)
 
     return NextResponse.json({ success: true })
   }

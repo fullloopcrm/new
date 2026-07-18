@@ -45,13 +45,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Code expired' }, { status: 401 })
     }
 
-    // Burn the code — both email + sms keys if both were sent.
+    // Burn the code atomically. verification_codes is UNIQUE(tenant_id,
+    // identifier), so exactly one row exists per key — but this delete used
+    // to be unconditional on `identifier` alone (not `code`) and its result
+    // was never checked. Two concurrent verify-code calls for the same
+    // still-valid code both passed the SELECT above before either DELETE
+    // ran, and an unconditional delete "succeeds" (0 rows or 1, no error
+    // either way) regardless of who got there first — both requests fell
+    // through to mint a session from one single-use code, same TOCTOU class
+    // already closed for portal_auth_codes and member_pin_reset_codes this
+    // session. Scoping the delete by the exact matched identifier+code and
+    // requiring a row back closes it here too; the loser gets a clean 401.
+    const { data: burned } = await supabaseAdmin
+      .from('verification_codes')
+      .delete()
+      .eq('tenant_id', tenant.id)
+      .eq('identifier', verification.identifier)
+      .eq('code', code)
+      .select()
+    if (!burned || burned.length === 0) {
+      return NextResponse.json({ error: 'Code already used — request a new one' }, { status: 401 })
+    }
+    // Best-effort cleanup of the OTHER lookup key's code (both email + sms
+    // keys can be seeded when both were sent) — not the consumed code
+    // itself, so no CAS needed here.
     for (const key of lookupKeys) {
-      await supabaseAdmin
-        .from('verification_codes')
-        .delete()
-        .eq('tenant_id', tenant.id)
-        .eq('identifier', key)
+      if (key === verification.identifier) continue
+      await supabaseAdmin.from('verification_codes').delete().eq('tenant_id', tenant.id).eq('identifier', key)
     }
 
     // Find existing client (phone match first, email fallback).

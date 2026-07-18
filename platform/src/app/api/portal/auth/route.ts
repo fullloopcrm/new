@@ -163,14 +163,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
     }
 
-    // Mark as used — scoped to the resolved tenant so a colliding phone+code
-    // row in another tenant is never consumed by this verification.
-    await supabaseAdmin
+    // Compare-and-swap the consume: re-assert used=false in the UPDATE's own
+    // WHERE and check whether a row actually flipped. The SELECT above only
+    // proves the code was unused at READ time -- two concurrent verify_code
+    // calls for the same still-valid code both pass that SELECT before
+    // either UPDATE lands, and a blind UPDATE (no used=false re-check) would
+    // match and succeed for BOTH regardless of order, letting one single-use
+    // login code mint two separate sessions. The loser now gets a clean
+    // "already used" instead of a second silently-issued token.
+    const { data: consumed } = await supabaseAdmin
       .from('portal_auth_codes')
       .update({ used: true })
       .eq('phone', phone)
       .eq('code', code)
       .eq('tenant_id', tenant.id)
+      .eq('used', false)
+      .select()
+      .maybeSingle()
+
+    if (!consumed) {
+      return NextResponse.json({ error: 'Code already used — request a new one' }, { status: 401 })
+    }
 
     const token = createToken(stored.client_id, stored.tenant_id)
 
