@@ -42,16 +42,38 @@ export async function POST(request: Request) {
     .single()
   if (!target) return NextResponse.json({ error: 'Target member not found' }, { status: 404 })
 
-  const { data, error } = await supabaseAdmin
+  // Compare-and-swap on the assignee we just read: two managers reassigning
+  // the SAME job within the same window would otherwise both pass the fetch
+  // above and both fall through to their own booking_team_members delete+
+  // upsert pair below -- unguarded, those two pairs aren't ordered against
+  // each other, so the loser's sync can land AFTER the winner's and leave
+  // booking_team_members.lead pointing at a different member than
+  // bookings.team_member_id. Re-asserting `previous` in this update's own
+  // WHERE means only the request that still matches the row it read wins the
+  // claim; the loser bails out before touching booking_team_members at all,
+  // same desync class already fixed at every other team_member_id write site
+  // this session, now closed for reassign's own write-write race.
+  let claimQuery = supabaseAdmin
     .from('bookings')
     .update({ team_member_id: to_member_id, pay_rate: target.pay_rate || null, status: 'confirmed' })
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
-    .select()
-    .maybeSingle()
+  claimQuery = previous == null ? claimQuery.is('team_member_id', null) : claimQuery.eq('team_member_id', previous)
+  const { data, error } = await claimQuery.select().maybeSingle()
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) return NextResponse.json({ error: 'Reassign failed' }, { status: 500 })
+  if (!data) {
+    const { data: current } = await supabaseAdmin
+      .from('bookings')
+      .select('team_member_id')
+      .eq('id', booking_id)
+      .eq('tenant_id', auth.tid)
+      .maybeSingle()
+    return NextResponse.json(
+      { error: 'Job was reassigned concurrently', team_member_id: current?.team_member_id ?? null },
+      { status: 409 },
+    )
+  }
 
   // GET /api/bookings/:id/team and closeout-summary both source the LEAD from
   // booking_team_members, not bookings.team_member_id — falling back to the
