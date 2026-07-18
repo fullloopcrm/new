@@ -214,20 +214,20 @@ export default function PipelinePage() {
                       onDragEnd={onDragEnd}
                       className={`block bg-white border rounded-lg p-2.5 hover:shadow-md hover:border-teal-300 transition-all cursor-move ${deal.pinned ? 'border-amber-300' : 'border-slate-200'}`}
                     >
-                      <div className="flex items-center justify-between gap-1">
-                        <p className="font-medium text-sm text-slate-900 truncate">
-                          {deal.title || deal.clients?.name || 'Untitled Deal'}
-                        </p>
+                      <div className="flex items-center gap-1.5">
                         <button
                           type="button"
                           onClick={e => togglePin(e, deal.id, stage.value, deal.pinned)}
                           title={deal.pinned ? 'Unpin deal' : 'Pin deal to top'}
-                          className={`shrink-0 p-0.5 rounded hover:bg-slate-100 ${deal.pinned ? 'text-amber-500' : 'text-slate-300'}`}
+                          className={`shrink-0 p-0.5 rounded hover:bg-slate-100 ${deal.pinned ? 'text-amber-400' : 'text-slate-300'}`}
                         >
                           <svg width="14" height="14" viewBox="0 0 24 24" fill={deal.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
-                            <path d="M12 17v5M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5Z" strokeLinecap="round" strokeLinejoin="round" />
+                            <path d="M12 2.5l2.9 6.13 6.6.79-4.9 4.6 1.28 6.6L12 17.3l-5.88 3.32 1.28-6.6-4.9-4.6 6.6-.79L12 2.5Z" strokeLinecap="round" strokeLinejoin="round" />
                           </svg>
                         </button>
+                        <p className="font-medium text-sm text-slate-900 truncate">
+                          {deal.title || deal.clients?.name || 'Untitled Deal'}
+                        </p>
                       </div>
                       {deal.clients && deal.title && (
                         <p className="text-xs text-slate-500 truncate">{deal.clients.name}</p>
