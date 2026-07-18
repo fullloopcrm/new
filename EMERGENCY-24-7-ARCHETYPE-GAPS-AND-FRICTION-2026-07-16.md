@@ -13265,3 +13265,68 @@ neither the reconcile script nor any CI workflow file, so nothing there
 needed re-verification against a live token. File-only for the DB side (new
 migration, not applied) and app-code-only otherwise -- no push/deploy/prod
 write.
+
+## (252) New track per LEADER's 09:48 queue item (1) -- fresh security surface
+outside the PR9 reconcile-gate/CI lane, that lane being confirmed dry after
+(249)/(250). Picked `scripts/idor-lint-guard.ts`, the standalone CLI
+companion to the already-well-tested `src/lib/idor-route-guard.ts` analyzer
+(12 fixture + tree-ratchet tests in `idor-route-guard.test.ts`) and the
+actual entrypoint named by `deploy-prep/idor-lint-guard.sample.yml`'s
+proposed CI job.
+
+The analyzer being tested does not mean the CLI is: the script's own
+route-walking, baseline-loading, and baseline-diffing logic ran entirely at
+module top-level with zero test coverage of its own -- confirmed via
+`find . -iname "*idor-lint-guard*"`, which turns up only the script itself,
+its spec doc, and the sample workflow, no test file. A bug in the CLI's own
+baseline handling would ship straight into the proposed gate with nothing to
+catch it, independent of how correct the underlying analyzer is.
+
+The concrete branch this surfaces: `loadBaseline`'s
+`existsSync(baselinePath) ? JSON.parse(...) : []` -- a real, reachable case
+(fresh clone before the first `--update-baseline` run, or a checkout that's
+missing the committed `idor-route-guard.baseline.json`) with a real security
+consequence baked into the choice: fail OPEN TO REPORTING (every current
+signature counts as new and gets listed/exit-1'd) rather than fail silently
+passing. That choice had never been exercised by any test.
+
+**Fixed** by extracting the script's inline top-level logic into named
+exports -- `walkRoutes`, `collectCurrentSignatures`, `loadBaseline`,
+`diffAgainstBaseline`, `main()` -- guarded by the identical
+`process.argv[1] === realpathSync(fileURLToPath(import.meta.url))`
+entrypoint pattern this lane's own drift-gate script already uses (item
+(240)'s surface), so importing the module for tests touches neither stdout
+nor `process.exit`. No behavior change to the CLI itself: `npx tsx
+scripts/idor-lint-guard.ts` re-verified to produce the identical `✓ ...
+(106 known/baselined candidates)` / exit 0 output before and after.
+
+New test file `src/lib/idor-lint-guard.test.ts` (10 tests, following the
+established `src/lib/`-hosts-a-`scripts/*`-CLI's-tests convention this
+lane's own drift-gate test file already set, since `vitest.config.ts`'s
+`include` is scoped to `src/**/*.test.ts` only -- confirmed by checking the
+config before picking the test file's location, not after writing a test
+vitest would silently never run): `walkRoutes` collects `route.ts` and skips
+sibling non-route files, recurses into nested dirs, empty-dir case;
+`collectCurrentSignatures` producing correct deduped `file::table`
+signatures against fixture route trees (mkdtempSync, mirroring this lane's
+own `collectFirstSegmentDirs` test pattern from item (249)); `loadBaseline`'s
+missing-file-vs-existing-file branch; `diffAgainstBaseline`'s subset/new/
+empty-baseline cases.
+
+Mutation-verified the one branch this item's own summary calls out as the
+real finding: temporarily replaced `loadBaseline` with an unconditional
+`JSON.parse(readFileSync(...))` (removing the `existsSync` guard), confirmed
+the missing-baseline test failed with the predicted `ENOENT`, restored, and
+re-confirmed all 22 idor-related tests (10 new + 12 existing analyzer tests)
+green. `git diff --stat` on the script confirmed empty mid-mutation-and-
+restore beyond the intended diff.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 503/503 files,
+2575/2575 tests (2565 baseline + 10 new via this item, zero regressions).
+`eslint` on both changed files reports zero warnings. This item touched
+neither this lane's own drift-gate script nor any `.github/workflows` file,
+and this CLI is explicitly NOT wired into CI yet (Jeff-gated per the
+script's own header) -- so nothing here needed re-verification against a
+live Supabase token; the reconcile gate's own token-guard was re-checked
+separately and `SUPABASE_ACCESS_TOKEN_FULLLOOP` remains absent this
+session. File-only, no push/deploy/DB, no CI workflow edit.

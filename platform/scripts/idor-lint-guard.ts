@@ -21,15 +21,15 @@
  * This script does NOT get wired into .github/workflows by itself — that is
  * a workflow edit, which is Jeff-gated. See the spec's "graduation path".
  */
-import { readdirSync, readFileSync, statSync, writeFileSync, existsSync } from 'node:fs'
+import { readdirSync, readFileSync, statSync, writeFileSync, existsSync, realpathSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { analyzeSource } from '../src/lib/idor-route-guard'
 
-const UPDATE_BASELINE = process.argv.includes('--update-baseline')
-const API_ROOT = join(process.cwd(), 'src', 'app', 'api')
-const BASELINE_PATH = join(process.cwd(), 'src', 'lib', 'idor-route-guard.baseline.json')
+export const API_ROOT = join(process.cwd(), 'src', 'app', 'api')
+export const BASELINE_PATH = join(process.cwd(), 'src', 'lib', 'idor-route-guard.baseline.json')
 
-function walkRoutes(dir: string): string[] {
+export function walkRoutes(dir: string): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
@@ -39,32 +39,61 @@ function walkRoutes(dir: string): string[] {
   return out
 }
 
-const findings = walkRoutes(API_ROOT).flatMap((f) =>
-  analyzeSource({ file: relative(process.cwd(), f), source: readFileSync(f, 'utf8') }),
-)
-const current = Array.from(new Set(findings.map((f) => `${f.file}::${f.table}`))).sort()
-
-if (UPDATE_BASELINE) {
-  writeFileSync(BASELINE_PATH, JSON.stringify(current, null, 2) + '\n')
-  console.log(`baseline updated: ${current.length} candidate signatures written to ${BASELINE_PATH}`)
-  process.exit(0)
+// Signatures are relative to process.cwd() by design (matches how the
+// committed baseline.json was generated and how CI's cwd lines up with a
+// local run) — callers scanning a different root should pass a relativeTo.
+export function collectCurrentSignatures(apiRoot: string, relativeTo: string = process.cwd()): string[] {
+  const findings = walkRoutes(apiRoot).flatMap((f) =>
+    analyzeSource({ file: relative(relativeTo, f), source: readFileSync(f, 'utf8') }),
+  )
+  return Array.from(new Set(findings.map((f) => `${f.file}::${f.table}`))).sort()
 }
 
-const baseline: string[] = existsSync(BASELINE_PATH) ? JSON.parse(readFileSync(BASELINE_PATH, 'utf8')) : []
-const baselineSet = new Set(baseline)
-const fresh = current.filter((s) => !baselineSet.has(s))
-
-if (fresh.length === 0) {
-  console.log(`✓ idor-lint-guard: no NEW by-id-without-tenant_id chains (${current.length} known/baselined candidates)`)
-  process.exit(0)
+// A missing baseline file (fresh clone before the first `--update-baseline`
+// run, or the committed baseline.json accidentally not checked out) is
+// treated as an EMPTY baseline, not a crash — every current signature then
+// reports as "new". This is a deliberate fail-open-to-reporting (not
+// fail-silent) choice: the script still exits 1 and lists every candidate
+// rather than silently passing with nothing to compare against.
+export function loadBaseline(baselinePath: string): string[] {
+  return existsSync(baselinePath) ? JSON.parse(readFileSync(baselinePath, 'utf8')) : []
 }
 
-console.error(`✗ idor-lint-guard: ${fresh.length} NEW unscoped by-id chain${fresh.length === 1 ? '' : 's'} on tenant-owned tables\n`)
-for (const sig of fresh) console.error(`  ${sig}`)
-console.error(
-  "\nAdd .eq('tenant_id', tenantId) (or use tenantDb(tenantId).from(...)); or, if the " +
-    'table is genuinely cross-tenant by design, add it to CROSS_TENANT_TABLES in ' +
-    "src/lib/idor-route-guard.ts with a justification; or run with --update-baseline " +
-    'to accept (only for confirmed-safe findings).',
-)
-process.exit(1)
+export function diffAgainstBaseline(current: string[], baseline: string[]): string[] {
+  const baselineSet = new Set(baseline)
+  return current.filter((s) => !baselineSet.has(s))
+}
+
+export function main(): void {
+  const updateBaseline = process.argv.includes('--update-baseline')
+  const current = collectCurrentSignatures(API_ROOT)
+
+  if (updateBaseline) {
+    writeFileSync(BASELINE_PATH, JSON.stringify(current, null, 2) + '\n')
+    console.log(`baseline updated: ${current.length} candidate signatures written to ${BASELINE_PATH}`)
+    process.exit(0)
+  }
+
+  const fresh = diffAgainstBaseline(current, loadBaseline(BASELINE_PATH))
+
+  if (fresh.length === 0) {
+    console.log(`✓ idor-lint-guard: no NEW by-id-without-tenant_id chains (${current.length} known/baselined candidates)`)
+    process.exit(0)
+  }
+
+  console.error(`✗ idor-lint-guard: ${fresh.length} NEW unscoped by-id chain${fresh.length === 1 ? '' : 's'} on tenant-owned tables\n`)
+  for (const sig of fresh) console.error(`  ${sig}`)
+  console.error(
+    "\nAdd .eq('tenant_id', tenantId) (or use tenantDb(tenantId).from(...)); or, if the " +
+      'table is genuinely cross-tenant by design, add it to CROSS_TENANT_TABLES in ' +
+      "src/lib/idor-route-guard.ts with a justification; or run with --update-baseline " +
+      'to accept (only for confirmed-safe findings).',
+  )
+  process.exit(1)
+}
+
+// Run the CLI only when this file is the entrypoint (npx tsx scripts/…​.ts).
+// Importing the module (tests) must not touch stdout/exit codes.
+if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+  main()
+}
