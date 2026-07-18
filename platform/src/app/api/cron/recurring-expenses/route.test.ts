@@ -149,6 +149,24 @@ function notificationsBuilder() {
   return chain
 }
 
+// This suite is about per-occurrence idempotency, not the tenantServesSite()
+// status gate (that has its own dedicated route.status-gate.test.ts) — every
+// tenant referenced here resolves as 'active' so the gate is a no-op.
+function tenantsBuilder() {
+  const chain: Record<string, unknown> = {
+    select: () => chain,
+    in: (_col: string, vals: string[]) => {
+      chain.__ids = vals
+      return chain
+    },
+    then: (resolve: (v: unknown) => void) => {
+      const ids = (chain.__ids as string[] | undefined) || []
+      resolve({ data: ids.map((id) => ({ id, status: 'active' })), error: null })
+    },
+  }
+  return chain
+}
+
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
@@ -156,6 +174,7 @@ vi.mock('@/lib/supabase', () => ({
       if (table === 'journal_entries') return journalEntriesBuilder()
       if (table === 'chart_of_accounts') return chartOfAccountsBuilder()
       if (table === 'notifications') return notificationsBuilder()
+      if (table === 'tenants') return tenantsBuilder()
       throw new Error(`unexpected table ${table}`)
     },
     rpc: (name: string, params: Record<string, unknown>) => rpc(name, params),

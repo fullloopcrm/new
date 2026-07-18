@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { autoReplyReviews } from '@/lib/google-reviews'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Runs on schedule — auto-replies to unreplied Google reviews
 // for all tenants with auto-reply enabled
@@ -21,9 +22,24 @@ export async function GET(request: Request) {
     return NextResponse.json({ message: 'No tenants with auto-reply enabled' })
   }
 
+  // Same class of gap fixed in sync-google-reviews this session: this loop
+  // never checked tenantServesSite() before spending a real Google Business
+  // Profile API call to post a PUBLIC reply on a tenant's behalf — a
+  // suspended/cancelled/deleted tenant kept auto-replying to its Google
+  // reviews indefinitely.
+  const settingTenantIds = Array.from(new Set(settings.map((s) => s.tenant_id as string)))
+  const { data: settingTenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, status')
+    .in('id', settingTenantIds)
+  const servingTenantIds = new Set(
+    (settingTenants || []).filter((t) => tenantServesSite(t.status)).map((t) => t.id as string),
+  )
+
   const results: { tenant_id: string; replied: number; error?: string }[] = []
 
   for (const setting of settings) {
+    if (!servingTenantIds.has(setting.tenant_id as string)) continue
     try {
       const replied = await autoReplyReviews(setting.tenant_id)
       results.push({ tenant_id: setting.tenant_id, replied })

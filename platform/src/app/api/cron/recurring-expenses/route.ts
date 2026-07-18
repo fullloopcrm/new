@@ -32,6 +32,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { postJournalEntry, toSourceUuid } from '@/lib/ledger'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 function advance(d: Date, freq: string): Date {
   const r = new Date(d)
@@ -62,12 +63,29 @@ export async function POST(request: Request) {
     .lte('next_due_date', today)
     .limit(500)
 
+  // Same class of gap fixed across every other cross-tenant fan-out this
+  // session (Telegram/Telnyx webhooks, comhub-email cron, generate-recurring):
+  // recurring_expenses carries no tenant status of its own, and this loop
+  // never checked tenantServesSite() before posting brand-new journal_entries
+  // rows. Unlike the messaging-only crons, this is a financial write path —
+  // a suspended/cancelled/deleted tenant's recurring expense kept posting
+  // real ledger entries to its own P&L, indefinitely, every period it fired.
+  const dueTenantIds = Array.from(new Set((due || []).map((r) => r.tenant_id as string)))
+  const { data: dueTenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, status')
+    .in('id', dueTenantIds)
+  const servingTenantIds = new Set(
+    (dueTenants || []).filter((t) => tenantServesSite(t.status)).map((t) => t.id as string),
+  )
+
   let fired = 0
   let failed = 0
   for (const r of (due || []) as unknown as Array<{
     id: string; tenant_id: string; entity_id: string | null; label: string; category: string | null
     amount_cents: number; frequency: string; next_due_date: string; failure_count: number
   }>) {
+    if (!servingTenantIds.has(r.tenant_id)) continue
     // Per-occurrence key -- NOT r.id (the template's own id, which is the
     // same across every period it fires). See the file-level comment.
     const occurrenceSourceId = toSourceUuid(`${r.id}:${r.next_due_date}`)
