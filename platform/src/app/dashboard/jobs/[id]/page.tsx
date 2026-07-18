@@ -35,6 +35,10 @@ type Session = {
 }
 type EventRow = { id: string; event_type: string; created_at: string }
 type Expense = { id: string; category: string; subcategory: string | null; description: string | null; vendor_name: string | null; amount: number; date: string; receipt_url: string | null }
+/** From GET /api/jobs/[id]/budget-variance (W4's lane) -- variance is null when the job's quote has no saved Master Budget yet. */
+type BudgetVariance = {
+  variance: { budgeted_total_cents: number; actual_total_cents: number; variance_cents: number; projected_margin_bps: number | null } | null
+}
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
 
@@ -170,6 +174,7 @@ export default function JobDetailPage() {
   const [crews, setCrews] = useState<Crew[]>([])
   const [team, setTeam] = useState<TeamMember[]>([])
   const [expenses, setExpenses] = useState<Expense[]>([])
+  const [budgetVariance, setBudgetVariance] = useState<BudgetVariance['variance']>(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState('')
   const [err, setErr] = useState('')
@@ -194,6 +199,11 @@ export default function JobDetailPage() {
     // finance.view-gated on the backend — a viewer without finance access just
     // gets an empty list here rather than a broken page.
     fetch(`/api/finance/expenses?job_id=${id}`).then(r => r.json()).then(d => setExpenses(d.expenses || [])).catch(() => {})
+  }, [id])
+  useEffect(() => {
+    // sales.view-gated, and null (not an error) until the job's quote has a
+    // saved Master Budget -- section below hides itself in either case.
+    fetch(`/api/jobs/${id}/budget-variance`).then(r => r.json()).then((d: BudgetVariance) => setBudgetVariance(d.variance || null)).catch(() => {})
   }, [id])
 
   async function act(label: string, fn: () => Promise<Response>) {
@@ -514,6 +524,25 @@ export default function JobDetailPage() {
             <p className="text-sm text-slate-400">Not created from a lead or quote.</p>
           )}
         </section>
+
+        {budgetVariance && (
+          <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <h2 className="text-sm font-semibold text-slate-800 mb-3">Budget vs. actual</h2>
+            <div className="space-y-1.5 text-sm">
+              <div className="flex justify-between"><span className="text-slate-500">Budgeted</span><span className="text-slate-800">{money(budgetVariance.budgeted_total_cents)}</span></div>
+              <div className="flex justify-between"><span className="text-slate-500">Actual</span><span className="text-slate-800">{money(budgetVariance.actual_total_cents)}</span></div>
+              <div className="flex justify-between pt-1.5 border-t border-slate-100">
+                <span className="text-slate-500">Variance</span>
+                <span className={`font-medium ${budgetVariance.variance_cents < 0 ? 'text-red-600' : 'text-green-600'}`}>
+                  {budgetVariance.variance_cents < 0 ? 'Over by ' : 'Under by '}{money(Math.abs(budgetVariance.variance_cents))}
+                </span>
+              </div>
+              {budgetVariance.projected_margin_bps !== null && (
+                <div className="flex justify-between"><span className="text-slate-500">Projected margin</span><span className="text-slate-800">{(budgetVariance.projected_margin_bps / 100).toFixed(1)}%</span></div>
+              )}
+            </div>
+          </section>
+        )}
 
         <section className="rounded-lg border border-slate-200 bg-white p-4">
           <h2 className="text-sm font-semibold text-slate-800 mb-3">Team on this job</h2>
