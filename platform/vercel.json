@@ -53,6 +53,14 @@
       "schedule": "30 6 * * *"
     },
     {
+      "path": "/api/cron/seo-health",
+      "schedule": "45 6 * * *"
+    },
+    {
+      "path": "/api/cron/seo-alerts",
+      "schedule": "50 6 * * *"
+    },
+    {
       "path": "/api/cron/seo-technical",
       "schedule": "0 7 * * 2"
     },

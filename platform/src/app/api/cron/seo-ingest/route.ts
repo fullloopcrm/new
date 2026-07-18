@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { ingestAllProperties } from '@/lib/seo/ingest'
+import { backfillUntrackedDomains } from '@/lib/seo/onboarding'
 import { safeEqual } from '@/lib/timing-safe-equal'
 
 // gsc.ts signs a JWT with node:crypto — must run on the Node runtime, not edge.
@@ -21,10 +22,19 @@ export async function GET(request: Request) {
   const days = Math.min(Math.max(Number(url.searchParams.get('days')) || 30, 1), 480)
 
   try {
+    // backfillUntrackedDomains() was previously wired to nothing (test-only,
+    // dead code) -- a tenant live only via tenant_domains/tenants.domain and
+    // never GSC-discovered (e.g. onboarded before this hook existed, or
+    // pre-cutover) stayed permanently untracked in seo_properties. Runs first
+    // so any newly-registered awaiting_grant property is visible immediately;
+    // it can't pull metrics until GSC access is separately granted, but it's
+    // no longer invisible to the dashboard/Selena.
+    const backfilled = await backfillUntrackedDomains()
     const summary = await ingestAllProperties({ days })
     return NextResponse.json({
       ok: true,
       days,
+      backfilled: backfilled.length,
       properties: summary.properties,
       totalRows: summary.totalRows,
       errors: summary.results.filter((r) => r.error),
