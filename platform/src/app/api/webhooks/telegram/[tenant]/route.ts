@@ -13,6 +13,7 @@ import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { verifyTelegramSecretToken } from '@/lib/webhook-verify'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 60
 
@@ -34,6 +35,7 @@ function ownerPhone(): string {
 interface TenantBot {
   id: string
   slug: string
+  status: string | null
   telegram_bot_token: string | null
   telegram_chat_id: string | null
   telegram_webhook_secret: string | null
@@ -50,7 +52,7 @@ async function loadTenantBot(slug: string): Promise<TenantBot | null> {
   // data:null, silently misreporting a real outage as "unknown_tenant".
   const { data, error } = await supabaseAdmin
     .from('tenants')
-    .select('id, slug, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
+    .select('id, slug, status, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
     .eq('slug', slug)
     .maybeSingle()
   if (error) {
@@ -73,6 +75,15 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
 
   const tenant = await loadTenantBot(slug)
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })
+  // Same class of gap fixed across every other slug/host-resolved entry point
+  // this session (PIN-login, portal/team-portal auth tokens, public site
+  // header resolver): this route hand-rolls its own tenants.slug lookup
+  // instead of going through the shared resolver, so it never inherited
+  // tenantServesSite(). Without this, a suspended/cancelled/deleted tenant's
+  // Telegram bot would keep answering inbound messages and running the AI
+  // agent against that tenant's live data indefinitely — Telegram delivery
+  // has no dependency on the tenant's site/dashboard being reachable.
+  if (!tenantServesSite(tenant.status)) return NextResponse.json({ ok: true, skip: 'tenant_not_active' })
   if (!tenant.telegram_bot_token) return NextResponse.json({ ok: true, skip: 'no_bot_token' })
 
   const secret = tenant.telegram_webhook_secret ? decryptSecret(tenant.telegram_webhook_secret) : undefined
