@@ -144,7 +144,7 @@ function renderInvoiceEmail(opts: {
   dueDate: string | null
   contactName: string | null
 }): string {
-  const greeting = opts.contactName ? `Hi ${opts.contactName},` : 'Hi there,'
+  const greeting = opts.contactName ? `Hi ${escapeHtml(opts.contactName)},` : 'Hi there,'
   const dueLine = opts.dueDate ? `<p style="color:#94a3b8;font-size:12px;text-align:center;margin:0;">Due ${escapeHtml(opts.dueDate)}</p>` : ''
   return `<!DOCTYPE html>
 <html><body style="font-family:-apple-system,BlinkMacSystemFont,sans-serif;background:#f8fafc;padding:40px 20px;margin:0;">
