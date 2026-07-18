@@ -97,6 +97,13 @@ export interface PlatformHealth {
   // Tenants with active problems, worst first — this is what Jefe acts on.
   tenants_with_issues: TenantIssues[]
   recent_issues: RecentIssue[]
+  // 7. SEO (SIGNAL) — the only other place these show up is the manual
+  // /admin/seo dashboard, so Jefe is this data's one push-alert path.
+  seo: {
+    site_down: { domain: string; tenant_name: string }[]
+    not_indexed_open: number
+    awaiting_grant: { domain: string; tenant_name: string; days_waiting: number }[]
+  }
 }
 
 const hoursAgo = (now: Date, h: number) => new Date(now.getTime() - h * 60 * 60 * 1000).toISOString()
@@ -107,7 +114,7 @@ const hasValue = (v: string | null | undefined): boolean => typeof v === 'string
 // Cron-silence checks — mirrors src/app/api/cron/health-monitor/route.ts. A cron
 // that writes a known side-effect (notification type / email subject) for ANY
 // tenant counts as alive; silence platform-wide means the cron itself is down.
-type CronSource = 'notifications' | 'email_logs'
+type CronSource = 'notifications' | 'email_logs' | 'seo_properties'
 interface CronCheck {
   cron: string
   source: CronSource
@@ -124,17 +131,33 @@ const CRON_CHECKS: CronCheck[] = [
   { cron: 'reminders', source: 'email_logs', match: { subject: 'reminder' }, maxSilenceMin: 36 * 60 },
   { cron: 'pipeline.new_lead', source: 'notifications', match: { type: 'new_lead' }, maxSilenceMin: 24 * 60 },
   { cron: 'pipeline.new_booking', source: 'notifications', match: { type: 'new_booking' }, maxSilenceMin: 3 * 24 * 60 },
+  // seo-ingest writes last_ingest_at on every property it touches; if the whole
+  // pipeline (ingest/detect/technical/health) goes dark, this is the one shared
+  // side-effect all of them ultimately depend on refreshing daily.
+  { cron: 'seo-ingest', source: 'seo_properties', match: {}, maxSilenceMin: 30 * 60 },
 ]
 
+const CRON_SOURCE_TS_COLUMN: Record<CronSource, string> = {
+  notifications: 'created_at',
+  email_logs: 'created_at',
+  seo_properties: 'last_ingest_at',
+}
+
 async function lastCronOccurrence(check: CronCheck): Promise<Date | null> {
-  let query = supabaseAdmin.from(check.source).select('created_at').order('created_at', { ascending: false }).limit(1)
+  const tsCol = CRON_SOURCE_TS_COLUMN[check.source]
+  let query = supabaseAdmin
+    .from(check.source)
+    .select(tsCol)
+    .not(tsCol, 'is', null)
+    .order(tsCol, { ascending: false })
+    .limit(1)
   for (const [k, v] of Object.entries(check.match)) {
     if (k === 'subject') query = query.ilike(k, `%${v}%`)
     else query = query.eq(k, v)
   }
   const { data, error } = await query
   if (error || !data || data.length === 0) return null
-  const ts = (data[0] as { created_at: string }).created_at
+  const ts = (data[0] as unknown as Record<string, string>)[tsCol]
   return ts ? new Date(ts) : null
 }
 
@@ -171,6 +194,9 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     err7dRes,
     stuckRes,
     cronLasts,
+    seoSiteDownRes,
+    seoNotIndexedRes,
+    seoAwaitingGrantRes,
   ] = await Promise.all([
     supabaseAdmin
       .from('tenants')
@@ -198,6 +224,20 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       .gt('end_time', stuckAfter)
       .limit(1000),
     Promise.all(cronPromises),
+    supabaseAdmin
+      .from('seo_issues')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
+      .select('tenant_id, target_url, detail')
+      .eq('status', 'open')
+      .eq('type', 'site_down'),
+    supabaseAdmin
+      .from('seo_issues')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
+      .select('id', { count: 'exact', head: true })
+      .eq('status', 'open')
+      .eq('type', 'not_indexed'),
+    supabaseAdmin
+      .from('seo_properties')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
+      .select('domain, tenant_id, first_seen_at')
+      .is('last_ingest_at', null),
   ])
 
   const tenants = (tenantsRes.data || []) as TenantRow[]
@@ -309,6 +349,31 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   }
   inactive.sort((a, b) => a.last_active.localeCompare(b.last_active)) // most stale first
 
+  // --- 7. seo (SIGNAL) ---
+  const seoSiteDown = (seoSiteDownRes.data || []) as Array<{ tenant_id: string | null; target_url: string | null; detail: unknown }>
+  const site_down = seoSiteDown.map((r) => {
+    let domain = r.target_url || 'unknown'
+    try {
+      if (r.target_url) domain = new URL(r.target_url).hostname
+    } catch {
+      // target_url wasn't a full URL — fall back to the raw value above
+    }
+    return { domain, tenant_name: r.tenant_id ? nameById.get(r.tenant_id) || 'unknown tenant' : 'unlinked' }
+  })
+
+  // Give a freshly-activated tenant a few days before flagging the GSC grant
+  // as neglected — the grant is a manual Jeff/ops step, not instant.
+  const grantGraceCutoff = hoursAgo(now, 24 * 3)
+  const seoAwaitingGrant = (seoAwaitingGrantRes.data || []) as Array<{ domain: string | null; tenant_id: string | null; first_seen_at: string | null }>
+  const awaiting_grant = seoAwaitingGrant
+    .filter((r) => r.first_seen_at && r.first_seen_at < grantGraceCutoff)
+    .map((r) => ({
+      domain: r.domain || 'unknown',
+      tenant_name: r.tenant_id ? nameById.get(r.tenant_id) || 'unknown tenant' : 'unlinked',
+      days_waiting: Math.floor((now.getTime() - new Date(r.first_seen_at as string).getTime()) / 86_400_000),
+    }))
+    .sort((a, b) => b.days_waiting - a.days_waiting)
+
   return {
     generated_at: now.toISOString(),
     sales: {
@@ -337,5 +402,10 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     lifecycle: { new_7d, inactive },
     tenants_with_issues,
     recent_issues,
+    seo: {
+      site_down,
+      not_indexed_open: seoNotIndexedRes.count || 0,
+      awaiting_grant,
+    },
   }
 }

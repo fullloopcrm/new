@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { listSites, querySearchAnalytics, type GscSite } from './gsc'
 import { classifyIntent } from './intent'
 import { commercialIntent } from './commercial'
+import { backfillUntrackedDomains } from './onboarding'
 
 const ymd = (d: Date) => d.toISOString().slice(0, 10)
 
@@ -114,6 +115,11 @@ export async function ingestAllProperties(opts?: { days?: number }): Promise<{
   const start = new Date(end.getTime() - days * 86_400_000)
   const startDate = ymd(start)
   const endDate = ymd(end)
+
+  // Catch any tenant domain that never got registered into seo_properties
+  // (e.g. activated before the onboarding hook existed) — otherwise it stays
+  // silently untracked forever, since nothing else ever calls this.
+  await backfillUntrackedDomains()
 
   const sites = await listSites()
 

@@ -23,6 +23,7 @@ const COMMS_FLOOR = 50 // success_rate below this = alert
 const ERROR_SPIKE_1H = 10
 const STUCK_PAYMENTS = 5
 const SECURITY_EVENTS_24H = 20
+const NOT_INDEXED_BACKLOG = 25 // SIGNAL: one-off not_indexed pages are normal noise, a growing pile isn't
 
 function evaluate(h: Awaited<ReturnType<typeof getPlatformHealth>>, prev: SnapshotMeta | null): Alert[] {
   const alerts: Alert[] = []
@@ -49,6 +50,20 @@ function evaluate(h: Awaited<ReturnType<typeof getPlatformHealth>>, prev: Snapsh
       fp: 'provision:worse',
       label: `Non-operational tenants rose to ${h.provisioning.fully_unprovisioned} (was ${prev.fully_unprovisioned})`,
     })
+  }
+  // SIGNAL (SEO) — otherwise the only way to see any of this is manually
+  // opening /admin/seo. A dead tenant site is as critical as any other outage.
+  for (const d of h.seo.site_down) {
+    alerts.push({ fp: `seo:site_down:${d.domain}`, label: `SEO: ${d.domain} (${d.tenant_name}) is down — Google can't see it either` })
+  }
+  for (const g of h.seo.awaiting_grant) {
+    alerts.push({
+      fp: `seo:awaiting_grant:${g.domain}`,
+      label: `SEO: ${g.domain} (${g.tenant_name}) has waited ${g.days_waiting}d for Search Console access — zero tracking until granted`,
+    })
+  }
+  if (h.seo.not_indexed_open >= NOT_INDEXED_BACKLOG) {
+    alerts.push({ fp: 'seo:not_indexed:backlog', label: `SEO: ${h.seo.not_indexed_open} pages fleet-wide stuck not-indexed` })
   }
 
   return alerts
