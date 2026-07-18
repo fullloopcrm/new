@@ -122,7 +122,7 @@ export default function VendorsPage() {
           <label style={label}>Notes</label>
           <input style={inp} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Account #, lead time, terms…" />
         </div>
-        {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 10 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--sl-danger)', fontSize: 13, marginBottom: 10 }}>{err}</div>}
         <button type="button" className="sl-newlead-btn" disabled={saving} onClick={createVendor}>{saving ? 'Adding…' : '+ Add vendor'}</button>
       </div>
 
@@ -155,7 +155,7 @@ export default function VendorsPage() {
                 {[v.category, v.phone, v.email, v.address].filter(Boolean).join(' · ') || 'No details'}
               </span>
               <button type="button" onClick={() => startEdit(v)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-ink)', cursor: 'pointer' }}>Edit</button>
-              <button type="button" onClick={() => removeVendor(v.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
+              <button type="button" onClick={() => removeVendor(v.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-danger)', cursor: 'pointer' }}>Delete</button>
             </div>
           )}
         </div>

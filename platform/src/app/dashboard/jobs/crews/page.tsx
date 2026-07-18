@@ -128,7 +128,7 @@ export default function CrewsPage() {
             </button>
           ))}
         </div>
-        {err && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 10 }}>{err}</div>}
+        {err && <div style={{ color: 'var(--sl-danger)', fontSize: 13, marginBottom: 10 }}>{err}</div>}
         <button type="button" className="sl-newlead-btn" disabled={saving} onClick={createCrew}>{saving ? 'Creating…' : `+ Create crew${picked.size ? ` (${picked.size})` : ''}`}</button>
       </div>
 
@@ -152,7 +152,7 @@ export default function CrewsPage() {
                 </button>
               ))}
             </div>
-            {editErr && <div style={{ color: '#c0392b', fontSize: 13, marginBottom: 10 }}>{editErr}</div>}
+            {editErr && <div style={{ color: 'var(--sl-danger)', fontSize: 13, marginBottom: 10 }}>{editErr}</div>}
             <div style={{ display: 'flex', gap: 8 }}>
               <button type="button" className="sl-newlead-btn" disabled={editSaving} onClick={() => saveEdit(c.id)}>{editSaving ? 'Saving…' : 'Save'}</button>
               <button type="button" onClick={cancelEdit} style={{ fontSize: 13, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 8, padding: '9px 14px', cursor: 'pointer', color: 'var(--sl-ink)' }}>Cancel</button>
@@ -164,7 +164,7 @@ export default function CrewsPage() {
             <span style={{ flex: 1, fontSize: 13, color: 'var(--sl-muted)' }}>{c.members.length ? c.members.map((m) => m.name).join(' · ') : 'No members'}</span>
             <span style={{ fontFamily: 'var(--sl-mono)', fontSize: 11, color: 'var(--sl-muted)' }}>{c.members.length} member{c.members.length === 1 ? '' : 's'}</span>
             <button type="button" onClick={() => startEdit(c)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-ink)', cursor: 'pointer', textDecoration: 'underline' }}>Edit</button>
-            <button type="button" onClick={() => removeCrew(c.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
+            <button type="button" onClick={() => removeCrew(c.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: 'var(--sl-danger)', cursor: 'pointer' }}>Delete</button>
           </div>
         )
       ))}
