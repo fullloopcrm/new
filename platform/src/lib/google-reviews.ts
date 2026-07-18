@@ -102,6 +102,26 @@ export async function autoReplyReviews(tenantId: string): Promise<number> {
   let replied = 0
 
   for (const review of unreplied) {
+    // Claim BEFORE generating/posting: the old flow selected reviews with
+    // reply IS NULL, generated an AI reply and PUT it to Google, and only
+    // then wrote `reply` locally -- a check-then-act race. Two overlapping
+    // invocations reading the same unreplied review would both burn a real
+    // Anthropic call and both PUT to Google's reply endpoint, which is a
+    // last-write-wins overwrite slot, not an append -- the loser's PUT can
+    // land last and leave the local `reply` column out of sync with what's
+    // actually live on Google. reply_claimed_at is a dedicated column
+    // (not `reply` itself, which must stay real-text-or-null for the
+    // dashboard + sync-google-reviews) claimed via compare-and-swap; the
+    // losing invocation's claim affects 0 rows and it skips.
+    const { data: claimed } = await supabaseAdmin
+      .from('google_reviews')
+      .update({ reply_claimed_at: new Date().toISOString() })
+      .eq('id', review.id)
+      .is('reply_claimed_at', null)
+      .select('id')
+      .maybeSingle()
+    if (!claimed) continue
+
     try {
       // Generate AI reply
       const replyText = await generateReviewReply(
@@ -111,7 +131,13 @@ export async function autoReplyReviews(tenantId: string): Promise<number> {
         review.comment || '',
       )
 
-      if (!replyText) continue
+      if (!replyText) {
+        // Release the claim so the next cron pass retries this review --
+        // losing the retry here (unlike a one-shot notification) means the
+        // review just never gets answered.
+        await supabaseAdmin.from('google_reviews').update({ reply_claimed_at: null }).eq('id', review.id)
+        continue
+      }
 
       // Build the full review resource name
       const reviewName = `${business.location_name}/reviews/${review.google_review_id}`
@@ -123,13 +149,16 @@ export async function autoReplyReviews(tenantId: string): Promise<number> {
         // Save reply locally
         await supabaseAdmin
           .from('google_reviews')
-          .update({ reply: replyText })
+          .update({ reply: replyText, replied_at: new Date().toISOString() })
           .eq('id', review.id)
 
         replied++
+      } else {
+        await supabaseAdmin.from('google_reviews').update({ reply_claimed_at: null }).eq('id', review.id)
       }
     } catch (e) {
       console.error(`Failed to auto-reply review ${review.id}:`, e)
+      await supabaseAdmin.from('google_reviews').update({ reply_claimed_at: null }).eq('id', review.id)
     }
   }
 
