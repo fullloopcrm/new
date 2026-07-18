@@ -53,17 +53,34 @@ function workflowFiles(): string[] {
   return readdirSync(WORKFLOWS_DIR).filter((f) => /\.ya?ml$/.test(f))
 }
 
+// Step boundaries are found WITHIN each job's own (already job-bounded) body
+// slice, not against the whole file. Finding step starts against the raw
+// file text lets a job's LAST step's body run past that job's own end and
+// bleed into the next job's header (`needs:` / `if:` / `runs-on:`) — a real
+// false-positive risk found while building ci-gate-conditional-skip-guard.
+// test.ts (item 205): that guard's `if:` check on the last gating step
+// (ci.yml's "Lint") was tripping on notify-failure's job-level `if:
+// failure()` bleeding in through this exact seam. Harmless for THIS file's
+// own assertions today (no notify-failure job header line matches
+// `continue-on-error:` or a trailing `|| true`), but it is the identical
+// structural bug, so it gets the identical fix as its own continuation
+// rather than leaving a silent landmine for the next pattern added here.
 function allStepBlocks(file: string, yaml: string): Array<{ file: string; name: string; body: string }> {
   const NAME_RE = /^\s*- name:\s*(.+)$/gm
-  const starts: Array<{ name: string; index: number }> = []
-  let m: RegExpExecArray | null
-  while ((m = NAME_RE.exec(yaml))) {
-    starts.push({ name: m[1].trim(), index: m.index })
+  const out: Array<{ file: string; name: string; body: string }> = []
+  for (const job of allJobBlocks(file, yaml)) {
+    const starts: Array<{ name: string; index: number }> = []
+    let m: RegExpExecArray | null
+    NAME_RE.lastIndex = 0
+    while ((m = NAME_RE.exec(job.body))) {
+      starts.push({ name: m[1].trim(), index: m.index })
+    }
+    starts.forEach((s, i) => {
+      const end = i + 1 < starts.length ? starts[i + 1].index : job.body.length
+      out.push({ file, name: s.name, body: job.body.slice(s.index, end) })
+    })
   }
-  return starts.map((s, i) => {
-    const end = i + 1 < starts.length ? starts[i + 1].index : yaml.length
-    return { file, name: s.name, body: yaml.slice(s.index, end) }
-  })
+  return out
 }
 
 function gatingSteps(): Array<{ file: string; name: string; body: string }> {
