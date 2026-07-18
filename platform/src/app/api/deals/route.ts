@@ -144,6 +144,21 @@ export async function PUT(request: Request) {
     if (notes !== undefined) updates.notes = notes
 
     if (stage === 'booked' || stage === 'removed') {
+      // This flips `deals.stage` away from whatever it currently is with no
+      // regard for the prior value -- including 'sold'. checkDealDeletable
+      // (the guard both DELETE /api/deals/[id] and DELETE /api/deals use)
+      // only recognizes a deal as protected while stage==='sold' or it
+      // carries real quote history; flipping a Sold deal's stage to
+      // 'removed' here first, with zero check, would silently clear that
+      // guard for a follow-up delete/edit on the same deal. Route this
+      // mutation through the identical guard so it can't be used as a
+      // side door around it.
+      const guard = await checkDealDeletable(tenantId, id)
+      if (!guard.deletable) {
+        return NextResponse.json({
+          error: `This deal has closed real revenue and its stage cannot be changed this way — ${guard.reason}`,
+        }, { status: 409 })
+      }
       updates.stage = stage
       updates.closed_at = new Date().toISOString()
     }
