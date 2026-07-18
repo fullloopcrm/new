@@ -39,6 +39,10 @@ vi.mock('@/lib/provision-tenant', () => ({
   provisionTenant: async () => {},
 }))
 
+vi.mock('@/lib/entity-provision', () => ({
+  ensureDefaultEntity: async () => true,
+}))
+
 const prospectRow = {
   id: 'prospect_1',
   business_name: 'Acme Cleaning',
@@ -97,9 +101,6 @@ vi.mock('@/lib/supabase', () => ({
             }),
           }),
         }
-      }
-      if (table === 'entities') {
-        return { insert: async () => ({ data: null, error: null }) }
       }
       if (table === 'tenant_invites') {
         return { insert: async () => ({ data: null, error: null }) }

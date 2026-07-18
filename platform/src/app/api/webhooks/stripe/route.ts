@@ -28,6 +28,7 @@ import { postPayoutToLedger } from '@/lib/finance/post-labor'
 import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import Stripe from 'stripe'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { ensureDefaultEntity } from '@/lib/entity-provision'
 
 function getStripe(): Stripe {
   if (!process.env.STRIPE_SECRET_KEY) throw new Error('Stripe not configured')
@@ -219,10 +220,21 @@ export async function POST(request: Request) {
           }
 
           if (tenant) {
-            // Seed default entity + chart of accounts + Selena config
-            await supabaseAdmin.from('entities').insert({
-              tenant_id: tenant.id, name: prospect.business_name, is_default: true, active: true,
-            })
+            // Seed default entity + chart of accounts + Selena config.
+            // error checked explicitly — same masked-error class as the
+            // writes above, but worse: this call didn't even destructure
+            // the insert result, so a DB failure here (RLS deny, transient
+            // blip) was invisible. Worse still, it duplicated (without the
+            // idempotency guard or error check) the canonical
+            // ensureDefaultEntity() helper that activateTenant() — "the ONE
+            // path every creation door should ultimately funnel through" —
+            // already uses. A tenant with no default entity has nowhere for
+            // finance rows (entity_id) or legal identity fields to land;
+            // switch to the shared, hardened helper instead of hand-rolling
+            // a thinner, unchecked duplicate. Left unwrapped so a genuine
+            // failure throws uncaught → 500 → Stripe retry, matching the
+            // claim/fetch/tenant-insert idiom above.
+            await ensureDefaultEntity(tenant.id, prospect.business_name)
             const { provisionTenant } = await import('@/lib/provision-tenant')
             await provisionTenant({
               tenantId: tenant.id,
