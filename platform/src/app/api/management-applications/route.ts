@@ -11,6 +11,19 @@ import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
 
+// Unauthenticated public POST — a caller controls every free-text field below.
+// Cap each so a single submission can't balloon a management_applications row
+// (or the admin notification built from it) to megabytes of attacker-chosen
+// content. Same bug class already fixed on /api/contact, /api/lead,
+// /api/waitlist, /api/ingest/lead, /api/ingest/application this session —
+// missed on this route's siblings (team-applications, sales-applications;
+// fixed alongside this one) since they post through a different form.
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: unknown, max: number): unknown {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 // GET/PUT gated on team.view/team.edit — matches the identical sibling
 // /api/team-applications route, which holds the same class of applicant PII
 // (resume/photo/selfie video/phone/email) and is gated the same way.
@@ -46,10 +59,19 @@ export async function POST(request: Request) {
   try {
     const body = await request.json()
     const {
-      name, email, phone, location, current_role, years_experience,
-      bilingual, management_experience, why_this_role, availability_start,
-      referral_source, references, notes, position, resume_url, photo_url, video_url,
+      email, phone, resume_url, photo_url, video_url, references,
     } = body
+    const name = cap(body.name, MAX_SHORT)
+    const location = cap(body.location, MAX_SHORT)
+    const current_role = cap(body.current_role, MAX_SHORT)
+    const years_experience = cap(body.years_experience, MAX_SHORT)
+    const bilingual = cap(body.bilingual, MAX_SHORT)
+    const management_experience = cap(body.management_experience, MAX_LONG)
+    const why_this_role = cap(body.why_this_role, MAX_LONG)
+    const availability_start = cap(body.availability_start, MAX_SHORT)
+    const referral_source = cap(body.referral_source, MAX_SHORT)
+    const notes = cap(body.notes, MAX_LONG)
+    const position = cap(body.position, MAX_SHORT)
 
     if (!name || !email || !phone || !location || !resume_url || !photo_url || !video_url) {
       return NextResponse.json({ error: 'Name, email, phone, location, resume, photo, and selfie video are required.' }, { status: 400 })

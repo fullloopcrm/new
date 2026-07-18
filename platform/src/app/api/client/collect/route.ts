@@ -19,6 +19,20 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&')
 }
 
+// Unauthenticated public POST — a caller controls every free-text field
+// below, which flow into the clients row and the admin notification email.
+// Cap each so a single submission can't balloon them to megabytes of
+// attacker-chosen content. Same bug class already fixed on /api/contact,
+// /api/lead, /api/waitlist, /api/ingest/lead, /api/ingest/application,
+// /api/leads, /api/management-applications, /api/team-applications,
+// /api/sales-applications, and this route's sibling /api/portal/collect
+// (fixed alongside this one) this session.
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: string | undefined, max: number): string | undefined {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
   if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
@@ -32,9 +46,15 @@ export async function POST(request: Request) {
 
     const body = await request.json().catch(() => ({})) as Record<string, unknown>
     const {
-      name, email, phone, address, notes,
-      referrer_name, referrer_phone, src, convo_id, pet_name, pet_type,
+      email, phone, referrer_phone, convo_id,
     } = body as Record<string, string | undefined>
+    const name = cap(body.name as string | undefined, MAX_SHORT)
+    const address = cap(body.address as string | undefined, MAX_SHORT)
+    const notes = cap(body.notes as string | undefined, MAX_LONG)
+    const referrer_name = cap(body.referrer_name as string | undefined, MAX_SHORT)
+    const src = cap(body.src as string | undefined, MAX_SHORT)
+    const pet_name = cap(body.pet_name as string | undefined, MAX_SHORT)
+    const pet_type = cap(body.pet_type as string | undefined, MAX_SHORT)
 
     if (!name || !phone) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })

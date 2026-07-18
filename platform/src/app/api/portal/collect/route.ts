@@ -34,6 +34,21 @@ function escapeLike(value: string): string {
   return value.replace(/[\\%_]/g, '\\$&')
 }
 
+// Unauthenticated public POST — a caller controls every free-text field
+// below, which flow into the clients row, the admin notification email, AND
+// an outbound SMS recap (via sendSMS further down). Cap each so a single
+// submission can't balloon them to megabytes of attacker-chosen content.
+// Same bug class already fixed on /api/contact, /api/lead, /api/waitlist,
+// /api/ingest/lead, /api/ingest/application, /api/leads,
+// /api/management-applications, /api/team-applications,
+// /api/sales-applications this session — missed on this route and its
+// sibling /api/client/collect (fixed alongside this one).
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: string | undefined, max: number): string | undefined {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 interface CollectBody {
   name?: string
   email?: string
@@ -62,7 +77,14 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as CollectBody
-    const { name, email, phone, address, notes, referrer_name, referrer_phone, src, convo_id, pet_name, pet_type } = body
+    const { email, phone, referrer_phone, convo_id } = body
+    const name = cap(body.name, MAX_SHORT)
+    const address = cap(body.address, MAX_SHORT)
+    const notes = cap(body.notes, MAX_LONG)
+    const referrer_name = cap(body.referrer_name, MAX_SHORT)
+    const src = cap(body.src, MAX_SHORT)
+    const pet_name = cap(body.pet_name, MAX_SHORT)
+    const pet_type = cap(body.pet_type, MAX_SHORT)
 
     if (!name || !phone) {
       return NextResponse.json({ error: 'Name and phone are required' }, { status: 400 })

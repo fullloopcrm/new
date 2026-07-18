@@ -6,6 +6,19 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 
 const ADMIN_EMAIL = process.env.ADMIN_NOTIFICATION_EMAIL || 'hi@fullloopcrm.com'
 
+// Unauthenticated public POST — a caller controls every free-text field
+// below. Cap each so a single submission can't balloon a leads/
+// partner_requests row (or the admin notification built from it) to
+// megabytes of attacker-chosen content. Same bug class already fixed on
+// /api/contact, /api/lead, /api/waitlist, /api/ingest/lead,
+// /api/ingest/application, /api/management-applications, /api/team-
+// applications, /api/sales-applications this session.
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: unknown, max: number): unknown {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 // Public endpoint — lead capture from onboarding page
 export async function POST(request: Request) {
   // Unauthenticated + no rate limit == a scripted caller could loop this to
@@ -18,7 +31,11 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json()
-  const { name, email, phone, business_name, industry, message } = body
+  const { email, phone } = body
+  const name = cap(body.name, MAX_SHORT)
+  const business_name = cap(body.business_name, MAX_SHORT)
+  const industry = cap(body.industry, MAX_SHORT)
+  const message = cap(body.message, MAX_LONG)
 
   if (!name || !email || !business_name) {
     return NextResponse.json({ error: 'Name, email, and business name required' }, { status: 400 })

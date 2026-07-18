@@ -5,6 +5,18 @@ import { AuthError } from '@/lib/tenant-query'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Unauthenticated public POST — a caller controls every free-text field below.
+// Cap each so a single submission can't balloon a sales_applications row (or
+// the admin notification built from it) to megabytes of attacker-chosen
+// content. Same bug class already fixed on /api/contact, /api/lead,
+// /api/waitlist, /api/ingest/lead, /api/ingest/application, and this route's
+// siblings (management-applications, team-applications) this session.
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: unknown, max: number): unknown {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 // Commission Sales Partner applications — tenant-scoped port of nycmaid's
 // single-tenant /api/sales-applications. Public POST resolves the tenant from
 // the middleware-injected x-tenant-slug header only (never client body);
@@ -40,11 +52,17 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const {
-      name, email, phone, location, lane, sales_background,
-      target_segments, warm_intros, bilingual, why,
-      referral_source, linkedin_url, notes, video_url,
-    } = body
+    const { email, phone, target_segments, video_url } = body
+    const name = cap(body.name, MAX_SHORT)
+    const location = cap(body.location, MAX_SHORT)
+    const lane = cap(body.lane, MAX_SHORT)
+    const sales_background = cap(body.sales_background, MAX_LONG)
+    const warm_intros = cap(body.warm_intros, MAX_LONG)
+    const bilingual = cap(body.bilingual, MAX_SHORT)
+    const why = cap(body.why, MAX_LONG)
+    const referral_source = cap(body.referral_source, MAX_SHORT)
+    const linkedin_url = cap(body.linkedin_url, MAX_SHORT)
+    const notes = cap(body.notes, MAX_LONG)
 
     // Tenant comes ONLY from the middleware-injected header, never from the
     // body. Middleware resolves+overwrites x-tenant-slug from the verified

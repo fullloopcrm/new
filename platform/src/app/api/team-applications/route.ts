@@ -6,6 +6,18 @@ import { notify } from '@/lib/notify'
 import { provisionApprovedApplicant, type ApprovedApplication } from '@/lib/team-provisioning'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 
+// Unauthenticated public POST — a caller controls every free-text field below.
+// Cap each so a single submission can't balloon a team_applications row (or
+// the admin notification built from it) to megabytes of attacker-chosen
+// content. Same bug class already fixed on /api/contact, /api/lead,
+// /api/waitlist, /api/ingest/lead, /api/ingest/application, and this route's
+// siblings (management-applications, sales-applications) this session.
+const MAX_SHORT = 200
+const MAX_LONG = 2000
+function cap(v: unknown, max: number): unknown {
+  return typeof v === 'string' ? v.trim().slice(0, max) : v
+}
+
 // GET - List all applications (admin only)
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -36,7 +48,14 @@ export async function POST(request: Request) {
 
   try {
     const body = await request.json()
-    const { name, email, phone, address, experience, availability, referral_source, references, notes, photo_url } = body
+    const { email, phone, photo_url } = body
+    const name = cap(body.name, MAX_SHORT)
+    const address = cap(body.address, MAX_SHORT)
+    const experience = cap(body.experience, MAX_LONG)
+    const availability = cap(body.availability, MAX_SHORT)
+    const referral_source = cap(body.referral_source, MAX_SHORT)
+    const references = cap(body.references, MAX_LONG)
+    const notes = cap(body.notes, MAX_LONG)
     let { tenant_slug } = body as { tenant_slug?: string }
 
     // Fall back to the middleware-injected tenant slug header so the ported
