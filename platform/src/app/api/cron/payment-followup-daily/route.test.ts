@@ -12,14 +12,18 @@ import { describe, it, expect, beforeEach, vi } from 'vitest'
  * gate.
  */
 
+// Mock chain matches the route's actual query shape: .select().not().not() —
+// no .eq(), since 715733df (this session, W2) moved status filtering from
+// .eq('status','active') to tenantServesSite() in JS so 'setup'/'pending'
+// tenants aren't silently excluded. The old .eq()-shaped mock never got
+// updated, so `.not is not a function` threw on the one test that reaches
+// this query (the 200 case) — the other 3 tests 401 before touching it.
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: () => ({
       select: () => ({
-        eq: () => ({
-          not: () => ({
-            not: () => Promise.resolve({ data: [], error: null }),
-          }),
+        not: () => ({
+          not: () => Promise.resolve({ data: [], error: null }),
         }),
       }),
     }),
