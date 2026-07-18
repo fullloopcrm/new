@@ -52,10 +52,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Campaign has already been sent' }, { status: 400 })
     }
 
-    // Fetch audience
+    // Fetch audience. do_not_service is a stronger, channel-agnostic
+    // kill-switch than the per-channel marketing opt-outs (see
+    // getClientContacts()) — enforced below on both channels alongside them.
     let query = supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, email_marketing_opt_out, sms_marketing_opt_out, sms_consent, do_not_service')
       .eq('tenant_id', tenantId)
 
     if (client_ids && client_ids.length > 0) {
@@ -114,7 +116,7 @@ export async function POST(request: Request) {
     const recipientRows: RecipientRow[] = []
 
     for (const client of clients) {
-      if (sendEmail && client.email && !client.email_marketing_opt_out) {
+      if (sendEmail && client.email && !client.email_marketing_opt_out && !client.do_not_service) {
         recipientRows.push({
           campaign_id,
           client_id: client.id,
@@ -124,7 +126,7 @@ export async function POST(request: Request) {
           tenant_id: tenantId,
         })
       }
-      if (sendSms && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
+      if (sendSms && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false && !client.do_not_service) {
         recipientRows.push({
           campaign_id,
           client_id: client.id,

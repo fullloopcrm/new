@@ -140,13 +140,19 @@ export async function notify({
   let phone: string | null = null
 
   if (recipientId && recipientType === 'client') {
-    const { data } = await supabaseAdmin.from('clients').select('email, phone').eq('id', recipientId).single()
-    email = data?.email || null
-    phone = data?.phone || null
+    const { data } = await supabaseAdmin.from('clients').select('email, phone, sms_consent, do_not_service').eq('id', recipientId).single()
+    // do_not_service is a stronger, channel-agnostic kill-switch than
+    // sms_consent (see getClientContacts()'s "account-level gate first") —
+    // a DNS-flagged client gets neither channel. sms_consent === false
+    // (a STOP reply) only blocks SMS; email is unaffected.
+    if (!data?.do_not_service) {
+      email = data?.email || null
+      phone = data?.sms_consent === false ? null : (data?.phone || null)
+    }
   } else if (recipientId && recipientType === 'team_member') {
-    const { data } = await supabaseAdmin.from('team_members').select('email, phone').eq('id', recipientId).single()
+    const { data } = await supabaseAdmin.from('team_members').select('email, phone, sms_consent').eq('id', recipientId).single()
     email = data?.email || null
-    phone = data?.phone || null
+    phone = data?.sms_consent === false ? null : (data?.phone || null)
   } else if (recipientType === 'admin') {
     const { data } = await supabaseAdmin.from('tenant_members').select('email').eq('tenant_id', tenantId).eq('role', 'owner').single()
     email = data?.email || null

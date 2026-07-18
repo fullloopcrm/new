@@ -63,10 +63,12 @@ export async function POST(
 
     // Get recipients (active clients). Per-channel marketing opt-outs are
     // enforced below so a client who opted out of SMS/email marketing is never
-    // sent a campaign on that channel (CAN-SPAM / TCPA).
+    // sent a campaign on that channel (CAN-SPAM / TCPA). do_not_service is a
+    // stronger, channel-agnostic kill-switch (see getClientContacts()) — also
+    // enforced below on both channels.
     const { data: clients } = await supabaseAdmin
       .from('clients')
-      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent')
+      .select('id, name, email, phone, sms_marketing_opt_out, email_marketing_opt_out, sms_consent, do_not_service')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
 
@@ -136,7 +138,7 @@ export async function POST(
         ? `${emailPersonalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">You're receiving this because you're a ${escapeHtml(tenant.name)} client. <a href="${process.env.NEXT_PUBLIC_APP_URL || 'https://app.homeservicesbusinesscrm.com'}/unsubscribe?email=${encodeURIComponent(client.email || '')}">Unsubscribe</a>${addressLine}</p>`
         : (tenantAddress ? `${emailPersonalizedBody}<hr style="margin-top:24px"><p style="font-size:12px;color:#888">${escapeHtml(tenant.name)} · ${escapeHtml(tenantAddress)}</p>` : emailPersonalizedBody)
 
-      if (sendEmails && client.email && !client.email_marketing_opt_out) {
+      if (sendEmails && client.email && !client.email_marketing_opt_out && !client.do_not_service) {
         try {
           await sendEmail({
             to: client.email,
@@ -151,7 +153,7 @@ export async function POST(
         }
       }
 
-      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false) {
+      if (sendSMSMessages && client.phone && !client.sms_marketing_opt_out && client.sms_consent !== false && !client.do_not_service) {
         try {
           await sendSMS({
             to: client.phone,
