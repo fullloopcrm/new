@@ -10725,3 +10725,84 @@ file. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
 not touched this round (all mutations were made, verified, and reverted
 during testing only) -- their own coverage (items 168-208 above) is
 unaffected; only new guard coverage was added.
+
+## (210) New fresh-ground surface -- the Tenant-isolation guard's own
+invocation carries argv flags that flip its exit-code behavior, and every
+existing wiring test only checks the command is PRESENT, not that it's bare
+
+Items (204)-(209) covered every "outside the script" bypass on ci.yml's
+gating steps (neutering via continue-on-error/`|| true`/`if:`, and scope-
+narrowing on Lint/Typecheck/Install) plus the checkout token-persistence
+control. None of them asked whether a gating step's invocation of the
+script IT WRAPS could itself be handed a flag that changes what the script
+does on exit -- because until this round, nothing in the lane had checked
+whether any of the directly-CI-invoked scripts (`audit-tenant-scope.mjs`,
+`verify-protected-tenants.mjs`, `reconcile-tenant-config.mjs`) read argv at
+all beyond an entrypoint self-check. `audit-tenant-scope.mjs` does: it reads
+`--all` (`process.exit(ALL ? 0 : 1)` -- ALWAYS exits 0, turning the gate
+into a report that can never fail a PR) and `--update-baseline` (writes
+every CURRENTLY flagged finding -- baseline debt AND any brand-new leak
+introduced in the same PR -- straight into
+`scripts/.tenant-scope-baseline.json` and exits 0, silently absorbing the
+new leak as accepted debt instead of failing on it).
+
+Both existing wiring guards for this step -- `tenant-scope-workflow-
+consolidation.test.ts`'s "still runs the guard" assertion and this round's
+sibling checks -- assert with `yaml.includes('node scripts/audit-tenant-
+scope.mjs')`. A substring check passes identically whether the line is the
+bare command or the bare command plus `--update-baseline` trailing after
+it, because `.includes()` doesn't look at what comes after the match. A
+one-token edit to ci.yml:55 -- appending either flag -- keeps the step
+green, keeps printing a normal-looking pass, while permanently disabling
+(or actively laundering new leaks into) the one backstop that exists
+because the service-role client bypasses Postgres RLS (per the script's own
+header comment). This is the same "runs but checks less" bypass family as
+items (206)/(207), just against a script with actual dangerous flags to
+append, rather than scope-narrowing ones.
+
+**Verified clean today:** ci.yml:55 is exactly `run: node scripts/audit-
+tenant-scope.mjs`, no trailing tokens. Grepped every `scripts/*.mjs` for
+`process.argv` usage: of the three scripts any workflow invokes directly,
+only `audit-tenant-scope.mjs` reads behavior-changing flags --
+`verify-protected-tenants.mjs` and `reconcile-tenant-config.mjs` only check
+`process.argv[1]` for the entrypoint self-invocation guard, nothing that
+alters exit-code behavior.
+
+**Fixed:** new `src/lib/ci-tenant-scope-invocation-guard.test.ts`, pure
+source-reading of ci.yml's tenant-scope invocation line, same line-finder
+approach as `ci-lint-scope-guard.test.ts`/`ci-typecheck-scope-guard.
+test.ts`. Asserts the line carries zero tokens after `audit-tenant-
+scope.mjs` -- not just the two named dangerous flags, any token at all, so
+a future third flag added to the script is caught too without needing a
+matching test update.
+
+Mutation-verified before writing the fix: appended `--update-baseline` to
+ci.yml's Tenant-isolation guard line and re-ran `tenant-scope-workflow-
+consolidation.test.ts` directly -- all 4 of its assertions stayed green,
+confirming the gap was real, not hypothetical. Then, against the new guard:
+(1) `--update-baseline` -- failed with the exact predicted message; (2)
+`--all` -- failed with the exact predicted message. Both restores left
+`git diff --stat .github/workflows/ci.yml` empty afterward.
+
+**Continuation (step 2 of the queue), explicitly NOT a second live
+finding:** checked whether the sibling Protected-tenant guard step shares
+the identical `.includes()`-only wiring blind spot in `protected-tenant-
+guard-wiring.test.ts`. It does, structurally -- but `verify-protected-
+tenants.mjs` reads NO argv flags today (confirmed above), so appending a
+token to its invocation is currently inert, not exploitable. Added a
+trailing-flags assertion to `protected-tenant-guard-wiring.test.ts` anyway,
+as deliberate symmetry: it stops the same blind spot from becoming a live
+bypass the moment anyone later adds a behavior-changing flag to
+`verify-protected-tenants.mjs`, without depending on whoever adds that flag
+to remember this wiring test needs updating too. Mutation-verified:
+appended `--skip` to ci.yml's Protected-tenant guard line -- the new
+assertion failed with the exact predicted message; reverted clean.
+
+Full suite + tsc re-run clean after this round: 2371/2371 vitest tests pass
+(2367 prior + 3 new in the new file + 1 new in protected-tenant-guard-
+wiring.test.ts), `tsc --noEmit` zero errors, eslint clean on both touched
+files. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
+`audit-tenant-scope.mjs`, and the three workflow YAML files themselves were
+not touched this round (all mutations were made, verified, and reverted
+during testing only) -- their own coverage (items 168-209 above) is
+unaffected; only new guard coverage was added.
