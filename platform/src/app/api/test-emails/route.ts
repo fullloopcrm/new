@@ -5,6 +5,7 @@
 import { NextResponse } from 'next/server'
 import { sendEmail } from '@/lib/email'
 import { requirePermission } from '@/lib/require-permission'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import {
   bookingConfirmationEmail,
   bookingReceivedEmail,
@@ -22,6 +23,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 export async function POST() {
   const { tenant, error: authError } = await requirePermission('settings.edit')
   if (authError) return authError
+
+  // Each call fans out to 10 real sendEmail() calls against the tenant's
+  // resend_api_key — same paid-API cost-abuse shape already capped on every
+  // other settings.edit-gated action that fires an external send (admin-chat,
+  // admin/selena/score). Cap the outer call, not the inner sends, so a
+  // compromised/looping admin session can't run up Resend usage unbounded.
+  const rl = await rateLimitDb(`test-emails:${tenant.tenantId}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many test-email runs. Try again later.' }, { status: 429 })
+  }
 
   const { data: t } = await supabaseAdmin
     .from('tenants')
