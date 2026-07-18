@@ -12620,3 +12620,55 @@ run; this item's fix and verification are entirely within a pure,
 no-network filesystem-walking function plus one live, read-only run of
 the guard script itself against the real repo tree, same discipline as
 every prior item in this lane's sessions.
+
+## (242) Fresh ground, same "closure inside main() with zero test coverage,
+direct children only" bug class as (237)-(240) -- reconcile gate's own
+Drift AF `apiDirNames` collector read `src/app/api/`'s DIRECT children
+only, blind to a route group wrapping a real API directory
+
+`main()`'s `apiDirNames` (feeds Drift AF's
+`findUnboundedApiPublicRouteCollisions` -- an `isPublicRoute` pattern in
+src/middleware.ts that accidentally also matches a different, unrelated
+`/api/` directory, silently skipping middleware's Clerk-session-redirect
+and admin-impersonation-bypass-allowlist gate for it) was a raw
+`readdirSync(apiDir, {withFileTypes:true}).filter(isDirectory).map(name)`
+call inline in `main()` -- direct children of `src/app/api/` only, the
+exact bug shape (237)-(240) already closed four times over on
+`hasHomePage`/`hasSitemapFile`/`collectRouteGroupFiles`/
+`collectFirstSegmentDirs`, just never applied to THIS collector. A route
+group wrapping a real API directory (e.g.
+`src/app/api/(v2)/client-reviews`) would surface here as the literal,
+never-matchable name `"(v2)"` instead of `"client-reviews"` -- the real
+directory `findUnboundedApiPublicRouteCollisions` needs to compare
+against `isPublicRoute`'s patterns -- silently blinding Drift AF to a
+collision that would otherwise skip auth/impersonation-gate checks for
+that directory in production, with the gate reporting nothing wrong not
+because there is no collision, but because this collector never saw the
+directory that would have proven it.
+
+Landmine-only today: no CURRENT `src/app/api/` directory is route-grouped
+(verified: a directory listing for `(*)`-named entries under
+`src/app/api` returned zero hits) -- same disposition as every prior item
+in this surface.
+
+**Fixed** by reusing the ALREADY-exported, ALREADY-tested
+`collectFirstSegmentDirs` (promoted in (237) for exactly this "list of
+real top-level directory names, route groups resolved to their real
+first segment" question, and already exercised in this file's suite
+against a route-group-nested fixture, including a group nested inside
+another group) instead of re-implementing the same resolution a seventh
+time. Unlike (237)-(241), this item needed no new exported function and
+no new test file: `apiDirNames` is now a one-line delegation to a
+collector whose route-group-chain behavior is already pinned by existing
+tests, so the fix is covered by test infrastructure that predates this
+item rather than requiring new fixtures.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 495/495
+files, 2508/2508 tests -- zero regressions (same counts as (241): no new
+tests added, by design -- see above). eslint clean (0 errors/warnings) on
+the touched file. `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session --
+no live reconcile run; a direct invocation of the reconcile script is
+leader-run-only in this worktree regardless (it touches live prod
+Supabase, enforced by a local hook), so this item's verification is
+entirely `tsc` + the full vitest suite + eslint, same discipline as
+every prior item in this lane's sessions when the token is absent.
