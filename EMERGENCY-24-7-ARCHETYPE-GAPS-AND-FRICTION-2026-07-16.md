@@ -11508,3 +11508,81 @@ pre-existing `@typescript-eslint/no-require-imports` error in
 `src/app/api/admin/seo/apply/route.auth.test.ts` (confirmed present before
 this session's commits, via `git show d3acb264:...`) -- unrelated to this
 lane's CI-wiring/reconcile scope, not touched.
+
+## (225) Fresh ground -- ci.yml's `notify-failure` job builds a multi-line
+Telegram alert `TEXT` var and posts it with `curl --data-urlencode
+text="$TEXT" -d disable_web_page_preview=true`, and NEITHER flag had ZERO
+regression coverage anywhere in this lane
+
+telegram-alert-secret-name-guard.test.ts already pins the `TG_TOKEN`/
+`TG_CHAT` secret names on this exact step; ci-notify-failure-wiring-guard
+.test.ts pins the job's `needs: verify` + `if: failure()` wiring. Neither
+reads past the `curl` invocation itself. Grepping every guard test file in
+this lane for "data-urlencode" or "disable_web_page_preview" turned up
+nothing.
+
+`--data-urlencode` is what makes curl percent-encode `$TEXT` into a valid
+`application/x-www-form-urlencoded` body -- TEXT is built from a multi-line
+assignment (literal embedded newlines) interpolating `${{ github.ref_name
+}}` and a repo/run URL, values not fully in this job's control. A silent
+weakening to the sibling-looking `-d text="$TEXT"` (matching the other `-d`
+flags on the same curl call) stops curl from encoding the value: the
+embedded newlines and any `&`/`=` bytes would be sent raw inside a form body
+Telegram's API does not parse that way, corrupting or truncating the alert.
+The curl pipeline ends in `|| true`, so a garbled or rejected POST produces
+NO red anywhere -- the notify-failure job still "succeeds" regardless of
+whether the alert actually landed, and the failure is only noticed the next
+time someone actually needs the Telegram ping during a real CI failure and
+it never arrives (or arrives unreadable) -- exactly the moment the alert
+exists to cover. `disable_web_page_preview=true` is a second, independently
+droppable knob on the same line: without it, Telegram renders a large
+embedded preview card for the run URL, burying the actual failure text.
+
+**Mutation-verified before writing the fix, two independent regressions,
+each restored before the next:** (1) `--data-urlencode text="$TEXT"` ->
+`-d text="$TEXT"` (encoding dropped, `chat_id`/`disable_web_page_preview`
+lines untouched) -- the full 487-file / 2434-test vitest suite stayed 100%
+green. (2) the `-d disable_web_page_preview=true` line deleted entirely
+(curl call left with just `chat_id` + `text`) -- same result, full suite
+green. Both restores left `git diff --stat .github/workflows/` empty
+afterward.
+
+## (226) Continuation (step 2 of the queue) -- re-checking the SAME curl
+invocation shape on tenant-config-reconcile.yml's own `notify-failure` job
+("Telegram alert on reconcile failure") found the IDENTICAL gap, verbatim:
+`--data-urlencode text="$TEXT" -d disable_web_page_preview=true`, ZERO
+coverage, same `|| true`-swallowed failure mode
+
+Same investigation as (225): reconcile-gate-wiring.test.ts pins this job's
+`needs: reconcile` + `if: failure()` wiring and the `$GITHUB_STEP_SUMMARY`
+usage on the sibling `reconcile` job, but never reads into this step's curl
+line. The two files' Telegram alert bodies share the exact same encoding
+shape (multi-line `TEXT` with an interpolated run URL), so the identical
+mutation applies identically here.
+
+**Mutation-verified before writing the fix, two independent regressions,
+each restored before the next:** (1) `--data-urlencode text="$TEXT"` ->
+`-d text="$TEXT"` -- full suite green. (2) `-d disable_web_page_preview=true`
+deleted entirely -- full suite green. Both restores left `git diff --stat
+.github/workflows/` empty afterward.
+
+**Fixed (both items):** new `src/lib/telegram-alert-body-encoding-guard
+.test.ts`, pure source-reading of both workflows' YAML via `describe.each`
+(same cross-file pattern as `ci-push-branch-scope-guard.test.ts` from items
+(221)/(222)), isolating each file's Telegram alert step block by name
+("Telegram alert on CI failure" / "Telegram alert on reconcile failure").
+Pins `--data-urlencode text="$TEXT"` and `-d disable_web_page_preview=true`
+independently per file, plus a cross-file consistency check that both files
+still share the identical encoding pair (so a future one-file-only fix
+becomes a visible finding, not a silent asymmetry). Re-ran all four
+mutations (2 regressions x 2 files) against the new guard -- each failed
+with the exact predicted assertion message (the file-specific test plus the
+cross-file consistency test, both firing); all four restores left `git diff
+--stat .github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean on the new file, full vitest suite green
+(488 files / 2443 tests -- the new file's 9 assertions plus every prior
+test still passing). Neither ci.yml nor tenant-config-reconcile.yml was
+touched this round (all mutations were made, verified, and reverted during
+testing only); only new guard coverage was added.
