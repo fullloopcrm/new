@@ -11212,3 +11212,89 @@ still passing). None of the three workflow YAML files themselves were
 touched this round (all mutations were made, verified, and reverted during
 testing only) -- their own coverage (items 168-216 above) is unaffected;
 only new guard coverage was added.
+
+## (219) New fresh-ground surface -- db-backup.yml's own "Encrypt dump"
+step's `gpg` invocation had ZERO regression coverage on its cipher strength
+or its passphrase-delivery mechanism
+
+`db-backup-encryption-fail-closed.test.ts` (item 202) pins the step's
+fail-CLOSED contract (empty `BACKUP_ENCRYPTION_KEY` -> `exit 1`, upload path
+ends in `.dump.gpg`) but never reads the `gpg` invocation's own flags. Two
+independent regressions were both invisible to every guard in this repo:
+`--cipher-algo AES256` silently weakened (e.g. to `3DES`, or dropped so gpg
+falls back to its own unpinned default) -- the step still "encrypts", the
+job still goes green, but the strength backstop the workflow's own header
+comment claims ("this repo is PUBLIC... the encrypt step below fails the job
+closed") would be weaker than advertised; and `--passphrase-fd 0` (secret
+delivered over a file descriptor) silently swapped for `--passphrase
+"$BACKUP_ENCRYPTION_KEY"` (secret interpolated directly onto the gpg
+process argv) -- gpg still succeeds, but the passphrase would be visible to
+anything reading process listings on the runner (`ps aux`, `/proc/<pid>/cmdline`)
+for the duration of the call. Grepping every guard test file in this lane
+for `cipher-algo`, `passphrase-fd`, `AES256`, or `pinentry-mode` turned up
+nothing.
+
+**Mutation-verified before writing the fix:** changed `--passphrase-fd 0
+--pinentry-mode loopback \ --symmetric --cipher-algo AES256` to
+`--passphrase "$BACKUP_ENCRYPTION_KEY" --pinentry-mode loopback \
+--symmetric --cipher-algo 3DES` (both regressions applied together) -- the
+full 481-file / 2405-test vitest suite stayed 100% green. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-encrypt-strength-guard.test.ts`, pure
+source-reading of db-backup.yml's YAML, same approach as
+`db-backup-encryption-fail-closed.test.ts` / `db-backup-pg-dump-source-pin-
+guard.test.ts`. Pins `--cipher-algo AES256`, `--passphrase-fd 0`, that no
+bare `--passphrase` flag is present, and that the passphrase is still fed in
+via the `<<< "$BACKUP_ENCRYPTION_KEY"` here-string. Re-ran the mutation
+against the new guard -- 3 of 6 assertions failed with the exact predicted
+messages; restore left `git diff --stat .github/workflows/` empty
+afterward.
+
+## (220) Continuation (step 2 of the queue) -- re-reading the same "Encrypt
+dump" step while writing (219)'s guard surfaced two sibling gaps, one
+integrity and one confidentiality, both still unpinned
+
+`set -euo pipefail` at the top of THIS step's own `run:` block is a
+DIFFERENT instance than the one `db-backup-dump-size-sanity-gate.test.ts`
+(item 203) already pins -- that guard is scoped by name to `/Dump full
+database/` and never reads the "Encrypt dump" step's body. Without `set -e`
+here, a failing/partial `gpg` call would not halt the step: execution would
+fall through to `rm -f "fullloop-$STAMP.dump"`, deleting the only plaintext
+copy of the night's backup, while a corrupt or empty `.dump.gpg` gets
+uploaded as if it were valid -- the job goes green with no restorable backup
+for that night at all. Separately, `rm -f "fullloop-$STAMP.dump"` (the
+plaintext purge immediately after the gpg call) had zero regression coverage
+anywhere in this lane -- grepping every guard test file for `rm -f` turned
+up nothing. Not a live exploit today (the runner workspace is destroyed with
+the job; nothing else reads it) -- same "close the currently-inert other
+half" shape as items (210)/(216)/(217) -- but it matters the moment a future
+step archives more of the workspace, or the upload step's `path:` is ever
+glob-ified instead of the exact `.dump.gpg` name item (202) already locks
+in.
+
+**Mutation-verified before writing the fix:** (1) deleted the
+`rm -f "fullloop-$STAMP.dump"` line entirely (gpg call untouched) -- the
+full 482-file / 2411-test vitest suite stayed 100% green. (2) independently
+deleted `set -euo pipefail` from the "Encrypt dump" step's `run:` block only
+(every other line, including item (203)'s own copy on the sibling step,
+untouched) -- same result, full suite green. Both restores left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-encrypt-fail-safe-purge-guard.test.ts`,
+pure source-reading, same approach as `db-backup-encrypt-strength-guard.test.ts`
+/ `db-backup-dump-size-sanity-gate.test.ts`. Pins that the step's own
+`run:` block opens with `set -euo pipefail`, that the plaintext purge still
+runs, and that it runs AFTER the gpg call (ordering -- purging before
+encrypting would leave gpg nothing to read). Re-ran both mutations above
+against the new guard -- each failed with the exact predicted message (2 of
+5, then 1 of 5, assertions respectively); both restores left `git diff
+--stat .github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit` zero
+errors, eslint clean on both new files, full vitest suite green (483 files /
+2416 tests -- both new files' 11 total assertions plus every prior test
+still passing). None of the three workflow YAML files themselves were
+touched this round (all mutations were made, verified, and reverted during
+testing only) -- their own coverage (items 168-218 above) is unaffected;
+only new guard coverage was added.
