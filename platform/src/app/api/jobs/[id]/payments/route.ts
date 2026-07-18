@@ -7,6 +7,7 @@ import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, type PaymentStatus } from '@/lib/jobs'
+import { postJobPaymentRevenue } from '@/lib/finance/post-revenue'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -45,6 +46,19 @@ export async function PATCH(request: Request, { params }: Params) {
       event_type: status === 'paid' ? 'payment_paid' : 'payment_invoiced',
       detail: { payment_id, label: payment.label, amount_cents: payment.amount_cents },
     })
+
+    // Real revenue → real ledger entry. This click is the ONLY place a
+    // job_payment ever becomes 'paid' — without this, the money never posts
+    // to the GL (see post-revenue.ts's postJobPaymentRevenue doc comment).
+    // Best-effort, never fails the status flip; idempotent by (job_payment
+    // id), so a re-mark-paid or a retry can't double-post.
+    if (status === 'paid') {
+      try {
+        await postJobPaymentRevenue({ tenantId, jobPaymentId: payment.id })
+      } catch (revenueErr) {
+        console.error('[jobs/payments] revenue post failed:', revenueErr)
+      }
+    }
 
     return NextResponse.json({ payment })
   } catch (err) {

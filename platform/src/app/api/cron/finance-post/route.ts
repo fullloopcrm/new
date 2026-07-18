@@ -5,11 +5,13 @@
  *
  * NOTE: runs backfillRevenueFromBookings (source='booking') — do NOT also run
  * backfillUnpostedRevenue here; both would post the same job under different
- * keys and double-count.
+ * keys and double-count. backfillUnpostedJobPaymentRevenue is a separate id
+ * space (source='job_payment', the Jobs/Projects payment plan) and can never
+ * collide with either.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { backfillRevenueFromBookings } from '@/lib/finance/post-revenue'
+import { backfillRevenueFromBookings, backfillUnpostedJobPaymentRevenue } from '@/lib/finance/post-revenue'
 import { backfillUnpostedLabor } from '@/lib/finance/post-labor'
 import { backfillUnpostedCommissions } from '@/lib/finance/post-adjustments'
 import { safeEqual } from '@/lib/secret-compare'
@@ -21,7 +23,7 @@ export async function POST(request: Request) {
   }
 
   const { data: tenants } = await supabaseAdmin.from('tenants').select('id').eq('status', 'active')
-  const totals = { tenants: 0, revenue: 0, cogs: 0, labor: 0, commissions: 0 }
+  const totals = { tenants: 0, revenue: 0, cogs: 0, labor: 0, commissions: 0, jobPayments: 0 }
 
   for (const t of tenants || []) {
     const id = t.id as string
@@ -33,6 +35,8 @@ export async function POST(request: Request) {
       totals.labor += l.payouts + l.payroll
       const c = await backfillUnpostedCommissions(id)
       totals.commissions += c.accrued + c.paid
+      const j = await backfillUnpostedJobPaymentRevenue(id)
+      totals.jobPayments += j.posted
       totals.tenants++
     } catch (e) {
       console.error('[cron/finance-post] tenant', id, e)
