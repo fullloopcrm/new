@@ -31,12 +31,15 @@ export default function SmsInboxPage() {
 
   const [smsPanelOpen, setSmsPanelOpen] = useState(false)
 
-  // Fetch tenant info for settings panel
+  // Fetch tenant info for settings panel. telnyx_phone||sms_number precedence
+  // (same as resolveTenantSmsCredentials()) -- an sms_number-only tenant's
+  // own SMS dashboard otherwise showed "Not configured" despite SMS working.
   useEffect(() => {
     fetch('/api/settings')
       .then((r) => r.json())
       .then((d) => {
-        if (d.tenant?.telnyx_phone) setTenantPhone(d.tenant.telnyx_phone)
+        const phone = d.tenant?.telnyx_phone || d.tenant?.sms_number
+        if (phone) setTenantPhone(phone)
         if (d.tenant?.telnyx_api_key) setTelnyxConnected(true)
       })
       .catch(() => {})
