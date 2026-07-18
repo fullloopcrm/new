@@ -2,21 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-
-// Rate limiting
-const attempts = new Map<string, { count: number; resetAt: number }>()
-
-function checkRateLimit(key: string, max = 10): boolean {
-  const now = Date.now()
-  const entry = attempts.get(key)
-  if (entry && entry.resetAt > now) {
-    if (entry.count >= max) return false
-    entry.count++
-    return true
-  }
-  attempts.set(key, { count: 1, resetAt: now + 10 * 60 * 1000 })
-  return true
-}
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -37,7 +23,8 @@ export async function GET(request: NextRequest) {
   const email = request.nextUrl.searchParams.get('email')
 
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  if (!checkRateLimit(`referrer-lookup:${ip}`)) {
+  const rl = await rateLimitDb(`referrer-lookup:${ip}`, 10, 10 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 
@@ -83,7 +70,8 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   const ip = request.headers.get('x-forwarded-for') || 'unknown'
-  if (!checkRateLimit(`referrer-signup:${ip}`, 5)) {
+  const rl = await rateLimitDb(`referrer-signup:${ip}`, 5, 10 * 60 * 1000)
+  if (!rl.allowed) {
     return NextResponse.json({ error: 'Too many requests' }, { status: 429 })
   }
 

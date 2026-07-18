@@ -94,6 +94,9 @@ vi.mock('@/lib/supabase', () => {
 vi.mock('@/lib/tenant-site', () => ({
   getTenantFromHeaders: vi.fn(async () => ({ id: 'tenant-1' })),
 }))
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: vi.fn(async () => ({ allowed: true, remaining: 99 })),
+}))
 
 import { GET } from './route'
 
