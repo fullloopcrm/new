@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { vi } from 'vitest'
+import { toNaiveET } from '@/lib/dates'
 
 /**
  * GET /api/dashboard (the main operator dashboard aggregator) filtered
@@ -17,16 +18,21 @@ import { vi } from 'vitest'
 
 const TENANT_A = 'tenant-A'
 const now = new Date()
+// The route buckets bookings.start_time as a naive-ET string (no `Z`); a
+// `now.toISOString()` fixture is UTC-zoned and falls outside "today" in ET
+// for ~4-5h every evening (was a spurious daily failure window, not a route
+// bug — the route's own naive-ET boundary logic is already correct here).
+const nowNaiveET = toNaiveET(now)
 
 type Row = Record<string, unknown>
 const DB: Record<string, Row[]> = {
   bookings: [
     // Team paid via bulk payroll AND client already paid -- should count
     // toward "revenue collected" (today/week/month) and job lists.
-    { id: 'bk-collected', tenant_id: TENANT_A, price: 20000, start_time: now.toISOString(), status: 'paid', payment_status: 'paid' },
+    { id: 'bk-collected', tenant_id: TENANT_A, price: 20000, start_time: nowNaiveET, status: 'paid', payment_status: 'paid' },
     // Team paid via bulk payroll but client STILL owes -- should still show
     // up in the pending-collections bucket.
-    { id: 'bk-owed', tenant_id: TENANT_A, price: 15000, start_time: now.toISOString(), status: 'paid', payment_status: 'pending' },
+    { id: 'bk-owed', tenant_id: TENANT_A, price: 15000, start_time: nowNaiveET, status: 'paid', payment_status: 'pending' },
   ],
   clients: [],
   team_members: [],

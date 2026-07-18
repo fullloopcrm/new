@@ -5,6 +5,7 @@ import { protectCronAPI } from '@/lib/nycmaid/auth'
 import { validateUsPhone } from '@/lib/nycmaid/phone-validator'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 import { signWithSecret } from '@/lib/secret-compare'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
@@ -86,7 +87,7 @@ export async function GET(request: Request) {
         const link = `${baseUrl}/team/update-phone?token=${token}`
         const html = emailWrapper(`
           <h2 style="margin: 0 0 16px 0; font-size: 20px; color: #1a1a1a;">We can't text you — please confirm your number</h2>
-          <p style="margin: 0 0 12px 0; font-size: 15px; color: #333; line-height: 1.6;">Hi ${c.name?.split(' ')[0] || 'there'},</p>
+          <p style="margin: 0 0 12px 0; font-size: 15px; color: #333; line-height: 1.6;">Hi ${escapeHtml(c.name?.split(' ')[0] || 'there')},</p>
           <p style="margin: 0 0 16px 0; font-size: 15px; color: #333; line-height: 1.6;">The mobile number on your account isn't valid, so we can't send you job alerts or daily summaries. Click below to enter the correct number — takes 10 seconds.</p>
           <table role="presentation" cellpadding="0" cellspacing="0" border="0" style="margin: 8px 0 24px 0;">
             <tr><td style="background-color: #1E2A4A; border-radius: 8px;">
@@ -94,7 +95,7 @@ export async function GET(request: Request) {
             </td></tr>
           </table>
           <p style="margin: 0 0 8px 0; font-size: 13px; color: #888;">Link expires in 7 days.</p>
-          <p style="margin: 0; font-size: 13px; color: #888;">— ${tenant.name}</p>
+          <p style="margin: 0; font-size: 13px; color: #888;">— ${escapeHtml(tenant.name)}</p>
         `)
         const result = await sendEmail(c.email!, 'Action needed — confirm your phone number', html, undefined, { skipOwnerBcc: true })
         if (result.success) {

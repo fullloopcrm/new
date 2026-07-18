@@ -783,7 +783,7 @@ export async function POST(request: Request) {
           await sendEmail({
             to: adminEmail,
             subject: `Full Loop: ${tenant.name} subscription payment failed`,
-            html: `<p>Invoice for <strong>${tenant.name}</strong> (${tenant.owner_email}) failed. Billing status flipped to past_due. Stripe will retry per dunning schedule.</p>`,
+            html: `<p>Invoice for <strong>${escapeHtml(tenant.name)}</strong> (${escapeHtml(tenant.owner_email)}) failed. Billing status flipped to past_due. Stripe will retry per dunning schedule.</p>`,
           })
         } catch { /* non-fatal */ }
       }

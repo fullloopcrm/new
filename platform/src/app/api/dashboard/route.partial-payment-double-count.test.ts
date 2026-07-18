@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
 import { vi } from 'vitest'
+import { toNaiveET } from '@/lib/dates'
 
 /**
  * GET /api/dashboard's today/week/month "revenue collected" figures and its
@@ -15,16 +16,21 @@ import { vi } from 'vitest'
 
 const TENANT_A = 'tenant-A'
 const now = new Date()
+// The route buckets bookings.start_time as a naive-ET string (no `Z`); a
+// `now.toISOString()` fixture is UTC-zoned and falls outside "today" in ET
+// for ~4-5h every evening (was a spurious daily failure window, not a route
+// bug — the route's own naive-ET boundary logic is already correct here).
+const nowNaiveET = toNaiveET(now)
 
 type Row = Record<string, unknown>
 const DB: Record<string, Row[]> = {
   bookings: [
     // Fully paid — should count in full toward revenue collected.
-    { id: 'bk-paid', tenant_id: TENANT_A, price: 20000, start_time: now.toISOString(), status: 'completed', payment_status: 'paid' },
+    { id: 'bk-paid', tenant_id: TENANT_A, price: 20000, start_time: nowNaiveET, status: 'completed', payment_status: 'paid' },
     // Partially paid — $50 of $200 already collected, $150 still owed.
-    { id: 'bk-partial', tenant_id: TENANT_A, price: 20000, partial_payment_cents: 5000, start_time: now.toISOString(), status: 'completed', payment_status: 'partial' },
+    { id: 'bk-partial', tenant_id: TENANT_A, price: 20000, partial_payment_cents: 5000, start_time: nowNaiveET, status: 'completed', payment_status: 'partial' },
     // Fully unpaid — whole price is pending, nothing collected yet.
-    { id: 'bk-unpaid', tenant_id: TENANT_A, price: 10000, start_time: now.toISOString(), status: 'completed', payment_status: 'pending' },
+    { id: 'bk-unpaid', tenant_id: TENANT_A, price: 10000, start_time: nowNaiveET, status: 'completed', payment_status: 'pending' },
   ],
   clients: [],
   team_members: [],
