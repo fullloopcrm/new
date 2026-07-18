@@ -52,7 +52,12 @@ export async function POST(request: Request, { params }: Params) {
     if (balance <= 0) return NextResponse.json({ error: 'Nothing due' }, { status: 400 })
 
     const apiKey = tenant.stripe_api_key ? decryptSecret(tenant.stripe_api_key) : null
-    if (!apiKey) return NextResponse.json({ error: 'Tenant Stripe not configured' }, { status: 500 })
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: 'Online payment isn\'t available for this invoice yet — please contact us for other ways to pay.' },
+        { status: 400 },
+      )
+    }
 
     const stripe = new Stripe(apiKey, { apiVersion: '2025-04-30.basil' as Stripe.LatestApiVersion })
 
