@@ -13400,3 +13400,64 @@ neither the reconcile-gate script nor any `.github/workflows` file, so
 `SUPABASE_ACCESS_TOKEN_FULLLOOP` (absent this session) was never needed.
 File-only migration, no push/deploy/DB write -- the leader/Jeff run this DDL
 after review, same as every other atomic-RPC fix this session.
+
+## (254) Continuation of (253)'s surface per LEADER's queue item (2) -- the
+same 2026-07-13 `deploy-prep/toctou-audit-p1-w3.md` flagged TWO bugs in
+`src/app/api/client/verify-code/route.ts`. (253) closed a different route
+(team-portal jobs/claim); this route's OWN pair of flagged bugs had not been
+touched. Re-read the current file first, same discipline as (253): bug (2)
+(duplicate-client-row race) turned out to already be fixed on this branch
+(`idx_clients_tenant_email_unique`, `route.race.test.ts`, both present) --
+confirmed via `git log` and reading the file, not assumed from the 5-day-old
+audit note. Bug (1), the one the audit explicitly flagged and neither commit
+touched, was still open: the one-time login code was checked via a SELECT,
+then burned via a SEPARATE DELETE several lines later. A double-tap on
+"verify" (or a legitimate request racing an attacker replaying an
+intercepted/observed code) could let both requests read the still-present
+row before either DELETE landed, so both could authenticate off the SAME
+single-use code instead of exactly one winning.
+
+**Fixed** by collapsing the check-and-burn into one atomic
+`DELETE ... WHERE tenant_id AND identifier AND code AND expires_at > now()
+RETURNING *` call -- the same class of fix as every other TOCTOU close this
+session (`claim_open_job`, the payment/booking atomic-claim guards), just a
+DELETE-as-claim instead of an UPDATE-as-claim since burning IS the intended
+end state here. The `.gt('expires_at', ...)` filter deliberately leaves an
+actually-expired row undeleted, so a genuinely expired code still gets a
+distinguishable "Code expired" (vs "Invalid code") message via a read-only
+fallback lookup -- unchanged behavior, not just a side effect of the fix.
+
+Fixing this surfaced that the codebase's OWN existing test for bug (2)
+(`route.race.test.ts`) had accidentally been relying on bug (1) to work:
+its "two concurrent verifies" scenario submitted the identical code twice
+and asserted BOTH got a 200 with a shared client -- which was only reachable
+because the code-check race let both past validation to race the client
+INSERT. With bug (1) closed, the second request is now rejected at the
+atomic code-claim step and never reaches client creation at all, so that
+test's own expectation (`[200, 200]`) was now factually describing the bug,
+not the fix. Updated it to `[200, 401]` with a comment explaining the
+atomic-claim fix subsumes it -- the unique-index/23505 backstop for bug (2)
+stays in place as defense in depth for any other path that might reach the
+create-client block twice, it's just no longer reachable via a literal
+double-submit of one code. Flagging this honestly: I edited an existing
+test's assertions, not just added new ones, because its old assertions
+encoded the exact race being fixed.
+
+New test file `route.code-reuse-race.test.ts` (4 tests): two concurrent
+submits of the same valid code resolve to exactly one 200 + one 401 (never
+both 200), a genuinely expired code is rejected without being deleted
+(unchanged), a wrong code is rejected with the row untouched, and a single
+legitimate verify still succeeds and burns the code (no regression on the
+non-race path). Mutation-verified live: reverted just `route.ts` to the
+pre-fix SELECT-then-DELETE shape via `git apply -R` on a saved patch, reran
+the new race test, confirmed it failed exactly as predicted
+(`[200, 200]` instead of `[200, 401]`), then re-applied the patch and
+reconfirmed all 11 verify-code tests green.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 505/505 files,
+2582/2582 tests (4 new, 0 regressions after the route.race.test.ts
+expectation update). `eslint` on all three touched/added TS files reports
+zero warnings. This item touched neither the reconcile-gate script nor any
+`.github/workflows` file, so `SUPABASE_ACCESS_TOKEN_FULLLOOP` (absent this
+session) was never needed -- token-guard re-checked and confirmed still
+absent. App-code-only, no push/deploy/DB write, no CI workflow edit.
