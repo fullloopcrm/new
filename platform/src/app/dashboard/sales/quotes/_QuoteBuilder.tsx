@@ -11,6 +11,7 @@
  */
 import { useEffect, useMemo, useRef, useState } from 'react'
 import HelpTip from '../../_components/HelpTip'
+import { getScopeTemplates } from '@/lib/quote-scope-templates'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
 type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
@@ -54,6 +55,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
 
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [industry, setIndustry] = useState<string | null>(null)
 
   const [items, setItems] = useState<LineItem[]>([blankLine()])
   const [taxPct, setTaxPct] = useState('0')
@@ -95,6 +97,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     // Proposals defaults. Functional guards ensure we never overwrite a value
     // the operator has already changed (e.g. if settings resolves late).
     fetch('/api/settings').then(r => r.json()).then(data => {
+      if (data?.tenant?.industry) setIndustry(String(data.tenant.industry))
       const cfg = (data?.tenant?.selena_config || {}) as Record<string, unknown>
       if (cfg.tax_rate != null) setTaxPct(prev => (prev === '0' ? String(cfg.tax_rate) : prev))
       if (cfg.proposal_valid_days != null) setValidUntilDays(prev => (prev === '30' ? String(cfg.proposal_valid_days) : prev))
@@ -130,6 +133,11 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId, clients])
+
+  const scopeTemplates = useMemo(() => getScopeTemplates(industry), [industry])
+  function insertScopeTemplate(text: string) {
+    setDescription(prev => (prev.trim() ? `${prev.trim()}\n\n${text}` : text))
+  }
 
   function addFromCatalog(itemId: string) {
     const it = catalog.find(c => c.id === itemId)
@@ -280,6 +288,15 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         <h2 className="font-heading font-semibold text-slate-900 mb-3">Quote Details</h2>
         <input placeholder="Quote title (e.g., Kitchen deep clean · 4 hours)" value={title} onChange={e => setTitle(e.target.value)}
           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm mb-3" />
+        {scopeTemplates.length > 0 && (
+          <div className="flex justify-end mb-1.5">
+            <select value="" onChange={e => { if (e.target.value) { insertScopeTemplate(e.target.value); e.target.value = '' } }}
+              className="text-xs px-2 py-1 bg-white border border-slate-300 rounded text-slate-700">
+              <option value="">+ Insert scope template…</option>
+              {scopeTemplates.map(t => <option key={t.label} value={t.text}>{t.label}</option>)}
+            </select>
+          </div>
+        )}
         <textarea placeholder="Description (optional) — scope of work, assumptions, exclusions" value={description} onChange={e => setDescription(e.target.value)} rows={3}
           className="w-full bg-white border border-slate-300 rounded-lg px-3 py-2 text-sm" />
       </section>
