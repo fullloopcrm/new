@@ -199,12 +199,39 @@ export const norm = (d) => {
 // src/middleware.ts left that script's own un-stripped regex reporting
 // "✅ ... OK" (exit 0) while middleware would actually route it to
 // /site/template at runtime — see the sibling fix there.
-// Safe to apply unconditionally here: every value these parsers extract is a
-// bare slug, path, or hostname (e.g. 'nycmaid', '/apply', 'nyctow.com') —
-// none legitimately contain `//` or `/*`/`*/`, so this can never eat a real
-// entry, only a commented-out one.
+//
+// The line-comment strip is quote-aware (matches a full quoted string OR a
+// `//...` comment, and only erases the comment branch) rather than a bare
+// `/\/\/.*$/gm`. A bare version treats the FIRST `//` on a line as a comment
+// start even when it appears INSIDE a quoted value — and three of this
+// file's own parsers (parseNextConfigSiteRewriteSources,
+// parseAllNextConfigSiteRewriteSources, parseNextConfigRedirects) extract
+// next.config.ts `destination` values, which can legitimately be a full
+// external URL (`'https://partner-site.com/path'` — an ordinary Next.js
+// redirect-to-a-third-party-site shape). A bare line-comment strip run on
+// `{ source: '/old', destination: 'https://partner.com/x' },` truncates the
+// LINE at the `//` in `https://`, deleting everything after it — the
+// destination's closing quote, its comma, and any same-line `permanent:
+// true`. Mutation-verified live (not reasoned about): the entry does not
+// cleanly vanish. entryRe's `destination` capture (`[^'"\`]+`) is not
+// anchored to end-of-line, so with the closing quote gone it keeps matching
+// PAST the newline and swallows the START of the next array entry as part
+// of the same "destination" value — corrupting one real entry into a
+// garbled merge of two, rather than dropping one cleanly. Either way the
+// affected entry's real `source`/`destination` pair is lost. A lost
+// `source` also vanishes from findShadowedKilledRoutePages'
+// `redirectSources` set (Drift AD), so a killed route legitimately rescued
+// by that redirect would get wrongly reported as permanently unreachable —
+// a false positive from the gate's OWN parser, not a real config bug. No
+// current next.config.ts destination is external (verified: `grep
+// destination: platform/next.config.ts` — every value is a relative path
+// today), so this was landmine-only until now, same prospective-bug shape
+// as Drift T/W above, just one layer lower in the gate's own parsing
+// infrastructure rather than in the config it parses.
 function stripComments(text) {
-  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  return text
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/(['"`])(?:(?!\1)[^\\]|\\.)*\1|\/\/.*$/gm, (m) => (m.startsWith('//') ? '' : m))
 }
 
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---
