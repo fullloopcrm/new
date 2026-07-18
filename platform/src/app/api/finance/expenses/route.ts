@@ -49,6 +49,7 @@ export async function POST(request: Request) {
       description: { type: 'string', max: 1000 },
       receipt_url: { type: 'url' },
       date: { type: 'date' },
+      job_id: { type: 'uuid' },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
     const validated = fields!
@@ -60,6 +61,19 @@ export async function POST(request: Request) {
     }
     const entityId = body.entity_id || (await getDefaultEntityId(tenantId))
 
+    // Same in-tenant check as entity_id above -- a manual expense entry can
+    // optionally tie itself to a job (feeds that job's Costs & Receipts cost
+    // tracking) without going through the job-scoped endpoint.
+    if (validated.job_id) {
+      const { data: job } = await supabaseAdmin
+        .from('jobs')
+        .select('id')
+        .eq('id', validated.job_id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!job) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+    }
+
     const { data, error } = await supabaseAdmin
       .from('expenses')
       .insert({
@@ -70,6 +84,7 @@ export async function POST(request: Request) {
         description: validated.description || null,
         receipt_url: validated.receipt_url || null,
         date: validated.date || new Date().toISOString().split('T')[0],
+        job_id: validated.job_id || null,
       })
       .select()
       .single()
