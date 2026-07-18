@@ -16,6 +16,20 @@ function cap(v: unknown): string | null {
   return s.length > MAX_TEXT ? s.slice(0, MAX_TEXT) : s
 }
 
+// service_zips is a TEXT[] column with no size constraint of its own — every
+// other field on this public, unauthenticated intake goes through cap(), but
+// this one was passed through raw. A direct API caller (this route isn't
+// currently wired to any frontend form) could POST an unbounded array of
+// unbounded strings and bloat the row past what a real "list of zips I
+// service" value would ever need. Cap array length and per-entry length,
+// same shape as the sales-applications/apply-ceo uncapped-field fixes.
+const MAX_ZIP_ENTRIES = 100
+const MAX_ZIP_LEN = 20
+function capZips(v: unknown): string[] | null {
+  if (!Array.isArray(v)) return null
+  return v.slice(0, MAX_ZIP_ENTRIES).map((z) => String(z).slice(0, MAX_ZIP_LEN))
+}
+
 export async function POST(request: Request) {
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
@@ -60,7 +74,7 @@ export async function POST(request: Request) {
         primary_city: cap(body.primary_city),
         primary_state: cap(body.primary_state),
         primary_zip: cap(body.primary_zip),
-        service_zips: body.service_zips || null,
+        service_zips: capZips(body.service_zips),
         years_in_business: body.years_in_business || null,
         annual_revenue_bracket: cap(body.annual_revenue_bracket),
         revenue_trajectory: cap(body.revenue_trajectory),
