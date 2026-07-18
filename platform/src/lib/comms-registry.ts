@@ -242,6 +242,15 @@ export const COMMS: CommDef[] = [
     locked: true,
     firedBy: 'event: portal auth',
   },
+  {
+    key: 'manual_message',
+    label: 'Manual message from staff',
+    desc: 'One-off email or text an admin/staff member sends a client directly from the client detail page.',
+    audience: 'client',
+    channels: ['email', 'sms'],
+    defaults: { email: true, sms: true },
+    firedBy: 'event: admin compose (client detail page)',
+  },
 
   // ── Team-facing ────────────────────────────────────────────────────────
   {

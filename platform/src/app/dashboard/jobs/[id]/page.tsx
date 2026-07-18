@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { stageMeta } from '@/lib/pipeline'
 import { CloseoutDetail } from '@/components/closeout-detail'
+import { SmsComposeBox, EmailComposeBox } from '@/components/client-message-compose'
 
 type Assignee = { id: string; name: string }
 type Job = {
@@ -166,6 +167,7 @@ export default function JobDetailPage() {
   const id = useParams<{ id: string }>().id
   const [job, setJob] = useState<Job | null>(null)
   const [client, setClient] = useState<Client | null>(null)
+  const [messagePanel, setMessagePanel] = useState<'sms' | 'email' | null>(null)
   const [quote, setQuote] = useState<Quote | null>(null)
   const [deal, setDeal] = useState<Deal | null>(null)
   const [payments, setPayments] = useState<Payment[]>([])
@@ -492,15 +494,32 @@ export default function JobDetailPage() {
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-slate-500">{client.phone}</span>
                   <a href={`tel:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100">Call</a>
-                  <a href={`sms:${client.phone}`} className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100">Text</a>
+                  <button
+                    onClick={() => setMessagePanel(messagePanel === 'sms' ? null : 'sms')}
+                    className="text-[11px] px-1.5 py-0.5 rounded bg-green-50 text-green-700 font-medium hover:bg-green-100"
+                  >
+                    Text
+                  </button>
                 </div>
               )}
-              {client.email && <p className="text-sm text-slate-500 break-all">{client.email}</p>}
+              {client.email && (
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-slate-500 break-all">{client.email}</span>
+                  <button
+                    onClick={() => setMessagePanel(messagePanel === 'email' ? null : 'email')}
+                    className="text-[11px] px-1.5 py-0.5 rounded bg-blue-50 text-blue-700 font-medium hover:bg-blue-100 shrink-0"
+                  >
+                    Email
+                  </button>
+                </div>
+              )}
               {(client.address || client.unit) && (
                 <p className="text-sm text-slate-500">{[client.address, client.unit].filter(Boolean).join(', ')}</p>
               )}
               {client.notes && <p className="text-xs text-slate-400 pt-1 border-t border-slate-100 mt-2">{client.notes}</p>}
               <Link href={`/dashboard/clients/${client.id}`} className="text-xs text-blue-600 hover:underline inline-block pt-1">View client →</Link>
+              {messagePanel === 'sms' && <SmsComposeBox clientId={client.id} onSent={() => setMessagePanel(null)} />}
+              {messagePanel === 'email' && <EmailComposeBox clientId={client.id} onSent={() => setMessagePanel(null)} />}
             </div>
           ) : (
             <p className="text-sm text-slate-400">No client on this job.</p>

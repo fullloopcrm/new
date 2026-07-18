@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { formatPhone } from '@/lib/phone'
 import AddressAutocomplete from '@/components/address-autocomplete'
+import { SmsComposeBox, EmailComposeBox } from '@/components/client-message-compose'
 
 type Client = {
   id: string
@@ -49,6 +50,14 @@ type SmsMessage = {
   created_at: string
 }
 
+type ClientEmail = {
+  id: string
+  direction: string
+  subject: string
+  body: string
+  created_at: string
+}
+
 export default function ClientDetailPage() {
   const { id } = useParams<{ id: string }>()
   const router = useRouter()
@@ -58,9 +67,10 @@ export default function ClientDetailPage() {
   const [form, setForm] = useState<Partial<Client>>({})
   const [saving, setSaving] = useState(false)
   const [teamMembers, setTeamMembers] = useState<TeamMemberOption[]>([])
-  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms'>('bookings')
+  const [tab, setTab] = useState<'bookings' | 'activity' | 'sms' | 'email'>('bookings')
   const [activities, setActivities] = useState<Activity[]>([])
   const [smsMessages, setSmsMessages] = useState<SmsMessage[]>([])
+  const [clientEmails, setClientEmails] = useState<ClientEmail[]>([])
 
   useEffect(() => {
     fetch(`/api/clients/${id}`)
@@ -90,13 +100,25 @@ export default function ClientDetailPage() {
   }, [id, tab])
 
   // Load SMS transcript
+  const loadSms = () => {
+    fetch(`/api/clients/${id}/transcript`)
+      .then((r) => r.json())
+      .then((data) => setSmsMessages(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }
   useEffect(() => {
-    if (tab === 'sms') {
-      fetch(`/api/clients/${id}/transcript`)
-        .then((r) => r.json())
-        .then((data) => setSmsMessages(Array.isArray(data) ? data : []))
-        .catch(() => {})
-    }
+    if (tab === 'sms') loadSms()
+  }, [id, tab])
+
+  // Load email transcript
+  const loadEmails = () => {
+    fetch(`/api/clients/${id}/emails`)
+      .then((r) => r.json())
+      .then((data) => setClientEmails(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }
+  useEffect(() => {
+    if (tab === 'email') loadEmails()
   }, [id, tab])
 
   async function save() {
@@ -242,7 +264,7 @@ export default function ClientDetailPage() {
           {/* TABS: Bookings / Activity / SMS */}
           <div className="border border-slate-200 rounded-lg overflow-hidden">
             <div className="flex border-b border-slate-200">
-              {(['bookings', 'activity', 'sms'] as const).map((t) => (
+              {(['bookings', 'activity', 'sms', 'email'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -250,7 +272,7 @@ export default function ClientDetailPage() {
                     tab === t ? 'bg-white text-teal-600 border-b-2 border-teal-600' : 'bg-slate-50 text-slate-400 hover:text-slate-600'
                   }`}
                 >
-                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : 'SMS Transcript'}
+                  {t === 'bookings' ? `Bookings (${bookings.length})` : t === 'activity' ? 'Activity Feed' : t === 'sms' ? 'SMS Transcript' : 'Email'}
                 </button>
               ))}
             </div>
@@ -313,31 +335,75 @@ export default function ClientDetailPage() {
 
               {/* SMS TRANSCRIPT TAB */}
               {tab === 'sms' && (
-                smsMessages.length === 0 ? (
-                  <p className="text-sm text-slate-400">No SMS messages yet</p>
-                ) : (
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {smsMessages.map((msg) => (
-                      <div
-                        key={msg.id}
-                        className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
-                      >
-                        <div className={`max-w-[75%] rounded-lg px-3 py-2 ${
-                          msg.direction === 'outbound'
-                            ? 'bg-teal-600 text-white'
-                            : 'bg-slate-100 text-slate-900'
-                        }`}>
-                          <p className="text-sm">{msg.message}</p>
-                          <p className={`text-[10px] mt-1 ${
-                            msg.direction === 'outbound' ? 'text-teal-200' : 'text-slate-400'
+                <div>
+                  {smsMessages.length === 0 ? (
+                    <p className="text-sm text-slate-400">No SMS messages yet</p>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {smsMessages.map((msg) => (
+                        <div
+                          key={msg.id}
+                          className={`flex ${msg.direction === 'outbound' ? 'justify-end' : 'justify-start'}`}
+                        >
+                          <div className={`max-w-[75%] rounded-lg px-3 py-2 ${
+                            msg.direction === 'outbound'
+                              ? 'bg-teal-600 text-white'
+                              : 'bg-slate-100 text-slate-900'
                           }`}>
-                            {new Date(msg.created_at).toLocaleString()}
+                            <p className="text-sm">{msg.message}</p>
+                            <p className={`text-[10px] mt-1 ${
+                              msg.direction === 'outbound' ? 'text-teal-200' : 'text-slate-400'
+                            }`}>
+                              {new Date(msg.created_at).toLocaleString()}
+                            </p>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                  {client.phone ? (
+                    <SmsComposeBox clientId={id} onSent={loadSms} />
+                  ) : (
+                    <p className="text-xs text-slate-400 border-t border-slate-200 pt-3 mt-3">
+                      Add a phone number to this client to send a text.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* EMAIL TAB */}
+              {tab === 'email' && (
+                <div>
+                  {clientEmails.length === 0 ? (
+                    <p className="text-sm text-slate-400">No emails yet</p>
+                  ) : (
+                    <div className="space-y-3 max-h-96 overflow-y-auto">
+                      {clientEmails.map((em) => (
+                        <div
+                          key={em.id}
+                          className={`rounded-lg px-3 py-2 border ${
+                            em.direction === 'outbound'
+                              ? 'bg-teal-50 border-teal-100'
+                              : 'bg-slate-50 border-slate-100'
+                          }`}
+                        >
+                          <p className="text-sm font-semibold text-slate-800">{em.subject}</p>
+                          <p className="text-sm text-slate-600 whitespace-pre-wrap">{em.body}</p>
+                          <p className="text-[10px] text-slate-400 mt-1">
+                            {new Date(em.created_at).toLocaleString()}
                           </p>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                )
+                      ))}
+                    </div>
+                  )}
+                  {client.email ? (
+                    <EmailComposeBox clientId={id} onSent={loadEmails} />
+                  ) : (
+                    <p className="text-xs text-slate-400 border-t border-slate-200 pt-3 mt-3">
+                      Add an email address to this client to send an email.
+                    </p>
+                  )}
+                </div>
               )}
             </div>
           </div>
