@@ -1321,7 +1321,11 @@ async function handleUpdateAccount(input: Record<string, unknown>, conversationI
       if (!prop) return JSON.stringify({ error: 'Failed to add address' })
       return JSON.stringify({ success: true, message: `Address added and set as primary: ${value}` })
     }
-    await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
+    const { error: updateAccountError } = await supabaseAdmin.from('clients').update({ [field]: value }).eq('id', convo.client_id).eq('tenant_id', tid)
+    if (updateAccountError) {
+      await yinezError('update_account', updateAccountError, conversationId)
+      return JSON.stringify({ error: 'Failed to update' })
+    }
     return JSON.stringify({ success: true, message: `${field} updated to ${value}` })
   } catch (err) {
     await yinezError('update_account', err, conversationId)
@@ -1573,7 +1577,11 @@ async function handleRescheduleBooking(input: Record<string, unknown>, conversat
     if (!parsed) return JSON.stringify({ error: 'Invalid time' })
     const newStart = `${input.new_date}T${parsed.hours.toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
     const newEnd = `${input.new_date}T${(parsed.hours + 2).toString().padStart(2, '0')}:${parsed.minutes.toString().padStart(2, '0')}:00`
-    await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
+    const { error: rescheduleError } = await supabaseAdmin.from('bookings').update({ start_time: newStart, end_time: newEnd, notes: `Rescheduled via Yinez from ${booking.start_time.split('T')[0]}` }).eq('id', bookingId).eq('tenant_id', tid)
+    if (rescheduleError) {
+      await yinezError('reschedule_booking', rescheduleError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not reschedule — please try again or contact us.' })
+    }
     return JSON.stringify({ success: true, message: `Rescheduled to ${input.new_date} at ${input.new_time}.` })
   } catch (err) {
     await yinezError('reschedule_booking', err, conversationId)
@@ -1595,7 +1603,11 @@ async function handleCancelBooking(input: Record<string, unknown>, conversationI
     if (booking.recurring_type === 'one_time' || !booking.recurring_type) return JSON.stringify({ error: 'policy_violation', message: 'First-time bookings cannot be cancelled.' })
     const daysUntil = Math.ceil((new Date(booking.start_time).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
     if (daysUntil < 7) return JSON.stringify({ error: 'policy_violation', message: `Booking is in ${daysUntil} days. Need 7 days notice.` })
-    await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId).eq('tenant_id', tid)
+    const { error: cancelError } = await supabaseAdmin.from('bookings').update({ status: 'cancelled', notes: `Cancelled via Yinez: ${reason}` }).eq('id', bookingId).eq('tenant_id', tid)
+    if (cancelError) {
+      await yinezError('cancel_booking', cancelError, conversationId)
+      return JSON.stringify({ error: 'Failed', message: 'Could not cancel — please try again or contact us.' })
+    }
     const clientName = (booking.clients as unknown as { name: string })?.name || 'Client'
     await notify({ type: 'booking_cancelled', title: `Cancelled — ${clientName}`, message: `${clientName} cancelled ${booking.start_time.split('T')[0]} via SMS. Reason: ${reason}`, booking_id: bookingId }).catch(() => {})
     return JSON.stringify({ success: true })
@@ -1623,15 +1635,27 @@ async function handleManageRecurring(input: Record<string, unknown>, conversatio
 
     if (action === 'pause') {
       const pauseUntil = input.pause_until as string
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: pauseError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'paused', paused_until: pauseUntil || null }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (pauseError) {
+        await yinezError('manage_recurring:pause', pauseError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not pause — please try again or contact us.' })
+      }
       return JSON.stringify({ success: true, message: `Recurring paused${pauseUntil ? ` until ${pauseUntil}` : ''}` })
     }
     if (action === 'resume') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: resumeError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'active', paused_until: null }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (resumeError) {
+        await yinezError('manage_recurring:resume', resumeError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not resume — please try again or contact us.' })
+      }
       return JSON.stringify({ success: true, message: 'Recurring resumed' })
     }
     if (action === 'cancel') {
-      await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
+      const { error: recurringCancelError } = await supabaseAdmin.from('recurring_schedules').update({ status: 'cancelled' }).eq('id', scheduleId).eq('tenant_id', tid)
+      if (recurringCancelError) {
+        await yinezError('manage_recurring:cancel', recurringCancelError, conversationId)
+        return JSON.stringify({ error: 'Failed', message: 'Could not cancel — please try again or contact us.' })
+      }
       await notify({ type: 'recurring_cancelled', title: 'Recurring Cancelled', message: `Client cancelled recurring schedule via SMS` }).catch(() => {})
       return JSON.stringify({ success: true, message: 'Recurring schedule cancelled' })
     }
