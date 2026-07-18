@@ -12969,3 +12969,86 @@ script + CI workflows), not fixed here. The Supabase Management-API token
 was absent this session -- no live reconcile run against Supabase, and this
 item touched neither the reconcile script nor its own workflow file, so
 nothing in that surface needed re-verification against a live token.
+
+## (248) Continuation of the (246)/(247) "exit 1 is ambiguous" track onto the
+third owned workflow -- db-backup.yml's "Dump full database" and "Encrypt
+dump" steps carried the identical shape, previously unexamined because
+(246)/(247) stayed inside tenant-config-reconcile.yml/ci.yml
+
+Per LEADER queue item (2) ("continue whichever surface (1) opens up"): (246)
+closed "exit 1 is ambiguous between a real finding and a script crash" for
+tenant-config-reconcile.yml's drift-gate step; (247) closed it for ci.yml's
+two custom-script guard steps. Re-reading db-backup.yml's own "Dump full
+database" and "Encrypt dump" steps with that same question ("does this
+step's exit 1 always mean the same thing?") surfaced the identical shape in
+the third owned workflow, invisible to (245)'s own "name which step failed"
+fix for this workflow:
+
+- "Dump full database" exits 1 for two structurally different reasons: an
+  explicit `if [ "$SIZE" -lt 100000 ]; then ... exit 1; fi` sanity gate after
+  a successful dump (a real too-small-dump finding), or `pg_dump` itself
+  failing under `set -euo pipefail` (bad connection string, auth failure,
+  dropped connection -- a mechanism/infra problem, not a size finding).
+- "Encrypt dump" exits 1 the same way: the explicit
+  `if [ -z "${BACKUP_ENCRYPTION_KEY}" ]; then ... exit 1; fi` gate (a real,
+  known, actionable missing-secret finding), or `gpg` itself crashing under
+  the same `set -e` (corrupt input, disk full -- a script/mechanism problem).
+
+Before this item, the alert (already fixed by (245) to name the step) said
+only "Dump full database" or "Encrypt dump" for either cause, leaving the
+same log dive (246)/(247) closed elsewhere.
+
+**Fixed** the same way (246)/(247) did, adapted for the one real structural
+difference: both are MULTI-command sequences (pg_dump -> stat -> size-check;
+key-check -> gpg -> purge), not the single-command `node script.mjs | tee`
+idiom ci.yml/tenant-config-reconcile.yml use. Wrapped each step's body
+(after its own `set -euo pipefail`) in a `{ ... } 2>&1 | tee <file>` group --
+and deliberately did NOT add a disabling errexit flag before the group
+(unlike ci.yml/tenant-config-reconcile.yml's per-line trick), because doing
+so would have reintroduced the exact vulnerability
+db-backup-dump-size-sanity-gate.test.ts / db-backup-encrypt-fail-safe-purge-
+guard.test.ts already guard: a failing pg_dump falling through to `stat` a
+partial file, or a failing gpg falling through to `rm -f` the still-needed
+plaintext dump. `set -e` (already active from each step's own `set -euo
+pipefail`, outside the group) is inherited by the group's subshell and still
+halts immediately on a real pg_dump/gpg failure -- confirmed this preserves
+the existing fail-fast contract, not just reasoned about it (see mutation
+notes below). The "Alert on failure" step's existing inline `failed=`
+computation (no separate identify-failed-step needed -- same job, per
+(245)'s own note) now branches on `steps.dump.outcome` /
+`steps.encrypt.outcome` and greps the newly-captured `dump-output.txt` /
+`encrypt-output.txt` for each step's own explicit `::error::` line as the
+finding-vs-crash signal, same technique as (246)/(247). No working-directory
+gap here (unlike (246)'s finding for tenant-config-reconcile.yml) -- this
+workflow has no `actions/checkout` step and no per-step `working-directory:`
+overrides anywhere, so every step (including the alert step) already shares
+the same default `$GITHUB_WORKSPACE`, where the dump produces its files and
+tee writes its captures.
+
+New test file: `db-backup-notify-failure-dump-encrypt-vs-error-guard.test.ts`,
+13 tests, RED-confirmed live (not just reasoned about) by reverting the
+whole workflow diff via a saved patch + `git apply -R` (git stash is
+disabled in this worker worktree -- shared `.git` dir across all 4
+worktrees, blocked by a local hook, per that hook's own suggested
+workaround) and re-running the file alone -- 8 of 13 failed exactly as
+expected (the "workflow exists" and "still checks every step's outcome"
+tests correctly stayed green, since those two are unaffected by the
+revert), then restored via `git apply` on the same patch and re-confirmed
+green. One authoring bug caught by this same process: an early draft of the
+"does not disable errexit" test used a loose substring regex that
+false-positived on this item's OWN explanatory workflow comment (which
+quotes the disabling-flag syntax in prose) -- tightened to an anchored
+standalone-command-line regex before the RED/GREEN cycle above.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 501/501 files,
+2557/2557 tests (2544 baseline after (247) + 13 new, zero regressions).
+`eslint src --quiet` reports exactly one pre-existing error, in
+`src/app/api/admin/seo/apply/route.auth.test.ts` (a `require()`-style
+import) -- confirmed via `git status`/`git diff`: that file was never
+touched, staged, or modified this session, same pre-existing/unrelated
+finding (247) already noted. Live verify-protected-tenants script run
+directly: exit 0, 22/22 protected tenants OK. The Supabase Management-API
+token was absent this session -- token-guard skipped the local reconcile run
+cleanly per standing instructions, and this item touched neither the
+reconcile script nor its own workflow file, so nothing in that surface
+needed re-verification against a live token.
