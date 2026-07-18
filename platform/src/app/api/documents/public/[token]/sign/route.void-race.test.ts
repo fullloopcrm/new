@@ -17,6 +17,7 @@ vi.mock('@/lib/documents', async () => {
   const actual = await vi.importActual<typeof import('@/lib/documents')>('@/lib/documents')
   return { ...actual, logDocEvent: vi.fn(async () => {}) }
 })
+vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: async () => ({ allowed: true, remaining: 1 }) }))
 
 const signerA: Record<string, unknown> = {
   id: 'signer-a',

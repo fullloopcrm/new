@@ -16,6 +16,7 @@ import { decryptSecret } from '@/lib/secret-crypto'
 import { escapeHtml } from '@/lib/escape-html'
 import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 type Params = { params: Promise<{ token: string }> }
 
@@ -24,13 +25,34 @@ function ipFromRequest(req: Request): string | null {
   return h.get('x-forwarded-for')?.split(',')[0]?.trim() || h.get('x-real-ip') || null
 }
 
+// The token (192-bit random, see generateSignerToken) isn't brute-forceable,
+// but a holder of one valid link had no cap at all: field_values was passed
+// straight from the request body into a per-entry DB update loop, and this
+// handler runs a full PDF finalize (embed images, stamp every field, append
+// an audit page) on the last signer's request — the most expensive op in the
+// documents surface, same shape already fixed on /api/cpa/[token]/year-end-zip.
+// Cap the array so a malicious/compromised link can't turn one request into
+// thousands of DB round-trips or an oversized document_fields.value row.
+const MAX_FIELD_VALUES = 200
+const MAX_FIELD_VALUE_LEN = 2000
+
 export async function POST(request: Request, { params }: Params) {
   try {
     const { token } = await params
+
+    const rl = await rateLimitDb(`doc-sign:${token}`, 20, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many attempts. Try again shortly.' }, { status: 429 })
+    }
+
     const body = await request.json()
     const signaturePng = String(body.signature_png || '')
     const signatureName = String(body.signature_name || '').trim()
-    const fieldValues: Array<{ field_id: string; value: string }> = body.field_values || []
+    const rawFieldValues: Array<{ field_id: string; value: string }> = Array.isArray(body.field_values) ? body.field_values : []
+    const fieldValues = rawFieldValues.slice(0, MAX_FIELD_VALUES).map(fv => ({
+      field_id: String(fv?.field_id || ''),
+      value: String(fv?.value || '').slice(0, MAX_FIELD_VALUE_LEN),
+    }))
 
     const { data: signer } = await supabaseAdmin
       .from('document_signers')
