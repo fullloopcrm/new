@@ -183,6 +183,12 @@ class QueryBuilder implements PromiseLike<QueryResult> {
     if (opts?.count) this.wantCount = true
     return this
   }
+  /** `.returns<T>()` is a pure compile-time type assertion in the real
+   * supabase-js client -- inert here too, same as tenant-db-fake.ts's own
+   * `.returns()`. */
+  returns<_T>(): this {
+    return this
+  }
 
   private run(): QueryResult {
     const table = this.rows()

@@ -73,15 +73,34 @@ export async function GET(request: Request) {
             .returns<BookingWithClientAndTeam[]>()
 
           for (const booking of bookings || []) {
-            // Deduplication
-            const { data: existing } = await supabaseAdmin
-              .from('notifications')
-              .select('id')
-              .eq('tenant_id', tenantId)
-              .eq('booking_id', booking.id)
-              .eq('type', emailType)
-              .limit(1)
-            if (existing && existing.length > 0) continue
+            // Claim BEFORE sending: this used to be a select()-then-continue
+            // check on type=emailType (e.g. 'reminder_3day'), but nothing on
+            // this path ever writes that type -- the client email below
+            // goes through notify(), which always inserts the fixed enum
+            // literal 'booking_reminder', never emailType. The check and
+            // the write never matched, so this "dedup" was dead code that
+            // always saw zero existing rows -- not a race window, a claim
+            // that never functioned at all. Any double-invocation of this
+            // cron during the 8am ET hour (Vercel cron retries/duplicate
+            // triggers, an already-observed risk class this session) used
+            // to duplicate-send the reminder email+SMS to every matching
+            // client and the "tomorrow's schedule" SMS to every team
+            // member. The partial unique index below is the real claim.
+            const { error: claimErr } = await supabaseAdmin.from('notifications').insert({
+              tenant_id: tenantId,
+              type: emailType,
+              title: `Reminder Claim: ${label}`,
+              message: `Dedup claim for booking ${booking.id}`,
+              booking_id: booking.id,
+              channel: 'sms',
+              status: 'sent',
+            })
+            if (claimErr) {
+              if (!claimErr.message.includes('duplicate key')) {
+                errors.push(`Day reminder claim ${booking.id}: ${claimErr.message}`)
+              }
+              continue // lost the race, or the claim write itself failed -- either way, do not send
+            }
 
             const client = booking.clients
             const clientName = client?.name?.split(' ')[0] || 'there'
@@ -216,14 +235,30 @@ export async function GET(request: Request) {
 
       for (const booking of hourBookings || []) {
         const emailType = `reminder_${hoursBefore}hour`
-        const { data: existing } = await supabaseAdmin
-          .from('notifications')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('booking_id', booking.id)
-          .eq('type', emailType)
-          .limit(1)
-        if (existing && existing.length > 0) continue
+        // Claim BEFORE sending: this used to select()-then-continue on
+        // type=emailType and only insert the same row AFTER firing both the
+        // client and team-member SMS -- the same sent-before-claim race
+        // already fixed this session on payment-reminder/outreach/
+        // post-job-followup/late-check-in. This cron loops every active
+        // tenant with no run-lock; two overlapping invocations could both
+        // pass the pre-send check and both fire SMS for the same booking.
+        const { error: claimErr } = await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: emailType,
+          title: 'Reminder: 2 hours',
+          message: `Sent to ${booking.clients?.name || 'client'}`,
+          booking_id: booking.id,
+          channel: 'sms',
+          recipient_type: 'client',
+          recipient_id: booking.client_id,
+          status: 'sent',
+        })
+        if (claimErr) {
+          if (!claimErr.message.includes('duplicate key')) {
+            errors.push(`Hour reminder claim ${booking.id}: ${claimErr.message}`)
+          }
+          continue // lost the race, or the claim write itself failed -- either way, do not send
+        }
 
         const client = booking.clients
         const member = booking.team_members
@@ -259,19 +294,6 @@ export async function GET(request: Request) {
           sendPushToClient(booking.client_id, `Cleaning in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'}`, 'Your cleaner arrives soon', '/book/dashboard').catch(() => {})
         }
 
-        // Log as notification for dedup
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: emailType,
-          title: 'Reminder: 2 hours',
-          message: `Sent to ${client?.name || 'client'}`,
-          booking_id: booking.id,
-          channel: 'sms',
-          recipient_type: 'client',
-          recipient_id: booking.client_id,
-          status: 'sent',
-        })
-
         results.push({ type: emailType, booking_id: booking.id, tenant_id: tenantId })
       }
       } // end hours-before loop
@@ -293,21 +315,33 @@ export async function GET(request: Request) {
         .returns<BookingWithPaymentAlert[]>()
 
       for (const booking of endingSoon || []) {
-        const { data: existing } = await supabaseAdmin
-          .from('notifications')
-          .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('booking_id', booking.id)
-          .eq('type', 'payment_due')
-          .limit(1)
-        if (existing && existing.length > 0) continue
-
         const durationMs = new Date(booking.end_time).getTime() - new Date(booking.start_time).getTime()
         const hours = durationMs / (1000 * 60 * 60)
         const rate = booking.hourly_rate || 75
         const amount = (hours * rate).toFixed(0)
         const clientName = booking.clients?.name || 'Client'
         const memberName = booking.team_members?.name || 'Team member'
+
+        // Claim BEFORE sending: same sent-before-claim race already fixed
+        // this session -- the in-app 'payment_due' row below is the actual
+        // dedup record, but used to be inserted AFTER the admin email, so
+        // two overlapping invocations could both pass the pre-send check
+        // and both email the admin about the same payment.
+        const { error: claimErr } = await supabaseAdmin.from('notifications').insert({
+          tenant_id: tenantId,
+          type: 'payment_due',
+          title: 'Payment Due Soon',
+          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
+          booking_id: booking.id,
+          channel: 'in_app',
+          status: 'sent',
+        })
+        if (claimErr) {
+          if (!claimErr.message.includes('duplicate key')) {
+            errors.push(`Payment due claim ${booking.id}: ${claimErr.message}`)
+          }
+          continue // lost the race, or the claim write itself failed -- either way, do not send
+        }
 
         await notify({
           tenantId,
@@ -317,17 +351,6 @@ export async function GET(request: Request) {
           channel: 'email',
           recipientType: 'admin',
           metadata: { dedup: 'payment_due' },
-        })
-
-        // Also create in-app notification
-        await supabaseAdmin.from('notifications').insert({
-          tenant_id: tenantId,
-          type: 'payment_due',
-          title: 'Payment Due Soon',
-          message: `${clientName} — $${amount} due in 15 min (${memberName})`,
-          booking_id: booking.id,
-          channel: 'in_app',
-          status: 'sent',
         })
 
         results.push({ type: 'payment_due', booking_id: booking.id, tenant_id: tenantId })
