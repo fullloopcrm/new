@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner } from '@/lib/telegram'
 import { checkTenant, type TenantHealth } from '@/lib/tenant-health'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 120
@@ -76,13 +77,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: tdErr.message }, { status: 500 })
   }
   const tdTenantIds = [...new Set((tdRows ?? []).map((r) => r.tenant_id).filter(Boolean))]
+  // Status per tenant, keyed off the SAME tenantServesSite() gate every other
+  // resolver caller (middleware, tenant.ts, tenant-site.ts) uses — a
+  // tenant_domains row is not deactivated when its tenant is suspended/
+  // cancelled/deleted, so this source used to health-check those tenants
+  // unconditionally. Middleware correctly darkens their site (redirects to
+  // /sign-in), which this cron's routing check reads as a routing mismatch
+  // and FAILS — a false "site down" alert on a tenant behaving exactly as
+  // designed, drowning real failures in Telegram noise every run.
+  const servesSiteById = new Map<string, boolean>()
   if (tdTenantIds.length) {
-    const { data: tdTenants } = await supabaseAdmin.from('tenants').select('id, slug').in('id', tdTenantIds)
-    for (const t of tdTenants ?? []) slugById.set(t.id, t.slug)
+    const { data: tdTenants } = await supabaseAdmin.from('tenants').select('id, slug, status').in('id', tdTenantIds)
+    for (const t of tdTenants ?? []) {
+      slugById.set(t.id, t.slug)
+      servesSiteById.set(t.id, tenantServesSite(t.status))
+    }
   }
   for (const r of tdRows ?? []) {
     const slug = slugById.get(r.tenant_id)
-    if (!slug || SKIP_SLUGS.has(slug) || EXCLUDED_TENANTS.has(slug)) continue
+    if (!slug || SKIP_SLUGS.has(slug) || EXCLUDED_TENANTS.has(slug) || !servesSiteById.get(r.tenant_id)) continue
     const cur = byTenant.get(r.tenant_id)
     if (!cur || (r.is_primary && !cur.primary)) {
       byTenant.set(r.tenant_id, { slug, domain: r.domain, primary: !!r.is_primary })
@@ -97,16 +110,26 @@ export async function GET(request: Request) {
   // "0 failures" for a run that actually checked fewer tenants than it
   // should have, with no alert — exactly the silent-darkening failure mode
   // this fortress cron exists to catch.
+  //
+  // Status filtering moved from the query (`.in('status', ['active', 'live',
+  // 'setup'])`) to tenantServesSite() below: that hardcoded list both included
+  // a status value ('live') that doesn't exist anywhere else in the platform
+  // (KNOWN_TENANT_STATUSES has no 'live') and OMITTED 'pending' — a real
+  // serving status per tenantServesSite (new tenants must be checkable before
+  // full activation). A 'pending' tenant whose domain lived only in
+  // tenants.domain (not yet migrated to tenant_domains) was silently dropped
+  // from every cron run's coverage — the exact silent-darkening failure mode
+  // this cron exists to catch, reached through its own status filter.
   const { data: tenantRows, error: tenantRowsErr } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, domain, status')
     .not('domain', 'is', null)
-    .in('status', ['active', 'live', 'setup'])
   if (tenantRowsErr) {
     await alertOwner('Fortress cron DB error', tenantRowsErr.message).catch(() => {})
     return NextResponse.json({ error: tenantRowsErr.message }, { status: 500 })
   }
   for (const t of tenantRows ?? []) {
+    if (!tenantServesSite(t.status)) continue
     slugById.set(t.id, t.slug)
     if (byTenant.has(t.id)) continue // tenant_domains already won
     if (SKIP_SLUGS.has(t.slug) || EXCLUDED_TENANTS.has(t.slug)) continue
