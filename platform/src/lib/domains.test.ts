@@ -22,6 +22,10 @@ function builder(table: string) {
       eqs[col] = val
       return chain
     },
+    neq: (col: string, val: unknown) => {
+      eqs[`neq_${col}`] = val
+      return chain
+    },
     contains: (col: string, val: unknown) => {
       eqs[col] = val
       return chain
@@ -49,6 +53,7 @@ import {
   getDomainsForNeighborhood,
   getNeighborhoodFromZip,
   getPrimaryTenantDomain,
+  findDomainOwner,
   extractZip,
 } from './domains'
 
@@ -214,6 +219,61 @@ describe('getPrimaryTenantDomain', () => {
     })
     expect(await getPrimaryTenantDomain('t-1')).toBe('older-primary.acme.com')
     expect(lastOrder).toEqual({ col: 'created_at', ascending: true })
+  })
+})
+
+describe('findDomainOwner', () => {
+  it('returns null when the domain is unclaimed in both tenant_domains and tenants.domain', async () => {
+    resolve = () => ({ data: null })
+    expect(await findDomainOwner('acme.com')).toBeNull()
+  })
+
+  it('finds the owner via an active tenant_domains row and looks up its name', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return { data: { tenant_id: 'owner-1' } }
+      if (table === 'tenants' && eqs.id === 'owner-1') return { data: { name: 'Acme Co' } }
+      return { data: null }
+    }
+    expect(await findDomainOwner('acme.com')).toEqual({ tenantId: 'owner-1', tenantName: 'Acme Co', source: 'tenant_domains' })
+  })
+
+  it('falls back to the legacy tenants.domain column when tenant_domains has no match', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return { data: null }
+      if (table === 'tenants' && eqs.domain === 'legacy-acme.com') return { data: { id: 'owner-2', name: 'Other Co' } }
+      return { data: null }
+    }
+    expect(await findDomainOwner('legacy-acme.com')).toEqual({ tenantId: 'owner-2', tenantName: 'Other Co', source: 'tenants.domain' })
+  })
+
+  it('SELF-EXCLUSION PROBE: a domain only claimed by the tenant being edited is not reported as a collision', async () => {
+    resolve = (table, eqs) => {
+      // Simulates the DB respecting .neq('tenant_id'/'id', excludeTenantId) —
+      // the only claimant (self) is filtered out, so both queries see nothing.
+      if (table === 'tenant_domains') return eqs.neq_tenant_id === 't-1' ? { data: null } : { data: { tenant_id: 't-1' } }
+      if (table === 'tenants' && eqs.domain === 'acme.com') return eqs.neq_id === 't-1' ? { data: null } : { data: { id: 't-1', name: 'Self' } }
+      return { data: null }
+    }
+    expect(await findDomainOwner('acme.com', 't-1')).toBeNull()
+  })
+
+  it('CROSS-TENANT PROBE: a domain claimed by a DIFFERENT tenant is still reported even when excluding self', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains') return eqs.neq_tenant_id === 't-1' ? { data: { tenant_id: 'owner-3' } } : { data: null }
+      if (table === 'tenants' && eqs.id === 'owner-3') return { data: { name: 'Owner Three' } }
+      return { data: null }
+    }
+    expect(await findDomainOwner('acme.com', 't-1')).toEqual({ tenantId: 'owner-3', tenantName: 'Owner Three', source: 'tenant_domains' })
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error from the tenant_domains check', async () => {
+    resolve = (table) => (table === 'tenant_domains' ? { data: null, error: { message: 'connection timeout' } } : { data: null })
+    await expect(findDomainOwner('acme.com')).rejects.toThrow(/DOMAIN_OWNER_LOOKUP_ERROR/)
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error from the legacy tenants.domain check', async () => {
+    resolve = (table) => (table === 'tenant_domains' ? { data: null } : { data: null, error: { message: 'connection timeout' } })
+    await expect(findDomainOwner('acme.com')).rejects.toThrow(/DOMAIN_OWNER_LOOKUP_ERROR/)
   })
 })
 

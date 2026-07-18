@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { registerCarryingDomain } from '@/lib/vercel-domains'
+import { findDomainOwner } from '@/lib/domains'
 import { PRICING } from '@/lib/billing-pricing'
 import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { omit } from '@/lib/validate'
@@ -83,6 +84,22 @@ export async function POST(request: Request) {
     .replace(/^https?:\/\//, '')
     .replace(/\/+$/, '')
     .replace(/^www\./, '') || null
+
+  // Reject a domain already claimed by ANOTHER tenant (via tenant_domains OR
+  // the legacy tenants.domain column) BEFORE writing it here. tenants.domain
+  // has no DB unique constraint, so nothing else stops this — and a collision
+  // makes the resolver's TRANSITION ASSERT-AND-REFUSE divergence guard throw
+  // on EVERY request to that host, darkening the EXISTING tenant's live site
+  // the instant this write lands (see findDomainOwner's doc comment).
+  if (cleanDomain) {
+    const owner = await findDomainOwner(cleanDomain)
+    if (owner) {
+      return NextResponse.json(
+        { error: `${cleanDomain} is already registered to ${owner.tenantName}. Remove it there first, or reassign it, before adding it here.` },
+        { status: 409 },
+      )
+    }
+  }
 
   // Create tenant with status=setup
   const { data: tenant, error } = await supabaseAdmin

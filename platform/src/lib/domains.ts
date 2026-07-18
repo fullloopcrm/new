@@ -152,6 +152,66 @@ export async function reconcilePrimaryDomain(tenantId: string, intendedPrimaryDo
   }
 }
 
+export interface DomainOwner {
+  tenantId: string
+  tenantName: string
+  /** Which table the collision was found in — shapes the error message a caller shows. */
+  source: 'tenant_domains' | 'tenants.domain'
+}
+
+// Check whether `domain` (already normalized: lowercase, no protocol/path/www)
+// is claimed by a DIFFERENT tenant, via EITHER active tenant_domains OR the
+// legacy tenants.domain column — the same two sources the resolver treats as
+// authoritative (getTenantByDomain in tenant.ts/tenant-lookup.ts).
+//
+// tenant_domains.domain is UNIQUE at the DB level, so its own write site
+// (admin/websites POST) naturally gets a 23505 on a collision and handles it
+// gracefully. tenants.domain carries NO unique constraint — nothing at the DB
+// level stops two tenants from sharing it — yet every write site to
+// tenants.domain (tenant creation, admin/businesses/[id] PUT, admin/tenants/[id]
+// PUT) wrote it directly with no collision check at all. The moment two
+// tenants' domain columns collide (or a new/edited tenant's domain collides
+// with an EXISTING tenant's tenant_domains row), the resolver's own TRANSITION
+// ASSERT-AND-REFUSE divergence guard throws TENANT_DIVERGENCE /
+// TENANT_DIVERGENCE_AMBIGUOUS on EVERY request to that host — darkening the
+// EXISTING tenant's live site, not just rejecting the new write. Callers
+// should check this BEFORE writing `domain` and reject with a clear error
+// instead of letting the collision reach production.
+export async function findDomainOwner(domain: string, excludeTenantId?: string): Promise<DomainOwner | null> {
+  let tdQuery = supabaseAdmin
+    .from('tenant_domains')
+    .select('tenant_id')
+    .eq('domain', domain)
+    .eq('active', true)
+  if (excludeTenantId) tdQuery = tdQuery.neq('tenant_id', excludeTenantId)
+  const { data: tdRow, error: tdError } = await tdQuery.maybeSingle()
+
+  if (tdError) {
+    console.error(`DOMAIN_OWNER_LOOKUP_ERROR domain=${domain} error=${tdError.message}`)
+    throw new Error(`DOMAIN_OWNER_LOOKUP_ERROR domain=${domain} error=${tdError.message}`)
+  }
+
+  if (tdRow?.tenant_id) {
+    const { data: owner } = await supabaseAdmin.from('tenants').select('name').eq('id', tdRow.tenant_id).maybeSingle()
+    return { tenantId: tdRow.tenant_id, tenantName: owner?.name || 'another tenant', source: 'tenant_domains' }
+  }
+
+  let legacyQuery = supabaseAdmin.from('tenants').select('id, name').eq('domain', domain)
+  if (excludeTenantId) legacyQuery = legacyQuery.neq('id', excludeTenantId)
+  const { data: legacyRow, error: legacyError } = await legacyQuery.maybeSingle()
+
+  if (legacyError) {
+    console.error(`DOMAIN_OWNER_LOOKUP_ERROR domain=${domain} error=${legacyError.message}`)
+    throw new Error(`DOMAIN_OWNER_LOOKUP_ERROR domain=${domain} error=${legacyError.message}`)
+  }
+
+  if (legacyRow) {
+    return { tenantId: legacyRow.id, tenantName: legacyRow.name || 'another tenant', source: 'tenants.domain' }
+  }
+
+  return null
+}
+
 // Get domains for a specific neighborhood
 export async function getDomainsForNeighborhood(tenantId: string, neighborhood: string): Promise<string[]> {
   const { data, error } = await supabaseAdmin

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { logSecurityEvent } from '@/lib/security'
 import { requireAdmin } from '@/lib/require-admin'
 import { isKnownTenantStatus } from '@/lib/tenant-status'
+import { findDomainOwner } from '@/lib/domains'
 import { ENCRYPTED_TENANT_FIELDS } from '@/lib/secret-crypto'
 import { omit } from '@/lib/validate'
 
@@ -115,6 +116,22 @@ export async function PUT(
       .replace(/\/.*$/, '')
       .replace(/^www\./, '')
     updates.domain = cleanDomain || null
+  }
+
+  // Reject a domain already claimed by ANOTHER tenant (via tenant_domains OR
+  // the legacy tenants.domain column) BEFORE writing it. tenants.domain has no
+  // DB unique constraint, so nothing else stops this — and a collision makes
+  // the resolver's TRANSITION ASSERT-AND-REFUSE divergence guard throw on
+  // EVERY request to that host, darkening the OTHER tenant's live site the
+  // instant this write lands (see domains.ts's findDomainOwner doc comment).
+  if (updates.domain) {
+    const owner = await findDomainOwner(updates.domain as string, id)
+    if (owner) {
+      return NextResponse.json(
+        { error: `${updates.domain} is already registered to ${owner.tenantName}. Remove it there first, or reassign it, before adding it here.` },
+        { status: 409 },
+      )
+    }
   }
 
   // tenantServesSite() is a case-sensitive exact match against a fixed status
