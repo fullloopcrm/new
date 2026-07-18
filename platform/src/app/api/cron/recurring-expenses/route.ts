@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 import { postJournalEntry } from '@/lib/ledger'
+import { recurringExpenseLedgerSourceId } from '@/lib/finance/recurring-expense-ledger'
 import { safeEqual } from '@/lib/secret-compare'
 
 export function advance(d: Date, freq: string, anchorDay: number): Date {
@@ -64,6 +65,13 @@ export async function POST(request: Request) {
     amount_cents: number; frequency: string; start_date: string; next_due_date: string; failure_count: number
   }>) {
     const anchorDay = new Date(r.start_date).getUTCDate()
+    // Per-period source_id, not the recurring_expenses row id itself — this
+    // rule row fires every period for the life of the recurrence, but
+    // post_journal_entry's (tenant_id, source, source_id) unique index (064)
+    // allows only ONE entry per source_id ever. Using the raw rule id would
+    // make every period after the first silently no-op. See
+    // recurring-expense-ledger.ts for the full rationale.
+    const periodSourceId = recurringExpenseLedgerSourceId(r.id, r.next_due_date)
     try {
       // Dedupe guard — if a journal entry for this recurring row + due date
       // already exists, don't double-post on a cron re-run or retry.
@@ -72,8 +80,7 @@ export async function POST(request: Request) {
         .select('id')
         .eq('tenant_id', r.tenant_id)
         .eq('source', 'recurring')
-        .eq('source_id', r.id)
-        .eq('entry_date', r.next_due_date)
+        .eq('source_id', periodSourceId)
         .limit(1)
         .maybeSingle()
       if (alreadyPosted) {
@@ -102,13 +109,19 @@ export async function POST(request: Request) {
 
       if (!coaMatch || !bankCoa) throw new Error('No matching CoA + bank CoA')
 
+      // A null return means the RPC's own (tenant_id, source, source_id)
+      // unique index hit an existing entry for this exact period (a
+      // concurrent cron overlap) — the app-level SELECT above already
+      // covers the common case, but the RPC's ON CONFLICT is the real
+      // idempotency gate (see ledger.ts's postJournalEntry comment). Either
+      // way, this period IS accounted for, so we still advance the schedule.
       await postJournalEntry({
         tenant_id: r.tenant_id,
         entity_id: r.entity_id,
         entry_date: r.next_due_date,
         memo: `Recurring: ${r.label}`,
         source: 'recurring',
-        source_id: r.id,
+        source_id: periodSourceId,
         lines: [
           { coa_id: coaMatch.id, debit_cents: r.amount_cents },
           { coa_id: bankCoa.id, credit_cents: r.amount_cents },

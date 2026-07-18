@@ -31,6 +31,16 @@
 --   HAVING COUNT(*) > 1;
 -- If this returns rows, each group needs manual review (keep the earliest
 -- entry, reverse/void the rest) before this migration can be applied.
+--
+-- REQUIRED PRE-REQUISITE — run
+-- 2026_07_18_recurring_expense_ledger_source_id.backfill.sql BEFORE this
+-- file. source='recurring' rows are NOT duplicates in the usual sense: a
+-- recurring_expenses row's id is reused as source_id across every period it
+-- fires (the rule row never changes id), so the query above WILL flag every
+-- multi-period recurring expense as a false-positive "duplicate" until that
+-- backfill re-derives a distinct per-period source_id for them. See that
+-- file's header for the full explanation. Do not manually reverse/void
+-- 'recurring' hits from the pre-flight query — re-run the backfill instead.
 
 -- ── 1: the DB-level guard ──────────────────────────────────────────────
 CREATE UNIQUE INDEX IF NOT EXISTS idx_journal_entries_source_unique
