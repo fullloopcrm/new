@@ -9963,3 +9963,82 @@ merged-capture empty-set symptom), both pass post-fix.
 Full suite + tsc + eslint re-run after this second fix, still clean (see
 below). `audit-tenant-scope.mjs` was not touched this round — (194)-(195)
 already closed its identical defect in a prior round.
+
+## (198) New fresh-ground surface -- this lane's own LOCAL preflight mirror
+script (`scripts/preflight-check.mjs`) silently omitted the Protected-tenant
+guard, defeating the exact single-source-of-truth purpose the script exists
+for
+
+Every fix in this doc's thread so far (168-197) audited the gate scripts
+themselves (the reconcile script, the tenant-scope guard, the protected-
+tenant guard) and their CI workflow wiring (`.github/workflows/*.yml`).
+This round widened the search to a THIRD kind of file in the same lane:
+`scripts/preflight-check.mjs`, a fleet-worker convenience script (created
+for Section-Q "done" reporting, 15:07 LEADER->ALL item 5) whose own doc
+comment states it "Mirrors the `verify` job in .github/workflows/ci.yml
+minus install/lint."
+
+It didn't. `ci.yml`'s `verify` job runs six steps: install, typecheck,
+vitest, the tenant-isolation guard, the **Protected-tenant guard** (the
+backstop for the 2026-07-08 outage class this whole lane exists around),
+and lint. `preflight-check.mjs`'s `STEPS` array had exactly four entries:
+typecheck, vitest, the tenant-isolation guard, and `audit-funnel-mode` (a
+check that isn't even IN ci.yml at all, non-required). The protected-tenant
+guard -- the newest, most severe gate in ci.yml (added specifically because
+`next build`'s own `prebuild` hook was the ONLY thing that used to catch
+this outage class, and ci.yml never calls `next build`) -- was simply
+absent from the hand-maintained copy.
+
+**Consequence, concretely:** a worker follows the documented workflow --
+run the preflight script, see "PASSED -- required gates green," report
+DONE. With this gap, that PASS carried zero information about protected-
+tenant safety. A PR that dropped a slug from the bespoke-site set or
+deleted a protected tenant's site folder would still preflight-PASS
+locally, then get caught (correctly) by CI's real `verify` job -- but only
+AFTER the worker already reported DONE on a report that claimed the
+required gates were green. Not a live production leak (CI itself was never
+bypassed -- a pre-existing wiring test already codifies that ci.yml itself
+still runs the guard), but a false-confidence local signal in the exact
+shape this lane has now found three times: two hand-maintained lists (here,
+"CI's real step list" vs "preflight's copy of it") silently drift apart
+with nothing to catch it.
+
+**Fixed:** added the protected-tenant guard's real command to `STEPS` as a
+required entry, matching ci.yml's actual command and required/gating
+status.
+
+**New test coverage**, `src/lib/preflight-check.test.ts`: rather than
+re-hardcoding a THIRD copy of the same list (which would just move the
+drift risk one file over), the new test source-reads `ci.yml` directly
+(same pure-YAML-text convention the existing reconcile-gate wiring test
+already established) and asserts, in BOTH directions, that STEPS' required
+commands and ci.yml's real verify-job commands are the same set -- so a
+future edit to either file that breaks the mirror fails this test
+immediately, instead of silently drifting a fourth time. Caught one bug in
+the test itself before shipping: the first extraction regex used `\s*`
+after the colon, which matches newlines -- `ci.yml`'s own `defaults: /
+run: / working-directory: platform` block (a bare `run:` header, not a
+single-line command) let that newline-crossing `\s*` swallow the line
+break and capture the FOLLOWING line's `working-directory: platform` as a
+fake "command," false-failing the test on totally unrelated YAML. Fixed by
+requiring same-line, non-whitespace content before trusting the extraction
+against the real STEPS content.
+
+Mutation-verified the fix (not just written and trusted): removed the new
+STEPS entry, reran the new test -- failed with the exact predicted message
+naming the missing command; restored it -- passed clean.
+
+Full suite + tsc re-run clean after this round: 2315/2315 vitest tests
+pass, `tsc --noEmit` zero errors. The reconcile drift script, the tenant-
+scope guard, and the three workflow YAML files were not touched this round
+-- their own coverage (items 168-197 above) is unaffected.
+
+**Continuation check (step 2 of this round's queue):** looked for other
+local scripts/hooks that might mirror ci.yml's job list the same way and
+be equally stale. `scripts/idor-lint-guard.ts` also references the tenant-
+scope guard's pattern but is explicitly documented as a PROTOTYPE,
+reporting-only, and deliberately NOT wired into `.github/workflows` pending
+a Jeff-gated "graduation" decision (see `deploy-prep/idor-lint-guard-
+spec.md`) -- not a drift bug, an intentional deferred state, left
+untouched. No git hooks (`.git/hooks`, husky, or similar) exist in this
+repo to check. No further mirror-list surface found this round.
