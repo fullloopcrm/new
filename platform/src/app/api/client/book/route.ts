@@ -83,22 +83,40 @@ export async function POST(request: Request) {
       const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
       const emailLower = (body.email as string).toLowerCase()
 
-      const { data: byEmail } = await supabaseAdmin
+      // clients.email/phone have no DB-level uniqueness guarantee (plain
+      // indexes only). .maybeSingle() does NOT protect against this: on 2+
+      // matching rows postgrest-js sets data:null with the SAME PGRST116
+      // error it uses for the 0-row case, unchecked here -- so an existing
+      // client with any duplicate email/phone row silently failed this
+      // "does this client already exist" lookup and fell through to
+      // creating a brand-new duplicate client row (fragmenting their
+      // booking/contact history). Same failure class as this session's
+      // phone-lookup fixes -- limit(2), pick the first deterministically,
+      // log loudly if ambiguous.
+      const { data: byEmailMatches } = await supabaseAdmin
         .from('clients')
         .select('id')
         .eq('tenant_id', tenant.id)
         .ilike('email', escapeLikeValue(emailLower))
-        .maybeSingle()
-      if (byEmail) clientId = byEmail.id
+        .order('id', { ascending: true })
+        .limit(2)
+      if (byEmailMatches && byEmailMatches.length > 1) {
+        console.error(`[client book] email ${emailLower} matches ${byEmailMatches.length} clients for tenant ${tenant.id} -- would have silently created a duplicate; using id=${byEmailMatches[0].id}`)
+      }
+      if (byEmailMatches?.[0]) clientId = byEmailMatches[0].id
 
       if (!clientId && phone) {
-        const { data: byPhone } = await supabaseAdmin
+        const { data: byPhoneMatches } = await supabaseAdmin
           .from('clients')
           .select('id')
           .eq('tenant_id', tenant.id)
           .eq('phone', phone)
-          .maybeSingle()
-        if (byPhone) clientId = byPhone.id
+          .order('id', { ascending: true })
+          .limit(2)
+        if (byPhoneMatches && byPhoneMatches.length > 1) {
+          console.error(`[client book] phone matches ${byPhoneMatches.length} clients for tenant ${tenant.id} -- would have silently created a duplicate; using id=${byPhoneMatches[0].id}`)
+        }
+        if (byPhoneMatches?.[0]) clientId = byPhoneMatches[0].id
       }
 
       if (!clientId) {

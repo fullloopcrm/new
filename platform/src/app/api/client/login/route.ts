@@ -26,12 +26,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Enter your 6-digit PIN' }, { status: 400 })
   }
 
-  const { data: client } = await supabaseAdmin
+  // clients.pin has no DB-level uniqueness guarantee (idx_clients_pin is a
+  // plain index, not unique -- see 2026_07_16_client_team_pin_hash.sql's
+  // header comment). .maybeSingle() does NOT protect against this: on 2+
+  // matching rows postgrest-js sets data:null with a PGRST116 error, the
+  // exact same shape it uses for the 0-row case, and that error goes
+  // unchecked here -- so a legitimate client whose PIN collides with
+  // another client's in the same tenant got a permanent "Invalid PIN"
+  // lockout. Same failure class as this session's phone-lookup fixes
+  // (portal/auth send_code, webhooks/telnyx) -- limit(2), pick the first
+  // deterministically, log loudly if ambiguous. Never log the PIN itself,
+  // it's a login credential.
+  const { data: clientMatches } = await supabaseAdmin
     .from('clients')
     .select('id, do_not_service')
     .eq('tenant_id', tenant.id)
     .eq('pin', pin)
-    .maybeSingle()
+    .order('id', { ascending: true })
+    .limit(2)
+
+  if (clientMatches && clientMatches.length > 1) {
+    console.error(`[client login] PIN collision for tenant ${tenant.id} -- ${clientMatches.length} clients share this PIN; using id=${clientMatches[0].id}`)
+  }
+  const client = clientMatches?.[0] || null
 
   if (!client || client.do_not_service) {
     return NextResponse.json({ error: 'Invalid PIN' }, { status: 401 })
