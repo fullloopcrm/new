@@ -5609,3 +5609,60 @@ dropped from queue for the rest of this session, not re-checked.
 
 2 commits (fix + tests, e1ac262f google/auth; 1d8d87c8 connect
 channels/messages), file-only, no push/deploy/DB.
+
+## 2026-07-18 11:44 round (W2) — POST /api/admin/comhub/{send,yinez/send} body/subject stored raw with no type/length cap, two live crash bugs
+
+Fresh-ground surface: the internal admin panel's Comhub messaging family
+(`admin/comhub/*`) is `requireAdmin()`-gated (binary internal-staff auth,
+not the tenant RBAC `requirePermission` model), so the permission-
+differential bug class from the last several rounds doesn't apply here —
+but the free-text-cap class does, and this family hadn't been swept for
+it yet. Two genuine gaps, same class as `connect/messages`,
+`social/post`, and `admin/comhub/channels`'s already-fixed caps — but
+both are worse: the raw uncapped value was passed directly to `.slice()`
+or `.trim()` in the pre-fix code, so a caller sending a non-string body
+didn't just skip validation, it threw an uncaught `TypeError` (500) at
+runtime.
+
+**`POST /api/admin/comhub/send`** — `body` (message text, all 4 channels:
+web/internal/sms/email) and `subject` (email-only) were stored into
+`comhub_messages` and forwarded to `sendSMS`/`sendEmail` completely raw.
+The `!body.body` guard only checked truthiness, so a non-string body
+(object/number) passed the guard and then crashed on
+`body.body.slice(0, 140)` when building `last_message_preview`. Fixed:
+`capString(body, 5000)` / `capString(subject, 200)`, matching
+`connect/messages`'s 5000 precedent and `admin/comhub/channels`'s 200
+description-field precedent respectively. Renamed the parsed-JSON local
+from `body` to `payload` throughout to avoid shadowing the now-capped
+`body`/`subject` values.
+
+**Continuation:** `admin/comhub/yinez/send` (admin's chat interface to
+the Yinez AI agent inside Comhub) had the identical shape one level
+worse — `const text = (payload?.body || '').trim()` throws directly on
+any truthy non-string body, since objects/numbers have no `.trim()`
+method, and the uncapped text was forwarded straight into the `askSelena`
+AI call in addition to being stored raw. Fixed: `capString(body, 5000)`,
+same cap as the sibling `send` route.
+
+**Verification:** 6 new tests on `admin/comhub/send` (body:
+oversized-truncated/non-string-rejected/whitespace-rejected/normal-
+passthrough on the internal channel; subject: oversized-truncated/non-
+string-falls-back-to-default on the email channel), 5 new tests on
+`admin/comhub/yinez/send` (oversized-truncated, non-string-rejected,
+numeric-rejected, whitespace-rejected, normal-passthrough). RED/GREEN
+mutation-verified via `git diff > patch` / `git apply -R patch` (worktree
+`git stash` hook-blocked): 5 of 6 `send` probes wrong pre-fix
+(untruncated body/subject, non-string subject reaching `sendEmail` as an
+object instead of falling back to the default line, whitespace-only body
+incorrectly accepted), 3 of 5 `yinez/send` probes wrong pre-fix
+(untruncated body, and the `TypeError` crash reproduced exactly on both
+the object and numeric non-string cases). `npx tsc --noEmit` clean. Full
+suite: 788 files, 3429/3466 pass + 37 pre-existing skipped, 0
+regressions (was 786/3455). `npm run audit:tenant`: same 4 pre-existing
+findings, none new.
+
+Resolver lane not re-checked, per leader's 11:29 "dropped from queue"
+order.
+
+3 commits (fix + tests for admin/comhub/send; fix + tests for
+admin/comhub/yinez/send; docs), file-only, no push/deploy/DB.
