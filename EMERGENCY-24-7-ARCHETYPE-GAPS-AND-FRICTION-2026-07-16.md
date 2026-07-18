@@ -10112,3 +10112,79 @@ file. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
 `audit-tenant-scope.mjs`, and the three workflow YAML files were not
 touched this round -- their own coverage (items 168-198 above) is
 unaffected.
+
+## (200) New fresh-ground surface -- item (196)'s own fix (the db-backup.yml
+Telegram-secret-name bug) has zero regression coverage, and the same blind
+spot is latent in ci.yml and tenant-config-reconcile.yml's identical alert
+steps
+
+Items 168-199 audited the gate scripts, their CI workflow wiring, a local
+convenience mirror, and a fourth kind of file (`package.json`'s lifecycle
+scripts) in this lane. This round went back to a fix already shipped in
+this same lane -- item (196) -- and asked whether the fix itself is
+protected against regressing, the same question item (199) asked of the
+ORIGINAL protected-tenant guard.
+
+Item (196) found that `db-backup.yml`'s failure-alert step read
+`secrets.TELEGRAM_NOTIFY_CHAT_ID`, a secret that has never existed in this
+repo (confirmed via `gh secret list`: only `TELEGRAM_BOT_TOKEN` /
+`TELEGRAM_CHAT_ID` are configured), silently no-op'ing the nightly-DB-
+backup-failure Telegram alert since the workflow was introduced. The fix
+realigned it to `secrets.TELEGRAM_CHAT_ID`, the same secret `ci.yml` and
+`tenant-config-reconcile.yml`'s own notify-failure steps already alert
+through successfully.
+
+`src/lib/db-backup-alert-guard.test.ts` (added alongside that fix) pins a
+DIFFERENT bug on the same "Alert on failure" step -- that a step's `if:`
+cannot see that same step's own `env:` block -- and asserts the run script
+bash-guards on empty `TG_TOKEN`/`TG_CHAT` before calling the Telegram API.
+It never reads which secret those two local env-var names are actually
+assigned FROM. `src/lib/reconcile-gate-wiring.test.ts` checks that
+`tenant-config-reconcile.yml`'s `notify-failure` job exists and is wired to
+`needs: reconcile` / `if: failure()` -- also never the secret name. `ci.yml`'s
+own `notify-failure` job has no wiring test referencing it at all.
+
+**Consequence, concretely:** a future bad merge, a stale copy-paste from an
+older branch, or a plain typo on ANY of the three existing alert steps
+could silently reintroduce `TELEGRAM_NOTIFY_CHAT_ID` (or any other wrong
+secret name) and every existing guard -- including the two wiring tests
+that already exist for these exact workflows -- would stay green, because
+none of them read the `env:` block's right-hand side. `TG_TOKEN`/`TG_CHAT`
+are also the ONLY secret references anywhere in `.github/workflows/*.yml`
+where the local env-var name diverges from the real secret name -- every
+other secret assignment in this repo is self-aliasing (e.g.
+`SUPABASE_DB_URL: ${{ secrets.SUPABASE_DB_URL }}`), which is inherently
+self-documenting: a mismatch there is a glaring one-line diff, visible
+without cross-referencing `gh secret list`. That short-alias shape is
+exactly how item (196)'s bug survived undetected in the first place.
+
+**Fixed:** new `src/lib/telegram-alert-secret-name-guard.test.ts`, pure
+source-reading of every workflow YAML in `.github/workflows/` (not just
+today's three known instances -- a FUTURE workflow that reuses this same
+alert pattern is covered automatically, same all-workflow-scan approach as
+`ci-full-suite-guard.test.ts`). It finds every `TG_TOKEN:`/`TG_CHAT:`
+env-assignment line and pins the secret name on the right of `secrets.` to
+`TELEGRAM_BOT_TOKEN`/`TELEGRAM_CHAT_ID` respectively, plus a non-vacuous
+check that at least one such assignment exists at all.
+
+Mutation-verified (not just written and trusted): reintroduced item (196)'s
+exact bug (`TG_CHAT: ${{ secrets.TELEGRAM_NOTIFY_CHAT_ID }}` in
+`db-backup.yml`), reran the new test -- failed with the exact predicted
+offender (file, line, and the wrong secret name); restored the line --
+passed clean, `git diff --stat db-backup.yml` confirmed empty afterward (no
+unintended change survived the round-trip).
+
+**Continuation check (step 2 of this round's queue):** swept every
+`secrets.<NAME>` reference across `.github/workflows/*.yml` for the same
+local-name-diverges-from-secret-name shape that let item (196)'s bug hide.
+Found none beyond `TG_TOKEN`/`TG_CHAT` -- `SUPABASE_DB_URL`,
+`BACKUP_ENCRYPTION_KEY`, and `SUPABASE_ACCESS_TOKEN_FULLLOOP` are all
+self-aliasing, so a typo there is already visually obvious without needing
+a `gh secret list` cross-reference. No further instance of this specific
+gap shape found this round.
+
+Full suite + tsc re-run clean after this round: 2322/2322 vitest tests pass
+(2318 prior + 4 new), `tsc --noEmit` zero errors. `reconcile-tenant-
+config.mjs`, `verify-protected-tenants.mjs`, `audit-tenant-scope.mjs`, and
+the three workflow YAML files' non-Telegram wiring were not touched this
+round -- their own coverage (items 168-199 above) is unaffected.
