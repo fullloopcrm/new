@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireAdmin } from '@/lib/require-admin'
 import { supabaseAdmin } from '@/lib/supabase'
+import { findDomainOwner } from '@/lib/domains'
 
 export async function GET(request: NextRequest) {
   const authError = await requireAdmin()
@@ -89,6 +90,35 @@ export async function POST(request: NextRequest) {
 
   if (!cleanDomain) {
     return NextResponse.json({ error: 'domain is required' }, { status: 400 })
+  }
+
+  // Reject a domain already claimed by ANOTHER tenant via the LEGACY
+  // tenants.domain column BEFORE inserting into tenant_domains. tenant_domains
+  // itself is protected by its own DB UNIQUE(domain) constraint (the 23505
+  // handler below), but that constraint only guards tenant_domains against
+  // ITSELF — it has no relationship to tenants.domain, which carries no
+  // constraint at all. Without this check, an admin could insert a
+  // tenant_domains row for a domain some OTHER, not-yet-migrated tenant
+  // already serves via tenants.domain: the insert succeeds with a clean 201
+  // (no unique-constraint hit, since tenant_domains has no existing row for
+  // that domain), and the resolver's TRANSITION ASSERT-AND-REFUSE divergence
+  // guard (getTenantByDomain in tenant-lookup.ts/tenant.ts) then throws
+  // TENANT_DIVERGENCE on the VERY NEXT real request to that host — darkening
+  // the other, already-live tenant's site, discovered as a production outage
+  // instead of a validation error at the point of the actual mistake. Mirrors
+  // the same findDomainOwner guard already wired into the three tenants.domain
+  // write sites (admin/businesses POST, admin/businesses/[id] PUT,
+  // admin/tenants/[id] PUT) — this is the missing fourth: the tenant_domains
+  // write site checking the OTHER direction. excludeTenantId=tenant_id so a
+  // tenant registering its own already-owned legacy domain into tenant_domains
+  // (the intended migration path) is never flagged as a false-positive
+  // collision against itself.
+  const owner = await findDomainOwner(cleanDomain, tenant_id)
+  if (owner && owner.source === 'tenants.domain') {
+    return NextResponse.json(
+      { error: `${cleanDomain} is already registered to ${owner.tenantName}. Remove it there first, or reassign it, before adding it here.` },
+      { status: 409 },
+    )
   }
 
   // Demote this tenant's existing primary (if any) BEFORE inserting a new
