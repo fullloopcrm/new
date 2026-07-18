@@ -428,6 +428,26 @@ async function provisionTenant(args: Args) {
   // one. The BESPOKE_SITE_TENANTS entry in middleware.ts is still a required
   // separate manual step (see script usage example / the-florida-maid) — this
   // only makes the DB row honestly reflect what was actually provisioned.
+  // Same is_primary invariant fixed for POST /api/admin/websites and
+  // activate-tenant.ts's domain_routing step (2026-07-17): every reader
+  // (site-export's "resolve the primary domain", 068's backfill mapping)
+  // assumes at most ONE is_primary=true row per tenant, but this upsert
+  // unconditionally sets is_primary:true with onConflict:'domain' -- a
+  // brand-new tenant is fine (no prior row), but re-running this script
+  // against an ALREADY-onboarded tenant with a new --domain (a rebrand)
+  // left the OLD domain row's is_primary:true untouched while the NEW row
+  // also got is_primary:true, same 2+-primaries silent-corruption class as
+  // those two paths, just reached via the CLI onboarding script instead of
+  // the admin UI or activation flow. Demote any other primary for this
+  // tenant before writing the new one.
+  const { error: demoteErr } = await supabase
+    .from('tenant_domains')
+    .update({ is_primary: false })
+    .eq('tenant_id', tenant.id)
+    .eq('is_primary', true)
+    .neq('domain', args.domain)
+  if (demoteErr) console.warn(`tenant_domains primary-demote warn: ${demoteErr.message}`)
+
   const { error: dErr } = await supabase
     .from('tenant_domains')
     .upsert(
