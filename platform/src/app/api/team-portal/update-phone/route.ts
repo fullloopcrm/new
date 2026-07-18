@@ -65,7 +65,7 @@ export async function POST(request: Request) {
 
   const { data: member } = await supabaseAdmin
     .from('team_members')
-    .select('id, email')
+    .select('id, email, tenant_id')
     .eq('id', parsed.teamMemberId!)
     .single()
   if (!member) return NextResponse.json({ error: 'not_found' }, { status: 404 })
@@ -77,10 +77,16 @@ export async function POST(request: Request) {
   if (cErr) return NextResponse.json({ error: cErr.message }, { status: 500 })
 
   if (member.email) {
+    // cleaner_applications is tenant-scoped and email is NOT unique across
+    // tenants (the same applicant can apply to multiple Full Loop
+    // businesses) -- this uses supabaseAdmin (service-role, bypasses RLS),
+    // so tenant_id must be filtered explicitly or a same-email applicant row
+    // belonging to a DIFFERENT tenant gets silently overwritten too.
     await supabaseAdmin
-      .from('cleaner_applications')  // tenant-scope-ok: member-initiated phone sync across the same applicant's records by their verified email
+      .from('cleaner_applications')
       .update({ phone: phoneCheck.normalized })
       .eq('email', member.email)
+      .eq('tenant_id', member.tenant_id)
   }
 
   return NextResponse.json({ ok: true, phone: phoneCheck.normalized })
