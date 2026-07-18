@@ -137,6 +137,41 @@ export async function PUT(
       )
     }
 
+    // GET /api/bookings/:id/team and closeout-summary both source the LEAD
+    // from booking_team_members, not bookings.team_member_id (falling back to
+    // the latter only when the table has zero rows for the booking) -- this
+    // is the main single-booking edit endpoint, and it's also the endpoint
+    // the dashboard's Check-In (Admin) / Confirm Check Out actions call to
+    // (re)assign the crew member in the same request. It wrote
+    // bookings.team_member_id above without ever syncing
+    // booking_team_members, unlike every other team_member_id write site
+    // (POST /api/bookings, PUT /api/bookings/[id]/team, schedule-issues fix,
+    // team-portal/jobs/reassign, recurring-schedules regenerate/exception).
+    // Left unsynced, a job dispatched/reassigned here showed as unassigned
+    // in the admin Team panel, and — worse — a multi-tech job already holding
+    // booking_team_members rows for its extras would silently drop the lead
+    // from closeout-summary's payout attribution entirely (its fallback only
+    // fires when the table has ZERO rows, not zero is_lead rows).
+    if ('team_member_id' in fields) {
+      const newLead = fields.team_member_id as string | null | undefined
+      await supabaseAdmin.from('booking_team_members').delete().eq('tenant_id', tenantId).eq('booking_id', id).eq('is_lead', true)
+      if (newLead) {
+        const upsertLead = () =>
+          supabaseAdmin.from('booking_team_members').upsert(
+            { tenant_id: tenantId, booking_id: id, team_member_id: newLead, is_lead: true, position: 1 },
+            { onConflict: 'booking_id,team_member_id' }
+          )
+        let { error: leadSyncErr } = await upsertLead()
+        if (leadSyncErr) {
+          await supabaseAdmin.from('booking_team_members').delete().eq('tenant_id', tenantId).eq('booking_id', id).eq('is_lead', true)
+          ;({ error: leadSyncErr } = await upsertLead())
+        }
+        if (leadSyncErr) {
+          console.error('[bookings PUT] booking_team_members lead sync failed after retry:', leadSyncErr)
+        }
+      }
+    }
+
     // Send notifications based on what changed
     try {
       const { data: tenantData } = await supabaseAdmin
