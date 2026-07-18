@@ -49,16 +49,42 @@ export async function PUT(
     const body = await request.json()
     const fields = pick(body, ['name', 'type', 'subject', 'body', 'recipient_filter', 'status', 'scheduled_at'])
 
+    // Once a campaign is sent/sending, this route had no guard at all: any
+    // campaigns.create-permitted user could PUT status back to 'draft'
+    // (re-arming the atomic claim in send/route.ts for a real re-send that
+    // bills/delivers to the whole audience again) or silently rewrite
+    // subject/body/recipient_filter on a campaign that's already gone out,
+    // falsifying the same campaign_recipients audit trail the DELETE guard
+    // exists to protect (see route.delete-guard.test.ts). CAS on the current
+    // status closes the write side of that gap the same way the DELETE
+    // handler already closed the destroy side.
     const { data, error } = await supabaseAdmin
       .from('campaigns')
       .update(fields)
       .eq('id', id)
       .eq('tenant_id', tenantId)
+      .neq('status', 'sent')
+      .neq('status', 'sending')
       .select()
-      .single()
+      .maybeSingle()
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
+    }
+    if (!data) {
+      const { data: existing } = await supabaseAdmin
+        .from('campaigns')
+        .select('id, status')
+        .eq('id', id)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!existing) {
+        return NextResponse.json({ error: 'Not found' }, { status: 404 })
+      }
+      return NextResponse.json(
+        { error: 'This campaign has already been sent or is sending and can no longer be edited.' },
+        { status: 409 }
+      )
     }
 
     return NextResponse.json({ campaign: data })

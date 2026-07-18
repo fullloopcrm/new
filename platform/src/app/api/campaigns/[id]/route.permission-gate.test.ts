@@ -26,6 +26,10 @@ function chain(table: string) {
       filters.push((r) => r[col] === val)
       return c
     },
+    neq: (col: string, val: unknown) => {
+      filters.push((r) => r[col] !== val)
+      return c
+    },
     update: (fields: Row) => {
       const rows = rowsOf().filter((r) => filters.every((f) => f(r)))
       rows.forEach((r) => Object.assign(r, fields))
@@ -38,6 +42,10 @@ function chain(table: string) {
     single: () => {
       const rows = rowsOf().filter((r) => filters.every((f) => f(r)))
       return Promise.resolve({ data: rows[0] || null, error: rows[0] ? null : { message: 'not found' } })
+    },
+    maybeSingle: () => {
+      const rows = rowsOf().filter((r) => filters.every((f) => f(r)))
+      return Promise.resolve({ data: rows[0] || null, error: null })
     },
     then: (res: (v: { error: unknown }) => unknown) => {
       if (mode === 'delete') {
