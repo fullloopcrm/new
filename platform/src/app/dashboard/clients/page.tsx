@@ -103,7 +103,7 @@ export default function ClientsPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [drawerId, setDrawerId] = useState<string | null>(null)
 
-  useEffect(() => {
+  function loadClients() {
     setLoading(true)
     fetch('/api/clients/enriched')
       .then((r) => r.json())
@@ -115,6 +115,10 @@ export default function ClientsPage() {
       })
       .catch(() => {})
       .finally(() => setLoading(false))
+  }
+
+  useEffect(() => {
+    loadClients()
   }, [])
 
   const cohortOptions = useMemo(() => {
@@ -449,6 +453,7 @@ export default function ClientsPage() {
         client={drawerClient}
         open={!!drawerId}
         onClose={() => setDrawerId(null)}
+        onClientUpdated={loadClients}
       />
     </div>
   )

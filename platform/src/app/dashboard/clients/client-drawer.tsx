@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { useWorkerLabel } from '../worker-label-context'
 
 type EnrichedClient = {
@@ -45,6 +46,7 @@ type Props = {
   client: EnrichedClient | null
   open: boolean
   onClose: () => void
+  onClientUpdated?: () => void
 }
 
 function initials(name: string): string {
@@ -95,11 +97,16 @@ type Activity = {
   sentiment?: 'pos' | 'neu' | 'neg'
 }
 
-export default function ClientDrawer({ client, open, onClose }: Props) {
+export default function ClientDrawer({ client, open, onClose, onClientUpdated }: Props) {
+  const router = useRouter()
   const worker = useWorkerLabel()
   const [notesTab, setNotesTab] = useState<'cleaner' | 'operator' | 'selena'>('cleaner')
   const [notes, setNotes] = useState({ cleaner: '', operator: '', selena: '' })
   const [activity, setActivity] = useState<Activity[]>([])
+  const [editOpen, setEditOpen] = useState(false)
+  const [editForm, setEditForm] = useState({ name: '', phone: '', email: '', address: '' })
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
 
   useEffect(() => {
     if (!client) return
@@ -133,6 +140,46 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
       })
       .catch(() => {})
   }, [client])
+
+  function openEdit() {
+    if (!client) return
+    setEditForm({
+      name: client.name || '',
+      phone: client.phone || '',
+      email: client.email || '',
+      address: client.address || '',
+    })
+    setEditError('')
+    setEditOpen(true)
+  }
+
+  async function saveEdit() {
+    if (!client) return
+    setEditSaving(true)
+    setEditError('')
+    try {
+      const res = await fetch(`/api/clients/${client.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(editForm),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || 'Failed to save changes')
+      }
+      setEditOpen(false)
+      onClientUpdated?.()
+    } catch (e) {
+      setEditError(e instanceof Error ? e.message : 'Failed to save changes')
+    } finally {
+      setEditSaving(false)
+    }
+  }
+
+  function bookNext() {
+    if (!client) return
+    router.push(`/dashboard/bookings?new=1&client_id=${client.id}`)
+  }
 
   if (!client) return null
 
@@ -183,7 +230,7 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
               </div>
               <div className="clients-next-action-row">
                 <button className="clients-next-btn primary">Send via SMS</button>
-                <button className="clients-next-btn ghost">Edit</button>
+                <button className="clients-next-btn ghost" onClick={openEdit}>Edit</button>
                 <button className="clients-next-btn ghost">Try call instead</button>
                 <button className="clients-next-btn dismiss">Dismiss</button>
               </div>
@@ -383,9 +430,61 @@ export default function ClientDrawer({ client, open, onClose }: Props) {
           <button className="clients-delete-btn">{client.dns_status ? 'Restore from DNS' : 'Move to DNS'}</button>
           <div className="clients-drawer-foot-spacer" />
           <button className="clients-btn clients-btn-ghost" onClick={onClose}>Close</button>
-          <button className="clients-btn clients-btn-primary">Book Next</button>
+          <button className="clients-btn clients-btn-primary" onClick={bookNext}>Book Next</button>
         </div>
       </aside>
+
+      {editOpen && (
+        <div className="clients-edit-scrim" onClick={() => setEditOpen(false)}>
+          <div className="clients-edit-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="clients-edit-modal-title">Edit Client</div>
+            <div className="clients-edit-field">
+              <label className="clients-edit-label" htmlFor="client-edit-name">Name</label>
+              <input
+                id="client-edit-name"
+                className="clients-edit-input"
+                value={editForm.name}
+                onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
+              />
+            </div>
+            <div className="clients-edit-field">
+              <label className="clients-edit-label" htmlFor="client-edit-phone">Phone</label>
+              <input
+                id="client-edit-phone"
+                className="clients-edit-input"
+                value={editForm.phone}
+                onChange={(e) => setEditForm({ ...editForm, phone: e.target.value })}
+              />
+            </div>
+            <div className="clients-edit-field">
+              <label className="clients-edit-label" htmlFor="client-edit-email">Email</label>
+              <input
+                id="client-edit-email"
+                className="clients-edit-input"
+                type="email"
+                value={editForm.email}
+                onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+              />
+            </div>
+            <div className="clients-edit-field">
+              <label className="clients-edit-label" htmlFor="client-edit-address">Address</label>
+              <input
+                id="client-edit-address"
+                className="clients-edit-input"
+                value={editForm.address}
+                onChange={(e) => setEditForm({ ...editForm, address: e.target.value })}
+              />
+            </div>
+            {editError && <div className="clients-edit-error">{editError}</div>}
+            <div className="clients-edit-actions">
+              <button className="clients-btn clients-btn-ghost" onClick={() => setEditOpen(false)} disabled={editSaving}>Cancel</button>
+              <button className="clients-btn clients-btn-primary" onClick={saveEdit} disabled={editSaving}>
+                {editSaving ? 'Saving…' : 'Save'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
