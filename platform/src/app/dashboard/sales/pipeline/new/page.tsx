@@ -68,7 +68,7 @@ export default function NewDealPage() {
   }
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
       <Link href="/dashboard/sales/pipeline" className="text-xs text-slate-500 hover:underline">← Pipeline</Link>
       <h1 className="font-heading text-2xl font-bold text-slate-900 mt-1 mb-6">New Deal</h1>
 

@@ -134,7 +134,7 @@ export default function DealDetailPage() {
   const meta = stageMeta(deal.stage)
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <Link href="/dashboard/sales/pipeline" className="text-xs text-slate-500 hover:underline">← Pipeline</Link>
       <div className="flex items-start justify-between flex-wrap gap-3 mt-1 mb-4">
         <div>

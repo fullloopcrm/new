@@ -36,7 +36,7 @@ export default function ChangelogPage() {
       <h2 className="text-2xl font-bold text-slate-900 mb-1">What&apos;s New</h2>
       <p className="text-slate-400 text-sm mb-8">Updates and improvements to Full Loop CRM.</p>
 
-      <div className="max-w-2xl space-y-6">
+      <div className="space-y-6">
         {entries.map((e) => (
           <Link key={e.id} href={`/dashboard/changelog/${e.id}`} className="block border border-slate-200 rounded-lg p-6 hover:border-blue-300 transition-colors">
             <div className="flex items-center gap-3 mb-3">

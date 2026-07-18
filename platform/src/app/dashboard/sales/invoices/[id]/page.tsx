@@ -175,7 +175,7 @@ export default function InvoiceDetailPage() {
   const canDelete = invoice.status === 'draft' && (invoice.amount_paid_cents || 0) === 0
 
   return (
-    <div className="max-w-5xl mx-auto">
+    <div>
       <Link href="/dashboard/sales/invoices" className="text-xs text-slate-500 hover:underline">← Invoices</Link>
       <div className="flex items-start justify-between flex-wrap gap-3 mt-1 mb-4">
         <div>

@@ -43,7 +43,7 @@ export default function BankImportPage() {
   const hasUnlinked = accounts.some(a => !a.coa_id)
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
       <Link href="/dashboard/finance/accounts" className="text-xs text-slate-500 hover:underline">← Bank Accounts</Link>
       <h1 className="font-heading text-2xl font-bold text-slate-900 mt-1 mb-6">Import Bank Statement</h1>
 

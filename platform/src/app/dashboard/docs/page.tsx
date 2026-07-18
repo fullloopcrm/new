@@ -1,6 +1,6 @@
 export default function DocsPage() {
   return (
-    <div className="max-w-3xl">
+    <div>
       <h2 className="text-2xl font-bold text-slate-900 mb-1">Documentation</h2>
       <p className="text-slate-400 text-sm mb-8">Everything you need to run your business on Full Loop CRM.</p>
 

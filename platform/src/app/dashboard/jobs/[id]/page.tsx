@@ -67,7 +67,7 @@ function toLocalInput(iso: string | null) {
 }
 
 const JOB_STATUS_STYLE: Record<string, string> = {
-  scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
+  unscheduled: 'bg-slate-100 text-slate-500', scheduled: 'bg-blue-50 text-blue-600', in_progress: 'bg-amber-50 text-amber-700',
   completed: 'bg-green-50 text-green-600', cancelled: 'bg-slate-100 text-slate-500',
 }
 const SESSION_STATUS_STYLE: Record<string, string> = {

@@ -39,7 +39,7 @@ export default function UpdateDetailPage() {
 
   if (notFound || !entry) {
     return (
-      <div className="max-w-2xl">
+      <div>
         <Link href="/dashboard/changelog" className="text-sm text-blue-600 underline underline-offset-2">&larr; All updates</Link>
         <p className="text-slate-400 mt-6">This update doesn&apos;t exist or is no longer published.</p>
       </div>
@@ -47,7 +47,7 @@ export default function UpdateDetailPage() {
   }
 
   return (
-    <div className="max-w-2xl">
+    <div>
       <Link href="/dashboard/changelog" className="text-sm text-blue-600 underline underline-offset-2">&larr; All updates</Link>
       <div className="mt-5 flex items-center gap-3">
         <span className="text-[10px] font-bold uppercase tracking-widest px-2 py-0.5 rounded bg-blue-50 text-blue-700">

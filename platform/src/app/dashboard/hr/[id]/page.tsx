@@ -230,7 +230,7 @@ export default function HrEmployeeDetailPage() {
   const extraDocs = documents.filter(d => !applicable.some(r => r.doc_type === d.doc_type))
 
   return (
-    <main className="p-3 md:p-6 max-w-5xl">
+    <main className="p-3 md:p-6">
       <div className="mb-4">
         <Link href="/dashboard/hr" className="text-sm text-gray-500 hover:text-teal-700">← People</Link>
       </div>

@@ -91,7 +91,7 @@ export default function GoLivePage() {
   const done = tasks.filter(t => ['completed', 'skipped'].includes(t.status)).length
 
   return (
-    <div className="max-w-2xl mx-auto">
+    <div>
       <h1 className="font-heading text-2xl font-bold text-slate-900">Go Live</h1>
       <p className="text-slate-600 text-sm mt-1 mb-5">
         Finish setup, then flip your business live. Going live turns on client reminders and review follow-ups.
