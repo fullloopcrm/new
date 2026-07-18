@@ -32,13 +32,27 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
     }
 
-    // Look up client by phone
-    const { data: client } = await supabaseAdmin
+    // Look up client by phone. clients.phone has no uniqueness constraint
+    // (idx_clients_tenant_phone is a plain index, not unique) — .single()
+    // THROWS when 2+ clients share a phone in the same tenant, and since
+    // the error wasn't checked, `client` silently fell back to null: a
+    // legitimate client with any duplicate phone row got a permanent 404
+    // "No account found," locked out of self-service portal login entirely.
+    // Same failure class as webhooks/telnyx/route.ts's findByPhone —
+    // limit(2) instead of single(), pick the first deterministically, log
+    // loudly if ambiguous.
+    const { data: clientMatches } = await supabaseAdmin
       .from('clients')
       .select('id, name, phone, email')
       .eq('tenant_id', tenant.id)
       .eq('phone', phone)
-      .single()
+      .order('id', { ascending: true })
+      .limit(2)
+
+    if (clientMatches && clientMatches.length > 1) {
+      console.error(`[portal auth] phone ${phone} matches ${clientMatches.length} clients for tenant ${tenant.id} — dedupe needed; using id=${clientMatches[0].id}`)
+    }
+    const client = clientMatches?.[0] || null
 
     if (!client) {
       return NextResponse.json({ error: 'No account found with this phone number' }, { status: 404 })
