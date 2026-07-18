@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { useWorkerLabel } from '../worker-label-context'
 import './schedule.css'
 import BookingsAdmin from './BookingsAdmin'
+import MapPage from '../map/page'
 
 const TEAM_COLORS = [
   'var(--sched-team-1)', 'var(--sched-team-2)', 'var(--sched-team-3)',
@@ -298,7 +299,9 @@ export default function SchedulePage() {
 
       {tab === 'bookings' && <BookingsAdmin />}
 
-      {tab !== 'calendar' && tab !== 'bookings' && (
+      {tab === 'map' && <MapPage />}
+
+      {tab !== 'calendar' && tab !== 'bookings' && tab !== 'map' && (
         <div className="sched-coming-soon">
           <div className="sched-coming-soon-title">Coming soon.</div>
           <div>This view ({TABS.find((t) => t.key === tab)?.label}) will land next pass.</div>
