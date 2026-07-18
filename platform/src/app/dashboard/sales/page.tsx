@@ -393,7 +393,10 @@ function SalesPageInner() {
                       {/* Stage-driven primary actions */}
                       <div className="sl-actions">
                         {d.stage === 'new' && (
-                          <span className="sl-action-hint">Log a call/text/email below to move this into Qualify.</span>
+                          <>
+                            <button type="button" className="sl-act-btn go" disabled={busyId === d.id} onClick={() => moveDeal(d.id, 'qualifying')}>Move to Qualify</button>
+                            <span className="sl-action-hint">Or log a call/text/email below to move this into Qualify.</span>
+                          </>
                         )}
                         {d.stage === 'qualifying' && reasonFor !== d.id && (
                           <>
