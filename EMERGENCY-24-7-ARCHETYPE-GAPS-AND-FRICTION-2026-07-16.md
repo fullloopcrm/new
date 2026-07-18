@@ -7894,3 +7894,136 @@ Reconcile-gate lane: token absent this session; `.github/workflows/tenant-
 config-reconcile.yml` and `scripts/reconcile-tenant-config.mjs` unchanged
 this round (already re-reviewed under (172) above), zero diff beyond what
 (172)/(173) touched (`ci.yml`, `protected-tenant-guard-wiring.test.ts`).
+
+## (174) New fresh-ground surface, inside the exact backstop (172) just wired
+into CI — the protected-tenant guard's own parser silently un-blinds itself
+if a protected slug is ever commented out instead of deleted
+
+(172)/(173) closed the "is the guard wired anywhere" question. This round
+asked a different question about the same script: given it IS wired now,
+does its own detection logic actually catch every way `BESPOKE_SITE_TENANTS`
+can lose an entry? `scripts/verify-protected-tenants.mjs` extracts the live
+Set from `src/middleware.ts` via a static text parse (`block[1].matchAll(/
+['"]([^'"]+)['"]/g)`) — a bare quoted-string regex with no concept of a
+comment. A slug commented out mid-edit (a merge-conflict resolution that
+leaves `// 'nyc-tow',` behind instead of a clean delete, or a dev debugging
+locally and forgetting to uncomment) still matches that regex and is read as
+present, even though `new Set<string>([...])` never receives it at runtime.
+
+Mutation-verified before trusting the read, not just from inspecting the
+regex: line-commented `'nyc-tow'` (a live PROTECTED entry) out of
+`BESPOKE_SITE_TENANTS` in `src/middleware.ts` and ran the pre-fix guard
+script — printed `✅ ... 22 live bespoke site(s) OK`, exit 0. At runtime,
+though, middleware's own `BESPOKE_SITE_TENANTS.has('nyc-tow')` check would
+be `false` — the exact 2026-07-08 "route ALL tenants except nycmaid to the
+template" outage class, with the guard (172) just made CI actually run
+reporting all-clear the whole time. Reverted the mutation via a clean file
+restore and reconfirmed green before writing any fix, same discipline as
+(172)'s own mutation test.
+
+**Fixed** — added a `stripComments()` pass (strips `//` line comments and
+`/* */` block comments) before the quoted-string extraction regex runs.
+Verified this can't eat a REAL entry: every value these parsers pull out of
+`BESPOKE_SITE_TENANTS` is a bare slug (`'nycmaid'`, `'nyc-tow'`) — none
+legitimately contain `//` or `/*`, so the strip only ever removes text that
+was already dead at runtime. Re-ran the same mutation post-fix: guard now
+correctly fails (`❌ ... 'nyc-tow' ... is NOT in BESPOKE_SITE_TENANTS`, exit
+1) on the commented-out slug; reverted, reconfirmed clean (exit 0, 22 OK).
+
+While in the file: the guard script had ZERO unit-test coverage of its own
+parsing logic before this round — only its CI-wiring test existed, and that
+only pins that the script is CALLED from `ci.yml`, not that its internal
+parse is correct. It was flat top-level script code (no exported functions,
+`process.exit()` calls at module scope), so it couldn't be imported by a
+test without actually running the CLI and killing the test process.
+Extracted the pure parse into an exported `parseBespokeSetFromMiddleware()`
+and moved the rest (PROTECTED loop, disk checks, report, `process.exit`)
+into a `main()` gated behind the same `process.argv[1] ===
+realpathSync(...)` entrypoint check the sibling reconcile-gate script
+already uses — same export-pure-logic-for-testing convention that file's
+own header documents, now applied here too. Verified the refactor preserves
+CLI behavior (direct invocation still prints the same report and exit code)
+AND is now import-safe (importing the module in a Node REPL returns
+`{ parseBespokeSetFromMiddleware }` with no side effects, no process.exit).
+
+## (175) Continuing (174)'s surface — the identical un-stripped-comment
+blind spot exists at EVERY quoted-string extraction site in this lane's own
+reconcile-gate script, not just its build-time twin
+
+(174) fixed one script. Applying (172)'s own lesson — a single hit is not
+evidence it's the only one — swept this lane's reconcile-gate script (PR9)
+for the same regex shape. Found it 15 times: every `parseXSet`/`parseXMap`
+function that extracts a Set, array, or map out of `src/middleware.ts`,
+`src/app/robots.ts`, or `next.config.ts` source text uses the identical bare
+`['"]([^'"]+)['"]` (or a close variant — `slug: ['"]...['"]`,
+`disallow.push('...')`, a multi-group object-entry regex) with no
+comment-awareness — `parseBespokeSet`, `parseApexCanonicalSet`,
+`parseProtectedSlugs`, `parseRichSitemapSet`, `parseNonServingStatuses`,
+`parseMainHostsSet`, `parseRobotsMainHostsSet`, `parseKilledRoutes`,
+`parseRobotsKilledRoutes`, `parseRootSiteTenantsSet`, `parseStaticTenantMap`,
+`parseNextConfigSiteRewriteSources`, `parseAllNextConfigSiteRewriteSources`,
+`parseNextConfigRedirects`, `parseAppRootPrefixes`. Every one of these feeds
+a CRIT/WARN/INFO drift finding (Drift O/P/Q/R/S/T/U/W/X/AA/AB/AC/AD) that
+this gate's whole purpose is to surface accurately — a commented-out entry
+in ANY of these lists reads as still-live to the reconcile gate, exactly
+like (174)'s case, just spread across 15 different drift checks instead of
+one build guard.
+
+**Fixed** — added one shared `stripComments()` helper (same two-line
+strip-then-match as (174), kept local to this file rather than importing
+from its sibling script: this repo's scripts are deliberately
+zero-cross-dependency today — the build-time guard is a standalone
+prebuild-time gate with no imports beyond `node:*`, and wiring it to this
+token-gated DB-reconcile script would let a future change to the DB-
+reconcile side accidentally break the unrelated build guard) and applied it
+at all 15 call sites — the plain `matchAll` sites, the `slug:`-prefixed
+site, the `disallow.push(...)`-wrapped site, and the three `exec()`-loop
+sites (`parseStaticTenantMap`, `parseNextConfigSiteRewriteSources` x2,
+`parseNextConfigRedirects`), each of which needed the block text cleaned
+once before the loop rather than a per-match strip.
+
+New `src/lib/reconcile-gate-comment-strip.test.ts` (9 tests): covers the
+distinct regex SHAPES this fix touches rather than all 15 call sites
+1:1 (`parseBespokeSet` for the plain-matchAll case, both `//` and `/* */`
+forms, plus a live-slug-unaffected control so the strip is proven not to eat
+real entries; `parseProtectedSlugs` for the `slug:`-keyed case;
+`parseStaticTenantMap` and `parseNextConfigRedirects` for the two `exec()`-
+loop shapes; `parseRobotsKilledRoutes` for the wrapped-call case; and the
+build-time guard's own newly-exported `parseBespokeSetFromMiddleware`,
+including its error-path when the Set declaration itself is absent).
+Mutation-verified the fix itself, not just written the tests and trusted
+them: diffed both changed scripts into a patch file, reverse-applied it
+(this worktree cannot stash uncommitted work mid-session — shared `.git`
+dir across all 4 workers), reran the new test file — 8/9 failed for the
+right reason (the 9th, the "declaration absent" error-path test, is
+unaffected by the comment-stripping fix and correctly still passed);
+reapplied the patch, reran — 9/9 green. `tsc --noEmit` clean (one follow-up
+fix needed: the new error-path test destructured `bespokeSet` without
+narrowing past its `| null` return type — added an explicit `if
+(!bespokeSet) throw` guard rather than a non-null assertion, so a future
+regression in the error path fails loudly instead of being silently
+asserted past). Full repo suite: 456/456 files, 2167/2167 tests (9 new, zero
+regressions) — same pre-existing, unrelated `fixture/route.ts` tenant-scope
+baseline warning every prior report in this doc has flagged, not touched
+here. `eslint src scripts --quiet` clean on every file this round touched;
+the one standing repo-wide lint error (`route.auth.test.ts:94`,
+`require()`-style import, from `4fc1e998`, 2026-07-15) is still present and
+still out of this lane's scope — flagged again since it has now persisted
+across three consecutive session reports without anyone outside this lane
+picking it up.
+
+Not visually exercised in a browser this round (non-interactive worker
+session, no dev server driven) — both fixes are parser-internals-only
+changes to build-time/CI-time Node scripts, with no UI surface and no
+runtime behavior difference for any tenant (the guard scripts' PASS/FAIL
+verdicts on today's actual, uncommented `middleware.ts` are unchanged; only
+their behavior on a hypothetical commented-out entry changed).
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session,
+skipped cleanly per standing rule — no live-DB reconcile run. The local
+worker hook also blocks this lane from invoking the reconcile script's CLI
+directly regardless of token (leader-run-only). `.github/workflows/tenant-
+config-reconcile.yml` and `.github/workflows/ci.yml` re-reviewed this round
+for wiring drift — zero diff beyond what (174)/(175) needed (none: both
+fixes are internal to the two scripts, not their CI wiring, so neither
+workflow file changed).
