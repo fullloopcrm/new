@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
+import { nowNaiveET } from '@/lib/recurring'
 
 /**
  * GET /api/dashboard — credential exposure (P1/W1 broad-hunt). todayJobs /
@@ -43,7 +44,7 @@ beforeEach(() => {
       {
         id: 'book-A1',
         tenant_id: 'tenant-A',
-        start_time: new Date().toISOString(),
+        start_time: nowNaiveET(),
         status: 'confirmed',
         payment_status: 'pending',
         price: 4200,

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
+import { nowNaiveET } from '@/lib/recurring'
 
 /**
  * /api/dashboard — tenantDb() conversion wrong-tenant probe (P1/W1 backlog
@@ -33,8 +34,8 @@ beforeEach(() => {
   h.seq = 0
   h.store = {
     bookings: [
-      { id: 'book-A1', tenant_id: 'tenant-A', start_time: iso(0), status: 'completed', payment_status: 'paid', price: 100 },
-      { id: 'book-B1', tenant_id: 'tenant-B', start_time: iso(0), status: 'completed', payment_status: 'paid', price: 999999 },
+      { id: 'book-A1', tenant_id: 'tenant-A', start_time: nowNaiveET(), status: 'completed', payment_status: 'paid', price: 100 },
+      { id: 'book-B1', tenant_id: 'tenant-B', start_time: nowNaiveET(), status: 'completed', payment_status: 'paid', price: 999999 },
     ],
     clients: [
       { id: 'cli-A1', tenant_id: 'tenant-A', created_at: iso(0) },

@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest'
 import { makeTenantDbFake, type FakeStoreHandle } from '@/test/tenant-db-fake'
+import { nowNaiveET } from '@/lib/recurring'
 
 /**
  * GET /api/dashboard — broad-hunt: the operator aggregator is gated on
@@ -36,7 +37,7 @@ beforeEach(() => {
   h.selenaConfig = null
   h.store = {
     bookings: [
-      { id: 'book-A1', tenant_id: 'tenant-A', start_time: new Date().toISOString(), status: 'completed', payment_status: 'paid', price: 4200 },
+      { id: 'book-A1', tenant_id: 'tenant-A', start_time: nowNaiveET(), status: 'completed', payment_status: 'paid', price: 4200 },
     ],
     clients: [],
     team_members: [],
