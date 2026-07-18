@@ -12815,3 +12815,70 @@ regressions). Live `verify-protected-tenants.mjs` and the reconcile
 token-guard's leader-run-only enforcement are unaffected by this item (no
 change to either script) -- not re-verified redundantly here beyond the full
 suite above.
+
+## (246) Continuation of the (244)/(245) UX-friction track -- naming WHICH
+step failed still left the single highest-traffic case ambiguous: the
+drift-gate step's own alert admitted it couldn't tell gating CRIT drift from
+a script/guard crash
+
+Per LEADER queue item (1) ("continue the UX-friction track"): (244)/(245)
+fixed "the alert doesn't say WHICH step broke" across all three owned
+workflows. Re-reading tenant-config-reconcile.yml with that fix already in
+place surfaced a narrower, still-open gap in the same family: naming the
+step wasn't enough for the "Reconcile tenant config (read-only drift gate)"
+step specifically, because `reconcile-tenant-config.mjs`'s own `main()` exits
+1 for TWO structurally different reasons that are otherwise indistinguishable
+from the exit code alone -- (a) `main()` ran to completion and found gating
+CRIT drift (`process.exit(gatingCrit ? 1 : 0)`, a real routing-config
+problem) or (b) an uncaught exception fired before `main()` finished
+(`main().catch((e) => { console.error(e); process.exit(1) })`, a bug in the
+gate/guard itself, not real tenant drift). (244)'s own fix left this
+ambiguity in the alert TEXT in writing: "if the drift gate step itself, this
+is EITHER gating CRIT drift OR the script erroring — check the run log to
+tell which of those two" -- an explicit admission, same shape as (244)'s own
+opening finding about the pre-(244) alert, just one layer deeper.
+
+**Fixed** by reading a signal that was already being captured on disk but
+never used: the drift-gate step's own `tee reconcile-output.txt` (added
+earlier for the Job Summary) only contains `summarize()`'s "Tenant-config
+reconcile — N tenants | CRIT:..." header line (printed via `console.log`
+right before the script's own `process.exit(gatingCrit ? 1 : 0)`) when
+`main()` ran all the way to completion -- a thrown exception exits before
+ever reaching that line. `identify-failed-step` (this job's existing `if:
+failure()` step from (244)/(245)) now branches when the failing step is
+`reconcile-drift-gate`: `grep -q 'Tenant-config reconcile — '
+reconcile-output.txt` succeeding means real gating CRIT drift; failing means
+the script/guard itself errored before producing a report. The resulting
+`failed_step` output states the real cause directly, so the alert TEXT no
+longer needs (and no longer carries) the "check the run log to tell which of
+those two" hedge.
+
+One adjacent fix required to make the grep meaningful: `identify-failed-step`
+previously had no `working-directory:` (this workflow, unlike ci.yml, has no
+job-level `defaults:` block, so each step declares its own), meaning a bare
+`grep reconcile-output.txt` would have looked in the repo root -- where the
+file was never written, since the drift-gate step itself runs with
+`working-directory: platform` -- and silently fallen into the "script
+errored" branch even when CRIT drift was the real, correct cause. Added
+`working-directory: platform` to `identify-failed-step` so the grep actually
+finds the file the drift-gate step wrote.
+
+New test file: `reconcile-notify-failure-drift-vs-error-guard.test.ts`, 7
+tests, RED-confirmed live (not just reasoned about) by reverting the whole
+workflow diff via `git apply -R` on a saved patch and re-running the file
+alone -- 6 of 7 failed exactly as expected (the pre-existing-invariant test
+stayed green), then restored via `git apply` on the same patch and
+re-confirmed green. `git stash` is disabled in this worker worktree (shared
+`.git` dir across all 4 worktrees -- a local hook blocks it outright), so the
+revert-for-RED step used a saved diff + `git apply -R`/`git apply` instead,
+per that hook's own suggested workaround.
+
+`tsc --noEmit --pretty false` zero errors. eslint clean (0 errors/warnings)
+on the new test file. Full repo suite: 499/499 files, 2533/2533 tests (2526
+baseline after (245) + 7 new, zero regressions). Live
+`verify-protected-tenants.mjs` run directly: exit 0, 22/22 protected tenants
+OK. `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session -- no live reconcile
+run against Supabase, and this item didn't touch
+`reconcile-tenant-config.mjs` itself (only the workflow YAML that reads its
+output), so there was nothing in the script to re-verify against a live
+token regardless.
