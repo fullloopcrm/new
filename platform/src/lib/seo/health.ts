@@ -25,7 +25,7 @@ export async function checkFleetHealth(): Promise<SiteHealth[]> {
   // before migration 043, or whose domain_routing upsert failed — the exact bug
   // tenant-health/route.ts's Fortress cron hit first and now unions both
   // sources for. Do the same here so no tenant goes unchecked.
-  const byTenant = new Map<string, { domain: string; tenant_id: string | null }>()
+  const byTenant = new Map<string, { domain: string; tenant_id: string | null; primary: boolean }>()
 
   const { data: tenantRows, error: tError } = await supabaseAdmin
     .from('tenants')
@@ -35,10 +35,21 @@ export async function checkFleetHealth(): Promise<SiteHealth[]> {
   if (tError) throw new Error(`tenants query failed: ${tError.message}`)
   for (const t of tenantRows ?? []) {
     if (!t.domain) continue
-    byTenant.set(t.id, { domain: String(t.domain), tenant_id: t.id })
+    byTenant.set(t.id, { domain: String(t.domain), tenant_id: t.id, primary: true })
   }
 
-  const { data, error } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id').eq('active', true)
+  // Snapshot Source-1 winners BEFORE the Source-2 loop below and prefer
+  // is_primary among a tenant's own tenant_domains rows — the same dead-code
+  // primary-preference bug fixed in tenant-health/route.ts (2026-07-18):
+  // checking `byTenant.has(tenantId)` against a map that Source-2 was still
+  // populating meant a tenant's OWN 2nd+ domain row also tripped the
+  // "already won" branch, so a primary-preference check never got the chance
+  // to run and this ported copy of the union pattern silently picked
+  // whichever domain the unordered query happened to return first — primary
+  // or not — feeding the SEO uptime check (and any site_down issue it opens)
+  // off the wrong domain for a multi-domain, no-tenants.domain tenant.
+  const source1Ids = new Set(byTenant.keys())
+  const { data, error } = await supabaseAdmin.from('tenant_domains').select('domain,tenant_id,is_primary').eq('active', true)
   // Fail loud, not silent: a query error must not fall through to an empty
   // target list — runFleetHealth would then read that as "0 checked, 0 down"
   // and unconditionally wipe every real open site_down issue with no signal
@@ -47,8 +58,12 @@ export async function checkFleetHealth(): Promise<SiteHealth[]> {
   let unlinkedIdx = 0
   for (const r of data ?? []) {
     const tenantId = (r.tenant_id as string | null) ?? null
-    if (tenantId && byTenant.has(tenantId)) continue // tenants.domain already won
-    byTenant.set(tenantId ?? `unlinked:${unlinkedIdx++}`, { domain: String(r.domain), tenant_id: tenantId })
+    if (tenantId && source1Ids.has(tenantId)) continue // tenants.domain already won
+    const key = tenantId ?? `unlinked:${unlinkedIdx++}`
+    const cur = tenantId ? byTenant.get(key) : undefined
+    if (!cur || (r.is_primary && !cur.primary)) {
+      byTenant.set(key, { domain: String(r.domain), tenant_id: tenantId, primary: !!r.is_primary })
+    }
   }
 
   const seen = new Set<string>()
