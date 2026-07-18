@@ -39,6 +39,11 @@ export async function GET(request: Request) {
         : fallbackStage // normalize unknown stages
       byStage[key].push(d)
     }
+    // Pinned deals sort to the top of their column; Array#sort is stable so
+    // the existing stage_changed_at-desc order is preserved within each group.
+    for (const key of Object.keys(byStage)) {
+      byStage[key] = [...byStage[key]].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
+    }
 
     const stageTotalsMap = computeStageTotals(deals || [])
     const stageTotals = PIPELINE_STAGES.map(s => ({

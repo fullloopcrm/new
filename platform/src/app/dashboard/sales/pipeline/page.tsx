@@ -18,7 +18,12 @@ type Deal = {
   stage_changed_at: string | null
   last_activity_at: string | null
   created_at: string
+  pinned: boolean
   clients: { id: string; name: string; email: string | null; phone: string | null } | null
+}
+
+function sortByPinned(deals: Deal[]): Deal[] {
+  return [...deals].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
 }
 
 type StageTotal = { stage: string; label: string; count: number; totalCents: number; weightedCents: number }
@@ -73,7 +78,7 @@ export default function PipelinePage() {
       }
       const allDeals = Object.values(prev.byStage).flat()
       const deal = allDeals.find(d => d.id === dealId)
-      if (deal) next.byStage[stage] = [{ ...deal, stage }, ...(next.byStage[stage] || [])]
+      if (deal) next.byStage[stage] = sortByPinned([{ ...deal, stage }, ...(next.byStage[stage] || [])])
       return next
     })
 
@@ -88,6 +93,21 @@ export default function PipelinePage() {
     } else {
       load()
     }
+  }
+
+  async function togglePin(e: React.MouseEvent, dealId: string, stage: string, current: boolean) {
+    e.preventDefault()
+    e.stopPropagation()
+    setData(prev => {
+      if (!prev) return prev
+      const list = (prev.byStage[stage] || []).map(d => d.id === dealId ? { ...d, pinned: !current } : d)
+      return { ...prev, byStage: { ...prev.byStage, [stage]: sortByPinned(list) } }
+    })
+    const res = await fetch(`/api/deals/${dealId}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pinned: !current }),
+    })
+    if (!res.ok) load() // revert
   }
 
   function onDragStart(e: React.DragEvent, dealId: string, fromStage: string) {
@@ -192,11 +212,23 @@ export default function PipelinePage() {
                       draggable
                       onDragStart={e => onDragStart(e, deal.id, stage.value)}
                       onDragEnd={onDragEnd}
-                      className="block bg-white border border-slate-200 rounded-lg p-2.5 hover:shadow-md hover:border-teal-300 transition-all cursor-move"
+                      className={`block bg-white border rounded-lg p-2.5 hover:shadow-md hover:border-teal-300 transition-all cursor-move ${deal.pinned ? 'border-amber-300' : 'border-slate-200'}`}
                     >
-                      <p className="font-medium text-sm text-slate-900 truncate">
-                        {deal.title || deal.clients?.name || 'Untitled Deal'}
-                      </p>
+                      <div className="flex items-center justify-between gap-1">
+                        <p className="font-medium text-sm text-slate-900 truncate">
+                          {deal.title || deal.clients?.name || 'Untitled Deal'}
+                        </p>
+                        <button
+                          type="button"
+                          onClick={e => togglePin(e, deal.id, stage.value, deal.pinned)}
+                          title={deal.pinned ? 'Unpin deal' : 'Pin deal to top'}
+                          className={`shrink-0 p-0.5 rounded hover:bg-slate-100 ${deal.pinned ? 'text-amber-500' : 'text-slate-300'}`}
+                        >
+                          <svg width="14" height="14" viewBox="0 0 24 24" fill={deal.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2">
+                            <path d="M12 17v5M9 10.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v6.5l2 3.5H7l2-3.5Z" strokeLinecap="round" strokeLinejoin="round" />
+                          </svg>
+                        </button>
+                      </div>
                       {deal.clients && deal.title && (
                         <p className="text-xs text-slate-500 truncate">{deal.clients.name}</p>
                       )}
