@@ -130,14 +130,28 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.fulfillment_type = body.fulfillment_type
     }
 
+    // Atomic re-check: the accepted/converted guard above (`existing.status`)
+    // was read via a plain SELECT snapshot before this write. A concurrent
+    // customer accept() (or a convert-to-job) landing in that gap would
+    // otherwise still let this staff edit through unconditionally, silently
+    // rewriting line items/totals/deposit on a quote the customer just
+    // accepted -- possibly after they've already paid a deposit against the
+    // pre-edit total. `.eq('status', existing.status)` makes the write
+    // conditional on the status actually still being what was just read,
+    // same compare-and-swap pattern already applied to the public quote
+    // view route's status transitions.
     const { data, error } = await supabaseAdmin
       .from('quotes')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', existing.status)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({ error: 'Quote status changed concurrently — reload and try again' }, { status: 409 })
+    }
 
     // Autosave passes silent:true so a draft being typed doesn't spam the
     // activity log with an 'edited' row on every keystroke-debounce.
@@ -173,8 +187,25 @@ export async function DELETE(_request: Request, { params }: Params) {
     if (existing.status === 'accepted' || existing.status === 'converted') {
       return NextResponse.json({ error: 'Cannot delete accepted or converted quotes' }, { status: 400 })
     }
-    const { error } = await supabaseAdmin.from('quotes').delete().eq('tenant_id', tenantId).eq('id', id)
+    // Atomic re-check: the accepted/converted guard above read a plain
+    // SELECT snapshot. A concurrent customer accept() landing in the gap
+    // between that read and this delete would otherwise still let the
+    // delete through, destroying a quote the customer just accepted (and
+    // any deposit-checkout flow already in progress against it).
+    // `.eq('status', existing.status)` guards the delete on the status
+    // actually still holding at delete time.
+    const { data: deleted, error } = await supabaseAdmin
+      .from('quotes')
+      .delete()
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .eq('status', existing.status)
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!deleted) {
+      return NextResponse.json({ error: 'Quote status changed concurrently — reload and try again' }, { status: 409 })
+    }
     return NextResponse.json({ ok: true })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

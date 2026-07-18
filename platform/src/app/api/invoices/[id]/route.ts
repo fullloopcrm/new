@@ -107,14 +107,28 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.total_cents = totals.total_cents
     }
 
+    // Atomic re-check: the editable-status guard above (`existing.status`)
+    // was read via a plain SELECT snapshot before this write. A concurrent
+    // terminal-status change landing in that gap -- a Stripe webhook marking
+    // this invoice 'paid', or a void racing in from another tab -- would
+    // otherwise still let this edit through unconditionally, silently
+    // rewriting line items/totals on an invoice that's already been paid or
+    // voided. `.eq('status', existing.status)` makes the write conditional
+    // on the status actually still being what was just read, same
+    // compare-and-swap pattern already applied to the public invoice view
+    // route's status transitions.
     const { data, error } = await supabaseAdmin
       .from('invoices')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', existing.status)
       .select('*')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({ error: 'Invoice status changed concurrently — reload and try again' }, { status: 409 })
+    }
 
     await logInvoiceEvent({
       invoice_id: id,
@@ -162,12 +176,25 @@ export async function DELETE(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Cannot void invoice with payments — refund first' }, { status: 400 })
     }
 
-    const { error } = await supabaseAdmin
+    // Atomic re-check: the void/refunded and amount_paid guards above read a
+    // plain SELECT snapshot. A concurrent payment (webhook, admin
+    // mark-paid) landing in the gap between that read and this write would
+    // otherwise still let the void through, silently voiding an invoice
+    // that just got paid with no matching refund reconciliation.
+    // `.eq('status', existing.status)` guards the write on the status
+    // actually still holding at write time, same pattern as the PATCH above.
+    const { data: voided, error } = await supabaseAdmin
       .from('invoices')
       .update({ status: 'void', voided_at: new Date().toISOString(), void_reason: reason || null })
       .eq('tenant_id', tenantId)
       .eq('id', id)
+      .eq('status', existing.status)
+      .select('id')
+      .maybeSingle()
     if (error) throw error
+    if (!voided) {
+      return NextResponse.json({ error: 'Invoice status changed concurrently — reload and try again' }, { status: 409 })
+    }
 
     await logInvoiceEvent({
       invoice_id: id,
