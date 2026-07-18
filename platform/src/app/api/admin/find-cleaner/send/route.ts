@@ -4,6 +4,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { guessZoneFromAddress, SERVICE_ZONES } from '@/lib/service-zones'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 import { TEST_MODE, TEST_CLEANER_NAME_SUBSTRING, BROADCAST_CAP, BUFFER_HOURS } from '../preview/route'
 
 function zoneLabel(zoneId: string | null, lang: 'en' | 'es'): string {
@@ -100,14 +101,15 @@ export async function POST(request: Request) {
   // Tenant brand + telnyx config (per-tenant SMS — never a shared/global number)
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, telnyx_api_key, telnyx_phone')
+    .select('name, telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', tenantId)
     .single()
-  if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
+  const smsCreds = resolveTenantSmsCredentials(tenant)
+  if (!smsCreds.apiKey || !smsCreds.phone) {
     return NextResponse.json({ error: 'Tenant has no Telnyx SMS number configured' }, { status: 400 })
   }
-  const brand = tenant.name || 'Our team'
-  const replyNumber = tenant.telnyx_phone
+  const brand = tenant?.name || 'Our team'
+  const replyNumber = smsCreds.phone
 
   const { data: cleaners, error: cErr } = await supabaseAdmin
     .from('team_members')
@@ -189,7 +191,7 @@ export async function POST(request: Request) {
       })
       const smsResult = await sendSMS({
         to: c.phone!, body: message,
-        telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: smsCreds.apiKey!, telnyxPhone: smsCreds.phone!,
       })
       const ok = !!smsResult?.success
       await supabaseAdmin.from('cleaner_broadcast_recipients').insert({

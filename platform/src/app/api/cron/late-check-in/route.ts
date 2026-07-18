@@ -13,6 +13,7 @@ import {
   smsLateCheckOutAdmin,
 } from '@/lib/sms-templates'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300
 
@@ -34,12 +35,13 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone, phone')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const smsCreds = resolveTenantSmsCredentials(tenant)
     // Late alerts: team text gated by team_late_alert, owner text by
     // owner_late_alert. Push + in-app rows stay regardless.
     const latePrefs = await getCommPrefs(tenantId)
@@ -91,23 +93,23 @@ export async function GET(request: Request) {
         // SMS to team member — skip a terminated assignee, plus sms_consent
         // (team_members.sms_consent is a real, crew-editable column; this
         // send fired unconditionally regardless of it before this fix).
-        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && smsCreds.apiKey && smsCreds.phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckInTeam(tenant.name, booking as any),
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           }).catch(() => {})
         }
 
         // SMS to admin
         const adminPhone = tenant.owner_phone || tenant.phone
-        if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (ownerLateOn && adminPhone && smsCreds.apiKey && smsCreds.phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
             body: smsLateCheckInAdmin(tenant.name, booking as any),
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           }).catch(() => {})
         }
 
@@ -173,23 +175,23 @@ export async function GET(request: Request) {
         // SMS to team member — skip a terminated assignee, plus sms_consent
         // (team_members.sms_consent is a real, crew-editable column; this
         // send fired unconditionally regardless of it before this fix).
-        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (teamLateOn && !isTerminatedAssignee && memberPhone && memberSmsConsent !== false && smsCreds.apiKey && smsCreds.phone) {
           sendSMS({
             to: memberPhone,
             body: smsLateCheckOutTeam(tenant.name, booking as any),
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           }).catch(() => {})
         }
 
         // SMS to admin
         const adminPhone = tenant.owner_phone || tenant.phone
-        if (ownerLateOn && adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (ownerLateOn && adminPhone && smsCreds.apiKey && smsCreds.phone) {
           sendSMS({
             to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
             body: smsLateCheckOutAdmin(tenant.name, booking as any),
-            telnyxApiKey: tenant.telnyx_api_key,
-            telnyxPhone: tenant.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           }).catch(() => {})
         }
 

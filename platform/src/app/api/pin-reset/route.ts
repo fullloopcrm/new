@@ -5,6 +5,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { hashAdminPin, isValidAdminPin } from '@/lib/admin-pin'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 /**
  * Self-service tenant-member PIN reset. Runs on a tenant's own domain: the
@@ -82,12 +83,13 @@ export async function POST(request: Request) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+      .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
       .eq('id', tenantId)
       .single()
     if (!tenant) {
       return NextResponse.json({ error: 'Business not found.' }, { status: 404 })
     }
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     const member = await findMember(tenantId, contact)
     if (!member) {
@@ -130,14 +132,14 @@ export async function POST(request: Request) {
 
     // Deliver via the tenant's own SMS (preferred) or email (fallback).
     let delivered = false
-    if (member.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (member.phone && smsCreds.apiKey && smsCreds.phone) {
       try {
         const { sendSMS } = await import('@/lib/sms')
         await sendSMS({
           to: member.phone,
           body: `Your ${tenant.name} PIN reset code is: ${code}`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
         delivered = true
       } catch (e) {
@@ -166,7 +168,7 @@ export async function POST(request: Request) {
       )
     }
 
-    return NextResponse.json({ sent: true, via: member.phone && tenant.telnyx_api_key ? 'sms' : 'email' })
+    return NextResponse.json({ sent: true, via: member.phone && smsCreds.apiKey ? 'sms' : 'email' })
   }
 
   // ---- Step 2: verify the code and set the new PIN ----

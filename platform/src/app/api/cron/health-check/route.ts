@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { hasTenantSms } from '@/lib/sms-credentials'
 
 export const maxDuration = 120
 
@@ -104,7 +105,7 @@ export async function GET(request: Request) {
   try {
     const { data: tenants } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, stripe_api_key')
+      .select('id, name, resend_api_key, telnyx_api_key, telnyx_phone, sms_number, stripe_api_key')
       .eq('status', 'active')
 
     const missingIntegrations: string[] = []
@@ -112,7 +113,7 @@ export async function GET(request: Request) {
     for (const t of tenants || []) {
       const missing: string[] = []
       if (!t.resend_api_key) missing.push('email')
-      if (!t.telnyx_api_key || !t.telnyx_phone) missing.push('sms')
+      if (!hasTenantSms(t)) missing.push('sms')
       if (!t.stripe_api_key) missing.push('payments')
 
       // Only flag if they have clients (active business, not just onboarding)

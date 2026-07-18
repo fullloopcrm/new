@@ -15,6 +15,7 @@ import type {
   BookingPending,
 } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -36,12 +37,13 @@ export async function GET(request: Request) {
   // Get all active tenants
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const smsCreds = resolveTenantSmsCredentials(tenant)
     const clientSms = await clientSmsTemplatesFor(tenantId)
     // Per-tenant communications prefs (loaded once — not per booking).
     // reminder_days drives which day-out reminders fire; the booking_reminder
@@ -123,11 +125,11 @@ export async function GET(request: Request) {
 
             // Client SMS reminder — gated by the booking_reminder SMS toggle
             // plus sms_consent (STOP compliance) / do_not_service.
-            if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
+            if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && smsCreds.apiKey && smsCreds.phone) {
               const smsData = { start_time: booking.start_time, team_members: booking.team_members }
               const smsBody = clientSms.reminder(smsData, label)
               try {
-                await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+                await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
                 sent++
               } catch (smsErr) {
                 failed++
@@ -254,10 +256,10 @@ export async function GET(request: Request) {
 
         // Client SMS — 2hr reminder — gated by the booking_reminder SMS toggle
         // plus sms_consent (STOP compliance) / do_not_service.
-        if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (reminderSmsOn && client?.phone && client?.sms_consent !== false && !client?.do_not_service && smsCreds.apiKey && smsCreds.phone) {
           const smsBody = `${tenant.name}: Reminder — ${memberFirst} arrives at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}. Almost time!\nReply STOP to opt out.`
           try {
-            await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+            await sendSMS({ to: client.phone, body: smsBody, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
             sent++
           } catch (smsErr) {
             failed++
@@ -269,10 +271,10 @@ export async function GET(request: Request) {
         // sms_consent (team_members.sms_consent is a real, crew-editable
         // column since the team-portal/preferences fix; this send fired
         // unconditionally regardless of it before this fix).
-        if (booking.team_member_id && !hourTerminatedIds.has(booking.team_member_id) && member?.phone && member?.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+        if (booking.team_member_id && !hourTerminatedIds.has(booking.team_member_id) && member?.phone && member?.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
           const smsBody = `${tenant.name}: Job in ${hoursBefore} hour${hoursBefore === 1 ? '' : 's'} — ${client?.name || 'Client'} at ${new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })}`
           try {
-            await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+            await sendSMS({ to: member.phone, body: smsBody, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
             sent++
           } catch (smsErr) {
             failed++

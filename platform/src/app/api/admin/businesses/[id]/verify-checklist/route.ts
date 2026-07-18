@@ -19,7 +19,7 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('id, domain, resend_api_key, resend_domain, telnyx_api_key, telnyx_phone, stripe_api_key, stripe_account_id, setup_progress')
+    .select('id, domain, resend_api_key, resend_domain, telnyx_api_key, telnyx_phone, sms_number, stripe_api_key, stripe_account_id, setup_progress')
     .eq('id', id)
     .single()
 

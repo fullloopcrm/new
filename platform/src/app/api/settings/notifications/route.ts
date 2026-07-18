@@ -22,7 +22,7 @@ export async function GET() {
   // 500 — an outage read as "this tenant just hasn't configured comms."
   const { data, error } = await supabaseAdmin
     .from('tenants')
-    .select('notification_preferences, resend_api_key, telnyx_api_key, telnyx_phone')
+    .select('notification_preferences, resend_api_key, telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', tenant.tenantId)
     .maybeSingle()
 

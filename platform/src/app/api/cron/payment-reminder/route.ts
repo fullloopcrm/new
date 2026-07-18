@@ -10,6 +10,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 60
 
@@ -30,12 +31,13 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, owner_phone, phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone, phone')
     .eq('status', 'active')
     .limit(1000)
 
   for (const tenant of tenants || []) {
     const tenantId = tenant.id
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     // NYC Maid runs the faithful 2-stage flow (+15 nudge / +60 escalate) with
     // the correct "still owes" filter (excludes partial + payment_method set).
@@ -80,24 +82,24 @@ export async function GET(request: Request) {
           // sms_consent (STOP compliance) / do_not_service, same invariant every
           // other client SMS fan-out enforces — this cron sent the +15min nudge
           // unconditionally on phone presence, with no consent check at all.
-          if (clientNudgeOn && client.sms_consent !== false && !client.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          if (clientNudgeOn && client.sms_consent !== false && !client.do_not_service && smsCreds.apiKey && smsCreds.phone) {
             await sendSMS({
               to: client.phone,
               body: `Hi ${client.name?.split(' ')[0] || 'there'} — just following up on your payment for today's service. Let us know if you need the link resent. 😊`,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey,
+              telnyxPhone: smsCreds.phone,
             }).catch(() => {})
             reminded++
           }
         } else {
           // Escalate to admin past 30 min
           const adminPhone = tenant.owner_phone || tenant.phone
-          if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          if (adminPhone && smsCreds.apiKey && smsCreds.phone) {
             await sendSMS({
               to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`,
               body: `[${tenant.name}] PAYMENT OVERDUE — ${client.name || 'client'} (${client.phone}) — booking ${b.id.slice(0, 8)}, ${minsSinceAlert} min past alert.`,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey,
+              telnyxPhone: smsCreds.phone,
             }).catch(() => {})
 
             await supabaseAdmin.from('admin_tasks').insert({

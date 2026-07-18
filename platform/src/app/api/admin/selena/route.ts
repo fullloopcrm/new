@@ -13,6 +13,7 @@ import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 const CHECKLIST_FIELDS = ['name', 'phone', 'service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'address', 'email']
 
@@ -202,17 +203,18 @@ export async function POST(req: NextRequest) {
       // Fetch tenant Telnyx creds for recovery SMS.
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
-        .select('telnyx_api_key, telnyx_phone')
+        .select('telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
+      const smsCreds = resolveTenantSmsCredentials(tenant)
 
       const recoveryText = "Hey! Sorry about that — we had a hiccup on our end. Let's start fresh. What can I help you with? 😊"
-      if (tenant?.telnyx_api_key && tenant.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         await sendSMS({
           to: `+1${cleanPhone}`,
           body: recoveryText,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(err => console.error('[selena reset] SMS failed:', err))
       }
 

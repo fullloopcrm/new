@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // POST — pause until date. Cancels any bookings within the pause window and
 // notifies the client via SMS if tenant has Telnyx configured.
@@ -58,18 +59,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // other client SMS fan-out enforces (payment-processor.ts, client/book,
     // client/reschedule) — this route sent unconditionally on phone presence.
     if (cancelledCount > 0 && client?.phone && client.sms_consent !== false && !client.do_not_service) {
-      const { data: tenant } = await supabaseAdmin
+      const { data: tenantRow } = await supabaseAdmin
         .from('tenants')
-        .select('name, telnyx_api_key, telnyx_phone')
+        .select('name, telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
+      const smsCreds = resolveTenantSmsCredentials(tenantRow)
 
-      if (tenant?.telnyx_api_key && tenant.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         sendSMS({
           to: client.phone,
-          body: `Your recurring service is paused until ${paused_until}. We've cancelled ${cancelledCount} upcoming visits. — ${tenant.name || ''}`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          body: `Your recurring service is paused until ${paused_until}. We've cancelled ${cancelledCount} upcoming visits. — ${tenantRow?.name || ''}`,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(err => console.error('[pause] client SMS failed:', err))
       }
     }

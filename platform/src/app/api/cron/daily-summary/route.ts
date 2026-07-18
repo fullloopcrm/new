@@ -6,6 +6,7 @@ import { sendSMS } from '@/lib/sms'
 import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -32,7 +33,7 @@ export async function GET(request: Request) {
 
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, resend_api_key')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
     .eq('status', 'active')
     .limit(1000)
 
@@ -44,6 +45,7 @@ export async function GET(request: Request) {
   for (const tenant of tenants || []) {
     stats.tenants_processed++
     const tenantId = tenant.id
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     try {
     // ============================================
@@ -138,13 +140,13 @@ export async function GET(request: Request) {
       // SMS summary — sms_consent (team_members.sms_consent is a real,
       // crew-editable column); this send fired unconditionally regardless
       // of it before this fix.
-      if (member.phone && member.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (member.phone && member.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
         const smsBody = smsDailySummary(tenant.name, member.name, upcomingJobs.length)
         await sendSMS({
           to: member.phone,
           body: smsBody,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         }).catch(() => {})
       }
 

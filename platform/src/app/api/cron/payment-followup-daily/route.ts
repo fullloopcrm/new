@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -69,7 +70,7 @@ export async function GET(request: Request) {
   // Only tenants that can send (Telnyx) AND have a pay link to send.
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, payment_link, owner_phone, phone')
+    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, payment_link, owner_phone, phone')
     .eq('status', 'active')
     .not('telnyx_api_key', 'is', null)
     .not('payment_link', 'is', null)
@@ -81,7 +82,8 @@ export async function GET(request: Request) {
   const perTenant: { tenant: string; sent: number; wouldText: number; capHit: boolean }[] = []
 
   for (const tenant of tenants || []) {
-    if (!tenant.telnyx_phone || !tenant.payment_link) continue
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (!smsCreds.phone || !tenant.payment_link) continue
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
@@ -128,7 +130,7 @@ export async function GET(request: Request) {
       ].join('\n')
 
       try {
-        await sendSMS({ to: client.phone, body: text, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+        await sendSMS({ to: client.phone, body: text, telnyxApiKey: smsCreds.apiKey!, telnyxPhone: smsCreds.phone })
         await supabaseAdmin.from('sms_logs').insert({
           tenant_id: tenant.id,
           booking_id: booking.id,

@@ -12,6 +12,7 @@ import Stripe from 'stripe'
 import { promises as dnsPromises } from 'dns'
 import { safeFetch } from './ssrf'
 import { getPrimaryTenantDomain } from './domains'
+import { resolveTenantSmsCredentials } from './sms-credentials'
 
 export interface CheckResult {
   ok: boolean
@@ -192,6 +193,7 @@ export interface TenantForVerify {
   resend_domain?: string | null
   telnyx_api_key?: string | null
   telnyx_phone?: string | null
+  sms_number?: string | null
   stripe_api_key?: string | null
   stripe_account_id?: string | null
 }
@@ -206,13 +208,14 @@ export async function runAllChecks(tenant: TenantForVerify, appUrl: string) {
   // though the tenant's real custom domain was live and correctly
   // registered.
   const d = (await getPrimaryTenantDomain(tenant.id)) || tenant.domain || ''
+  const smsCreds = resolveTenantSmsCredentials(tenant)
   const results = await Promise.allSettled([
     verifyDnsA(d),
     verifyDnsCname(d),
     verifyDnsMx(d),
     verifySsl(d),
     verifyResendDomain(tenant.resend_api_key || '', tenant.resend_domain || ''),
-    verifyTelnyxNumber(tenant.telnyx_api_key || '', tenant.telnyx_phone || ''),
+    verifyTelnyxNumber(smsCreds.apiKey || '', smsCreds.phone || ''),
     verifyStripeAccount(tenant.stripe_api_key || '', tenant.stripe_account_id),
     verifyStripeWebhook(tenant.stripe_api_key || '', `${appUrl}/api/webhooks/stripe`),
   ])

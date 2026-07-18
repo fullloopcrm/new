@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { sendSMS } from '@/lib/sms'
 import { TEST_MODE, TEST_APPLICANT_NAME_SUBSTRING, BROADCAST_CAP } from '../constants'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // Broadcast a one-off SMS to new/un-hired applicants. Ported from nycmaid,
 // tenant-scoped for FullLoop (cleaner_applications + per-tenant Telnyx creds).
@@ -49,7 +50,8 @@ export async function POST(request: Request) {
   if (applicant_ids.length > BROADCAST_CAP) {
     return NextResponse.json({ error: `Cap is ${BROADCAST_CAP} recipients per send` }, { status: 400 })
   }
-  if (!tenant.telnyx_api_key || !tenant.telnyx_phone) {
+  const smsCreds = resolveTenantSmsCredentials(tenant)
+  if (!smsCreds.apiKey || !smsCreds.phone) {
     return NextResponse.json({ error: 'SMS not configured for this tenant' }, { status: 400 })
   }
 
@@ -81,8 +83,8 @@ export async function POST(request: Request) {
     }, { status: 400 })
   }
 
-  const apiKey = tenant.telnyx_api_key
-  const phone = tenant.telnyx_phone
+  const apiKey = smsCreds.apiKey
+  const phone = smsCreds.phone
   const results = await Promise.all(
     recipients.map(async (a) => {
       try {

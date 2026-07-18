@@ -6,16 +6,18 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────
 
 async function getTenantTelnyx(tenantId: string): Promise<{ key?: string; phone?: string }> {
   const { data } = await supabaseAdmin
     .from('tenants')
-    .select('telnyx_api_key, telnyx_phone')
+    .select('telnyx_api_key, telnyx_phone, sms_number')
     .eq('id', tenantId)
     .single()
-  return { key: data?.telnyx_api_key || undefined, phone: data?.telnyx_phone || undefined }
+  const creds = resolveTenantSmsCredentials(data)
+  return { key: creds.apiKey || undefined, phone: creds.phone || undefined }
 }
 
 async function sendTenantEmail(tenantId: string, opts: { to: string; subject: string; html: string }) {

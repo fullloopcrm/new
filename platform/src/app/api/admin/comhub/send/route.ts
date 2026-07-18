@@ -5,6 +5,7 @@ import { getCurrentTenantId } from '@/lib/tenant'
 import { sendSMS } from '@/lib/sms'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 // Resolve @firstname / @first.last mentions to tenant_members rows.
 async function resolveMentions(tenantId: string, body: string): Promise<string[]> {
@@ -50,9 +51,10 @@ export async function POST(req: NextRequest) {
   // Comms go out on THIS tenant's own channels (profile creds), never a global.
   const { data: tenant } = await supabaseAdmin
     .from('tenants')
-    .select('name, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, resend_api_key, email_from')
+    .select('name, phone, email, address, logo_url, primary_color, telnyx_api_key, telnyx_phone, sms_number, resend_api_key, email_from')
     .eq('id', tenantId)
     .maybeSingle()
+  const smsCreds = resolveTenantSmsCredentials(tenant)
 
   const body = await req.json().catch(() => null) as {
     thread_id?: string
@@ -232,12 +234,12 @@ export async function POST(req: NextRequest) {
 
   if (body.channel === 'sms') {
     if (!phone) return NextResponse.json({ error: 'no phone on contact' }, { status: 400 })
-    if (!tenant?.telnyx_api_key || !tenant?.telnyx_phone) {
+    if (!smsCreds.apiKey || !smsCreds.phone) {
       return NextResponse.json({ error: 'SMS is not configured for this business.' }, { status: 400 })
     }
     let smsExternalId: string | null = null
     try {
-      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone })
+      const result = await sendSMS({ to: phone, body: body.body, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone })
       smsExternalId = (result as { data?: { id?: string } } | null)?.data?.id ?? null
     } catch (e) {
       return NextResponse.json({ error: e instanceof Error ? e.message : 'sms send failed' }, { status: 502 })

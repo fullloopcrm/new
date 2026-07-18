@@ -13,6 +13,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function POST(req: Request) {
   try {
@@ -118,16 +119,17 @@ export async function POST(req: Request) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, telnyx_api_key, telnyx_phone')
+      .select('name, telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     // sms_consent — same invariant lib/payment-processor.ts's own team-member
     // finish-up SMS enforces for this exact "payment received" message shape
     // (team_members.sms_consent is a real, crew-editable column since the
     // team-portal/preferences fix); this send fired unconditionally
     // regardless of it before this fix.
-    if (tm?.phone && tm.sms_consent !== false && tenant?.telnyx_api_key && tenant.telnyx_phone) {
+    if (tm?.phone && tm.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
       const isEs = tm.preferred_language === 'es'
       const clientLabel = client?.name || (isEs ? 'cliente' : 'client')
       const tipLine = tipCents > 0
@@ -139,8 +141,8 @@ export async function POST(req: Request) {
       sendSMS({
         to: tm.phone,
         body,
-        telnyxApiKey: tenant.telnyx_api_key,
-        telnyxPhone: tenant.telnyx_phone,
+        telnyxApiKey: smsCreds.apiKey,
+        telnyxPhone: smsCreds.phone,
       }).catch(err => console.error('[confirm-match] team SMS failed:', err))
     }
 

@@ -5,6 +5,7 @@ import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { sendPushToTenantAdmins, sendPushToClient } from '@/lib/push'
 import { smsRunningLateClient, smsRunningLateAdmin } from '@/lib/sms-templates'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function POST(request: Request) {
   try {
@@ -30,11 +31,12 @@ export async function POST(request: Request) {
     const tenantId = booking.tenant_id
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, owner_phone, phone, telnyx_api_key, telnyx_phone')
+      .select('name, owner_phone, phone, telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
 
     if (!tenant) return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
+    const smsCreds = resolveTenantSmsCredentials(tenant)
 
     const memberName = (booking.team_members as any)?.name || 'Team member'
     const clientName = (booking.clients as any)?.name || 'Client'
@@ -51,8 +53,8 @@ export async function POST(request: Request) {
 
     // SMS to admin
     const adminPhone = tenant.owner_phone || tenant.phone
-    if (adminPhone && tenant.telnyx_api_key && tenant.telnyx_phone) {
-      sendSMS({ to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`, body: smsRunningLateAdmin(tenant.name, memberName, clientName, time, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+    if (adminPhone && smsCreds.apiKey && smsCreds.phone) {
+      sendSMS({ to: adminPhone.startsWith('+') ? adminPhone : `+1${adminPhone}`, body: smsRunningLateAdmin(tenant.name, memberName, clientName, time, eta), telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone }).catch(() => {})
     }
 
     sendPushToTenantAdmins(tenantId, 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
@@ -60,8 +62,8 @@ export async function POST(request: Request) {
     // SMS to client — sms_consent (STOP compliance) / do_not_service, same
     // invariant every other client SMS fan-out enforces (payment-processor.ts,
     // client/book, client/reschedule, schedules/[id]/pause).
-    if (clientPhone && clientSmsConsent !== false && !clientDoNotService && tenant.telnyx_api_key && tenant.telnyx_phone) {
-      sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+    if (clientPhone && clientSmsConsent !== false && !clientDoNotService && smsCreds.apiKey && smsCreds.phone) {
+      sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone }).catch(() => {})
     }
     if (booking.client_id) {
       sendPushToClient(booking.client_id, 'Running Late', `${memberName.split(' ')[0]} is running a few minutes behind`, '/portal').catch(() => {})

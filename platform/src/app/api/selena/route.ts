@@ -5,6 +5,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 const CHECKLIST_FIELDS = ['service_type', 'bedrooms', 'bathrooms', 'rate', 'day', 'time', 'name', 'phone', 'address', 'email']
 
@@ -167,17 +168,18 @@ export async function POST(req: NextRequest) {
       // Get tenant SMS credentials
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
-        .select('telnyx_api_key, telnyx_phone')
+        .select('telnyx_api_key, telnyx_phone, sms_number')
         .eq('id', tenantId)
         .single()
+      const smsCreds = resolveTenantSmsCredentials(tenant)
 
-      if (tenant?.telnyx_api_key && tenant?.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         const recoveryMsg = "Hey! Sorry about that — we had a hiccup on our end. Let's start fresh. What can I help you with?"
         await sendSMS({
           to: `+1${cleanPhone}`,
           body: recoveryMsg,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
 
         // Log the outbound

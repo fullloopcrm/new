@@ -7,6 +7,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function POST(request: NextRequest) {
   const { tenant, error: authError } = await requirePermission('campaigns.send')
@@ -29,9 +30,10 @@ export async function POST(request: NextRequest) {
 
     const { data: tenantRow } = await supabaseAdmin
       .from('tenants')
-      .select('name, telnyx_api_key, telnyx_phone')
+      .select('name, telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
+    const smsCreds = resolveTenantSmsCredentials(tenantRow)
 
     const { data: clients } = await supabaseAdmin
       .from('clients')
@@ -72,13 +74,13 @@ export async function POST(request: NextRequest) {
         .eq('id', c.id)
         .eq('tenant_id', tenantId)
 
-      if (tenantRow?.telnyx_api_key && tenantRow?.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         try {
           await sendSMS({
             to: c.phone,
             body: text,
-            telnyxApiKey: tenantRow.telnyx_api_key,
-            telnyxPhone: tenantRow.telnyx_phone,
+            telnyxApiKey: smsCreds.apiKey,
+            telnyxPhone: smsCreds.phone,
           })
           sent++
         } catch {

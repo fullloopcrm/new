@@ -16,6 +16,8 @@ import { verifyTelnyx } from '@/lib/webhook-verify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
 
 export const maxDuration = 60
 
@@ -114,14 +116,22 @@ export async function POST(request: Request) {
       return NextResponse.json({ received: true })
     }
 
-    // Find tenant by their Telnyx phone number. Use limit(2), NOT .single():
-    // .single() ERRORS when two tenants share a number (mis-seeded row) and the
-    // message gets silently dropped — that took SMS down during a cutover test.
-    // Pick the first deterministically and log loudly if it's ambiguous.
+    // Find tenant by their Telnyx phone number. Matches telnyx_phone OR the
+    // legacy sms_number column (same telnyx_phone||sms_number precedence as
+    // resolveTenantSmsCredentials()) -- a tenant whose number only ever landed
+    // in sms_number would otherwise never match here, and every inbound text
+    // (STOP/START, booking replies, Selena conversation) silently drops with
+    // no error, since Telnyx routes by the number it actually owns, not by
+    // which column our DB happens to store it in.
+    // Use limit(2), NOT .single(): .single() ERRORS when two tenants share a
+    // number (mis-seeded row) and the message gets silently dropped — that
+    // took SMS down during a cutover test. Pick the first deterministically
+    // and log loudly if it's ambiguous.
+    const safeTo = sanitizePostgrestValue(to)
     const { data: tenantMatches } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, owner_phone')
-      .eq('telnyx_phone', to)
+      .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone')
+      .or(`telnyx_phone.eq.${safeTo},sms_number.eq.${safeTo}`)
       .order('id', { ascending: true })
       .limit(2)
 
@@ -135,6 +145,7 @@ export async function POST(request: Request) {
     }
 
     const tenantId = tenant.id
+    const smsCreds = resolveTenantSmsCredentials(tenant)
     const normalizedText = text.trim().toUpperCase()
 
     // Owner inbound — if this SMS is from the tenant's OWNER (not a client), it's
@@ -205,12 +216,12 @@ export async function POST(request: Request) {
       }
 
       // Send confirmation per TCPA
-      if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         await sendSMS({
           to: from,
           body: `${tenant.name}: You have been unsubscribed and will no longer receive SMS messages. Reply START to re-subscribe.`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
       }
 
@@ -245,12 +256,12 @@ export async function POST(request: Request) {
         })
       }
 
-      if (tenant.telnyx_api_key && tenant.telnyx_phone) {
+      if (smsCreds.apiKey && smsCreds.phone) {
         await sendSMS({
           to: from,
           body: `${tenant.name}: You have been re-subscribed to SMS notifications. Reply STOP to opt out.`,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
       }
 
@@ -457,12 +468,12 @@ export async function POST(request: Request) {
             })
           }
 
-          if (replyMsg && tenant.telnyx_api_key && tenant.telnyx_phone) {
+          if (replyMsg && smsCreds.apiKey && smsCreds.phone) {
             await sendSMS({
               to: from,
               body: replyMsg,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey,
+              telnyxPhone: smsCreds.phone,
             })
 
             // Log outbound to client transcript
@@ -560,7 +571,7 @@ export async function POST(request: Request) {
     // AI CHATBOT — Route to Selena if enabled
     // ============================================
     // Skip chatbot for team members (they're staff, not customers)
-    if (!member && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (!member && smsCreds.apiKey && smsCreds.phone) {
       try {
         const settings = await getSettings(tenantId)
         if (settings.chatbot_enabled) {
@@ -578,7 +589,7 @@ export async function POST(request: Request) {
 
             // Send fresh greeting
             const greeting = settings.chatbot_greeting || 'Hi! Thank you for reaching out. How are you?'
-            await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+            await sendSMS({ to: from, body: greeting, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone }).catch(() => {})
 
             // Create new conversation
             await supabaseAdmin.from('sms_conversations').insert({
@@ -636,7 +647,7 @@ export async function POST(request: Request) {
                 ? `Hola ${firstName}! Happy to hear from you again. How are you?`
                 : (settings.chatbot_greeting || 'Hi! Thank you for reaching out. How are you?')
 
-              await sendSMS({ to: from, body: greeting, telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
+              await sendSMS({ to: from, body: greeting, telnyxApiKey: smsCreds.apiKey, telnyxPhone: smsCreds.phone }).catch(() => {})
 
               // Log outbound greeting
               await insertConversationMessage(
@@ -681,8 +692,8 @@ export async function POST(request: Request) {
             await sendSMS({
               to: from,
               body: aiResult.text,
-              telnyxApiKey: tenant.telnyx_api_key,
-              telnyxPhone: tenant.telnyx_phone,
+              telnyxApiKey: smsCreds.apiKey!,
+              telnyxPhone: smsCreds.phone!,
             })
 
             // Log outbound to conversation

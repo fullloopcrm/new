@@ -6,6 +6,7 @@ import { sendEmail } from '@/lib/email'
 import { sendSMS } from '@/lib/sms'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 export async function POST(request: Request) {
   try {
@@ -100,13 +101,14 @@ export async function POST(request: Request) {
     // false by the Telnyx webhook) -- TCPA requires every further send stop
     // once revoked, not just marketing sends (same reasoning applied to
     // schedule-pause/running-late/payment-followup-daily this session).
-    if (client.phone && client.sms_consent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    if (client.phone && client.sms_consent !== false && smsCreds.apiKey && smsCreds.phone) {
       try {
         await sendSMS({
           to: client.phone,
           body: message,
-          telnyxApiKey: tenant.telnyx_api_key,
-          telnyxPhone: tenant.telnyx_phone,
+          telnyxApiKey: smsCreds.apiKey,
+          telnyxPhone: smsCreds.phone,
         })
       } catch (e) {
         console.error('Review SMS error:', e)

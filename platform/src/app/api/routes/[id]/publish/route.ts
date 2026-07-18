@@ -8,6 +8,7 @@ import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { sendSMS } from '@/lib/sms'
 import { googleMapsDirectionsUrl, formatDistanceMiles, formatDuration, type RouteStop } from '@/lib/route-optimizer'
 import { decryptSecret } from '@/lib/secret-crypto'
+import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -49,12 +50,13 @@ export async function POST(_request: Request, { params }: Params) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name, telnyx_api_key, telnyx_phone')
+      .select('name, telnyx_api_key, telnyx_phone, sms_number')
       .eq('id', tenantId)
       .single()
 
-    const apiKey = tenant?.telnyx_api_key ? decryptSecret(tenant.telnyx_api_key) : null
-    const from = tenant?.telnyx_phone || ''
+    const smsCreds = resolveTenantSmsCredentials(tenant)
+    const apiKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
+    const from = smsCreds.phone || ''
     if (!apiKey || !from) {
       return NextResponse.json({ error: 'Telnyx not configured for tenant' }, { status: 400 })
     }
