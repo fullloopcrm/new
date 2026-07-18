@@ -47,6 +47,23 @@ async function competitorBrands(property: string): Promise<string[]> {
     .filter((b) => b.length >= 4)
 }
 
+/**
+ * `seo_overrides` is keyed by `url` alone (one active row per URL). This
+ * query's own candidates are `status:'proposed'` — never-yet-applied — so an
+ * ACTIVE override already sitting on that url can only be someone else's
+ * (a human/AI-approved apply via `/api/admin/seo/apply`, since a prior
+ * autopilot success would have flipped its own `seo_changes` row to
+ * 'applied' and dropped out of this query). Applying anyway would silently
+ * overwrite reviewed, live content with unreviewed automated content —
+ * exactly what the safety gate exists to prevent, just from the other
+ * direction (see the sibling fix in verify-revert.ts for the revert-side
+ * half of this same url-collision class).
+ */
+async function hasForeignActiveOverride(url: string): Promise<boolean> {
+  const { data } = await supabaseAdmin.from('seo_overrides').select('active').eq('url', url).maybeSingle()
+  return !!data?.active
+}
+
 async function appliedLast7d(property: string): Promise<number> {
   const since = new Date(Date.now() - 7 * 86_400_000).toISOString()
   const { count } = await supabaseAdmin
@@ -65,6 +82,7 @@ export type AutopilotResult = {
   applied: number
   rejected: number
   rateLimited: number
+  skippedForeignOverride: number
   perSite: Record<string, number>
   rejections: string[]
 }
@@ -76,6 +94,7 @@ export async function runAutopilot(): Promise<AutopilotResult> {
     applied: 0,
     rejected: 0,
     rateLimited: 0,
+    skippedForeignOverride: 0,
     perSite: {},
     rejections: [],
   }
@@ -123,6 +142,15 @@ export async function runAutopilot(): Promise<AutopilotResult> {
     if (weekBudget[b.property] == null) weekBudget[b.property] = await appliedLast7d(b.property)
     if (weekBudget[b.property] >= RATE_CAP_PER_WEEK) {
       base.rateLimited++
+      continue
+    }
+
+    // Someone else (human/AI-approved apply) already owns live content on
+    // this url — never silently overwrite it with an unreviewed automated
+    // change. Leave the proposal 'proposed' so a human can see and dismiss
+    // it explicitly rather than have autopilot decide for them.
+    if (await hasForeignActiveOverride(b.url)) {
+      base.skippedForeignOverride++
       continue
     }
 
