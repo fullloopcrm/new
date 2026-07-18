@@ -40,25 +40,57 @@ export async function POST(request: Request) {
     if (email) lookupKeys.push(email.toLowerCase())
     if (phoneDigits) lookupKeys.push(`sms:${phoneDigits}`)
 
-    let verification = null
+    // Atomic claim: check-and-burn in the same DELETE...RETURNING round trip
+    // (scoped to non-expired rows via .gt('expires_at', ...)) so two
+    // concurrent verifies racing the SAME code can no longer both pass --
+    // whichever request's DELETE lands first removes the row and gets it
+    // back; the loser's DELETE matches nothing and falls through to the
+    // read-only lookup below. The prior SELECT-then-separate-DELETE shape
+    // let both requests read the row before either burned it.
+    let verification: { id: string; expires_at: string } | null = null
+    let matchedKey: string | null = null
     for (const key of lookupKeys) {
       const { data } = await supabaseAdmin
         .from('verification_codes')
-        .select('*')
+        .delete()
         .eq('tenant_id', tenant.id)
         .eq('identifier', key)
         .eq('code', code)
-        .maybeSingle()
-      if (data) { verification = data; break }
+        .gt('expires_at', new Date().toISOString())
+        .select()
+      const rows = data as { id: string; expires_at: string }[] | null
+      if (rows && rows.length > 0) {
+        verification = rows[0]
+        matchedKey = key
+        break
+      }
     }
 
-    if (!verification) return NextResponse.json({ error: 'Invalid code' }, { status: 401 })
-    if (new Date(verification.expires_at) < new Date()) {
-      return NextResponse.json({ error: 'Code expired' }, { status: 401 })
+    if (!verification) {
+      // Nothing claimable: either the code never matched, or it matched but
+      // is expired (the .gt() filter above deliberately left an expired row
+      // undeleted). Read-only lookup, never mutates, just picks the message.
+      let expiredMatch = false
+      for (const key of lookupKeys) {
+        const { data } = await supabaseAdmin
+          .from('verification_codes')
+          .select('id')
+          .eq('tenant_id', tenant.id)
+          .eq('identifier', key)
+          .eq('code', code)
+          .maybeSingle()
+        if (data) { expiredMatch = true; break }
+      }
+      return NextResponse.json(
+        { error: expiredMatch ? 'Code expired' : 'Invalid code' },
+        { status: 401 },
+      )
     }
 
-    // Burn the code — both email + sms keys if both were sent.
+    // Burn any leftover code on the other channel too (unchanged cleanup —
+    // e.g. both an email and an sms code were outstanding, only one matched).
     for (const key of lookupKeys) {
+      if (key === matchedKey) continue
       await supabaseAdmin
         .from('verification_codes')
         .delete()
