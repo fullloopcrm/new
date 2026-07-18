@@ -16,6 +16,7 @@ export async function GET(request: Request) {
   if (cronAuthError) return cronAuthError
 
   const now = new Date()
+  const teamConfirmThrottleCutoff = new Date(now.getTime() - 55 * 60 * 1000).toISOString()
   const results: { type: string; tenant: string; recipient: string }[] = []
   let sent = 0
   let failed = 0
@@ -67,22 +68,26 @@ export async function GET(request: Request) {
           .limit(1)
         if (confirmed && confirmed.length > 0) continue
 
-        // Check when we last sent a confirmation request for this booking
-        const { data: lastSent } = await supabaseAdmin
-          .from('notifications')
-          .select('created_at')
+        // Claim BEFORE sending: the old dedup SELECTed the most recent
+        // 'team_confirm_request' notifications row and throttled to 55 min,
+        // but that row is only inserted AFTER sendSMS() resolves below --
+        // same sent-before-claim race already fixed elsewhere this session.
+        // This cron loops every active tenant with no run-lock, so two
+        // overlapping invocations could both read the same stale "last
+        // sent" timestamp before either write landed and both text the
+        // team member. team_confirm_request_sent_at defaults to the epoch
+        // (never NULL), so `.lt(throttleCutoff)` alone admits both a
+        // booking's first attempt and one whose last send has aged out of
+        // the throttle window -- an atomic per-row compare-and-swap, so the
+        // losing invocation's claim affects 0 rows and it skips.
+        const { data: claimed } = await supabaseAdmin
+          .from('bookings')
+          .update({ team_confirm_request_sent_at: now.toISOString() })
+          .eq('id', booking.id)
           .eq('tenant_id', tenantId)
-          .eq('booking_id', booking.id)
-          .eq('type', 'team_confirm_request')
-          .order('created_at', { ascending: false })
-          .limit(1)
-          .single()
-
-        // Only send once per hour (skip if sent within last 55 min)
-        if (lastSent) {
-          const lastSentTime = new Date(lastSent.created_at).getTime()
-          if (now.getTime() - lastSentTime < 55 * 60 * 1000) continue
-        }
+          .lt('team_confirm_request_sent_at', teamConfirmThrottleCutoff)
+          .select('id')
+        if (!claimed || claimed.length === 0) continue // lost the race, or already sent within the last 55 min
 
         const client = booking.clients
         const date = new Date(booking.start_time).toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })
@@ -104,7 +109,8 @@ export async function GET(request: Request) {
           errors.push(`Team confirm SMS to ${member.name} (${tenantId}): ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
         }
 
-        // Log the request for dedup + tracking
+        // Audit trail + attempt-counter only now -- team_confirm_request_sent_at
+        // above is the dedup source of truth.
         await supabaseAdmin.from('notifications').insert({
           tenant_id: tenantId,
           type: 'team_confirm_request',
@@ -126,17 +132,28 @@ export async function GET(request: Request) {
           .eq('type', 'team_confirm_request')
 
         if ((attemptCount || 0) >= 3) {
-          // Only alert admin once per day about this booking
-          const { data: adminAlerted } = await supabaseAdmin
-            .from('notifications')
-            .select('id')
+          // Claim BEFORE inserting the admin alert: the old dedup SELECTed
+          // for an existing 'team_no_confirm_alert' row within the last 24h
+          // and only inserted if none was found -- a plain check-then-insert
+          // with no atomic claim between them, same race shape as the SMS
+          // sends above (lower severity here since it's an in-app-only
+          // admin alert, not a customer-facing text, but two overlapping
+          // invocations landing on the same booking's 3rd+ attempt could
+          // still both pass the check and both insert, double-alerting the
+          // admin). team_no_confirm_alert_sent_at defaults to the epoch
+          // (never NULL), so `.lt(alertCutoff)` alone admits both a
+          // booking's first qualifying attempt and one whose last alert has
+          // aged out of the 24h window -- an atomic per-row compare-and-swap.
+          const alertCutoff = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString()
+          const { data: alertClaimed } = await supabaseAdmin
+            .from('bookings')
+            .update({ team_no_confirm_alert_sent_at: now.toISOString() })
+            .eq('id', booking.id)
             .eq('tenant_id', tenantId)
-            .eq('booking_id', booking.id)
-            .eq('type', 'team_no_confirm_alert')
-            .gte('created_at', new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString())
-            .limit(1)
+            .lt('team_no_confirm_alert_sent_at', alertCutoff)
+            .select('id')
 
-          if (!adminAlerted || adminAlerted.length === 0) {
+          if (alertClaimed && alertClaimed.length > 0) {
             await supabaseAdmin.from('notifications').insert({
               tenant_id: tenantId,
               type: 'team_no_confirm_alert',
@@ -183,15 +200,25 @@ export async function GET(request: Request) {
           // same consent-bypass bug class as payment-followup-daily/payment-reminder.
           if (client.sms_consent === false) continue
 
-          // Check if already sent confirmation for this booking
-          const { data: alreadySent } = await supabaseAdmin
-            .from('notifications')
-            .select('id')
+          // Claim BEFORE sending (one-shot, no legitimate resend): the old
+          // dedup SELECTed for an existing 'client_confirm_request'
+          // notifications row, but that row is only inserted AFTER
+          // sendSMS() resolves below -- same sent-before-claim race already
+          // fixed elsewhere this session. This branch fires at most once
+          // per booking, gated to the single 1pm ET hour the whole tenant
+          // base's tomorrow-scheduled bookings all become eligible at once
+          // -- the highest-fan-out moment in this cron, so a lost race here
+          // duplicate-texts every one of them. The conditional `.is(...)`
+          // update is atomic per-row, so the losing invocation's claim
+          // affects 0 rows and it skips.
+          const { data: claimed } = await supabaseAdmin
+            .from('bookings')
+            .update({ client_confirm_request_sent_at: now.toISOString() })
+            .eq('id', booking.id)
             .eq('tenant_id', tenantId)
-            .eq('booking_id', booking.id)
-            .eq('type', 'client_confirm_request')
-            .limit(1)
-          if (alreadySent && alreadySent.length > 0) continue
+            .is('client_confirm_request_sent_at', null)
+            .select('id')
+          if (!claimed || claimed.length === 0) continue // lost the race, or already claimed by a prior run
 
           const member = booking.team_members
           const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
@@ -213,6 +240,8 @@ export async function GET(request: Request) {
             errors.push(`Client confirm SMS to ${client.name} (${tenantId}): ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
           }
 
+          // Audit trail only now -- client_confirm_request_sent_at above is
+          // the dedup source of truth.
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenantId,
             type: 'client_confirm_request',
