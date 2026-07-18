@@ -152,6 +152,24 @@ export function capStringArray(raw: unknown, maxItems: number, maxItemLength: nu
   return out
 }
 
+// Bound a single caller-supplied free-text field before it lands in a text
+// column (accounting_periods.notes/reopened_reason, clients.notes,
+// bookings.notes, hr_documents.label/file_url) — these were stored raw with
+// no type check or length cap: not even the trim()-or-null guard several of
+// these call sites already applied covered a caller sending a number, array,
+// or object, which would reach the DB write untouched. Same class as
+// capStringArray/capJsonObject above, sized for a single scalar: non-string
+// input (including null/undefined) coerces to null (fails closed) rather
+// than crashing a downstream .trim()/.slice() call expecting a string;
+// empty-after-trim also coerces to null, matching this codebase's existing
+// `field?.trim() || null` convention.
+export function capString(raw: unknown, maxLength: number): string | null {
+  if (typeof raw !== 'string') return null
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+  return trimmed.length > maxLength ? trimmed.slice(0, maxLength) : trimmed
+}
+
 // Bound a caller-supplied free-form object before it lands in a JSONB
 // column, for shapes too loosely defined to cheaply whitelist key-by-key
 // (e.g. team_members.schedule, keyed by day index/name with {start,end}

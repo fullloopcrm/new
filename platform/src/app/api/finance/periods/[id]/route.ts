@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
-import { normalizeChecklist } from '@/lib/validate'
+import { normalizeChecklist, capString } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -24,12 +24,12 @@ export async function PATCH(request: Request, { params }: Params) {
       updates.status = 'open'
       updates.reopened_at = now
       updates.reopened_by = body.actor_id || null
-      updates.reopened_reason = body.reopened_reason || null
+      updates.reopened_reason = capString(body.reopened_reason, 2000)
     } else if (body.status === 'in_review') {
       updates.status = 'in_review'
     }
     if ('checklist' in body) updates.checklist = normalizeChecklist(body.checklist)
-    if ('notes' in body) updates.notes = body.notes
+    if ('notes' in body) updates.notes = capString(body.notes, 5000)
 
     const { data, error } = await supabaseAdmin
       .from('accounting_periods')

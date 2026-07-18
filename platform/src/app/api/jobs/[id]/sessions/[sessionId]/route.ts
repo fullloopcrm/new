@@ -17,6 +17,7 @@ import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { logJobEvent, releasePaymentsForEvent, shapeSession, type RawSession } from '@/lib/jobs'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { capString } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string; sessionId: string }> }
 
@@ -143,7 +144,7 @@ export async function PATCH(request: Request, { params }: Params) {
 
     // --- Simple field edits. ---
     if (typeof body.service_type === 'string' && body.service_type.trim()) patch.service_type = body.service_type.trim()
-    if ('notes' in body) patch.notes = body.notes
+    if ('notes' in body) patch.notes = capString(body.notes, 5000)
 
     let didComplete = false
     if (body.status !== undefined) {

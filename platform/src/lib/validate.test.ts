@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { validate, pick, normalizeChecklist, capStringArray, capJsonObject } from './validate'
+import { validate, pick, normalizeChecklist, capStringArray, capJsonObject, capString } from './validate'
 
 describe('validate', () => {
   it('validates required string fields', () => {
@@ -235,5 +235,39 @@ describe('capJsonObject — unbounded object size cap', () => {
   it('CONTROL: a normal-sized schedule object is preserved', () => {
     const schedule = { mon: { start: '08:00', end: '17:00' }, tue: { start: '08:00', end: '17:00' } }
     expect(capJsonObject(schedule, 20, 2000)).toEqual(schedule)
+  })
+})
+
+/**
+ * WITNESS — capString (accounting_periods.notes/reopened_reason,
+ * clients.notes, bookings.notes, hr_documents.label/file_url). These fields
+ * were stored raw with no type check or length cap -- a caller could send a
+ * number/array/object straight into a text column, or stuff an unbounded
+ * string into it.
+ */
+describe('capString — unbounded free-text field cap', () => {
+  it('LOCK: truncates over-long strings to maxLength', () => {
+    const result = capString('x'.repeat(6000), 5000)
+    expect(result?.length).toBe(5000)
+  })
+
+  it('LOCK: coerces non-string input (number/array/object) to null', () => {
+    expect(capString(42, 5000)).toBeNull()
+    expect(capString(['a', 'b'], 5000)).toBeNull()
+    expect(capString({ x: 1 }, 5000)).toBeNull()
+  })
+
+  it('CONTROL: null/undefined input returns null', () => {
+    expect(capString(null, 5000)).toBeNull()
+    expect(capString(undefined, 5000)).toBeNull()
+  })
+
+  it('CONTROL: empty-after-trim string returns null', () => {
+    expect(capString('   ', 5000)).toBeNull()
+    expect(capString('', 5000)).toBeNull()
+  })
+
+  it('CONTROL: a normal-sized string is trimmed and preserved', () => {
+    expect(capString('  reopened for correction  ', 2000)).toBe('reopened for correction')
   })
 })

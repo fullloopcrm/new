@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { capString } from '@/lib/validate'
 
 // PATCH /api/admin/comhub/contacts/[id]/notes
 //   { notes?: string|null }
@@ -47,7 +48,7 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
   // update-by-client_id GAINS a tenant filter (client_id came from a tenant-scoped contact)
   const { error } = await db
     .from('clients')
-    .update({ notes: notesValue })
+    .update({ notes: capString(notesValue, 5000) })
     .eq('id', contact.client_id)
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
 

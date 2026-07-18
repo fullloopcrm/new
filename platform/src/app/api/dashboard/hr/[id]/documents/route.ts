@@ -4,6 +4,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
+import { capString } from '@/lib/validate'
 
 const DOC_STATUSES = ['pending', 'submitted', 'approved', 'rejected', 'expired']
 
@@ -41,10 +42,10 @@ export async function POST(req: NextRequest, ctx: { params: Promise<{ id: string
       .insert({
         tenant_id: tenantId,
         team_member_id: id,
-        doc_type: body.doc_type.trim(),
-        label: body.label?.trim() || null,
+        doc_type: body.doc_type.trim().slice(0, 100),
+        label: capString(body.label, 200),
         status: body.status || 'pending',
-        file_url: body.file_url?.trim() || null,
+        file_url: capString(body.file_url, 2000),
         issued_on: body.issued_on || null,
         expires_on: body.expires_on || null,
       })
@@ -78,8 +79,8 @@ export async function PATCH(req: NextRequest, ctx: { params: Promise<{ id: strin
 
     const patch: Record<string, unknown> = { updated_at: new Date().toISOString() }
     if ('status' in body) patch.status = body.status
-    if ('file_url' in body) patch.file_url = body.file_url?.trim() || null
-    if ('label' in body) patch.label = body.label?.trim() || null
+    if ('file_url' in body) patch.file_url = capString(body.file_url, 2000)
+    if ('label' in body) patch.label = capString(body.label, 200)
     if ('issued_on' in body) patch.issued_on = body.issued_on || null
     if ('expires_on' in body) patch.expires_on = body.expires_on || null
 
