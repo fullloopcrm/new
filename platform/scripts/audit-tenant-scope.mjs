@@ -77,9 +77,24 @@ const EXCLUDE = ALL ? [] : [
   /^src\/app\/admin\/analytics\//,
 ]
 
-const files = execSync(`grep -rl "\\.from('" ${ROOT} --include="*.ts" --include="*.tsx"`, { encoding: 'utf8' })
-  .trim().split('\n').filter(Boolean)
-  .filter(f => !EXCLUDE.some(rx => rx.test(f)))
+// Quote-agnostic candidate-file filter (item 194): the per-line regex below
+// already matches single/double/backtick-quoted `.from(...)`, but this grep
+// pre-filter was single-quote-only — a file whose ONLY `.from(...)` calls use
+// double or backtick quotes never made it into `files` at all, so the
+// per-line fix alone would have been silently defeated one layer up. Widened
+// to the bare `.from(` substring (quote-agnostic by construction); the
+// per-line regex + TENANT_TABLES/.storage. exclusions still do the real
+// precision filtering, so this is strictly a broader candidate net, not a
+// precision change.
+let files
+try {
+  files = execSync(`grep -rl "\\.from(" ${ROOT} --include="*.ts" --include="*.tsx"`, { encoding: 'utf8' })
+    .trim().split('\n').filter(Boolean)
+} catch (err) {
+  if (err.status === 1) files = [] // grep exit 1 = no matches, not a real error
+  else throw err
+}
+files = files.filter(f => !EXCLUDE.some(rx => rx.test(f)))
 
 // tenantDb(tenantId) (ADR 0004) is scoped by construction — the wrapper injects
 // .eq('tenant_id', …) / stamps tenant_id internally (src/lib/tenant-db.ts), so the
@@ -101,7 +116,12 @@ for (const file of files) {
   }
 
   for (let i = 0; i < lines.length; i++) {
-    const m = lines[i].match(/\.from\('([a-z_]+)'\)/)
+    // Quote-agnostic: idor-route-guard.ts's own TABLE_RE already matches
+    // single/double/backtick quotes (see src/lib/idor-route-guard.ts). This
+    // gate's matcher was single-quote-only, so a double- or backtick-quoted
+    // `.from("bookings")` on a tenant table skipped this whole line silently
+    // — not misclassified, invisible. See item (194).
+    const m = lines[i].match(/\.from\(['"`]([a-z_]+)['"`]\)/)
     if (!m || !TENANT_TABLES.has(m[1])) continue
     if (/tenant-scope-ok/.test(lines[i])) continue
     if (/\.storage\.from\(/.test(lines[i])) continue             // storage bucket, not a table
@@ -126,7 +146,11 @@ for (const file of files) {
     const scoped = /tenant_id/.test(chain)                       // filter or insert payload
     // Row/entity-specific keys are globally unique (UUIDs / secret tokens), so a
     // lookup by id / *_id / *token* is inherently row-scoped, not a leak.
-    const idLookup = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/.test(chain)
+    // Quote-agnostic for the same reason the .from() matcher above is (item
+    // (195)): single-quote-only here would FALSE-POSITIVE red-gate a genuinely
+    // safe double/backtick-quoted `.eq("id", …)` lookup instead of silently
+    // missing it, but it's the identical hardcoded-quote-style defect.
+    const idLookup = /\.(eq|in)\(['"`](id|[a-z_]*_id|[a-z_]*token[a-z_]*)['"`]\s*,/.test(chain)
     if (!scoped && !idLookup) {
       flagged.push({ file, line: i + 1, table: m[1], snippet: lines[i].trim().slice(0, 110), context: chain })
     }

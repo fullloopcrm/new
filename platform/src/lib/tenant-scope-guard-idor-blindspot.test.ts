@@ -43,13 +43,20 @@ const AUDIT_SCRIPT = join(process.cwd(), 'scripts', 'audit-tenant-scope.mjs')
 
 // The exact two classification lines from audit-tenant-scope.mjs, asserted
 // verbatim below before this test trusts them.
+//
+// ID_LOOKUP_LINE's quote characters changed in item (195) (single-quote-only
+// -> quote-agnostic ['"`]) — a fix for a DIFFERENT defect (false-positives /
+// silent misses on double/backtick-quoted chains) than the one THIS test
+// documents (the idLookup EXEMPTION itself waving through a same-quote-style
+// textbook IDOR). That exemption is unchanged by (195); only the quote
+// characters it matches widened.
 const SCOPED_LINE = `const scoped = /tenant_id/.test(chain)`
-const ID_LOOKUP_LINE = `const idLookup = /\\.(eq|in)\\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\\s*,/.test(chain)`
+const ID_LOOKUP_LINE = `const idLookup = /\\.(eq|in)\\(['"\`](id|[a-z_]*_id|[a-z_]*token[a-z_]*)['"\`]\\s*,/.test(chain)`
 
 // Reconstructed from the asserted-verbatim lines above (kept in sync by the
 // source-lock assertion, not by hand).
 const SCOPED_RE = /tenant_id/
-const ID_LOOKUP_RE = /\.(eq|in)\('(id|[a-z_]*_id|[a-z_]*token[a-z_]*)'\s*,/
+const ID_LOOKUP_RE = /\.(eq|in)\(['"`](id|[a-z_]*_id|[a-z_]*token[a-z_]*)['"`]\s*,/
 
 describe('CI invariant — audit-tenant-scope.mjs idLookup blind spot (IDOR class)', () => {
   it('the live blocking gate script exists where this guard expects it', () => {

@@ -26,6 +26,11 @@ const REAL_SCRIPT = join(process.cwd(), 'scripts', 'audit-tenant-scope.mjs')
 // otherwise the guard would flag this very file when it scans the real repo
 // (it text-scans every .ts file under src, including this one).
 const FROM = (table: string): string => `.from('${table}')`
+// Same reasoning, double- and backtick-quoted (item (194)): the interpolated
+// `${table}` / concatenated `+ table +` breaks the guard's own [a-z_]+
+// character class, so these never accidentally self-flag either.
+const FROM_DQ = (table: string): string => `.from("${table}")`
+const FROM_BT = (table: string): string => '.from(`' + table + '`)'
 
 function makeFixture(): string {
   const dir = mkdtempSync(join(tmpdir(), 'tenant-scope-guard-'))
@@ -108,6 +113,76 @@ describe('audit-tenant-scope guard — gating behavior (exit code)', () => {
     `)
     const { status } = run(dir)
     expect(status).toBe(0)
+  })
+})
+
+// Item (194): the .from() table matcher was single-quote-only. A double- or
+// backtick-quoted call on a tenant table (e.g. .from with a double-quoted
+// 'bookings' argument) didn't get misclassified — it skipped this source
+// line entirely, invisible to the live blocking gate. No live occurrence
+// exists in the repo today (verified: every current double/backtick
+// `.from(...)` call targets a table outside TENANT_TABLES), so this is a
+// prospective contract fix, not a live-leak fix
+// — same distinction items (191)-(193) drew for their own primitives.
+describe('audit-tenant-scope guard — quote-agnostic .from() matching (item 194)', () => {
+  it('flags and RED-GATES a double-quoted .from("table") the same as single-quoted', () => {
+    const dir = fixture()
+    write(dir, 'src/leak.ts', `
+      export async function bad(sb) {
+        const { data } = await sb${FROM_DQ('bookings')}.select('*')
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status).toBe(1)
+    expect(stderr).toContain('bookings')
+    expect(stderr).toContain('leak.ts')
+  })
+
+  it('flags and RED-GATES a backtick-quoted .from(`table`) the same as single-quoted', () => {
+    const dir = fixture()
+    write(dir, 'src/leak.ts', `
+      export async function bad(sb) {
+        const { data } = await sb${FROM_BT('clients')}.select('*')
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status).toBe(1)
+    expect(stderr).toContain('clients')
+  })
+
+  it('still passes a double-quoted .from("table") that IS scoped by tenant_id', () => {
+    const dir = fixture()
+    write(dir, 'src/ok.ts', `
+      export async function ok(sb, tenantId) {
+        const { data } = await sb${FROM_DQ('bookings')}.select('*').eq('tenant_id', tenantId)
+        return data
+      }
+    `)
+    const { status } = run(dir)
+    expect(status).toBe(0)
+  })
+})
+
+// Item (195): continuing (194)'s surface — the sibling idLookup regex on the
+// same script has the identical hardcoded-single-quote defect. Unlike (194)
+// (a silent miss), this one is a FALSE POSITIVE: a genuinely safe
+// double/backtick-quoted `.eq("id", …)` row lookup would red-gate CI with no
+// real leak behind it, because idLookup fails to match and scoped is also
+// false. Fixed identically, for the same "one contract, not per-call-site"
+// reason as (194).
+describe('audit-tenant-scope guard — quote-agnostic idLookup matching (item 195)', () => {
+  it('passes a double-quoted row-specific id lookup (no false-positive red-gate)', () => {
+    const dir = fixture()
+    write(dir, 'src/ok.ts', `
+      export async function ok(sb, id) {
+        const { data } = await sb${FROM('bookings')}.select('*').eq("id", id)
+        return data
+      }
+    `)
+    const { status, stderr } = run(dir)
+    expect(status, stderr).toBe(0)
   })
 })
 
