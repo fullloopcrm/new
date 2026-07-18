@@ -70,13 +70,21 @@ export async function GET(request: Request) {
           const trulyInactive = toInactive.filter(id => !midRangeIds.has(id))
 
           if (trulyInactive.length > 0) {
-            await supabaseAdmin
+            // Re-assert the SAME condition (status='active') that made these rows
+            // candidates, inside this update's own WHERE, instead of trusting the
+            // `inactiveClients` SELECT snapshot from several async round-trips ago.
+            // Without this, a concurrent admin edit (PATCH /api/clients/[id]) or lead
+            // re-activation (/api/lead, /api/ingest/lead) that moved a client to a
+            // different status in that gap gets silently stomped back to 'inactive'.
+            const { data: updated } = await supabaseAdmin
               .from('clients')
               .update({ status: 'inactive' })
               .eq('tenant_id', tenant.id)
+              .eq('status', 'active')
               .in('id', trulyInactive)
+              .select('id')
 
-            totalUpdated += trulyInactive.length
+            totalUpdated += (updated || []).length
           }
         }
 
@@ -105,13 +113,18 @@ export async function GET(request: Request) {
         const toReactivate = [...new Set((newBookings || []).map(b => b.client_id))]
 
         if (toReactivate.length > 0) {
-          await supabaseAdmin
+          // Same re-check as the inactivate branch above: re-assert status='inactive'
+          // in the write's own WHERE so a client an admin/lead flow already moved out
+          // of 'inactive' in the gap since the `reactivated` SELECT isn't clobbered.
+          const { data: updated } = await supabaseAdmin
             .from('clients')
             .update({ status: 'active' })
             .eq('tenant_id', tenant.id)
+            .eq('status', 'inactive')
             .in('id', toReactivate)
+            .select('id')
 
-          totalUpdated += toReactivate.length
+          totalUpdated += (updated || []).length
         }
       }
     } catch (e) {
