@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 120
 
@@ -21,12 +22,15 @@ export async function GET(request: Request) {
   let totalProcessed = 0
   const errors: string[] = []
 
-  // Process tenant by tenant to prevent massive unbounded queries
-  const { data: tenants } = await supabaseAdmin
+  // Process tenant by tenant to prevent massive unbounded queries.
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // stopped updating client lifecycle stages for every onboarding tenant.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name')
-    .eq('status', 'active')
+    .select('id, name, status')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   for (const tenant of tenants || []) {
     try {

@@ -4,6 +4,7 @@ import { sendSMS } from '@/lib/sms'
 import { notify } from '@/lib/notify'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Daily payment follow-up for COMPLETED jobs that still haven't been paid.
 // Ported from nycmaid (single-tenant) → FullLoop multi-tenant.
@@ -68,12 +69,16 @@ export async function GET(request: Request) {
   }
 
   // Only tenants that can send (Telnyx) AND have a pay link to send.
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // withheld real-money payment-chase texts from every tenant still in
+  // onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, payment_link, owner_phone, phone')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, payment_link, owner_phone, phone')
     .not('telnyx_api_key', 'is', null)
     .not('payment_link', 'is', null)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   // bookings.end_time is naive local-ET → compare with a naive string.
   const recencyFloor = toNaive(new Date(now.getTime() - RECENCY_FLOOR_DAYS * 24 * 60 * 60 * 1000))

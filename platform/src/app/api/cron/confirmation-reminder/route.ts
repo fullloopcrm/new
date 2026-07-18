@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Runs every 5 min. Finds bookings still status='pending' (client hasn't replied
 // CONFIRM yet) that were created at least 30 min ago and have a future
@@ -18,11 +19,15 @@ export async function GET(request: Request) {
   const thirtyMinAgo = new Date(Date.now() - 30 * 60 * 1000).toISOString()
   const nowIso = new Date().toISOString()
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // withheld the pending-booking confirmation-reminder SMS from every
+  // tenant still in onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id')
-    .eq('status', 'active')
+    .select('id, status')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   let sent = 0
   let scanned = 0

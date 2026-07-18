@@ -7,6 +7,7 @@ import type { BookingTeamLookahead, RecurringScheduleWithClient } from '@/lib/ty
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -31,11 +32,15 @@ export async function GET(request: Request) {
   threeDaysEnd.setDate(threeDaysEnd.getDate() + 3)
   threeDaysEnd.setHours(23, 59, 59, 999)
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // withheld the admin daily summary + team 3-day lookahead + recurring-
+  // expiration warning from every tenant still in onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   let totalSent = 0
   const stats = { tenants_processed: 0, summaries_sent: 0, errors: 0 }

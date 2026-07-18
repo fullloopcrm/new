@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Nightly backup: exports each tenant's data as JSON snapshot
 // Supabase already does daily DB backups on Pro plan, but this gives
@@ -11,10 +12,14 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants already have real data (booking + lead collection
+  // work before full activation), so the prior filter silently skipped
+  // nightly snapshots for every tenant still in onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, slug')
-    .eq('status', 'active')
+    .select('id, name, slug, status')
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   let backed = 0
   const errors: string[] = []

@@ -7,6 +7,7 @@ import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300
 
@@ -35,7 +36,12 @@ export async function GET(request: Request) {
   const todayStr = toDateStr(now)
   let totalIssues = 0
 
-  const { data: tenants } = await supabaseAdmin.from('tenants').select('id, name').eq('status', 'active').limit(1000)
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior .eq('status',
+  // 'active') filter silently withheld schedule-conflict detection (and its
+  // self-healing reconcile) from every tenant still in onboarding.
+  const { data: allTenants } = await supabaseAdmin.from('tenants').select('id, name, status').limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   for (const tenant of tenants || []) {
     try {

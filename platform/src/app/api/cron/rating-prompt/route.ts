@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendClientSMS } from '@/lib/nycmaid/client-contacts'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
 import { protectCronAPI } from '@/lib/nycmaid/auth'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Runs every 5 min. Sends ONE SMS — Q1 only — 30+ min after the cleaner
 // checked out: "How was your service today?" Reply triggers Q2 in the
@@ -19,11 +20,15 @@ export async function GET(request: Request) {
   const oneDayAgo = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
   const CAP = 10
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // withheld the post-checkout rating prompt from every tenant still in
+  // onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name')
-    .eq('status', 'active')
+    .select('id, name, status')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   let totalSent = 0
   let totalScanned = 0

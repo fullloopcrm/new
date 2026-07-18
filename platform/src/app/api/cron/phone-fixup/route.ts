@@ -6,6 +6,7 @@ import { validateUsPhone } from '@/lib/nycmaid/phone-validator'
 import { emailWrapper } from '@/lib/nycmaid/email-templates'
 import { createPhoneFixupToken } from '@/lib/nycmaid/phone-fixup-token'
 import { getPrimaryTenantDomain } from '@/lib/domains'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Daily scan: find cleaners with invalid phones, email each a signed link to
 // /team/update-phone?token=... so they can self-correct.
@@ -29,11 +30,14 @@ export async function GET(request: Request) {
 
   const sevenDaysAgo = new Date(Date.now() - SEVEN_DAYS_MS).toISOString()
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // skipped bad-phone email outreach for every tenant still in onboarding.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, domain, website_url')
-    .eq('status', 'active')
+    .select('id, name, status, domain, website_url')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
   let totalEligible = 0
   let totalSent = 0

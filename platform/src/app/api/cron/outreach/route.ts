@@ -11,6 +11,7 @@ import { getCommPrefs } from '@/lib/comms-prefs'
 import { getActiveMoments, pickMessage, qualifiesForMoment, type OutreachMoment } from '@/lib/outreach'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300
 
@@ -29,6 +30,7 @@ interface ClientRow {
 interface TenantRow {
   id: string
   name: string
+  status: string | null
   telnyx_api_key: string | null
   telnyx_phone: string | null
   sms_number: string | null
@@ -46,16 +48,19 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, sent: 0, message: 'No active outreach moment today' })
   }
 
-  // Active tenants with SMS configured.
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable, so the prior filter silently
+  // withheld seasonal win-back outreach from every tenant still in
+  // onboarding.
+  const { data: tenantRows } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, selena_config')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, selena_config')
+  const tenants = ((tenantRows as TenantRow[] | null) || []).filter((t) => tenantServesSite(t.status))
 
   let totalSent = 0
   const perTenant: Record<string, number> = {}
 
-  for (const tenant of (tenants as TenantRow[] | null) || []) {
+  for (const tenant of tenants) {
     const smsCreds = resolveTenantSmsCredentials(tenant)
     if (!smsCreds.apiKey || !smsCreds.phone) continue
 
