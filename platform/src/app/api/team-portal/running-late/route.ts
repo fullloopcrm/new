@@ -111,7 +111,8 @@ export async function POST(request: Request) {
     if (clientPhone && clientSmsConsent !== false && !clientDoNotService && tenant.telnyx_api_key && tenant.telnyx_phone) {
       sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
-    if (booking.client_id) {
+    // do_not_service is channel-agnostic (see notify.ts) -- gate push too, same as the SMS above.
+    if (booking.client_id && !clientDoNotService) {
       sendPushToClient(booking.client_id, 'Running Late', `${memberName.split(' ')[0]} is running a few minutes behind`, '/portal').catch(() => {})
     }
 

@@ -39,6 +39,7 @@ export type ClientNamePhoneConsent = Pick<ClientRecord, 'name' | 'phone' | 'sms_
 export type ClientNameEmail = Pick<ClientRecord, 'name' | 'email'> | null
 export type ClientNameAddress = Pick<ClientRecord, 'name' | 'address'> | null
 export type ClientNamePhoneEmail = Pick<ClientRecord, 'name' | 'phone' | 'email'> | null
+export type ClientNamePhoneEmailConsent = Pick<ClientRecord, 'name' | 'phone' | 'email' | 'sms_consent' | 'do_not_service'> | null
 export type ClientNamePhoneAddress = Pick<ClientRecord, 'name' | 'phone' | 'address'> | null
 
 export type TeamMemberName = Pick<TeamMemberRecord, 'name'> | null
@@ -58,7 +59,7 @@ export interface BookingWithClientAndTeam {
   service_type: string | null
   start_time: string
   end_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhoneEmail
 }
 
@@ -69,7 +70,7 @@ export interface BookingWith2HourReminder {
   team_member_id: string | null
   service_type: string | null
   start_time: string
-  clients: ClientNamePhoneEmail
+  clients: ClientNamePhoneEmailConsent
   team_members: TeamMemberNamePhone
 }
 

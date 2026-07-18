@@ -26,7 +26,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, status, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, status, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, team_member_id, referrer_id, client_id, clients(name, address, do_not_service), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -223,7 +223,8 @@ export async function POST(request: Request) {
       }).catch((err) => console.error('processPayment from check-out failed:', err))
     }
 
-    if (data.client_id) {
+    // do_not_service is channel-agnostic (see notify.ts) -- gate the client push.
+    if (data.client_id && !(booking.clients as unknown as { do_not_service?: boolean | null } | null)?.do_not_service) {
       sendPushToClient(data.client_id, 'Cleaning complete!', 'Your cleaning is finished — thank you!', '/book/dashboard').catch(() => {})
     }
 
