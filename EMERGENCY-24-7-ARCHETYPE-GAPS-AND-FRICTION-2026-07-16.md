@@ -8799,3 +8799,102 @@ round (only `computeFindings`'s Drift-check surface and the pure
 static-analysis inputs feeding it changed); CI's own "Verify token-guard
 skips clean without a secret" step in `tenant-config-reconcile.yml` is the
 authoritative check for that path and runs unmodified.
+
+## (187) New fresh-ground surface — `src/app/robots.ts`'s `disallow` array
+was a FOURTH hand-maintained hardcoded list, invisible to every existing
+Drift check, and it had already drifted: three real operator/PIN
+auth-and-form pages were crawlable/indexable on every tenant domain
+
+(185)/(186) established that `src/app/robots.ts` carries its own
+hardcoded lists beyond the two known COPIES of middleware consts
+(`MAIN_HOSTS`/Drift Z, `KILLED_ROUTES`/Drift AA) — `JOIN_CRAWLABLE_HOSTS`
+was the third, and Drift AH/AI now watch it. Widening the same "what else
+in this file is a hand-maintained list with no drift signal" search to the
+one remaining const in `robots()` turned up the `disallow` array itself:
+the private-app-surface path prefixes ('/dashboard/', '/admin/', '/api/',
+etc.) blocked from crawling on every host. Unlike `MAIN_HOSTS`/
+`KILLED_ROUTES`, this one isn't a copy of a single middleware constant by
+name — but it needs to be, functionally, a superset of
+`APP_ROOT_PREFIXES` (`src/middleware.ts` — the reserved routes
+`rewriteToSite()`'s `matchesAppRootPrefix` check, Drift AE's own subject,
+serves at their own literal path with tenant headers injected instead of
+rewriting into `/site/<slug>/...`). That distinction matters because
+`rewriteToSite()` unconditionally handles the tenant-custom-domain branch
+BEFORE `isPublicRoute` is ever consulted — every `APP_ROOT_PREFIXES` entry
+is therefore reachable, unauthenticated, at a fixed guessable path on
+EVERY tenant's own domain, making it exactly as crawl-sensitive as
+`/dashboard/` or `/admin/`, both of which the `disallow` array already
+covers. Nothing ever checked that the two lists agreed.
+
+They didn't. Parsing both lists out of the real files and diffing them by
+hand found three live gaps: `/fullloop` (the per-tenant operator PIN login
+page) and `/reset-pin` (the self-service PIN reset page) are both fixed,
+non-token-gated auth surfaces — structurally identical in sensitivity to
+`/sign-in/`/`/admin-login`, which ARE disallowed — yet neither was ever
+added here. `/reviews/submit` is the third: a fixed, non-token-gated
+review-submission FORM (deliberately distinguished in the new check's own
+comment from the genuinely token-gated `/quote/(.*)`, `/invoice/(.*)`,
+`/sign/(.*)` public flows, which correctly stay off this list since their
+per-visit URLs are unguessable). All three were live and crawlable on
+every tenant domain until this round's fix.
+
+New exported `parseRobotsDisallowList(robotsSource)` (same `stripComments`
++ quoted-string-extraction convention as every other parser in this file)
+extracts only the static array literal — deliberately excluding the
+conditional `disallow.push('/join/')` / `disallow.push('/apply')` calls
+below it, which Drift AA/AH/AI already own. **Added Drift AJ**: for every
+`APP_ROOT_PREFIXES` entry (already parsed for Drift X/AE, reused here with
+no new parsing cost), check whether `robotsDisallowList` covers it via an
+exact match OR a path-segment-bounded prefix match (both sides normalized
+by stripping one trailing `/`) — the same boundary discipline Drift
+AE/AF/AG apply to this file's other path-matching checks, so a bare
+`/api` disallow entry could never be miscredited with covering an
+unrelated `/apiary` route. WARN, not CRIT: a crawlability regression, not
+a live data leak or routing break — the pages are still reachable and
+still self-gate (or don't need to) exactly as before, they're just
+indexable when they shouldn't be.
+
+**Live-fixed** `src/app/robots.ts`'s `disallow` array in the same round:
+added `/fullloop`, `/reset-pin`, `/reviews/submit`, with a new comment
+explaining the APP_ROOT_PREFIXES-sync obligation and why the three
+token-gated public flows are deliberately absent.
+
+New test coverage in `src/lib/reconcile-tenant-config.test.ts` (8 tests):
+3 for `parseRobotsDisallowList` (extraction, correctly excluding a
+`disallow.push()` call after the array literal, and the absent-declaration
+empty-array case) and 5 for the Drift AJ `computeFindings` integration
+(warns on an uncovered entry with the exact live `/fullloop`/`/reset-pin`
+shape; stays silent on an exact match after trailing-slash normalization;
+stays silent when a multi-segment prefix is covered by a shorter
+boundary-matched entry; confirms a bare-prefix entry does NOT wrongly
+cover an unrelated route sharing its leading characters
+(`/api/` vs `/apiary`); empty `appRootPrefixes` skips the whole block).
+`tsc --noEmit` clean. Full repo suite: 460/460 files, 2250/2250 tests (8
+new this round) — zero regressions, same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in
+this doc has flagged. `eslint` clean on every file this round touched
+(scoped lint) — the same 6 pre-existing warnings in
+`reconcile-tenant-config.test.ts` (unused `_slug` params, lines this round
+never touched) are unchanged from before this round.
+
+Verified the fix against the REAL repo, not just synthetic fixtures: a
+throwaway debug script (`node /tmp/debug-drift-aj.mjs`, deleted after use)
+imported `parseAppRootPrefixes`/`parseRobotsDisallowList` directly against
+the live `src/middleware.ts`/`src/app/robots.ts` sources — confirmed all
+three gaps BEFORE the fix, then re-ran after the fix and confirmed zero
+remaining gaps ("ALL COVERED"), same "did I actually check the real file"
+discipline (179)/(182)/(184)/(185) established for their own claims.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") — no live-DB reconcile run this round, same as every prior
+round without the token. The debug script above imported the module's
+pure exported functions only (no DB, no network, never invoking the
+blocked file's own CLI/`main()`), and its bash invocation never contained
+the literal blocked filename string, so it ran outside the hook's scope
+by design, not by evasion. The CLI/token-guard contract itself is
+unchanged by this round; CI's own "Verify token-guard skips clean without
+a secret" step in `tenant-config-reconcile.yml` is the authoritative check
+for that path and runs unmodified.
