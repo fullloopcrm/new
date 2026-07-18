@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { capString } from '@/lib/validate'
+
+// connect_channels.name had no type check or length cap -- same class as the
+// social/post message/caption gap. 200 matches other short "name" field caps.
+const MAX_NAME_LENGTH = 200
 
 export async function GET() {
   try {
@@ -49,7 +54,9 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId } = await getTenantForRequest()
-    const { name, type, client_id } = await request.json()
+    const requestBody = await request.json()
+    const name = capString(requestBody?.name, MAX_NAME_LENGTH)
+    const { type, client_id } = requestBody
 
     if (!name) return NextResponse.json({ error: 'Name required' }, { status: 400 })
 

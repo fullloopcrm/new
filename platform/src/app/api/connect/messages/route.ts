@@ -2,6 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
 import { isCrossSiteRequest } from '@/lib/csrf-guard'
+import { capString } from '@/lib/validate'
+
+// connect_messages.body had no type check or length cap -- same class as the
+// social/post message/caption gap. 5000 matches that free-text precedent.
+const MAX_BODY_LENGTH = 5000
 
 export async function GET(request: NextRequest) {
   try {
@@ -56,9 +61,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const { tenantId, tenant, userId } = await getTenantForRequest()
-    const { channel_id, body } = await request.json()
+    const requestBody = await request.json()
+    const channel_id = requestBody?.channel_id
+    const body = capString(requestBody?.body, MAX_BODY_LENGTH)
 
-    if (!channel_id || !body?.trim()) {
+    if (!channel_id || !body) {
       return NextResponse.json({ error: 'channel_id and body required' }, { status: 400 })
     }
 
@@ -80,7 +87,7 @@ export async function POST(request: NextRequest) {
         sender_type: 'owner',
         sender_id: userId,
         sender_name: tenant.owner_name || tenant.name || 'Owner',
-        body: body.trim(),
+        body,
       })
       .select()
       .single()
