@@ -96,7 +96,7 @@ export async function POST(request: Request, { params }: Params) {
     // ── SMS ──
     if ((via === 'sms' || via === 'both') && toPhone) {
       try {
-        const smsCreds = resolveTenantSmsCredentials(tenant)
+        const smsCreds = resolveTenantSmsCredentials(tenant, { platformFallback: true })
         const apiKey = smsCreds.apiKey ? decryptSecret(smsCreds.apiKey) : null
         const phoneFrom = smsCreds.phone || ''
         if (!apiKey || !phoneFrom) throw new Error('No Telnyx credentials configured for tenant')
