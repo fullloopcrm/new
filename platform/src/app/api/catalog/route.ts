@@ -26,7 +26,7 @@ export async function GET() {
     const { tenantId } = await getTenantForRequest()
     const { data, error } = await supabaseAdmin
       .from('service_types')
-      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true })
     if (error) throw error
@@ -70,6 +70,8 @@ export async function POST(request: Request) {
         tenant_id: tenantId,
         name,
         description: (body.description as string) || null,
+        notes: (body.notes as string) || null,
+        image_url: (body.image_url as string) || null,
         item_type,
         per_unit,
         unit_label: per_unit === 'custom' ? ((body.unit_label as string) || null) : null,
@@ -82,7 +84,7 @@ export async function POST(request: Request) {
         sort_order: num(body.sort_order) ?? 0,
         active: body.active !== false,
       })
-      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -106,6 +108,8 @@ export async function PATCH(request: Request) {
     const patch: Record<string, unknown> = {}
     if (typeof body.name === 'string') patch.name = body.name.trim()
     if ('description' in body) patch.description = (body.description as string) || null
+    if ('notes' in body) patch.notes = (body.notes as string) || null
+    if ('image_url' in body) patch.image_url = (body.image_url as string) || null
     if ('active' in body) patch.active = !!body.active
     if ('sort_order' in body) patch.sort_order = num(body.sort_order) ?? 0
     if ('price_cents' in body) patch.price_cents = num(body.price_cents) ?? 0
@@ -126,7 +130,7 @@ export async function PATCH(request: Request) {
       .update(patch)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('id, name, description, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })
