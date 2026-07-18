@@ -48,13 +48,16 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     if (_authError) return _authError
     const { tenantId } = _authTenant
     const { id } = await params
-    const { type, description } = await request.json()
+    const { type, description, tagged_user_ids } = await request.json()
 
     if (!type || !description) {
       return NextResponse.json({ error: 'type and description are required' }, { status: 400 })
     }
     if (!ALLOWED_TYPES.includes(type)) {
       return NextResponse.json({ error: `type must be one of: ${ALLOWED_TYPES.join(', ')}` }, { status: 400 })
+    }
+    if (tagged_user_ids !== undefined && !Array.isArray(tagged_user_ids)) {
+      return NextResponse.json({ error: 'tagged_user_ids must be an array' }, { status: 400 })
     }
 
     // Verify deal belongs to tenant.
@@ -66,9 +69,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .maybeSingle()
     if (!deal) return NextResponse.json({ error: 'Deal not found' }, { status: 404 })
 
+    // Only store tags for team members that actually belong to this tenant —
+    // an operator's client can't paste in another tenant's user id.
+    let taggedUserIds: string[] = []
+    if (Array.isArray(tagged_user_ids) && tagged_user_ids.length > 0) {
+      const candidates = tagged_user_ids.filter((v): v is string => typeof v === 'string')
+      const { data: validMembers } = await supabaseAdmin
+        .from('team_members')
+        .select('id')
+        .eq('tenant_id', tenantId)
+        .in('id', candidates)
+      taggedUserIds = (validMembers || []).map((m) => m.id)
+    }
+
     const { data, error } = await supabaseAdmin
       .from('deal_activities')
-      .insert({ tenant_id: tenantId, deal_id: id, type, description })
+      .insert({ tenant_id: tenantId, deal_id: id, type, description, tagged_user_ids: taggedUserIds })
       .select()
       .single()
     if (error) throw error
