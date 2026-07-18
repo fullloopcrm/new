@@ -225,7 +225,7 @@ const sections: DocSection[] = [
 |-------|----------|-------------|
 | \`/api/cron/reminders\` | Hourly | Send booking reminders (day-before + 2-hour) |
 | \`/api/cron/confirmations\` | Daily | Send confirmation requests to clients and team |
-| \`/api/cron/cleanup-videos\` | Daily | Delete videos older than 30 days (skip \`[DISPUTE]\` flagged) |
+| \`/api/cron/cleanup-videos\` | Daily | Delete videos older than 30 days (skip \`video_dispute_hold\` flagged) |
 | \`/api/cron/daily-summary\` | Daily | Send daily booking summary to owners |
 | \`/api/cron/backup\` | Daily | Database backup routine |
 | \`/api/cron/health-check\` | Every 5min | System health monitoring |
@@ -548,8 +548,9 @@ Located in \`src/lib/sms-templates.ts\`. Pre-formatted messages for common notif
 - Finds all bookings with video URLs where \`uploaded_at\` is older than 30 days
 - Deletes the file from Supabase Storage
 - Sets the video URL column to null on the booking
-- **Dispute protection:** If \`booking.notes\` contains \`[DISPUTE]\`, videos are NOT deleted
-- This allows admins to flag disputed bookings to preserve video evidence
+- **Dispute protection:** If \`booking.video_dispute_hold\` is true, videos are NOT deleted
+- Set the hold from the booking detail page's Job Videos panel ("Place Dispute Hold") — a dedicated toggle, not a notes-field marker, so it can't be silently erased by an unrelated notes edit
+- Legacy bookings flagged with a \`[DISPUTE]\` substring in \`notes\` (the old mechanism) are still honored until re-flagged with the toggle
 
 **Admin Video Viewer:**
 - Admins can view videos from the booking detail page
@@ -703,7 +704,7 @@ Located in \`src/lib/sms-templates.ts\`. Pre-formatted messages for common notif
 - "File too large" — Supabase Storage has a 50MB default limit. Check Supabase dashboard storage settings.
 - "Upload failed" — Verify the \`uploads\` bucket exists in Supabase Storage and has the correct policies.
 - Videos not appearing — Check that the booking record was updated with the URL. Look at \`walkthrough_video_url\` or \`final_video_url\` columns.
-- Videos disappearing — The \`cleanup-videos\` cron deletes videos after 30 days. Add \`[DISPUTE]\` to booking notes to prevent deletion.
+- Videos disappearing — The \`cleanup-videos\` cron deletes videos after 30 days. Use "Place Dispute Hold" on the booking detail page to prevent deletion.
 
 **SMS Delivery Issues**
 - Verify the tenant's Telnyx API key is valid and has SMS capabilities

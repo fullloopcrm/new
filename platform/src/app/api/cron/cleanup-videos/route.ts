@@ -15,12 +15,12 @@ export async function GET(request: Request) {
   // Find bookings with walkthrough videos older than 30 days (all tenants)
   const { data: bookings } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, walkthrough_video_url, final_video_url, walkthrough_video_url_uploaded_at, final_video_url_uploaded_at, notes')
+    .select('id, tenant_id, walkthrough_video_url, final_video_url, walkthrough_video_url_uploaded_at, final_video_url_uploaded_at, notes, video_dispute_hold')
     .not('walkthrough_video_url', 'is', null)
 
   const { data: bookings2 } = await supabaseAdmin
     .from('bookings')
-    .select('id, tenant_id, walkthrough_video_url, final_video_url, walkthrough_video_url_uploaded_at, final_video_url_uploaded_at, notes')
+    .select('id, tenant_id, walkthrough_video_url, final_video_url, walkthrough_video_url_uploaded_at, final_video_url_uploaded_at, notes, video_dispute_hold')
     .not('final_video_url', 'is', null)
 
   const allBookings = [...(bookings || []), ...(bookings2 || [])]
@@ -30,8 +30,11 @@ export async function GET(request: Request) {
     if (seen.has(booking.id)) continue
     seen.add(booking.id)
 
-    // Skip if booking has dispute flag
-    if (booking.notes?.includes('[DISPUTE]')) continue
+    // video_dispute_hold is the source of truth (its own column, set via a
+    // dedicated toggle -- can't be clobbered by an unrelated notes edit).
+    // The legacy [DISPUTE] notes-substring is still honored so bookings
+    // flagged the old way stay protected until re-flagged with the toggle.
+    if (booking.video_dispute_hold || booking.notes?.includes('[DISPUTE]')) continue
 
     const updates: Record<string, null> = {}
 

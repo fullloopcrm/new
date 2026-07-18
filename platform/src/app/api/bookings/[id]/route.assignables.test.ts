@@ -74,4 +74,13 @@ describe('PUT /api/bookings/[id] — assignables allowlist matches what the admi
     expect(json.booking.check_out_time).toBe('2026-08-01T11:05:00.000Z')
     expect(h.store.bookings[0].check_out_time).toBe('2026-08-01T11:05:00.000Z')
   })
+
+  it('persists video_dispute_hold (regression: the booking detail page dispute-hold toggle PUTs this field directly)', async () => {
+    const res = await PUT(putReq({ video_dispute_hold: true }), params(BOOKING_ID))
+    const json = await res.json()
+
+    expect(res.status).toBe(200)
+    expect(json.booking.video_dispute_hold).toBe(true)
+    expect(h.store.bookings[0].video_dispute_hold).toBe(true)
+  })
 })

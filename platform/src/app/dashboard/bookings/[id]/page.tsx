@@ -28,6 +28,7 @@ type Booking = {
   check_out_lng: number | null
   walkthrough_video_url: string | null
   final_video_url: string | null
+  video_dispute_hold: boolean | null
   payment_status: string | null
   payment_method: string | null
   payment_date: string | null
@@ -456,7 +457,16 @@ export default function BookingDetailPage() {
           {/* JOB VIDEOS */}
           {(booking.walkthrough_video_url || booking.final_video_url) && (
             <div className="border border-slate-200 rounded-lg p-6">
-              <h3 className="font-semibold text-slate-900 mb-4">Job Videos</h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="font-semibold text-slate-900">Job Videos</h3>
+                <button
+                  onClick={() => updateBooking({ video_dispute_hold: !booking.video_dispute_hold })}
+                  className={`flex items-center gap-2 text-xs px-3 py-1.5 rounded-lg font-medium ${booking.video_dispute_hold ? 'bg-red-50 text-red-700' : 'text-slate-400 border border-slate-200 hover:text-slate-900 hover:bg-slate-50'}`}
+                  title="Prevents cron/cleanup-videos from auto-deleting these videos after 30 days"
+                >
+                  {booking.video_dispute_hold ? 'Dispute Hold ON — protected from auto-delete' : 'Place Dispute Hold'}
+                </button>
+              </div>
               <div className="space-y-4">
                 {booking.walkthrough_video_url && (
                   <div>
