@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { requireAdmin } from '@/lib/require-admin'
+import { maxLengthError } from '@/lib/validate'
 
 function generateRefCode(name: string): string {
   const prefix = name.replace(/[^a-zA-Z]/g, '').slice(0, 4).toUpperCase()
@@ -96,6 +97,13 @@ export async function POST(request: NextRequest) {
   if (!isValidName(name)) {
     return NextResponse.json({ error: 'Please enter a valid name' }, { status: 400 })
   }
+
+  // rateLimitDb above bounds request COUNT, not the SIZE of these free-text
+  // fields -- same class as the apply/contact/leads/etc. length caps. `name`
+  // is already bounded to 50 chars via isValidName(); email/phone/
+  // preferred_payout are written straight to the referrers row unbounded.
+  const lenErr = maxLengthError({ email, phone, preferred_payout })
+  if (lenErr) return NextResponse.json({ error: lenErr }, { status: 400 })
 
   // Resolve the tenant from the domain this signup came in on (signed
   // x-tenant-id header set by middleware) — NOT "the first active tenant".
