@@ -54,6 +54,18 @@ jobs:
         # fixed with .eq('tenant_id', tenantId) or annotated `// tenant-scope-ok: <reason>`.
         run: node scripts/audit-tenant-scope.mjs
 
+      - name: Protected-tenant guard
+        # The backstop for the 2026-07-08 outage class (a merge silently dropping a
+        # live tenant's BESPOKE_SITE_TENANTS entry or its /site/<slug> folder, so it
+        # falls back to the generic template with no error). Runs automatically as
+        # npm's `prebuild` step ahead of `next build`, but this repo's own CI never
+        # calls `next build` (no vitest/tsc/eslint check reads BESPOKE_SITE_TENANTS
+        # or the site folders), so the break was previously invisible until Vercel's
+        # own build ran prebuild post-merge on main. Run it directly here so a PR
+        # that breaks a protected tenant is red BEFORE merge, not caught by whichever
+        # deploy happens to run next.
+        run: node scripts/verify-protected-tenants.mjs
+
       - name: Lint
         # Blocking: `eslint src --quiet` is error-clean today (verified 2026-07-04),
         # so this catches any NEW eslint error. Warnings are suppressed by --quiet.
