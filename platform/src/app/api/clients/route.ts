@@ -41,7 +41,13 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ clients: data, total: count })
+    // pin is the client-portal login credential (plaintext 6-digit PIN, see
+    // /api/client/login). clients.view is held down to the 'staff' role --
+    // without stripping this, any staff-tier dashboard user could pull every
+    // client's PIN off this list and log into the portal as them. Mirrors the
+    // same leak/fix in /api/cleaners for team_members.pin.
+    const safe = (data || []).map(({ pin: _pin, ...rest }) => rest)
+    return NextResponse.json({ clients: safe, total: count })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })

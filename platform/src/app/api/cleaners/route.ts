@@ -20,7 +20,13 @@ export async function GET() {
     .order('name')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json(data)
+
+  // pin is the team-portal login credential (plaintext 4-digit PIN). team.view
+  // is held by every role down to 'staff' -- without stripping this, any
+  // staff-tier dashboard user could pull every team member's PIN off this list
+  // and log into the portal as anyone, including leads/managers.
+  const safe = (data || []).map(({ pin: _pin, ...rest }) => rest)
+  return NextResponse.json(safe)
 }
 
 export async function POST(request: NextRequest) {

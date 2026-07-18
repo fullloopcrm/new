@@ -28,7 +28,11 @@ export async function GET(
       return NextResponse.json({ error: 'Not found' }, { status: 404 })
     }
 
-    return NextResponse.json({ client: data })
+    // pin is the client-portal login credential (plaintext 6-digit PIN) --
+    // strip it from the clients.view-gated response. See /api/clients (list)
+    // for the matching fix and rationale.
+    const { pin: _pin, ...safe } = data
+    return NextResponse.json({ client: safe })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
