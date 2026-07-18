@@ -12507,3 +12507,116 @@ With `hasSitemapFile` closed, every fs-walking closure that USED to live
 inside `main()` (the four (237)/(238) promoted plus this one) is now a
 module-level exported function with its own direct test coverage -- no
 closure inside `main()` remains untested by this file's own suite.
+
+## (240) Fresh ground, same surface as (237)-(239) -- reconcile gate's own
+Drift AB loop read sitemap.ts/robots.ts/layout.tsx as DIRECT children only,
+blind to a SECOND, independent layout.tsx nested behind a route group
+
+`main()`'s `wwwApexDomainsBySlug` loop (feeds Drift AB, WARN -- a bespoke
+tenant's own canonical-URL sources hardcoding `https://www.<apex-canonical
+-domain>`) read `join(dir, 'sitemap.ts' | 'robots.ts' | 'layout.tsx')` --
+direct children of the tenant's `site/<slug>` root only. wash-and-fold-nyc
+and wash-and-fold-hoboken already nest a SECOND, independent `layout.tsx`
+under `(marketing)/` alongside their root `layout.tsx` -- Next.js composes
+`metadata` down that chain (a child layout's own `metadata` export can
+define its own canonical URL independently of the root layout), so a
+hardcoded www literal in the NESTED layout would have been invisible to
+the old direct-children-only read. Same bug shape (237)/(238)/(239) already
+closed three times over on `hasHomePage`/`hasSitemapFile`, here landing on
+content-collection instead of an existence check.
+
+Landmine-only today: neither wash-and-fold tenant is in
+`APEX_CANONICAL_DOMAINS` (only consortium-nyc, thenycmarketingcompany.com,
+thenycinteriordesigner.com are, and none of those three nests a
+layout.tsx/sitemap.ts/robots.ts behind a route group) -- same disposition
+as every prior item in this surface.
+
+**Fixed** by promoting to a new exported `collectRouteGroupFiles(dir,
+filename)`, following the same route-group-chain recursion discipline as
+`hasHomePage`/`hasSitemapFile`, and rewiring `main()`'s loop to collect
+files across the FULL chain instead of just `dir`'s direct children. This
+also surfaced and fixed a second, related bug: a nested `sitemap.ts`'s own
+relative imports (`parseRelativeImportPaths`) must resolve against ITS OWN
+directory (`dirname(sitemapPath)`), not the tenant root -- the old code
+always used the tenant root as the base, which was only correct because
+every current sitemap.ts happens to sit at that root.
+
+**Mutation-verified live:** reverted `collectRouteGroupFiles` to a
+direct-child-only stub, ran the new "in ADDITION to a direct sibling (the
+live wash-and-fold shape)" and "chain of nested route groups" assertions
+against it -- both failed exactly as predicted (empty array instead of
+finding the nested file); reapplied the fix, both and the 3 sibling
+assertions in the same `describe` block went green.
+
+Closed with 5 new tests in a new `collectRouteGroupFiles` `describe`
+block (nonexistent directory, file absent, direct child, direct child
+PLUS one nested behind a route group, chain of nested route groups,
+does-not-descend-into-an-ordinary-subdirectory).
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 494/494
+files, 2503/2503 tests -- zero regressions, same pre-existing
+unused-`_slug` eslint warnings every prior report in this lane has
+flagged (eslint clean, 0 errors, on both touched files).
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session -- no live reconcile
+run; this item's fix and verification are entirely within a pure,
+no-network filesystem-walking function, run end-to-end through vitest
+with real temp-directory fixtures, same discipline as every prior item
+in this lane's sessions.
+
+## (241) Surface opened by (240) -- verify-protected-tenants.mjs's OWN
+independent homepage check, the ACTUAL npm `prebuild` gate that blocks
+every Vercel deploy, had the identical one-level-only route-group bug
+(238) already fixed for reconcile-tenant-config.mjs's `hasHomePage`, plus
+zero test coverage and no test file for this script AT ALL
+
+Item (240) closed reconcile-tenant-config.mjs's last known route-group-
+blind fs check. Looking for what that surface opens up next led to
+`scripts/verify-protected-tenants.mjs` -- a SEPARATE script (the other
+guard over `BESPOKE_SITE_TENANTS`, per this lane's own recurring theme)
+with its OWN independent implementation of "does this tenant have a
+homepage": an inline `main()` closure (`hasHome`/`groupHome`) that only
+resolved ONE level of route-group nesting
+(`readdirSync(siteDir).some((e) => e.startsWith('(') && e.endsWith(')')
+&& existsSync(join(siteDir, e, 'page.tsx')))`) -- the EXACT bug (238)
+fixed for `hasHomePage` in reconcile-tenant-config.mjs, just never fixed
+HERE. No test file for this script existed at all (only
+`parseBespokeSetFromMiddleware` had indirect coverage via other files'
+fixture tests, and separately, `protected-tenant-guard-wiring.test.ts`/
+`prebuild-guard-wiring.test.ts` verify only that the script is INVOKED,
+never its internal logic).
+
+This is a HIGHER-stakes instance of the bug than (238)'s own: this
+script literally IS the npm `prebuild` step (see
+`prebuild-guard-wiring.test.ts`), so a false "no homepage" here doesn't
+just red a separate CI job -- it fails `next build` itself, blocking
+every Vercel deploy for the whole repo, for a PROTECTED tenant whose
+homepage legitimately renders two-or-more route groups deep.
+
+**Fixed** by promoting to a new exported `hasProtectedTenantHomepage`,
+recursing through the FULL route-group chain, same discipline
+`hasHomePage` already applies in reconcile-tenant-config.mjs. **Mutation-
+verified live:** reverted to the old one-level-only check, ran the new
+"page.tsx behind a CHAIN of nested route groups" assertion against it --
+failed exactly as predicted (returned `false`); reapplied the fix, it and
+the 4 sibling assertions in the new `describe` block went green.
+Additionally ran the REAL guard (`node scripts/verify-protected-tenants.mjs`)
+against the live repo post-fix: all 22 PROTECTED tenants still pass, exit
+0 -- no regression to the actual prebuild gate. Landmine-only today: no
+CURRENT PROTECTED tenant nests its `page.tsx` two-or-more route groups
+deep (verified against every real `src/app/site/<slug>/` folder,
+including wash-and-fold-nyc/hoboken's own one-level `(marketing)/page.tsx`).
+
+Closed with a new test file, `verify-protected-tenants-homepage.test.ts`
+(5 tests: absent directory, direct page.tsx, one-level route group, no
+homepage anywhere, chain of nested route groups) -- the first test
+coverage this script has ever had for anything beyond
+`parseBespokeSetFromMiddleware`'s comment-stripping and its own CI-wiring.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 495/495
+files, 2508/2508 tests -- zero regressions, eslint clean (0
+errors/warnings) on both touched files.
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session -- no live reconcile
+run; this item's fix and verification are entirely within a pure,
+no-network filesystem-walking function plus one live, read-only run of
+the guard script itself against the real repo tree, same discipline as
+every prior item in this lane's sessions.
