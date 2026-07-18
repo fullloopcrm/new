@@ -153,7 +153,7 @@ function buildEmailHtml(
     .map(
       ([key, value]) =>
         `<tr>
-          <td style="padding:8px 12px;font-weight:600;color:#334155;text-transform:capitalize;vertical-align:top;white-space:nowrap;">${key.replace(/([A-Z])/g, " $1")}</td>
+          <td style="padding:8px 12px;font-weight:600;color:#334155;text-transform:capitalize;vertical-align:top;white-space:nowrap;">${escapeHtml(key.replace(/([A-Z])/g, " $1"))}</td>
           <td style="padding:8px 12px;color:#475569;">${escapeHtml(String(value || "—"))}</td>
         </tr>`
     )
