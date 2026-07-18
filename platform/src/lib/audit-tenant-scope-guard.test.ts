@@ -5,8 +5,12 @@ import { join } from 'node:path'
 import { spawnSync } from 'node:child_process'
 
 // Guards the LOGIC in scripts/audit-tenant-scope.mjs — the static leak
-// detector that .github/workflows/tenant-scope.yml AND ci.yml (W3 lane: CI
-// wiring) run on EVERY PR to block a new cross-tenant query. Every other
+// detector that ci.yml's "Tenant-isolation guard" step (W3 lane: CI wiring)
+// runs on EVERY PR to block a new cross-tenant query. (Formerly ALSO run by a
+// separate .github/workflows/tenant-scope.yml — a pure duplicate of this same
+// command on the same triggers since ci.yml added its own copy hours after
+// tenant-scope.yml already existed on 2026-07-04; consolidated into ci.yml
+// only, see tenant-scope-workflow-consolidation.test.ts.) Every other
 // lane's tenantDb() conversion trusts this gate to catch a regression; a
 // silent bug in its regex (e.g. the tenantDb() var-bound lookbehind, or the
 // baseline diff) would let a real leak merge, or false-positive-block every

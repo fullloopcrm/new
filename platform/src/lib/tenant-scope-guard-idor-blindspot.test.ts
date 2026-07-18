@@ -5,8 +5,9 @@ import { analyzeSource } from './idor-route-guard'
 
 // CI invariant — documents a real BLIND SPOT in the LIVE, ALREADY-BLOCKING
 // tenant-isolation gate (scripts/audit-tenant-scope.mjs, wired into
-// .github/workflows/ci.yml "Tenant-isolation guard" step AND
-// .github/workflows/tenant-scope.yml — every PR runs both, today).
+// .github/workflows/ci.yml's "Tenant-isolation guard" step — formerly ALSO
+// run by a separate, now-removed .github/workflows/tenant-scope.yml; see
+// tenant-scope-workflow-consolidation.test.ts).
 //
 // FINDING (verified this session, not a hypothesis): audit-tenant-scope.mjs
 // treats ANY `.eq('id'|'*_id'|'*token*', …)` match on a chain as `idLookup` and
@@ -26,12 +27,12 @@ import { analyzeSource } from './idor-route-guard'
 // file::table signatures (idor-route-guard.baseline.json). That gap is this
 // exemption, not a difference in what code exists.
 //
-// This test does NOT change scripts/audit-tenant-scope.mjs, ci.yml, or
-// tenant-scope.yml — those are live, already-blocking gates; changing the
-// idLookup semantics would newly red-gate an unknown share of the 178
-// candidates fleet-wide and is a call for the leader/Jeff, not a unilateral
-// edit from this prototype lane. This test only PROVES the gap exists and
-// pins it so a future edit to either script is a deliberate, reviewed change
+// This test does NOT change scripts/audit-tenant-scope.mjs or ci.yml — those
+// are live, already-blocking gates; changing the idLookup semantics would
+// newly red-gate an unknown share of the 178 candidates fleet-wide and is a
+// call for the leader/Jeff, not a unilateral edit from this prototype lane.
+// This test only PROVES the gap exists and pins it so a future edit to either
+// script is a deliberate, reviewed change
 // — not a silent drift. See deploy-prep/idor-lint-guard-spec.md §7.
 //
 // SOURCE-LOCKED: this test reads the ACTUAL regex source out of
