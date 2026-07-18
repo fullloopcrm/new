@@ -80,12 +80,22 @@ export async function POST(request: Request) {
   if (address.length < 5) {
     return NextResponse.json({ error: 'Please enter a full address.' }, { status: 400 })
   }
-  const property = await addProperty(clientId, address, {
-    unit: body.unit || null,
-    label: body.label || null,
-    makePrimary: body.make_primary === true,
-    actor: actorFor(auth.isAdmin, clientId),
-  })
+  let property
+  try {
+    property = await addProperty(clientId, address, {
+      unit: body.unit || null,
+      label: body.label || null,
+      makePrimary: body.make_primary === true,
+      actor: actorFor(auth.isAdmin, clientId),
+    })
+  } catch (err) {
+    // addProperty(makePrimary:true) can now throw from the atomic
+    // set_primary_client_property RPC (see setPrimaryProperty) -- catch here
+    // too, or this would surface as an unstyled 500 instead of this route's
+    // JSON error shape.
+    console.error('addProperty(makePrimary) failed:', err)
+    return NextResponse.json({ error: 'Failed to add address' }, { status: 500 })
+  }
   if (!property) return NextResponse.json({ error: 'Failed to add address' }, { status: 500 })
   return NextResponse.json({ property })
 }
@@ -101,7 +111,12 @@ export async function PATCH(request: Request) {
   const actor = actorFor(auth.isAdmin, clientId)
 
   if (body.action === 'set_primary') {
-    await setPrimaryProperty(clientId, propertyId, actor)
+    try {
+      await setPrimaryProperty(clientId, propertyId, actor)
+    } catch (err) {
+      console.error('set_primary_client_property failed:', err)
+      return NextResponse.json({ error: 'Failed to set primary address' }, { status: 500 })
+    }
     return NextResponse.json({ success: true })
   }
   if (body.action === 'deactivate') {

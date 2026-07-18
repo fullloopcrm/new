@@ -175,6 +175,14 @@ export async function resolveProperty(
 
   const isPrimary = !existing || existing.length === 0
 
+  // is_primary always starts false on insert -- if this should be the
+  // client's primary property, promote it via the atomic RPC below instead
+  // of inserting is_primary:true directly. Two concurrent bookings both
+  // resolving a brand-new client's first-ever address would otherwise both
+  // read an empty `existing` above, both compute isPrimary:true, and both
+  // insert primary:true rows -- same race class as
+  // set_primary_client_contact (2026-07-16) and tenant_domains'
+  // one-primary-per-tenant gap (2026-07-17), never closed here.
   const { data: created, error } = await supabaseAdmin
     .from('client_properties')
     .insert({
@@ -182,7 +190,7 @@ export async function resolveProperty(
       client_id: clientId,
       address: full,
       unit: unit || null,
-      is_primary: isPrimary,
+      is_primary: false,
       active: true,
     })
     .select('id, address, latitude, longitude')
@@ -191,6 +199,19 @@ export async function resolveProperty(
   if (error) {
     console.error('resolveProperty insert failed:', error.message)
     return null
+  }
+
+  if (isPrimary) {
+    // Atomic: a single UPDATE sets is_primary = (id = target) for every
+    // property under this client, so a second concurrent resolveProperty
+    // call promoting its OWN new row can't interleave into two primaries --
+    // whichever call's RPC commits last deterministically wins.
+    const { error: rpcErr } = await supabaseAdmin.rpc('set_primary_client_property', {
+      p_tenant_id: tenantId,
+      p_client_id: clientId,
+      p_property_id: created.id,
+    })
+    if (rpcErr) console.error('resolveProperty primary-promote failed:', rpcErr.message)
   }
 
   await logPropertyChange({
@@ -283,10 +304,25 @@ export async function updateProperty(
   return after
 }
 
-// Make one property primary (and clear the flag on the others).
+// Make one property primary (and clear the flag on the others). Atomic: a
+// single UPDATE (via RPC) sets is_primary = (id = target) for every property
+// under this client in ONE statement -- the prior two-step "demote all, then
+// set the target" had a real race. Two concurrent "set as primary" calls for
+// two DIFFERENT properties on the same client (e.g. PATCH
+// /api/client/properties fired twice) could interleave into TWO primaries
+// (demote-then-set ordering) or, with a naive reorder, ZERO (each call's
+// demote step stomps the other's just-set row) -- neither ordering of two
+// separate statements closes it. Same race + same fix shape as
+// set_primary_client_contact (2026-07-16, src/app/api/clients/[id]/contacts).
 export async function setPrimaryProperty(clientId: string, propertyId: string, actor?: ChangeActor): Promise<void> {
-  await supabaseAdmin.from('client_properties').update({ is_primary: false }).eq('client_id', clientId)
-  await supabaseAdmin.from('client_properties').update({ is_primary: true }).eq('id', propertyId).eq('client_id', clientId)
+  const tenantId = await clientTenantId(clientId)
+  if (!tenantId) throw new Error(`setPrimaryProperty: no tenant found for client ${clientId}`)
+  const { error } = await supabaseAdmin.rpc('set_primary_client_property', {
+    p_tenant_id: tenantId,
+    p_client_id: clientId,
+    p_property_id: propertyId,
+  })
+  if (error) throw new Error(`setPrimaryProperty RPC failed: ${error.message}`)
   await logPropertyChange({ clientId, propertyId, action: 'set_primary', newValue: { is_primary: true }, actor })
 }
 
