@@ -36,7 +36,7 @@ export async function GET(request: Request) {
       // Find active clients with SMS consent
       const { data: clients } = await supabaseAdmin
         .from('clients')
-        .select('id, name, phone')
+        .select('id, name, phone, retention_sms_sent_at, retention_sms_count')
         .eq('tenant_id', tenant.id)
         .eq('active', true)
         .eq('sms_consent', true)
@@ -78,27 +78,31 @@ export async function GET(request: Request) {
 
         if ((upcomingCount || 0) > 0) { skipped++; continue }
 
-        // Check how many retention texts already sent (max 3)
-        const { count: retentionCount } = await supabaseAdmin
-          .from('notifications')
-          .select('id', { count: 'exact', head: true })
+        // Claim BEFORE sending: the old dedup was two separate notifications-
+        // table SELECTs (a lifetime-cap COUNT and a 30-day-cooldown SELECT),
+        // but the only notifications row that would satisfy either check is
+        // inserted AFTER sendSMS() resolves -- same sent-before-claim race
+        // fixed elsewhere this session (phone-fixup/confirmation-reminder/
+        // payment-followup-daily/etc). This cron runs daily with no run-lock
+        // over up to 500 clients per tenant, so two overlapping invocations
+        // could both read zero matching rows before either write landed and
+        // both text the client. Both the cooldown and the lifetime cap are
+        // enforced atomically in ONE UPDATE's WHERE clause -- the losing
+        // invocation's claim affects 0 rows and it skips.
+        const priorSentAt = client.retention_sms_sent_at as string
+        const priorCount = (client.retention_sms_count as number) || 0
+        const { data: claimed } = await supabaseAdmin
+          .from('clients')
+          .update({
+            retention_sms_sent_at: now.toISOString(),
+            retention_sms_count: priorCount + 1,
+          })
+          .eq('id', client.id)
           .eq('tenant_id', tenant.id)
-          .eq('recipient_id', client.id)
-          .eq('type', 'retention')
-
-        if ((retentionCount || 0) >= 3) { skipped++; continue }
-
-        // Check if retention text was sent in last 30 days
-        const { data: recentRetention } = await supabaseAdmin
-          .from('notifications')
+          .lt('retention_sms_sent_at', thirtyDaysAgoNotif.toISOString())
+          .lt('retention_sms_count', 3)
           .select('id')
-          .eq('tenant_id', tenant.id)
-          .eq('recipient_id', client.id)
-          .eq('type', 'retention')
-          .gte('created_at', thirtyDaysAgoNotif.toISOString())
-          .limit(1)
-
-        if (recentRetention && recentRetention.length > 0) { skipped++; continue }
+        if (!claimed || claimed.length === 0) { skipped++; continue } // lost the race, capped, or still in cooldown
 
         // Send retention SMS
         const firstName = client.name?.split(' ')[0] || 'there'
@@ -110,7 +114,8 @@ export async function GET(request: Request) {
             telnyxPhone: tenant.telnyx_phone,
           })
 
-          // Log the retention notification
+          // Audit trail only now -- retention_sms_sent_at/retention_sms_count
+          // above are the dedup source of truth.
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenant.id,
             type: 'retention',
@@ -120,12 +125,19 @@ export async function GET(request: Request) {
             recipient_type: 'client',
             recipient_id: client.id,
             status: 'sent',
-            metadata: { sms_type: 'retention', retention_count: (retentionCount || 0) + 1 },
+            metadata: { sms_type: 'retention', retention_count: priorCount + 1 },
           })
 
           sent++
         } catch (smsErr) {
           errors.push(`SMS to ${client.phone}: ${smsErr instanceof Error ? smsErr.message : String(smsErr)}`)
+          // Release the claim on failure, back to its exact pre-claim state
+          // -- the old notifications-based dedup only ever recorded a
+          // SUCCESSFUL send, so a failed attempt didn't count against the
+          // lifetime cap and wasn't subject to the cooldown either.
+          await supabaseAdmin.from('clients')
+            .update({ retention_sms_sent_at: priorSentAt, retention_sms_count: priorCount })
+            .eq('id', client.id)
         }
       }
     } catch (tenantErr) {
