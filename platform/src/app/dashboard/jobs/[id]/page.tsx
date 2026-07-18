@@ -22,6 +22,11 @@ type Session = {
 type EventRow = { id: string; event_type: string; created_at: string }
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
+type JobPhoto = {
+  id: string; url: string; photo_type: 'before' | 'after' | 'progress'
+  source: 'crew' | 'client'; caption: string | null; uploaded_by: string | null; taken_at: string
+}
+type PhotoComment = { id: string; body: string | null; author: string; created_at: string }
 
 function money(c: number) { return ((c || 0) / 100).toLocaleString('en-US', { style: 'currency', currency: 'USD' }) }
 function when(iso: string | null) { return iso ? new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' }) : '—' }
@@ -134,6 +139,143 @@ function SessionEditor({
         {onCancel && <button onClick={onCancel} disabled={saving} className="px-3 py-1 text-xs rounded border border-slate-300 text-slate-500 hover:bg-white">Cancel</button>}
       </div>
     </div>
+  )
+}
+
+const PHOTO_TYPE_LABEL: Record<string, string> = { before: 'Before', after: 'After', progress: 'Progress' }
+const PHOTO_TYPE_STYLE: Record<string, string> = {
+  before: 'bg-amber-50 text-amber-700', after: 'bg-green-50 text-green-600', progress: 'bg-slate-100 text-slate-500',
+}
+
+function PhotoLightbox({
+  photo, jobId, onClose,
+}: { photo: JobPhoto; jobId: string; onClose: () => void }) {
+  const [comments, setComments] = useState<PhotoComment[]>([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const loadComments = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`).then(r => r.json())
+      .then(d => setComments(d.comments || [])).catch(() => {})
+  }, [jobId, photo.id])
+  useEffect(() => { loadComments() }, [loadComments])
+
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    try {
+      await fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text }),
+      })
+      setText('')
+      loadComments()
+    } finally { setSending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={photo.url} alt={photo.caption || 'Job photo'} className="w-full max-h-[60vh] object-contain bg-slate-900" />
+        <div className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[photo.photo_type]}`}>{PHOTO_TYPE_LABEL[photo.photo_type]}</span>
+            <span className="text-[10px] text-slate-400">{photo.source === 'client' ? 'From client' : (photo.uploaded_by || 'Crew')}</span>
+            <span className="text-[10px] text-slate-400">{when(photo.taken_at)}</span>
+          </div>
+          {photo.caption && <p className="text-sm text-slate-700 mb-2">{photo.caption}</p>}
+
+          <div className="space-y-1.5 mb-2">
+            {comments.map(c => (
+              <div key={c.id} className="text-xs bg-slate-50 rounded p-1.5">
+                <span className="font-medium text-slate-700">{c.author}</span>
+                <span className="text-slate-400 ml-1.5">{when(c.created_at)}</span>
+                <p className="text-slate-600 mt-0.5">{c.body}</p>
+              </div>
+            ))}
+            {comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
+          </div>
+
+          <div className="flex gap-1.5">
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a comment…"
+              className="flex-1 px-2 py-1 text-xs rounded border border-slate-300"
+              onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
+            <button onClick={send} disabled={sending || !text.trim()} className="text-xs px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">Send</button>
+          </div>
+          <button onClick={onClose} className="mt-2 text-[11px] text-slate-400 hover:underline">Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PhotoGallery({ jobId }: { jobId: string }) {
+  const [photos, setPhotos] = useState<JobPhoto[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [photoType, setPhotoType] = useState<'before' | 'after' | 'progress'>('progress')
+  const [selected, setSelected] = useState<JobPhoto | null>(null)
+  const [err, setErr] = useState('')
+
+  const load = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos`).then(r => r.json()).then(d => setPhotos(d.photos || [])).catch(() => {})
+  }, [jobId])
+  useEffect(() => { load() }, [load])
+
+  const onUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true); setErr('')
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('photo_type', photoType)
+        const res = await fetch(`/api/jobs/${jobId}/photos`, { method: 'POST', body: form })
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Upload failed') }
+      }
+      load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Upload failed')
+    } finally { setUploading(false) }
+  }
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-sm font-semibold text-slate-800">Job photos</h2>
+        <div className="flex items-center gap-1.5">
+          <select value={photoType} onChange={(e) => setPhotoType(e.target.value as typeof photoType)}
+            className="text-[11px] px-1.5 py-1 rounded border border-slate-300">
+            <option value="progress">Progress</option>
+            <option value="before">Before</option>
+            <option value="after">After</option>
+          </select>
+          <label className={`text-[11px] px-2 py-1 rounded bg-slate-800 text-white cursor-pointer ${uploading ? 'opacity-50' : 'hover:bg-slate-900'}`}>
+            {uploading ? 'Uploading…' : '+ Add photos'}
+            <input type="file" accept="image/*" multiple className="hidden" disabled={uploading}
+              onChange={(e) => onUpload(e.target.files)} />
+          </label>
+        </div>
+      </div>
+
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+
+      {photos.length === 0
+        ? <p className="text-sm text-slate-400">No photos yet.</p>
+        : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {photos.map(p => (
+              <button key={p.id} onClick={() => setSelected(p)} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.url} alt={p.caption || 'Job photo'} className="w-full h-full object-cover group-hover:opacity-90" />
+                <span className={`absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[p.photo_type]}`}>{PHOTO_TYPE_LABEL[p.photo_type]}</span>
+                {p.source === 'client' && <span className="absolute top-1 right-1 text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Client</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+      {selected && <PhotoLightbox photo={selected} jobId={jobId} onClose={() => setSelected(null)} />}
+    </section>
   )
 }
 
@@ -354,6 +496,8 @@ export default function JobDetailPage() {
           ))}
         </div>
       </section>
+
+      <PhotoGallery jobId={id} />
 
       {/* Activity log */}
       <section>
