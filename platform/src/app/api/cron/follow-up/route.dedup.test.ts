@@ -1,16 +1,11 @@
 /**
  * GET /api/cron/follow-up — duplicate-send protection.
  *
- * Unlike every sibling follow-up cron (post-job-followup's [FOLLOWUP_SENT]
- * notes marker, sales-follow-ups' notifications-based dedup), this route had
- * ZERO guard against re-sending the 3-day "thank you + 10% off" email to a
- * booking it already followed up on -- a manual re-trigger of this endpoint,
- * or a platform-retried cron delivery, would re-notify every booking still
- * inside the 2-hour check_out_time window. Fix: a [THANKYOU_SENT] marker in
- * bookings.notes, checked before send and written after -- distinct from
- * post-job-followup's [FOLLOWUP_SENT] marker on the same column (that one
- * gates a different, earlier 2-hour-post-checkout SMS and would already be
- * present by the time this cron runs 3 days later).
+ * thank_you_sent_at is the sole dedup source of truth (compare-and-swap,
+ * claimed before send -- see route.claim-before-send-race.test.ts for the
+ * concurrency coverage and the migration file for the full history). notes
+ * still gets a human-readable [THANKYOU_SENT] marker in the same atomic
+ * write, but it is cosmetic only and is never read back.
  */
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest'
 import { createFakeSupabase } from '@/test/fake-supabase'
@@ -58,10 +53,10 @@ afterEach(() => {
 })
 
 describe('follow-up cron duplicate-send protection', () => {
-  it('sends a thank-you exactly once per booking, skipping one already marked [THANKYOU_SENT]', async () => {
+  it('sends a thank-you exactly once per booking, skipping one already marked via thank_you_sent_at', async () => {
     h.fake!._seed('bookings', [
-      { id: 'bk-fresh', tenant_id: TENANT_ID, client_id: 'client-1', service_type: 'Cleaning', status: 'completed', check_out_time: checkoutThreeDaysAgo(), notes: null, clients: { name: 'Jane' } },
-      { id: 'bk-already-sent', tenant_id: TENANT_ID, client_id: 'client-2', service_type: 'Cleaning', status: 'completed', check_out_time: checkoutThreeDaysAgo(), notes: '[THANKYOU_SENT] 2026-07-14T00:00:00.000Z', clients: { name: 'Bob' } },
+      { id: 'bk-fresh', tenant_id: TENANT_ID, client_id: 'client-1', service_type: 'Cleaning', status: 'completed', check_out_time: checkoutThreeDaysAgo(), notes: null, thank_you_sent_at: null, clients: { name: 'Jane' } },
+      { id: 'bk-already-sent', tenant_id: TENANT_ID, client_id: 'client-2', service_type: 'Cleaning', status: 'completed', check_out_time: checkoutThreeDaysAgo(), notes: '[THANKYOU_SENT] 2026-07-14T00:00:00.000Z', thank_you_sent_at: '2026-07-14T00:00:00.000Z', clients: { name: 'Bob' } },
     ])
 
     const res = await GET(cronReq())
@@ -72,7 +67,27 @@ describe('follow-up cron duplicate-send protection', () => {
     expect((h.notifyCalls[0] as { bookingId: string }).bookingId).toBe('bk-fresh')
 
     const updated = h.fake!._all('bookings').find((r) => r.id === 'bk-fresh')
+    expect(updated?.thank_you_sent_at).not.toBeNull()
     expect(String(updated?.notes)).toContain('[THANKYOU_SENT]')
+  })
+
+  it('does not resend after an admin PATCH overwrites notes and erases the marker text', async () => {
+    h.fake!._seed('bookings', [
+      { id: 'bk-notes-wiped', tenant_id: TENANT_ID, client_id: 'client-4', service_type: 'Cleaning', status: 'completed', check_out_time: checkoutThreeDaysAgo(), notes: null, thank_you_sent_at: null, clients: { name: 'Sam' } },
+    ])
+
+    const first = await GET(cronReq())
+    expect((await first.json()).follow_ups_sent).toBe(1)
+
+    // Simulate PATCH /api/bookings/:id overwriting notes entirely -- the old
+    // notes-substring scheme would have erased [THANKYOU_SENT] here and
+    // re-sent on the next pass. thank_you_sent_at is untouched by that route.
+    const booking = h.fake!._all('bookings').find((r) => r.id === 'bk-notes-wiped')!
+    booking.notes = 'unrelated staff note, no marker'
+
+    const second = await GET(cronReq())
+    expect((await second.json()).follow_ups_sent).toBe(0)
+    expect(h.notifyCalls).toHaveLength(1)
   })
 
   it('does not send a second thank-you if the cron is re-triggered for the same booking', async () => {

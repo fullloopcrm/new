@@ -19,21 +19,39 @@ export async function GET(request: Request) {
     .in('status', ['completed', 'paid'])
     .gte('check_out_time', windowStart.toISOString())
     .lte('check_out_time', windowEnd.toISOString())
+    .is('thank_you_sent_at', null)
 
   let totalSent = 0
 
   for (const booking of bookings || []) {
-    // Unlike every sibling follow-up cron (post-job-followup's
-    // [FOLLOWUP_SENT] notes marker, sales-follow-ups' notifications-based
-    // dedup), this route had ZERO duplicate-send protection -- a manual
-    // re-trigger of this endpoint, or a platform-retried cron delivery,
-    // would re-send the "thank you + THANKYOU for 10% off" email to every
-    // booking still inside the 2-hour window. Distinct marker from
+    // Claim BEFORE sending: compare-and-swap update conditioned on
+    // thank_you_sent_at still being null. Two overlapping invocations (a
+    // manual re-trigger of this endpoint, or a platform-retried cron
+    // delivery) racing on the same booking can no longer both send -- the
+    // loser's claim affects 0 rows and it skips. Also replaces the old
+    // notes-substring [THANKYOU_SENT] marker as the dedup source: any later
+    // admin edit to notes (PATCH /api/bookings/:id allows it) used to
+    // silently erase the marker and trigger a duplicate send on the next
+    // pass -- this column is never touched by that route, so it can't
+    // happen. Same bug class + fix shape as post-job-followup's
+    // review_followup_sent_at fix. Distinct marker text from
     // post-job-followup's [FOLLOWUP_SENT] -- that one gates an unrelated
     // 2-hour-post-checkout SMS rating request on the same bookings.notes
     // field, and would already be present by the time this 3-day thank-you
     // runs, so reusing it would make this cron silently skip every booking.
-    if (booking.notes?.includes('[THANKYOU_SENT]')) continue
+    const nowIso = new Date().toISOString()
+    const updatedNotes = booking.notes
+      ? `${booking.notes}\n[THANKYOU_SENT] ${nowIso}`
+      : `[THANKYOU_SENT] ${nowIso}`
+
+    const { data: claimed } = await supabaseAdmin
+      .from('bookings')
+      .update({ thank_you_sent_at: nowIso, notes: updatedNotes })
+      .eq('id', booking.id)
+      .is('thank_you_sent_at', null)
+      .select('id')
+
+    if (!claimed || claimed.length === 0) continue // lost the race to a concurrent/overlapping invocation
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
@@ -53,11 +71,6 @@ export async function GET(request: Request) {
       recipientId: booking.client_id,
       bookingId: booking.id,
     })
-
-    const updatedNotes = booking.notes
-      ? `${booking.notes}\n[THANKYOU_SENT] ${new Date().toISOString()}`
-      : `[THANKYOU_SENT] ${new Date().toISOString()}`
-    await supabaseAdmin.from('bookings').update({ notes: updatedNotes }).eq('id', booking.id)
 
     totalSent++
   }
