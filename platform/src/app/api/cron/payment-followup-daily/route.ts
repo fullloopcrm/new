@@ -74,7 +74,7 @@ export async function GET(request: Request) {
 
     const { data: unpaid } = await supabaseAdmin
       .from('bookings')
-      .select('id, client_id, price, end_time, clients(name, phone)')
+      .select('id, client_id, price, end_time, clients(name, phone, sms_consent, do_not_service)')
       .eq('tenant_id', tenant.id)
       .in('status', ['completed', 'paid'])
       .gt('price', 0)
@@ -88,8 +88,14 @@ export async function GET(request: Request) {
 
     for (const booking of unpaid || []) {
       if (sent >= MAX_SENDS_PER_RUN) { capHit = true; break }
-      const client = booking.clients as unknown as { name?: string; phone?: string } | null
+      const client = booking.clients as unknown as { name?: string; phone?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
       if (!booking.client_id || !client?.phone) continue
+      // do_not_service is a stronger, channel-agnostic kill-switch than
+      // sms_consent (same class fixed for the booking-lifecycle SMS
+      // pipeline this session, 89c2cdd9/14fa0888) -- neither was checked
+      // here, so a client who'd replied STOP or was DNS-flagged still got
+      // thrice-daily payment-balance texts.
+      if (client.sms_consent === false || client.do_not_service) continue
 
       // Per-slot idempotency: already chased this booking this slot?
       const { count } = await supabaseAdmin

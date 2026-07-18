@@ -10,6 +10,8 @@ export interface ClientRecord {
   email: string
   phone: string
   address: string
+  sms_consent: boolean | null
+  do_not_service: boolean | null
 }
 
 export interface TeamMemberRecord {
@@ -33,6 +35,7 @@ export interface TenantRecord {
 
 export type ClientName = Pick<ClientRecord, 'name'> | null
 export type ClientNamePhone = Pick<ClientRecord, 'name' | 'phone'> | null
+export type ClientNamePhoneConsent = Pick<ClientRecord, 'name' | 'phone' | 'sms_consent' | 'do_not_service'> | null
 export type ClientNameEmail = Pick<ClientRecord, 'name' | 'email'> | null
 export type ClientNameAddress = Pick<ClientRecord, 'name' | 'address'> | null
 export type ClientNamePhoneEmail = Pick<ClientRecord, 'name' | 'phone' | 'email'> | null
@@ -112,7 +115,7 @@ export interface BookingTomorrowConfirm {
   client_id: string | null
   start_time: string
   service_type: string | null
-  clients: ClientNamePhone
+  clients: ClientNamePhoneConsent
   team_members: TeamMemberName
 }
 

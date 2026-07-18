@@ -53,11 +53,19 @@ export async function GET(request: Request) {
       // do-not-contact in the CRM. Filter on `status` instead, the field
       // client edits/DNS flagging actually maintain, and exclude
       // do_not_contact alongside inactive.
+      // do_not_service is a separate boolean kill-switch from `status` (see
+      // the status/active-column fix above) -- the nycmaid-legacy
+      // getClientContacts() fan-out helper and this session's booking-
+      // lifecycle/campaign fixes (89c2cdd9, 14fa0888, da0b904d) treat it as
+      // an absolute, channel-agnostic gate. This filter never checked it, so
+      // a DNS-flagged client with status='active' and sms_consent=true still
+      // got unsolicited retention win-back texts.
       const { data: clients } = await supabaseAdmin
         .from('clients')
         .select('id, name, phone')
         .eq('tenant_id', tenant.id)
         .not('status', 'in', '(inactive,do_not_contact)')
+        .neq('do_not_service', true)
         .eq('sms_consent', true)
         .not('phone', 'is', null)
         .limit(500)
