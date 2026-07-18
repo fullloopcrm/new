@@ -11409,3 +11409,102 @@ tests -- the new file's 7 assertions plus every prior test still passing).
 Neither ci.yml nor tenant-config-reconcile.yml was touched this round (all
 mutations were made, verified, and reverted during testing only); only new
 guard coverage was added.
+
+## (223) Fresh ground -- db-backup.yml's upload step sets `retention-days:
+90`, the entire disaster-recovery WINDOW for the offsite artifact (the whole
+point of this workflow per its own header comment: surviving a Supabase
+loss/suspension/compromise by keeping a copy on a different provider), with
+ZERO regression coverage anywhere in this lane
+
+db-backup-upload-fail-closed-guard.test.ts already pins the sibling
+`if-no-files-found: error` knob on this exact step, and its own doc comment
+even names `retention-days: 90` as an untouched line in that mutation ("left
+`retention-days: 90` and everything else intact") -- but nothing anywhere
+actually asserts the value. Grepping every `db-backup-*.test.ts` and
+`ci-workflow-resilience-guard.test.ts` (the file pinning the sibling
+concurrency/timeout knobs) for "retention-days" turned up only that one
+comment.
+
+A silent weakening (90 -> 1, 90 -> 7, or the line deleted entirely, falling
+back to the repo's default Actions retention setting) still uploads
+successfully, still passes `if-no-files-found: error`, and the run shows
+fully GREEN -- the artifact is just gone days or weeks sooner than the
+runbook assumes, with no red signal until someone actually needs to restore
+from it and finds it already expired.
+
+**Mutation-verified before writing the fix, two independent regressions,
+each restored before the next:** (1) `retention-days: 90` -> `retention-
+days: 1` (line present, value weakened) -- the full 485-file / 2427-test
+vitest suite stayed 100% green. (2) the `retention-days: 90` line deleted
+entirely (upload step left with only `name:` + `path:` + `if-no-files-
+found:`) -- same result, full suite green. Both restores left `git diff
+--stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-artifact-retention-guard.test.ts`, pure
+source-reading of db-backup.yml's YAML, same isolate-the-upload-step
+approach as db-backup-upload-fail-closed-guard.test.ts. Pins `retention-
+days: 90` inside the upload step block specifically. Re-ran both mutations
+above against the new guard -- each failed with the exact predicted
+assertion message; both restores left `git diff --stat .github/workflows/`
+empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean, full vitest suite green (486 files / 2430
+tests -- the new file's 3 assertions plus every prior test still passing).
+db-backup.yml itself was not touched this round (all mutations were made,
+verified, and reverted during testing only); only new guard coverage was
+added.
+
+## (224) Continuation (step 2 of the queue) -- walking one step earlier in
+the same pipeline from (223)'s upload-step retention window to the DUMP step
+itself surfaced the sibling gap: pg_dump's own `-Fc` (custom format,
+required by `pg_restore`) and `--no-owner --no-privileges` (required to
+restore cleanly into a fresh project, per this file's own header comment)
+had ZERO regression coverage anywhere in this lane
+
+db-backup-dump-size-sanity-gate.test.ts already pins `set -euo pipefail` and
+the `SIZE -lt 100000` sanity check on this exact "Dump full database" step,
+but never reads the `pg_dump` invocation's own flags. Grepping every
+`db-backup-*.test.ts` file for `-Fc`, `no-owner`, or `no-privileges` turned
+up nothing.
+
+Dropping either flag produces a dump that still succeeds, still clears the
+SIZE sanity gate (a plain-text SQL dump of the same data is not smaller --
+often larger), still encrypts, still uploads, and still passes `if-no-
+files-found: error` -- the run shows fully GREEN. The failure is invisible
+until someone actually runs the restore command this file's own header
+documents (`pg_restore ...`, which requires -Fc's custom format and cannot
+read plain SQL the same way) or hits ownership/grant errors restoring into
+a fresh Supabase project with different role names -- at the exact moment a
+real disaster-recovery restore is needed, the worst possible time to
+discover a backup silently isn't usable.
+
+**Mutation-verified before writing the fix, two independent regressions,
+each restored before the next:** (1) dropped `-Fc` from the pg_dump
+invocation (leaving `--no-owner --no-privileges -f "fullloop-$STAMP.dump"`,
+falling back to plain-text format) -- the full 486-file / 2430-test vitest
+suite stayed 100% green. (2) independently dropped `--no-owner --no-
+privileges` (leaving `-Fc -f "fullloop-$STAMP.dump"`) -- same result, full
+suite green. Both restores left `git diff --stat .github/workflows/` empty
+afterward.
+
+**Fixed:** new `src/lib/db-backup-dump-format-restorability-guard.test.ts`,
+pure source-reading of db-backup.yml's YAML, same isolate-the-dump-step
+approach as db-backup-dump-size-sanity-gate.test.ts. Pins `-Fc` and both
+`--no-owner`/`--no-privileges` inside the pg_dump invocation specifically.
+Re-ran both mutations above against the new guard -- each failed with the
+exact predicted assertion message; both restores left `git diff --stat
+.github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean, full vitest suite green (487 files / 2434
+tests -- the new file's 4 assertions plus every prior test still passing).
+db-backup.yml itself was not touched this round (all mutations were made,
+verified, and reverted during testing only); only new guard coverage was
+added.
+
+Noted in passing, out of lane: `npx eslint src --quiet` surfaces one
+pre-existing `@typescript-eslint/no-require-imports` error in
+`src/app/api/admin/seo/apply/route.auth.test.ts` (confirmed present before
+this session's commits, via `git show d3acb264:...`) -- unrelated to this
+lane's CI-wiring/reconcile scope, not touched.
