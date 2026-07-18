@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
 import { tenantDb } from '@/lib/tenant-db'
 import { sendSMS } from '@/lib/sms'
@@ -11,7 +12,9 @@ import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 // otherwise           → list of conversations with client info
 export async function GET(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const db = tenantDb(tenantId)
     const conversationId = request.nextUrl.searchParams.get('conversation_id')
 
@@ -67,7 +70,9 @@ export async function GET(request: NextRequest) {
 // Body: { conversation_id?, client_id, message }
 export async function POST(request: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const db = tenantDb(tenantId)
     const body = await request.json()
     const { conversation_id, client_id, message } = body

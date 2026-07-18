@@ -27,7 +27,7 @@ const holder = vi.hoisted(() => ({ from: null as null | Harness['from'] }))
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: { from: (t: string) => holder.from!(t) } }))
 
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn(async () => ({ tenantId: A })),
+  getTenantForRequest: vi.fn(async () => ({ tenantId: A, role: 'owner', tenant: {} })),
   AuthError: class AuthError extends Error { status = 401 },
 }))
 vi.mock('@/lib/sms', () => ({ sendSMS: vi.fn(async () => {}) }))
