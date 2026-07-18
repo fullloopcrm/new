@@ -13,6 +13,7 @@ import {
   logQuoteEvent,
   capQuoteTextField,
 } from '@/lib/quote'
+import { seedQuoteBudgetFromTemplate } from '@/lib/budget-template'
 
 export async function GET(request: Request) {
   try {
@@ -147,6 +148,12 @@ export async function POST(request: Request) {
       event_type: 'created',
       detail: { quote_number: data.quote_number, total_cents: data.total_cents },
     })
+
+    // Budget set AT PROPOSAL TIME: pre-fill quote_budgets from the tenant's
+    // service_types templates right away, so it exists before this quote
+    // ever reaches the Master Budget page and carries through booking/job
+    // conversion. No-ops when line items don't match any catalog template.
+    await seedQuoteBudgetFromTemplate(tenantId, data.id, lineItems)
 
     // Carry the proposal onto the deal's timeline so it shows in the pipeline.
     // Autosaved drafts pass silent:true to stay OFF the pipeline until sent —

@@ -5,6 +5,11 @@
  *   line items × each matched service_types row's per-unit defaults (labor
  *   hours × labor rate, materials cost_cents, overhead). Used to pre-fill a
  *   blank quote_budgets form instead of starting at zero.
+ * - seedQuoteBudgetFromTemplate: persists that suggestion as the quote's real
+ *   quote_budgets row at proposal create/edit time (POST /api/quotes, PATCH
+ *   /api/quotes/[id]) -- so the budget exists from proposal time and carries
+ *   through booking/job conversion via quote_id, instead of only ever being
+ *   computed on-the-fly for the standalone Master Budget page.
  * - computeBudgetVariance: the budgeted/actual/variance/margin math, shared
  *   by the Sales Master Budget page and GET /api/jobs/[id]/budget-variance
  *   so both surfaces agree on the same numbers from one place.
@@ -14,6 +19,7 @@
  * lookup _QuoteBuilder.tsx already uses to resolve a typed item name back to
  * its catalog row.
  */
+import { supabaseAdmin } from './supabase'
 
 export type QuoteLineItemLike = {
   name?: string | null
@@ -88,6 +94,48 @@ export function computeSuggestedBudget(
     other_budget_cents: overheadCents,
     target_margin_bps: targetMarginBps,
     matched_item_count: matchedCount,
+  }
+}
+
+/**
+ * Seed quote_budgets from the tenant's service_types templates the moment a
+ * quote's line items exist -- proposal create (POST /api/quotes) and every
+ * edit that touches line_items (PATCH /api/quotes/[id]). ignoreDuplicates on
+ * quote_id (unique) makes this a no-op once a budget row exists, so it never
+ * clobbers actuals or a manual override entered on the Master Budget page --
+ * it only fills the "no budget yet" gap. Best-effort: a failure here must
+ * never fail the quote write it's attached to.
+ */
+export async function seedQuoteBudgetFromTemplate(
+  tenantId: string,
+  quoteId: string,
+  lineItems: QuoteLineItemLike[],
+): Promise<void> {
+  if (!lineItems?.length) return
+  try {
+    const { data: serviceTypes } = await supabaseAdmin
+      .from('service_types')
+      .select('name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
+      .eq('tenant_id', tenantId)
+    const suggested = computeSuggestedBudget(lineItems, serviceTypes || [])
+    if (!suggested) return
+
+    await supabaseAdmin.from('quote_budgets').upsert(
+      {
+        tenant_id: tenantId,
+        quote_id: quoteId,
+        labor_budget_cents: suggested.labor_budget_cents,
+        materials_budget_cents: suggested.materials_budget_cents,
+        other_budget_cents: suggested.other_budget_cents,
+        target_margin_bps: suggested.target_margin_bps,
+        labor_actual_cents: 0,
+        materials_actual_cents: 0,
+        other_actual_cents: 0,
+      },
+      { onConflict: 'quote_id', ignoreDuplicates: true },
+    )
+  } catch (err) {
+    console.error('seedQuoteBudgetFromTemplate', err)
   }
 }
 

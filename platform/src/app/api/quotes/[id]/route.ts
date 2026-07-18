@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { normalizeLineItems, computeTotals, logQuoteEvent, capQuoteTextField } from '@/lib/quote'
+import { seedQuoteBudgetFromTemplate } from '@/lib/budget-template'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -166,6 +167,16 @@ export async function PATCH(request: Request, { params }: Params) {
         detail: { fields: Object.keys(updates) },
       })
     }
+
+    // Covers the common "create blank draft, then add line items via
+    // autosave" flow -- POST /api/quotes already seeds a budget when items
+    // are present at creation, but a quote started empty only gets its line
+    // items here. No-ops once a budget row exists (see
+    // seedQuoteBudgetFromTemplate).
+    if ('line_items' in updates) {
+      await seedQuoteBudgetFromTemplate(tenantId, id, updates.line_items as { name?: string; quantity?: number }[])
+    }
+
     return NextResponse.json({ quote: data })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
