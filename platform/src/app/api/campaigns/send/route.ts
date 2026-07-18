@@ -8,7 +8,7 @@ export const maxDuration = 300
 
 // ── POST: Send a campaign with recipient-level tracking ──────────────
 export async function POST(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {
@@ -239,7 +239,7 @@ export async function POST(request: Request) {
 
 // ── PUT: Retry failed recipients ─────────────────────────────────────
 export async function PUT(request: Request) {
-  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.create')
+  const { tenant: tenantCtx, error: authError } = await requirePermission('campaigns.send')
   if (authError) return authError
 
   try {
