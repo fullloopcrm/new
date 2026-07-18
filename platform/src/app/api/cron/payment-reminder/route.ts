@@ -11,6 +11,7 @@ import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { runNycMaidPaymentReminder } from '@/lib/nycmaid/payment-reminder'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 60
 
@@ -29,13 +30,18 @@ export async function GET(request: Request) {
   let escalated = 0
   const errors: string[] = []
 
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable (their public site + booking
+  // flow is already live per middleware's gate), so the prior .eq('status',
+  // 'active') filter silently withheld payment reminders/escalations from
+  // every real booking taken during a tenant's onboarding window.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone, phone')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, owner_phone, phone')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
-  for (const tenant of tenants || []) {
+  for (const tenant of tenants) {
     const tenantId = tenant.id
     const smsCreds = resolveTenantSmsCredentials(tenant)
 

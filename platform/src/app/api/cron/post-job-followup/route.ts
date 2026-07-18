@@ -5,6 +5,7 @@ import { getSettings } from '@/lib/settings'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300
 
@@ -20,14 +21,19 @@ export async function GET(request: Request) {
   let skipped = 0
   const errors: string[] = []
 
-  // Get all active tenants — include domain + slug for review link.
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable (their public site + booking
+  // flow is already live per middleware's gate), so the prior .eq('status',
+  // 'active') filter silently withheld post-job review requests from real
+  // completed bookings/jobs during a tenant's onboarding window. Include
+  // domain + slug for the review link.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, domain, slug')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, domain, slug')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
-  for (const tenant of tenants || []) {
+  for (const tenant of tenants) {
     try {
       const settings = await getSettings(tenant.id)
       if (!settings.chatbot_enabled) continue

@@ -16,6 +16,7 @@ import type {
 } from '@/lib/types'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300 // Vercel pro plan
 
@@ -34,14 +35,18 @@ export async function GET(request: Request) {
   let failed = 0
   const errors: string[] = []
 
-  // Get all active tenants
-  const { data: tenants } = await supabaseAdmin
+  // tenantServesSite(), not a literal status==='active' check — 'setup'/
+  // 'pending' tenants must still be servable (their public site + booking
+  // flow is already live per middleware's gate), so the prior .eq('status',
+  // 'active') filter silently withheld every reminder/thank-you/digest from
+  // real bookings taken during a tenant's onboarding window.
+  const { data: allTenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
-    .eq('status', 'active')
+    .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
     .limit(1000)
+  const tenants = (allTenants || []).filter((t) => tenantServesSite(t.status))
 
-  for (const tenant of tenants || []) {
+  for (const tenant of tenants) {
     const tenantId = tenant.id
     const smsCreds = resolveTenantSmsCredentials(tenant)
     const clientSms = await clientSmsTemplatesFor(tenantId)
