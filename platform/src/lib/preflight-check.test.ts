@@ -1,4 +1,6 @@
 import { describe, it, expect } from 'vitest'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
 import { STEPS, summarize } from '../../scripts/preflight-check.mjs'
 
 // Codifies the Section-Q pre-flight gate (15:07 LEADER->ALL item 5): a single
@@ -16,6 +18,66 @@ describe('STEPS', () => {
   it('marks the token-gated funnel-mode audit as non-required', () => {
     const funnelStep = STEPS.find((s) => s.name === 'funnel-mode audit')
     expect(funnelStep?.required).toBe(false)
+  })
+
+  // Was caught missing: the doc comment above STEPS in preflight-check.mjs has
+  // always claimed "Mirrors the `verify` job in .github/workflows/ci.yml minus
+  // install/lint", but STEPS itself was a hand-maintained copy of ci.yml's step
+  // commands with nothing enforcing they actually matched — the protected-tenant
+  // guard (scripts/verify-protected-tenants.mjs), a REQUIRED, gating step in
+  // ci.yml's verify job, was simply absent from STEPS. A worker running
+  // `node scripts/preflight-check.mjs` and seeing "PASSED — required gates
+  // green" would not have run that gate at all, while CI's real verify job
+  // would still catch (and block on) a broken protected tenant — the local
+  // mirror silently claiming green on a condition it never actually checked.
+  // PURE SOURCE-READING of the workflow YAML (no YAML lib), matching the
+  // convention reconcile-gate-wiring.test.ts already established for pinning
+  // workflow content. vitest runs with the platform package root as cwd, so
+  // ci.yml lives one level up.
+  it('mirrors every REQUIRED step ci.yml\'s verify job runs (minus install/lint, per the doc comment)', () => {
+    const ciYaml = readFileSync(join(process.cwd(), '..', '.github', 'workflows', 'ci.yml'), 'utf8')
+    // Extract the verify job's single-line `run:` commands, stopping before
+    // the notify-failure job so a command in that unrelated job (e.g. curl)
+    // is never mistaken for a verify-job step.
+    const verifyJobEnd = ciYaml.indexOf('notify-failure:')
+    const verifyJobYaml = verifyJobEnd === -1 ? ciYaml : ciYaml.slice(0, verifyJobEnd)
+    // `[ \t]+` (not `\s+`) after the colon is deliberate: `\s` matches
+    // newlines too, so a bare `run:` block header (e.g. this same file's own
+    // `defaults: / run: / working-directory: platform`) would let `\s*`
+    // swallow the line break and capture the FOLLOWING line's unrelated text
+    // as a fake "command" — `[ \t]+` forces a real same-line `run: <cmd>`.
+    const ciCommands = [...verifyJobYaml.matchAll(/^[ \t]*run:[ \t]+(\S.*)$/gm)]
+      .map((m) => m[1].trim())
+      // install (npm ci) and lint (eslint) are excluded by this file's own
+      // doc comment ("minus install/lint") — not a mirroring gap.
+      .filter((cmd) => cmd !== 'npm ci' && !cmd.startsWith('npx eslint'))
+
+    expect(ciCommands.length).toBeGreaterThan(0) // sanity: the extraction itself must find real commands
+
+    const requiredStepCommands = STEPS.filter((s) => s.required).map((s) => `${s.cmd} ${s.args.join(' ')}`)
+
+    // Direction 1: every command ci.yml's verify job actually runs (that this
+    // file claims to mirror) has a matching REQUIRED entry in STEPS — this is
+    // the exact direction that missed the protected-tenant guard.
+    for (const ciCmd of ciCommands) {
+      expect(
+        requiredStepCommands,
+        `ci.yml's verify job runs \`${ciCmd}\` but no REQUIRED STEPS entry in ` +
+          `preflight-check.mjs matches it — a worker running preflight locally ` +
+          `would get a false PASSED while this real CI gate could still fail.`,
+      ).toContain(ciCmd)
+    }
+
+    // Direction 2: every REQUIRED STEPS command actually exists in ci.yml's
+    // verify job — catches STEPS drifting to assert a gate CI no longer runs
+    // (a false sense of extra coverage, and a wasted/misleading local check).
+    for (const stepCmd of requiredStepCommands) {
+      expect(
+        ciCommands,
+        `preflight-check.mjs's STEPS marks \`${stepCmd}\` as REQUIRED but ci.yml's ` +
+          `verify job does not run it — STEPS no longer mirrors a real CI gate.`,
+      ).toContain(stepCmd)
+    }
   })
 })
 
