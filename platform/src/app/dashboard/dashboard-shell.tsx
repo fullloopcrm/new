@@ -44,7 +44,9 @@ const navMain: Array<{
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
   { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [] },
-  { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
+  { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [
+    { letter: 'A', label: 'Loop Connect', href: '/dashboard/connect' },
+  ]},
   { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
   ]},
@@ -87,7 +89,7 @@ const foldMap: Record<string, string[]> = {
     '/dashboard/social', '/dashboard/google', '/dashboard/websites',
     '/dashboard/analytics', '/dashboard/map',
   ],
-  comhub: ['/dashboard/comhub'],
+  comhub: ['/dashboard/comhub', '/dashboard/connect'],
   messages: ['/dashboard/messages'],
 }
 
@@ -99,7 +101,6 @@ const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
   { label: 'Notifications', href: '/dashboard/notifications', perm: 'notifications.view' },
   { label: 'Activity', href: '/dashboard/activity', perm: 'audit.view' },
   { label: 'Docs', href: '/dashboard/docs' },
-  { label: 'Loop Connect', href: '/dashboard/connect' },
   { label: 'Feedback', href: '/dashboard/feedback' },
 ]
 

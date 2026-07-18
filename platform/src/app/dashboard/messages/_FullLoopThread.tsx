@@ -2,9 +2,13 @@
 
 // Owner's side of the platform messaging thread with Full Loop (admin).
 // In-platform only. direction 'out' = from Full Loop, 'in' = this owner.
-// Unchanged from the original single-thread page -- just extracted so it can
-// sit behind the new pinned/roster sidebar in page.tsx.
+// Rendered with the same ChatBubble/DateDivider/ChatInput pattern as Loop
+// Connect (src/app/dashboard/connect/page.tsx), using the imessage-mine/
+// imessage-theirs variants since this is a 2-party DM rather than a
+// multi-party channel.
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { ChatBubble, ChatInput, DateDivider, groupMessagesByDate } from '@/components/chat-bubble'
+import type { ChatMessage } from '@/components/chat-bubble'
 
 interface Message {
   id: string
@@ -16,8 +20,17 @@ interface Message {
   created_at: string
 }
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
+function toChatMessage(m: Message): ChatMessage {
+  const fromOwner = m.direction === 'in'
+  return {
+    id: m.id,
+    sender_type: fromOwner ? 'owner' : 'team',
+    sender_id: fromOwner ? 'me' : 'fullloop',
+    sender_name: fromOwner ? 'You' : 'Full Loop',
+    body: m.body,
+    created_at: m.created_at,
+  }
+}
 
 export default function FullLoopThread() {
   const [messages, setMessages] = useState<Message[]>([])
@@ -66,55 +79,39 @@ export default function FullLoopThread() {
     setSending(false)
   }
 
+  const grouped = groupMessagesByDate(messages.map(toChatMessage))
+
   return (
     <div className="flex-1 flex flex-col min-h-0">
-      <div className="flex-1 overflow-y-auto p-5 space-y-3">
+      <div className="flex-1 overflow-y-auto p-5">
         {loading && <p className="text-sm text-slate-400">Loading…</p>}
         {!loading && messages.length === 0 && (
           <div className="h-full flex items-center justify-center">
             <p className="text-sm text-slate-500">No messages yet. Say hello to the Full Loop team.</p>
           </div>
         )}
-        {messages.map((m) => {
-          const fromOwner = m.direction === 'in'
-          return (
-            <div key={m.id} className={`flex ${fromOwner ? 'justify-end' : 'justify-start'}`}>
-              <div className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                fromOwner ? 'bg-slate-900 text-white rounded-br-sm' : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-              }`}>
-                <div className="text-[10px] uppercase tracking-wide mb-0.5 opacity-50">
-                  {fromOwner ? 'You' : 'Full Loop'}
-                </div>
-                {m.body}
-                <div className={`text-[10px] mt-1 ${fromOwner ? 'text-white/40' : 'text-slate-400'}`}>{fmtTime(m.created_at)}</div>
-              </div>
-            </div>
-          )
-        })}
+        {grouped.map((group) => (
+          <div key={group.date}>
+            <DateDivider date={group.date} />
+            {group.messages.map((msg) => (
+              <ChatBubble key={msg.id} msg={msg} variant={msg.sender_id === 'me' ? 'imessage-mine' : 'imessage-theirs'} />
+            ))}
+          </div>
+        ))}
         <div ref={endRef} />
       </div>
 
       {error && <div className="px-5 py-2 text-xs text-red-600 border-t border-slate-200">{error}</div>}
 
-      <form
-        onSubmit={(e) => { e.preventDefault(); send() }}
-        className="border-t border-slate-200 p-3 flex items-center gap-2"
-      >
-        <input
+      <div className="border-t border-slate-200 p-3">
+        <ChatInput
           value={draft}
-          onChange={(e) => setDraft(e.target.value)}
+          onChange={setDraft}
+          onSend={send}
           placeholder="Message the Full Loop team…"
           disabled={sending}
-          className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-slate-400 disabled:opacity-60"
         />
-        <button
-          type="submit"
-          disabled={sending || !draft.trim()}
-          className="px-5 py-2.5 text-sm font-medium rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-40 transition-colors"
-        >
-          Send
-        </button>
-      </form>
+      </div>
     </div>
   )
 }
