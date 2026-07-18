@@ -112,29 +112,46 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: 'Email already registered' }, { status: 400 })
   }
 
-  const referralCode = generateRefCode(name)
-
-  const { data, error } = await supabaseAdmin
-    .from('referrers')
-    .insert({
-      tenant_id: tenant.id,
-      name,
-      email,
-      phone: phone || null,
-      referral_code: referralCode,
-      preferred_payout: preferred_payout || 'zelle',
-      // Stored as a fraction (0.10 = 10%), matching the schema default and the
-      // existing rows. The old code wrote `10` here (into the wrong table), which
-      // would read as 1000% wherever commission_rate is applied to a gross amount.
-      commission_rate: 0.10,
-      total_earned: 0,
-      total_paid: 0,
-      status: 'active',
-    })
-    .select()
-    .single()
+  // referrers_code_unique constrains (tenant_id, referral_code)
+  // (019_referral_commissions.sql). generateRefCode only has ~900 possible
+  // suffixes per 4-letter name-prefix, so two referrers sharing a common
+  // first-name prefix (e.g. "John"/"Joan" -> "JOHN"/"JOAN"... or shared
+  // exact prefixes) collide far more often than a random UUID would.
+  // Pre-fix this threw the raw 23505 as an unhandled 500 straight to a real
+  // signup, same class already fixed for clients.pin/team_members.pin --
+  // auto-generated codes are safe to retry with a freshly regenerated value.
+  const MAX_CODE_ATTEMPTS = 5
+  let referralCode = generateRefCode(name)
+  let data, error
+  for (let attempt = 0; attempt < MAX_CODE_ATTEMPTS; attempt++) {
+    ;({ data, error } = await supabaseAdmin
+      .from('referrers')
+      .insert({
+        tenant_id: tenant.id,
+        name,
+        email,
+        phone: phone || null,
+        referral_code: referralCode,
+        preferred_payout: preferred_payout || 'zelle',
+        // Stored as a fraction (0.10 = 10%), matching the schema default and the
+        // existing rows. The old code wrote `10` here (into the wrong table), which
+        // would read as 1000% wherever commission_rate is applied to a gross amount.
+        commission_rate: 0.10,
+        total_earned: 0,
+        total_paid: 0,
+        status: 'active',
+      })
+      .select()
+      .single())
+    if (!error) break
+    if (error.code !== '23505') break
+    referralCode = generateRefCode(name)
+  }
 
   if (error) {
+    if (error.code === '23505') {
+      return NextResponse.json({ error: 'Could not generate a unique referral code, please try again' }, { status: 409 })
+    }
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
