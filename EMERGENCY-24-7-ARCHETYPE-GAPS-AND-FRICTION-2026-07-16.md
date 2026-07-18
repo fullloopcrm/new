@@ -11298,3 +11298,114 @@ still passing). None of the three workflow YAML files themselves were
 touched this round (all mutations were made, verified, and reverted during
 testing only) -- their own coverage (items 168-218 above) is unaffected;
 only new guard coverage was added.
+
+## (221) New fresh-ground surface -- db-backup.yml's own `on:` trigger
+block (the `schedule:`/cron and `workflow_dispatch:` lines that decide
+whether the nightly backup runs at all) had ZERO regression coverage
+anywhere in this lane
+
+Every existing db-backup.yml guard (db-backup-alert-guard.test.ts,
+db-backup-encryption-fail-closed.test.ts, db-backup-dump-size-sanity-
+gate.test.ts, db-backup-pg-dump-source-pin-guard.test.ts, db-backup-encrypt-
+strength-guard.test.ts, db-backup-encrypt-fail-safe-purge-guard.test.ts,
+db-backup-upload-fail-closed-guard.test.ts, ci-workflow-resilience-
+guard.test.ts, ci-workflow-permissions-guard.test.ts) reads deep into the
+job's steps, or its concurrency/permissions block, but none of them ever
+reads the workflow's `on:` block. Grepping every guard test file in this
+lane for `cron` or `workflow_dispatch` as an assertion target (not
+incidental text) turned up nothing.
+
+This is not hypothetical: unlike ci.yml / tenant-config-reconcile.yml (which
+run on `push`/`pull_request` -- a broken trigger there is immediately
+visible, the workflow simply wouldn't run on the very next PR),
+db-backup.yml's PRIMARY trigger is `schedule:`, firing unattended, off-PR,
+with no human watching. A silently dropped or weakened `schedule:` block is
+exactly this gate's blind spot: the job would just stop running (or run
+less often) with NOTHING red -- no failed PR check, no failed run, because
+there would be no run at all. The only way anyone would notice is
+discovering, during an actual restore, that the most recent backup artifact
+is weeks old. `workflow_dispatch: {}` is the operator's own manual escape
+hatch for a test/restore-drill per the step's own comment; losing it
+wouldn't stop the nightly job, but would silently remove the only way to
+run an on-demand backup ahead of a risky migration.
+
+**Mutation-verified before writing the fix, three independent regressions,
+each restored before the next:** (1) deleted the entire `schedule:` block
+(leaving only `workflow_dispatch: {}`) -- the full 483-file / 2416-test
+vitest suite stayed 100% green. (2) left `schedule:` in place but weakened
+the cron expression from daily to weekly (`'0 9 * * *'` -> `'0 9 * * 0'`)
+-- same result, full suite green; this is the more dangerous of the two,
+since the `schedule:` key itself stays present, so a reviewer skimming the
+diff for "is there still a schedule:" sees nothing wrong while the real
+cadence silently drops. (3) deleted `workflow_dispatch: {}` (leaving
+`schedule:` untouched) -- same result, full suite green. All three restores
+left `git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-schedule-trigger-guard.test.ts`, pure
+source-reading of db-backup.yml's YAML, same approach as every other guard
+in this lane. Pins the `schedule:` key's presence, the exact cron expression
+`'0 9 * * *'`, and `workflow_dispatch: {}`'s presence, isolating the `on:`
+block first so a cron-shaped string elsewhere in the file (e.g. a comment)
+can't false-pass the guard. Re-ran all three mutations above against the
+new guard -- each failed with the exact predicted assertion message; all
+three restores left `git diff --stat .github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit` zero
+errors, eslint clean, full vitest suite green (484 files / 2420 tests --
+the new file's 4 assertions plus every prior test still passing).
+db-backup.yml itself was not touched this round (all three mutations were
+made, verified, and reverted during testing only); only new guard coverage
+was added.
+
+## (222) Continuation (step 2 of the queue) -- investigating (221)'s
+"unpinned `on:` trigger block" surface on the sibling workflows surfaced
+the same class of gap: ci.yml's and tenant-config-reconcile.yml's own
+`push: branches: [main]` scoping had ZERO regression coverage anywhere in
+this lane
+
+reconcile-gate-wiring.test.ts's "runs on pull_request" check only pins the
+`pull_request:` key's bare presence -- it never reads the sibling `push:`
+block or its `branches:` filter. No ci.yml-focused test reads the `on:`
+block at all. Grepping every `ci-*.test.ts` file in this lane for
+`branches:` or `[main]` as an assertion target turned up nothing.
+
+Without `branches: [main]`, `push:` fires on EVERY branch push, burning
+runner minutes re-running the full gate on every WIP push to every feature
+branch. Worse: with it silently pointed at the WRONG branch (e.g. a stale
+`[master]` surviving a default-branch rename, or a typo), the gate would
+silently STOP running on push to the repo's real default branch -- a push
+directly to main (a squash-merge, an admin override bypassing PR review)
+would go completely unchecked, with nothing red anywhere to signal it: no
+failed run, because there would be no run at all. Same "present but
+silently wrong" shape as (221)'s cron-cadence mutation, one hop over on the
+sibling workflows.
+
+**Mutation-verified before writing the fix, two independent regressions on
+EACH of the two files (four mutations total), each restored before the
+next:** (1) ci.yml: `branches: [main]` -> `branches: [master]` (stale/wrong
+branch name, `push:`/`branches:` both still present) -- full 484-file /
+2420-test vitest suite stayed 100% green (confirmed with the new guard file
+temporarily moved out of the tree, so the result reflects only pre-existing
+coverage). (2) ci.yml: `branches: [main]` deleted entirely (bare `push:`
+with no scope) -- same result, full suite green. (3)/(4) the identical two
+mutations repeated against tenant-config-reconcile.yml -- same result both
+times. All four restores left `git diff --stat .github/workflows/` empty
+afterward.
+
+**Fixed:** new `src/lib/ci-push-branch-scope-guard.test.ts`, pure source-
+reading of both workflows' YAML via `describe.each`, same isolate-the-
+`on:`-block approach as (221)'s db-backup-schedule-trigger-guard.test.ts.
+Pins `push:`'s presence and its exact `branches: [main]` scoping for both
+ci.yml and tenant-config-reconcile.yml, plus a cross-file consistency check
+that both stay scoped identically (so a future asymmetry -- one file scoped,
+the other not -- is itself a visible finding rather than a silent drift).
+Re-ran all four mutations above against the new guard -- each failed with
+the exact predicted assertion messages; all four restores left `git diff
+--stat .github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit`
+zero errors, eslint clean, full vitest suite green (485 files / 2427
+tests -- the new file's 7 assertions plus every prior test still passing).
+Neither ci.yml nor tenant-config-reconcile.yml was touched this round (all
+mutations were made, verified, and reverted during testing only); only new
+guard coverage was added.
