@@ -374,6 +374,26 @@ export function parseRobotsDisallowList(robotsSource) {
   return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
 }
 
+// --- parse PRIVATE_CLIENT_LOGIN_HOSTS out of src/app/robots.ts. This is a
+// SECOND per-host disallow carve-out map in that file, alongside
+// JOIN_CRAWLABLE_HOSTS above -- but where JOIN_CRAWLABLE_HOSTS EXEMPTS a
+// host from a default disallow rule, this one ADDS a disallow rule for a
+// host. It exists because a few bespoke tenants overload a
+// public-lead-form-shaped top-level segment name (e.g. 'book') with an
+// entirely different, PRIVATE client-PIN-login page instead -- see the
+// comment above this map in robots.ts, and Drift AL below for what happens
+// when a tenant with this shape falls out of sync with it.
+export function parsePrivateClientLoginHosts(robotsSource) {
+  const block = robotsSource.match(/PRIVATE_CLIENT_LOGIN_HOSTS\s*:\s*Record<string,\s*string>\s*=\s*\{([\s\S]*?)\n\s*\}/)
+  const map = new Map()
+  if (!block) return map
+  const cleaned = stripComments(block[1])
+  const entryRe = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g
+  let m
+  while ((m = entryRe.exec(cleaned))) map.set(m[1], m[2])
+  return map
+}
+
 // --- given KILLED_ROUTES and a map of route -> [relative page/route.ts file
 // paths found on disk directly under src/app/<route>], return the ones that
 // are permanently unreachable in production. isMainHost() && isKilledRoute()
@@ -754,8 +774,9 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  *                                  resolved down to its real first URL
  *                                  segment (see collectFirstSegmentDirs in
  *                                  main() and findShadowedAppRootPages).
- *                                  Feeds Drift AE and Drift AI. Pass an empty
- *                                  Map (default) to skip both.
+ *                                  Feeds Drift AE, Drift AI, and Drift AK.
+ *                                  Pass an empty Map (default) to skip all
+ *                                  three.
  * @param {Array}    [input.apiPublicRouteCollisions]  { pattern, literalDir,
  *                                  collidesWithDir } entries from
  *                                  findUnboundedApiPublicRouteCollisions — an
@@ -784,13 +805,34 @@ export const KNOWN_PENDING_ORPHANS = new Set(['toll-trucks-near-me', 'wash-and-f
  * @param {Array}    [input.robotsDisallowList]  path prefixes from
  *                                  src/app/robots.ts's own hardcoded
  *                                  `disallow` array literal (see
- *                                  parseRobotsDisallowList). Feeds Drift AJ
- *                                  ONLY, as the coverage list checked against
- *                                  appRootPrefixes. Pass an empty array
- *                                  (default) to skip.
+ *                                  parseRobotsDisallowList). Feeds Drift AJ,
+ *                                  as the coverage list checked against
+ *                                  appRootPrefixes, AND Drift AK, as the
+ *                                  coverage list checked for '/login'
+ *                                  coverage against bespokeSiteTopLevelDirs.
+ *                                  Pass an empty array (default) to skip both.
+ * @param {Map}      [input.privateClientLoginHosts]  hostname -> path from
+ *                                  src/app/robots.ts's
+ *                                  PRIVATE_CLIENT_LOGIN_HOSTS (see
+ *                                  parsePrivateClientLoginHosts) — the
+ *                                  per-host carve-out that disallows a
+ *                                  public-lead-form-shaped segment name on
+ *                                  the specific tenant domain(s) where it is
+ *                                  actually a private client-PIN-login page.
+ *                                  Feeds Drift AL ONLY, as the coverage map
+ *                                  checked against clientPortalLoginDirsBySlug.
+ *                                  Pass an empty Map (default) to skip.
+ * @param {Map}      [input.clientPortalLoginDirsBySlug]  bespoke tenant slug
+ *                                  -> top-level site/<slug>/ segment name
+ *                                  whose own children include BOTH a
+ *                                  'dashboard' and a 'collect' subdirectory
+ *                                  — the client-PIN-login-portal clone
+ *                                  fingerprint (see findClientPortalLoginDir
+ *                                  in main()). Feeds Drift AL ONLY. Pass an
+ *                                  empty Map (default) to skip.
  * @returns {Array} findings: { sev, slug, msg, pending? }
  */
-export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [], joinCrawlableHosts = new Set(), robotsDisallowList = [] }) {
+export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs = null, allTenantDomains = [], apexCanonicalSet = new Set(), protectedSlugs = new Set(), richSitemapSet = new Set(), hasSitemap = null, allTenants = [], nonServingStatuses = new Set(), mainHostsSet = new Set(), rootSiteTenantsSet = new Set(), staticTenantMap = new Map(), knownPendingOrphans = new Set(), nextConfigSiteRewrites = [], allNextConfigSiteRewrites = [], nextConfigRedirects = [], appRootPrefixes = [], robotsMainHostsSet = new Set(), killedRoutesSet = new Set(), robotsKilledRoutesSet = new Set(), wwwApexDomainsBySlug = new Map(), killedRouteAppFiles = new Map(), bespokeSiteTopLevelDirs = new Map(), apiPublicRouteCollisions = [], adminBypassPrefixShadows = [], joinCrawlableHosts = new Set(), robotsDisallowList = [], privateClientLoginHosts = new Map(), clientPortalLoginDirsBySlug = new Map() }) {
   // hasSitemap's two consumers (Drift Q and Drift Y below) need OPPOSITE fail-
   // safe defaults when the caller omits it entirely: Q must assume the file
   // EXISTS (so a caller who doesn't wire up the fs check never gets a false
@@ -1640,6 +1682,93 @@ export function computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableS
     }
   }
 
+  // Drift AK: a bespoke tenant with a real site/<slug>/login/ folder (the
+  // SiteAdminLoginClient operator-PIN-login form — same component and same
+  // sensitivity class as the global '/fullloop' page Drift AJ's own fix
+  // added to the disallow array) whose robots.ts disallow list has no
+  // '/login' coverage. Unlike every APP_ROOT_PREFIXES entry Drift AJ
+  // reconciles, '/login' is not a middleware constant at all — it exists
+  // purely as a literal page file inside four bespoke tenants' own
+  // site/<slug>/ subtree (nyc-mobile-salon, the-florida-maid,
+  // wash-and-fold-nyc, wash-and-fold-hoboken), so rewriteToSite() resolves it
+  // through the ordinary /site/<slug> rewrite like any other tenant content
+  // page, never touching the APP_ROOT_PREFIXES/matchesAppRootPrefix branch
+  // Drift AE/AJ watch. That made it invisible to every existing Drift check
+  // in this file — including AJ, whose diff is scoped to APP_ROOT_PREFIXES
+  // entries only. Same boundary-matched coverage check AJ uses (exact match
+  // OR a path-segment-bounded prefix match, trailing slash stripped from
+  // each side) so a future '/login/foo' disallow entry would still correctly
+  // count as covering '/login' itself. Concrete instances found live in the
+  // current repo: all four tenants above ship this exact page, unindexed by
+  // no mechanism other than this new check going forward. WARN, not CRIT —
+  // same "crawlability regression, not a live data leak" reasoning as AH/AJ:
+  // the page still self-gates via its own PIN submission to
+  // /api/client/login or the admin PIN endpoint, it is just indexable when
+  // it shouldn't be.
+  if (bespokeSiteTopLevelDirs.size) {
+    const normDisallow = robotsDisallowList.map((d) => d.replace(/\/$/, ''))
+    const loginCovered = normDisallow.some((d) => d === '/login' || '/login'.startsWith(d + '/'))
+    if (!loginCovered) {
+      for (const [slug, dirs] of bespokeSiteTopLevelDirs) {
+        if (!dirs.includes('login')) continue
+        add(
+          'WARN',
+          slug,
+          `has a site/${slug}/login/ folder (the SiteAdminLoginClient operator-PIN-login form, same sensitivity class as the global '/fullloop' page) but src/app/robots.ts's disallow array has no '/login' coverage -> this tenant's own PIN-login page is crawlable/indexable on its own domain; not a middleware APP_ROOT_PREFIXES entry, so invisible to Drift AJ's own diff too`,
+        )
+      }
+    }
+  }
+
+  // Drift AL: a bespoke tenant with a detected client-PIN-login-portal
+  // directory (see clientPortalLoginDirsBySlug / findClientPortalLoginDir in
+  // main() — a top-level site/<slug>/ segment whose own children include
+  // BOTH a 'dashboard' and a 'collect' subdirectory, the fingerprint of the
+  // tenant-embedded client-login-portal clone: an email+PIN form at the
+  // segment root, POST /api/client/login, structurally identical to the
+  // global '/portal' page above, just forked per tenant instead of shared)
+  // whose known domain(s) have NO matching entry in robots.ts's
+  // PRIVATE_CLIENT_LOGIN_HOSTS map (see parsePrivateClientLoginHosts), OR
+  // whose entry names a DIFFERENT path than the one actually found on disk
+  // (a stale/typo'd value would silently disallow the wrong segment while
+  // leaving the real one crawlable). Same "two lists that should agree but
+  // don't" shape as Drift AH/AI, just for this file's SECOND per-host
+  // carve-out map instead of its first (JOIN_CRAWLABLE_HOSTS) — and, unlike
+  // AH/AI, this one can't be a blanket disallow entry at all: the same
+  // top-level segment name ('book') is nyc-mobile-salon's and
+  // the-home-services-company's genuinely PUBLIC lead-capture page, so the
+  // carve-out has to name the exact host, not just the exact path. Concrete
+  // instances found live in the current repo: wash-and-fold-nyc and
+  // wash-and-fold-hoboken's own '/book' (client PIN login there, distinct
+  // from the public '/book' lead form on those OTHER tenants) and
+  // the-florida-maid's own '/clients' were all three fully crawlable until
+  // this round's fix — structurally identical in sensitivity to the global
+  // '/portal' page, which IS disallowed. WARN, not CRIT: same
+  // crawlability-regression-not-a-data-leak reasoning as every other
+  // robots.ts Drift check — the page still self-gates via its own PIN
+  // submission to /api/client/login. Skipped for a slug with no known domain
+  // at all — same reasoning as Drift AI (Drift C/E/L already cover an
+  // unresolvable/out-of-scope tenant).
+  if (clientPortalLoginDirsBySlug.size) {
+    const normPrivateHosts = new Map([...privateClientLoginHosts].map(([hostname, path]) => [norm(hostname), path]))
+    for (const [slug, dirName] of clientPortalLoginDirsBySlug) {
+      const domains = new Set()
+      for (const t of tenants) if (t.slug === slug && t.domain) domains.add(norm(t.domain))
+      for (const r of tds) if (r.slug === slug && r.domain) domains.add(norm(r.domain))
+      for (const t of allTenantDomains) if (t.slug === slug && t.domain) domains.add(norm(t.domain))
+      if (!domains.size) continue
+      const expectedPath = `/${dirName}`
+      const covered = [...domains].some((d) => normPrivateHosts.get(d) === expectedPath)
+      if (!covered) {
+        add(
+          'WARN',
+          slug,
+          `has a site/${slug}/${dirName}/ folder shaped like the client-PIN-login-portal clone (dashboard/ + collect/ subpages, same email+PIN form as the global '/portal' page) but none of its known domain(s) [${[...domains].join(', ')}] have a matching '${expectedPath}' entry in src/app/robots.ts's PRIVATE_CLIENT_LOGIN_HOSTS -> this tenant's client-login portal is crawlable/indexable on its own domain`,
+        )
+      }
+    }
+  }
+
   return findings
 }
 
@@ -1713,6 +1842,7 @@ async function main() {
   const robotsKilledRoutesSet = parseRobotsKilledRoutes(robotsSource)
   const joinCrawlableHosts = parseJoinCrawlableHosts(robotsSource)
   const robotsDisallowList = parseRobotsDisallowList(robotsSource)
+  const privateClientLoginHosts = parsePrivateClientLoginHosts(robotsSource)
   const siteDir = join(REPO, 'src', 'app', 'site')
   const hasHome = (slug) => {
     const d = join(siteDir, slug)
@@ -1810,6 +1940,35 @@ async function main() {
     if (names.length) bespokeSiteTopLevelDirs.set(slug, names)
   }
 
+  // Feeds Drift AL: for every bespoke tenant, find a top-level route-segment
+  // directory whose own children include BOTH a 'dashboard' and a 'collect'
+  // subdirectory — the client-PIN-login-portal clone fingerprint (see the
+  // comment above Drift AL in computeFindings). Route-group wrappers
+  // ("(name)") are resolved the same way collectFirstSegmentDirs resolves
+  // them above — a group is invisible in the URL, so requests still land on
+  // its children, and this walk recurses into one to check them the same
+  // way a real request would reach them.
+  const findClientPortalLoginDir = (dir) => {
+    if (!existsSync(dir)) return null
+    for (const entry of readdirSync(dir, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      if (entry.name.startsWith('(') && entry.name.endsWith(')')) {
+        const nested = findClientPortalLoginDir(join(dir, entry.name))
+        if (nested) return nested
+        continue
+      }
+      const childDir = join(dir, entry.name)
+      const children = readdirSync(childDir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => e.name)
+      if (children.includes('dashboard') && children.includes('collect')) return entry.name
+    }
+    return null
+  }
+  const clientPortalLoginDirsBySlug = new Map()
+  for (const slug of bespokeSet) {
+    const found = findClientPortalLoginDir(join(siteDir, slug))
+    if (found) clientPortalLoginDirsBySlug.set(slug, found)
+  }
+
   // Feeds Drift AF: pure static analysis over the working tree (no DB, no
   // network) — computed here alongside the other middleware-source parses above,
   // ahead of the SQL calls below, purely for locality with its sibling checks.
@@ -1850,7 +2009,7 @@ async function main() {
     resolvableSlugs = new Set(resolvable.map((r) => r.slug))
   }
 
-  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows, joinCrawlableHosts, robotsDisallowList })
+  const findings = computeFindings({ tenants, tds, bespokeSet, hasHome, resolvableSlugs, allTenantDomains, apexCanonicalSet, protectedSlugs, richSitemapSet, hasSitemap, allTenants, nonServingStatuses, mainHostsSet, rootSiteTenantsSet, staticTenantMap, knownPendingOrphans: KNOWN_PENDING_ORPHANS, nextConfigSiteRewrites, allNextConfigSiteRewrites, nextConfigRedirects, appRootPrefixes, robotsMainHostsSet, killedRoutesSet, robotsKilledRoutesSet, wwwApexDomainsBySlug, killedRouteAppFiles, bespokeSiteTopLevelDirs, apiPublicRouteCollisions, adminBypassPrefixShadows, joinCrawlableHosts, robotsDisallowList, privateClientLoginHosts, clientPortalLoginDirsBySlug })
 
   // --- Report ---
   const { sorted, counts, pendingCrit, gatingCrit } = summarize(findings)

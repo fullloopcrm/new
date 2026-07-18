@@ -34,6 +34,18 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   // fixed, non-token-gated form (unlike the genuinely token-gated
   // '/quote/(.*)', '/invoice/(.*)', '/sign/(.*)' public flows, which are
   // intentionally NOT listed here).
+  //
+  // '/login' is a DIFFERENT class from the APP_ROOT_PREFIXES entries above —
+  // it is not a middleware constant at all, but a literal page that lives
+  // INSIDE several bespoke tenants' own site/<slug>/ subtree
+  // (src/app/site/{nyc-mobile-salon,the-florida-maid,wash-and-fold-nyc,
+  // wash-and-fold-hoboken}/.../login/page.tsx, each rendering the exact same
+  // SiteAdminLoginClient operator-PIN-login form '/fullloop' renders
+  // globally). Because rewriteToSite() has no APP_ROOT_PREFIXES entry for
+  // '/login', it resolves through the normal /site/<slug> rewrite like any
+  // other tenant page — so unlike '/fullloop', this one was never a
+  // candidate for Drift AJ's APP_ROOT_PREFIXES-vs-disallow diff at all; nothing
+  // in this file, or in reconcile-tenant-config.mjs, watched it until now.
   const disallow = [
     '/dashboard/',
     '/admin/',
@@ -48,6 +60,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     '/fullloop',
     '/reset-pin',
     '/reviews/submit',
+    '/login',
   ]
 
   // /join is invite-acceptance (private) on most hosts, so it's blocked by
@@ -70,6 +83,36 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   if (isMainHost) {
     // /apply is tenant-scoped hiring on the main host — keep it out of the index.
     disallow.push('/apply')
+  }
+
+  // Some bespoke tenants reuse a public-lead-form-shaped top-level segment
+  // name for an entirely different, PRIVATE page instead: an email+PIN
+  // client-login form (POST /api/client/login) plus its own
+  // dashboard/collect/reschedule subpages — the tenant-embedded equivalent
+  // of the global '/portal' page above, just forked per tenant instead of
+  // shared. 'book' is the segment name on wash-and-fold-nyc/
+  // wash-and-fold-hoboken, but the SAME 'book' segment is nyc-mobile-salon's
+  // and the-home-services-company's genuinely PUBLIC lead-capture page (and
+  // nycmaid's own legacy /book/new stub) — so, unlike '/login' above, a
+  // blanket disallow entry for '/book' in the shared list would wrongly hide
+  // those tenants' real public pages. This carve-out is scoped per-host,
+  // mirroring JOIN_CRAWLABLE_HOSTS's per-host shape just above, but adding a
+  // disallow rule per host instead of exempting one. Domains sourced from
+  // each tenant's own already-hardcoded canonical URL (wash-and-fold-nyc's
+  // sitemap.ts SITE_URL, wash-and-fold-hoboken's layout.tsx metadataBase —
+  // both branded "The NYC Maid" — and the-florida-maid's existing
+  // STATIC_TENANT_MAP entry in src/middleware.ts).
+  const PRIVATE_CLIENT_LOGIN_HOSTS: Record<string, string> = {
+    'washandfoldnyc.com': '/book',
+    'www.washandfoldnyc.com': '/book',
+    'thenycmaid.com': '/book',
+    'www.thenycmaid.com': '/book',
+    'thefloridamaid.com': '/clients',
+    'www.thefloridamaid.com': '/clients',
+  }
+  const privateClientLoginPath = PRIVATE_CLIENT_LOGIN_HOSTS[host]
+  if (privateClientLoginPath) {
+    disallow.push(privateClientLoginPath)
   }
 
   return {

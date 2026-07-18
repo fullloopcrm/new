@@ -28,6 +28,7 @@ import {
   findShadowedAdminBypassPrefixes,
   parseJoinCrawlableHosts,
   parseRobotsDisallowList,
+  parsePrivateClientLoginHosts,
   computeFindings,
   summarize,
   loadToken,
@@ -3564,5 +3565,235 @@ describe('computeFindings — Drift AJ (APP_ROOT_PREFIXES entry with no matching
       robotsDisallowList: [],
     })
     expect(findings.filter((f) => f.msg.includes("robots.ts's disallow array")).length).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AK (bespoke tenant has a site/<slug>/login folder not covered by robots.ts disallow)', () => {
+  it('warns for every bespoke tenant with a login/ folder when robots.ts has no /login coverage at all', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid', 'wash-and-fold-nyc']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([
+        ['the-florida-maid', ['login', 'clients']],
+        ['wash-and-fold-nyc', ['login', 'book']],
+        ['nycmaid', ['contact', 'services']],
+      ]),
+      robotsDisallowList: ['/dashboard/', '/admin/'],
+    })
+    const warned = findings.filter((f) => f.msg.includes('site/'))
+    expect(warned.map((f) => f.slug).sort()).toEqual(['the-florida-maid', 'wash-and-fold-nyc'])
+    expect(warned[0].sev).toBe('WARN')
+    expect(warned[0].msg).toContain("SiteAdminLoginClient")
+    expect(warned[0].msg).toContain('/fullloop')
+  })
+
+  it('does not warn for a bespoke tenant with no login/ folder', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['nycmaid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['nycmaid', ['contact', 'services']]]),
+      robotsDisallowList: [],
+    })
+    expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(false)
+  })
+
+  it('does not warn once robots.ts disallow covers /login (the live, correct state after the fix)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['the-florida-maid', ['login']]]),
+      robotsDisallowList: ['/dashboard/', '/login'],
+    })
+    expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(false)
+  })
+
+  it('matches through trailing-slash normalization, same as Drift AJ\'s coverage check', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['the-florida-maid', ['login']]]),
+      robotsDisallowList: ['/login/'],
+    })
+    expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(false)
+  })
+
+  it('does not treat a bare "/log" disallow entry as covering /login (no false-positive coverage)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      bespokeSiteTopLevelDirs: new Map([['the-florida-maid', ['login']]]),
+      robotsDisallowList: ['/log'],
+    })
+    expect(findings.some((f) => f.msg.includes('login/ folder'))).toBe(true)
+  })
+
+  it('is skipped entirely when bespokeSiteTopLevelDirs is empty (default)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      robotsDisallowList: [],
+    })
+    expect(findings.filter((f) => f.msg.includes('login/ folder')).length).toBe(0)
+  })
+})
+
+describe('parsePrivateClientLoginHosts', () => {
+  it('extracts host -> path pairs from a robots.ts PRIVATE_CLIENT_LOGIN_HOSTS declaration', () => {
+    const src = `
+      const PRIVATE_CLIENT_LOGIN_HOSTS: Record<string, string> = {
+        'washandfoldnyc.com': '/book',
+        "www.washandfoldnyc.com": '/book',
+        'thefloridamaid.com': '/clients',
+      }
+    `
+    const map = parsePrivateClientLoginHosts(src)
+    expect(map.get('washandfoldnyc.com')).toBe('/book')
+    expect(map.get('www.washandfoldnyc.com')).toBe('/book')
+    expect(map.get('thefloridamaid.com')).toBe('/clients')
+    expect(map.size).toBe(3)
+  })
+
+  it('skips a commented-out entry', () => {
+    const src = `
+      const PRIVATE_CLIENT_LOGIN_HOSTS: Record<string, string> = {
+        // 'stale-domain.com': '/book',
+        'thefloridamaid.com': '/clients',
+      }
+    `
+    const map = parsePrivateClientLoginHosts(src)
+    expect(map.has('stale-domain.com')).toBe(false)
+    expect(map.get('thefloridamaid.com')).toBe('/clients')
+  })
+
+  it('returns an empty Map when the declaration is absent', () => {
+    expect(parsePrivateClientLoginHosts('export default {}').size).toBe(0)
+  })
+})
+
+describe('computeFindings — Drift AL (bespoke tenant has a client-PIN-login-portal folder not covered by PRIVATE_CLIENT_LOGIN_HOSTS)', () => {
+  it('warns when a tenant\'s client-portal-login dir has no matching PRIVATE_CLIENT_LOGIN_HOSTS entry at all', () => {
+    const tenants = [{ id: 't1', slug: 'wash-and-fold-nyc', domain: 'washandfoldnyc.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'washandfoldnyc.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'wash-and-fold-nyc' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['wash-and-fold-nyc']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map([['wash-and-fold-nyc', 'book']]),
+      privateClientLoginHosts: new Map(), // the live entry was dropped / never added
+    })
+    const warn = findings.find((f) => f.msg.includes('client-PIN-login-portal clone'))
+    expect(warn).toBeDefined()
+    expect(warn!.sev).toBe('WARN')
+    expect(warn!.slug).toBe('wash-and-fold-nyc')
+    expect(warn!.msg).toContain('site/wash-and-fold-nyc/book/')
+    expect(warn!.msg).toContain("'/book'")
+  })
+
+  it('does not warn when the tenant\'s domain has a matching PRIVATE_CLIENT_LOGIN_HOSTS entry (the live, correct state)', () => {
+    const tenants = [{ id: 't1', slug: 'wash-and-fold-nyc', domain: 'washandfoldnyc.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'washandfoldnyc.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'wash-and-fold-nyc' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['wash-and-fold-nyc']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map([['wash-and-fold-nyc', 'book']]),
+      privateClientLoginHosts: new Map([['washandfoldnyc.com', '/book']]),
+    })
+    expect(findings.some((f) => f.msg.includes('client-PIN-login-portal clone'))).toBe(false)
+  })
+
+  it('warns when the PRIVATE_CLIENT_LOGIN_HOSTS entry names a different path than the one actually found on disk', () => {
+    const tenants = [{ id: 't1', slug: 'the-florida-maid', domain: 'thefloridamaid.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thefloridamaid.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'the-florida-maid' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map([['the-florida-maid', 'clients']]),
+      // stale/typo'd value — names '/book' instead of the real '/clients'
+      privateClientLoginHosts: new Map([['thefloridamaid.com', '/book']]),
+    })
+    expect(findings.some((f) => f.msg.includes('client-PIN-login-portal clone'))).toBe(true)
+  })
+
+  it('matches through norm() so a www-prefixed known domain still collapses with a bare PRIVATE_CLIENT_LOGIN_HOSTS entry', () => {
+    const tenants = [{ id: 't1', slug: 'the-florida-maid', domain: 'https://www.thefloridamaid.com/', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'https://www.thefloridamaid.com/', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'the-florida-maid' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['the-florida-maid']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map([['the-florida-maid', 'clients']]),
+      privateClientLoginHosts: new Map([['thefloridamaid.com', '/clients']]),
+    })
+    expect(findings.some((f) => f.msg.includes('client-PIN-login-portal clone'))).toBe(false)
+  })
+
+  it('does not warn for a bespoke tenant with no detected client-portal-login dir', () => {
+    const tenants = [{ id: 't1', slug: 'nyc-mobile-salon', domain: 'thenycmobilesalon.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'thenycmobilesalon.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'nyc-mobile-salon' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['nyc-mobile-salon']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map(),
+      privateClientLoginHosts: new Map(),
+    })
+    expect(findings.some((f) => f.msg.includes('client-PIN-login-portal clone'))).toBe(false)
+  })
+
+  it('does not warn when the tenant has a client-portal-login dir but no known domain at all (unresolvable/out-of-scope, covered by Drift C/E/L instead)', () => {
+    const findings: Finding[] = computeFindings({
+      tenants: [],
+      tds: [],
+      bespokeSet: new Set(['ghost-tenant']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      clientPortalLoginDirsBySlug: new Map([['ghost-tenant', 'book']]),
+      privateClientLoginHosts: new Map(),
+    })
+    expect(findings.some((f) => f.msg.includes('client-PIN-login-portal clone'))).toBe(false)
+  })
+
+  it('is skipped entirely when clientPortalLoginDirsBySlug is empty (default)', () => {
+    const tenants = [{ id: 't1', slug: 'wash-and-fold-nyc', domain: 'washandfoldnyc.com', status: 'active' }]
+    const tds = [{ tenant_id: 't1', domain: 'washandfoldnyc.com', active: true, is_primary: true, routing_mode: 'bespoke', status: 'active', vercel_project: 'x', slug: 'wash-and-fold-nyc' }]
+    const findings: Finding[] = computeFindings({
+      tenants,
+      tds,
+      bespokeSet: new Set(['wash-and-fold-nyc']),
+      hasHome: alwaysHome,
+      resolvableSlugs: null,
+      privateClientLoginHosts: new Map(),
+    })
+    expect(findings.filter((f) => f.msg.includes('client-PIN-login-portal clone')).length).toBe(0)
   })
 })
