@@ -12215,3 +12215,111 @@ does no I/O, per its own header comment) plus the pre-existing
 gate-wiring/token-guard regression tests (both still green in the full-
 suite run), rather than a direct local invocation -- same as every prior
 item in this lane's sessions.
+
+## (236) Fresh ground -- `loadToken`'s own `~/.env.local` line parser is
+comment-blind, diverging from the dotenv convention this repo's own
+tooling already follows for the exact same file
+
+Swept `ci.yml`/`tenant-config-reconcile.yml`/`db-backup.yml` fresh again
+first, same discipline as every prior round's step (2) -- no new gap there
+(all third-party curl calls still `--max-time`-bound, the reconcile gate's
+own `fetch()` still `AbortSignal.timeout`-bound, the token-guard contract
+test still force-skips correctly). Landed on `loadToken` itself instead,
+one level below the workflow YAML this lane has swept repeatedly: the
+function that decides whether a local (non-CI) invocation has a real
+credential or should clean-skip.
+
+`loadToken`'s local-dev fallback reads `$HOME/.env.local` and pulls the
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` line out with a single regex
+(`/^\s*SUPABASE_ACCESS_TOKEN_FULLLOOP\s*=\s*(.*)\s*$/`), then only strips a
+LEADING/TRAILING quote character (`.replace(/^["']|["']$/g, '')`) -- it has
+no concept of an inline trailing comment at all. Real `dotenv` (this repo
+has it installed as a transitive dependency -- confirmed by reading
+`node_modules/dotenv/lib/main.js`'s own `LINE` regex directly, not assumed
+from memory) treats a bare `#` in an UNQUOTED value as the start of a
+trailing comment (`[^#\r\n]+` for the unquoted-value alternative, followed
+by an optional `\s*(?:#.*)?` comment group) while a QUOTED value captures
+everything up to its true matching closing quote verbatim, `#` included.
+Next.js's own env loading is dotenv-compatible, so every OTHER var in this
+same `.env.local` file is already interpreted under that convention by the
+rest of this stack -- `loadToken`'s homegrown parser is the one line in
+this whole file that silently diverges from it.
+
+Verified live in node (via vitest, not a direct CLI invocation -- see the
+verification note below for why): fed the OLD `loadToken` a fixture
+`.env.local` with the token written in ordinary, valid dotenv style
+(`SUPABASE_ACCESS_TOKEN_FULLLOOP=sbp_realtoken123 # personal PAT, rotate
+quarterly` -- an entirely unremarkable way to annotate a personal-access-
+token line, and exactly the style `dotenv`'s own README documents).
+Result: `loadToken` returned `'sbp_realtoken123 # personal PAT, rotate
+quarterly'` -- the comment text glued straight onto the credential, not
+stripped. That return value is non-null, so `main()`'s guard (`if (!TOK)
+{ ... skip ... }`) does NOT fire -- it treats a real token as present and
+proceeds into the up-to-5 live Supabase Management-API calls, every one of
+which then 401s on the now-invalid, comment-poisoned bearer token. The
+net effect: a developer who annotates their own `~/.env.local` token line
+the same ordinary way `dotenv`'s own docs recommend gets a confusing
+auth-failure crash instead of either (a) a real reconcile run, or (b) the
+intended clean, quiet skip -- silently defeating the entire point of the
+token guard (`ci.yml`/`tenant-config-reconcile.yml`'s own comment: "so
+forks and secret-less branches are never red-gated by a missing
+credential") for the one class of input dotenv itself considers
+completely ordinary.
+
+**Fixed:** replaced the blunt leading/trailing-quote strip with a proper
+dotenv-compatible value extraction -- a quoted alternative
+(`'((?:\\'|[^'])*)'`, matching double- and backtick-quotes too) that
+captures verbatim up to the TRUE matching closing quote, quote-aware (same
+discipline `stripComments`/`extractBalancedBlock` already apply elsewhere
+in this file, applied here to comment/value boundary detection instead of
+brace/comment stripping), falling back to an unquoted alternative
+(`[^#]*`) that stops at the first `#` the same way dotenv's own `LINE`
+regex does. Closed with 2 new assertions in the existing `loadToken`
+describe block: the live-bug case above (comment now correctly stripped,
+returns bare `'sbp_realtoken123'`), plus the required negative case -- a
+QUOTED value containing a literal `#` (`"sbp_has#hash_inside"`) must NOT
+be truncated, the exact case that would catch a naive "just chop the line
+at the first `#`" fix that ignores quoting.
+
+**Mutation-verified live:** reverted the fix (`git apply -R` against a
+saved patch, confirmed a stat-only diff showed only the intended change
+before reverting), ran the 2 new assertions against the pre-fix code --
+the comment-stripping assertion failed with the exact glued-comment string
+predicted above; the quoted-value assertion already passed pre-fix
+(expected -- the OLD blunt quote-strip never truncated on `#` at all, it
+just didn't handle the comment case correctly either way), confirming the
+new assertion pair actually discriminates comment-aware from
+comment-blind rather than both trivially passing regardless of the fix.
+Reapplied the patch, both went green alongside the file's other 6
+`loadToken` assertions (8/8) and the full 312/312 in this test file.
+
+Checked sibling call sites before closing: `scripts/audit-funnel-mode.mjs`
+and `scripts/dedupe-clients-email.mjs` both carry a byte-for-byte
+IDENTICAL copy of the pre-fix `loadToken` (the latter's own comment reads
+"Token guard: identical to reconcile-tenant-config.mjs", acknowledging the
+duplication outright) -- same comment-blindness bug, concretely
+reproducible there too, not just landmine-only. Left UNFIXED this round:
+both files sit outside this lane's owned surface
+(`scripts/reconcile-tenant-config.mjs` + CI workflow wiring only), and
+editing them risks colliding with whichever lane does own them. Flagging
+here so the leader can route the identical fix to the right lane rather
+than this session silently expanding scope into files it doesn't own.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 494/494 files,
+2475/2475 tests -- zero regressions, same pre-existing unrelated
+`fixture/route.ts` tenant-scope baseline warning every prior report in
+this doc has flagged. `eslint` clean (0 errors; the only warnings on
+either touched file are pre-existing unused-`_slug` warnings this round
+did not introduce) on both touched files (scoped lint, not a full-repo
+run).
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local `block-worker-sim-scripts.sh` hook additionally
+blocks direct invocation of `reconcile-tenant-config.mjs` from this
+worktree regardless of token state ("leader-run-only, touches live prod
+Supabase") -- no live-DB reconcile run this round, same as every prior
+round without the token. This item's fix and verification are entirely
+within `loadToken`, a pure function with no network I/O even when a real
+token IS present (it only reads a local file), so the full mutation-verify
+above ran end-to-end through vitest with no live Supabase call anywhere in
+the loop -- same discipline as every prior item in this lane's sessions.
