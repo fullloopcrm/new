@@ -8,6 +8,7 @@ import { scoreTeamForBooking, pickBestTeam } from '@/lib/smart-schedule'
 import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/timing-safe-equal'
 import { getTerminatedTeamMemberIds } from '@/lib/hr'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // Weekly cron: auto-generate bookings 4 weeks out
 export async function GET(request: Request) {
@@ -17,19 +18,29 @@ export async function GET(request: Request) {
   }
 
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
-  // (tenant-scoped). Safe no-op if the column/rows don't exist.
-  const todayStr = new Date().toISOString().split('T')[0]
-  const { data: resumable } = await supabaseAdmin
-    .from('recurring_schedules')
-    .select('id')
-    .eq('tenant_id', NYCMAID_TENANT_ID)
-    .eq('status', 'paused')
-    .lte('paused_until', todayStr)
-  for (const s of resumable || []) {
-    await supabaseAdmin
+  // (tenant-scoped). Safe no-op if the column/rows don't exist. Gated on
+  // tenantServesSite() same as the generation loop below — a suspended/
+  // cancelled/deleted nycmaid tenant must not have its paused schedules
+  // silently reactivated.
+  const { data: nycMaidTenant } = await supabaseAdmin
+    .from('tenants')
+    .select('status')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
+  if (tenantServesSite(nycMaidTenant?.status)) {
+    const todayStr = new Date().toISOString().split('T')[0]
+    const { data: resumable } = await supabaseAdmin
       .from('recurring_schedules')
-      .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
-      .eq('id', s.id)
+      .select('id')
+      .eq('tenant_id', NYCMAID_TENANT_ID)
+      .eq('status', 'paused')
+      .lte('paused_until', todayStr)
+    for (const s of resumable || []) {
+      await supabaseAdmin
+        .from('recurring_schedules')
+        .update({ status: 'active', paused_until: null, updated_at: new Date().toISOString() })
+        .eq('id', s.id)
+    }
   }
 
   const { data: schedules } = await supabaseAdmin
@@ -41,9 +52,27 @@ export async function GET(request: Request) {
     return NextResponse.json({ generated: 0 })
   }
 
+  // Same class of gap fixed across every other cross-tenant fan-out this
+  // session (Telegram, Telnyx SMS/voice webhooks, comhub-email cron):
+  // recurring_schedules carries no tenant status of its own, and this loop
+  // never checked tenantServesSite() before materializing new bookings.
+  // Unlike the messaging-only crons, this one WRITES new operational data —
+  // a suspended/cancelled/deleted tenant's recurring schedule kept
+  // auto-generating brand-new future bookings and assigning real staff to
+  // them, indefinitely, every week this cron ran.
+  const scheduleTenantIds = Array.from(new Set(schedules.map((s) => s.tenant_id as string)))
+  const { data: scheduleTenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, status')
+    .in('id', scheduleTenantIds)
+  const servingTenantIds = new Set(
+    (scheduleTenants || []).filter((t) => tenantServesSite(t.status)).map((t) => t.id as string),
+  )
+
   let totalGenerated = 0
 
   for (const schedule of schedules) {
+    if (!servingTenantIds.has(schedule.tenant_id as string)) continue
     // Find the latest booking for this schedule. tenant_id filter is required,
     // not just defense-in-depth: without it, a booking from ANY tenant sharing
     // this schedule_id (e.g. a poisoned FK planted via another tenant's own

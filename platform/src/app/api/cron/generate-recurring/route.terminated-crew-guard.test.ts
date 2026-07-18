@@ -54,6 +54,7 @@ const CTX_TENANT = 'tid-a'
 
 function seed() {
   return {
+    tenants: [{ id: CTX_TENANT, status: 'active' }],
     recurring_schedules: [
       {
         id: 'rs-terminated', tenant_id: CTX_TENANT, client_id: 'c-a', property_id: null,

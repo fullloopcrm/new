@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getValidAccessToken, getGoogleBusiness } from '@/lib/google'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
@@ -12,7 +13,7 @@ export async function GET(request: Request) {
   // Get all tenants with Google connected
   const { data: tenants } = await supabaseAdmin
     .from('tenants')
-    .select('id, name, google_tokens, google_business')
+    .select('id, name, status, google_tokens, google_business')
     .not('google_tokens', 'is', null)
 
   if (!tenants || tenants.length === 0) {
@@ -22,6 +23,11 @@ export async function GET(request: Request) {
   const results: { tenant: string; synced: number; new: number; error?: string }[] = []
 
   for (const tenant of tenants) {
+    // Same class of gap fixed across every other cross-tenant fan-out this
+    // session: this loop never checked tenantServesSite() before spending a
+    // real Google API call + writing review rows + firing an admin
+    // notification for a suspended/cancelled/deleted tenant.
+    if (!tenantServesSite(tenant.status)) continue
     try {
       const accessToken = await getValidAccessToken(tenant.id)
       if (!accessToken) {

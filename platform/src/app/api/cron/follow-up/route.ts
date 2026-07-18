@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 // 3-day post-service follow-up thank you
 export async function GET(request: Request) {
@@ -32,9 +33,17 @@ export async function GET(request: Request) {
 
     const { data: tenant } = await supabaseAdmin
       .from('tenants')
-      .select('name')
+      .select('name, status')
       .eq('id', booking.tenant_id)
       .single()
+
+    // Same class of gap fixed across every other cross-tenant fan-out this
+    // session (Telegram, Telnyx webhooks, comhub-email, generate-recurring
+    // cron): this loop queries bookings across ALL tenants with zero status
+    // filter, so a suspended/cancelled/deleted tenant's completed booking
+    // still triggered a real promotional "thank you, book again" email to
+    // that tenant's own customer 3 days later.
+    if (!tenantServesSite(tenant?.status)) continue
 
     const clientName = client?.name || 'there'
 

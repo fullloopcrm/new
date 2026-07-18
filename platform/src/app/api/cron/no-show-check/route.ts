@@ -13,6 +13,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 300
 
@@ -41,10 +42,25 @@ export async function GET(request: Request) {
     return NextResponse.json({ success: true, flipped: 0 })
   }
 
+  // Same class of gap fixed across every other cross-tenant fan-out this
+  // session: bookings carries no tenant status of its own, and this loop
+  // never checked tenantServesSite() before flipping a booking to no_show
+  // and notifying admins — a suspended/cancelled/deleted tenant's stale
+  // bookings kept getting auto-flipped and alerted on indefinitely.
+  const candidateTenantIds = Array.from(new Set(candidates.map((b) => b.tenant_id as string)))
+  const { data: candidateTenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, status')
+    .in('id', candidateTenantIds)
+  const servingTenantIds = new Set(
+    (candidateTenants || []).filter((t) => tenantServesSite(t.status)).map((t) => t.id as string),
+  )
+
   let flipped = 0
   const errors: string[] = []
 
   for (const b of candidates) {
+    if (!servingTenantIds.has(b.tenant_id as string)) continue
     try {
       await supabaseAdmin
         .from('bookings')

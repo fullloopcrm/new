@@ -9,6 +9,7 @@ import { notify } from '@/lib/notify'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { safeEqual } from '@/lib/timing-safe-equal'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 60
 
@@ -55,9 +56,23 @@ export async function GET(request: Request) {
       .filter((x): x is string => !!x)
   )
 
+  // Same class of gap fixed across every other cross-tenant fan-out this
+  // session: deals carries no tenant status of its own, and this loop never
+  // checked tenantServesSite() before notifying admins (and SMSing them, for
+  // nycmaid) about a due follow-up on a suspended/cancelled/deleted tenant.
+  const dealTenantIds = Array.from(new Set(deals.map(d => d.tenant_id as string)))
+  const { data: dealTenants } = await supabaseAdmin
+    .from('tenants')
+    .select('id, status')
+    .in('id', dealTenantIds)
+  const servingTenantIds = new Set(
+    (dealTenants || []).filter(t => tenantServesSite(t.status)).map(t => t.id as string),
+  )
+
   let reminded = 0
   for (const deal of deals) {
     if (notifiedDealIds.has(deal.id as string)) continue
+    if (!servingTenantIds.has(deal.tenant_id as string)) continue
 
     const clientName = (deal.clients as unknown as { name?: string } | null)?.name || 'Unknown'
     const note = (deal.follow_up_note as string | null) || 'Follow up now'

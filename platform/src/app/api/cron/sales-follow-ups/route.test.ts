@@ -45,13 +45,21 @@ let dealsRows: Array<{
 }>
 let notificationsRows: Array<{ metadata: { deal_id?: string } | null }>
 const dealsQueryFilters: { stage?: { op: string; val: unknown } } = {}
+// Every tenant this suite exercises is serving by default — this file isn't
+// testing the tenantServesSite() gate (see route.status-gate.test.ts for that).
+let tenantStatusMap: Record<string, string> = {}
 
 function builder(table: string) {
+  const eqs: Record<string, unknown> = {}
   const chain = {
     select: () => chain,
     eq: () => chain,
     lte: () => chain,
     gte: () => chain,
+    in: (_col: string, vals: string[]) => {
+      eqs.__in = vals
+      return chain
+    },
     not: (col: string, op: string, val: unknown) => {
       if (table === 'deals' && col === 'stage') dealsQueryFilters.stage = { op, val: String(val) }
       return chain
@@ -68,6 +76,10 @@ function builder(table: string) {
       }
       if (table === 'notifications') {
         return resolve({ data: notificationsRows, error: null })
+      }
+      if (table === 'tenants') {
+        const ids = (eqs.__in as string[] | undefined) || []
+        return resolve({ data: ids.map((id) => ({ id, status: tenantStatusMap[id] ?? 'active' })), error: null })
       }
       return resolve({ data: null, error: null })
     },
@@ -94,6 +106,7 @@ beforeEach(() => {
   notified.length = 0
   smsedAdmins.length = 0
   dealsQueryFilters.stage = undefined
+  tenantStatusMap = {}
 })
 
 describe('sales-follow-ups cron — deals.stage filter', () => {
