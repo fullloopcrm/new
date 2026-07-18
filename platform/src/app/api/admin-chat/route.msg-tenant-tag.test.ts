@@ -59,6 +59,9 @@ vi.mock('@/lib/require-permission', () => ({
 vi.mock('@/lib/selena/agent', () => ({
   askSelena: vi.fn(async () => ({ text: 'reply', toolsCalled: [] })),
 }))
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: async () => ({ allowed: true, remaining: 29 }),
+}))
 
 import { POST } from './route'
 

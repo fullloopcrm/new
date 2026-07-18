@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requirePermission } from '@/lib/require-permission'
 import { AuthError } from '@/lib/tenant-query'
 import { supabaseAdmin } from '@/lib/supabase'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 import {
   scoreConversation,
   selfReviewConversation,
@@ -68,6 +69,15 @@ export async function POST(req: NextRequest) {
       const ruleScore = await scoreConversation(tenantId, conversationId)
       let aiResult = null
       if (useAi) {
+        // ai_review triggers a real Anthropic call (selfReviewConversation);
+        // this route is gated on settings.view (held by manager, not just
+        // admin/owner) with no other cost control — cap per-tenant volume
+        // so a scripted caller can't run up unbounded API spend, matching
+        // the admin/translate convention for the same risk shape.
+        const rl = await rateLimitDb(`admin-selena-score:${tenantId}`, 30, 10 * 60 * 1000)
+        if (!rl.allowed) {
+          return NextResponse.json({ error: 'Too many AI review requests. Try again shortly.' }, { status: 429 })
+        }
         aiResult = await selfReviewConversation(tenantId, conversationId)
       }
       return NextResponse.json({ rule_based: ruleScore, ai_review: aiResult })

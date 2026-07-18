@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { askSelena } from '@/lib/selena/agent'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
+
+const MAX_MESSAGE_LENGTH = 4000
 
 // Use the first OWNER_PHONES entry so isOwner() in agent.ts triggers admin context.
 function getOwnerPhone(): string {
@@ -25,6 +28,18 @@ export async function POST(req: NextRequest) {
   }
   const message = (body.message || '').trim()
   if (!message) return NextResponse.json({ error: 'message is required' }, { status: 400 })
+  if (message.length > MAX_MESSAGE_LENGTH) {
+    return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
+  }
+
+  // Every message here drives a real Anthropic call (askSelena) and this
+  // route is gated on settings.view — held by manager, not just admin/owner
+  // — with no other cost control. Same rate-limit convention as
+  // admin/translate / ai/chat / ai/assistant / /api/chat / /api/yinez.
+  const rl = await rateLimitDb(`admin-chat:${tenant.tenantId}`, 30, 10 * 60 * 1000)
+  if (!rl.allowed) {
+    return NextResponse.json({ error: 'Too many messages. Try again shortly.' }, { status: 429 })
+  }
 
   const ownerPhone = getOwnerPhone()
   let sessionId: string = body.sessionId || ''

@@ -69,6 +69,10 @@ vi.mock('@/lib/selena/agent', () => ({
   },
 }))
 
+vi.mock('@/lib/rate-limit-db', () => ({
+  rateLimitDb: async () => ({ allowed: true, remaining: 29 }),
+}))
+
 import { NextRequest } from 'next/server'
 import { POST } from '@/app/api/admin-chat/route'
 
