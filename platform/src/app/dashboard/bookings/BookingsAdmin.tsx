@@ -1256,6 +1256,9 @@ function BookingsPage() {
     return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
+  // Row avatar initials — same pattern as clients page's bk-avatar.
+  const initials = (name: string) => (name || '').split(' ').filter(Boolean).map((w) => w[0]).join('').toUpperCase().slice(0, 2) || '?'
+
   const serviceTypesData = useServiceTypes()
   // Catalog-driven only — no cleaning fallback. Shows the tenant's own services.
   const serviceTypes = serviceTypesData.map(s => s.name)
@@ -1751,138 +1754,109 @@ function BookingsPage() {
           </div>
         )}
 
-        {/* Desktop Table */}
-        <div className="bg-white rounded-xl border border-gray-200/60 overflow-hidden shadow-sm hidden md:block">
+        {/* Desktop Table — bk-list-thead/bk-list-row (own column schema; see
+            bookings-list.css comment) instead of a plain Tailwind <table>. */}
+        <div className="hidden md:block" style={{ background: 'var(--bk-canvas)', border: '1px solid var(--bk-line)', borderRadius: 4, overflow: 'hidden' }}>
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#1E2A4A] border-t-transparent rounded-full animate-spin" />
-                <p className="text-gray-400 text-sm">Loading bookings...</p>
+                <div className="w-8 h-8 border-2 border-t-transparent rounded-full animate-spin" style={{ borderColor: 'var(--bk-ink)', borderTopColor: 'transparent' }} />
+                <p className="text-sm" style={{ color: 'var(--bk-muted)' }}>Loading bookings...</p>
               </div>
             </div>
           ) : filteredBookings.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16">
-              <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-3">
-                <svg className="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
-              </div>
-              <p className="text-gray-500 text-sm">No bookings found.</p>
-              <p className="text-gray-400 text-xs mt-1">Try adjusting your filters or search</p>
-            </div>
+            <div className="bk-empty">No bookings found. Try adjusting your filters or search.</div>
           ) : (
             <>
-            <table className="w-full">
-              <thead>
-                <tr className="border-b border-gray-100">
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Client</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Service</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Date & Time</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">{worker.singular}</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Rate</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Amount</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider hidden lg:table-cell">Recurring</th>
-                  <th className="text-left px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Status</th>
-                  <th className="text-right px-4 py-3 text-xs font-semibold text-gray-400 uppercase tracking-wider">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-50">
-                {paginatedBookings.map((b) => (
-                  <tr
-                    key={b.id}
-                    className={
-                      'cursor-pointer transition-colors ' +
-                      (b.status === 'in_progress' ? 'bg-amber-50/50 hover:bg-amber-50' :
-                       b.status === 'cancelled' ? 'bg-gray-50/50 opacity-60 hover:opacity-80 hover:bg-gray-50' :
-                       b.status === 'pending' ? 'bg-red-50/30 hover:bg-red-50/60' :
-                       'hover:bg-gray-50/80')
-                    }
-                    onClick={() => openEdit(b)}
-                  >
-                    <td className="px-4 py-3.5">
-                      <div>
-                        <p className={'text-sm font-medium flex items-center gap-1.5 ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>
-                          {b.is_emergency && <span title="Emergency / same-day booking" className="inline-flex items-center px-1.5 py-0.5 rounded-full text-[10px] font-bold bg-red-600 text-white">🚨 URGENT</span>}
-                          {b.clients?.name || '-'}
-                        </p>
-                        <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{b.clients?.address || ''}</p>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.service_type}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>{formatDate(b.start_time)}</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.team_members?.name || <span className="text-gray-300">--</span>}</span>
-                    </td>
-                    <td className="px-4 py-3.5 hidden lg:table-cell">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-500')}>${(() => { const hours = Math.max(1, Math.round((new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60))); return b.hourly_rate ? b.hourly_rate : b.price ? Math.round(b.price / 100 / hours) : 69 })()}/hr</span>
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={'text-sm font-semibold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[#1E2A4A]')}>~${(b.price / 100).toFixed(0)}</span>
-                    </td>
-                    <td className="px-4 py-3.5 hidden lg:table-cell">
-                      {b.recurring_type ? <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium border border-purple-100">{b.recurring_type}</span> : <span className="text-gray-300">--</span>}
-                    </td>
-                    <td className="px-4 py-3.5">
-                      <span className={
-                        'inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ' +
-                        (b.status === 'pending' ? 'bg-red-100 text-red-700' :
-                         b.status === 'in_progress' ? 'bg-amber-100 text-amber-700' :
-                         b.status === 'completed' ? 'bg-green-100 text-green-700' :
-                         b.status === 'cancelled' ? 'bg-gray-100 text-gray-500' :
-                         'bg-blue-100 text-blue-700')
-                      }>
-                        {b.status === 'completed' && <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" /></svg>}
-                        {b.status === 'in_progress' && <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />}
-                        {b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3.5 text-right" onClick={(e) => e.stopPropagation()}>
-                      <div className="flex items-center justify-end gap-1">
-                        {b.status !== 'cancelled' && (
-                          <div className="relative">
-                            <button onClick={() => setResendMenuId(resendMenuId === b.id ? null : b.id)} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50 transition-colors" title="Resend confirmation">
-                              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
-                            </button>
-                            {resendMenuId === b.id && (
-                              <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
-                                <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Email</button>
-                                <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Text</button>
-                              </div>
-                            )}
-                          </div>
-                        )}
-                        <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2A4A] hover:bg-gray-100 transition-colors" title="Edit">
-                          <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
-                        </button>
-                        {b.status === 'cancelled' ? (
-                          <button onClick={() => { if (confirm(`Permanently delete this cancelled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-                          </button>
-                        ) : (
-                          <button onClick={async () => { if (confirm(`Cancel booking for ${b.clients?.name || 'this client'}?`)) { const res = await fetch('/api/bookings/' + b.id, { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to cancel: ${err.error || 'Unknown error'}`); } await loadBookings() } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Cancel">
-                            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+            <div className="bk-list-thead">
+              <div>Client</div>
+              <div>Service</div>
+              <div>Date & Time</div>
+              <div>{worker.singular}</div>
+              <div className="bk-list-col-lg">Rate</div>
+              <div>Amount</div>
+              <div className="bk-list-col-lg">Recurring</div>
+              <div>Status</div>
+              <div className="right">Actions</div>
+            </div>
+            {paginatedBookings.map((b) => (
+              <div
+                key={b.id}
+                className={'bk-list-row' + (b.status === 'in_progress' || b.status === 'pending' || b.status === 'cancelled' ? ' ' + b.status.replace('_', '-') : '')}
+                onClick={() => openEdit(b)}
+              >
+                <div className="bk-row-client">
+                  <span className="bk-avatar">{initials(b.clients?.name || '')}</span>
+                  <div style={{ minWidth: 0 }}>
+                    <div className="bk-row-name">
+                      {b.is_emergency && <span className="bk-list-urgent">URGENT</span>}
+                      <span className={b.status === 'cancelled' ? 'bk-list-none' : ''}>{b.clients?.name || '-'}</span>
+                    </div>
+                    {b.clients?.address && <div className="bk-row-addr">{b.clients.address}</div>}
+                  </div>
+                </div>
+                <div className="bk-service-cell">
+                  <span className="bk-service-type">{b.service_type}</span>
+                </div>
+                <div className="bk-when-cell">
+                  <span className="bk-when-date">{formatDate(b.start_time)}</span>
+                </div>
+                <div className="bk-cleaner-mini">
+                  {b.team_members?.name || <span className="bk-list-none">--</span>}
+                </div>
+                <div className="bk-rate bk-list-col-lg">
+                  ${(() => { const hours = Math.max(1, Math.round((new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60))); return b.hourly_rate ? b.hourly_rate : b.price ? Math.round(b.price / 100 / hours) : 69 })()}/hr
+                </div>
+                <div className={'bk-list-amount' + (b.status === 'cancelled' ? ' cancelled' : '')}>~${(b.price / 100).toFixed(0)}</div>
+                <div className="bk-list-col-lg">
+                  {b.recurring_type ? <span className="bk-list-recurring">{b.recurring_type}</span> : <span className="bk-list-none">--</span>}
+                </div>
+                <div>
+                  <span className={'bk-status ' + b.status.replace('_', '-')}>
+                    {b.status === 'in_progress' ? 'In Progress' : b.status.charAt(0).toUpperCase() + b.status.slice(1)}
+                  </span>
+                </div>
+                <div className="bk-row-actions" onClick={(e) => e.stopPropagation()}>
+                  {b.status !== 'cancelled' && (
+                    <div className="relative">
+                      <button onClick={() => setResendMenuId(resendMenuId === b.id ? null : b.id)} className="bk-icon-btn" title="Resend confirmation">
+                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>
+                      </button>
+                      {resendMenuId === b.id && (
+                        <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
+                          <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Email</button>
+                          <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Text</button>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                  <button onClick={() => openEdit(b)} className="bk-icon-btn" title="Edit">
+                    <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                  </button>
+                  {b.status === 'cancelled' ? (
+                    <button onClick={() => { if (confirm(`Permanently delete this cancelled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="bk-icon-btn" title="Delete">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    </button>
+                  ) : (
+                    <button onClick={async () => { if (confirm(`Cancel booking for ${b.clients?.name || 'this client'}?`)) { const res = await fetch('/api/bookings/' + b.id, { method: 'DELETE' }); if (!res.ok) { const err = await res.json().catch(() => ({ error: res.statusText })); alert(`Failed to cancel: ${err.error || 'Unknown error'}`); } await loadBookings() } }} className="bk-icon-btn" title="Cancel">
+                      <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" /></svg>
+                    </button>
+                  )}
+                </div>
+              </div>
+            ))}
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className="flex items-center justify-between px-4 py-3 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
+              <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid var(--bk-line-soft)' }}>
+                <p className="text-xs" style={{ color: 'var(--bk-muted)' }}>
                   Showing {((currentPage - 1) * pageSize) + 1}-{Math.min(currentPage * pageSize, filteredBookings.length)} of {filteredBookings.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="bk-page-btn"
                   >
                     Prev
                   </button>
@@ -1895,15 +1869,12 @@ function BookingsPage() {
                     }, [])
                     .map((p, i) =>
                       typeof p === 'string' ? (
-                        <span key={`ellipsis-${i}`} className="px-1.5 text-gray-300 text-xs">...</span>
+                        <span key={`ellipsis-${i}`} className="px-1.5 text-xs" style={{ color: 'var(--bk-muted-2)' }}>...</span>
                       ) : (
                         <button
                           key={p}
                           onClick={() => setCurrentPage(p as number)}
-                          className={
-                            'min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ' +
-                            (currentPage === p ? 'bg-[#1E2A4A] text-white' : 'text-gray-500 hover:bg-gray-100')
-                          }
+                          className={'bk-page-btn' + (currentPage === p ? ' active' : '')}
                         >
                           {p}
                         </button>
@@ -1912,7 +1883,7 @@ function BookingsPage() {
                   <button
                     onClick={() => setCurrentPage(Math.min(totalPages, currentPage + 1))}
                     disabled={currentPage === totalPages}
-                    className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-gray-500 hover:bg-gray-100 disabled:opacity-30 disabled:cursor-not-allowed transition-colors"
+                    className="bk-page-btn"
                   >
                     Next
                   </button>
