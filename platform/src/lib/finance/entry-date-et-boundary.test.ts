@@ -83,7 +83,7 @@ describe('entry_date default -- ET calendar day, not true-UTC day (evening bound
   })
 
   it('postPayrollToLedger posts the real ET-today, not the already-rolled-over UTC day', async () => {
-    ;(h.store.payroll_payments ||= []).push({ id: 'pr_1', tenant_id: A, amount: 50000, team_member_id: 'tm_1' })
+    ;(h.store.payroll_payments ||= []).push({ id: 'pr_1', tenant_id: A, status: 'paid', amount: 50000, team_member_id: 'tm_1' })
     const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_1' })
     expect(entryDate(r.entryId!)).toBe('2026-07-17')
   })

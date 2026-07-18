@@ -94,7 +94,15 @@ export async function POST(request: Request) {
     }
 
     const idempotencyKey = `manual-payroll-${tenantId}-${team_member_id}-${amountCents}-${method}-${period_start}-${period_end}-${Math.floor(Date.now() / DEDUP_WINDOW_MS)}`
+    const nowIso = new Date().toISOString()
 
+    // "Record Payment" means the admin already sent this money (Zelle, cash,
+    // etc.) outside the app -- status/paid_at defaulted to 'pending'/null
+    // (008_missing_tables_and_columns.sql) and were never set here, even
+    // though postPayrollToLedger() below immediately posts it to the ledger
+    // as an already-paid expense. Set them explicitly so the row's own state
+    // matches what every reader of it (postPayrollToLedger's status gate,
+    // payroll-prep's paid_out_cents) actually needs to see.
     const { data, error } = await supabaseAdmin
       .from('payroll_payments')
       .insert({
@@ -105,6 +113,8 @@ export async function POST(request: Request) {
         period_start,
         period_end,
         idempotency_key: idempotencyKey,
+        status: 'paid',
+        paid_at: nowIso,
       })
       .select()
       .single()

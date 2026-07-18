@@ -122,11 +122,19 @@ export async function postPayrollToLedger(opts: { tenantId: string; payrollPayme
   const { tenantId, payrollPaymentId } = opts
   const { data: row } = await supabaseAdmin
     .from('payroll_payments')
-    .select('id, team_member_id, amount')
+    .select('id, team_member_id, amount, status')
     .eq('tenant_id', tenantId)
     .eq('id', payrollPaymentId)
     .maybeSingle()
   if (!row) return { posted: false, reason: 'not_found' }
+  // payroll_payments.status defaults to 'pending' (008_missing_tables_and_columns.sql)
+  // -- every OTHER money-in-motion table this module posts from (payments,
+  // job_payments, team_member_payouts) gates on a real "money actually moved"
+  // status before touching the ledger. This was the one rail without that
+  // gate: a future draft/scheduled payroll row (status still 'pending', no
+  // money sent yet) would post to the ledger as an already-paid expense the
+  // moment anything called postPayrollToLedger/backfillUnpostedLabor on it.
+  if (row.status !== 'paid') return { posted: false, reason: `status_${row.status}` }
   return postLabor({
     tenantId,
     source: 'payroll',
@@ -162,6 +170,7 @@ export async function backfillUnpostedLabor(tenantId: string, limit = 500): Prom
     .from('payroll_payments')
     .select('id')
     .eq('tenant_id', tenantId)
+    .eq('status', 'paid')
     .order('created_at', { ascending: true })
     .limit(limit)
   for (const p of payrollRows || []) {

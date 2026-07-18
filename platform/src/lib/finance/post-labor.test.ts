@@ -65,7 +65,7 @@ function seedPayout(id: string, tenantId: string, fields: Record<string, unknown
 }
 
 function seedPayroll(id: string, tenantId: string, fields: Record<string, unknown>) {
-  ;(h.store.payroll_payments ||= []).push({ id, tenant_id: tenantId, amount: 0, ...fields })
+  ;(h.store.payroll_payments ||= []).push({ id, tenant_id: tenantId, status: 'paid', amount: 0, ...fields })
 }
 
 function seedHrProfile(tenantId: string, teamMemberId: string, employmentType: string) {
@@ -177,6 +177,13 @@ describe('postPayrollToLedger — manual payroll payment', () => {
     expect(h.store.journal_entries).toHaveLength(0)
   })
 
+  it('rejects a payroll payment in a non-paid status (e.g. pending) instead of posting it as already-paid', async () => {
+    seedPayroll('pr_pending', A, { team_member_id: 'tm_1', amount: 20000, status: 'pending' })
+    const r = await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'pr_pending' })
+    expect(r).toMatchObject({ posted: false, reason: 'status_pending' })
+    expect(h.store.journal_entries).toHaveLength(0)
+  })
+
   it('returns not_found for a payroll id that does not exist', async () => {
     expect(await postPayrollToLedger({ tenantId: A, payrollPaymentId: 'nope' })).toMatchObject({ posted: false, reason: 'not_found' })
   })
@@ -196,12 +203,13 @@ describe('backfillUnpostedLabor — safety net for both payouts and payroll', ()
     seedPayout('bf_po_2', A, { team_member_id: 'tm_1', amount_cents: 2000 })
     seedPayout('bf_po_pending', A, { team_member_id: 'tm_1', amount_cents: 3000, status: 'pending' }) // never posts (wrong status)
     seedPayroll('bf_pr_1', A, { team_member_id: 'tm_1', amount: 4000 })
+    seedPayroll('bf_pr_pending', A, { team_member_id: 'tm_1', amount: 5000, status: 'pending' }) // never posts (wrong status)
 
     // Pre-post one payout so the backfill must skip it, not double-count.
     await postPayoutToLedger({ tenantId: A, payoutId: 'bf_po_1' })
 
     const result = await backfillUnpostedLabor(A)
-    expect(result).toEqual({ payouts: 1, payroll: 1 }) // bf_po_2 + bf_pr_1; bf_po_1 already posted, bf_po_pending wrong status
+    expect(result).toEqual({ payouts: 1, payroll: 1 }) // bf_po_2 + bf_pr_1; bf_po_1 already posted, bf_po_pending/bf_pr_pending wrong status
 
     expect(h.store.journal_entries.filter((e) => e.source === 'payout' && e.tenant_id === A)).toHaveLength(2) // bf_po_1 (pre) + bf_po_2 (backfill)
     expect(h.store.journal_entries.filter((e) => e.source === 'payroll' && e.tenant_id === A)).toHaveLength(1)

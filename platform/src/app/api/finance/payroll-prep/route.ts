@@ -64,6 +64,20 @@ export async function GET(request: Request) {
       .gte('created_at', from)
       .lte('created_at', toTs)
 
+    // Manual "Record Payment" payroll (Zelle/cash/etc, POST /api/finance/payroll)
+    // is a SEPARATE rail from Stripe/auto team_member_payouts -- omitting it
+    // here understated paid_out_cents by every manual payment ever recorded,
+    // overstating balance_owed_cents on the report below by the same amount
+    // (real risk: an admin re-paying a contractor who'd already been paid
+    // manually, because the UI still showed a balance owed).
+    const { data: manualPayroll } = await supabaseAdmin
+      .from('payroll_payments')
+      .select('team_member_id, amount, status, created_at')
+      .eq('tenant_id', tenantId)
+      .eq('status', 'paid')
+      .gte('created_at', from)
+      .lte('created_at', toTs)
+
     type Row = {
       team_member_id: string
       name: string
@@ -117,6 +131,13 @@ export async function GET(request: Request) {
       const row = rowMap.get(p.team_member_id)
       if (!row) continue
       row.paid_out_cents += Number(p.amount_cents) || 0
+    }
+
+    for (const p of manualPayroll || []) {
+      if (!p.team_member_id) continue
+      const row = rowMap.get(p.team_member_id)
+      if (!row) continue
+      row.paid_out_cents += Number(p.amount) || 0
     }
 
     const rows = Array.from(rowMap.values()).map(r => ({
