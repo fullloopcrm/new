@@ -11,7 +11,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/sms'
 import { EMPTY_CHECKLIST, getClientProfile } from '@/lib/selena-legacy'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 
@@ -35,7 +36,9 @@ interface ConvoRow {
 
 export async function GET(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.view')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { searchParams } = new URL(req.url)
     const convoId = searchParams.get('convoId')
     const since = searchParams.get('since')
@@ -150,7 +153,9 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { tenantId } = await getTenantForRequest()
+    const { tenant: authTenant, error: authError } = await requirePermission('clients.edit')
+    if (authError) return authError
+    const { tenantId } = authTenant
     const { conversationId } = await req.json()
     if (!conversationId) return NextResponse.json({ error: 'conversationId required' }, { status: 400 })
 
