@@ -631,7 +631,14 @@ export async function POST(request: Request) {
     }
 
     case 'charge.refunded': {
-      // Refund issued in Stripe → reverse the sale in the ledger.
+      // Refund issued in Stripe → reverse the sale in the ledger. That's ALL
+      // this handler used to do -- payments.status, bookings.payment_status,
+      // and (via 027_invoices.sql's trigger) invoices.status/amount_paid_cents
+      // never moved off "paid in full". Only Selena's own process_stripe_refund
+      // tool patched bookings.payment_status, and only for refunds it itself
+      // issued -- a refund from the Stripe Dashboard, or a dispute resolution,
+      // left every other surface (invoice page, AR aging, admin dashboards)
+      // reporting money that was actually returned.
       const charge = event.data.object as Stripe.Charge
       const piId = typeof charge.payment_intent === 'string' ? charge.payment_intent : charge.payment_intent?.id
       const resolved = piId ? await tenantFromPaymentIntent(piId) : null
@@ -647,6 +654,28 @@ export async function POST(request: Request) {
           // Fallback when the refunds list isn't expanded on the event.
           await postRefundToLedger({ tenantId: resolved.tenantId, sourceId: charge.id, amountCents: charge.amount_refunded, memo })
             .catch(err => console.error('[stripe] refund post failed:', err))
+        }
+
+        // Sync the operational records the ledger post above never touches.
+        // charge.amount_refunded is CUMULATIVE across every refund on this
+        // charge (not just this event's), so it's compared directly against
+        // the payment's own original amount -- no running total to maintain.
+        // Skip once the payment is already fully 'refunded': terminal, and it
+        // guards against a stale/out-of-order redelivery of an earlier,
+        // smaller amount_refunded clobbering a more-complete later state.
+        if (resolved.paymentId && charge.amount_refunded > 0 && resolved.status !== 'refunded') {
+          const newStatus = charge.amount_refunded >= resolved.amountCents ? 'refunded' : 'partially_refunded'
+          const { error: payErr } = await supabaseAdmin.from('payments').update({ status: newStatus }).eq('id', resolved.paymentId)
+          if (payErr) console.error('[stripe] payment refund-status sync failed:', payErr)
+          // Invoice-linked payments: this UPDATE fires 027_invoices.sql's
+          // trg_payments_recompute_invoice, which (see
+          // 2026_07_18_invoices_refund_status_trigger.sql) now correctly
+          // drops the invoice to 'partial'/'refunded' instead of staying
+          // stuck 'paid'.
+          if (resolved.bookingId) {
+            const { error: bkErr } = await supabaseAdmin.from('bookings').update({ payment_status: newStatus }).eq('id', resolved.bookingId)
+            if (bkErr) console.error('[stripe] booking refund-status sync failed:', bkErr)
+          }
         }
       }
       break

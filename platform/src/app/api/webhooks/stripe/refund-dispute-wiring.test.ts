@@ -30,7 +30,13 @@ const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<s
 
 // hoisted spies + a settable tenant resolution, reachable from the vi.mock factory.
 const adj = vi.hoisted(() => ({
-  resolved: null as { tenantId: string; bookingId: string | null } | null,
+  resolved: null as {
+    tenantId: string
+    bookingId: string | null
+    paymentId?: string | null
+    amountCents?: number
+    status?: string | null
+  } | null,
   postRefund: vi.fn(() => Promise.resolve({ posted: true })),
   postChargeback: vi.fn(() => Promise.resolve({ posted: true })),
   postDeposit: vi.fn(() => Promise.resolve({ posted: true })),
@@ -69,7 +75,7 @@ const BOOKING = 'bk_1234abcd-0000'
 
 beforeEach(() => {
   h.seq = 0
-  h.store = { admin_tasks: [], payments: [] }
+  h.store = { admin_tasks: [], payments: [], bookings: [] }
   adj.resolved = { tenantId: TENANT, bookingId: BOOKING }
   adj.postRefund.mockClear()
   adj.postChargeback.mockClear()
@@ -151,6 +157,65 @@ describe('charge.refunded → postRefundToLedger wiring', () => {
     }
     await post()
     expect(adj.postRefund).not.toHaveBeenCalled()
+  })
+})
+
+describe('charge.refunded → payments/bookings status sync', () => {
+  // Before this fix, only the ledger moved on refund -- payments.status and
+  // bookings.payment_status stayed 'succeeded'/'paid' forever for any refund
+  // NOT issued through Selena's own process_stripe_refund tool. These pin the
+  // sync the webhook now does directly, keyed off the same resolved payment.
+  it('marks the payment + booking "refunded" on a full refund', async () => {
+    h.store.payments = [{ id: 'pay_1', tenant_id: TENANT, booking_id: BOOKING, amount_cents: 5000, status: 'completed' }]
+    h.store.bookings = [{ id: BOOKING, tenant_id: TENANT, payment_status: 'paid' }]
+    adj.resolved = { tenantId: TENANT, bookingId: BOOKING, paymentId: 'pay_1', amountCents: 5000, status: 'completed' }
+    stripeEvent.current = {
+      type: 'charge.refunded',
+      data: { object: { id: 'ch_10', payment_intent: 'pi_1', amount_refunded: 5000, refunds: { data: [] } } },
+    }
+    await post()
+    expect(h.store.payments[0].status).toBe('refunded')
+    expect(h.store.bookings[0].payment_status).toBe('refunded')
+  })
+
+  it('marks the payment + booking "partially_refunded" when amount_refunded is less than the original payment', async () => {
+    h.store.payments = [{ id: 'pay_2', tenant_id: TENANT, booking_id: BOOKING, amount_cents: 10000, status: 'completed' }]
+    h.store.bookings = [{ id: BOOKING, tenant_id: TENANT, payment_status: 'paid' }]
+    adj.resolved = { tenantId: TENANT, bookingId: BOOKING, paymentId: 'pay_2', amountCents: 10000, status: 'completed' }
+    stripeEvent.current = {
+      type: 'charge.refunded',
+      data: { object: { id: 'ch_11', payment_intent: 'pi_1', amount_refunded: 3000, refunds: { data: [] } } },
+    }
+    await post()
+    expect(h.store.payments[0].status).toBe('partially_refunded')
+    expect(h.store.bookings[0].payment_status).toBe('partially_refunded')
+  })
+
+  it('syncs the payment even with no linked booking (invoice-only payment)', async () => {
+    h.store.payments = [{ id: 'pay_3', tenant_id: TENANT, booking_id: null, invoice_id: 'inv_1', amount_cents: 2000, status: 'succeeded' }]
+    adj.resolved = { tenantId: TENANT, bookingId: null, paymentId: 'pay_3', amountCents: 2000, status: 'succeeded' }
+    stripeEvent.current = {
+      type: 'charge.refunded',
+      data: { object: { id: 'ch_12', payment_intent: 'pi_2', amount_refunded: 2000, refunds: { data: [] } } },
+    }
+    await post()
+    expect(h.store.payments[0].status).toBe('refunded')
+    expect(h.store.bookings ?? []).toHaveLength(0)
+  })
+
+  it('does not re-sync a payment already fully refunded (stale/out-of-order redelivery guard)', async () => {
+    h.store.payments = [{ id: 'pay_4', tenant_id: TENANT, booking_id: BOOKING, amount_cents: 5000, status: 'refunded' }]
+    h.store.bookings = [{ id: BOOKING, tenant_id: TENANT, payment_status: 'refunded' }]
+    // Stale redelivery of an EARLIER, smaller amount_refunded than what already landed.
+    adj.resolved = { tenantId: TENANT, bookingId: BOOKING, paymentId: 'pay_4', amountCents: 5000, status: 'refunded' }
+    stripeEvent.current = {
+      type: 'charge.refunded',
+      data: { object: { id: 'ch_13', payment_intent: 'pi_1', amount_refunded: 2000, refunds: { data: [] } } },
+    }
+    await post()
+    // Would have wrongly downgraded to 'partially_refunded' without the guard.
+    expect(h.store.payments[0].status).toBe('refunded')
+    expect(h.store.bookings[0].payment_status).toBe('refunded')
   })
 })
 

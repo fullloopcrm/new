@@ -230,15 +230,30 @@ export async function backfillUnpostedCommissions(tenantId: string, limit = 500)
 /**
  * Resolve a tenant id (and payment memo) from a Stripe payment_intent, used by
  * refund/dispute webhook handlers where only the charge/intent is known.
+ * paymentId/amountCents/status are for the refund handler's own payments/
+ * bookings status sync (see charge.refunded in webhooks/stripe/route.ts) --
+ * the dispute handler only ever reads tenantId/bookingId, same as before.
  */
-export async function tenantFromPaymentIntent(paymentIntentId: string): Promise<{ tenantId: string; bookingId: string | null } | null> {
+export async function tenantFromPaymentIntent(paymentIntentId: string): Promise<{
+  tenantId: string
+  bookingId: string | null
+  paymentId: string | null
+  amountCents: number
+  status: string | null
+} | null> {
   if (!paymentIntentId) return null
   const { data } = await supabaseAdmin
     .from('payments')
-    .select('tenant_id, booking_id')
+    .select('id, tenant_id, booking_id, amount_cents, status')
     .eq('stripe_payment_intent_id', paymentIntentId)
     .limit(1)
     .maybeSingle()
   if (!data?.tenant_id) return null
-  return { tenantId: data.tenant_id as string, bookingId: (data.booking_id as string) || null }
+  return {
+    tenantId: data.tenant_id as string,
+    bookingId: (data.booking_id as string) || null,
+    paymentId: (data.id as string) || null,
+    amountCents: Number(data.amount_cents) || 0,
+    status: (data.status as string) || null,
+  }
 }
