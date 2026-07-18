@@ -44,12 +44,13 @@ vi.mock('@/lib/supabase', () => {
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
       },
-      then: (res: (v: { data: unknown; error: unknown }) => unknown) => {
+      then: (res: (v: { data: unknown; error: unknown; count?: number }) => unknown) => {
         if (kind === 'update') {
           store[table] = (store[table] || []).map((r) => (match(r) ? { ...r, ...payload } : r))
           return res({ data: null, error: null })
         }
-        return res({ data: (store[table] || []).filter(match), error: null })
+        const filtered = (store[table] || []).filter(match)
+        return res({ data: filtered, error: null, count: filtered.length })
       },
     }
     return c
@@ -111,5 +112,36 @@ describe('PUT /api/admin/users — owner grant is owner-only', () => {
     const res = await PUT(req({ id: 'm1', role: 'owner' }) as any)
     expect(res.status).toBe(200)
     expect(store.tenant_members[0].role).toBe('owner')
+  })
+})
+
+describe('PUT /api/admin/users — owner demotion is owner-only', () => {
+  beforeEach(() => {
+    store.tenant_members = [
+      { id: 'owner1', tenant_id: TENANT, role: 'owner' },
+      { id: 'admin1', tenant_id: TENANT, role: 'admin' },
+    ]
+    actorRole = 'admin'
+  })
+
+  it('rejects an admin demoting the real owner to a lower role', async () => {
+    const res = await PUT(req({ id: 'owner1', role: 'staff' }) as any)
+    expect(res.status).toBe(403)
+    expect(store.tenant_members.find((m) => m.id === 'owner1')?.role).toBe('owner')
+  })
+
+  it('allows an owner to demote another owner when a second owner remains', async () => {
+    store.tenant_members.push({ id: 'owner2', tenant_id: TENANT, role: 'owner' })
+    actorRole = 'owner'
+    const res = await PUT(req({ id: 'owner1', role: 'admin' }) as any)
+    expect(res.status).toBe(200)
+    expect(store.tenant_members.find((m) => m.id === 'owner1')?.role).toBe('admin')
+  })
+
+  it('blocks demoting the last remaining owner, even by an owner', async () => {
+    actorRole = 'owner'
+    const res = await PUT(req({ id: 'owner1', role: 'admin' }) as any)
+    expect(res.status).toBe(400)
+    expect(store.tenant_members.find((m) => m.id === 'owner1')?.role).toBe('owner')
   })
 })

@@ -147,6 +147,30 @@ export async function PUT(request: NextRequest) {
     if (role === 'owner' && tenant.role !== 'owner') {
       return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
     }
+    // Same escalation, other direction: demoting an EXISTING owner away from
+    // 'owner' is just as dangerous as granting it (see [id]/route.ts for the
+    // matching guard on the other PUT variant of this same endpoint).
+    if (role !== 'owner') {
+      const { data: currentTarget } = await supabaseAdmin
+        .from('tenant_members')
+        .select('role')
+        .eq('id', id)
+        .eq('tenant_id', tenant.tenantId)
+        .maybeSingle()
+      if (currentTarget?.role === 'owner') {
+        if (tenant.role !== 'owner') {
+          return NextResponse.json({ error: "Only an owner can change another owner's role" }, { status: 403 })
+        }
+        const { count } = await supabaseAdmin
+          .from('tenant_members')
+          .select('id', { count: 'exact', head: true })
+          .eq('tenant_id', tenant.tenantId)
+          .eq('role', 'owner')
+        if ((count ?? 0) <= 1) {
+          return NextResponse.json({ error: 'Cannot demote the last owner' }, { status: 400 })
+        }
+      }
+    }
     update.role = role
   }
   if (name !== undefined) update.name = name

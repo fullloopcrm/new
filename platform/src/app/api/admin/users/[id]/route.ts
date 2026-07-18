@@ -32,6 +32,35 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
       if (body.role === 'owner' && tenant.role !== 'owner') {
         return NextResponse.json({ error: 'Only an owner can grant the owner role' }, { status: 403 })
       }
+      // The other half of that same escalation: changing an EXISTING owner's
+      // role AWAY from 'owner' is just as dangerous as granting it. Without
+      // this, any 'admin' (settings.edit by default) could PUT {role:'staff'}
+      // on the real owner's member row, stripping their always-full-access
+      // tier with zero owner-level authorization -- a full tenant takeover
+      // that doesn't even need the self-promote-then-delete path above.
+      if (body.role !== 'owner') {
+        const { data: currentTarget } = await supabaseAdmin
+          .from('tenant_members')
+          .select('role')
+          .eq('id', id)
+          .eq('tenant_id', tenant.tenantId)
+          .maybeSingle()
+        if (currentTarget?.role === 'owner') {
+          if (tenant.role !== 'owner') {
+            return NextResponse.json({ error: "Only an owner can change another owner's role" }, { status: 403 })
+          }
+          // Mirror DELETE's last-owner guard: don't let the tenant demote its
+          // way down to zero owners, even when the actor legitimately is one.
+          const { count } = await supabaseAdmin
+            .from('tenant_members')
+            .select('id', { count: 'exact', head: true })
+            .eq('tenant_id', tenant.tenantId)
+            .eq('role', 'owner')
+          if ((count ?? 0) <= 1) {
+            return NextResponse.json({ error: 'Cannot demote the last owner' }, { status: 400 })
+          }
+        }
+      }
       updates.role = body.role
     }
 
