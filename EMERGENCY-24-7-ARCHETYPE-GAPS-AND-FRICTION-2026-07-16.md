@@ -9579,3 +9579,151 @@ CLI/token-guard contract itself is unchanged by this round; CI's own
 "Verify token-guard skips clean without a secret" step in the reconcile
 workflow file is the authoritative check for that path and runs
 unmodified.
+
+## (194) New fresh-ground surface, inside the OTHER live-blocking CI gate this
+lane owns — `scripts/audit-tenant-scope.mjs`'s own `.from()` table matcher
+was quote-style-only, silently skipping a whole class of tenant-table
+queries the "Tenant-isolation guard" CI step exists specifically to catch
+
+Every fix in this doc's "reconcile gate" thread (168-179) audited
+`reconcile-tenant-config.mjs` and its CI wiring. This is the first round to
+turn the same scrutiny on this lane's OTHER live-blocking gate:
+`scripts/audit-tenant-scope.mjs`, run by `ci.yml`'s "Tenant-isolation guard"
+step on every PR, the backstop that makes tenant isolation actually enforced
+(every query runs through the service-role client, which BYPASSES Postgres
+RLS — `.eq('tenant_id', …)` on each call site is the ONLY thing standing
+between a forgotten filter and a cross-tenant leak).
+
+The bug: the script's own `.from()` regex — the line that decides which
+table a query targets, and therefore whether it's even in scope for this
+gate at all — matched single-quoted table-name literals only. A query
+written with double or backtick quotes around the table name didn't get
+misclassified by the scoped/idLookup logic downstream — it never reached
+that logic. The line matching `/\.from\('([a-z_]+)'\)/` (old form) simply
+failed to match, so the `if (!m || …) continue` on the very next line
+skipped the source line entirely, same as if it contained no database call
+at all. A completely silent blind spot, not a misjudgment.
+
+Traced one layer deeper before trusting the per-line fix: the same script's
+file-discovery step — the `grep -rl "\.from('" src …` call that builds the
+candidate-file list BEFORE any per-line regex ever runs — had the identical
+single-quote-only pattern. A file whose ONLY database calls use double or
+backtick quotes for the table name would never even enter `files`, so
+fixing just the per-line regex would have been silently defeated one layer
+up; this was caught by a test (below) rather than by inspection, when
+`node scripts/audit-tenant-scope.mjs` crashed uncaught in a throwaway
+fixture whose only `.from(...)` calls were backtick-quoted (`grep`'s exit 1
+"no matches" propagated as an uncaught exception through `execSync`,
+crashing the whole gate rather than reporting cleanly — a second, smaller
+robustness gap fixed alongside the quote-style one).
+
+Checked whether this is a LIVE leak, not just a theoretical gap, the same
+way (193) distinguished its live half from its prospective half:
+`grep`-ing every `.from("...")` and `` .from(`...`) `` call across the real
+`src` tree today found exactly seven double-quoted call sites (two
+`ApplyClient.tsx` upload-storage calls, four in a legacy single-tenant
+clone's own `admin-data.ts` against its own separate `leads` table, two
+against `territories` in `lib/marketing/territoryStatus.ts`) and zero
+backtick-quoted ones — none of the seven target a table in
+`TENANT_TABLES` (`leads` and `territories` are NOT the same as the
+platform's shared `portal_leads`/`territory_claims`; the legacy clone's
+`leads` table lives behind its own, separate `getSupabaseServer()` client
+outside the multi-tenant schema this gate reconciles at all). So: real,
+demonstrable, and — like (193)'s domain-lookup half — prospective rather
+than a live-leak fix. The value is closing the contract gap before a future
+double-quoted tenant-table query (nothing in this codebase's tooling,
+ESLint config, or CI enforces single-quote style — there is no Prettier
+step and no `quotes` ESLint rule anywhere in this repo) reopens it
+completely invisibly.
+
+**Fixed** `scripts/audit-tenant-scope.mjs`: both the per-line `.from()`
+matcher and the file-discovery `grep` pre-filter are now quote-agnostic
+(`['"` + backtick + `]`), matching the convention this repo's OTHER,
+newer/prototype tenant-isolation analyzer — `src/lib/idor-route-guard.ts`'s
+own `TABLE_RE` — already established for exactly this reason. Also
+hardened the `grep` call against the "zero matches" exit code (previously
+an uncaught crash, now a clean empty result) since the fixture that proved
+the blind spot exposed it directly.
+
+**Not fixed, and not attempted:** the well-known, ALREADY-DOCUMENTED
+`idLookup` exemption itself (pinned by
+`tenant-scope-guard-idor-blindspot.test.ts`, a prior round's finding) — that
+test's own header is explicit that changing that semantic is "a call for
+the leader/Jeff, not a unilateral edit from this prototype lane," and
+nothing here touches that judgment call. This item is a DIFFERENT defect
+(quote characters the matcher recognizes), not a re-litigation of that one.
+Continued directly in (195).
+
+New test coverage in `src/lib/audit-tenant-scope-guard.test.ts` (4 tests):
+a double-quoted and a backtick-quoted unscoped `.from(...)` on a tenant
+table now RED-GATE identically to the single-quoted case, and a
+double-quoted `.from(...)` that IS scoped by `tenant_id` still passes
+clean. Updated the source-locked assertion in
+`tenant-scope-guard-idor-blindspot.test.ts` (its exact-text pin on the
+`idLookup` regex line necessarily changed character class, not semantics —
+annotated in that file so a future reader doesn't conflate the two) —
+that test's own actual claim (the exemption itself lets a same-quote-style
+textbook IDOR through) is otherwise untouched and still passes.
+
+## (195) Continuing (194)'s surface directly — the SAME single-quote-only
+defect reproduces on the sibling `idLookup` regex in the identical script,
+except here the failure mode is a FALSE POSITIVE, not a silent miss
+
+(194) asked whether the quote-style assumption was isolated to the
+`.from()` matcher. It is not: `scripts/audit-tenant-scope.mjs`'s `idLookup`
+classification — the regex that recognizes `.eq('id', …)` / `.eq('*_id',
+…)` / `.eq('*token*', …)` as an inherently row-scoped, non-leak lookup —
+had the identical hardcoded single-quote pattern. Unlike (194), a miss here
+does not go silent: if a chain's `.from()` IS now recognized (post-(194))
+via a double or backtick quote, but its OWN `.eq(...)` id-filter also uses
+a double or backtick quote, `idLookup` fails to match it, `scoped` is also
+false (no `tenant_id` anywhere in a genuinely safe row lookup), and the
+gate's own `if (!scoped && !idLookup)` predicate flags it — a real,
+correctly-written, tenant-safe query would red-gate CI as if it were a
+leak. Lower severity than (194) (a false positive blocks a PR and gets
+triaged, it doesn't ship a leak), but the identical root-cause shape this
+whole doc's "fix the contract once, not per call site" convention
+(191)-(193) established.
+
+**Fixed** identically to (194), for consistency: `idLookup`'s character
+class is now quote-agnostic too. Confirmed this does NOT touch the
+already-documented, deliberately-unfixed `idLookup` EXEMPTION itself (the
+(193)-adjacent finding that a same-quote-style `.eq('id', …)` with no
+sibling `tenant_id` is itself a textbook IDOR the exemption waves through)
+— that is a semantic question for the leader/Jeff per the existing pinned
+test, untouched here. This fix only widens WHICH QUOTE CHARACTERS the
+existing (accepted-as-is) exemption recognizes, the same narrow scope
+(194) held to for the `.from()` side.
+
+New test coverage in `src/lib/audit-tenant-scope-guard.test.ts` (1 test): a
+double-quoted `.eq("id", id)` row lookup on a tenant table now passes clean
+instead of false-positive red-gating.
+
+`tsc --noEmit` clean. Full repo suite: 461/461 files, 2303/2303 tests (5
+new this round: 4 from (194), 1 from (195)) — zero regressions. `eslint`
+clean, scoped to every file this round touched (one pre-existing,
+unrelated `@typescript-eslint/no-require-imports` error in
+`src/app/api/admin/seo/apply/route.auth.test.ts` — last touched by an
+unrelated 2026-07-xx commit, not this round — is the only repo-wide lint
+finding; same "flag the pre-existing debt, don't own it" convention every
+prior report in this doc has used). Verified against the REAL repo, not
+just fixtures: `node scripts/audit-tenant-scope.mjs` on this tree reports
+`0 known/baselined` both before and after this round's fix — confirming
+the (194) blind spot really was invisible pre-fix (would have reported the
+same 0, wrongly) and really is clean post-fix (still 0, correctly, since
+no live double/backtick-quoted tenant-table query exists in this
+codebase today).
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session;
+this worker's own local sim-script-blocking hook additionally blocks
+direct invocation of `reconcile-tenant-config.mjs` from this worktree
+regardless of token state ("leader-run-only, touches live prod Supabase")
+— re-confirmed this round (the hook fired on a direct-invocation attempt,
+as expected), no live-DB reconcile run this round, same as every prior
+round without the token. Neither (194) nor (195) touched
+`reconcile-tenant-config.mjs` or its CI workflow file — both this round's
+fixes are internal to `audit-tenant-scope.mjs`, `ci.yml`'s OTHER gate step
+(unchanged itself; only the script it invokes changed) — so no new Drift
+check was added to the reconcile script itself. CI's own "Verify
+token-guard skips clean without a secret" step in the reconcile workflow
+file is unaffected and runs unmodified.
