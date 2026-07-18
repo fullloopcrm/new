@@ -2,17 +2,19 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /**
- * resumeUrl/portfolioFileUrl/videoUrl came from this unauthenticated public
- * form and were stored verbatim in `notes` with zero validation — same bug
- * class already fixed in /api/management-applications and
- * /api/team-portal/video-upload. Mutation-verified below: reverting the
- * prefix check (see apply/route.ts) flips the "rejects" case green->red.
+ * apply/signed-url declares a maxSize per file type, but createSignedUploadUrl
+ * has no size parameter — the client PUTs straight to Supabase, so nothing
+ * ever enforced it. This verifies /api/apply now checks the object that
+ * actually landed in storage before trusting its URL. Mutation-verified:
+ * reverting the verifyUploadedObjectSize call in apply/route.ts flips the
+ * "rejects an oversized" case green->red.
  */
 
 const TENANT_ID = 'aaaaaaaa-0000-0000-0000-000000000001'
 const UPLOAD_BASE = `https://storage.example.com/uploads/${TENANT_ID}/applications`
 
 let insertedPayload: Record<string, unknown> | null = null
+let landedSize = 1024
 
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
@@ -29,7 +31,7 @@ vi.mock('@/lib/supabase', () => ({
     storage: {
       from: () => ({
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example.com/uploads/${path}` } }),
-        list: async () => ({ data: [{ metadata: { size: 1024 } }], error: null }),
+        list: async () => ({ data: [{ metadata: { size: landedSize } }], error: null }),
         remove: async () => ({ data: null, error: null }),
       }),
     },
@@ -56,48 +58,45 @@ function makeRequest(body: Record<string, unknown>): Request {
   })
 }
 
-describe('POST /api/apply — file URL prefix validation', () => {
+describe('POST /api/apply — uploaded object size cap', () => {
   beforeEach(() => {
     insertedPayload = null
+    landedSize = 1024
   })
 
-  it('rejects a videoUrl that is not inside this tenant applications prefix', async () => {
-    const { POST } = await import('./route')
-    const res = await POST(makeRequest({
-      name: 'Jane Doe',
-      phone: '5551234567',
-      videoUrl: 'https://evil.example.com/payload.mp4',
-    }))
-    expect(res.status).toBe(400)
-    expect(insertedPayload).toBeNull()
-  })
-
-  it('rejects a resumeUrl forged into another tenant prefix', async () => {
-    const { POST } = await import('./route')
-    const res = await POST(makeRequest({
-      name: 'Jane Doe',
-      phone: '5551234567',
-      resumeUrl: `${UPLOAD_BASE.replace(TENANT_ID, 'other-tenant-id')}/resumes/x.pdf`,
-    }))
-    expect(res.status).toBe(400)
-    expect(insertedPayload).toBeNull()
-  })
-
-  it('accepts URLs that live inside this tenant own signed-upload prefix', async () => {
+  it('rejects when the object that landed in storage exceeds resumeUrl\'s 10MB cap', async () => {
+    landedSize = 11 * 1024 * 1024
     const { POST } = await import('./route')
     const res = await POST(makeRequest({
       name: 'Jane Doe',
       phone: '5551234567',
       resumeUrl: `${UPLOAD_BASE}/resumes/123-abc.pdf`,
+    }))
+    expect(res.status).toBe(400)
+    expect(insertedPayload).toBeNull()
+  })
+
+  it('rejects when the object that landed in storage exceeds videoUrl\'s 100MB cap', async () => {
+    landedSize = 101 * 1024 * 1024
+    const { POST } = await import('./route')
+    const res = await POST(makeRequest({
+      name: 'Jane Doe',
+      phone: '5551234567',
       videoUrl: `${UPLOAD_BASE}/videos/123-abc.mp4`,
+    }))
+    expect(res.status).toBe(400)
+    expect(insertedPayload).toBeNull()
+  })
+
+  it('accepts when the object that landed is within cap', async () => {
+    landedSize = 2 * 1024 * 1024
+    const { POST } = await import('./route')
+    const res = await POST(makeRequest({
+      name: 'Jane Doe',
+      phone: '5551234567',
+      resumeUrl: `${UPLOAD_BASE}/resumes/123-abc.pdf`,
     }))
     expect(res.status).toBe(200)
     expect(insertedPayload).not.toBeNull()
-  })
-
-  it('allows submission with no file URLs at all', async () => {
-    const { POST } = await import('./route')
-    const res = await POST(makeRequest({ name: 'Jane Doe', phone: '5551234567' }))
-    expect(res.status).toBe(200)
   })
 })

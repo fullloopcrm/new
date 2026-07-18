@@ -3,6 +3,7 @@ import { randomBytes } from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { verifyToken } from '../auth/token'
+import { verifyUploadedObjectSize } from '@/lib/storage-size-guard'
 
 const MAX_SIZE = 150 * 1024 * 1024 // 150MB
 const ALLOWED_MIMES = ['video/mp4', 'video/quicktime', 'video/webm', 'video/3gpp', 'video/x-m4v']
@@ -109,6 +110,16 @@ export async function POST(req: NextRequest) {
         .getPublicUrl(`${auth.tid}/job-videos/${booking_id}/${type}-`)
       if (typeof url !== 'string' || !url.startsWith(prefixUrl.publicUrl)) {
         return NextResponse.json({ error: 'Invalid video URL' }, { status: 400 })
+      }
+
+      // createSignedUploadUrl (the GET handler above) has no size parameter —
+      // the client PUTs straight to Supabase, so MAX_SIZE was never actually
+      // enforced for this flow. Verify the object that landed against it here.
+      const bucketBase = supabaseAdmin.storage.from('uploads').getPublicUrl('').data.publicUrl
+      const objectPath = url.slice(bucketBase.length)
+      const withinSize = await verifyUploadedObjectSize('uploads', objectPath, MAX_SIZE)
+      if (!withinSize) {
+        return NextResponse.json({ error: 'Video is missing or exceeds the 150MB size limit' }, { status: 400 })
       }
 
       const field = type === 'walkthrough' ? 'walkthrough_video_url' : 'final_video_url'

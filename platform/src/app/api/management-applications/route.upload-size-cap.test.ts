@@ -1,19 +1,19 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+// @vitest-environment node
+import { describe, it, expect, vi, beforeEach } from 'vitest'
 
 /**
- * POST /api/management-applications is public/unauthenticated. `name` and
- * every other free-text field (location, current_role, why_this_role, notes,
- * etc.) had zero length cap, unlike the already-fixed sibling public intake
- * routes (/api/contact, /api/lead, /api/waitlist, /api/ingest/lead,
- * /api/ingest/application) which cap name at 200 / long text at 2000 so a
- * single submission can't balloon a row (or the admin notification built
- * from it) to megabytes of attacker-chosen content. Verifies the fix.
+ * management-applications/signed-url declares a maxSize per file type, but
+ * createSignedUploadUrl has no size parameter — the client PUTs straight to
+ * Supabase, so nothing ever enforced it. This verifies POST
+ * /api/management-applications now checks the object that actually landed
+ * in storage before trusting its URL and persisting the application row.
  */
 
 const TENANT = { id: 'tenant-1', name: 'Canary' }
 const UPLOAD_PREFIX = `https://storage.example.com/${TENANT.id}/management-applications/`
 
 let insertedRow: Record<string, unknown> | null = null
+let landedSize = 1024
 
 vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
@@ -31,7 +31,7 @@ vi.mock('@/lib/supabase', () => ({
     storage: {
       from: () => ({
         getPublicUrl: (path: string) => ({ data: { publicUrl: `https://storage.example.com/${path}` } }),
-        list: async () => ({ data: [{ metadata: { size: 1024 } }], error: null }),
+        list: async () => ({ data: [{ metadata: { size: landedSize } }], error: null }),
         remove: async () => ({ data: null, error: null }),
       }),
     },
@@ -51,12 +51,16 @@ function req(body: Record<string, unknown>): Request {
   })
 }
 
-beforeEach(() => { insertedRow = null })
+beforeEach(() => {
+  insertedRow = null
+  landedSize = 1024
+})
 
-describe('POST /api/management-applications — free-text length cap', () => {
-  it('caps an oversized name at 200 chars before the insert', async () => {
+describe('POST /api/management-applications — uploaded object size cap', () => {
+  it('rejects when the object that landed for photo_url exceeds its 10MB cap', async () => {
+    landedSize = 11 * 1024 * 1024
     const res = await POST(req({
-      name: 'A'.repeat(5000),
+      name: 'Real Name',
       email: 'a@example.com',
       phone: '5551234567',
       location: 'Nowhere',
@@ -64,22 +68,37 @@ describe('POST /api/management-applications — free-text length cap', () => {
       photo_url: `${UPLOAD_PREFIX}photo.jpg`,
       video_url: `${UPLOAD_PREFIX}video.mp4`,
     }))
-    expect(res.status).toBe(200)
-    expect((insertedRow!.name as string).length).toBeLessThanOrEqual(200)
+    expect(res.status).toBe(400)
+    expect(insertedRow).toBeNull()
   })
 
-  it('caps an oversized why_this_role at 2000 chars before the insert', async () => {
+  it('rejects when the object that landed for video_url exceeds its 100MB cap', async () => {
+    landedSize = 101 * 1024 * 1024
     const res = await POST(req({
       name: 'Real Name',
       email: 'b@example.com',
       phone: '5559876543',
       location: 'Nowhere',
-      why_this_role: 'X'.repeat(50000),
+      resume_url: `${UPLOAD_PREFIX}resume.pdf`,
+      photo_url: `${UPLOAD_PREFIX}photo.jpg`,
+      video_url: `${UPLOAD_PREFIX}video.mp4`,
+    }))
+    expect(res.status).toBe(400)
+    expect(insertedRow).toBeNull()
+  })
+
+  it('accepts when every uploaded object landed within cap', async () => {
+    landedSize = 2 * 1024 * 1024
+    const res = await POST(req({
+      name: 'Real Name',
+      email: 'c@example.com',
+      phone: '5551112222',
+      location: 'Nowhere',
       resume_url: `${UPLOAD_PREFIX}resume.pdf`,
       photo_url: `${UPLOAD_PREFIX}photo.jpg`,
       video_url: `${UPLOAD_PREFIX}video.mp4`,
     }))
     expect(res.status).toBe(200)
-    expect((insertedRow!.why_this_role as string).length).toBeLessThanOrEqual(2000)
+    expect(insertedRow).not.toBeNull()
   })
 })

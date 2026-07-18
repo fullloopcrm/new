@@ -36,6 +36,7 @@ function booking(overrides: Record<string, unknown> = {}) {
 let bookingLookupResult: unknown = booking()
 let uploadError: unknown = null
 let signedUrlError: unknown = null
+let landedSize = 1024
 
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
@@ -75,6 +76,8 @@ vi.mock('@/lib/supabase', () => {
           // does too, so the route's prefix-validation (JSON POST flow) can
           // be exercised with a realistic path-derived URL vs. a foreign one.
           getPublicUrl: (path: string) => ({ data: { publicUrl: `https://cdn.example/storage/v1/object/public/uploads/${path}` } }),
+          list: async () => ({ data: [{ metadata: { size: landedSize } }], error: null }),
+          remove: async () => ({ data: null, error: null }),
         }),
       },
     },
@@ -98,6 +101,7 @@ beforeEach(() => {
   bookingLookupResult = booking()
   uploadError = null
   signedUrlError = null
+  landedSize = 1024
 })
 
 function authedUrl(path: string, member = MEMBER_A) {
@@ -204,6 +208,24 @@ describe('team-portal/video-upload POST — signed-URL save (JSON)', () => {
     const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: otherBookingUrl }))
     expect(res.status).toBe(400)
     expect(updates).toHaveLength(0)
+  })
+
+  // createSignedUploadUrl (the GET handler) has no size parameter — the client
+  // PUTs straight to Supabase, so MAX_SIZE was never enforced for this flow.
+  it('REJECTS (400) when the object that landed in storage exceeds the 150MB cap and writes nothing', async () => {
+    landedSize = 151 * 1024 * 1024
+    const validUrl = `https://cdn.example/storage/v1/object/public/uploads/${TENANT}/job-videos/${BOOKING_A}/walkthrough-1700000000-abc123.mp4`
+    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: validUrl }))
+    expect(res.status).toBe(400)
+    expect(updates).toHaveLength(0)
+  })
+
+  it('ALLOWS when the object that landed is within the 150MB cap', async () => {
+    landedSize = 10 * 1024 * 1024
+    const validUrl = `https://cdn.example/storage/v1/object/public/uploads/${TENANT}/job-videos/${BOOKING_A}/walkthrough-1700000000-abc123.mp4`
+    const res = await POST(jsonReq({ booking_id: BOOKING_A, type: 'walkthrough', url: validUrl }))
+    expect(res.status).toBe(200)
+    expect(updates).toHaveLength(1)
   })
 })
 

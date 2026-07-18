@@ -8,6 +8,16 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { notify } from '@/lib/notify'
+import { verifyUploadedObjectSize } from '@/lib/storage-size-guard'
+
+// Mirrors apply/signed-url's ALLOWED_TYPES maxSize per field — that route can't
+// enforce it at sign-time (createSignedUploadUrl has no size param), so it's
+// enforced here instead, against the object that actually landed in storage.
+const FILE_FIELD_MAX_SIZE: Record<'resumeUrl' | 'portfolioFileUrl' | 'videoUrl', number> = {
+  resumeUrl: 10 * 1024 * 1024,
+  portfolioFileUrl: 50 * 1024 * 1024,
+  videoUrl: 100 * 1024 * 1024,
+}
 
 interface ApplyBody {
   name?: string
@@ -70,17 +80,27 @@ export async function POST(request: Request) {
     // prefix for its type, so a forged request can't stash an arbitrary URL
     // (e.g. javascript:, or another tenant's object) for whenever this data
     // gets a link-rendering admin view.
+    const bucketBase = supabaseAdmin.storage.from('uploads').getPublicUrl('').data.publicUrl
     const uploadPrefix = (folder: string) =>
       supabaseAdmin.storage.from('uploads').getPublicUrl(`${tenant.id}/applications/${folder}/`).data.publicUrl
-    const fileFields: Array<[keyof ApplyBody, string]> = [
+    const fileFields: Array<[keyof typeof FILE_FIELD_MAX_SIZE, string]> = [
       ['resumeUrl', uploadPrefix('resumes')],
       ['portfolioFileUrl', uploadPrefix('portfolios')],
       ['videoUrl', uploadPrefix('videos')],
     ]
     for (const [field, prefix] of fileFields) {
       const value = body[field]
-      if (value != null && (typeof value !== 'string' || !value.startsWith(prefix))) {
+      if (value == null) continue
+      if (typeof value !== 'string' || !value.startsWith(prefix)) {
         return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+      // createSignedUploadUrl has no size cap, so the ALLOWED_TYPES maxSize on
+      // apply/signed-url is never actually enforced at upload time — verify
+      // the object that landed against it here instead of trusting it.
+      const objectPath = value.slice(bucketBase.length)
+      const withinSize = await verifyUploadedObjectSize('uploads', objectPath, FILE_FIELD_MAX_SIZE[field])
+      if (!withinSize) {
+        return NextResponse.json({ error: `${field} is missing or exceeds the size limit` }, { status: 400 })
       }
     }
 

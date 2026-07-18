@@ -10,6 +10,17 @@ import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { notify } from '@/lib/notify'
+import { verifyUploadedObjectSize } from '@/lib/storage-size-guard'
+
+// Mirrors management-applications/signed-url's ALLOWED_TYPES maxSize per
+// field — that route can't enforce it at sign-time (createSignedUploadUrl
+// has no size param), so it's enforced here instead, against the object
+// that actually landed in storage.
+const FILE_FIELD_MAX_SIZE: Record<'resume_url' | 'photo_url' | 'video_url', number> = {
+  resume_url: 10 * 1024 * 1024,
+  photo_url: 10 * 1024 * 1024,
+  video_url: 100 * 1024 * 1024,
+}
 
 // Unauthenticated public POST — a caller controls every free-text field below.
 // Cap each so a single submission can't balloon a management_applications row
@@ -87,9 +98,18 @@ export async function POST(request: Request) {
     const { data: uploadPrefix } = supabaseAdmin.storage
       .from('uploads')
       .getPublicUrl(`${tenant.id}/management-applications/`)
+    const bucketBase = supabaseAdmin.storage.from('uploads').getPublicUrl('').data.publicUrl
     for (const [field, value] of [['resume_url', resume_url], ['photo_url', photo_url], ['video_url', video_url]] as const) {
       if (typeof value !== 'string' || !value.startsWith(uploadPrefix.publicUrl)) {
         return NextResponse.json({ error: `Invalid ${field}` }, { status: 400 })
+      }
+      // createSignedUploadUrl has no size cap, so the ALLOWED_TYPES maxSize on
+      // management-applications/signed-url is never actually enforced at
+      // upload time — verify the object that landed against it here instead.
+      const objectPath = value.slice(bucketBase.length)
+      const withinSize = await verifyUploadedObjectSize('uploads', objectPath, FILE_FIELD_MAX_SIZE[field])
+      if (!withinSize) {
+        return NextResponse.json({ error: `${field} is missing or exceeds the size limit` }, { status: 400 })
       }
     }
 
