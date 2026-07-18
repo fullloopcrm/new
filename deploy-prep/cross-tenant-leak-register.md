@@ -5460,3 +5460,58 @@ domain-lookup queries, `cron/recurring-expenses` intentional fan-out,
 `route.entity-insert-error.test.ts` JSDoc false-positive), none new.
 
 1 commit (fix + test, cc571748), file-only, no push/deploy/DB.
+
+## 2026-07-18 11:06 round (W2) — P95, fixed: `GET /api/social/connect/{facebook,instagram}`
+had zero permission check
+
+Continued the fresh-ground surface P94 opened (walking down the remaining
+raw hits from that round's broad grep). `social/connect/facebook/route.ts`
+and `social/connect/instagram/route.ts` (Meta OAuth authorize step — mints
+a signed state and returns the provider's consent URL) called only
+`getTenantForRequest()` on both, no permission gate. Their sibling `DELETE
+/api/social/accounts` (disconnect) already gates behind
+`requirePermission('settings.integrations')` — `rbac.ts` grants
+`settings.integrations` to **owner only** by default (not even admin).
+Unlike P94, this one has a live wired-up caller: `dashboard/social/
+page.tsx`'s "Connect" button calls `/api/social/connect/${plat}` directly
+with no client-side role gate either, and the OAuth callback
+(`social/connect/facebook/callback`, `.../instagram/callback`) can't
+meaningfully re-check role itself — it authenticates purely via the
+signed `state` param minted by the authorize step, by design (redirect
+flow, no session). So the authorize route was the only place a role gate
+could live, and it had none: any authenticated tenant member — including
+staff — could hit "Connect," authorize with their **own personal**
+Facebook/Instagram account, and have the callback bind it as the
+tenant's social integration. Connecting is the more dangerous half of the
+connect/disconnect pair (it's how the credential gets there in the first
+place), yet it was the *unguarded* half.
+
+**Fix:** `requirePermission('settings.integrations')` on both GET
+handlers, matching `DELETE /api/social/accounts` exactly. Also switched
+`signOAuthState(tenant.id)` → `signOAuthState(tenant.tenantId)` to match
+`requirePermission`'s returned shape (no behavior change — same tenant id
+value, `TenantContext.tenant.id` and `.tenantId` are always equal).
+
+**Regression lock:** both routes' existing OAuth-state tests
+(`mints a signed state...`, `points redirect_uri...`) needed their
+`getTenantForRequest` mock updated from a bare `{ tenant: { id } }` to
+the full `{ userId, tenantId, tenant, role }` shape `requirePermission`
+depends on — 7 new permission-probe tests added across the two files
+(owner-succeeds ×2, admin-forbidden ×2 confirming settings.integrations
+is owner-only not admin-inclusive, staff-forbidden ×2, tenant
+override-grant-to-manager ×1). Mutation-verified via `git diff > patch` /
+`git apply -R patch`: all 4 new PERMISSION PROBE tests went 200 pre-fix
+(RED), correct post-fix (GREEN). `npx tsc --noEmit` clean. Full suite:
+780 files, 3392/3429 pass, 37 pre-existing skipped, 0 regressions (was
+780/3422). `npm run audit:tenant`: same 4 pre-existing findings, none new.
+
+**Noticed, not touched:** `dashboard/messages` (owner's platform-support
+inbox) and `dashboard/comms-preview` (brand-preview dev tool) are also
+`getTenantForRequest()`-only with no `requirePermission` gate, but unlike
+this pair neither has a sibling endpoint establishing a specific
+permission tier for the same action — both read/render only the caller's
+own tenant's data with no role-differentiated capability in the product
+today. Left untouched; flagging in case a future round finds a reason a
+narrower role shouldn't reach them.
+
+1 commit (fix + test, b3e0286b), file-only, no push/deploy/DB.
