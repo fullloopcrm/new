@@ -368,6 +368,27 @@ describe('parseStaticTenantMap', () => {
     expect(parseStaticTenantMap(src).size).toBe(0)
   })
 
+  // Item (250), continuing (249)'s "real code path, zero test coverage"
+  // surface onto a sibling parser: extractBalancedBlock returns null when the
+  // opening '{' is never closed anywhere in the source (a truncated file, or
+  // a mid-edit save caught by a git hook / CI checkout at the wrong moment),
+  // and parseStaticTenantMap's own `if (block === null) return map` guard
+  // (line 852) is the only thing standing between that and a crash --
+  // `stripComments(block)` two lines later calls `.replace()` on whatever
+  // `block` is, so passing null through un-guarded throws a TypeError instead
+  // of the graceful "no entries found" this function returns for every OTHER
+  // malformed-input shape above. Zero coverage before this: every existing
+  // fixture in this describe block has a real closing brace somewhere.
+  // Mutation-verified: deleting the guard turns this from a passing "empty
+  // map" assertion into an uncaught "Cannot read properties of null" throw.
+  it('returns an empty map (not a crash) when the declaration is never closed', () => {
+    const src = `
+      const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+        'a.com': { id: 'id-a', slug: 'slug-a' },
+    ` // no closing '}' anywhere in the source
+    expect(parseStaticTenantMap(src).size).toBe(0)
+  })
+
   // Item (235): the OLD `\n\s*\}` block terminator matched a Prettier-wrapped
   // entry's own closing brace before the declaration's real end — see the
   // comment above extractBalancedBlock. Prettier wraps a `{ id, slug }` value
@@ -4175,6 +4196,22 @@ describe('collectFirstSegmentDirs', () => {
     mkdirSync(join(dir, '(outer)', '(inner)', 'book'), { recursive: true })
     expect(collectFirstSegmentDirs(dir)).toEqual(['book'])
   })
+
+  // Item (249) fresh ground: every real site/<slug>/ dir this function is run
+  // against in main() mixes files (layout.tsx, page.tsx, opengraph-image.tsx)
+  // alongside its segment directories — collectFirstSegmentDirs runs on that
+  // shape in production every time, but no fixture here ever put a FILE next
+  // to a directory, so entry.isDirectory() ? ... : continue's false branch
+  // had zero coverage. Mutation-verified: deleting the `if
+  // (!entry.isDirectory()) continue` guard makes this fail (`page.tsx` and
+  // `layout.tsx` leak into the returned segment list alongside `book`).
+  it('skips non-directory entries (files) sitting alongside real segment dirs', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-segs-'))
+    mkdirSync(join(dir, 'book'), { recursive: true })
+    writeFileSync(join(dir, 'layout.tsx'), '')
+    writeFileSync(join(dir, 'page.tsx'), '')
+    expect(collectFirstSegmentDirs(dir)).toEqual(['book'])
+  })
 })
 
 describe('collectPageFiles', () => {
@@ -4246,6 +4283,47 @@ describe('findClientPortalLoginDir', () => {
     mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'dashboard'), { recursive: true })
     mkdirSync(join(dir, '(outer)', '(inner)', 'clients', 'collect'), { recursive: true })
     expect(findClientPortalLoginDir(dir)).toBe('clients')
+  })
+
+  // Item (249) fresh ground, same surface as collectFirstSegmentDirs' own
+  // file-skip gap above: site/<slug>/ dirs this function walks in production
+  // always mix files alongside segment dirs, but no fixture here ever did.
+  // Mutation-verified: deleting `if (!entry.isDirectory()) continue` makes
+  // this throw (readdirSync on the file path "layout.tsx" as if it were a
+  // directory -- ENOTDIR), not just return the wrong answer.
+  it('skips non-directory entries (files) alongside a real dashboard/collect segment', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, 'book', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, 'book', 'collect'), { recursive: true })
+    // readdirSync returns entries in alphabetical order on this filesystem
+    // (verified) -- named to sort BEFORE 'book' so the file entry is actually
+    // visited by the loop before the real match short-circuits it via
+    // `return`. Naming it 'layout.tsx' (sorts after 'book') would let the
+    // mutation this test guards against (deleting the isDirectory guard)
+    // pass unnoticed, since the function would already have returned.
+    writeFileSync(join(dir, 'aaa-layout.tsx'), '')
+    expect(findClientPortalLoginDir(dir)).toBe('book')
+  })
+
+  // Item (249), continuing the same surface: a route group whose OWN
+  // immediate children happen to be named 'dashboard' and 'collect' (not a
+  // deeper named segment's children -- e.g. an (app) group split straight
+  // into dashboard/collect with no intervening slug) must NOT be mistaken
+  // for a match. The recursive call correctly returns null (neither
+  // 'dashboard' nor 'collect' has ITS OWN dashboard+collect pair), and the
+  // `continue` on line 570 must fire to skip past the group rather than
+  // falling through to the children-check below with entry.name being the
+  // group itself. Mutation-verified: deleting that `continue` makes this
+  // fail -- the fallthrough re-resolves the group via
+  // collectFirstSegmentDirs(dir/'(app)') to ['dashboard','collect'], the
+  // children-check false-positives on that pair, and the group's own raw
+  // folder name '(app)' -- not a real URL segment -- gets returned instead
+  // of null.
+  it('does not mistake a route group whose own children are named dashboard/collect for a match', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-portal-'))
+    mkdirSync(join(dir, '(app)', 'dashboard'), { recursive: true })
+    mkdirSync(join(dir, '(app)', 'collect'), { recursive: true })
+    expect(findClientPortalLoginDir(dir)).toBeNull()
   })
 })
 
