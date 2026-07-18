@@ -13697,3 +13697,78 @@ them. Nothing further to continue on this surface this round.
 absent this session (token-guard checked first, per standing instructions)
 -- no live reconcile run against Supabase attempted. Workflow YAML + test
 file only, no push/deploy/DB write.
+
+## (259) Fifth fresh-ground sweep on W3's own lane, new session, LEADER's
+11:14 queue item (1) ("pick anything not yet swept this session"). (258)'s
+new-session start meant (255)/(256)/(257)'s prior context wasn't directly
+available, so rather than repeat a literal re-read a fourth time, picked
+angles genuinely distinct from all four prior sweeps and (258)'s own new
+ground (timeout-minutes, permissions blocks, workflow_dispatch inputs,
+GITHUB_STEP_SUMMARY):
+
+- **`main()`'s `slugList` manual SQL-string interpolation** for the Drift L
+  `resolvableSlugs` query (`[...bespokeSet].map(s => \`'${s.replace(/'/g,
+  "''")}'\`).join(',')`) — checked whether the `''`-doubling escape is
+  actually correct and whether `bespokeSet`'s values are attacker-reachable.
+  Traced the source: `bespokeSet` comes from `parseBespokeSet(middlewareSource)`
+  — a hardcoded array literal in committed `src/middleware.ts` source, not
+  runtime user/DB input, so this isn't a live SQL-injection surface (an
+  attacker who controls that file already has repo-write access). Already
+  dispositioned identically at (219)/(220)-era writeups (grepped the doc:
+  lines ~7847/11784/11861/13534-13536 all confirm the same "properly
+  escaped, source is developer-controlled" conclusion) — re-confirmed
+  correct, not a new item.
+- **Loose-equality operators** (`==`/`!=` instead of `===`/`!==`) across the
+  whole 2490-line file — `grep -n '[^=!<>]==[^=]|!=[^=]'` filtered to
+  exclude `===`/`!==` returned zero hits. Every comparison in this file is
+  strict.
+- **`KNOWN_PENDING_ORPHANS`/Drift V's allowlist matching** — confirmed
+  `.has(slug)` is exact Set membership, not a prefix/substring match, so
+  there's no way a new orphan could be silently absorbed by an unrelated
+  existing allowlist entry.
+- **GitHub Actions supply-chain: action pinning** — confirmed every
+  `uses:` line across all three owned workflows (`actions/checkout`,
+  `actions/setup-node`, `actions/upload-artifact`) is pinned to a full
+  commit SHA with a `# vN` comment, not a mutable tag, in all three files.
+- **Fork-PR / concurrency-group collision** — checked whether a `push` to
+  `main` and a `pull_request` run for the same commit (e.g. right after a
+  PR merges) could land in the same `concurrency.group` and cancel each
+  other. `tenant-config-reconcile.yml`'s group is
+  `tenant-config-reconcile-${{ github.ref }}` — `github.ref` for a push
+  event is `refs/heads/main`, for a pull_request event it's
+  `refs/pull/<N>/merge`, so the two never collide. Same shape confirmed for
+  `ci.yml`'s `ci-${{ github.ref }}`.
+- **`loadToken`'s duplicate-key-in-`.env.local` semantics** — the local-dev
+  fallback parser returns on the FIRST matching `SUPABASE_ACCESS_TOKEN_FULLLOOP=`
+  line found (early `return` inside the `for` loop), not the last. Checked
+  whether this diverges from real dotenv (which processes top-to-bottom and
+  lets a LATER duplicate key overwrite an earlier one via plain object
+  assignment). It does diverge in the specific case of two duplicate lines
+  in the same `.env.local` — but this is a CI-irrelevant, local-dev-only
+  fallback path (the CI job always supplies the token via the env var branch,
+  which returns before ever reading the file), the file is developer-owned
+  on the developer's own machine (not attacker-reachable), and a duplicate
+  key in one's own `.env.local` is already a self-inflicted, immediately
+  visible misconfiguration a developer would notice from the wrong token
+  being used, not a silent security or drift issue this gate exists to
+  catch. Landmine-only at most, and arguably not even that — noted here for
+  the record rather than fixed, since "first duplicate wins" vs "last
+  duplicate wins" has no live production consequence either way.
+
+No code changed this round (nothing to fix), so no mutation testing or full-
+suite re-run was needed for a diff. Sanity-checked the lane is still green
+in this fresh session: `npx tsc --noEmit --pretty false` clean, and the
+lane's full 10-file reconcile test suite (`reconcile-tenant-config.test.ts`,
+`reconcile-gate-wiring.test.ts`, `reconcile-sql-fetch-timeout-guard.test.ts`,
+`reconcile-sql-http-status-guard.test.ts`,
+`reconcile-token-guard-home-isolation.test.ts`,
+`reconcile-strip-comments-url-value.test.ts`, `reconcile-gate-comment-strip.test.ts`,
+`reconcile-notify-failure-drift-vs-error-guard.test.ts`,
+`reconcile-notify-failure-step-detail-guard.test.ts`,
+`reconcile-gate-exit-code-preservation.test.ts`) — 10 files / 401 tests, all
+passing. `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session (token-guard
+checked first, per standing instructions) — no live reconcile run against
+Supabase attempted.
+
+Per LEADER's queue item (2) ("continue whichever surface (1) opens up"):
+(1) opened nothing new to continue this round, same disposition as (256)/(257).
