@@ -10806,3 +10806,80 @@ files. `reconcile-tenant-config.mjs`, `verify-protected-tenants.mjs`,
 not touched this round (all mutations were made, verified, and reverted
 during testing only) -- their own coverage (items 168-209 above) is
 unaffected; only new guard coverage was added.
+
+## (211) New fresh-ground surface -- ci.yml's and db-backup.yml's own
+`permissions:` blocks (the workflow-level ceiling on what GITHUB_TOKEN can do,
+no matter what any gating step inside the job does) had ZERO regression
+coverage, and the one workflow that DOES have permissions coverage had a
+narrower guard than it looked
+
+Items (204)-(210) covered every "outside the script" bypass on individual
+gating STEPS. None of them asked whether the workflow-level `permissions:`
+declaration itself -- the thing that bounds the job's GITHUB_TOKEN regardless
+of what happens inside any step -- had any regression coverage. Grepping every
+guard test file in this lane for "permissions" turned up exactly one hit:
+`reconcile-gate-wiring.test.ts`, which locks in `tenant-config-reconcile.yml`'s
+`permissions:\n  contents: read` and separately asserts `pull-requests: write`
+never appears. `ci.yml`'s `permissions: contents: read` (ci.yml:13) and
+`db-backup.yml`'s `permissions: {}` (db-backup.yml:48 -- the most restrictive
+possible value, deliberate per that file's own comment: the backup job never
+calls the GitHub API with GITHUB_TOKEN at all, pg_dump auths via SUPABASE_DB_URL
+and upload-artifact uses its own internal token) had no coverage whatsoever.
+
+That matters because GitHub Actions' default GITHUB_TOKEN scope, when a
+workflow declares no `permissions:` block at all, falls back to the repo's own
+Settings > Actions > Workflow permissions setting -- which can be considerably
+broader than either explicit declaration here -- and because a job-level
+`permissions:` block does not MERGE with the workflow-level one, it fully
+REPLACES it for that job. A plausible edit -- adding `pull-requests: write` to
+ci.yml to post a PR comment (the exact escalation tenant-config-reconcile.yml's
+own guard explicitly warns against), deleting either `permissions:` block
+during an "unrelated" cleanup pass, or adding a job-level `permissions:`
+override on ci.yml's `verify` job or db-backup.yml's `backup` job -- would
+silently widen the token's blast radius on the two workflows that run on every
+PR (ci.yml) and hold a full database dump of every tenant's PII (db-backup.yml),
+with no gating test noticing.
+
+**Verified clean today:** ci.yml:13-14 is exactly `permissions:\n  contents:
+read`, no job-level override on `verify` or `notify-failure`. db-backup.yml:48
+is exactly `permissions: {}`, no job-level override on `backup`. No `: write`
+scope token appears in either file.
+
+**Fixed:** new `src/lib/ci-workflow-permissions-guard.test.ts`, pure
+source-reading of the workflow YAML, same approach as every other guard in
+this lane. Asserts (1) ci.yml still declares `permissions:\n  contents: read`,
+(2) db-backup.yml still declares `permissions: {}`, (3) no `<scope>: write`
+token appears anywhere in either file, at workflow or job level -- a generic
+sweep rather than naming individual scopes, so a future write-scope addition
+under any name is caught without a matching test update.
+
+Mutation-verified before writing the fix: (1) removed ci.yml's `permissions:`
+block entirely -- failed with the exact predicted message; (2) changed
+db-backup.yml's `permissions: {}` to `permissions:\n  contents: read` -- failed
+with the exact predicted message; (3) added `pull-requests: write` under
+ci.yml's `permissions:` block -- failed with the exact predicted message; (4)
+added a job-level `permissions:\n  contents: write` block under db-backup.yml's
+`backup:` job -- failed with the exact predicted message. All four restores
+left `git diff --stat .github/workflows/` empty afterward.
+
+**Continuation (step 2 of the queue):** checked whether `tenant-config-
+reconcile.yml`'s EXISTING permissions guard already closed this gap for all
+three workflows. It did not: `reconcile-gate-wiring.test.ts`'s negative check
+only names `pull-requests: write` specifically, not any write scope.
+Mutation-verified: added `actions: write` (a different write scope) to
+`tenant-config-reconcile.yml`'s permissions block and re-ran
+`reconcile-gate-wiring.test.ts` directly -- all 9 of its assertions stayed
+green, confirming that blind spot was real too, not hypothetical. Rather than
+add a second narrow per-scope check there, extended the new generic
+`<scope>: write` sweep to cover `tenant-config-reconcile.yml` as well, closing
+all three workflows' blind spot from one check instead of enumerating write
+scopes by name per file. Re-ran the same `actions: write` mutation against the
+new guard -- failed with the exact predicted message; reverted clean.
+
+Full suite + tsc re-run clean after this round: `tsc --noEmit` zero errors,
+eslint clean on the new file, full vitest suite green (new file's 4 assertions
+plus every prior test, including `reconcile-gate-wiring.test.ts`'s original 9,
+still passing). None of the three workflow YAML files themselves were touched
+this round (all mutations were made, verified, and reverted during testing
+only) -- their own coverage (items 168-210 above) is unaffected; only new
+guard coverage was added.
