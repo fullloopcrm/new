@@ -1893,11 +1893,22 @@ async function main() {
     process.exit(0)
   }
 
+  // Same class of bug items (227)-(230) closed on the curl calls in
+  // ci.yml/tenant-config-reconcile.yml/db-backup.yml: fetch() has no default
+  // response timeout of its own. This gate makes up to 5 of these calls (4
+  // in the Promise.all below + 1 more for Drift L) — a DNS hang or slow-drip
+  // response from api.supabase.com on any one of them would silently consume
+  // the reconcile job's entire 10-minute timeout-minutes budget (see
+  // reconcile-gate-wiring.test.ts's job-level bound) before the real drift
+  // report is ever produced, instead of failing fast within one call.
+  // AbortSignal.timeout(30_000) mirrors the --max-time 30 bound already used
+  // for every third-party curl call in this lane.
   const sql = async (query) => {
     const r = await fetch(`https://api.supabase.com/v1/projects/${REF}/database/query`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${TOK}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({ query }),
+      signal: AbortSignal.timeout(30_000),
     })
     const d = await r.json()
     if (!Array.isArray(d)) throw new Error('SQL: ' + JSON.stringify(d).slice(0, 200))
