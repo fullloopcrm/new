@@ -6,7 +6,8 @@
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
-import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
+import { AuthError } from '@/lib/tenant-query'
+import { requirePermission } from '@/lib/require-permission'
 import { tenantSiteUrl } from '@/lib/tenant-site'
 
 interface TeamMemberRow {
@@ -17,8 +18,11 @@ interface TeamMemberRow {
 }
 
 export async function POST() {
+  const { tenant: authTenant, error: authError } = await requirePermission('settings.edit')
+  if (authError) return authError
+
   try {
-    const { tenantId, tenant } = await getTenantForRequest()
+    const { tenantId, tenant } = authTenant
 
     const { data: members } = await supabaseAdmin
       .from('team_members')

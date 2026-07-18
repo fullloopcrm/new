@@ -353,7 +353,11 @@ export default function SettingsPage() {
 
   async function broadcastGuidelines() {
     if (!confirm('This will send a notification to ALL team members to review the updated guidelines. Continue?')) return
-    await fetch('/api/settings/broadcast-guidelines', { method: 'POST' })
+    const res = await fetch('/api/admin/broadcast-guidelines', { method: 'POST' })
+    if (!res.ok) {
+      alert('Broadcast failed. Please try again.')
+      return
+    }
     alert('Guidelines broadcast sent to all team members.')
   }
 
