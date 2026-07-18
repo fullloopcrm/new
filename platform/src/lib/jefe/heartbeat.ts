@@ -78,9 +78,9 @@ export async function runHeartbeat(now: Date = new Date()): Promise<HeartbeatRes
   const newAlerts = alerts.filter((a) => !prevFps.has(a.fp))
 
   const meta: SnapshotMeta = { fully_unprovisioned: h.provisioning.fully_unprovisioned, success_rate: h.comms.success_rate }
-  await supabaseAdmin.from('jefe_snapshots').insert({ active_alerts: alerts, meta })
 
   if (newAlerts.length === 0) {
+    await supabaseAdmin.from('jefe_snapshots').insert({ active_alerts: alerts, meta })
     return { alerts_active: alerts.length, alerts_new: 0, sent: false }
   }
 
@@ -89,10 +89,22 @@ export async function runHeartbeat(now: Date = new Date()): Promise<HeartbeatRes
   const chatId = (process.env.JEFE_OWNER_CHAT_ID || process.env.TELEGRAM_OWNER_CHAT_ID || '').trim()
   const token = (process.env.JEFE_BOT_TOKEN || '').trim()
 
+  // Only mark a NEW alert "seen" once it's actually been delivered. Persisting
+  // the fingerprint unconditionally (the old order: insert snapshot, THEN
+  // check chatId/token, THEN send) meant a missing/misconfigured bot token or
+  // any transient Telegram failure silently and PERMANENTLY suppressed the
+  // very alert that never went out -- the next run's dedup sees the fp already
+  // in active_alerts and treats it as steady-state, never retrying. Alerts
+  // that were already known (steady-state, previously delivered) stay
+  // recorded regardless, so this only affects brand-new alerts on a failed run.
+  const stillKnownAlerts = alerts.filter((a) => prevFps.has(a.fp))
+
   if (!chatId || !token) {
+    await supabaseAdmin.from('jefe_snapshots').insert({ active_alerts: stillKnownAlerts, meta })
     return { alerts_active: alerts.length, alerts_new: newAlerts.length, sent: false }
   }
 
   const send = await sendTelegram(chatId, message, token)
+  await supabaseAdmin.from('jefe_snapshots').insert({ active_alerts: send.ok ? alerts : stillKnownAlerts, meta })
   return { alerts_active: alerts.length, alerts_new: newAlerts.length, sent: true, send_ok: send.ok }
 }
