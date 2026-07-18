@@ -42,6 +42,11 @@ const TENANT_ROW = {
   google_tokens: { access_token: 'live-google-access-token', refresh_token: 'v1:aaa:bbb:ccc', expires_at: 123 },
 }
 
+// GET now also resolves a primaryDomain via getPrimaryTenantDomain (see
+// route.primary-domain.test.ts) — mocked here so this permission/redaction
+// probe doesn't hit a real DB call.
+vi.mock('@/lib/domains', () => ({ getPrimaryTenantDomain: vi.fn(async () => null) }))
+
 const roleHolder = vi.hoisted(() => ({ role: 'owner' as string }))
 vi.mock('@/lib/tenant-query', () => {
   class AuthError extends Error {

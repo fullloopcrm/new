@@ -20,13 +20,20 @@ export default function WebsitesPage() {
     fetch('/api/settings')
       .then(r => r.json())
       .then(data => {
+        // GET /api/settings nests the tenant row under `tenant` (and now also
+        // returns a resolved `primaryDomain` — tenant_domains PRIMARY first,
+        // same precedence as tenantSiteUrl()'s other callers). Reading fields
+        // off the top-level response here previously meant every field below
+        // was always undefined, so this page's whole setup checklist showed
+        // "not configured" regardless of the tenant's actual state.
+        const t = data.tenant || {}
         setSettings({
-          domain: data.domain || null,
-          domain_name: data.domain_name || null,
-          dns_configured: data.dns_configured || false,
-          email_domain_verified: data.email_domain_verified || false,
-          website_published: data.website_published || false,
-          website_url: data.website_url || null,
+          domain: data.primaryDomain || t.domain || null,
+          domain_name: t.domain_name || null,
+          dns_configured: t.dns_configured || false,
+          email_domain_verified: t.email_domain_verified || false,
+          website_published: t.website_published || false,
+          website_url: t.website_url || null,
         })
       })
       .catch(() => {})

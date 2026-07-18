@@ -6,6 +6,7 @@ import { logSecurityEvent } from '@/lib/security'
 import { clearSettingsCache } from '@/lib/settings'
 import { audit } from '@/lib/audit'
 import { encryptTenantSecrets } from '@/lib/secret-crypto'
+import { getPrimaryTenantDomain } from '@/lib/domains'
 
 // Fields the settings UI has zero read-back consumers for (grepped
 // dashboard/**, no component reads these) — stripped even for authorized
@@ -26,7 +27,19 @@ export async function GET() {
     for (const field of NEVER_RETURNED_FIELDS) {
       delete (safeTenant as Record<string, unknown>)[field]
     }
-    return NextResponse.json({ tenant: safeTenant })
+
+    // Resolved primary domain (tenant_domains PRIMARY row first, same
+    // precedence as tenantSiteUrl()/resolveOrigin()'s other callers) —
+    // dashboard/websites/page.tsx's "Domain configured" status check needs
+    // the tenant's actual effective domain, not just the legacy
+    // tenant.domain/domain_name columns this route already returns raw
+    // (those stay raw for the settings-edit forms, which write them
+    // directly). Without this, a tenant whose custom domain lives only in
+    // tenant_domains (added via admin/websites) shows "No domain set" on
+    // its own Website status page despite having a live custom domain.
+    const primaryDomain = tenant.tenantId ? await getPrimaryTenantDomain(tenant.tenantId) : null
+
+    return NextResponse.json({ tenant: safeTenant, primaryDomain })
   } catch (e) {
     if (e instanceof AuthError) {
       return NextResponse.json({ error: e.message }, { status: e.status })
