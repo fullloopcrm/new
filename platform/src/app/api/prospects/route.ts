@@ -6,6 +6,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { computeFit } from '@/lib/lead-fit'
+import { escapeHtml } from '@/lib/escape-html'
 
 // Cap free-text fields so a single submission can't balloon to megabytes.
 const MAX_TEXT = 2000
@@ -140,16 +141,19 @@ export async function POST(request: Request) {
       const adminEmail = process.env.ADMIN_NOTIFICATION_EMAIL
       if (adminEmail) {
         const { sendEmail } = await import('@/lib/email')
+        // Every field here is caller-controlled (public, unauthenticated
+        // /qualify form) -- same class as lead/route.ts's job-application
+        // admin email, escapeHtml() each piece before it lands in the <pre>.
         const summary = [
-          `Business: ${body.business_name}`,
-          `Trade: ${body.trade}`,
-          `Owner: ${body.owner_name} <${body.owner_email}>`,
-          body.owner_phone ? `Phone: ${body.owner_phone}` : '',
+          `Business: ${escapeHtml(body.business_name)}`,
+          `Trade: ${escapeHtml(body.trade)}`,
+          `Owner: ${escapeHtml(body.owner_name)} <${escapeHtml(body.owner_email)}>`,
+          body.owner_phone ? `Phone: ${escapeHtml(body.owner_phone)}` : '',
           body.primary_city && body.primary_state
-            ? `Location: ${body.primary_city}, ${body.primary_state} ${body.primary_zip || ''}`.trim()
+            ? `Location: ${escapeHtml(body.primary_city)}, ${escapeHtml(body.primary_state)} ${escapeHtml(body.primary_zip || '')}`.trim()
             : '',
-          body.tier_interest ? `Tier interest: ${body.tier_interest}` : '',
-          body.launch_timeline ? `Launch: ${body.launch_timeline}` : '',
+          body.tier_interest ? `Tier interest: ${escapeHtml(body.tier_interest)}` : '',
+          body.launch_timeline ? `Launch: ${escapeHtml(body.launch_timeline)}` : '',
           slotTaken ? 'Note: slot already taken (trade × zip)' : '',
         ].filter(Boolean).join('\n')
         const appUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://homeservicesbusinesscrm.com'

@@ -11,6 +11,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { emailAdmins } from '@/lib/admin-contacts'
 import { adminNewClientEmail } from '@/lib/email-templates'
+import { escapeHtml } from '@/lib/escape-html'
 import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
@@ -122,11 +123,17 @@ export async function POST(request: NextRequest) {
         try {
           const adminUrl = `${tenantSiteUrl(tenant)}/admin/team/applications`
           const subject = `[${tenant.name}] New job application: ${name}`
+          // name/email/phoneRaw/notes are attacker-controlled (public,
+          // unauthenticated form; notes folds in arbitrary extra body fields
+          // via buildLeadNotes()) -- same shape as contact/route.ts's and
+          // inquiry/route.ts's identical "New Team/Job Application" admin
+          // email, both of which escapeHtml() every interpolated field. This
+          // branch was the one sibling that never got the same treatment.
           const html = `<h2>New Job Application</h2>
-            <p><strong>Name:</strong> ${name}</p>
-            <p><strong>Email:</strong> ${email || '—'}</p>
-            <p><strong>Phone:</strong> ${phoneRaw || '—'}</p>
-            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${notes}</pre>` : ''}
+            <p><strong>Name:</strong> ${escapeHtml(name)}</p>
+            <p><strong>Email:</strong> ${escapeHtml(email || '—')}</p>
+            <p><strong>Phone:</strong> ${escapeHtml(phoneRaw || '—')}</p>
+            ${notes ? `<pre style="white-space:pre-wrap;font-family:inherit">${escapeHtml(notes)}</pre>` : ''}
             <p><a href="${adminUrl}">View in admin</a></p>`
           await emailAdmins(tenant, subject, html)
         } catch (emailErr) {
