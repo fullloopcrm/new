@@ -38,7 +38,10 @@ vi.mock('@/lib/supabase', () => ({
     from: () => ({
       select: () => ({
         eq: () => ({
-          eq: () => ({ single: async () => ({ data: null, error: null }) }),
+          eq: () => ({
+            single: async () => ({ data: null, error: null }),
+            maybeSingle: async () => ({ data: null, error: null }),
+          }),
         }),
       }),
     }),

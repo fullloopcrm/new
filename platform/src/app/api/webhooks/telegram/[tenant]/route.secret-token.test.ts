@@ -27,7 +27,14 @@ vi.mock('@/lib/supabase', () => ({
   supabaseAdmin: {
     from: (table: string) => {
       if (table === 'tenants') {
-        return { select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: tenantRow }) }) }) }
+        return {
+          select: () => ({
+            eq: () => ({
+              single: () => Promise.resolve({ data: tenantRow }),
+              maybeSingle: () => Promise.resolve({ data: tenantRow, error: null }),
+            }),
+          }),
+        }
       }
       return {
         insert: () => Promise.resolve({ data: null, error: null }),

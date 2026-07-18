@@ -73,12 +73,31 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Tenant, name, and phone are required' }, { status: 400 })
     }
 
-    // Look up tenant
-    const { data: tenantData } = await supabaseAdmin
+    // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+    // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
+    // resolver contract). The x-tenant-slug header is already lowercase
+    // (middleware-injected from tenant.slug), but this route also accepts a
+    // caller-supplied tenant_slug directly in the body — unnormalized, that
+    // path would silently 404 "Business not found" on a mixed-case slug for a
+    // real tenant instead of resolving it.
+    const cleanSlug = tenant_slug.toLowerCase()
+
+    // Look up tenant. maybeSingle() + explicit error check — same
+    // masked-error pattern already fixed on the canonical resolver: slug is
+    // UNIQUE NOT NULL at the DB level, so 0 rows legitimately means "unknown
+    // business", not an error. single() can't tell that apart from a genuine
+    // DB failure (both surface as data:null once destructured), so a real
+    // outage here used to look identical to "Business not found".
+    const { data: tenantData, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .select('id, name')
-      .eq('slug', tenant_slug)
-      .single()
+      .eq('slug', cleanSlug)
+      .maybeSingle()
+
+    if (tenantError) {
+      console.error(`TEAM_APPLICATION_TENANT_LOOKUP_ERROR slug=${cleanSlug} error=${tenantError.message}`)
+      return NextResponse.json({ error: 'Unable to submit application. Please try again.' }, { status: 500 })
+    }
 
     if (!tenantData) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })

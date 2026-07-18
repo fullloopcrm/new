@@ -65,6 +65,19 @@ function resolveSingle(table: string, eqs: Eqs): { data: unknown; error: unknown
   return { data: null, error: { code: 'PGRST116' } }
 }
 
+// The route now uses maybeSingle() for its tenants lookups (real Supabase:
+// {data: null, error: null} on 0 rows, unlike single()'s PGRST116). This mock's
+// resolveSingle() mimics single()'s error shape for "not found" — translate it
+// to maybeSingle()'s null-error contract so the not-found path still exercises
+// as "no tenant" rather than the route's new masked-error 500 branch.
+function resolveMaybeSingle(table: string, eqs: Eqs): { data: unknown; error: unknown } {
+  const result = resolveSingle(table, eqs)
+  if (!result.data && (result.error as { code?: string } | null)?.code === 'PGRST116') {
+    return { data: null, error: null }
+  }
+  return result
+}
+
 function builder(table: string) {
   const eqs: Eqs = {}
   const chain: Record<string, unknown> = {
@@ -80,6 +93,7 @@ function builder(table: string) {
     order: () => chain,
     limit: () => chain,
     single: async () => resolveSingle(table, eqs),
+    maybeSingle: async () => resolveMaybeSingle(table, eqs),
   }
   return chain
 }

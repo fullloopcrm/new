@@ -37,6 +37,10 @@ function makeTable(getRows: () => Record<string, unknown>[]) {
         const hit = getRows().filter((r) => filters.every((f) => f(r)))
         return Promise.resolve({ data: hit[0] || null, error: null })
       },
+      maybeSingle: () => {
+        const hit = getRows().filter((r) => filters.every((f) => f(r)))
+        return Promise.resolve({ data: hit[0] || null, error: null })
+      },
       then: (resolve: (v: { data: unknown; error: null }) => void) => {
         let hit = getRows().filter((r) => filters.every((f) => f(r)))
         if (orderCol) hit = [...hit].sort((a, b) => String(a[orderCol as string]).localeCompare(String(b[orderCol as string])))

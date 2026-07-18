@@ -37,6 +37,7 @@ function builder(table: string) {
       return chain
     },
     single: async () => ({ data: resolveRow() }),
+    maybeSingle: async () => ({ data: resolveRow(), error: null }),
     then: (onFulfilled: (v: { data: unknown }) => unknown) =>
       Promise.resolve({ data: resolveRow() }).then(onFulfilled),
   }

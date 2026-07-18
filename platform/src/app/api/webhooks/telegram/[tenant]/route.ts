@@ -42,16 +42,34 @@ interface TenantBot {
 async function loadTenantBot(slug: string): Promise<TenantBot | null> {
   // tenant-scope-ok: N/A for tenantDb — this IS the tenant resolution step
   // (lookup by slug), so there is no tenantId yet to scope by.
-  const { data } = await supabaseAdmin
+  //
+  // maybeSingle() (not single()) — slug is UNIQUE NOT NULL at the DB level,
+  // so 0 rows legitimately means "unknown tenant" (the caller already treats
+  // that as a soft no-op below), not an error. single() can't tell that
+  // apart from a genuine DB failure — both surfaced identically as
+  // data:null, silently misreporting a real outage as "unknown_tenant".
+  const { data, error } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, telegram_bot_token, telegram_chat_id, telegram_webhook_secret')
     .eq('slug', slug)
-    .single()
+    .maybeSingle()
+  if (error) {
+    console.error(`TELEGRAM_WEBHOOK_TENANT_LOOKUP_ERROR slug=${slug} error=${error.message}`)
+    throw new Error(`TELEGRAM_WEBHOOK_TENANT_LOOKUP_ERROR slug=${slug} error=${error.message}`)
+  }
   return (data as TenantBot | null) || null
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ tenant: string }> }) {
-  const { tenant: slug } = await params
+  // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+  // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
+  // resolver contract). The URL path segment is admin-registered (usually
+  // already lowercase) but not guaranteed to stay that way, and this route
+  // hand-rolls its own tenants.slug lookup instead of going through the
+  // shared resolver — normalize here so it doesn't silently drop a real
+  // tenant's inbound updates on a case mismatch.
+  const { tenant: rawSlug } = await params
+  const slug = rawSlug.toLowerCase()
 
   const tenant = await loadTenantBot(slug)
   if (!tenant) return NextResponse.json({ ok: true, skip: 'unknown_tenant' })

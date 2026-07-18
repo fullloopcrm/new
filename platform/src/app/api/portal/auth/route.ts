@@ -16,13 +16,34 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone and tenant required' }, { status: 400 })
     }
 
-    // Look up tenant
-    const { data: tenant } = await supabaseAdmin
+    // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+    // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
+    // resolver contract), but this route hand-rolls its own tenants.slug
+    // lookup instead of going through that resolver, so it never inherited
+    // the normalization fix — a mixed-case tenant_slug (a caller other than
+    // this route's own client, which lowercases client-side) would silently
+    // 404 "Business not found" for a real tenant.
+    const cleanSlug = String(tenant_slug).toLowerCase()
+
+    // maybeSingle() (not single()), error checked explicitly — same
+    // masked-error pattern already fixed on the canonical resolver
+    // (tenant.ts/tenant-lookup.ts): slug is UNIQUE NOT NULL at the DB level,
+    // so 0 rows legitimately means "unknown business" — the expected case,
+    // not an error. single() can't tell that apart from a genuine DB
+    // failure (both surface as data:null once destructured), so a real
+    // outage here used to look identical to "Business not found" instead of
+    // surfacing loud.
+    const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .select('id, name, telnyx_api_key, telnyx_phone, sms_number, resend_api_key')
-      .eq('slug', tenant_slug)
+      .eq('slug', cleanSlug)
       .eq('status', 'active')
-      .single()
+      .maybeSingle()
+
+    if (tenantError) {
+      console.error(`PORTAL_AUTH_TENANT_LOOKUP_ERROR slug=${cleanSlug} error=${tenantError.message}`)
+      return NextResponse.json({ error: 'Unable to verify business. Please try again.' }, { status: 500 })
+    }
 
     if (!tenant) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })
@@ -119,15 +140,26 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Phone, code, and tenant required' }, { status: 400 })
     }
 
+    // Lowercase — same resolver-normalization gap as send_code above.
+    const cleanSlug = String(tenant_slug).toLowerCase()
+
     // Resolve the tenant the user is logging into so the code lookup is scoped
     // to that business. Without this, a phone+code row belonging to a DIFFERENT
     // tenant could satisfy verification (cross-tenant authentication).
-    const { data: tenant } = await supabaseAdmin
+    //
+    // maybeSingle() + explicit error check — same masked-error pattern as
+    // send_code above.
+    const { data: tenant, error: tenantError } = await supabaseAdmin
       .from('tenants')
       .select('id')
-      .eq('slug', tenant_slug)
+      .eq('slug', cleanSlug)
       .eq('status', 'active')
-      .single()
+      .maybeSingle()
+
+    if (tenantError) {
+      console.error(`PORTAL_AUTH_VERIFY_TENANT_LOOKUP_ERROR slug=${cleanSlug} error=${tenantError.message}`)
+      return NextResponse.json({ error: 'Unable to verify business. Please try again.' }, { status: 500 })
+    }
 
     if (!tenant) {
       return NextResponse.json({ error: 'Business not found' }, { status: 404 })

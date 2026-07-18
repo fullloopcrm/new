@@ -10,11 +10,20 @@ export async function POST(request: Request) {
   // Prefer an explicit slug, but fall back to the middleware-injected tenant
   // header (set on every tenant domain/subdomain). This lets a cleaner log in
   // on their own site without typing a "business code".
-  const tenant_slug: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
+  const rawSlug: string = body.tenant_slug || request.headers.get('x-tenant-slug') || ''
 
-  if (!pin || !tenant_slug) {
+  if (!pin || !rawSlug) {
     return NextResponse.json({ error: 'PIN and tenant required' }, { status: 400 })
   }
+
+  // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+  // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
+  // resolver contract). The x-tenant-slug header is already lowercase
+  // (middleware sets it from tenant.slug), but this route also accepts a
+  // caller-supplied tenant_slug directly in the body — unnormalized, that
+  // path would silently 404 "Business not found" on a mixed-case slug for a
+  // real tenant instead of resolving it.
+  const tenant_slug = rawSlug.toLowerCase()
 
   // Bucket must NOT include the guessed pin itself -- keying by the value
   // under attack (as this route previously did) gives every distinct guess
@@ -28,13 +37,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Too many attempts. Try again in 15 minutes.' }, { status: 429 })
   }
 
-  // Look up tenant
-  const { data: tenant } = await supabaseAdmin
+  // Look up tenant. maybeSingle() + explicit error check — same masked-error
+  // pattern already fixed on the canonical resolver (tenant.ts/tenant-lookup.ts):
+  // slug is UNIQUE NOT NULL at the DB level, so 0 rows legitimately means
+  // "unknown business", not an error. single() can't tell that apart from a
+  // genuine DB failure (both surface as data:null once destructured), so a
+  // real outage here used to look identical to "Business not found".
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('id, name, phone')
     .eq('slug', tenant_slug)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
+
+  if (tenantError) {
+    console.error(`TEAM_PORTAL_AUTH_TENANT_LOOKUP_ERROR slug=${tenant_slug} error=${tenantError.message}`)
+    return NextResponse.json({ error: 'Unable to verify business. Please try again.' }, { status: 500 })
+  }
 
   if (!tenant) {
     return NextResponse.json({ error: 'Business not found' }, { status: 404 })

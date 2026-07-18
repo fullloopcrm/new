@@ -16,19 +16,37 @@ import { ALL_LOCATIONS } from '@/app/site/template/_data/us-locations'
 export async function GET(req: NextRequest) {
   // Slug comes from ?slug= query (direct API call) OR x-tenant-slug header
   // (custom-domain middleware rewrite).
-  const slug =
+  const rawSlug =
     req.nextUrl.searchParams.get('slug') || req.headers.get('x-tenant-slug')
-  if (!slug) {
+  if (!rawSlug) {
     return NextResponse.json({ error: 'Missing slug parameter' }, { status: 400 })
   }
 
-  // Look up tenant
-  const { data: tenant } = await supabaseAdmin
+  // Lowercase — slugs are always generated lowercase (slugify()/toSlug() in
+  // every tenant-creation path, per tenant.ts/tenant-lookup.ts's shared
+  // resolver contract). The header path is already lowercase (middleware
+  // sets it from tenant.slug), but the ?slug= query path is reachable
+  // directly by any external caller and wasn't normalized — a mixed-case
+  // slug would silently 404 "Tenant not found" for a real tenant.
+  const slug = rawSlug.toLowerCase()
+
+  // Look up tenant. maybeSingle() + explicit error check — same masked-error
+  // pattern already fixed on the canonical resolver: slug is UNIQUE NOT NULL
+  // at the DB level, so 0 rows legitimately means "unknown tenant", not an
+  // error. single() can't tell that apart from a genuine DB failure (both
+  // surface as data:null once destructured), so a real outage here used to
+  // look identical to "Tenant not found".
+  const { data: tenant, error: tenantError } = await supabaseAdmin
     .from('tenants')
     .select('id, slug, domain, website_url, selena_config, industry')
     .eq('slug', slug)
     .eq('status', 'active')
-    .single()
+    .maybeSingle()
+
+  if (tenantError) {
+    console.error(`TENANT_SITEMAP_LOOKUP_ERROR slug=${slug} error=${tenantError.message}`)
+    return NextResponse.json({ error: 'Unable to generate sitemap' }, { status: 500 })
+  }
 
   if (!tenant) {
     return NextResponse.json({ error: 'Tenant not found' }, { status: 404 })
