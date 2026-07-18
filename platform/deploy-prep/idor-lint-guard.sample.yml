@@ -12,7 +12,9 @@
 # idor-lint-guard-spec.md §7 "Graduation path to a real gate (Jeff-gated)".
 #
 # To adopt: copy the `idor-lint-guard` job below into .github/workflows/ci.yml
-# (or a new dedicated workflow file, matching the style of tenant-scope.yml)
+# (or a new dedicated workflow file, matching the style of
+# tenant-config-reconcile.yml — tenant-scope.yml, the prior style reference,
+# was removed 2026-07-17 as a duplicate of ci.yml's own guard step)
 # and remove `continue-on-error` only once the baseline has been triaged down
 # per the spec's graduation path. That edit — like any .github/workflows
 # change — is Jeff's call, not this lane's.

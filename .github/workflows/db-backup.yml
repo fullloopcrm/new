@@ -38,8 +38,10 @@ on:
 # GitHub API with GITHUB_TOKEN (pg_dump auths via SUPABASE_DB_URL;
 # upload-artifact uses its own internal token, not GITHUB_TOKEN) — so it
 # needs zero scopes. Declared explicitly instead of falling back to the
-# repo's default Actions permission setting, matching ci.yml/tenant-scope.yml/
+# repo's default Actions permission setting, matching ci.yml/
 # tenant-config-reconcile.yml's existing least-privilege pattern in this repo.
+# (tenant-scope.yml was a third match here until it was removed 2026-07-17 as
+# a duplicate of ci.yml's own "Tenant-isolation guard" step.)
 permissions: {}
 
 concurrency:
