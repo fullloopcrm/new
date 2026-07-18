@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeAll } from 'vitest'
+import { describe, it, expect, vi, beforeAll, beforeEach } from 'vitest'
 
 /**
  * GET /api/social/connect/facebook (authorize) — the callback trusts a signed
@@ -9,8 +9,17 @@ import { describe, it, expect, vi, beforeAll } from 'vitest'
 
 const TENANT_ID = 'tid-a'
 
+const tenantHolder = vi.hoisted(() => ({
+  role: 'owner' as string,
+  tenant: {} as Record<string, unknown>,
+}))
 vi.mock('@/lib/tenant-query', () => ({
-  getTenantForRequest: vi.fn(async () => ({ tenant: { id: TENANT_ID } })),
+  getTenantForRequest: vi.fn(async () => ({
+    userId: 'u1',
+    tenantId: TENANT_ID,
+    tenant: tenantHolder.tenant,
+    role: tenantHolder.role,
+  })),
   AuthError: class AuthError extends Error {
     status = 401
   },
@@ -23,6 +32,11 @@ beforeAll(() => {
   process.env.ADMIN_TOKEN_SECRET = 'test-secret'
   process.env.FACEBOOK_APP_ID = 'fb-app-id'
   process.env.NEXT_PUBLIC_APP_URL = 'https://app.example.com'
+})
+
+beforeEach(() => {
+  tenantHolder.role = 'owner'
+  tenantHolder.tenant = { id: TENANT_ID }
 })
 
 describe('social/connect/facebook — authorize', () => {
@@ -42,5 +56,37 @@ describe('social/connect/facebook — authorize', () => {
     const url = new URL(body.url)
     const redirectUri = url.searchParams.get('redirect_uri')
     expect(redirectUri).toBe('https://app.example.com/api/social/connect/facebook/callback')
+  })
+})
+
+describe('social/connect/facebook — permission probe', () => {
+  it('owner (has settings.integrations per rbac.ts) can start the OAuth flow', async () => {
+    tenantHolder.role = 'owner'
+    const res = await GET()
+    expect(res.status).toBe(200)
+  })
+
+  it("PERMISSION PROBE: 'admin' (no settings.integrations by default — owner-only) is forbidden", async () => {
+    tenantHolder.role = 'admin'
+    const res = await GET()
+    expect(res.status).toBe(403)
+  })
+
+  it("PERMISSION PROBE: 'staff' (no settings.integrations) is forbidden", async () => {
+    tenantHolder.role = 'staff'
+    const res = await GET()
+    expect(res.status).toBe(403)
+    const body = await res.json()
+    expect(body.url).toBeUndefined()
+  })
+
+  it('a tenant override granting settings.integrations to manager allows GET for manager', async () => {
+    tenantHolder.role = 'manager'
+    tenantHolder.tenant = {
+      id: TENANT_ID,
+      selena_config: { role_permissions: { manager: { 'settings.integrations': true } } },
+    }
+    const res = await GET()
+    expect(res.status).toBe(200)
   })
 })
