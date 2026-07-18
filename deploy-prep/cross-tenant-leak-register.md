@@ -5387,3 +5387,32 @@ lane's current fix, flagging for whoever owns the audit-script/baseline
 upkeep.
 
 1 commit (fix + test), file-only, no push/deploy/DB.
+
+## 2026-07-18 10:51 round (W2) — P93, fixed: `GET/POST /api/admin/selena`
+had zero permission check
+
+Same detection signal as P70-P92, same sibling relationship as P92:
+`admin/selena/route.ts` (client conversation stats + stuck-conversation
+reset for the legacy per-tenant dashboard clones — wash-and-fold-nyc/
+hoboken, nyc-mobile-salon) called only `getTenantForRequest()` on both
+verbs, which proves tenant membership at ANY role, no permission gate.
+GET returns client conversation content + phone numbers; POST resets a
+conversation AND sends a real recovery SMS via the tenant's Telnyx
+credentials to the client's phone. By default `rbac.ts` denies `staff`
+`clients.edit` — so any staff-tier member on those legacy dashboards
+could already reset any client's conversation and trigger a real SMS
+send with zero role check.
+
+**Fix:** `requirePermission('clients.view')` on GET, `requirePermission
+('clients.edit')` on POST — same split as the already-fixed sibling
+GET/POST `/api/sms`, reusing the existing `requirePermission`/
+`hasPermission`/`overridesFor` helper (no new abstraction).
+
+**Regression lock:** 6 new `route.rbac.test.ts` probes — owner/manager
+allow on both verbs, staff-forbidden on both verbs (POST probe also
+asserts the conversation row was NOT updated), 1 tenant
+`selena_config.role_permissions` override-grant-to-staff control. `npx
+tsc --noEmit` clean. Full suite: 779 files, 3381/3418 tests pass, 37
+pre-existing skipped, 0 regressions.
+
+1 commit (fix + test, 620d138c), file-only, no push/deploy/DB.
