@@ -160,7 +160,7 @@ export async function POST(request: Request) {
     // PII via the clients()/bookings() embeds used by this route's own GET, the
     // invoice list, and finance/ar-aging + finance/reconcile-candidates, or via
     // any entities() embed.
-    const clientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
+    let clientId = body.client_id || (prefillContact as { client_id?: string }).client_id || null
     const bookingId = body.booking_id || body.from_booking_id || null
     const quoteId = body.quote_id || (prefillContact as { quote_id?: string }).quote_id || null
     if (clientId) {
@@ -181,8 +181,47 @@ export async function POST(request: Request) {
       }
     }
     if (quoteId) {
-      const { data: quote } = await db.from('quotes').select('id').eq('id', quoteId).maybeSingle()
+      const { data: quote } = await db
+        .from('quotes')
+        .select('id, client_id, contact_name, contact_email, contact_phone, service_address, title')
+        .eq('id', quoteId)
+        .maybeSingle()
       if (!quote) return NextResponse.json({ error: 'Invalid quote_id' }, { status: 400 })
+      // A standalone quote (026_quotes.sql: "Contact snapshot — allows standalone
+      // quotes without a client_id") reaching this route with no client picked
+      // would create a real, payable invoice that never ties to a client_id --
+      // unlike every other quote→sale exit (accept → job/booking/recurring in
+      // jobs.ts / sale-to-booking.ts / sale-to-recurring.ts, and the staff
+      // "Convert to Booking" button), which all resolve-or-create the client
+      // before the sale record is written. This manual "Create Invoice from
+      // Quote" flow was the one path that skipped it. Mirror the same
+      // resolve-or-create so the invoice is never orphaned from a real customer.
+      if (!clientId && !quote.client_id) {
+        const existing = quote.contact_email
+          ? await db.from('clients').select('id').eq('email', quote.contact_email).maybeSingle()
+          : { data: null }
+        let resolvedClientId = existing.data?.id as string | undefined
+        if (!resolvedClientId) {
+          const { data: newClient, error: cErr } = await db
+            .from('clients')
+            .insert({
+              name: quote.contact_name || quote.title || 'Quote Client',
+              email: quote.contact_email || null,
+              phone: quote.contact_phone || null,
+              address: quote.service_address || null,
+              source: 'quote',
+              status: 'active',
+            })
+            .select('id')
+            .single()
+          if (cErr) throw cErr
+          resolvedClientId = newClient.id as string
+        }
+        await db.from('quotes').update({ client_id: resolvedClientId }).eq('id', quoteId)
+        clientId = resolvedClientId
+      } else if (!clientId && quote.client_id) {
+        clientId = quote.client_id
+      }
     }
     const entityId = body.entity_id
       ? await verifyEntityId(tenantId, body.entity_id)
