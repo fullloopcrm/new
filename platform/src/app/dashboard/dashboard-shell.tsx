@@ -91,6 +91,7 @@ const foldMap: Record<string, string[]> = {
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
   { label: 'Business Profile', href: '/dashboard/onboarding', perm: 'settings.edit' },
+  { label: 'Locations', href: '/dashboard/locations', perm: 'settings.edit' },
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
   { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
   { label: 'Selena', href: '/dashboard/selena', perm: 'settings.view' },

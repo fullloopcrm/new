@@ -4,6 +4,7 @@ import { supabaseAdmin } from './supabase'
 import { verifyAdminToken, verifyTenantAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { resolveDescendantImpersonation } from './tenant-hierarchy'
 import type { Tenant } from './tenant'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
@@ -16,7 +17,7 @@ export type TenantContext = {
 }
 
 async function logImpersonationEvent(
-  actorKind: 'pin_admin' | 'clerk_super_admin',
+  actorKind: 'pin_admin' | 'clerk_super_admin' | 'head_tenant',
   actorId: string,
   tenantId: string,
 ): Promise<void> {
@@ -83,6 +84,11 @@ export async function getTenantForRequest(): Promise<TenantContext> {
             .eq('id', headerTenantId)
             .single()
           if (tenant) {
+            const descendant = await resolveDescendantImpersonation(tenant.id)
+            if (descendant) {
+              await logImpersonationEvent('head_tenant', tenant.id, descendant.id)
+              return { userId: 'admin', tenantId: descendant.id, tenant: descendant, role: 'owner' }
+            }
             return { userId: 'admin', tenantId: tenant.id, tenant, role: 'owner' }
           }
         }
@@ -108,6 +114,17 @@ export async function getTenantForRequest(): Promise<TenantContext> {
               .eq('id', headerTenantId)
               .single()
             if (tenant) {
+              // Descendant access is an owner-level capability on the head
+              // tenant — a regular team member's token should not reach a
+              // different (child) tenant's data just by holding a valid
+              // cookie for it.
+              const descendant = member.role === 'owner'
+                ? await resolveDescendantImpersonation(tenant.id)
+                : null
+              if (descendant) {
+                await logImpersonationEvent('head_tenant', ta.memberId, descendant.id)
+                return { userId: ta.memberId, tenantId: descendant.id, tenant: descendant, role: 'owner' }
+              }
               return { userId: ta.memberId, tenantId: tenant.id, tenant, role: member.role }
             }
           }

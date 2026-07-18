@@ -4,6 +4,7 @@ import { supabaseAdmin } from './supabase'
 import { verifyAdminToken } from '@/app/api/admin-auth/route'
 import { IMPERSONATE_COOKIE, verifyImpersonationCookie } from './impersonation'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
+import { resolveDescendantImpersonation } from './tenant-hierarchy'
 
 const SUPER_ADMIN_IDS = [process.env.SUPER_ADMIN_CLERK_ID || '']
 
@@ -12,6 +13,7 @@ export type Tenant = {
   name: string
   agent_name: string | null
   slug: string
+  parent_tenant_id: string | null
   domain: string | null
   phone: string | null
   email: string | null
@@ -118,7 +120,13 @@ async function getHeaderTenant(): Promise<Tenant | null> {
 export async function getCurrentTenant(): Promise<Tenant | null> {
   // Tenant custom-domain / subdomain context (signed header from middleware)
   const headerTenant = await getHeaderTenant()
-  if (headerTenant) return headerTenant
+  if (headerTenant) {
+    // A head tenant, on its OWN signed domain, may request to view one of its
+    // own descendant sub-tenants via the impersonation cookie. Scoped
+    // strictly downward — see resolveDescendantImpersonation.
+    const descendant = await resolveDescendantImpersonation(headerTenant.id)
+    return descendant || headerTenant
+  }
 
   // Admin PIN impersonation — no Clerk needed
   const adminImpersonated = await getAdminImpersonatedTenant()

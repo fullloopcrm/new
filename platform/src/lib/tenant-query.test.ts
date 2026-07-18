@@ -356,3 +356,85 @@ describe('getTenantForRequest — Clerk super-admin impersonation', () => {
     }
   })
 })
+
+// Head/sub-tenant hierarchy — a head tenant viewing one of its own locations.
+// tenant-hierarchy.ts is NOT mocked here: it runs for real against the same
+// supabaseAdmin/cookies/impersonation mocks already set up above, so this is
+// an integration test of getTenantForRequest + the real descendant-chain walk.
+describe('getTenantForRequest — head tenant viewing a descendant sub-tenant', () => {
+  it('an owner on the head tenant, with a cookie targeting a real child, resolves to the child', async () => {
+    mockHeaderStore.set('x-tenant-id', 'head-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    mockCookieStore.set('fl_impersonate', 'desc-cookie')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(false)
+    verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+      tenantId === 'head-1' ? { memberId: 'owner-1', role: 'owner' } : null,
+    )
+    verifyImpersonationCookie.mockReturnValue('desc-1')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.id === 'owner-1' && eqs.tenant_id === 'head-1')
+        return { data: { role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 'head-1') return { data: tenantRow({ id: 'head-1' }), error: null }
+      if (table === 'tenants' && eqs.id === 'desc-1')
+        return { data: tenantRow({ id: 'desc-1', parent_tenant_id: 'head-1' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('desc-1')
+    expect(ctx.role).toBe('owner')
+    expect(insertCalls.some((c) => c.table === 'impersonation_events' && (c.row as { actor_kind?: string }).actor_kind === 'head_tenant')).toBe(true)
+  })
+
+  it('a NON-owner team member on the head tenant cannot descend into a child, even with a valid cookie for it', async () => {
+    mockHeaderStore.set('x-tenant-id', 'head-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    mockCookieStore.set('fl_impersonate', 'desc-cookie')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(false)
+    verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+      tenantId === 'head-1' ? { memberId: 'member-5', role: 'manager' } : null,
+    )
+    verifyImpersonationCookie.mockReturnValue('desc-1')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.id === 'member-5' && eqs.tenant_id === 'head-1')
+        return { data: { role: 'manager' }, error: null }
+      if (table === 'tenants' && eqs.id === 'head-1') return { data: tenantRow({ id: 'head-1' }), error: null }
+      if (table === 'tenants' && eqs.id === 'desc-1')
+        return { data: tenantRow({ id: 'desc-1', parent_tenant_id: 'head-1' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('head-1') // stayed on the head tenant, did NOT descend
+    expect(ctx.role).toBe('manager')
+  })
+
+  it('an owner whose cookie targets an UNRELATED tenant (not a descendant) stays on the head tenant', async () => {
+    mockHeaderStore.set('x-tenant-id', 'head-1')
+    mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+    mockCookieStore.set('admin_token', 'tenant-scoped-token')
+    mockCookieStore.set('fl_impersonate', 'other-cookie')
+    verifyTenantHeaderSig.mockReturnValue(true)
+    verifyAdminToken.mockReturnValue(false)
+    verifyTenantAdminToken.mockImplementation((_t, tenantId) =>
+      tenantId === 'head-1' ? { memberId: 'owner-1', role: 'owner' } : null,
+    )
+    verifyImpersonationCookie.mockReturnValue('unrelated-tenant')
+    resolve = (table, eqs) => {
+      if (table === 'tenant_members' && eqs.id === 'owner-1' && eqs.tenant_id === 'head-1')
+        return { data: { role: 'owner' }, error: null }
+      if (table === 'tenants' && eqs.id === 'head-1') return { data: tenantRow({ id: 'head-1' }), error: null }
+      // unrelated-tenant has no parent_tenant_id pointing back at head-1
+      if (table === 'tenants' && eqs.id === 'unrelated-tenant')
+        return { data: { parent_tenant_id: null }, error: null }
+      return { data: null, error: null }
+    }
+
+    const ctx = await getTenantForRequest()
+    expect(ctx.tenantId).toBe('head-1')
+  })
+})
