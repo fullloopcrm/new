@@ -438,8 +438,19 @@ export async function PUT(
   // for up to the rest of the TTL after being cut off everywhere else that
   // enforces the same gate.
   if (updates.status !== undefined || updates.domain !== undefined) {
-    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    const { invalidateTenantCache, invalidateDomainCache } = await import('@/lib/tenant-lookup')
     invalidateTenantCache(id)
+    // invalidateTenantCache only sweeps POSITIVE cache entries (it matches by
+    // entry.tenant?.id, which a negative "no tenant" entry doesn't carry) — the
+    // same structural gap already fixed for tenant_domains inserts
+    // (admin/websites POST) and slug deletes (this file's own DELETE handler).
+    // `updates.domain` is tenants.domain, the resolver's FALLBACK source: if
+    // this exact host was ever queried (and negatively cached) before this
+    // save — a DNS-not-pointed-yet probe, a bot, an admin testing the URL
+    // early — it keeps resolving to "no tenant" for up to the rest of the TTL
+    // even after this write makes it a real, live domain. Direct-by-key bust
+    // closes that window; a no-op when nothing was cached for this domain yet.
+    if (updates.domain) invalidateDomainCache(updates.domain as string)
   }
 
   // When a Telegram bot token is saved, auto-register its webhook so the bot

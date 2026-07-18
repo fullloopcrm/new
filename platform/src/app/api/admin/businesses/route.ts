@@ -66,13 +66,23 @@ export async function POST(request: Request) {
   // Derive timezone from zip
   const tz = zipToTimezone(zip_code || '')
 
-  // Clean domain — strip protocol + trailing slash + www.
+  // Clean domain — strip protocol + trailing slash + www. Lowercase FIRST,
+  // THEN strip www.: order matters because the www. regex is case-sensitive.
+  // A mixed-case paste like "https://WWW.Acme.com/" previously ran the www.
+  // strip before lowercasing, so "WWW." never matched and survived into the
+  // stored value ("www.acme.com") — every resolver fallback lookup
+  // (tenant-lookup.ts / tenant.ts getTenantByDomain step 2) lowercases THEN
+  // strips www., always normalizing an incoming Host header to the bare apex
+  // ("acme.com"), so a tenant created this way could never resolve its own
+  // custom domain at all. Matches the correct order already used by the PUT
+  // handlers (admin/businesses/[id], admin/tenants/[id]) and the resolver
+  // itself.
   const cleanDomain = (domain_name || '')
+    .trim()
+    .toLowerCase()
     .replace(/^https?:\/\//, '')
     .replace(/\/+$/, '')
-    .replace(/^www\./, '')
-    .toLowerCase()
-    .trim() || null
+    .replace(/^www\./, '') || null
 
   // Create tenant with status=setup
   const { data: tenant, error } = await supabaseAdmin
@@ -109,6 +119,19 @@ export async function POST(request: Request) {
 
   if (error) {
     return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  // Bust tenant-lookup.ts's edge cache for this exact domain string, same fix
+  // as admin/businesses/[id] PUT and admin/tenants/[id] PUT's identical writes
+  // to tenants.domain (the resolver's FALLBACK source). invalidateTenantCache
+  // can't help here — it only sweeps POSITIVE entries matched by tenant id,
+  // and a brand-new tenant has none yet. If this host was ever queried (and
+  // negatively cached) before this business was created, it would keep
+  // resolving to "no tenant" for up to the rest of the 5-minute TTL despite
+  // the tenant now existing with this exact domain.
+  if (cleanDomain) {
+    const { invalidateDomainCache } = await import('@/lib/tenant-lookup')
+    invalidateDomainCache(cleanDomain)
   }
 
   // Register the tenant's live website (<slug>.fullloopcrm.com) as a Vercel

@@ -140,8 +140,15 @@ export async function PUT(
   // through a warm edge isolate's cached entry (tenantServesSite() evaluates
   // the STALE status) for up to the rest of tenant-lookup.ts's 5-minute TTL.
   if (updates.status !== undefined || updates.domain !== undefined) {
-    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    const { invalidateTenantCache, invalidateDomainCache } = await import('@/lib/tenant-lookup')
     invalidateTenantCache(id)
+    // invalidateTenantCache only reaches POSITIVE cache entries (matched by
+    // entry.tenant?.id — a negative "no tenant" entry has none). `updates.domain`
+    // is tenants.domain, the resolver's FALLBACK source: if this exact host was
+    // ever queried (and negatively cached) before this save, it keeps resolving
+    // to "no tenant" for up to the rest of the TTL even after this write makes
+    // it live. Same fix as admin/businesses/[id]'s identical PUT handler.
+    if (updates.domain) invalidateDomainCache(updates.domain as string)
   }
 
   // Log security events for status/plan changes
