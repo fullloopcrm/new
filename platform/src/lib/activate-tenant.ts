@@ -393,6 +393,17 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
       landedDomains = (landed || []).filter(r => r.tenant_id === tenantId).map(r => r.domain)
       contestedDomains = (landed || []).filter(r => r.tenant_id !== tenantId).map(r => r.domain)
 
+      // Bust tenant-lookup.ts's edge cache for each domain that actually
+      // landed on this tenant — same gap as admin/websites POST's identical
+      // fix: a host that ever resolved (or 404'd) before this upsert ran can
+      // be negatively cached, so the domain just registered here would keep
+      // resolving to "no tenant" on a warm edge isolate for up to the rest of
+      // the 5-minute TTL despite the DB row now existing.
+      if (landedDomains.length) {
+        const { invalidateDomainCache } = await import('@/lib/tenant-lookup')
+        for (const d of landedDomains) invalidateDomainCache(d)
+      }
+
       // Reconcile is_primary. ignoreDuplicates above means the upsert can
       // never flip is_primary on a row that already existed from a prior
       // activation run (re-running after tenant.domain changed, or after the

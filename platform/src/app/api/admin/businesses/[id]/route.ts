@@ -419,6 +419,18 @@ export async function PUT(
     clearSelenaConfigCache(id)
   }
 
+  // Bust middleware's edge-cached slug/domain entries for this tenant when
+  // status or domain changed — same class of gap as the selena_config bust
+  // above, applied to tenant-lookup.ts's own 5-min-TTL cache. Without this, a
+  // tenant just suspended/cancelled here keeps resolving through a warm edge
+  // isolate's cached entry (tenantServesSite() evaluates the STALE status)
+  // for up to the rest of the TTL after being cut off everywhere else that
+  // enforces the same gate.
+  if (updates.status !== undefined || updates.domain !== undefined) {
+    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    invalidateTenantCache(id)
+  }
+
   // When a Telegram bot token is saved, auto-register its webhook so the bot
   // goes live without any manual step. URL is derived from the request origin.
   let telegramWebhook: { ok: boolean; status: number; body: string } | undefined

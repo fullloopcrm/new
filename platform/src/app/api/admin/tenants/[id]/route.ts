@@ -133,6 +133,17 @@ export async function PUT(
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust middleware's edge-cached slug/domain entries for this tenant when
+  // status or domain changed — mirrors the clearSelenaConfigCache(id) pattern
+  // just below in admin/businesses/[id]/route.ts for its own 5-min-TTL cache.
+  // Without this, a tenant just suspended/cancelled here keeps resolving
+  // through a warm edge isolate's cached entry (tenantServesSite() evaluates
+  // the STALE status) for up to the rest of tenant-lookup.ts's 5-minute TTL.
+  if (updates.status !== undefined || updates.domain !== undefined) {
+    const { invalidateTenantCache } = await import('@/lib/tenant-lookup')
+    invalidateTenantCache(id)
+  }
+
   // Log security events for status/plan changes
   if (updates.status) {
     await logSecurityEvent({

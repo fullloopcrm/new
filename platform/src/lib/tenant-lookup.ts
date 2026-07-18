@@ -58,6 +58,36 @@ function setCache(cache: Map<string, CacheEntry>, key: string, tenant: TenantInf
   cache.set(key, { tenant, expiresAt: Date.now() + CACHE_TTL })
 }
 
+// Bust every cached slug/domain entry for one tenant. Call after any admin
+// write that changes a field this cache stores (status, slug, domain,
+// P1 routing metadata) — mirrors the existing clearSelenaConfigCache(tenantId)
+// pattern (selena-legacy.ts) for its own 5-min-TTL config cache, applied here
+// to the SAME class of gap: without this, a tenant an admin just
+// suspended/cancelled keeps resolving through a warm edge isolate's cached
+// entry — and tenantServesSite(tenant.status) evaluates the STALE status —
+// so the site (and tenant_domains-routed custom domain) can keep serving for
+// up to the rest of the 5-minute TTL after the admin cut it off everywhere
+// else that enforces the same gate.
+export function invalidateTenantCache(tenantId: string): void {
+  for (const [key, entry] of slugCache) {
+    if (entry.tenant?.id === tenantId) slugCache.delete(key)
+  }
+  for (const [key, entry] of domainCache) {
+    if (entry.tenant?.id === tenantId) domainCache.delete(key)
+  }
+}
+
+// Bust one domain's cache entry directly, by domain string — for a
+// newly-registered tenant_domains row. A domain that 404'd (or resolved to
+// nobody) even once before being claimed gets negatively cached; without
+// this, the just-added domain would keep resolving to "no tenant" for up to
+// the rest of the 5-minute TTL despite the DB row now existing. Same
+// normalization as getTenantByDomain so the key actually matches.
+export function invalidateDomainCache(domain: string): void {
+  const cleanDomain = domain.toLowerCase().replace(/^www\./, '')
+  domainCache.delete(cleanDomain)
+}
+
 /**
  * Look up a tenant by subdomain slug (cached, 5-min TTL)
  */

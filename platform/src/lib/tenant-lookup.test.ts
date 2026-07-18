@@ -47,7 +47,7 @@ vi.mock('@supabase/supabase-js', () => ({
   createClient: () => ({ from: (table: string) => builder(table) }),
 }))
 
-import { getTenantByDomain, getTenantBySlug } from './tenant-lookup'
+import { getTenantByDomain, getTenantBySlug, invalidateTenantCache, invalidateDomainCache } from './tenant-lookup'
 
 const tenantRow = (over: Partial<Record<string, unknown>> = {}) => ({
   id: 't-1',
@@ -386,5 +386,141 @@ describe('getTenantBySlug', () => {
     const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
     await expect(getTenantBySlug('flaky-slug')).rejects.toThrow(/TENANT_SLUG_LOOKUP_ERROR slug=flaky-slug/)
     errSpy.mockRestore()
+  })
+})
+
+describe('invalidateTenantCache', () => {
+  it('forces a fresh DB read on the next lookup for a cached domain entry belonging to the invalidated tenant', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'invalidate7.com')
+        return { data: domainRow({ tenant_id: 't-7', domain: 'invalidate7.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-7')
+        return { data: tenantRow({ id: 't-7', slug: 'invalidate7', domain: 'invalidate7.com' }), error: null }
+      return { data: null, error: null }
+    }
+
+    await getTenantByDomain('invalidate7.com')
+    const callsAfterFirstDomainLookup = singleCalls.length
+    await getTenantByDomain('invalidate7.com')
+    expect(singleCalls.length).toBe(callsAfterFirstDomainLookup) // cache hit, confirms baseline
+
+    invalidateTenantCache('t-7')
+
+    await getTenantByDomain('invalidate7.com')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirstDomainLookup) // re-queried after invalidation
+  })
+
+  it('WRONG-TENANT PROBE: invalidating tenant A does not evict tenant B\'s cached entry', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'tenant-a8.com')
+        return { data: domainRow({ tenant_id: 't-a8', domain: 'tenant-a8.com' }), error: null }
+      if (table === 'tenant_domains' && eqs.domain === 'tenant-b8.com')
+        return { data: domainRow({ tenant_id: 't-b8', domain: 'tenant-b8.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-a8')
+        return { data: tenantRow({ id: 't-a8', slug: 'tenant-a8', domain: 'tenant-a8.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-b8')
+        return { data: tenantRow({ id: 't-b8', slug: 'tenant-b8', domain: 'tenant-b8.com' }), error: null }
+      return { data: null, error: null }
+    }
+
+    await getTenantByDomain('tenant-a8.com')
+    await getTenantByDomain('tenant-b8.com')
+    const callsAfterBothCached = singleCalls.length
+
+    invalidateTenantCache('t-a8')
+
+    await getTenantByDomain('tenant-b8.com') // tenant B: still cached, no new DB calls
+    expect(singleCalls.length).toBe(callsAfterBothCached)
+
+    await getTenantByDomain('tenant-a8.com') // tenant A: evicted, re-queries
+    expect(singleCalls.length).toBeGreaterThan(callsAfterBothCached)
+  })
+
+  it('also evicts a cached SLUG entry (subdomain routing), not just domain entries', async () => {
+    resolve = (table, eqs) =>
+      table === 'tenants' && eqs.slug === 'invalidate-slug11'
+        ? { data: tenantRow({ id: 't-11', slug: 'invalidate-slug11', domain: 'invalidate-slug11.com' }), error: null }
+        : { data: null, error: null }
+
+    await getTenantBySlug('invalidate-slug11')
+    const callsAfterFirst = singleCalls.length
+    await getTenantBySlug('invalidate-slug11')
+    expect(singleCalls.length).toBe(callsAfterFirst) // cache hit, confirms baseline
+
+    invalidateTenantCache('t-11')
+
+    await getTenantBySlug('invalidate-slug11')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirst) // re-queried after invalidation
+  })
+
+  it('is a no-op for a tenant id with nothing cached', () => {
+    expect(() => invalidateTenantCache('t-never-cached')).not.toThrow()
+  })
+})
+
+describe('invalidateDomainCache', () => {
+  it('forces a fresh DB read on the next lookup for the invalidated domain', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'freshclaim9.com')
+        return { data: domainRow({ tenant_id: 't-9b', domain: 'freshclaim9.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-9b')
+        return { data: tenantRow({ id: 't-9b', slug: 'freshclaim9', domain: 'freshclaim9.com' }), error: null }
+      return { data: null, error: null }
+    }
+
+    await getTenantByDomain('freshclaim9.com')
+    const callsAfterFirst = singleCalls.length
+    await getTenantByDomain('freshclaim9.com')
+    expect(singleCalls.length).toBe(callsAfterFirst) // cache hit, confirms baseline
+
+    invalidateDomainCache('freshclaim9.com')
+
+    await getTenantByDomain('freshclaim9.com')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirst) // re-queried after invalidation
+  })
+
+  it('clears a NEGATIVE (not-found) cache entry — the exact bug this fixes: a domain that 404\'d once before being registered would otherwise keep 404ing for the rest of the TTL', async () => {
+    resolve = () => ({ data: null, error: null }) // domain resolves to nobody
+
+    const before = await getTenantByDomain('wasnegative10.com')
+    expect(before).toBeNull()
+    const callsAfterNegativeCache = singleCalls.length
+
+    await getTenantByDomain('wasnegative10.com')
+    expect(singleCalls.length).toBe(callsAfterNegativeCache) // negative cache hit, no re-query
+
+    invalidateDomainCache('wasnegative10.com')
+
+    // Now the domain has "landed" for a real tenant (as if admin/websites POST
+    // just inserted the row) — without the invalidation above this would still
+    // return the stale cached null instead of re-querying.
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'wasnegative10.com')
+        return { data: domainRow({ tenant_id: 't-10', domain: 'wasnegative10.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-10')
+        return { data: tenantRow({ id: 't-10', slug: 'wasnegative10', domain: 'wasnegative10.com' }), error: null }
+      return { data: null, error: null }
+    }
+
+    const after = await getTenantByDomain('wasnegative10.com')
+    expect(after?.id).toBe('t-10')
+  })
+
+  it('normalizes www-prefix and case the same way getTenantByDomain does, so invalidating "WWW.Mixed10.com" clears the "mixed10.com" cache key', async () => {
+    resolve = (table, eqs) => {
+      if (table === 'tenant_domains' && eqs.domain === 'mixed10.com')
+        return { data: domainRow({ tenant_id: 't-mixed10', domain: 'mixed10.com' }), error: null }
+      if (table === 'tenants' && eqs.id === 't-mixed10')
+        return { data: tenantRow({ id: 't-mixed10', slug: 'mixed10', domain: 'mixed10.com' }), error: null }
+      return { data: null, error: null }
+    }
+
+    await getTenantByDomain('mixed10.com')
+    const callsAfterFirst = singleCalls.length
+
+    invalidateDomainCache('WWW.Mixed10.com')
+
+    await getTenantByDomain('mixed10.com')
+    expect(singleCalls.length).toBeGreaterThan(callsAfterFirst)
   })
 })

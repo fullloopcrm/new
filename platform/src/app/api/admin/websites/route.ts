@@ -165,5 +165,13 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: error.message }, { status: 500 })
   }
 
+  // Bust tenant-lookup.ts's edge cache for this exact domain string. A host
+  // that ever resolved (or 404'd) before this row existed can be negatively
+  // cached — without this, the domain just registered here would keep
+  // resolving to "no tenant" on a warm edge isolate for up to the rest of the
+  // 5-minute TTL despite the DB row now existing.
+  const { invalidateDomainCache } = await import('@/lib/tenant-lookup')
+  invalidateDomainCache(cleanDomain)
+
   return NextResponse.json({ domain: data }, { status: 201 })
 }
