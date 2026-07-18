@@ -6,6 +6,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { entityIdFromUrl } from '@/lib/entity'
+import { normalizeChecklist } from '@/lib/validate'
 
 export async function GET(request: Request) {
   try {
@@ -65,7 +66,7 @@ export async function POST(request: Request) {
         year: Number(body.year),
         month: Number(body.month),
         status: body.status || 'open',
-        checklist: body.checklist || {},
+        checklist: normalizeChecklist(body.checklist),
         notes: body.notes || null,
       }, { onConflict: 'tenant_id,entity_id,year,month' })
       .select('*')

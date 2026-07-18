@@ -7,6 +7,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
 import { isPortalRole } from '@/lib/portal-rbac'
+import { capStringArray, capJsonObject } from '@/lib/validate'
 
 export async function PUT(request: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   const { tenant, error: authError } = await requirePermission('team.edit')
@@ -16,7 +17,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
   const body = await request.json()
 
   const today = new Date().toISOString().split('T')[0]
-  const futureDates = (body.unavailable_dates || []).filter((d: string) => d >= today)
+  const rawUnavailable = Array.isArray(body.unavailable_dates) ? body.unavailable_dates : []
+  const futureDates = capStringArray(rawUnavailable.filter((d: string) => typeof d === 'string' && d >= today), 500, 10)
 
   const update: Record<string, unknown> = {
     name: body.name,
@@ -24,8 +26,8 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     email: body.email || null,
     address: body.address ?? undefined,
     photo_url: body.photo_url || null,
-    working_days: body.working_days || [],
-    schedule: body.schedule ?? undefined,
+    working_days: capStringArray(body.working_days, 14, 20),
+    schedule: body.schedule !== undefined ? capJsonObject(body.schedule, 20, 2000) : undefined,
     working_start: body.working_start || '09:00',
     working_end: body.working_end || '17:00',
     unavailable_dates: futureDates,
@@ -33,7 +35,7 @@ export async function PUT(request: NextRequest, { params }: { params: Promise<{ 
     hourly_rate: body.hourly_rate ?? undefined,
     home_by_time: body.home_by_time ?? undefined,
     max_jobs_per_day: body.max_jobs_per_day ?? undefined,
-    service_zones: body.service_zones ?? undefined,
+    service_zones: body.service_zones !== undefined ? capStringArray(body.service_zones, 200, 50) : undefined,
     has_car: body.has_car ?? undefined,
     calendar_color: body.calendar_color ?? undefined,
   }

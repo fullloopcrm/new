@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requirePermission } from '@/lib/require-permission'
 import { geocodeAddress } from '@/lib/geo'
+import { capStringArray, capJsonObject } from '@/lib/validate'
 
 export async function GET() {
   const { tenant, error: authError } = await requirePermission('team.view')
@@ -35,15 +36,15 @@ export async function POST(request: NextRequest) {
       email: body.email || null,
       phone: body.phone,
       address: body.address || null,
-      working_days: body.working_days || [],
-      schedule: body.schedule || {},
-      unavailable_dates: body.unavailable_dates || [],
+      working_days: capStringArray(body.working_days, 14, 20),
+      schedule: capJsonObject(body.schedule, 20, 2000),
+      unavailable_dates: capStringArray(body.unavailable_dates, 500, 10),
       pin: body.pin || null,
       hourly_rate: body.hourly_rate ?? 25,
       status: body.active === false ? 'inactive' : 'active',
       photo_url: body.photo_url || null,
       home_by_time: body.home_by_time || '18:00',
-      service_zones: body.service_zones || [],
+      service_zones: capStringArray(body.service_zones, 200, 50),
       has_car: body.has_car || false,
       calendar_color: body.calendar_color || null,
     })

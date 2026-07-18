@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { normalizeChecklist } from '@/lib/validate'
 
 type Params = { params: Promise<{ id: string }> }
 
@@ -27,7 +28,7 @@ export async function PATCH(request: Request, { params }: Params) {
     } else if (body.status === 'in_review') {
       updates.status = 'in_review'
     }
-    if ('checklist' in body) updates.checklist = body.checklist
+    if ('checklist' in body) updates.checklist = normalizeChecklist(body.checklist)
     if ('notes' in body) updates.notes = body.notes
 
     const { data, error } = await supabaseAdmin
