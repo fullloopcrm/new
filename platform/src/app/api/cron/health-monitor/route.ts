@@ -80,18 +80,36 @@ export async function GET(request: Request) {
     }
 
     if (failures.length > 0) {
-      // Dedup — only alert if we haven't alerted about this same failing set in the last 6h.
+      // Dedup — only alert if we haven't alerted about this same failing set
+      // in the last 6h. Two-step atomic claim on cron_health_alerts(fingerprint)
+      // instead of a SELECT-then-insert against `notifications`: fresh insert
+      // first, then (on a 23505 conflict) an UPDATE ... WHERE alerted_at is
+      // stale reclaims the row. Two overlapping invocations can no longer both
+      // read "not yet alerted" and both DM the admin -- see
+      // 2026_07_18_cron_health_alerts_dedup.sql for why a plain unique
+      // constraint alone isn't enough (this fingerprint legitimately recurs
+      // after recovery, unlike comms-monitor's).
       const fingerprint = failures.map(f => f.cron).sort().join(',')
       const sixHoursAgo = new Date(now.getTime() - 6 * 60 * 60 * 1000)
-      const { data: recentAlerts } = await supabaseAdmin
-        .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
-        .select('id, message')
-        .eq('type', 'cron_health_alert')
-        .gte('created_at', sixHoursAgo.toISOString())
 
-      const alreadyAlerted = (recentAlerts || []).some(r => (r.message || '').includes(`fingerprint=${fingerprint}`))
+      const { error: claimErr } = await supabaseAdmin
+        .from('cron_health_alerts')
+        .insert({ fingerprint, alerted_at: now.toISOString() })
 
-      if (!alreadyAlerted) {
+      let claimed = !claimErr
+      if (claimErr) {
+        if (claimErr.code !== '23505') throw claimErr
+        const { data: reclaimed } = await supabaseAdmin
+          .from('cron_health_alerts')
+          .update({ alerted_at: now.toISOString() })
+          .eq('fingerprint', fingerprint)
+          .lt('alerted_at', sixHoursAgo.toISOString())
+          .select('fingerprint')
+          .maybeSingle()
+        claimed = !!reclaimed
+      }
+
+      if (claimed) {
         const lines = failures
           .map(f => `• ${f.desc} — silent ${Math.round(f.silenceMin / 60)}h (expected every ${Math.round(f.maxSilenceMin / 60)}h)`)
           .join('\n')

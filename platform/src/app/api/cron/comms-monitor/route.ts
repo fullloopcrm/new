@@ -4,7 +4,12 @@
  * Every 15 min scans `notifications` for rows of type `comms_fail` (written
  * by sendEmail / sendSMS wrappers when an outbound send fails). If any rows
  * land in the last 20 min, emails + SMSes the platform admin. Deduplicated
- * by matching notification-id fingerprint for 1 hour.
+ * by an insert-first claim on comms_monitor_alerts(fingerprint) -- see
+ * 2026_07_18_comms_monitor_alerts_dedup.sql for why a SELECT-then-insert
+ * check against `notifications` raced (two overlapping invocations could
+ * both see zero prior alerts for the same fingerprint and both DM the
+ * admin) and why a plain unique constraint replaces the old time-windowed
+ * check without changing behavior.
  */
 import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
@@ -13,7 +18,6 @@ import { trackError } from '@/lib/error-tracking'
 import { safeEqual } from '@/lib/secret-compare'
 
 const WINDOW_MIN = 20
-const DEDUP_HOURS = 1
 
 export async function GET(request: Request) {
   const auth = request.headers.get('authorization') || ''
@@ -41,16 +45,18 @@ export async function GET(request: Request) {
     const summary = fails.map(f => `• ${f.message}`).join('\n')
     const fingerprint = fails.map(f => f.id).sort().join(',').slice(0, 60)
 
-    const dedupSince = new Date(now.getTime() - DEDUP_HOURS * 60 * 60 * 1000)
-    const { data: prior } = await supabaseAdmin
-      .from('notifications')  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
-      .select('id, message')
-      .eq('type', 'comms_monitor_alert')
-      .gte('created_at', dedupSince.toISOString())
-    const alreadyAlerted = (prior || []).some(p => (p.message || '').includes(`fingerprint=${fingerprint}`))
-
-    if (alreadyAlerted) {
-      return NextResponse.json({ success: true, failures: fails.length, alreadyAlerted: true })
+    // Insert-first claim: a unique violation on fingerprint means another
+    // overlapping invocation already claimed (and is alerting for) this
+    // exact failure batch -- skip as an idempotent no-op, same idiom as
+    // telnyx_webhook_events / resend_webhook_events / stripe_webhook_events.
+    const { error: claimErr } = await supabaseAdmin
+      .from('comms_monitor_alerts')
+      .insert({ fingerprint })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ success: true, failures: fails.length, alreadyAlerted: true })
+      }
+      throw claimErr
     }
 
     const subject = `⚠️ Comms failures — ${fails.length} in last ${WINDOW_MIN} min`
