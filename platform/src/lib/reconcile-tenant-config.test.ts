@@ -37,6 +37,7 @@ import {
   findClientPortalLoginDir,
   hasHomePage,
   hasSitemapFile,
+  collectRouteGroupFiles,
   computeFindings,
   summarize,
   loadToken,
@@ -4355,5 +4356,63 @@ describe('hasSitemapFile', () => {
     mkdirSync(join(dir, '(app)', 'sitemap.xml'), { recursive: true })
     writeFileSync(join(dir, '(app)', 'sitemap.xml', 'route.ts'), '')
     expect(hasSitemapFile(dir)).toBe(true)
+  })
+})
+
+// Fresh ground, same "closure inside main() with zero test coverage" class as
+// (237)/(238)/(239): main()'s wwwApexDomainsBySlug loop (feeds Drift AB, WARN)
+// used to read ONLY join(dir, 'sitemap.ts' | 'robots.ts' | 'layout.tsx') —
+// direct children of the tenant's site/<slug> root — silently missing a
+// SECOND, independent layout.tsx/sitemap.ts/robots.ts nested behind a route
+// group. wash-and-fold-nyc/hoboken already nest a second layout.tsx under
+// (marketing)/, and Next.js composes metadata down that chain, so a hardcoded
+// www URL in the nested layout's own `metadata` export would have been
+// invisible to the old direct-children-only read. collectRouteGroupFiles is
+// the promoted, exported replacement, following the same route-group-chain
+// discipline as hasHomePage/hasSitemapFile above.
+describe('collectRouteGroupFiles', () => {
+  let dir: string | undefined
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+
+  it('returns an empty array for a directory that does not exist', () => {
+    expect(collectRouteGroupFiles(join(tmpdir(), 'reconcile-does-not-exist-xyz'), 'layout.tsx')).toEqual([])
+  })
+
+  it('returns an empty array when the file is absent', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-rgf-'))
+    expect(collectRouteGroupFiles(dir, 'layout.tsx')).toEqual([])
+  })
+
+  it('finds a direct child', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-rgf-'))
+    writeFileSync(join(dir, 'layout.tsx'), 'root')
+    expect(collectRouteGroupFiles(dir, 'layout.tsx')).toEqual([join(dir, 'layout.tsx')])
+  })
+
+  // Mutation-verified live: reverting main()'s wwwApexDomainsBySlug loop back
+  // to its OLD direct-child-only reads makes this assertion fail — the old
+  // code never looks inside a route group at all, so a layout.tsx nested
+  // behind one (the wash-and-fold-nyc/hoboken live shape) is invisible to it.
+  it('finds a file one route group deep, in ADDITION to a direct sibling (the live wash-and-fold shape)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-rgf-'))
+    writeFileSync(join(dir, 'layout.tsx'), 'root')
+    mkdirSync(join(dir, '(marketing)'), { recursive: true })
+    writeFileSync(join(dir, '(marketing)', 'layout.tsx'), 'nested')
+    const found = collectRouteGroupFiles(dir, 'layout.tsx')
+    expect(found.sort()).toEqual([join(dir, '(marketing)', 'layout.tsx'), join(dir, 'layout.tsx')].sort())
+  })
+
+  it('finds a file behind a CHAIN of nested route groups', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-rgf-'))
+    mkdirSync(join(dir, '(outer)', '(inner)'), { recursive: true })
+    writeFileSync(join(dir, '(outer)', '(inner)', 'sitemap.ts'), '')
+    expect(collectRouteGroupFiles(dir, 'sitemap.ts')).toEqual([join(dir, '(outer)', '(inner)', 'sitemap.ts')])
+  })
+
+  it('does not descend into an ordinary (non-route-group) subdirectory', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-rgf-'))
+    mkdirSync(join(dir, 'the-marketing-blog'), { recursive: true })
+    writeFileSync(join(dir, 'the-marketing-blog', 'layout.tsx'), '')
+    expect(collectRouteGroupFiles(dir, 'layout.tsx')).toEqual([])
   })
 })

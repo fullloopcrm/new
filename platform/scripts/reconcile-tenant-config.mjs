@@ -688,6 +688,43 @@ export function hasSitemapFile(dir) {
   )
 }
 
+// --- fresh ground, same class as (237)/(238)/(239): collect every file
+// literally named `filename` reachable from `dir` through a chain of
+// Next.js route groups ("(name)") at ANY depth. A route group is invisible
+// in the URL, so a layout.tsx/sitemap.ts/robots.ts one or more levels deep
+// behind a route group renders at the SAME effective path/scope as one
+// sitting directly in `dir` — the identical resolution rule hasHomePage/
+// hasSitemapFile above already apply, here needed for CONTENT collection
+// (Drift AB's findHardcodedWwwApexDomains scans file contents) rather than
+// a plain existence check.
+//
+// Feeds Drift AB's wwwApexDomainsBySlug loop in main(), which previously
+// read ONLY `join(dir, 'sitemap.ts' | 'robots.ts' | 'layout.tsx')` — direct
+// children of the tenant's site/<slug> root, exactly the bug shape (238)/
+// (239) already closed for hasHomePage/hasSitemapFile, just never closed
+// for THIS loop. wash-and-fold-nyc and wash-and-fold-hoboken already split
+// their own tree into a top-level layout.tsx PLUS a second, independent
+// layout.tsx nested under `(marketing)/` — Next.js composes metadata down
+// that chain, so a hardcoded "https://www.<apex-canonical-domain>" literal
+// in the NESTED layout's own `metadata` export would be invisible to the
+// old direct-children-only read. Landmine-only today: neither
+// wash-and-fold tenant is in APEX_CANONICAL_DOMAINS (only consortium-nyc,
+// thenycmarketingcompany.com, thenycinteriordesigner.com are, and none of
+// those three tenants nests a layout.tsx/sitemap.ts/robots.ts behind a
+// route group), same disposition as every prior item in this surface.
+export function collectRouteGroupFiles(dir, filename) {
+  if (!existsSync(dir)) return []
+  const found = []
+  const direct = join(dir, filename)
+  if (existsSync(direct)) found.push(direct)
+  for (const e of readdirSync(dir, { withFileTypes: true })) {
+    if (e.isDirectory() && e.name.startsWith('(') && e.name.endsWith(')')) {
+      found.push(...collectRouteGroupFiles(join(dir, e.name), filename))
+    }
+  }
+  return found
+}
+
 // --- given the single-segment (no nested "/") entries of APP_ROOT_PREFIXES
 // and, per bespoke tenant, the top-level route-segment names found on disk
 // under its own site/<slug>/ folder (route groups already resolved down to
@@ -2321,28 +2358,28 @@ async function main() {
   // sitemap.xml entries. A tenant could fix its sitemap.ts (clearing this
   // check) while its layout.tsx still hardcodes the non-canonical www host
   // on every page; scanning layout.tsx directly closes that blind spot.
+  // collectRouteGroupFiles is now a module-level exported function (see
+  // above) — this loop used to read ONLY `join(dir, filename)`, direct
+  // children of the tenant's site/<slug> root, blind to a SECOND, INDEPENDENT
+  // sitemap.ts/robots.ts/layout.tsx nested behind a route group (Next.js
+  // composes metadata down that chain, so a nested layout.tsx's own
+  // `metadata` export is just as live as the root one).
   const wwwApexDomainsBySlug = new Map()
   if (apexCanonicalSet.size) {
     for (const slug of bespokeSet) {
       const dir = join(siteDir, slug)
       const sources = []
-      const sitemapPath = join(dir, 'sitemap.ts')
-      let sitemapSrc = null
-      if (existsSync(sitemapPath)) {
-        sitemapSrc = readFileSync(sitemapPath, 'utf8')
+      for (const sitemapPath of collectRouteGroupFiles(dir, 'sitemap.ts')) {
+        const sitemapSrc = readFileSync(sitemapPath, 'utf8')
         sources.push(sitemapSrc)
-      }
-      const robotsPath = join(dir, 'robots.ts')
-      if (existsSync(robotsPath)) sources.push(readFileSync(robotsPath, 'utf8'))
-      const layoutPath = join(dir, 'layout.tsx')
-      if (existsSync(layoutPath)) sources.push(readFileSync(layoutPath, 'utf8'))
-      if (sitemapSrc) {
         for (const rel of parseRelativeImportPaths(sitemapSrc)) {
-          const base = join(dir, rel)
+          const base = join(dirname(sitemapPath), rel)
           const candidate = [`${base}.ts`, `${base}.tsx`, join(base, 'index.ts')].find((p) => existsSync(p))
           if (candidate) sources.push(readFileSync(candidate, 'utf8'))
         }
       }
+      for (const robotsPath of collectRouteGroupFiles(dir, 'robots.ts')) sources.push(readFileSync(robotsPath, 'utf8'))
+      for (const layoutPath of collectRouteGroupFiles(dir, 'layout.tsx')) sources.push(readFileSync(layoutPath, 'utf8'))
       const found = findHardcodedWwwApexDomains(sources, apexCanonicalSet)
       if (found.size) wwwApexDomainsBySlug.set(slug, found)
     }
