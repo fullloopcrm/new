@@ -48,6 +48,14 @@ export async function PATCH(request: Request, { params }: Params) {
     const { id } = await params
     const body = await request.json()
 
+    const { data: existing } = await supabaseAdmin
+      .from('deals')
+      .select('value_cents, client_id')
+      .eq('tenant_id', tenantId)
+      .eq('id', id)
+      .maybeSingle()
+    if (!existing) return NextResponse.json({ error: 'Not found' }, { status: 404 })
+
     const updates: Record<string, unknown> = {}
     const assignables = [
       'title', 'value_cents', 'probability',
@@ -71,14 +79,48 @@ export async function PATCH(request: Request, { params }: Params) {
       if (!clientRow) return NextResponse.json({ error: 'Client not found' }, { status: 404 })
     }
 
-    const { data, error } = await supabaseAdmin
+    // DELETE already blocks destroying a deal once it carries real revenue
+    // history (stage 'sold', or a linked quote that's accepted/deposit-paid/
+    // converted -- checkDealDeletable). PATCH had no equivalent: any
+    // sales.edit caller could silently rewrite value_cents/client_id on that
+    // same closed deal, misattributing already-collected revenue to a
+    // different client or diverging the reported deal value from what
+    // actually sold, with no audit trail and no way to reconcile it after
+    // the fact. Only gate on an *actual* change to one of those two fields --
+    // the dashboard's save form always resends the current value_cents
+    // alongside notes/follow-up edits, so gating on mere field presence would
+    // block ordinary post-sale note-taking.
+    const changingValue = 'value_cents' in updates && updates.value_cents !== existing.value_cents
+    const changingClient = 'client_id' in updates && updates.client_id !== existing.client_id
+    if (changingValue || changingClient) {
+      const guard = await checkDealDeletable(tenantId, id)
+      if (!guard.deletable) {
+        return NextResponse.json({
+          error: `This deal has closed real revenue and its value/client cannot be changed — ${guard.reason}`,
+        }, { status: 409 })
+      }
+    }
+
+    // Atomic claim when touching the financial fields: re-check stage hasn't
+    // flipped to 'sold' in the same statement, closing the race window
+    // between the guard read above and this write.
+    let query = supabaseAdmin
       .from('deals')
       .update(updates)
       .eq('tenant_id', tenantId)
       .eq('id', id)
+    if (changingValue || changingClient) {
+      query = query.neq('stage', 'sold')
+    }
+    const { data, error } = await query
       .select('*, clients(id, name, email, phone)')
-      .single()
+      .maybeSingle()
     if (error) throw error
+    if (!data) {
+      return NextResponse.json({
+        error: 'This deal was just marked Sold and its value/client can no longer be changed.',
+      }, { status: 409 })
+    }
 
     // Log follow-up scheduling as activity
     if ('follow_up_at' in body && body.follow_up_at) {

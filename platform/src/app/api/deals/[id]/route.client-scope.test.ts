@@ -22,9 +22,12 @@ const store: Record<string, Row[]> = {}
 vi.mock('@/lib/supabase', () => {
   function chain(table: string) {
     const eqs: Row = {}
+    const neqs: Row = {}
     let kind: 'read' | 'update' = 'read'
     let payload: Row = {}
-    const match = (r: Row) => Object.entries(eqs).every(([k, v]) => r[k] === v)
+    const match = (r: Row) =>
+      Object.entries(eqs).every(([k, v]) => r[k] === v) &&
+      Object.entries(neqs).every(([k, v]) => r[k] !== v)
     function doUpdate(): Row[] {
       const rows = (store[table] || []).filter(match)
       store[table] = (store[table] || []).map((r) => (match(r) ? { ...r, ...payload } : r))
@@ -34,10 +37,16 @@ vi.mock('@/lib/supabase', () => {
       select: () => c,
       update: (p: Row) => { kind = 'update'; payload = p; return c },
       eq: (col: string, val: unknown) => { eqs[col] = val; return c },
+      neq: (col: string, val: unknown) => { neqs[col] = val; return c },
       single: async () => {
         if (kind === 'update') { const [row] = doUpdate(); return { data: row ?? null, error: row ? null : { message: 'not found' } } }
         const found = (store[table] || []).find(match)
         return { data: found ?? null, error: found ? null : { message: 'not found' } }
+      },
+      maybeSingle: async () => {
+        if (kind === 'update') { const [row] = doUpdate(); return { data: row ?? null, error: null } }
+        const found = (store[table] || []).find(match)
+        return { data: found ?? null, error: null }
       },
     }
     return c
