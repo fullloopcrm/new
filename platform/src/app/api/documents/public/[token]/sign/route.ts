@@ -44,7 +44,9 @@ export async function POST(request: Request, { params }: Params) {
     const body = await request.json()
     const signaturePng = String(body.signature_png || '')
     const signatureName = String(body.signature_name || '').trim()
-    const fieldValues: Array<{ field_id: string; value: string }> = body.field_values || []
+    const fieldValues: Array<{ field_id: string; value: string }> = Array.isArray(body.field_values)
+      ? body.field_values
+      : []
 
     const { data: signer } = await supabaseAdmin
       .from('document_signers')
@@ -65,6 +67,23 @@ export async function POST(request: Request, { params }: Params) {
       return NextResponse.json({ error: 'Signature image too large' }, { status: 400 })
     }
     if (!signatureName) return NextResponse.json({ error: 'Typed name required' }, { status: 400 })
+
+    // field_values is a caller-supplied array on an unauthenticated public
+    // endpoint that's otherwise only rate-limited by request COUNT
+    // (rateLimitDb above) -- without a cap here, a single request could carry
+    // an arbitrarily long array (each entry driving its own sequential
+    // document_fields UPDATE below) or an arbitrarily long `value` string
+    // (an unbounded TEXT column, also stamped onto the finalized PDF).
+    // Same request-count-vs-request-size class as the chat/yinez/public-form
+    // message-length caps; this is the array-cardinality + per-item version.
+    if (fieldValues.length > 200) {
+      return NextResponse.json({ error: 'Too many field values' }, { status: 400 })
+    }
+    for (const fv of fieldValues) {
+      if (typeof fv?.value === 'string' && fv.value.length > 5000) {
+        return NextResponse.json({ error: 'Field value too long (max 5000 characters)' }, { status: 400 })
+      }
+    }
 
     const { data: doc } = await supabaseAdmin
       .from('documents')
