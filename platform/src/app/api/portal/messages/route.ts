@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
-import { protectClientAPI } from '@/lib/nycmaid/auth'
+import { protectClientAPI } from '@/lib/client-auth'
+import { getTenantFromHeaders } from '@/lib/tenant-site'
 
 const MAX_MESSAGE_LENGTH = 4000
 
@@ -45,7 +46,13 @@ async function getClientThreadId(clientId: string): Promise<{ tenantId: string |
 }
 
 export async function GET() {
-  const auth = await protectClientAPI()
+  // Tenant from the request context (subdomain/host), not derived from the
+  // client_session cookie — protectClientAPI() rejects a cookie minted for a
+  // different tenant, same IDOR guard as every other /api/client/* route.
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
   if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
   const { clientId } = auth
 
@@ -65,7 +72,10 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await protectClientAPI()
+  const tenant = await getTenantFromHeaders()
+  if (!tenant) return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
+
+  const auth = await protectClientAPI(tenant.id)
   if ('error' in auth || !('clientId' in auth)) return auth as NextResponse
   const { clientId } = auth
 

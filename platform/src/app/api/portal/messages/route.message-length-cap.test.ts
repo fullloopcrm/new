@@ -11,8 +11,12 @@ const CLIENT = '33333333-0000-0000-0000-000000000003'
 
 const inserts: Array<{ table: string }> = []
 
-vi.mock('@/lib/nycmaid/auth', () => ({
+vi.mock('@/lib/client-auth', () => ({
   protectClientAPI: async () => ({ clientId: CLIENT }),
+}))
+
+vi.mock('@/lib/tenant-site', () => ({
+  getTenantFromHeaders: async () => ({ id: TENANT }),
 }))
 
 vi.mock('@/lib/supabase', () => {
