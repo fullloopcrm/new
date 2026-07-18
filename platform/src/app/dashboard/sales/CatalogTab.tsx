@@ -111,7 +111,10 @@ export default function CatalogTab() {
   useEffect(() => { load() }, [])
 
   const filteredItems = query.trim()
-    ? items.filter((it) => it.name.toLowerCase().includes(query.trim().toLowerCase()))
+    ? items.filter((it) => {
+        const q = query.trim().toLowerCase()
+        return it.name.toLowerCase().includes(q) || (it.category || '').toLowerCase().includes(q)
+      })
     : items
 
   async function addItem() {
@@ -212,7 +215,7 @@ export default function CatalogTab() {
         type="text"
         value={query}
         onChange={(e) => setQuery(e.target.value)}
-        placeholder="Search catalog by name…"
+        placeholder="Search catalog by name or category…"
         style={{ ...inp, marginBottom: 14 }}
         aria-label="Search catalog"
       />
