@@ -5,7 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Assignee = { id: string; name: string }
-type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null }
+type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null; ends_on: string | null }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = {
   id: string
@@ -158,6 +158,8 @@ export default function JobDetailPage() {
   const [expenseForm, setExpenseForm] = useState({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
   const [expenseFile, setExpenseFile] = useState<File | null>(null)
   const [uploadingExpense, setUploadingExpense] = useState(false)
+  const [details, setDetails] = useState({ notes: '', ends_on: '' })
+  const [budget, setBudget] = useState<{ budgeted_total_cents: number } | null>(null)
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
@@ -174,6 +176,16 @@ export default function JobDetailPage() {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
   }, [])
+  useEffect(() => {
+    if (job) setDetails({ notes: job.notes ?? '', ends_on: job.ends_on ?? '' })
+  }, [job])
+  useEffect(() => {
+    // W4's contract (GET /api/jobs/[id]/budget-variance) — degrades to null (section hidden)
+    // whenever the job has no source quote or the quote has no saved Master Budget yet.
+    fetch(`/api/jobs/${id}/budget-variance`).then(r => r.json())
+      .then((d: { variance: { budgeted_total_cents: number } | null }) => setBudget(d.variance ? { budgeted_total_cents: d.variance.budgeted_total_cents } : null))
+      .catch(() => {})
+  }, [id])
 
   async function act(label: string, fn: () => Promise<Response>) {
     setBusy(label); setErr('')
@@ -184,6 +196,13 @@ export default function JobDetailPage() {
 
   const setJobStatus = (status: string) => act(`job-${status}`, () =>
     fetch(`/api/jobs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }))
+
+  const detailsDirty = !!job && (details.notes !== (job.notes ?? '') || details.ends_on !== (job.ends_on ?? ''))
+  const saveDetails = () => act('save-details', () =>
+    fetch(`/api/jobs/${id}`, {
+      method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ notes: details.notes.trim() || null, ends_on: details.ends_on || null }),
+    }))
 
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
@@ -319,6 +338,29 @@ export default function JobDetailPage() {
         {job.status !== 'completed' && job.status !== 'cancelled' && <button onClick={() => setJobStatus('completed')} disabled={!!busy} className="px-3 py-1.5 text-xs font-medium rounded bg-green-600 text-white hover:bg-green-700 disabled:opacity-50">Mark complete</button>}
       </div>
 
+      {/* Details */}
+      <section className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Details</h2>
+        <div className="rounded-lg border border-slate-200 bg-white p-3 space-y-3">
+          <label className="flex flex-col gap-1 max-w-[220px]">
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">Estimated completion date</span>
+            <input type="date" value={details.ends_on} onChange={(e) => setDetails({ ...details, ends_on: e.target.value })}
+              className="px-2 py-1 text-xs rounded border border-slate-300 bg-white" />
+          </label>
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] uppercase tracking-wide text-slate-400">Job notes</span>
+            <textarea value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} rows={4}
+              placeholder="Add job notes…" className="px-2 py-1.5 text-xs rounded border border-slate-300 bg-white resize-y w-full" />
+          </label>
+          {detailsDirty && (
+            <button onClick={saveDetails} disabled={busy === 'save-details'}
+              className="px-3 py-1 text-xs font-medium rounded bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50">
+              {busy === 'save-details' ? 'Saving…' : 'Save details'}
+            </button>
+          )}
+        </div>
+      </section>
+
       {/* Payment plan */}
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-slate-800 mb-2">Payment plan</h2>
@@ -344,6 +386,16 @@ export default function JobDetailPage() {
       {/* Costs & receipts */}
       <section className="mb-6">
         <h2 className="text-sm font-semibold text-slate-800 mb-2">Costs & receipts</h2>
+
+        {budget && (
+          <div className="flex items-center justify-between text-xs mb-2 px-0.5">
+            <span className="text-slate-500">Job budget <span className="font-medium text-slate-700">{money(budget.budgeted_total_cents)}</span></span>
+            <span className={`font-medium ${budget.budgeted_total_cents - costCents < 0 ? 'text-red-600' : 'text-slate-700'}`}>
+              {budget.budgeted_total_cents - costCents < 0 ? 'Over budget by ' : 'Remaining '}
+              {money(Math.abs(budget.budgeted_total_cents - costCents))}
+            </span>
+          </div>
+        )}
 
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-3 space-y-2 mb-3">
           <div className="flex flex-wrap gap-2 items-end">
