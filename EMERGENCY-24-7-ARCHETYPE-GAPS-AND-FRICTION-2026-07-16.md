@@ -12093,3 +12093,125 @@ this round -- step (2) of this round's queue folds into this single item,
 same precedent as items (232)-(233) (a fix that closes its shared helper's
 OTHER branch, with no separate sibling call site left uncovered beyond the
 same three `destination`-value parsers item (233) already scoped).
+
+## (235) Fresh ground -- parseStaticTenantMap's own block-boundary regex
+silently returns an EMPTY map the moment a STATIC_TENANT_MAP entry wraps
+onto multiple lines
+
+Every parseX function in the reconcile gate that extracts a `new
+Set([...])` or `new Set<string>([...])` block terminates on a fixed anchor
+that cannot appear mid-block by construction (`\]\)` right after the
+array). `parseStaticTenantMap` is the one parser with no such anchor --
+`STATIC_TENANT_MAP: Record<string, {...}> = { ... }` just ends at "the
+closing brace of the object literal" -- so it used a `\n\s*\}` heuristic
+instead: "the block ends at the first lone `}` that starts a line." That
+heuristic silently assumes every entry's own `{ id: '...', slug: '...' }`
+value stays on exactly one line.
+
+Verified live in node (not just reasoned about): fed the OLD parser a
+2-entry fixture where only the FIRST entry's value is wrapped onto
+multiple lines (the ordinary shape any formatter — Prettier, an editor's
+format-on-save — produces once a single-line entry runs past its print
+width; not hypothetical for this file specifically, since this repo's own
+two live STATIC_TENANT_MAP entries are already ~100 characters wide,
+comfortably past a default 80-char width). Result: `map.size === 0`, not a
+partial map missing one entry -- the wrapped entry's OWN closing `}` is a
+lone `}` on its own line, so the block-boundary regex's non-greedy capture
+stops BEFORE it (that brace is consumed as the (wrong) terminator, not
+included in the captured text). The captured slice then contains an
+unclosed `{` with no matching `}` inside it, so entryRe cannot complete a
+match for that entry at all -- and the SECOND, completely untouched entry
+is discarded too, since it never even enters the captured slice (it lands
+textually after the point the regex decided the block had ended).
+
+This is Drift U's own input silently going empty, not just imprecise:
+`STATIC_TENANT_MAP` is the one routing source in this file whose
+`rewriteToSite()` branch runs UNCONDITIONALLY, with no `tenantServesSite()`
+status check at all (see the comment above Drift U in
+`computeFindings`) -- a tenant hardcoded there that gets
+suspended/cancelled after being added keeps serving live traffic
+regardless, and Drift U is this gate's ONLY check watching for that. An
+empty/truncated `staticTenantMap` doesn't make Drift U report "no drift" by
+correctly finding nothing wrong -- it makes Drift U report "no drift"
+because it never saw the entry that would have proven something IS wrong.
+Same "gate's own parser produces a false negative on real config, not a
+real config bug" consequence, and the same discovery method (fed the
+pre-fix code a concrete fixture and read the actual failure mode off the
+real output, not assumed from reasoning) as items (233)/(234)'s
+`stripComments()` fixes.
+
+Even after fixing the block boundary, a SECOND, independent problem
+surfaced under the same mutation test: entryRe's own trailing `\s*\}` does
+not tolerate a trailing comma before the closing brace
+(`slug: '...',\n }` -- Prettier's own default style for a multi-line
+object literal, as opposed to the no-trailing-comma single-line style
+`{ id: '...', slug: '...' }` used everywhere in this file today). Fixing
+only the block boundary left a correctly-bounded block whose wrapped entry
+STILL failed to match entryRe, because the comma before the closing brace
+is not whitespace and the regex required `\s*\}` with nothing else
+in between. Both fixes were necessary; verified independently -- with only
+the block-boundary fix applied, the 2-entry/one-wrapped fixture returned
+`map.size === 1` (found the untouched entry only, still silently dropping
+the wrapped one), confirming the two bugs are genuinely separate, not one
+masking the other.
+
+**Fixed:** added `extractBalancedBlock(source, openIdx)`, a small
+quote-aware brace-depth counter (the same quote-blindness discipline
+`stripComments` already applies elsewhere in this file, applied here to
+brace matching instead of comment stripping) that walks forward from an
+opening `{` and returns the substring up to its TRUE matching closing `}`,
+correctly skipping over `{`/`}` characters that appear inside a `'`/`"`/`` ` ``
+quoted string (with escape handling) so a stray brace inside a quoted value
+can never be miscounted as real nesting. `parseStaticTenantMap` now
+extracts the block by scanning forward from the actual opening brace of
+the object literal instead of guessing where it ends via a fixed-shape
+regex. Separately, widened entryRe's trailing brace match from `\s*\}` to
+`\s*,?\s*\}` to tolerate an optional trailing comma. Closed with 6 new
+assertions: 2 regression tests in `parseStaticTenantMap`'s own describe
+block (one entry wrapped, and — the stronger case — every entry wrapped),
+plus 4 direct unit tests for `extractBalancedBlock` itself (nested braces,
+a brace character inside each of the three quote types, an escaped quote
+staying inside its string, and the malformed/unbalanced-input null case).
+
+**Mutation-verified live:** reverted the fix (`git apply -R` against a
+saved patch, confirmed a stat-only diff showed only the intended change
+before reverting), ran the new assertions against the pre-fix code -- all 6
+new assertions failed exactly as predicted (the two regression tests off
+by the exact counts documented above; the four `extractBalancedBlock` unit
+tests failed with `TypeError: extractBalancedBlock is not a function`,
+since the export didn't exist pre-fix). Reapplied the patch, all 6 went
+green alongside the file's 304 pre-existing assertions (310/310).
+
+Checked sibling call sites using the same `\n\s*\}` block-boundary shape
+before closing: `parsePrivateClientLoginHosts` (robots.ts's
+`PRIVATE_CLIENT_LOGIN_HOSTS` map) parses plain string values only (never a
+nested object), so it structurally cannot exhibit this bug regardless of
+formatting -- confirmed by reading its own entryRe, which has no `\{`/`\}`
+in it at all. `parseRobotsKilledRoutes`'s `if (isMainHost) { ... }` block
+was already checked for this exact non-greedy-brace-match risk in item
+(233)'s own sweep and found to hold only single-line `disallow.push(...)`
+calls with no nested object/block to trigger early termination -- re-
+confirmed unchanged this round. `parseNextConfigRedirects`'s block
+terminator (`\]\s*\n\s*\}`, anchored on the array's own closing `\]` rather
+than a bare `\}`) would have the same class of exposure if a redirect
+entry ever grew a nested `has:`/`missing:` condition array formatted
+multi-line, but no current `next.config.ts` redirect entry has one
+(verified: `grep -n 'has:\|missing:' next.config.ts` -- no matches) --
+landmine-only, not fixed this round since there is no concrete instance to
+mutation-verify against, same "surfaced but not independently exploitable
+today" disposition item (233) gave `verify-protected-tenants.mjs`'s own
+inlined comment-stripper. Step (2) of this round's queue folds into this
+single item, same precedent as items (232)-(234): a fix plus a documented,
+checked-but-not-independently-triggerable sibling, not a separate item.
+
+Full suite + tsc + eslint clean after this round: `tsc --noEmit --pretty
+false` zero errors, eslint clean on both touched files, full vitest suite
+green (494 files / 2473 tests). The reconcile gate script itself is
+leader-run-only (blocked by a local hook -- it touches live prod Supabase
+even in the clean-skip path); `SUPABASE_ACCESS_TOKEN_FULLLOOP` was absent
+in this session's environment too, so this item's verification ran
+entirely through the pure-function unit tests above (importing the module
+does no I/O, per its own header comment) plus the pre-existing
+gate-wiring/token-guard regression tests (both still green in the full-
+suite run), rather than a direct local invocation -- same as every prior
+item in this lane's sessions.
