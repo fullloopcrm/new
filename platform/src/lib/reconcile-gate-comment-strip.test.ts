@@ -165,4 +165,39 @@ describe('reconcile-gate parsers ignore commented-out entries', () => {
     expect(bespokeSet).toBeNull()
     expect(error).toMatch(/could not find the BESPOKE_SITE_TENANTS set/)
   })
+
+  // Item (197): parseBespokeSetFromMiddleware shares reconcile-tenant-config.mjs's
+  // own single/double-quote-only blind spot (see reconcile-tenant-config.test.ts's
+  // "backtick-quoted list entries" describe block for the full writeup) — but a
+  // miss HERE is worse: this function backs the npm `prebuild` guard, so a slug
+  // this regex fails to capture reads as "NOT in BESPOKE_SITE_TENANTS" and
+  // exit(1)-blocks every Vercel deploy for a tenant that is actually correctly
+  // routed at runtime (a false POSITIVE build failure, not a silent miss).
+  it('verify-protected-tenants.mjs: parseBespokeSetFromMiddleware reads a backtick-quoted slug too', () => {
+    const src = `
+      const BESPOKE_SITE_TENANTS = new Set<string>([
+        'nycmaid',
+        \`nyc-tow\`,
+        "we-pay-you-junk",
+      ])
+    `
+    const { bespokeSet, error } = parseBespokeSetFromMiddleware(src)
+    expect(error).toBeNull()
+    if (!bespokeSet) throw new Error('expected a non-null bespokeSet when error is null')
+    expect(bespokeSet.has('nyc-tow')).toBe(true)
+    expect(bespokeSet.size).toBe(3)
+  })
+
+  it('verify-protected-tenants.mjs: parseBespokeSetFromMiddleware does not merge two adjacent all-backtick slugs', () => {
+    const src = `
+      const BESPOKE_SITE_TENANTS = new Set<string>([
+        \`nycmaid\`,
+        \`nyc-tow\`,
+      ])
+    `
+    const { bespokeSet, error } = parseBespokeSetFromMiddleware(src)
+    expect(error).toBeNull()
+    if (!bespokeSet) throw new Error('expected a non-null bespokeSet when error is null')
+    expect([...bespokeSet]).toEqual(['nycmaid', 'nyc-tow'])
+  })
 })

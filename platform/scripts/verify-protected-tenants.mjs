@@ -96,8 +96,19 @@ export function parseBespokeSetFromMiddleware(mwSource) {
   // every PROTECTED slug is a bare identifier (e.g. 'nycmaid'), none contain
   // `//` or `/*`, so this can never eat a real entry.
   const cleaned = block[1].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  // Item (197): matches reconcile-tenant-config.mjs's own parseBespokeSet —
+  // ['"] alone misses a backtick-quoted slug (valid TS/JS, zero
+  // interpolation), and the capture group must ALSO exclude backtick, not
+  // just the delimiter class, or two adjacent all-backtick entries merge
+  // into one corrupted capture (verified in node before shipping). Unlike
+  // reconcile-tenant-config.mjs's version of this bug (an invisible miss —
+  // a WARN/CRIT just never fires), a miss HERE is a false POSITIVE: this
+  // guard's own assertion is "PROTECTED slug must be IN bespokeSet", so a
+  // slug this regex fails to capture reads as "not in BESPOKE_SITE_TENANTS"
+  // and exit(1)-blocks `next build` (this script is the npm `prebuild`
+  // step) for a tenant that is actually correctly routed at runtime.
   return {
-    bespokeSet: new Set([...cleaned.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])),
+    bespokeSet: new Set([...cleaned.matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1])),
     error: null,
   }
 }

@@ -210,7 +210,7 @@ function stripComments(text) {
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---
 export function parseBespokeSet(middlewareSource) {
   const block = middlewareSource.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- Source 5: parse APEX_CANONICAL_DOMAINS out of the middleware source.
@@ -220,7 +220,7 @@ export function parseBespokeSet(middlewareSource) {
 // gate reconciles, so a typo here is invisible to every other Drift check.
 export function parseApexCanonicalSet(middlewareSource) {
   const block = middlewareSource.match(/APEX_CANONICAL_DOMAINS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse the relative import specifiers ("from './foo'") out of a source
@@ -263,7 +263,7 @@ export function findHardcodedWwwApexDomains(sources, apexCanonicalSet) {
 // gate exists to prevent going forward. See Drift P below.
 export function parseProtectedSlugs(verifyProtectedSource) {
   const block = verifyProtectedSource.match(/const PROTECTED\s*=\s*\[([\s\S]*?)\]/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/slug:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/slug:\s*['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse TENANTS_WITH_RICH_SITEMAP out of the middleware source.
@@ -276,7 +276,7 @@ export function parseProtectedSlugs(verifyProtectedSource) {
 // the reverse case: a sitemap file that exists but was never added here).
 export function parseRichSitemapSet(middlewareSource) {
   const block = middlewareSource.match(/TENANTS_WITH_RICH_SITEMAP\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse NON_SERVING_STATUSES out of the middleware source. This is
@@ -290,7 +290,7 @@ export function parseRichSitemapSet(middlewareSource) {
 // middleware still serves it live — see Drift R below.
 export function parseNonServingStatuses(middlewareSource) {
   const block = middlewareSource.match(/NON_SERVING_STATUSES\s*=\s*new Set\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse MAIN_HOSTS out of the middleware source. This is the reserved set
@@ -303,7 +303,7 @@ export function parseNonServingStatuses(middlewareSource) {
 // outside every DB source this gate otherwise reconciles — see Drift S below.
 export function parseMainHostsSet(middlewareSource) {
   const block = middlewareSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse the MAIN_HOSTS out of src/app/robots.ts. Unlike every other list
@@ -315,7 +315,7 @@ export function parseMainHostsSet(middlewareSource) {
 // See Drift Z below for what happens when the copy falls behind.
 export function parseRobotsMainHostsSet(robotsSource) {
   const block = robotsSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse KILLED_ROUTES out of the middleware source. Routes killed during
@@ -325,7 +325,7 @@ export function parseRobotsMainHostsSet(robotsSource) {
 // copy of it.
 export function parseKilledRoutes(middlewareSource) {
   const block = middlewareSource.match(/KILLED_ROUTES\s*=\s*\[([\s\S]*?)\]/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse src/app/robots.ts's own hardcoded copy of KILLED_ROUTES out of its
@@ -336,7 +336,7 @@ export function parseKilledRoutes(middlewareSource) {
 // enforcing it stays in sync. See Drift AA below.
 export function parseRobotsKilledRoutes(robotsSource) {
   const block = robotsSource.match(/if\s*\(isMainHost\)\s*\{([\s\S]*?)\n\s*\}/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/disallow\.push\(\s*['"`]([^'"`]+)['"`]\s*\)/g)].map((m) => m[1]) : [])
 }
 
 // --- parse JOIN_CRAWLABLE_HOSTS out of src/app/robots.ts. This is a THIRD
@@ -351,7 +351,7 @@ export function parseRobotsKilledRoutes(robotsSource) {
 // gives zero drift signal anywhere else — see Drift AH below.
 export function parseJoinCrawlableHosts(robotsSource) {
   const block = robotsSource.match(/JOIN_CRAWLABLE_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse src/app/robots.ts's own hardcoded `disallow` array literal — the
@@ -371,7 +371,7 @@ export function parseJoinCrawlableHosts(robotsSource) {
 // entry is added without a matching disallow entry here.
 export function parseRobotsDisallowList(robotsSource) {
   const block = robotsSource.match(/const disallow = \[([\s\S]*?)\]/)
-  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+  return block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : []
 }
 
 // --- real robots.txt Disallow matching: a literal PREFIX match on the URL
@@ -413,7 +413,7 @@ export function parsePrivateClientLoginHosts(robotsSource) {
   const map = new Map()
   if (!block) return map
   const cleaned = stripComments(block[1])
-  const entryRe = /['"]([^'"]+)['"]\s*:\s*['"]([^'"]+)['"]/g
+  const entryRe = /['"`]([^'"`]+)['"`]\s*:\s*['"`]([^'"`]+)['"`]/g
   let m
   while ((m = entryRe.exec(cleaned))) map.set(m[1], m[2])
   return map
@@ -489,7 +489,7 @@ export function findShadowedAppRootPages(bespokeSlugs, appRootPrefixes, siteTopL
 // collision — see Drift T below.
 export function parseRootSiteTenantsSet(middlewareSource) {
   const block = middlewareSource.match(/ROOT_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse STATIC_TENANT_MAP out of the middleware source. This is a
@@ -506,7 +506,7 @@ export function parseStaticTenantMap(middlewareSource) {
   const block = middlewareSource.match(/STATIC_TENANT_MAP:\s*Record<string,\s*\{[^}]*\}>\s*=\s*\{([\s\S]*?)\n\s*\}/)
   const map = new Map()
   if (!block) return map
-  const entryRe = /['"]([^'"]+)['"]\s*:\s*\{\s*id:\s*['"]([^'"]+)['"]\s*,\s*slug:\s*['"]([^'"]+)['"]\s*\}/g
+  const entryRe = /['"`]([^'"`]+)['"`]\s*:\s*\{\s*id:\s*['"`]([^'"`]+)['"`]\s*,\s*slug:\s*['"`]([^'"`]+)['"`]\s*\}/g
   const cleaned = stripComments(block[1])
   let m
   while ((m = entryRe.exec(cleaned))) map.set(m[1], { id: m[2], slug: m[3] })
@@ -526,7 +526,7 @@ export function parseStaticTenantMap(middlewareSource) {
 export function parseNextConfigSiteRewriteSources(nextConfigSource) {
   const block = nextConfigSource.match(/afterFiles:\s*\[([\s\S]*?)\]\s*,?\s*\n\s*fallback:/)
   if (!block) return []
-  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const entryRe = /\{\s*source:\s*['"`]([^'"`]+)['"`]\s*,\s*destination:\s*['"`]([^'"`]+)['"`]/g
   const out = []
   const cleaned = stripComments(block[1])
   let m
@@ -551,7 +551,7 @@ export function parseNextConfigSiteRewriteSources(nextConfigSource) {
 export function parseAllNextConfigSiteRewriteSources(nextConfigSource) {
   const block = nextConfigSource.match(/afterFiles:\s*\[([\s\S]*?)\]\s*,?\s*\n\s*fallback:/)
   if (!block) return []
-  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const entryRe = /\{\s*source:\s*['"`]([^'"`]+)['"`]\s*,\s*destination:\s*['"`]([^'"`]+)['"`]/g
   const out = []
   const cleaned = stripComments(block[1])
   let m
@@ -570,7 +570,7 @@ export function parseAllNextConfigSiteRewriteSources(nextConfigSource) {
 export function parseNextConfigRedirects(nextConfigSource) {
   const block = nextConfigSource.match(/async redirects\(\)\s*\{[\s\S]*?return\s*\[([\s\S]*?)\]\s*\n\s*\}/)
   if (!block) return []
-  const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
+  const entryRe = /\{\s*source:\s*['"`]([^'"`]+)['"`]\s*,\s*destination:\s*['"`]([^'"`]+)['"`]/g
   const out = []
   const cleaned = stripComments(block[1])
   let m
@@ -586,7 +586,7 @@ export function parseNextConfigRedirects(nextConfigSource) {
 // (see findTrailingSlashAppRootPrefixes below).
 export function parseAppRootPrefixes(middlewareSource) {
   const block = middlewareSource.match(/APP_ROOT_PREFIXES\s*=\s*\[([\s\S]*?)\]/)
-  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+  return block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : []
 }
 
 // --- given APP_ROOT_PREFIXES's raw entries, return the ones that carry a
@@ -624,7 +624,7 @@ export function findTrailingSlashAppRootPrefixes(appRootPrefixes) {
 // the same leading characters. Feeds Drift AF ONLY.
 export function parsePublicRoutePatterns(middlewareSource) {
   const block = middlewareSource.match(/const isPublicRoute = createRouteMatcher\(\[([\s\S]*?)\]\)/)
-  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+  return block ? [...stripComments(block[1]).matchAll(/['"`]([^'"`]+)['"`]/g)].map((m) => m[1]) : []
 }
 
 // --- given isPublicRoute's patterns and every real top-level directory name under
@@ -670,7 +670,7 @@ export function findUnboundedApiPublicRouteCollisions(patterns, apiDirNames) {
 // parsePublicRoutePatterns/parseAppRootPrefixes) because that unique-receiver
 // property is what scopes it, not source position. Feeds Drift AG ONLY.
 export function parseAdminBypassPrefixes(middlewareSource) {
-  return [...stripComments(middlewareSource).matchAll(/\bp\.startsWith\(['"]([^'"]+)['"]\)/g)].map((m) => m[1])
+  return [...stripComments(middlewareSource).matchAll(/\bp\.startsWith\(['"`]([^'"`]+)['"`]\)/g)].map((m) => m[1])
 }
 
 // --- given isPublicRoute's patterns and the admin-impersonation bypass

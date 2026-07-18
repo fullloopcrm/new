@@ -98,6 +98,116 @@ describe('parseApexCanonicalSet', () => {
   })
 })
 
+// Item (197): every parseX helper in this file matched only single- and
+// double-quoted string literals (/['"]([^'"]+)['"]/-shaped regexes). A plain
+// string literal in valid TS/JS can also be backtick-quoted with zero
+// interpolation (`nycmaid` is legal anywhere 'nycmaid' is) — the exact same
+// blind spot items (194)-(195) found and fixed in audit-tenant-scope.mjs's
+// .from()/idLookup matchers, just independently present in this file's OWN
+// ~20 quote-matching regexes across every parseX helper. No live entry in
+// any of the sources this gate reads uses backticks today (verified by
+// inspection of middleware.ts/robots.ts/next.config.ts/
+// verify-protected-tenants.mjs), so this was prospective, not a live miss —
+// but a future contributor reformatting any of these hand-maintained lists
+// with backticks would have that entry silently vanish from every Drift
+// check it feeds, with zero CI signal, the identical "invisible not
+// misclassified" failure mode as (194)-(195). Fixed by widening every
+// occurrence's character class to ['"`] / [^'"`]. Deliberately NOT applied
+// to parseRelativeImportPaths' `from '...'` matcher (line 231 pre-fix) —
+// an ES import specifier MUST be a plain string literal; a backtick-quoted
+// `from` clause is a SyntaxError, so there is no live shape for that one
+// parser to miss.
+describe('backtick-quoted list entries (item 197 — same blind spot as (194)-(195), different file)', () => {
+  it('parseBespokeSet extracts a backtick-quoted entry alongside single/double-quoted ones', () => {
+    const src = `
+      const BESPOKE_SITE_TENANTS = new Set<string>([
+        'acme',
+        "zenith-labs",
+        \`the-florida-maid\`,
+      ])
+    `
+    const set = parseBespokeSet(src)
+    expect(set.has('acme')).toBe(true)
+    expect(set.has('zenith-labs')).toBe(true)
+    expect(set.has('the-florida-maid')).toBe(true)
+    expect(set.size).toBe(3)
+  })
+
+  it('parseBespokeSet does NOT merge two adjacent all-backtick entries into one garbled capture', () => {
+    // Regression guard for the capture-group-only-excludes-quotes trap: widening
+    // just the delimiter class to ['"`] while leaving the capture group as
+    // [^'"] (still allowing a bare backtick inside the captured value) lets a
+    // greedy match swallow past the first entry's closing backtick into the
+    // next entry entirely, backtracking only as far as the LAST backtick in
+    // the block — e.g. two entries `a` and `b` back-to-back would wrongly
+    // capture a single "a`,\n  `b"-shaped string instead of "a" then "b". The
+    // capture group must ALSO exclude backtick ([^'"`]) for this to parse
+    // correctly when a list is entirely backtick-quoted.
+    const src = `
+      const BESPOKE_SITE_TENANTS = new Set<string>([
+        \`acme\`,
+        \`zenith-labs\`,
+      ])
+    `
+    const set = parseBespokeSet(src)
+    expect([...set]).toEqual(['acme', 'zenith-labs'])
+  })
+
+  it('parseAppRootPrefixes extracts a backtick-quoted entry (src/middleware.ts APP_ROOT_PREFIXES)', () => {
+    const src = `
+      const APP_ROOT_PREFIXES = [
+        '/api', \`/portal\`, "/team",
+      ]
+    `
+    expect(parseAppRootPrefixes(src)).toEqual(['/api', '/portal', '/team'])
+  })
+
+  it('parseKilledRoutes extracts a backtick-quoted entry (src/middleware.ts KILLED_ROUTES)', () => {
+    const src = `
+      const KILLED_ROUTES = [
+        \`/apply\`,
+      ]
+    `
+    expect([...parseKilledRoutes(src)]).toEqual(['/apply'])
+  })
+
+  it('parseRobotsDisallowList extracts a backtick-quoted entry (src/app/robots.ts disallow array)', () => {
+    const src = `const disallow = ['/dashboard/', \`/admin/\`, "/portal/"]`
+    expect(parseRobotsDisallowList(src)).toEqual(['/dashboard/', '/admin/', '/portal/'])
+  })
+
+  it('parseAdminBypassPrefixes extracts a backtick-quoted p.startsWith(...) prefix', () => {
+    const src = `if (p.startsWith(\`/dashboard/api/impersonate\`)) { allow() }`
+    expect(parseAdminBypassPrefixes(src)).toEqual(['/dashboard/api/impersonate'])
+  })
+
+  it('parseStaticTenantMap extracts a backtick-quoted hostname/id/slug entry', () => {
+    const src = `
+      const STATIC_TENANT_MAP: Record<string, { id: string; slug: string }> = {
+        \`thefloridamaid.com\`: { id: \`56490a6b-820c-49e6-8c14-cb4e54ffcb06\`, slug: \`the-florida-maid\` },
+      }
+    `
+    const map = parseStaticTenantMap(src)
+    expect(map.get('thefloridamaid.com')).toEqual({ id: '56490a6b-820c-49e6-8c14-cb4e54ffcb06', slug: 'the-florida-maid' })
+  })
+
+  it('parseNextConfigRedirects extracts a backtick-quoted { source, destination } pair', () => {
+    const src = `
+      async redirects() {
+        return [
+          { source: \`/old-path\`, destination: \`/new-path\`, permanent: true },
+        ]
+      }
+    `
+    expect(parseNextConfigRedirects(src)).toEqual([{ source: '/old-path', destination: '/new-path' }])
+  })
+
+  it('parseRelativeImportPaths deliberately still matches only quote/double-quote — backtick is not valid syntax for an import specifier', () => {
+    const src = `import { SITE_DOMAIN } from './siteData'`
+    expect([...parseRelativeImportPaths(src)]).toEqual(['./siteData'])
+  })
+})
+
 describe('parseProtectedSlugs', () => {
   it('extracts the slugs from a verify-protected-tenants.mjs PROTECTED declaration', () => {
     const src = `

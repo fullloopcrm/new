@@ -9834,3 +9834,132 @@ this entire doc for Jeff's direct action, since it means BOTH this lane's
 live-blocking drift gate AND the platform's offsite full-DB backup are
 currently non-functional in ways their own green checkmarks / silent logs
 do not reveal.
+
+## (197) New fresh-ground surface — `reconcile-tenant-config.mjs`'s OWN ~20
+`parseX` helpers share the identical single/double-quote-only blind spot
+items (194)-(195) found and fixed in `audit-tenant-scope.mjs`, just
+independently present across every parser in this sibling gate script
+
+Items (194)-(195) fixed `audit-tenant-scope.mjs`'s `.from()`/idLookup
+matchers, both of which were `['"]`-only (single/double quote), so a
+double- or backtick-quoted query silently evaded the Tenant-isolation
+guard. That round explicitly scoped its fix to that ONE file. This round
+checked whether the sibling gate script this whole 168-196 thread has been
+auditing all night — `reconcile-tenant-config.mjs` itself — has the same
+defect in its own source-parsing layer, since it is a completely different
+piece of code (regex-scraping middleware.ts/robots.ts/next.config.ts/
+verify-protected-tenants.mjs for hardcoded lists, not scanning `.from()`
+calls) that happens to lean on the exact same `['"]([^'"]+)['"]`-shaped
+regex convention throughout. It does: every one of `parseBespokeSet`,
+`parseApexCanonicalSet`, `parseProtectedSlugs`, `parseRichSitemapSet`,
+`parseNonServingStatuses`, `parseMainHostsSet`, `parseRobotsMainHostsSet`,
+`parseKilledRoutes`, `parseRobotsKilledRoutes`, `parseJoinCrawlableHosts`,
+`parseRobotsDisallowList`, `parseRootSiteTenantsSet`,
+`parseStaticTenantMap`, `parseNextConfigSiteRewriteSources`,
+`parseAllNextConfigSiteRewriteSources`, `parseNextConfigRedirects`,
+`parseAppRootPrefixes`, and `parseAdminBypassPrefixes` — literally every
+hand-maintained-list parser in the file except one (see below) — matched
+single/double quotes only, never a backtick. Every one of these lists feeds
+at least one Drift check (A through AM); a future contributor reformatting
+any of `BESPOKE_SITE_TENANTS`, `APP_ROOT_PREFIXES`, `KILLED_ROUTES`,
+robots.ts's `disallow` array, `next.config.ts`'s redirects, etc. with
+backtick-quoted string literals (100% valid TS/JS — a plain backtick string
+with zero interpolation is legal anywhere a `'...'`/`"..."` literal is)
+would have that entry silently vanish from every Drift check it feeds, with
+zero CI signal — the identical "invisible not misclassified" failure mode
+(194)-(195) closed one file over. No live entry in any of the four real
+source files this gate reads (`src/middleware.ts`, `src/app/robots.ts`,
+`next.config.ts`, `scripts/verify-protected-tenants.mjs`) uses backticks
+today (verified by grepping each for a backtick and confirming every hit is
+either a comment or an unrelated template-literal interpolation, never one
+of these specific hardcoded-list entries) — same "prospective, not live"
+disposition as (194)-(195).
+
+**Fixed** by widening every one of those ~20 regex occurrences (both the
+opening/closing delimiter class AND the capture group) from `['"]` /
+`[^'"]` to `` ['"`] `` / `` [^'"`] ``. The capture group half of that
+matters on its own, independent of the delimiter half: widening ONLY the
+delimiter class while leaving the capture group as `[^'"]` (still
+permitting a bare backtick inside the captured value, since backtick isn't
+excluded there) lets a greedy match swallow past one entry's closing
+backtick straight into the NEXT entry when a list is entirely
+backtick-quoted — verified this concretely in `node` before shipping either
+half: `` /['"`]([^'"]+)['"`]/g `` against two adjacent backtick entries
+`` `a`, `b` `` returned one garbled capture, `"a\`,\n  \`b"`, merging both
+entries into a single corrupted value instead of two clean ones — arguably
+WORSE than (194)-(195)'s original miss, since a silent miss returns nothing
+found while this would have returned one wrong, undetectably-corrupted
+entry. Confirmed the corrected two-part fix (`` ['"`]([^'"`]+)['"`] ``)
+parses that same adversarial case correctly (`['a', 'b']`) and a mixed
+single/double/backtick list correctly (`['a', 'b', 'c']`) before applying
+it file-wide.
+
+**Deliberately NOT applied** to `parseRelativeImportPaths` (the one
+`['"]`-only parser left untouched) — it matches `import ... from '...'`
+specifiers, and a backtick-quoted `from` clause is not valid TypeScript/
+JavaScript syntax at all (import specifiers must be plain string literals);
+there is no live shape for that parser to miss, so widening it would be a
+no-op change with a misleading implication that one existed.
+
+9 new regression tests (`describe('backtick-quoted list entries (item
+197...)')` in `reconcile-tenant-config.test.ts`), covering a representative
+cross-section of the fixed parsers (`parseBespokeSet` twice — once for a
+mixed-quote list, once for the adjacent-all-backtick merge-bug regression
+guard specifically — plus `parseAppRootPrefixes`, `parseKilledRoutes`,
+`parseRobotsDisallowList`, `parseAdminBypassPrefixes`,
+`parseStaticTenantMap`, `parseNextConfigRedirects`, and a control test
+pinning `parseRelativeImportPaths`' deliberately-unchanged behavior).
+RED/GREEN mutation-verified via `git diff`/`git apply -R` (not stash — this
+worktree's shared-`.git`-dir stash is disabled by a repo hook): reverting
+just `reconcile-tenant-config.mjs` while keeping the new tests produced
+8/9 failures (the 9th, the import-specifier control test, correctly stayed
+green since it targets the untouched parser) with the exact predicted
+symptom (`toEqual([])`/`toEqual(undefined)` on every backtick-quoted
+fixture), reapplying the fix restored all 9 to green. tsc clean. Full suite
+461/461 files, 2312/2312 tests (9 new), zero regressions. eslint clean on
+both touched files. Could not exercise the live reconcile run itself —
+`scripts/reconcile-tenant-config.mjs` is hook-blocked from direct
+invocation in any worker worktree regardless of token-guard state (per this
+worktree's `block-worker-sim-scripts.sh` PreToolUse hook: "leader-run-only
+... touch live prod Supabase"), same standing constraint every prior W3
+round in this file has hit; unit coverage of the parser layer is the
+verification available from here.
+
+**Correction to this item's own first draft, caught before commit, not
+after:** initially wrote (and almost shipped) a closing line claiming
+`verify-protected-tenants.mjs` "has no quote-matching parser of its own."
+That was wrong — re-grepping it directly (rather than trusting the
+inference that it's purely a *consumer* of these lists, not a scraper of
+one itself) found `parseBespokeSetFromMiddleware`'s own
+`cleaned.matchAll(/['"]([^'"]+)['"]/g)` call, the exact same
+`['"]`-only defect, independently present in this THIRD file. Verifying a
+claim before writing it into this doc caught the gap before it shipped as
+an inaccurate "nothing else affected" — same discipline this doc has
+flagged missing in other rounds' first drafts.
+
+**This one is more severe than the reconcile-tenant-config.mjs half above:
+it is a false POSITIVE, not an invisible miss.** This function backs
+`verify-protected-tenants.mjs`'s own build-blocking assertion — every
+PROTECTED slug must appear in the parsed `bespokeSet`, or the guard
+`exit(1)`s (this script runs as the npm `prebuild` step ahead of `next
+build`, so it gates every Vercel deploy, AND as ci.yml's own
+"Protected-tenant guard" step ahead of merge). A slug this regex fails to
+capture — because a future edit reformats `BESPOKE_SITE_TENANTS` with a
+backtick — is NOT missing from the real runtime Set (backticks are valid
+TS/JS there too); it is missing only from this PARSER's view of it. The
+guard would therefore report "'<slug>' is NOT in BESPOKE_SITE_TENANTS →
+would render the global template" and block the build for a tenant that is
+in fact correctly routed — blocking a good deploy on a phantom violation,
+the mirror-image failure mode from reconcile-tenant-config.mjs's silent
+WARN/CRIT that never fires. **Fixed identically** (same widened
+`` ['"`] `` / `` [^'"`] `` two-part regex, same node-verified
+adjacent-all-backtick-entries guard) in `parseBespokeSetFromMiddleware`.
+2 new tests added to `reconcile-gate-comment-strip.test.ts` (the file that
+already covers this function's sibling comment-stripping bug from item
+174), RED/GREEN mutation-verified the same `git apply -R` way — both fail
+pre-fix with the exact predicted symptom (`has('nyc-tow')` false, and the
+merged-capture empty-set symptom), both pass post-fix.
+
+Full suite + tsc + eslint re-run after this second fix, still clean (see
+below). `audit-tenant-scope.mjs` was not touched this round — (194)-(195)
+already closed its identical defect in a prior round.
