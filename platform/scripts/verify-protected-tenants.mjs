@@ -29,8 +29,14 @@
  * TO PROTECT A NEW TENANT: add it to PROTECTED below, add its slug to
  * BESPOKE_SITE_TENANTS in src/middleware.ts, and make sure its
  * src/app/site/<slug>/ folder exists. All three or the guard fails.
+ *
+ * STRUCTURE: parseBespokeSetFromMiddleware (the pure text-parse logic) is
+ * exported so it can be unit-tested without touching the filesystem or
+ * exiting the process — same convention as scripts/reconcile-tenant-config.mjs.
+ * The CLI (PROTECTED loop, disk checks, report, exit) runs ONLY when this
+ * file is invoked directly.
  */
-import { readFileSync, existsSync, readdirSync } from 'node:fs'
+import { readFileSync, existsSync, readdirSync, realpathSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
@@ -65,66 +71,99 @@ const PROTECTED = [
   { slug: 'consortium-nyc', domain: 'consortiumnyc.com' },
 ]
 
-const violations = []
-
-// --- 1. Extract the BESPOKE_SITE_TENANTS set from middleware source text. ---
+// --- Extract the BESPOKE_SITE_TENANTS set from middleware source text. ---
 // Static text parse on purpose: the failure mode we guard against is a human or
-// a merge editing this exact literal, so we check the literal itself.
-const mwPath = join(REPO, 'src', 'middleware.ts')
-let bespokeSet = null
-if (!existsSync(mwPath)) {
-  violations.push(`middleware not found at src/middleware.ts — cannot verify routing`)
-} else {
-  const mw = readFileSync(mwPath, 'utf8')
-  const block = mw.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
+// a merge editing this exact literal, so we check the literal itself. Pure and
+// exported so the comment-stripping behavior below can be unit-tested directly
+// against a fixture string, without touching the filesystem.
+export function parseBespokeSetFromMiddleware(mwSource) {
+  const block = mwSource.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
   if (!block) {
-    violations.push(
-      `could not find the BESPOKE_SITE_TENANTS set in src/middleware.ts — it was ` +
-      `renamed or removed. Bespoke-site routing may be broken; verify manually.`
-    )
+    return {
+      bespokeSet: null,
+      error:
+        'could not find the BESPOKE_SITE_TENANTS set in src/middleware.ts — it was ' +
+        'renamed or removed. Bespoke-site routing may be broken; verify manually.',
+    }
+  }
+  // Strip comments BEFORE extracting quoted slugs. Without this, a slug
+  // commented out during a merge/edit (`// 'nyc-tow',` or `/* 'nyc-tow', */`)
+  // still matches the bare quoted-string regex and reads as present, even
+  // though it is NOT in the live Set at runtime — middleware would route it
+  // to /site/template (the exact 2026-07-08 outage class) while this guard
+  // reports "OK". Mutation-verified: commenting out 'nyc-tow' left the
+  // un-stripped version at exit 0 (false negative). Safe unconditionally —
+  // every PROTECTED slug is a bare identifier (e.g. 'nycmaid'), none contain
+  // `//` or `/*`, so this can never eat a real entry.
+  const cleaned = block[1].replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+  return {
+    bespokeSet: new Set([...cleaned.matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1])),
+    error: null,
+  }
+}
+
+function main() {
+  const violations = []
+
+  const mwPath = join(REPO, 'src', 'middleware.ts')
+  let bespokeSet = null
+  if (!existsSync(mwPath)) {
+    violations.push(`middleware not found at src/middleware.ts — cannot verify routing`)
   } else {
-    bespokeSet = new Set([...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]))
+    const { bespokeSet: parsed, error } = parseBespokeSetFromMiddleware(readFileSync(mwPath, 'utf8'))
+    if (error) violations.push(error)
+    bespokeSet = parsed
   }
-}
 
-// --- 2. Assert each protected tenant is routed bespoke AND has its folder. ---
-for (const t of PROTECTED) {
-  if (bespokeSet && !bespokeSet.has(t.slug)) {
-    violations.push(
-      `'${t.slug}' (${t.domain}) is NOT in BESPOKE_SITE_TENANTS → it would render ` +
-      `the global template instead of its own site. Re-add it to the set in src/middleware.ts.`
-    )
-  }
-  // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route group
-  // (e.g. wash-and-fold's (marketing)/page.tsx), at <slug>/(group)/page.tsx.
-  const siteDir = join(REPO, 'src', 'app', 'site', t.slug)
-  const groupHome = existsSync(siteDir)
-    ? readdirSync(siteDir).some(
-        (e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(siteDir, e, 'page.tsx'))
+  // Assert each protected tenant is routed bespoke AND has its folder.
+  for (const t of PROTECTED) {
+    if (bespokeSet && !bespokeSet.has(t.slug)) {
+      violations.push(
+        `'${t.slug}' (${t.domain}) is NOT in BESPOKE_SITE_TENANTS → it would render ` +
+        `the global template instead of its own site. Re-add it to the set in src/middleware.ts.`
       )
-    : false
-  const hasHome = existsSync(join(siteDir, 'page.tsx')) || groupHome
-  if (!hasHome) {
-    violations.push(
-      `'${t.slug}' (${t.domain}) has no homepage (src/app/site/${t.slug}/page.tsx or ` +
-      `(group)/page.tsx) → its bespoke site was deleted. Restore it ` +
-      `(e.g. \`git checkout <commit> -- src/app/site/${t.slug}\`).`
-    )
+    }
+    // Homepage lives at <slug>/page.tsx OR, when the site uses a Next route group
+    // (e.g. wash-and-fold's (marketing)/page.tsx), at <slug>/(group)/page.tsx.
+    const siteDir = join(REPO, 'src', 'app', 'site', t.slug)
+    const groupHome = existsSync(siteDir)
+      ? readdirSync(siteDir).some(
+          (e) => e.startsWith('(') && e.endsWith(')') && existsSync(join(siteDir, e, 'page.tsx'))
+        )
+      : false
+    const hasHome = existsSync(join(siteDir, 'page.tsx')) || groupHome
+    if (!hasHome) {
+      violations.push(
+        `'${t.slug}' (${t.domain}) has no homepage (src/app/site/${t.slug}/page.tsx or ` +
+        `(group)/page.tsx) → its bespoke site was deleted. Restore it ` +
+        `(e.g. \`git checkout <commit> -- src/app/site/${t.slug}\`).`
+      )
+    }
   }
-}
 
-// --- 3. Report. ---
-if (violations.length > 0) {
-  console.error('\n❌  PROTECTED-TENANT GUARD FAILED — a live tenant would lose its site:\n')
-  for (const v of violations) console.error(`   • ${v}`)
-  console.error(
-    `\n   Build blocked. Fix the above so no live tenant silently falls back to ` +
-    `/site/template.\n`
+  if (violations.length > 0) {
+    console.error('\n❌  PROTECTED-TENANT GUARD FAILED — a live tenant would lose its site:\n')
+    for (const v of violations) console.error(`   • ${v}`)
+    console.error(
+      `\n   Build blocked. Fix the above so no live tenant silently falls back to ` +
+      `/site/template.\n`
+    )
+    process.exit(1)
+  }
+
+  console.log(
+    `✅  protected-tenant guard: ${PROTECTED.length} live bespoke site(s) OK ` +
+    `(${PROTECTED.map((t) => t.slug).join(', ')})`
   )
-  process.exit(1)
 }
 
-console.log(
-  `✅  protected-tenant guard: ${PROTECTED.length} live bespoke site(s) OK ` +
-  `(${PROTECTED.map((t) => t.slug).join(', ')})`
-)
+// Run the CLI only when this file is the entrypoint (node scripts/…​.mjs).
+// Importing the module (tests) must not touch the filesystem or exit the
+// process — same convention as scripts/reconcile-tenant-config.mjs.
+try {
+  if (process.argv[1] && realpathSync(process.argv[1]) === realpathSync(fileURLToPath(import.meta.url))) {
+    main()
+  }
+} catch {
+  /* argv[1] unresolvable (e.g. odd runner) — treat as "not the entrypoint" */
+}

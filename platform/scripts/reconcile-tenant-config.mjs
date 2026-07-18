@@ -188,10 +188,29 @@ export const norm = (d) => {
     .replace(/\.+$/, '') // strip trailing dot(s) — absolute-FQDN form (example.com.) is the same domain
 }
 
+// --- Shared by every parseXSet/parseXMap below: strip comments out of an
+// extracted array/object-literal block BEFORE running a quoted-string regex
+// over it. Without this, a slug commented out during a merge/edit/debugging
+// session (`// 'nyc-tow',` or `/* 'nyc-tow', */`) is still matched as a live
+// entry — the exact false-negative this gate exists to prevent, just moved
+// one level up from the outage itself into the gate's own parser. Verified
+// empirically (not just reasoned about) against parseBespokeSet's twin,
+// scripts/verify-protected-tenants.mjs: commenting out 'nyc-tow' in
+// src/middleware.ts left that script's own un-stripped regex reporting
+// "✅ ... OK" (exit 0) while middleware would actually route it to
+// /site/template at runtime — see the sibling fix there.
+// Safe to apply unconditionally here: every value these parsers extract is a
+// bare slug, path, or hostname (e.g. 'nycmaid', '/apply', 'nyctow.com') —
+// none legitimately contain `//` or `/*`/`*/`, so this can never eat a real
+// entry, only a commented-out one.
+function stripComments(text) {
+  return text.replace(/\/\*[\s\S]*?\*\//g, '').replace(/\/\/.*$/gm, '')
+}
+
 // --- Source 3: parse BESPOKE_SITE_TENANTS out of the middleware source ---
 export function parseBespokeSet(middlewareSource) {
   const block = middlewareSource.match(/BESPOKE_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- Source 5: parse APEX_CANONICAL_DOMAINS out of the middleware source.
@@ -201,7 +220,7 @@ export function parseBespokeSet(middlewareSource) {
 // gate reconciles, so a typo here is invisible to every other Drift check.
 export function parseApexCanonicalSet(middlewareSource) {
   const block = middlewareSource.match(/APEX_CANONICAL_DOMAINS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse the relative import specifiers ("from './foo'") out of a source
@@ -244,7 +263,7 @@ export function findHardcodedWwwApexDomains(sources, apexCanonicalSet) {
 // gate exists to prevent going forward. See Drift P below.
 export function parseProtectedSlugs(verifyProtectedSource) {
   const block = verifyProtectedSource.match(/const PROTECTED\s*=\s*\[([\s\S]*?)\]/)
-  return new Set(block ? [...block[1].matchAll(/slug:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/slug:\s*['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse TENANTS_WITH_RICH_SITEMAP out of the middleware source.
@@ -257,7 +276,7 @@ export function parseProtectedSlugs(verifyProtectedSource) {
 // the reverse case: a sitemap file that exists but was never added here).
 export function parseRichSitemapSet(middlewareSource) {
   const block = middlewareSource.match(/TENANTS_WITH_RICH_SITEMAP\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse NON_SERVING_STATUSES out of the middleware source. This is
@@ -271,7 +290,7 @@ export function parseRichSitemapSet(middlewareSource) {
 // middleware still serves it live — see Drift R below.
 export function parseNonServingStatuses(middlewareSource) {
   const block = middlewareSource.match(/NON_SERVING_STATUSES\s*=\s*new Set\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse MAIN_HOSTS out of the middleware source. This is the reserved set
@@ -284,7 +303,7 @@ export function parseNonServingStatuses(middlewareSource) {
 // outside every DB source this gate otherwise reconciles — see Drift S below.
 export function parseMainHostsSet(middlewareSource) {
   const block = middlewareSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse the MAIN_HOSTS out of src/app/robots.ts. Unlike every other list
@@ -296,7 +315,7 @@ export function parseMainHostsSet(middlewareSource) {
 // See Drift Z below for what happens when the copy falls behind.
 export function parseRobotsMainHostsSet(robotsSource) {
   const block = robotsSource.match(/MAIN_HOSTS\s*=\s*new Set(?:<string>)?\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse KILLED_ROUTES out of the middleware source. Routes killed during
@@ -306,7 +325,7 @@ export function parseRobotsMainHostsSet(robotsSource) {
 // copy of it.
 export function parseKilledRoutes(middlewareSource) {
   const block = middlewareSource.match(/KILLED_ROUTES\s*=\s*\[([\s\S]*?)\]/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse src/app/robots.ts's own hardcoded copy of KILLED_ROUTES out of its
@@ -317,7 +336,7 @@ export function parseKilledRoutes(middlewareSource) {
 // enforcing it stays in sync. See Drift AA below.
 export function parseRobotsKilledRoutes(robotsSource) {
   const block = robotsSource.match(/if\s*\(isMainHost\)\s*\{([\s\S]*?)\n\s*\}/)
-  return new Set(block ? [...block[1].matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/disallow\.push\(\s*['"]([^'"]+)['"]\s*\)/g)].map((m) => m[1]) : [])
 }
 
 // --- given KILLED_ROUTES and a map of route -> [relative page/route.ts file
@@ -360,7 +379,7 @@ export function findShadowedKilledRoutePages(killedRoutes, appFilesByRoute, redi
 // collision — see Drift T below.
 export function parseRootSiteTenantsSet(middlewareSource) {
   const block = middlewareSource.match(/ROOT_SITE_TENANTS\s*=\s*new Set<string>\(\[([\s\S]*?)\]\)/)
-  return new Set(block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
+  return new Set(block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : [])
 }
 
 // --- parse STATIC_TENANT_MAP out of the middleware source. This is a
@@ -378,8 +397,9 @@ export function parseStaticTenantMap(middlewareSource) {
   const map = new Map()
   if (!block) return map
   const entryRe = /['"]([^'"]+)['"]\s*:\s*\{\s*id:\s*['"]([^'"]+)['"]\s*,\s*slug:\s*['"]([^'"]+)['"]\s*\}/g
+  const cleaned = stripComments(block[1])
   let m
-  while ((m = entryRe.exec(block[1]))) map.set(m[1], { id: m[2], slug: m[3] })
+  while ((m = entryRe.exec(cleaned))) map.set(m[1], { id: m[2], slug: m[3] })
   return map
 }
 
@@ -398,8 +418,9 @@ export function parseNextConfigSiteRewriteSources(nextConfigSource) {
   if (!block) return []
   const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
   const out = []
+  const cleaned = stripComments(block[1])
   let m
-  while ((m = entryRe.exec(block[1]))) {
+  while ((m = entryRe.exec(cleaned))) {
     const source = m[1]
     // Bare, static "/site/<one-segment>" only — no ":param" (dynamic, matches
     // any tenant-slug-prefixed path too) and no extra "/" beyond the one
@@ -422,8 +443,9 @@ export function parseAllNextConfigSiteRewriteSources(nextConfigSource) {
   if (!block) return []
   const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
   const out = []
+  const cleaned = stripComments(block[1])
   let m
-  while ((m = entryRe.exec(block[1]))) {
+  while ((m = entryRe.exec(cleaned))) {
     const source = m[1]
     if (source.startsWith('/site/')) out.push({ source, destination: m[2] })
   }
@@ -440,8 +462,9 @@ export function parseNextConfigRedirects(nextConfigSource) {
   if (!block) return []
   const entryRe = /\{\s*source:\s*['"]([^'"]+)['"]\s*,\s*destination:\s*['"]([^'"]+)['"]/g
   const out = []
+  const cleaned = stripComments(block[1])
   let m
-  while ((m = entryRe.exec(block[1]))) out.push({ source: m[1], destination: m[2] })
+  while ((m = entryRe.exec(cleaned))) out.push({ source: m[1], destination: m[2] })
   return out
 }
 
@@ -452,7 +475,7 @@ export function parseNextConfigRedirects(nextConfigSource) {
 // Feeds Drift X ONLY, as the "safe" destination-prefix allowlist.
 export function parseAppRootPrefixes(middlewareSource) {
   const block = middlewareSource.match(/APP_ROOT_PREFIXES\s*=\s*\[([\s\S]*?)\]/)
-  return block ? [...block[1].matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
+  return block ? [...stripComments(block[1]).matchAll(/['"]([^'"]+)['"]/g)].map((m) => m[1]) : []
 }
 
 // KNOWN-PENDING allowlist for Drift L only. These bespoke-set entries are
