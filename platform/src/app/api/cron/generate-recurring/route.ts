@@ -13,6 +13,22 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
+  // Health-monitor marker — proves the weekly cron ran. Written
+  // unconditionally, before the zero-active-schedules early return below: 3
+  // separate consumers (admin/monitoring/status, cron/health-monitor,
+  // jefe/health.ts) alert if this goes silent for 8 days. It used to be
+  // written only after the loop over `schedules`, so a legitimate
+  // zero-active-recurring-schedules state (platform-wide) skipped it via the
+  // early return and starved the marker forever -- same bug class + fix
+  // shape as email-monitor's tick (92e3192d).
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+    type: 'recurring_generated',
+    title: 'cron:generate-recurring',
+    message: 'tick',
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   // NYC Maid parity: auto-resume paused schedules whose pause window elapsed
   // (tenant-scoped). Safe no-op if the column/rows don't exist.
   // paused_until is an ET calendar date (see pause/route.ts's own
@@ -326,15 +342,6 @@ export async function GET(request: Request) {
       }
     }
   }
-
-  // Health-monitor marker.
-  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
-    type: 'recurring_generated',
-    title: 'cron:generate-recurring',
-    message: `generated=${totalGenerated}`,
-    channel: 'system',
-    recipient_type: 'admin',
-  }).then(() => {}, () => {})
 
   return NextResponse.json({ generated: totalGenerated })
 }

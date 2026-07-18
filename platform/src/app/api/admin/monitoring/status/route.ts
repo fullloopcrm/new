@@ -18,7 +18,7 @@ interface CronStatus {
 const CRON_CHECKS: CronStatus[] = [
   { name: 'email-monitor',      desc: 'Every-minute IMAP email poller',  source: 'notifications', match: { type: 'email_monitor_tick' }, maxSilenceMin: 60 },
   { name: 'payment-reminder',   desc: '30-min payment heads-up',         source: 'notifications', match: { type: 'payment_reminder_fired' }, maxSilenceMin: 24 * 60 },
-  { name: 'late-check-in',      desc: 'Late check-in alerts',            source: 'notifications', match: { type: 'late_check_in' }, maxSilenceMin: 7 * 24 * 60 },
+  { name: 'late-check-in',      desc: 'Late check-in alerts',            source: 'notifications', match: { type: 'late_check_in_tick' }, maxSilenceMin: 7 * 24 * 60 },
   { name: 'generate-recurring', desc: 'Recurring booking generator',     source: 'notifications', match: { type: 'recurring_generated' }, maxSilenceMin: 8 * 24 * 60 },
   { name: 'daily-summary',      desc: 'Cleaner 3-day summary',           source: 'notifications', match: { type: 'daily_summary_sent' }, maxSilenceMin: 28 * 60 },
   { name: 'recurring-expenses', desc: 'Daily recurring-expense poster',  source: 'notifications', match: { type: 'recurring_expense_posted' }, maxSilenceMin: 48 * 60 },

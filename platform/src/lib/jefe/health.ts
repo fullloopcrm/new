@@ -117,7 +117,7 @@ interface CronCheck {
 const CRON_CHECKS: CronCheck[] = [
   { cron: 'email-monitor', source: 'notifications', match: { type: 'email_monitor_tick' }, maxSilenceMin: 60 },
   { cron: 'payment-reminder', source: 'notifications', match: { type: 'payment_reminder_fired' }, maxSilenceMin: 24 * 60 },
-  { cron: 'late-check-in', source: 'notifications', match: { type: 'late_check_in' }, maxSilenceMin: 7 * 24 * 60 },
+  { cron: 'late-check-in', source: 'notifications', match: { type: 'late_check_in_tick' }, maxSilenceMin: 7 * 24 * 60 },
   { cron: 'generate-recurring', source: 'notifications', match: { type: 'recurring_generated' }, maxSilenceMin: 8 * 24 * 60 },
   { cron: 'daily-summary', source: 'notifications', match: { type: 'daily_summary_sent' }, maxSilenceMin: 28 * 60 },
   { cron: 'recurring-expenses', source: 'notifications', match: { type: 'recurring_expense_posted' }, maxSilenceMin: 48 * 60 },

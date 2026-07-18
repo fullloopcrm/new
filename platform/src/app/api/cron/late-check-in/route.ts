@@ -20,6 +20,26 @@ export async function GET(request: Request) {
   const cronAuthError = verifyCronSecret(request)
   if (cronAuthError) return cronAuthError
 
+  // Health-monitor marker — proves this cron ran, independent of whether it
+  // found any late booking. 3 consumers (admin/monitoring/status,
+  // cron/health-monitor, jefe/health.ts) used to key this cron's liveness off
+  // the real per-event 'late_check_in' notification type -- but that type
+  // only gets written when an actual late check-in/check-out is detected.
+  // Zero late events platform-wide for 7 days is a legitimate (good!)
+  // operational state, not proof the cron is down, yet it would falsely and
+  // permanently flag this cron as dead and re-alert every 6h forever. A
+  // dedicated tick type (never reused for the real event, unlike reusing
+  // 'late_check_in' would have been) keeps the two meanings separate. Same
+  // bug class + fix shape as email-monitor's tick (92e3192d) and
+  // generate-recurring's marker (this session).
+  await supabaseAdmin.from('notifications').insert({  // tenant-scope-ok: cron job runs platform-wide across all tenants by design
+    type: 'late_check_in_tick',
+    title: 'cron:late-check-in',
+    message: 'tick',
+    channel: 'system',
+    recipient_type: 'admin',
+  }).then(() => {}, () => {})
+
   const now = new Date()
   // fifteen_min_alert_time is genuinely UTC (written via
   // `new Date().toISOString()`) -- thirtyMinAgo stays a true-UTC cutoff for
