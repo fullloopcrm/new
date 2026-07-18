@@ -6,6 +6,7 @@ import { notify } from '@/lib/nycmaid/notify'
 import { scoreConversation, selfReviewConversation } from '@/lib/nycmaid/conversation-scorer'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -25,6 +26,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Tenant context required' }, { status: 400 })
     }
     const reqTenantId = headerTenantId
+
+    // Same class of gap as chat/route.ts: every message here triggers a real,
+    // billed Anthropic API call (askSelena below) against nycmaid's own key —
+    // an unauthenticated flood burns real LLM spend with no volume gate at
+    // all. Same 20/10min bound and tenant+ip key convention as chat/route.ts.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`yinez-chat:${reqTenantId}:${ip}`, 20, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many messages. Please wait a few minutes.' }, { status: 429 })
+    }
 
     let conversationId = sessionId
 

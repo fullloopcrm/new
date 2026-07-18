@@ -6,6 +6,7 @@ import { tenantDb } from '@/lib/tenant-db'
 import { notify } from '@/lib/notify'
 import { verifyTenantHeaderSig } from '@/lib/tenant-header-sig'
 import { insertConversationMessage } from '@/lib/sms-messages'
+import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
@@ -32,6 +33,21 @@ export async function POST(req: NextRequest) {
     // Auto-scoping wrapper: select/insert on tenant-owned tables are forced to
     // this tenant, so tenant_id can't be forgotten or forged (P1 hardening).
     const db = tenantDb(tenantId)
+
+    // Every message here triggers a real, billed Anthropic API call
+    // (askSelena/askYinez below) against the tenant's OWN key when set
+    // (resolveAnthropic) — unlike the platform-level marketing forms already
+    // rate-limited this session, an unauthenticated flood here doesn't just
+    // spam DB rows/notifications, it burns the TENANT's own LLM spend with no
+    // volume gate at all. 20/10min is generous for a real multi-turn
+    // conversation (the SMS/web chat flow rarely exceeds a dozen turns) while
+    // still bounding a scripted flood. Keyed per tenant+ip, same convention
+    // as contact/client-book/reviews-upload.
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0]?.trim() || 'unknown'
+    const rl = await rateLimitDb(`chat:${tenantId}:${ip}`, 20, 10 * 60 * 1000)
+    if (!rl.allowed) {
+      return NextResponse.json({ error: 'Too many messages. Please wait a few minutes.' }, { status: 429 })
+    }
 
     let conversationId = sessionId
 
