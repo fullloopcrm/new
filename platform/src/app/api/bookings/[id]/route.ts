@@ -241,7 +241,7 @@ export async function PUT(
       : baseUpdate
 
     const { data, error } = await updateQuery
-      .select('*, clients(name, phone, address, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
+      .select('*, clients(name, phone, address, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone, sms_consent)')
       .maybeSingle()
 
     if (error) {
@@ -278,10 +278,11 @@ export async function PUT(
             metadata: { clientName: data.clients?.name, serviceName: data.service_type },
           })
         }
-        // Gated on sms_consent — this path called sendSMS() directly instead
-        // of going through notify-team.ts/payment-processor.ts's consent
-        // gate, so a client who'd replied STOP still got these texts.
-        if (data.clients?.phone && data.clients.sms_consent !== false && hasSMS) {
+        // Gated on sms_consent + do_not_service — this path called sendSMS()
+        // directly instead of going through notify-team.ts/payment-
+        // processor.ts's consent gate, so a client who'd replied STOP (or
+        // been flagged do_not_service) still got these texts.
+        if (data.clients?.phone && data.clients.sms_consent !== false && !data.clients.do_not_service && hasSMS) {
           sendSMS({
             to: data.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).bookingConfirmation({ start_time: data.start_time, team_members: data.team_members }),
@@ -302,7 +303,7 @@ export async function PUT(
       }
 
       // Rescheduled
-      if (timeChanged && data.clients?.phone && data.clients.sms_consent !== false && hasSMS) {
+      if (timeChanged && data.clients?.phone && data.clients.sms_consent !== false && !data.clients.do_not_service && hasSMS) {
         sendSMS({
           to: data.clients.phone,
           body: (await clientSmsTemplatesFor(tenant.tenantId)).reschedule({ start_time: data.start_time }),
@@ -344,7 +345,7 @@ export async function DELETE(
     // Get booking details before deleting for notifications
     const { data: booking } = await supabaseAdmin
       .from('bookings')
-      .select('*, clients(name, phone, email, sms_consent), team_members!bookings_team_member_id_fkey(name, phone)')
+      .select('*, clients(name, phone, email, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name, phone)')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .single()
@@ -386,9 +387,9 @@ export async function DELETE(
           })
         }
 
-        // Client cancellation SMS — gated on sms_consent, same reasoning as
-        // the confirm/assign/reschedule sends above.
-        if (booking.clients?.phone && booking.clients.sms_consent !== false && hasSMS) {
+        // Client cancellation SMS — gated on sms_consent + do_not_service,
+        // same reasoning as the confirm/assign/reschedule sends above.
+        if (booking.clients?.phone && booking.clients.sms_consent !== false && !booking.clients.do_not_service && hasSMS) {
           sendSMS({
             to: booking.clients.phone,
             body: (await clientSmsTemplatesFor(tenant.tenantId)).cancellation({ start_time: booking.start_time }),

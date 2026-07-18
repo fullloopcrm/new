@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     const { data: booking } = await tenantDb(auth.tid)
       .from('bookings')
-      .select('id, tenant_id, start_time, team_member_id, client_id, running_late_at, clients(name, phone, sms_consent), team_members!bookings_team_member_id_fkey(name)')
+      .select('id, tenant_id, start_time, team_member_id, client_id, running_late_at, clients(name, phone, sms_consent, do_not_service), team_members!bookings_team_member_id_fkey(name)')
       .eq('id', bookingId)
       .eq('team_member_id', auth.id)
       .single()
@@ -90,6 +90,7 @@ export async function POST(request: Request) {
     const clientName = (booking.clients as any)?.name || 'Client'
     const clientPhone = (booking.clients as any)?.phone
     const clientSmsConsent = (booking.clients as any)?.sms_consent
+    const clientDoNotService = (booking.clients as any)?.do_not_service
     const time = new Date(booking.start_time).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' })
 
     // Notify admin
@@ -103,10 +104,11 @@ export async function POST(request: Request) {
 
     sendPushToTenantAdmins(tenantId, 'Running Late', `${memberName} — ${clientName} at ${time}`, '/dashboard/bookings').catch(() => {})
 
-    // SMS to client — gated on sms_consent, same as the other SMS send paths
-    // fixed this pass; the admin SMS above isn't (business's own number, not
-    // client-consent-gated anywhere else in this codebase).
-    if (clientPhone && clientSmsConsent !== false && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    // SMS to client — gated on sms_consent + do_not_service, same as the
+    // other SMS send paths fixed this pass; the admin SMS above isn't
+    // (business's own number, not client-consent-gated anywhere else in this
+    // codebase).
+    if (clientPhone && clientSmsConsent !== false && !clientDoNotService && tenant.telnyx_api_key && tenant.telnyx_phone) {
       sendSMS({ to: clientPhone, body: smsRunningLateClient(tenant.name, memberName, eta), telnyxApiKey: tenant.telnyx_api_key, telnyxPhone: tenant.telnyx_phone }).catch(() => {})
     }
     if (booking.client_id) {
