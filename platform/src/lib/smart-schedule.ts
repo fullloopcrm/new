@@ -40,6 +40,8 @@ export interface TeamMemberScore {
   is_preferred: boolean // client's preferred team member — strongest signal
   day_jobs: { time: string; client: string; address: string }[]
   reason: string
+  avg_rating?: number
+  rating_count?: number
 }
 
 type ClientFK = { name?: string | null; address?: string | null; latitude?: number | string | null; longitude?: number | string | null } | null
@@ -108,7 +110,7 @@ export async function scoreTeamForBooking(opts: {
   // Active team members for this tenant. Schema uses `status`, not `active` boolean.
   const { data: allMembers } = await supabaseAdmin
     .from('team_members')
-    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status')
+    .select('id, name, address, home_latitude, home_longitude, home_by_time, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, labor_only, status, avg_rating, rating_count')
     .eq('tenant_id', tenantId)
     .neq('status', 'inactive')
 
@@ -283,6 +285,16 @@ export async function scoreTeamForBooking(opts: {
     const isLaborOnly = Boolean((member as { labor_only?: boolean | null }).labor_only)
     if (!bookingIsLaborOnly && isLaborOnly) score -= 100
 
+    // 0c. Rating track record — +/-10 per star away from a neutral 3, scaled
+    // down until the member has a few ratings so one 1-star review doesn't
+    // sink someone on their second job. No ratings yet = no bonus, no penalty.
+    const avgRating = member.avg_rating != null ? Number(member.avg_rating) : undefined
+    const ratingCount = Number(member.rating_count) || 0
+    if (avgRating != null && ratingCount > 0) {
+      const confidence = Math.min(ratingCount, 5) / 5
+      score += (avgRating - 3) * 10 * confidence
+    }
+
     // 1. Distance to member's home (proximity baseline)
     let distMiles: number | undefined
     if (jobCoords) {
@@ -403,6 +415,7 @@ export async function scoreTeamForBooking(opts: {
     else if (zoneMatch && clusterBonus >= 20) reason = 'Zone match + near other jobs'
     else if (zoneMatch) reason = 'Zone match'
     else if (clusterBonus >= 20) reason = 'Near other jobs'
+    else if (avgRating != null && ratingCount > 0 && avgRating >= 4.5) reason = `Highly rated (${avgRating}★)`
     else if (distMiles && distMiles < 2) reason = 'Close to home'
     else if (canMakeHome) reason = 'Available'
     if (!canMakeHome) reason = `Won't make home by ${homeBy}`
@@ -426,6 +439,8 @@ export async function scoreTeamForBooking(opts: {
       is_preferred: isPreferred,
       day_jobs: dayJobs,
       reason,
+      avg_rating: avgRating,
+      rating_count: ratingCount || undefined,
     })
   }
 
@@ -470,6 +485,99 @@ export function pickBestTeam(scores: TeamMemberScore[], teamSize: number): {
     extras: team.slice(1),
     short: Math.max(0, want - team.length),
   }
+}
+
+// ── Preset crews ────────────────────────────────────────────────────────────
+
+export interface CrewScore {
+  id: string
+  name: string
+  color: string | null
+  member_count: number
+  available_count: number
+  fully_available: boolean // every crew member is available for this slot
+  score: number // average score of the crew's available members; -1 if none available
+  reason: string
+  members: Array<{ id: string; name: string; available: boolean; conflict?: string }>
+}
+
+/**
+ * Score a tenant's preset crews (crews + crew_members) against a candidate
+ * booking slot, reusing scoreTeamForBooking's per-member scoring so crew
+ * ranking never drifts from the single-tech matching rules (zone, ratings,
+ * distance, conflicts, etc).
+ *
+ * A crew's score is the average score of its currently-available members —
+ * `fully_available` flags whether the WHOLE crew is free for the slot, since
+ * a crew with one member out may still be workable but isn't a clean pick.
+ * Crews with zero available members sort last with score -1.
+ */
+export async function scoreCrewsForBooking(opts: {
+  tenantId: string
+  date: string
+  startTime: string
+  durationHours: number
+  clientAddress: string
+  clientId?: string
+  excludeBookingId?: string
+  hourlyRate?: number
+  jobCoords?: { lat: number; lng: number }
+}): Promise<CrewScore[]> {
+  const { tenantId } = opts
+
+  const { data: crews } = await supabaseAdmin
+    .from('crews')
+    .select('id, name, color, crew_members(team_member_id)')
+    .eq('tenant_id', tenantId)
+    .eq('active', true)
+  if (!crews || crews.length === 0) return []
+
+  const memberScores = await scoreTeamForBooking(opts)
+  const scoreById = new Map(memberScores.map((s) => [s.id, s]))
+
+  type CrewRow = { id: string; name: string; color: string | null; crew_members: Array<{ team_member_id: string }> | null }
+  const crewScores: CrewScore[] = (crews as CrewRow[]).map((crew) => {
+    const memberIds = (crew.crew_members || []).map((m) => m.team_member_id)
+    const members = memberIds.map((id) => {
+      const s = scoreById.get(id)
+      return { id, name: s?.name || '—', available: Boolean(s?.available), conflict: s?.conflict }
+    })
+    const available = members.filter((m) => m.available)
+    const availableScores = available
+      .map((m) => scoreById.get(m.id)?.score)
+      .filter((n): n is number => typeof n === 'number')
+    const avgScore = availableScores.length > 0
+      ? availableScores.reduce((a, b) => a + b, 0) / availableScores.length
+      : -1
+    const fullyAvailable = members.length > 0 && available.length === members.length
+
+    let reason = ''
+    if (members.length === 0) reason = 'No members assigned'
+    else if (fullyAvailable) reason = 'Whole crew available'
+    else if (available.length > 0) reason = `${available.length}/${members.length} available`
+    else reason = 'Not available'
+
+    return {
+      id: crew.id,
+      name: crew.name,
+      color: crew.color,
+      member_count: members.length,
+      available_count: available.length,
+      fully_available: fullyAvailable,
+      score: Math.round(avgScore * 10) / 10,
+      reason,
+      members,
+    }
+  })
+
+  crewScores.sort((a, b) => {
+    if (a.available_count > 0 && b.available_count === 0) return -1
+    if (a.available_count === 0 && b.available_count > 0) return 1
+    if (a.fully_available !== b.fully_available) return a.fully_available ? -1 : 1
+    return b.score - a.score
+  })
+
+  return crewScores
 }
 
 // ── Alternate-time suggestions ──────────────────────────────────────────────

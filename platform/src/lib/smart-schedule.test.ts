@@ -97,7 +97,7 @@ vi.mock('@/lib/geo', async (importOriginal) => {
   return { ...actual, geocodeAddress: vi.fn().mockResolvedValue(null) }
 })
 
-import { scoreTeamForBooking, pickBestTeam, suggestBookingSlots } from './smart-schedule'
+import { scoreTeamForBooking, pickBestTeam, suggestBookingSlots, scoreCrewsForBooking } from './smart-schedule'
 
 const A = 'tenant-A'
 const B = 'tenant-B'
@@ -121,8 +121,19 @@ function seedBooking(tenantId: string, fields: Record<string, unknown>) {
   })
 }
 
+// The in-memory fake ignores the `.select()` shape string, so a crew row is
+// seeded with its `crew_members` already embedded — mirrors the nested shape
+// scoreCrewsForBooking reads back from a real Supabase relational select.
+function seedCrew(tenantId: string, fields: { id: string; name: string; memberIds: string[]; active?: boolean }) {
+  ;(h.store.crews ||= []).push({
+    tenant_id: tenantId, active: fields.active ?? true, color: null,
+    id: fields.id, name: fields.name,
+    crew_members: fields.memberIds.map((id) => ({ team_member_id: id })),
+  })
+}
+
 beforeEach(() => {
-  h.store = { team_members: [], bookings: [], booking_team_members: [] }
+  h.store = { team_members: [], bookings: [], booking_team_members: [], crews: [] }
   eqCalls.length = 0
 })
 
@@ -323,5 +334,84 @@ describe('suggestBookingSlots', () => {
       tenantId: A, date: DATE, durationHours: 1, clientAddress: '123 Main St', limit: 5,
     })
     expect(suggestions.every((s) => s.cleanerId !== 'tm-b')).toBe(true)
+  })
+})
+
+describe('scoreTeamForBooking — rating signal', () => {
+  it('scores a highly-rated member above an unrated one, all else equal', async () => {
+    seedMember(A, { id: 'tm-high', avg_rating: 5, rating_count: 5 })
+    seedMember(A, { id: 'tm-unrated', avg_rating: null, rating_count: 0 })
+    const scores = await scoreTeamForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    const byId = Object.fromEntries(scores.map((s) => [s.id, s]))
+    expect(byId['tm-high'].score).toBeGreaterThan(byId['tm-unrated'].score)
+    expect(byId['tm-high'].avg_rating).toBe(5)
+    expect(byId['tm-unrated'].avg_rating).toBeUndefined()
+  })
+
+  it('scales the rating bonus down when rating_count is low, so one review does not dominate', async () => {
+    seedMember(A, { id: 'tm-one-review', avg_rating: 5, rating_count: 1 })
+    seedMember(A, { id: 'tm-proven', avg_rating: 5, rating_count: 5 })
+    const scores = await scoreTeamForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    const byId = Object.fromEntries(scores.map((s) => [s.id, s]))
+    expect(byId['tm-proven'].score).toBeGreaterThan(byId['tm-one-review'].score)
+  })
+
+  it('does not penalize or bonus a member with zero ratings', async () => {
+    seedMember(A, { id: 'tm-unrated', avg_rating: null, rating_count: 0 })
+    seedMember(A, { id: 'tm-baseline', avg_rating: null, rating_count: 0 })
+    const scores = await scoreTeamForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    expect(scores[0].score).toBe(scores[1].score)
+  })
+})
+
+describe('scoreCrewsForBooking', () => {
+  it('scopes crews by tenant_id — tenant B crews never appear in tenant A results', async () => {
+    seedMember(A, { id: 'tm-a' })
+    seedMember(B, { id: 'tm-b' })
+    seedCrew(A, { id: 'crew-a', name: 'A Crew', memberIds: ['tm-a'] })
+    seedCrew(B, { id: 'crew-b', name: 'B Crew', memberIds: ['tm-b'] })
+    const crews = await scoreCrewsForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    expect(crews.map((c) => c.id)).toEqual(['crew-a'])
+  })
+
+  it('ranks a fully-available crew above a partially-available one, which ranks above a fully-blocked one', async () => {
+    seedMember(A, { id: 'tm-1' })
+    seedMember(A, { id: 'tm-2' })
+    seedMember(A, { id: 'tm-3', working_days: ['Tue'] }) // off on the Monday DATE
+    seedMember(A, { id: 'tm-4', working_days: ['Tue'] })
+    seedCrew(A, { id: 'crew-full', name: 'Full Crew', memberIds: ['tm-1', 'tm-2'] })
+    seedCrew(A, { id: 'crew-partial', name: 'Partial Crew', memberIds: ['tm-1', 'tm-3'] })
+    seedCrew(A, { id: 'crew-blocked', name: 'Blocked Crew', memberIds: ['tm-4'] })
+    const crews = await scoreCrewsForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    expect(crews.map((c) => c.id)).toEqual(['crew-full', 'crew-partial', 'crew-blocked'])
+    expect(crews[0].fully_available).toBe(true)
+    expect(crews[1].fully_available).toBe(false)
+    expect(crews[1].available_count).toBe(1)
+    expect(crews[2].available_count).toBe(0)
+    expect(crews[2].score).toBe(-1)
+  })
+
+  it('returns an empty array when the tenant has no crews', async () => {
+    seedMember(A, { id: 'tm-1' })
+    const crews = await scoreCrewsForBooking({
+      tenantId: A, date: DATE, startTime: '10:00', durationHours: 2,
+      clientAddress: '123 Main St', jobCoords: { lat: 40.7128, lng: -74.006 },
+    })
+    expect(crews).toEqual([])
   })
 })

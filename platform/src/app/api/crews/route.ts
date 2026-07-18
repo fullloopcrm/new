@@ -6,8 +6,12 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { scoreCrewsForBooking } from '@/lib/smart-schedule'
 
-export async function GET() {
+// When date/start_time/duration_hours/address are all present, crews are
+// ranked by scoreCrewsForBooking (member availability + zone + rating fit)
+// instead of alphabetically, so the scheduler sees the best-fit crew first.
+export async function GET(request: Request) {
   try {
     const { tenant, error: authError } = await requirePermission('schedules.view')
     if (authError) return authError
@@ -26,6 +30,47 @@ export async function GET() {
         return { id: m.team_member_id, name: tm?.name || '—' }
       }),
     }))
+
+    const url = new URL(request.url)
+    const date = url.searchParams.get('date')
+    const startTime = url.searchParams.get('start_time')
+    const durationHours = url.searchParams.get('duration_hours')
+    const address = url.searchParams.get('address')
+    if (date && startTime && durationHours && address) {
+      const ranked = await scoreCrewsForBooking({
+        tenantId,
+        date,
+        startTime,
+        durationHours: Number(durationHours) || 1,
+        clientAddress: address,
+        clientId: url.searchParams.get('client_id') || undefined,
+      })
+      const rankById = new Map(ranked.map((r) => [r.id, r]))
+      const withRecommendation = shaped
+        .filter((c) => c.active)
+        .map((c) => {
+          const r = rankById.get(c.id)
+          return {
+            ...c,
+            member_count: c.members.length,
+            recommended_score: r?.score ?? null,
+            available_count: r?.available_count ?? null,
+            fully_available: r?.fully_available ?? null,
+            recommendation_reason: r?.reason ?? null,
+          }
+        })
+        .sort((a, b) => {
+          const ra = rankById.get(a.id)
+          const rb = rankById.get(b.id)
+          if (!ra || !rb) return 0
+          if (ra.available_count > 0 && rb.available_count === 0) return -1
+          if (ra.available_count === 0 && rb.available_count > 0) return 1
+          if (ra.fully_available !== rb.fully_available) return ra.fully_available ? -1 : 1
+          return rb.score - ra.score
+        })
+      return NextResponse.json({ crews: withRecommendation })
+    }
+
     return NextResponse.json({ crews: shaped })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
