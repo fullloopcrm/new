@@ -69,6 +69,58 @@ export async function getPrimaryTenantDomain(tenantId: string): Promise<string |
   return rows.find(d => d.is_primary)?.domain || rows[0]?.domain || null
 }
 
+// Write-side half of the single-primary invariant: demote every OTHER active
+// is_primary row for a tenant and ensure `intendedPrimaryDomain` is flagged
+// primary. Same demote-then-set pattern already inlined in admin/websites
+// POST for its own insert — exported here so a SECOND, independent
+// tenant_domains write site (activate-tenant.ts's upsert) can share it
+// instead of silently missing the invariant.
+//
+// activate-tenant.ts's own writer needs this because its upsert uses
+// `ignoreDuplicates: true` and is explicitly documented as "safe to hit
+// repeatedly" — re-running activation after the tenant's custom domain
+// changes (typo fix, or simply adding a real custom domain after their first
+// activation ran on the free subdomain) inserts a NEW row flagged primary
+// but can never flip is_primary on a domain row that already existed from a
+// prior run, since ignoreDuplicates skips touching existing rows entirely.
+// Without this reconcile step, both the old and new domain stay flagged
+// primary and getPrimaryTenantDomain()'s oldest-wins tiebreak keeps
+// resolving to the STALE domain forever — silently undoing the point of the
+// new one across tenantSiteUrl(), invoice/quote/document send links, SMS
+// branding, and the SELENA agent's brand override.
+export async function reconcilePrimaryDomain(tenantId: string, intendedPrimaryDomain: string): Promise<void> {
+  const { error: demoteError } = await supabaseAdmin
+    .from('tenant_domains')
+    .update({ is_primary: false })
+    .eq('tenant_id', tenantId)
+    .eq('is_primary', true)
+    .neq('domain', intendedPrimaryDomain)
+
+  if (demoteError) {
+    console.error(
+      `PRIMARY_DOMAIN_RECONCILE_DEMOTE_ERROR tenant_id=${tenantId} domain=${intendedPrimaryDomain} error=${demoteError.message}`,
+    )
+    throw new Error(
+      `PRIMARY_DOMAIN_RECONCILE_DEMOTE_ERROR tenant_id=${tenantId} domain=${intendedPrimaryDomain} error=${demoteError.message}`,
+    )
+  }
+
+  const { error: setError } = await supabaseAdmin
+    .from('tenant_domains')
+    .update({ is_primary: true })
+    .eq('tenant_id', tenantId)
+    .eq('domain', intendedPrimaryDomain)
+
+  if (setError) {
+    console.error(
+      `PRIMARY_DOMAIN_RECONCILE_SET_ERROR tenant_id=${tenantId} domain=${intendedPrimaryDomain} error=${setError.message}`,
+    )
+    throw new Error(
+      `PRIMARY_DOMAIN_RECONCILE_SET_ERROR tenant_id=${tenantId} domain=${intendedPrimaryDomain} error=${setError.message}`,
+    )
+  }
+}
+
 // Get domains for a specific neighborhood
 export async function getDomainsForNeighborhood(tenantId: string, neighborhood: string): Promise<string[]> {
   const { data, error } = await supabaseAdmin

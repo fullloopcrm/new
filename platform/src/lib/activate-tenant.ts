@@ -21,6 +21,7 @@ import { runOnboardingGate, type GateResult } from './onboarding-gate'
 import { clearSettingsCache } from './settings'
 import { registerCarryingDomain, registerCustomDomain, type CustomDomainResult } from './vercel-domains'
 import { registerSeoProperty } from './seo/onboarding'
+import { reconcilePrimaryDomain } from './domains'
 import { resolveCoverage } from './geo/coverage'
 import { hashAdminPin } from './admin-pin'
 import crypto from 'crypto'
@@ -391,6 +392,23 @@ export async function activateTenant(tenantId: string): Promise<ActivationResult
         .in('domain', rows.map(r => r.domain))
       landedDomains = (landed || []).filter(r => r.tenant_id === tenantId).map(r => r.domain)
       contestedDomains = (landed || []).filter(r => r.tenant_id !== tenantId).map(r => r.domain)
+
+      // Reconcile is_primary. ignoreDuplicates above means the upsert can
+      // never flip is_primary on a row that already existed from a prior
+      // activation run (re-running after tenant.domain changed, or after the
+      // tenant added a real custom domain post-launch — this step is
+      // documented above as safe to hit repeatedly) — that stale row's
+      // is_primary is left untouched, so it can coexist with the new
+      // intended-primary row. Best-effort: never blocks activation, same as
+      // the rest of this step.
+      const intendedPrimary = customHost || carryHost
+      if (landedDomains.includes(intendedPrimary)) {
+        try {
+          await reconcilePrimaryDomain(tenantId, intendedPrimary)
+        } catch (e) {
+          console.error(`[activate] primary domain reconcile failed tenant=${tenantId}`, e)
+        }
+      }
     }
 
     steps.push({
