@@ -234,6 +234,39 @@ describe('assign_cleaner_to_booking — FK tenant-ownership', () => {
   })
 })
 
+// ── update_booking (generic field-whitelist path — W4) ──────────────────────
+// Same FK class as assign_cleaner_to_booking, but reached through the
+// generic fields-whitelist updater instead of the dedicated assign action.
+// cleaner_id is in the allowed-fields list and was written verbatim with no
+// ownership check, unlike its sibling above — an owner could point their own
+// booking's cleaner_id at another tenant's cleaner row, which then leaks that
+// cleaner's name/phone/sms_consent to the CLIENT via the embedded
+// `cleaners(...)` join in core.ts's client-facing booking lookups.
+
+describe('update_booking — FK tenant-ownership (cleaner_id field)', () => {
+  it("REJECTS a cleaner_id from another tenant in the fields object (no booking update)", async () => {
+    const out = await runTool('update_booking', { booking_id: OWN_BOOKING, fields: { cleaner_id: FOREIGN_CLEANER } }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
+    expect(JSON.parse(out).error).toBe('cleaner not found')
+    expect(updateCalls).toHaveLength(0)
+  })
+
+  it('ALLOWS an own-tenant cleaner_id (booking updated, tenant-scoped)', async () => {
+    const out = await runTool('update_booking', { booking_id: OWN_BOOKING, fields: { cleaner_id: OWN_CLEANER } }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
+    expect(JSON.parse(out).ok).toBe(true)
+    expect(updateCalls).toHaveLength(1)
+    expect(updateCalls[0].eqs.id).toBe(OWN_BOOKING)
+    expect(updateCalls[0].eqs.tenant_id).toBe(TENANT_A)
+    expect(updateCalls[0].values.cleaner_id).toBe(OWN_CLEANER)
+  })
+
+  it('ALLOWS a fields update with no cleaner_id at all (FK guard skipped, other fields still apply)', async () => {
+    const out = await runTool('update_booking', { booking_id: OWN_BOOKING, fields: { status: 'cancelled' } }, 'convo', OWNER_PHONE, agentResult(), TENANT_A)
+    expect(JSON.parse(out).ok).toBe(true)
+    expect(updateCalls).toHaveLength(1)
+    expect(updateCalls[0].values.status).toBe('cancelled')
+  })
+})
+
 // ── score_cleaners (client-callable: bypasses the owner gate) ─────────────────
 
 describe('score_cleaners — FK tenant-ownership', () => {

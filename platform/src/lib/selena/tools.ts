@@ -1070,6 +1070,16 @@ async function handleUpdateBooking(input: { booking_id: string; fields: Record<s
     if (allowed.includes(k)) update[k] = v
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields to update' })
+  // cleaner_id is a cross-tenant FK written verbatim (same class as
+  // handleAssignCleaner/handleCreateManualBooking above) — reject a cleaner id
+  // that doesn't belong to the caller's tenant before the update runs. Without
+  // this, an owner could point their own booking's cleaner_id at another
+  // tenant's cleaner row, and that cleaner's name/phone/sms_consent then leak
+  // to the client via the embedded `cleaners(...)` join in core.ts's
+  // client-facing booking lookups.
+  if (typeof update.cleaner_id === 'string' && update.cleaner_id && !(await idInTenant('cleaners', update.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
   const { error } = await supabaseAdmin.from('bookings').update(update).eq('id', input.booking_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, booking_id: input.booking_id, updated_fields: Object.keys(update) })
