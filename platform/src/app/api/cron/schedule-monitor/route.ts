@@ -267,24 +267,50 @@ export async function GET(request: Request) {
         const { data: openIssues } = await supabaseAdmin.from('schedule_issues').select('id, message, date').eq('tenant_id', tenantId).in('status', ['open', 'acknowledged'])
         const staleIds = (openIssues || []).filter((i) => (i.date && i.date < todayStr) || !validMessages.has(i.message)).map((i) => i.id)
         if (staleIds.length) {
-          await supabaseAdmin.from('schedule_issues').update({ status: 'resolved', resolved_at: nowT.toISOString(), resolved_by: 'auto', resolution_note: 'Auto-resolved: no longer applies' }).in('id', staleIds).then(() => {}, () => {})
+          // Re-check status still open/acknowledged AT WRITE TIME, not just at
+          // the SELECT above -- PUT /api/admin/schedule-issues lets an admin
+          // change a row's status (e.g. explicitly 'dismissed', a deliberate
+          // "not a real issue" call distinct from an auto-resolve) at any
+          // moment. Without this re-check in the UPDATE's own WHERE, a
+          // dismissal landing in the gap between this SELECT and this UPDATE
+          // got silently clobbered back to 'resolved'/resolved_by:'auto',
+          // erasing the admin's explicit call with no error or signal. Same
+          // compare-and-swap discipline as this session's cron/lifecycle and
+          // cron/generate-recurring overwrite-race fixes.
+          await supabaseAdmin.from('schedule_issues').update({ status: 'resolved', resolved_at: nowT.toISOString(), resolved_by: 'auto', resolution_note: 'Auto-resolved: no longer applies' }).in('id', staleIds).in('status', ['open', 'acknowledged']).then(() => {}, () => {})
         }
       }
 
-      // Dedup + write
+      // Dedup + write. The pre-check above (existingMessages) only catches
+      // the sequential case; idx_schedule_issues_tenant_message_open_unique
+      // (migration 2026_07_17_schedule_issues_open_dedup_unique) is the
+      // DB-level guard for a concurrent/overlapping invocation of this same
+      // cron (maxDuration=300 looping every tenant is exactly the shape
+      // Vercel retries on timeout) racing this tenant and both passing the
+      // same empty existingMessages read before either insert lands. Treat a
+      // duplicate-key hit as an idempotent no-op -- lost the race, not a
+      // real failure -- same pattern as cron/comhub-email's 23505 handling.
       const { data: existing } = await supabaseAdmin.from('schedule_issues').select('message').eq('tenant_id', tenantId).in('status', ['open', 'acknowledged'])
       const existingMessages = new Set((existing || []).map(i => i.message))
       const newIssues = issues.filter(i => !existingMessages.has(i.message))
 
+      let insertedForTenant = 0
       for (const issue of newIssues) {
-        await supabaseAdmin.from('schedule_issues').insert({
+        const { error: insertErr } = await supabaseAdmin.from('schedule_issues').insert({
           tenant_id: tenantId, type: issue.type, severity: issue.severity, message: issue.message,
           booking_id: issue.booking_ids[0] || null, booking_ids: issue.booking_ids,
           team_member_id: issue.team_member_id || null, client_id: issue.client_id || null,
           date: issue.date || null, status: 'open',
         })
+        if (insertErr) {
+          if (insertErr.code !== '23505') {
+            console.error(`[schedule-monitor] insert failed for tenant=${tenantId}:`, insertErr.message)
+          }
+          continue // duplicate-key = lost the race to a concurrent/overlapping invocation
+        }
+        insertedForTenant++
       }
-      totalIssues += newIssues.length
+      totalIssues += insertedForTenant
     } catch (err) {
       console.error(`Schedule monitor error for ${tenant.name}:`, err)
     }
