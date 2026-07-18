@@ -13993,3 +13993,87 @@ live reconcile run against Supabase attempted. This IS this lane's own
 `scripts/audit-tenant-scope.mjs` + `ci.yml`-wired gate, unlike (259)-(261)
 which had to broaden outward to adjacent app surfaces; two lib/test-file
 fixes only, no push/deploy/DB write.
+
+## (263) LEADER's 11:59 queue item (1) -- new fresh-ground surface on this
+lane's own blocking gate, `scripts/audit-tenant-scope.mjs`, not yet swept
+this session: its `tenantDb(...)`-variable recognition tracks var NAMES
+file-globally, with no notion of which declaration is actually in scope at
+a given call site.
+
+`tenantDbVars` is built once per file by scanning every line for
+`const/let NAME = tenantDb(...)` and collecting NAME into a Set -- purely a
+"was this name EVER assigned from tenantDb(...) anywhere in the file"
+membership test. The gate's own tenantDbWrapped check then tests whether
+that name's TEXT appears on the `.from()` call's chain-root line (the fix
+item (194)'s neighbor already narrowed from "the whole 3-line lookbehind
+blob" down to just the chain-root line, precisely to stop an unrelated
+same-named var from laundering a leak -- see the comment above
+`tenantDbWrapped` and its own regression test, "does NOT let an unrelated
+variable named like a tenantDb var launder a real leak"). But that existing
+test only covers a DIFFERENT variable name (`sb`) in the leaky function --
+it never covers the SAME name re-declared for something else. An ordinary,
+unremarkable variable-name collision -- `db` bound to `tenantDb(tenantId)`
+in one handler, `db` reused for a plain `supabaseAdmin` alias in a
+different handler of the same route.ts (multiple exported handlers per
+file, e.g. GET/POST, is the norm across this codebase's `api/` tree) --
+lets the second declaration's genuinely unscoped query silently inherit
+the first declaration's "safe" status by name alone, because the Set only
+remembers the name, never which specific assignment is live at that point
+in the file.
+
+Verified live before fixing: built a throwaway fixture with `scoped()`
+declaring `const db = tenantDb(tenantId)` and querying `bookings`, and an
+unrelated `leaky()` declaring `const db = supabaseAdmin` and querying
+`clients` with no `tenant_id` filter and no id-lookup -- ran the real
+(unmodified) `scripts/audit-tenant-scope.mjs` against it directly (not the
+test harness) and got `✓ tenant-scope guard: no NEW unscoped queries`, exit
+0. The `clients` leak was invisible to the one gate whose entire job is
+catching exactly this.
+
+Checked for a live instance today: scanned every file under `src` that
+calls `tenantDb(` for a variable name assigned via `tenantDb(...)` in one
+place and reassigned to something else anywhere else in the same file --
+zero hits (every `const db = tenantDb(...)`-style binding in the current
+codebase is the only declaration of that name in its file). Landmine-only
+today, same disposition as items (233)-(235)/(238)-(239): a parser
+assumption an entirely ordinary future edit (a second handler added to an
+existing route.ts, reusing the conventional `db` name for a
+non-tenantDb-wrapped client) could silently violate without anyone
+touching this script itself -- and because this IS the blocking gate
+(`ci.yml`'s "Tenant-isolation guard" step), a landmine here means a real
+future leak merges GREEN instead of red.
+
+Fixed by replacing the flat NAME Set lookup with a per-name list of every
+declaration (`{line, isTenantDb}`), and resolving a chain-root reference to
+the NEAREST PRECEDING declaration of that name (ordinary variable
+shadowing/reassignment semantics) rather than "was this name ever
+tenantDb-bound anywhere in the file." `isTenantDbVarAt(name, line)` walks
+the tracked declarations and returns the `isTenantDb` flag of the latest
+one at or before the query's chain-root line. Re-verified the existing
+multi-line-wrap and cross-function-different-name tests still pass
+unchanged (the fix only tightens an over-broad true, it never narrows a
+case those tests already required to stay wrapped), and added a new
+regression test pinning the exact fixture above red-gating correctly
+post-fix.
+
+Checked queue item (2) ("continue whichever surface (1) opens up") for a
+sibling gate with the same file-global-name-tracking shape:
+`src/lib/idor-route-guard.ts` (the OTHER tenant-scope-adjacent static
+analyzer) has a superficially similar `SCOPED_ROOT_HINT` regex matching a
+literal `db`/`tdb`/`tenantDb` root name, but it is a single-chain text
+heuristic with no per-file declaration tracking to have this specific bug,
+and its own header explicitly disclaims it as a "PROTOTYPE... REPORTING
+prototype, not a blocking gate" (confirmed: absent from `ci.yml` entirely,
+unlike `audit-tenant-scope.mjs`) -- already correctly scoped as
+non-blocking, nothing to continue there.
+
+`npx tsc --noEmit --pretty false` zero errors. Full repo suite: 507/507
+files, 2592/2592 tests (1 new, 0 regressions). Live-ran the real (fixed)
+`node scripts/audit-tenant-scope.mjs` against the actual repo: still `✓ ...
+no NEW unscoped queries (0 known/baselined)` -- confirms the fix introduces
+no false positives against real code, only closes the false-negative gap.
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session (token-guard checked
+first, per standing instructions) -- no live reconcile run against
+Supabase attempted. Lib + test-file changes only
+(`scripts/audit-tenant-scope.mjs`, `src/lib/audit-tenant-scope-guard.test.ts`),
+this lane's own gate, no push/deploy/DB write.
