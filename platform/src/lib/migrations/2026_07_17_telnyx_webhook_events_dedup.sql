@@ -1,0 +1,51 @@
+-- 2026_07_17_telnyx_webhook_events_dedup.sql
+-- FILE ONLY -- do NOT execute here. Leader runs after Jeff approves.
+--
+-- WHY: neither /api/webhooks/telnyx (SMS) nor /api/webhooks/telnyx-voice
+-- (Programmable Voice) has any idempotency guard against Telnyx's own
+-- documented at-least-once delivery -- Telnyx retries a webhook delivery up
+-- to 3 times per URL when the endpoint doesn't respond 2xx quickly
+-- (confirmed via developers.telnyx.com/docs/messaging/messages/
+-- receiving-webhooks: meta.attempt on every delivery, retry-on-timeout/
+-- failure documented). Both routes do a long, fully sequential chain of
+-- awaited Supabase + outbound Telnyx-API calls per event (tenant/phone
+-- lookups, AI chatbot round-trips, ring-list dialing, sendSMS) with no
+-- run-lock and no dedup key -- a slow invocation that misses Telnyx's
+-- response window gets the ENTIRE event re-run on redelivery.
+--
+-- SMS route (message.received): a redelivery re-sends the STOP/START/
+-- rating/chatbot SMS reply to a real client -- the same "duplicate-send on
+-- redelivery" bug class this session has repeatedly found and fixed across
+-- every cron/*, never yet audited on an inbound webhook. The delivery-
+-- status branches (message.sent/delivered/failed) are plain idempotent
+-- UPDATEs and are intentionally NOT covered -- reprocessing those is
+-- harmless.
+--
+-- Voice route (call.initiated, most severe): a redelivery re-inserts a
+-- SECOND comhub_active_calls row for the same call_control_id and re-dials
+-- the admin ring list -- an admin's phone rings twice for one inbound call,
+-- and every downstream event handler in the file that does
+-- .eq('customer_call_id', callControlId).single() (call.answered,
+-- call.hangup, call.recording.saved, call.transcription) now has TWO
+-- matching rows and .single() throws, silently dropping the rest of that
+-- call's lifecycle (no bridge, no recording, no missed-call SMS). Voice
+-- events have real side effects on almost every branch (dial-out, SMS,
+-- DB writes), so the whole handler is claimed up front rather than
+-- scoping to one event type as the SMS route does.
+--
+-- Shared table (not two separate ones) -- both routes dedup on the same
+-- Telnyx event envelope shape (data.id, a unique event id distinct from
+-- data.payload.id which is the message/call id and is REUSED across a
+-- single message's or call's own multi-event lifecycle). Insert-first-
+-- claim, same pattern as 2026_07_17_unique_comhub_messages_external_id.sql
+-- / 2026_07_17_job_events_review_requested_unique.sql: route.ts in both
+-- files is updated in the same commit to INSERT this claim before any side
+-- effect and treat a 23505 as an idempotent no-op. Migration and JS fixes
+-- must land together -- the catch is inert until this table exists in prod.
+--
+-- No backfill needed -- brand-new table, nothing to dedupe retroactively.
+
+CREATE TABLE IF NOT EXISTS telnyx_webhook_events (
+  event_id text PRIMARY KEY,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

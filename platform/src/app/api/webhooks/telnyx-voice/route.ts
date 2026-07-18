@@ -410,6 +410,7 @@ export async function POST(req: NextRequest) {
   })() as {
     data?: {
       event_type?: string
+      id?: string
       payload?: {
         call_control_id?: string
         call_session_id?: string
@@ -429,6 +430,33 @@ export async function POST(req: NextRequest) {
       }
     }
   } | null
+
+  // Telnyx retries a webhook delivery up to 3x per URL when the endpoint
+  // doesn't respond 2xx quickly (documented at-least-once delivery). Nearly
+  // every branch below has a real side effect (dial-out to admins, insert a
+  // comhub_active_calls row, send an SMS) -- a redelivery of call.initiated
+  // in particular double-rings the admin ring list and creates a second
+  // comhub_active_calls row for the same call, which then breaks every
+  // downstream .eq('customer_call_id', ...).single() lookup for the rest of
+  // that call's lifecycle. Claim the Telnyx event id (data.id, NOT
+  // payload.call_control_id/call_session_id -- those persist across a
+  // single call's many distinct events and would wrongly self-collide)
+  // before any branch runs, covering the whole handler rather than one
+  // event type.
+  const eventId = payload?.data?.id
+  if (eventId) {
+    const { error: claimErr } = await supabaseAdmin
+      .from('telnyx_webhook_events')
+      .insert({ event_id: eventId })
+    if (claimErr) {
+      if (claimErr.code === '23505') {
+        return NextResponse.json({ ok: true, action: 'duplicate_delivery' })
+      }
+      console.error('[telnyx-voice webhook] event claim failed:', claimErr)
+      // Fall through and process anyway -- an infra hiccup on the dedup
+      // table must not silently drop a real call event.
+    }
+  }
 
   const event = payload?.data?.event_type || ''
   const p = payload?.data?.payload || {}

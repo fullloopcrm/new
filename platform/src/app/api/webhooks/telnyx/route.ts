@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     }
   }
 
-  let body: { data?: { event_type?: string; payload?: any } } // eslint-disable-line @typescript-eslint/no-explicit-any
+  let body: { data?: { event_type?: string; id?: string; payload?: any } } // eslint-disable-line @typescript-eslint/no-explicit-any
   try {
     body = JSON.parse(rawBody)
   } catch {
@@ -125,6 +125,30 @@ export async function POST(request: Request) {
   // INBOUND SMS
   // ============================================
   if (eventType === 'message.received') {
+    // Telnyx retries a webhook delivery up to 3x per URL when the endpoint
+    // doesn't respond 2xx quickly (documented at-least-once delivery). This
+    // branch is a long, fully sequential chain (tenant/phone lookups, an AI
+    // chatbot round-trip, then sendSMS) with no dedup key -- a redelivery
+    // would silently re-run the whole pipeline and could send a second
+    // STOP/START/rating/chatbot SMS reply to a real client. Claim the
+    // Telnyx event id (data.id, not payload.id -- the latter is the
+    // message id, reused across this same message's sent/delivered/failed
+    // lifecycle and would wrongly self-collide) before any side effect.
+    const inboundEventId = event.id
+    if (inboundEventId) {
+      const { error: claimErr } = await supabaseAdmin
+        .from('telnyx_webhook_events')
+        .insert({ event_id: inboundEventId })
+      if (claimErr) {
+        if (claimErr.code === '23505') {
+          return NextResponse.json({ received: true, action: 'duplicate_delivery' })
+        }
+        console.error('[telnyx webhook] inbound event claim failed:', claimErr)
+        // Fall through and process anyway -- an infra hiccup on the dedup
+        // table must not silently drop a real inbound message.
+      }
+    }
+
     const payload = event.payload
     const from = payload?.from?.phone_number
     const to = payload?.to?.[0]?.phone_number
