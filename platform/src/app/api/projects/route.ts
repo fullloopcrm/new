@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { getTenantForRequest, AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { capString } from '@/lib/validate'
 
 // Projects = long jobs (weeks-to-year). A project owns a span and one or more
 // booking touchpoints. This creates a project row plus a single span booking
@@ -33,11 +34,11 @@ export async function POST(request: Request) {
   try {
     const { tenantId } = tenant
     const body = await request.json().catch(() => ({}))
-    const title = typeof body.title === 'string' ? body.title.trim() : ''
+    const title = capString(body.title, 500) || ''
     const startDate = typeof body.start_date === 'string' ? body.start_date : ''
     const endDate = typeof body.end_date === 'string' ? body.end_date : ''
     const clientId = typeof body.client_id === 'string' && body.client_id ? body.client_id : null
-    const serviceType = typeof body.service_type === 'string' && body.service_type.trim() ? body.service_type.trim() : null
+    const serviceType = capString(body.service_type, 200)
 
     if (!title) return NextResponse.json({ error: 'Title is required' }, { status: 400 })
     if (!DATE_RE.test(startDate) || !DATE_RE.test(endDate)) return NextResponse.json({ error: 'start_date and end_date must be YYYY-MM-DD' }, { status: 400 })

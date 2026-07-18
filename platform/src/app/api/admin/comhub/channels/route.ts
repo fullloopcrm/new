@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { requireAdmin } from '@/lib/require-admin'
 import { getCurrentTenantId } from '@/lib/tenant'
+import { capString } from '@/lib/validate'
 
 // POST /api/admin/comhub/channels
 //   { slug, name?, description? }  — creates internal channel for the current tenant.
@@ -20,7 +21,7 @@ export async function POST(req: NextRequest) {
 
   const slug = body.slug.toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '')
   if (!slug) return NextResponse.json({ error: 'invalid slug' }, { status: 400 })
-  const name = body.name?.trim() || `#${slug}`
+  const name = capString(body.name, 200) || `#${slug}`
 
   const { data, error } = await supabaseAdmin
     .from('comhub_threads')
@@ -30,7 +31,7 @@ export async function POST(req: NextRequest) {
       channel: 'internal',
       slug,
       name,
-      description: body.description?.trim() || null,
+      description: capString(body.description, 2000),
       status: 'open',
     })
     .select('id, slug, name, description, kind, channel')
