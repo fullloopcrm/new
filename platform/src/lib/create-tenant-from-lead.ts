@@ -171,6 +171,22 @@ export async function createTenantFromLead(
     return { ok: false, error: insErr?.message || 'Tenant create failed' }
   }
 
+  // Bust tenant-lookup.ts's negatively-cached slug entry for this exact slug,
+  // if one exists. getTenantBySlug() caches a "no tenant" result for the full
+  // 5-minute TTL on ANY miss (a bot/crawler wildcard-subdomain scan, an admin
+  // previewing the URL before conversion, a prior failed conversion attempt
+  // that reused this business name) — invalidateTenantCache() can't reach that
+  // entry (it only sweeps POSITIVE entries, matched by tenant id, which a
+  // negative cache row has none of). Same class already fixed on tenant
+  // deletion (admin/businesses/[id]/route.ts DELETE ->
+  // invalidateSlugCache(doomed.slug)) but never wired into either
+  // tenant-creation path — without this, a brand-new tenant's own subdomain
+  // can keep resolving to "no tenant" on a warm edge isolate for up to the
+  // rest of the TTL immediately after this function reports the paid/comp
+  // conversion as complete.
+  const { invalidateSlugCache } = await import('./tenant-lookup')
+  invalidateSlugCache(slug)
+
   // Attach the reserved territory to the now-created tenant (completes the claim).
   if (reservedClaimId) {
     await supabaseAdmin

@@ -220,6 +220,22 @@ export async function POST(request: Request) {
           }
 
           if (tenant) {
+            // Bust tenant-lookup.ts's negatively-cached slug entry for this
+            // exact slug, if one exists. getTenantBySlug() caches a "no
+            // tenant" result for the full 5-minute TTL on ANY miss (a
+            // bot/crawler wildcard-subdomain scan of *.fullloopcrm.com is the
+            // realistic case here) — invalidateTenantCache can't reach that
+            // entry (it only sweeps POSITIVE entries, matched by tenant id;
+            // a negative cache row has none). Same class already fixed on
+            // tenant deletion (admin/businesses/[id]/route.ts DELETE ->
+            // invalidateSlugCache(doomed.slug)) but never wired into tenant
+            // creation — without this, this paying customer's own new
+            // subdomain could keep resolving to "no tenant" on a warm edge
+            // isolate for up to the rest of the TTL immediately after this
+            // webhook reports the signup as complete.
+            const { invalidateSlugCache } = await import('@/lib/tenant-lookup')
+            invalidateSlugCache(slug)
+
             // Seed default entity + chart of accounts + Selena config.
             // error checked explicitly — same masked-error class as the
             // writes above, but worse: this call didn't even destructure
