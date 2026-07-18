@@ -22,7 +22,7 @@ export async function POST(request: Request) {
     // Get client
     const { data: client } = await supabaseAdmin
       .from('clients')
-      .select('name, email, phone')
+      .select('name, email, phone, sms_consent, do_not_service')
       .eq('id', client_id)
       .eq('tenant_id', tenantId)
       .single()
@@ -54,8 +54,11 @@ export async function POST(request: Request) {
       googleUrl ? ` Leave us a review: ${googleUrl}` : ''
     }`
 
+    // do_not_service is a stronger, channel-agnostic kill-switch than
+    // sms_consent (see notify.ts) -- a DNS-flagged client gets neither
+    // channel. sms_consent === false (a STOP reply) only blocks SMS.
     // Send email if available
-    if (client.email) {
+    if (client.email && !client.do_not_service) {
       try {
         await sendEmail({
           to: client.email,
@@ -69,7 +72,7 @@ export async function POST(request: Request) {
     }
 
     // Send SMS if available
-    if (client.phone && tenant.telnyx_api_key && tenant.telnyx_phone) {
+    if (client.phone && client.sms_consent !== false && !client.do_not_service && tenant.telnyx_api_key && tenant.telnyx_phone) {
       try {
         await sendSMS({
           to: client.phone,

@@ -24,7 +24,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .update({ status: 'paused', paused_until, updated_at: new Date().toISOString() })
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('*, clients(name, phone, email)')
+      .select('*, clients(name, phone, email, sms_consent, do_not_service)')
       .single()
 
     if (error || !schedule) {
@@ -50,7 +50,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       .lte('start_time', pauseEnd)
       .select('id')
 
-    const client = schedule.clients as unknown as { name?: string; phone?: string; email?: string } | null
+    const client = schedule.clients as unknown as { name?: string; phone?: string; email?: string; sms_consent?: boolean | null; do_not_service?: boolean | null } | null
     const cancelledCount = cancelled?.length || 0
 
     await supabaseAdmin.from('notifications').insert({
@@ -61,7 +61,9 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       channel: 'in_app',
     })
 
-    if (cancelledCount > 0 && client?.phone) {
+    // do_not_service is a stronger, channel-agnostic kill-switch than
+    // sms_consent (see notify.ts) -- this client SMS had neither check.
+    if (cancelledCount > 0 && client?.phone && client.sms_consent !== false && !client.do_not_service) {
       const { data: tenant } = await supabaseAdmin
         .from('tenants')
         .select('name, telnyx_api_key, telnyx_phone')
