@@ -51,11 +51,30 @@ function toCents(v: string): number | undefined {
   const n = Number(v)
   return Number.isFinite(n) ? Math.round(n * 100) : undefined
 }
+function fromCents(cents: number | null | undefined): string {
+  return cents == null ? '' : String(cents / 100)
+}
 
 const empty = {
   item_type: 'service', name: '', category: '', description: '',
   per_unit: 'hour', unit_label: '', price: '', min_charge: '', cost: '',
   taxable: true, default_duration_hours: '',
+}
+
+function toFormState(it: Item): typeof empty {
+  return {
+    item_type: it.item_type,
+    name: it.name,
+    category: it.category || '',
+    description: it.description || '',
+    per_unit: it.per_unit,
+    unit_label: it.unit_label || '',
+    price: fromCents(it.price_cents),
+    min_charge: fromCents(it.min_charge_cents),
+    cost: fromCents(it.cost_cents),
+    taxable: it.taxable,
+    default_duration_hours: it.default_duration_hours != null ? String(it.default_duration_hours) : '',
+  }
 }
 
 export default function CatalogTab() {
@@ -64,6 +83,7 @@ export default function CatalogTab() {
   const [form, setForm] = useState({ ...empty })
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
 
   function load() {
     setLoading(true)
@@ -75,32 +95,46 @@ export default function CatalogTab() {
   }
   useEffect(() => { load() }, [])
 
-  async function addItem() {
+  async function saveItem() {
     setErr('')
     if (!form.name.trim()) { setErr('Name is required.'); return }
     setSaving(true)
     try {
+      const body: Record<string, unknown> = {
+        item_type: form.item_type,
+        name: form.name.trim(),
+        category: form.category.trim() || undefined,
+        description: form.description.trim() || undefined,
+        per_unit: form.per_unit,
+        unit_label: form.per_unit === 'custom' ? (form.unit_label.trim() || undefined) : undefined,
+        price_cents: toCents(form.price) ?? 0,
+        min_charge_cents: toCents(form.min_charge),
+        cost_cents: toCents(form.cost),
+        taxable: form.taxable,
+        default_duration_hours: form.default_duration_hours ? Number(form.default_duration_hours) : undefined,
+      }
+      if (editingId) body.id = editingId
       const res = await fetch('/api/catalog', {
-        method: 'POST',
+        method: editingId ? 'PATCH' : 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          item_type: form.item_type,
-          name: form.name.trim(),
-          category: form.category.trim() || undefined,
-          description: form.description.trim() || undefined,
-          per_unit: form.per_unit,
-          unit_label: form.per_unit === 'custom' ? (form.unit_label.trim() || undefined) : undefined,
-          price_cents: toCents(form.price) ?? 0,
-          min_charge_cents: toCents(form.min_charge),
-          cost_cents: toCents(form.cost),
-          taxable: form.taxable,
-          default_duration_hours: form.default_duration_hours ? Number(form.default_duration_hours) : undefined,
-        }),
+        body: JSON.stringify(body),
       })
-      if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
+      if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || (editingId ? 'Could not save changes.' : 'Could not add item.')); return }
       setForm({ ...empty })
+      setEditingId(null)
       load()
     } finally { setSaving(false) }
+  }
+
+  function startEdit(it: Item) {
+    setErr('')
+    setEditingId(it.id)
+    setForm(toFormState(it))
+  }
+  function cancelEdit() {
+    setErr('')
+    setEditingId(null)
+    setForm({ ...empty })
   }
 
   async function toggleActive(id: string, active: boolean) {
@@ -157,7 +191,10 @@ export default function CatalogTab() {
             <input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable
             <HelpTip text="Whether this item gets sales tax. The tax RATE is set once in Settings; this just says if this item is taxed." />
           </label>
-          <button type="button" className="sl-newlead-btn" disabled={saving} onClick={addItem}>{saving ? 'Adding…' : '+ Add item'}</button>
+          <span style={{ display: 'flex', gap: 8 }}>
+            {editingId && <button type="button" onClick={cancelEdit} style={{ fontSize: 13, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 8, padding: '8px 14px', cursor: 'pointer' }}>Cancel</button>}
+            <button type="button" className="sl-newlead-btn" disabled={saving} onClick={saveItem}>{saving ? 'Saving…' : editingId ? 'Save changes' : '+ Add item'}</button>
+          </span>
         </div>
       </div>
 
@@ -185,6 +222,7 @@ export default function CatalogTab() {
                 {money(it.price_cents)} <span style={{ color: 'var(--sl-muted)', fontSize: 11 }}>/ {unitShort(it.per_unit, it.unit_label)}</span>
               </span>
               <button type="button" onClick={() => toggleActive(it.id, it.active)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>{it.active ? 'Active' : 'Off'}</button>
+              <button type="button" onClick={() => startEdit(it)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
               <button type="button" onClick={() => remove(it.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
             </div>
           )
