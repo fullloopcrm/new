@@ -8027,3 +8027,125 @@ config-reconcile.yml` and `.github/workflows/ci.yml` re-reviewed this round
 for wiring drift — zero diff beyond what (174)/(175) needed (none: both
 fixes are internal to the two scripts, not their CI wiring, so neither
 workflow file changed).
+
+## (176) New fresh-ground surface, outside the reconcile script itself —
+`.github/workflows/tenant-scope.yml` and `ci.yml`'s "Tenant-isolation guard"
+step were a pure duplicate: two independently hand-maintained copies of the
+same live-blocking gate
+
+(172)-(175) were all internal to `reconcile-tenant-config.mjs` /
+`verify-protected-tenants.mjs`. This round widened the sweep to the other
+half of this lane's mandate — "CI under .github/workflows" — and asked the
+same class of question (172) asked about the protected-tenant guard: is
+everything actually wired the way the comments and docs say it is?
+
+`.github/workflows/tenant-scope.yml` and `ci.yml`'s "Tenant-isolation guard"
+step both ran the exact same command (`node scripts/audit-tenant-scope.mjs`,
+same `working-directory: platform`) on the exact same triggers
+(`push: branches: [main]` + `pull_request:`) against the same single baseline
+file (`scripts/.tenant-scope-baseline.json`). Not defense-in-depth — a
+byte-for-byte duplicate. Git history explains how: `tenant-scope.yml` was
+created 2026-07-04 14:57 ET (`60484d01`); `ci.yml` was created the same
+evening, 20:35 ET (`a8a22e3d`), already baking in an identical
+"Tenant-isolation guard" step from its very first commit. Whoever wrote
+`ci.yml` was building a from-scratch `verify` job and either didn't know
+`tenant-scope.yml` already covered this, or intended to consolidate into it
+later and never did — either way, nothing since has ever reconciled the two.
+
+This is the same underlying bug shape as Drift Z/AA in
+`reconcile-tenant-config.mjs` (robots.ts's hand-maintained copies of
+`MAIN_HOSTS`/`KILLED_ROUTES` silently drifting from middleware's real ones) —
+"two independently-edited copies of the same list/gate, nothing enforces they
+stay in sync" — just one level up, at the CI-workflow level instead of the
+source-parsing level. A future edit to one copy (a new flag, a script-path
+change, a loosened gate, a `continue-on-error`) with no matching edit to the
+other would silently split the two "gates'" verdicts on the same PR — and in
+the meantime every PR was paying double runner-minutes for zero additional
+safety. Checked whether removing the second copy could break anything relying
+on it as a distinct required status check first, not just assumed it was
+safe: `gh api repos/fullloopcrm/new/branches/main/protection` → `404 Branch
+not protected` — this repo has no branch protection today, so neither copy
+was even a separately-tracked required check; deleting one is a pure
+no-op for merge gating.
+
+**Fixed** — removed the standalone `tenant-scope.yml`. `ci.yml`'s
+"Tenant-isolation guard" step already blocks the PR the same way (same
+script, same exit-code semantics) as one of the `verify` job's existing
+gates. Added `src/lib/tenant-scope-workflow-consolidation.test.ts`, same
+pure-source-reading-of-the-YAML convention as `reconcile-gate-wiring.test.ts`
+/ `protected-tenant-guard-wiring.test.ts`: asserts (a) `tenant-scope.yml`
+does not exist (catches a silent re-introduction, e.g. via a careless merge
+conflict resolution), (b) `ci.yml` still runs the guard command (catches the
+now-only-remaining copy being dropped), and (c) exactly one workflow file in
+`.github/workflows` runs `node scripts/audit-tenant-scope.mjs` at all (catches
+the same duplicate-wiring bug reappearing under a different filename, not
+just the one just removed). `tsc --noEmit` clean. Full repo suite: 457/457
+files, 2171/2171 tests (4 new, zero regressions) — same pre-existing,
+unrelated `fixture/route.ts` tenant-scope baseline warning every prior report
+in this doc has flagged, not touched here. `eslint src scripts --quiet`
+clean.
+
+## (177) Continuing (176)'s surface — swept every doc this lane owns for
+stale live-fact claims about the now-removed `tenant-scope.yml`, not just the
+workflow files themselves
+
+(176) fixed the wiring. This round applied (172)'s own lesson again — a
+found instance is not evidence it's the only place a fact is recorded — and
+grepped the whole repo (not just `.github/workflows` or `src/lib`) for every
+remaining reference to `tenant-scope.yml`. Found it in ten files. Sorted them
+into two buckets before touching anything, since not every hit is the same
+kind of risk:
+
+- **Historical/changelog narration** (session-dated records of what was true
+  *at the time*, the same convention every entry in this doc itself follows)
+  — `deploy-prep/branch-changelog-p1-w3.md`,
+  `deploy-prep/actions-sha-pinning-note.md`,
+  `src/lib/tenant-scope-guard-tenantdb-recognition.test.ts`,
+  `src/lib/db-backup-alert-guard.test.ts`. Left untouched: rewriting a dated
+  record of a past finding to match today's state would make it describe a
+  session that never happened, the opposite of what these records are for.
+- **Live-fact claims a reader would act on today** — two categories, both
+  fixed:
+  - Operational runbooks a human (Jeff/the leader) actually executes:
+    `deploy-prep/deploy-runbook.md` (Go/No-Go CI checklist),
+    `deploy-prep/post-deploy-probes.md` (A6 probe: `gh run list` +
+    expected-green workflow names), `deploy-prep/pr-ci-matrix-note.md` (which
+    workflows fire on which trigger). Left as-is, someone following the A6
+    probe today would wait on a `tenant-scope` run that will never appear
+    (`gh run list` simply has no row for it) and could misread that as a
+    broken/missing CI step rather than an intentional removal. Updated all
+    three to drop `tenant-scope.yml` from the expected-green list and note
+    the 2026-07-17 removal inline.
+  - Two more test-file/doc comments that asserted the dual-wiring as an
+    ongoing, present-tense fact ("today", "every PR runs both") rather than a
+    dated finding: `src/lib/audit-tenant-scope-guard.test.ts`'s file-header
+    comment and `src/lib/tenant-scope-guard-idor-blindspot.test.ts`'s
+    file-header comment (used twice, once to justify the test's stakes and
+    once to scope what it deliberately does NOT change). Both updated to
+    reflect the consolidation; the idor-blindspot test's own actual
+    assertions were untouched (it tests `audit-tenant-scope.mjs`'s
+    `idLookup` exemption directly, never referenced the workflow YAML in its
+    logic, only in narration).
+  - `platform/deploy-prep/idor-lint-guard-spec.md` — same present-tense
+    claim ("wired into ci.yml ... and tenant-scope.yml"), same fix.
+
+Verified the fix (not just written and trusted): `grep -rl 'tenant-scope\.yml'`
+across the repo after the edits still returns the four historical files
+above (expected, left alone on purpose) plus the new
+`tenant-scope-workflow-consolidation.test.ts` (expected, it's what enforces
+the removal) — zero remaining present-tense claims that the duplicate
+workflow still exists. Re-ran `tsc --noEmit` and the full vitest suite after
+the doc edits (docs can't break either, but didn't assume that — checked):
+same 457/457 files, 2171/2171 tests clean.
+
+Not visually exercised in a browser this round (non-interactive worker
+session, no dev server driven) — this round's fixes are CI-workflow-YAML and
+documentation-only, no UI surface, no runtime behavior difference for any
+tenant.
+
+Reconcile-gate lane: `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session,
+skipped cleanly per standing rule — no live-DB reconcile run this round
+either. `reconcile-tenant-config.mjs` / `verify-protected-tenants.mjs`
+unchanged this round (this round's surface was the CI-wiring half of the
+lane, not the reconcile script itself) — zero diff beyond (176)'s
+`.github/workflows` change and (177)'s doc sweep.
