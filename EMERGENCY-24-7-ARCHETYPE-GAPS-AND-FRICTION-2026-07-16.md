@@ -13330,3 +13330,73 @@ script's own header) -- so nothing here needed re-verification against a
 live Supabase token; the reconcile gate's own token-guard was re-checked
 separately and `SUPABASE_ACCESS_TOKEN_FULLLOOP` remains absent this
 session. File-only, no push/deploy/DB, no CI workflow edit.
+
+## (253) Fresh security surface per LEADER's queue -- closed a TOCTOU race
+flagged and explicitly left unfixed on 2026-07-13
+(`deploy-prep/toctou-audit-p1-w3.md`, "Flagged -- real gap, not fixed" /
+`team-portal/jobs/claim/route.ts`). Re-read the current file first rather
+than trusting the 5-day-old audit doc: the "already taken" race that audit
+called solid was still solid (`WHERE team_member_id IS NULL`), and the
+overlap-conflict guard it didn't even mention had since been added
+(c82bb1ea) -- but the flagged daily-cap gap itself was untouched, confirmed
+via `git log --oneline -- .../claim/route.ts` showing no commit ever touched
+that block.
+
+The gap: `max_jobs_per_day`'s daily cap was enforced by a plain
+COUNT-then-decide read, entirely separate from the atomic claim UPDATE two
+lines below it. Two near-simultaneous claims by the SAME member for two
+DIFFERENT open bookings could both read the same pre-claim count, both pass
+the cap check, and both succeed -- landing the member at cap+1 (or more).
+Not money, not data corruption, but a real production-reachable business-rule
+violation (a capped field worker ending up over-scheduled) with zero test
+coverage of the failure mode.
+
+**Fixed** with `claim_open_job()`
+(`src/lib/migrations/2026_07_18_claim_open_job_atomic.sql`, file-only, not
+applied), following this lane's own established atomic-RPC pattern
+(`bump_referrer_total_earned`/`_paid`, `2026_07_17_referrer_counter_atomic_bump.sql`):
+a single PL/pgSQL function takes a `FOR UPDATE` lock on the claiming
+member's own `team_members` row (serializing any second concurrent claim by
+that same member until the first transaction commits), re-counts today's
+non-cancelled bookings under that lock, and only then performs the
+`team_member_id IS NULL`-gated claim UPDATE -- all inside one transaction, so
+the count and the claim can no longer be observed or acted on separately.
+Cap-reached raises a distinguishable `DAILY_CAP_REACHED: ...` exception the
+route pattern-matches into the same 409 message the old code returned;
+already-taken still returns an empty row set, same as before. `route.ts`
+updated to call the RPC instead of its own count+update, member fetch
+trimmed to just `pay_rate` (cap no longer read in JS).
+
+Since `tenantDb()` has no `.rpc()` passthrough, the call goes through
+`supabaseAdmin.rpc()` directly, matching every other RPC call site in this
+codebase (`referral-commissions`, `comhub_get_or_create_*`, `cpa_token_bump_usage`).
+That meant the route's two existing test files
+(`route.pay-rate.test.ts`, `route.overlap.test.ts`) needed their
+`supabaseAdmin` mock extended with an `.rpc` implementation or they'd throw
+`supabaseAdmin.rpc is not a function` -- caught by actually running the full
+suite, not just the touched file. Factored the fake RPC into a shared
+`claim-open-job-rpc-fake.ts` (used by both existing test files, the new one,
+and a third caller the full-suite run surfaced:
+`src/lib/cross-tenant-routes.test.ts`, a repo-wide cross-tenant-attack
+fixture that mocks `supabaseAdmin` globally across ~15 routes including this
+one) rather than tripling the same simulation logic inline.
+
+New test file `route.daily-cap-race.test.ts`, 3 tests: single claim rejected
+at cap, a released (cancelled) slot can be reused, and the actual race --
+two concurrent claims for two different open bookings by the same member
+resolve to exactly one success + one 409, never two successes. Mutation-verified
+live: swapped in the pre-fix `route.ts` from git history (`f5636d95`), reran
+just the new test file, confirmed the concurrency test failed as predicted
+(`[200, 200]` instead of `[200, 409]`) while the other two still passed,
+then restored the fix and reconfirmed all 9 claim-route tests green.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 504/504 files,
+2578/2578 tests (10 new -- 3 in the new file + rpc-mock additions didn't add
+tests, they extended existing ones -- 0 regressions after the
+cross-tenant-routes.test.ts mock fix). `eslint` on all touched TS files zero
+warnings (the new `.sql` migration file correctly gets eslint's "no matching
+configuration" no-op, not a real finding). Token-guard: this item touched
+neither the reconcile-gate script nor any `.github/workflows` file, so
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` (absent this session) was never needed.
+File-only migration, no push/deploy/DB write -- the leader/Jeff run this DDL
+after review, same as every other atomic-RPC fix this session.

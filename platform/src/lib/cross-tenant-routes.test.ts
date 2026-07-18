@@ -58,7 +58,9 @@ vi.mock('next/headers', () => ({
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabase: fake, supabaseAdmin: fake, __fake: fake }
+  const { fakeClaimOpenJobRpc } = await import('@/app/api/team-portal/jobs/claim/claim-open-job-rpc-fake')
+  const rpc = fakeClaimOpenJobRpc(fake)
+  return { supabase: fake, supabaseAdmin: { ...fake, rpc }, __fake: fake }
 })
 
 import { supabaseAdmin } from '@/lib/supabase'

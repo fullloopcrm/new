@@ -16,7 +16,8 @@ import type { FakeSupabase } from '@/test/fake-supabase'
 vi.mock('@/lib/supabase', async () => {
   const { createFakeSupabase } = await import('@/test/fake-supabase')
   const fake = createFakeSupabase()
-  return { supabaseAdmin: fake }
+  const { fakeClaimOpenJobRpc } = await import('./claim-open-job-rpc-fake')
+  return { supabaseAdmin: { ...fake, rpc: fakeClaimOpenJobRpc(fake) } }
 })
 
 let currentAuth: { id: string; tid: string; role: string } | null

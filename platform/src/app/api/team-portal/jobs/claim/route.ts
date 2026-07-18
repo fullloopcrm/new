@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { tenantDb } from '@/lib/tenant-db'
+import { supabaseAdmin } from '@/lib/supabase'
 import { requirePortalPermission } from '@/lib/team-portal-auth'
 import { audit } from '@/lib/audit'
 import { getSettings } from '@/lib/settings'
@@ -14,37 +15,21 @@ export async function POST(request: Request) {
 
   const db = tenantDb(auth.tid)
 
-  // Member's pay rate + daily cap.
+  // Member's default pay rate (fallback when the booking has none set — see
+  // the pay_rate merge below). The daily cap itself is now enforced inside
+  // claim_open_job(), not read here — see that RPC for why.
   // tenantDb's select() takes a non-literal `columns` param, which widens
   // supabase-js's column-string type inference — cast to the shape actually selected.
   const { data: member } = (await db
     .from('team_members')
-    .select('pay_rate, max_jobs_per_day')
+    .select('pay_rate')
     .eq('id', auth.id)
-    .single()) as { data: { pay_rate: number | null; max_jobs_per_day: number | null } | null }
-
-  // Enforce the daily claim cap (hoarding guard) — jobs already assigned to this
-  // member that start today.
-  const cap = member?.max_jobs_per_day
-  if (cap && cap > 0) {
-    const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
-    const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
-    const { count } = await db
-      .from('bookings')
-      .select('id', { count: 'exact', head: true })
-      .eq('team_member_id', auth.id)
-      .gte('start_time', dayStart.toISOString())
-      .lt('start_time', dayEnd.toISOString())
-      .not('status', 'eq', 'cancelled')
-    if ((count ?? 0) >= cap) {
-      return NextResponse.json({ error: `Daily job limit reached (${cap})` }, { status: 409 })
-    }
-  }
+    .single()) as { data: { pay_rate: number | null } | null }
 
   // Time-conflict guard — the open pool (GET .../jobs?available=true) lists
   // every unassigned job with no per-viewer filtering, and until this check
   // existed nothing stopped a member from self-claiming two overlapping jobs
-  // (only the daily COUNT cap above was enforced). Mirrors the buffer-aware
+  // (only the daily cap was enforced). Mirrors the buffer-aware
   // conflict check /api/bookings' POST already applies to admin/agent-created
   // assignments, so a self-service claim can't create a double-booking that a
   // manual assignment would be blocked from creating.
@@ -73,8 +58,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'You already have a job that overlaps this time' }, { status: 409 })
   }
 
-  // Atomic claim: the `team_member_id IS NULL` filter on the UPDATE makes this
-  // first-writer-wins — a concurrent claim updates zero rows → "already taken".
+  // Atomic claim + daily-cap check, both inside one DB transaction
+  // (claim_open_job / 2026_07_18_claim_open_job_atomic.sql). The
+  // `team_member_id IS NULL` filter makes the claim itself first-writer-wins
+  // (a concurrent claim updates zero rows → "already taken"); the cap check
+  // runs under a row lock on this member so two near-simultaneous claims for
+  // two DIFFERENT open bookings by the SAME member can't both read the same
+  // pre-claim count and both land under the cap.
   //
   // pay_rate: only fill in the claiming member's own default when the booking
   // doesn't already carry a per-job rate. A job open for self-claim can already
@@ -87,21 +77,30 @@ export async function POST(request: Request) {
   // already treats `booking.pay_rate` as authoritative over the member's
   // default (`b.pay_rate || member.pay_rate`), so once claimed the row's
   // premium was gone and the member who answered the broadcast got paid
-  // their own standard rate at payout time instead.
-  const { data, error } = await db
-    .from('bookings')
-    .update({
-      team_member_id: auth.id,
-      ...(target.pay_rate == null ? { pay_rate: member?.pay_rate || null } : {}),
-      status: 'confirmed',
-    })
-    .eq('id', booking_id)
-    .is('team_member_id', null)
-    .select()
-    .maybeSingle()
+  // their own standard rate at payout time instead. (The RPC re-applies this
+  // same COALESCE server-side, so it holds regardless of the caller's view of
+  // target.pay_rate.)
+  const dayStart = new Date(); dayStart.setHours(0, 0, 0, 0)
+  const dayEnd = new Date(dayStart); dayEnd.setDate(dayEnd.getDate() + 1)
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  if (!data) {
+  const { data, error } = await supabaseAdmin.rpc('claim_open_job', {
+    p_booking_id: booking_id,
+    p_tenant_id: auth.tid,
+    p_member_id: auth.id,
+    p_default_pay_rate: member?.pay_rate ?? null,
+    p_day_start: dayStart.toISOString(),
+    p_day_end: dayEnd.toISOString(),
+  })
+
+  if (error) {
+    if (error.message?.startsWith('DAILY_CAP_REACHED: ')) {
+      return NextResponse.json({ error: error.message.slice('DAILY_CAP_REACHED: '.length) }, { status: 409 })
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
+
+  const claimed = Array.isArray(data) ? data[0] : data
+  if (!claimed) {
     return NextResponse.json({ error: 'Job already taken' }, { status: 409 })
   }
 
@@ -113,5 +112,5 @@ export async function POST(request: Request) {
     details: { event: 'claimed', by: auth.id },
   })
 
-  return NextResponse.json({ booking: data })
+  return NextResponse.json({ booking: claimed })
 }
