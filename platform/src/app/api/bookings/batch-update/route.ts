@@ -60,15 +60,51 @@ export async function PUT(request: Request) {
       }
     }
 
+    // Mirror the completed/paid->cancelled guard on PUT /bookings/[id] (which
+    // blocks it because there's no downstream reconciliation -- payroll
+    // team_pay, referral commission clawback -- anywhere in this codebase).
+    // This batch route accepts `status` in its own allow-list with no
+    // equivalent check, so a bookings.edit-authenticated caller could cancel
+    // an already-settled booking through this door even though the only
+    // current UI caller (the "edit recurring series" flow) never sends
+    // `status` at all.
+    const cancelIds = sanitized.filter(u => u.data.status === 'cancelled').map(u => u.id)
+    if (cancelIds.length > 0) {
+      const { data: currentRows } = await supabaseAdmin
+        .from('bookings')
+        .select('id, status')
+        .eq('tenant_id', tenantId)
+        .in('id', cancelIds)
+      const settled = (currentRows || []).filter(r => ['completed', 'paid'].includes(r.status))
+      if (settled.length > 0) {
+        return NextResponse.json(
+          { error: `Cannot cancel a booking that is already completed or paid (${settled.map(r => r.id).join(', ')})` },
+          { status: 400 },
+        )
+      }
+    }
+
     const results = await Promise.all(
       sanitized.map(async (u) => {
-        const { data, error } = await supabaseAdmin
+        const isCancel = u.data.status === 'cancelled'
+        let query = supabaseAdmin
           .from('bookings')
           .update(u.data)
           .eq('id', u.id)
           .eq('tenant_id', tenantId)
-          .select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
-          .single()
+        // Atomic re-check: the settled-status guard above read a snapshot
+        // before this write. A concurrent completion/payout landing in that
+        // gap would otherwise still let the cancel through here.
+        if (isCancel) query = query.not('status', 'in', '(completed,paid)')
+        const selectQuery = query.select('*, clients(name, phone, email), team_members!bookings_team_member_id_fkey(name, phone, email)')
+        if (isCancel) {
+          const { data, error } = await selectQuery.maybeSingle()
+          if (!error && !data) {
+            return { id: u.id, data: null, error: { message: 'Booking state changed concurrently — cannot cancel a completed or paid booking' } }
+          }
+          return { id: u.id, data, error }
+        }
+        const { data, error } = await selectQuery.single()
         return { id: u.id, data, error }
       })
     )
