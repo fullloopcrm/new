@@ -93,6 +93,14 @@ type Activity = {
   created_at: string
 }
 
+type QuoteLineItem = {
+  quantity: number
+  unit_price_cents: number
+  optional?: boolean
+  selected?: boolean
+  duration_hours?: number
+}
+
 type Quote = {
   id: string
   quote_number: string | null
@@ -104,6 +112,7 @@ type Quote = {
   sent_at: string | null
   accepted_at: string | null
   declined_at: string | null
+  line_items: QuoteLineItem[] | null
 }
 
 function fmtMoney(cents: number): string {
@@ -435,8 +444,12 @@ function SalesPageInner() {
 
                       {/* Schedule — once the sale is a Job, drop visits on the calendar */}
                       {(() => {
-                        const jobId = (quotesByDeal[d.id] || []).map((q) => q.converted_job_id).find(Boolean) || null
+                        const acceptedQuote = (quotesByDeal[d.id] || []).find((q) => q.converted_job_id) || null
+                        const jobId = acceptedQuote?.converted_job_id || null
                         if (!jobId) return null
+                        const budgetedHours = (acceptedQuote?.line_items || [])
+                          .filter((li) => !li.optional || li.selected)
+                          .reduce((sum, li) => sum + (Number(li.duration_hours) || 0), 0)
                         return (
                           <div className="sl-proposal">
                             <div className="sl-proposal-head">Schedule</div>
@@ -452,8 +465,8 @@ function SalesPageInner() {
                                     <input type="time" className="sl-sched-input" value={schedTime} onChange={(e) => setSchedTime(e.target.value)} />
                                   </div>
                                   <div className="sl-sched-field">
-                                    <label>Hours</label>
-                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Hours" />
+                                    <label>Proposal Budgeted Hours</label>
+                                    <input type="number" min="0.5" step="0.5" className="sl-sched-input" style={{ width: 62 }} value={schedDuration} onChange={(e) => setSchedDuration(e.target.value)} title="Proposal Budgeted Hours" />
                                   </div>
                                   <div className="sl-sched-field">
                                     <label>Crew</label>
@@ -468,7 +481,7 @@ function SalesPageInner() {
                                 <span className="sl-action-hint">Pick a date + crew, or leave crew unassigned for now.</span>
                               </>
                             ) : (
-                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate('') }}>+ Schedule a visit</button>
+                              <button type="button" className="sl-act-btn go" onClick={() => { setSchedFor(d.id); setSchedDate(''); setSchedDuration(budgetedHours > 0 ? String(budgetedHours) : '2') }}>+ Schedule a visit</button>
                             )}
                           </div>
                         )

@@ -13,7 +13,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import HelpTip from '../../_components/HelpTip'
 
 type Client = { id: string; name: string; email: string | null; phone: string | null; address: string | null }
-type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null }
+type CatalogItem = { id: string; name: string; description: string | null; price_cents: number; per_unit: string; item_type: string; category: string | null; default_duration_hours: number | null }
 
 type LineItem = {
   id: string
@@ -23,6 +23,10 @@ type LineItem = {
   unit_price_cents: number
   optional: boolean
   selected: boolean
+  /** Estimated hours for this line, seeded from the catalog item's Est.
+   * hrs at add-time. Summed across accepted lines to prefill the Schedule
+   * panel's Proposal Budgeted Hours. */
+  duration_hours?: number
 }
 
 function blankLine(): LineItem {
@@ -136,7 +140,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
     if (!it) return
     setItems(prev => [
       ...prev.filter(li => li.name.trim() || li.unit_price_cents),
-      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents },
+      { ...blankLine(), name: it.name, description: it.description || '', unit_price_cents: it.price_cents, duration_hours: it.default_duration_hours ?? undefined },
     ])
   }
   function updateItem(id: string, patch: Partial<LineItem>) { setItems(prev => prev.map(li => (li.id === id ? { ...li, ...patch } : li))) }
@@ -175,6 +179,7 @@ export default function QuoteBuilder({ dealId, clientIdInit, onCancel, onSaved }
         id: li.id, name: li.name, description: li.description || undefined,
         quantity: li.quantity, unit_price_cents: li.unit_price_cents,
         optional: li.optional, selected: li.optional ? li.selected : true,
+        duration_hours: li.duration_hours,
       })),
       tax_rate_bps: taxRateBps,
       discount_cents: discountCents,

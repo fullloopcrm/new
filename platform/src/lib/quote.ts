@@ -19,6 +19,10 @@ export interface QuoteLineItem {
   subtotal_cents: number
   optional?: boolean
   selected?: boolean
+  /** Estimated hours for this line, carried from the catalog item's
+   * default_duration_hours at quote-build time. Used to prefill the
+   * schedule window's duration once the quote is accepted. */
+  duration_hours?: number
 }
 
 export interface QuoteTier {
@@ -57,6 +61,7 @@ export function normalizeLineItems(items: Partial<QuoteLineItem>[]): QuoteLineIt
         subtotal_cents,
         optional: !!li.optional,
         selected: li.optional ? !!li.selected : true,
+        duration_hours: li.duration_hours != null && Number(li.duration_hours) > 0 ? Number(li.duration_hours) : undefined,
       }
     })
 }
