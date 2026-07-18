@@ -13517,3 +13517,58 @@ Reporting zero rather than manufacturing a fresh item to hit a quota: same
 discipline (243)'s writeup called out. This lane's own surface (not the
 app-code surfaces (244)-(254) opened) is the one queue item (1) asked to
 re-sweep, and it is swept clean.
+
+## (256) Second consecutive fresh-ground sweep on W3's own lane per LEADER's
+10:44 queue item (1), zero new findings -- checked angles (255) did not
+explicitly itemize rather than re-reading the same ~40 Drift checks
+
+Per LEADER's 10:44 re-issue of "new fresh-ground surface, pick anything not
+yet swept this session": confirmed first that nothing had actually changed
+since (255)'s audit (`git log` on reconcile-tenant-config.mjs/middleware.ts/
+robots.ts/next.config.ts/.github/workflows -- last touch was (248) at 07:52,
+before (255)'s ~10:3x sweep), so a literal re-read of the same Drift A-AM
+checks would only re-confirm (255), not find anything. Instead targeted three
+angles (255)'s writeup doesn't mention checking directly:
+
+1. **SQL-injection surface on the two raw-string-interpolated queries** in
+   main() (the `slugList` built from `bespokeSet` for the Drift L
+   resolvability check, and the four hardcoded queries in the `Promise.all`).
+   Both properly `.replace(/'/g, "''")`-escape before interpolating, and the
+   only interpolated values (`bespokeSet`) come from a trusted repo file
+   (middleware.ts) parsed by this gate's own regex, not external/user input
+   -- not a real injection vector, and already using the standard escape
+   pattern.
+2. **`gatingCrit`/`pendingCrit` arithmetic in `summarize()`** (`gatingCrit =
+   counts.CRIT - pendingCrit`) -- traced where `.pending` actually gets set
+   on a finding object: `add()` (used by every OTHER Drift check) never sets
+   it, so `pending` is `undefined` (falsy) on every finding except Drift L's,
+   which bypasses `add()` and pushes `{sev:'CRIT', ..., pending}` directly.
+   That's the only site that needs to set it, since it's the only CRIT this
+   gate ever excuses via KNOWN_PENDING_ORPHANS -- arithmetic is sound, no
+   double-count or silent-drop path found.
+3. **`notify-failure` job's Telegram alert** in tenant-config-reconcile.yml
+   interpolates `${{ needs.reconcile.outputs.failed_step }}`, `github.ref_name`,
+   `github.sha` directly into a bash heredoc-style `TEXT="..."` assignment --
+   the classic GitHub Actions script-injection shape (template expansion
+   happens before the shell ever runs, so attacker-controlled text in one of
+   those fields becomes executable shell, not a string value). Checked
+   whether any of the three fields are actually attacker-steerable here:
+   `failed_step` is one of a small set of hardcoded literal strings written by
+   `identify-failed-step` (never echoes raw user/PR content); `ref_name` for
+   this workflow's own triggers (push to main, or `refs/pull/<n>/merge` for
+   pull_request) is GitHub-assigned, not attacker-chosen text; `sha` is a git
+   object hash (hex only). No attacker-controlled free text (PR title, branch
+   name typed by a fork author, commit message) reaches this template --
+   landmine-shaped but not live, same disposition as several prior items in
+   this lane.
+
+No code changed -- this was verification/re-confirmation only, so the full
+suite wasn't re-run (nothing in scope for a diff). `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session (token-guard checked first per standing instructions); no
+live reconcile run attempted.
+
+Flagging honestly: this is a thinner finding-set than (255)'s, because (255)
+already covered the file end-to-end and nothing in it has moved since. If the
+next queue cycle re-issues the same "new fresh-ground surface on this lane"
+instruction with still no file changes in between, the honest report will be
+the same -- zero -- rather than searching harder for something to write down.
