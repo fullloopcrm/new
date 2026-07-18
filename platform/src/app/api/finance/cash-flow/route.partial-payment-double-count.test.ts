@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 /**
  * GET /api/finance/cash-flow projected the FULL booking price as a future
@@ -7,6 +7,12 @@ import { describe, it, expect, vi } from 'vitest'
  * payment-processor/Stripe/bank-match). That double-counted money that
  * already landed: it's not a future cash event, only the remainder is.
  * Fixed to subtract partial_payment_cents from price before bucketing.
+ *
+ * Test never pinned the system clock, so the `.gte('start_time', now)`
+ * lower-bound filter increasingly excluded these hardcoded fixture bookings
+ * as real wall-clock time passed them -- a flaky failure that reproduced on
+ * every later run, not a production regression. Pinned to match the sibling
+ * `route.naive-et-lower-bound.test.ts` convention.
  */
 
 const TENANT = 'tenant-A'
@@ -76,6 +82,14 @@ vi.mock('@/lib/entity', () => ({
 import { GET } from './route'
 
 describe('GET /api/finance/cash-flow — partial payments must not double-count received cash', () => {
+  beforeEach(() => {
+    vi.useFakeTimers()
+    vi.setSystemTime(now)
+  })
+  afterEach(() => {
+    vi.useRealTimers()
+  })
+
   it('only projects the remaining balance for a partially-paid booking, not the full price', async () => {
     const res = await GET(new Request('https://app.fullloop.example/api/finance/cash-flow'))
     const json = await res.json()
