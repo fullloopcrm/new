@@ -10,6 +10,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { verifyTelnyx } from '@/lib/webhook-verify'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 const TELNYX_API_KEY = (process.env.TELNYX_API_KEY || '').trim()
 const TELNYX_VOICE_CONNECTION_ID = (process.env.TELNYX_VOICE_CONNECTION_ID || '').trim()
@@ -437,6 +438,24 @@ export async function POST(req: NextRequest) {
     payload = rawBody ? JSON.parse(rawBody) : null
   } catch {
     return NextResponse.json({ error: 'Invalid JSON' }, { status: 400 })
+  }
+
+  // Same class of gap fixed across every other slug/host/phone-resolved
+  // entry point this session (PIN-login, portal/team-portal auth tokens,
+  // public site header resolver, per-tenant Telegram webhook, Telnyx
+  // inbound-SMS webhook): this route is hardcoded to NYCMAID_TENANT_ID and
+  // never checked that tenant's status. Inbound voice delivery has no
+  // dependency on the tenant's site/dashboard being reachable, so without
+  // this a suspended/cancelled/deleted tenant kept ringing admins, writing
+  // comhub_active_calls/comhub_messages rows, and sending missed-call SMS
+  // indefinitely. Checked before any event branch runs.
+  const { data: nycMaidTenant } = await supabaseAdmin
+    .from('tenants')
+    .select('status')
+    .eq('id', NYCMAID_TENANT_ID)
+    .single()
+  if (!tenantServesSite(nycMaidTenant?.status)) {
+    return NextResponse.json({ ok: true, skip: 'tenant_not_active' })
   }
 
   const event = payload?.data?.event_type || ''
