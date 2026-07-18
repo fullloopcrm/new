@@ -11669,3 +11669,48 @@ queue, ci.yml and tenant-config-reconcile.yml WERE intentionally touched
 this round (timeout-minutes + --max-time added to both notify-failure jobs)
 -- a genuine production gap, not only a coverage gap -- alongside the new
 guard test.
+
+## (229) Continuation of items (227)-(228)'s surface -- the same unbounded-curl
+gap existed on the third file sharing this shape: db-backup.yml's own
+"Alert on failure" step
+
+Items (227)/(228) fixed ci.yml's and tenant-config-reconcile.yml's separate
+`notify-failure` jobs (no job-level timeout-minutes, no curl --max-time).
+db-backup.yml's "Alert on failure" step (db-backup.yml:113-136) makes the
+same unbounded `curl -sS "https://api.telegram.org/..."` call -- verified
+today: grepping db-backup.yml for "max-time" returned nothing, and the only
+existing guard over this step (db-backup-alert-guard.test.ts) checks the
+if:/env self-gate bug and the bash TG_TOKEN/TG_CHAT guard, but never reads
+the curl invocation itself.
+
+Blast radius is smaller here than (227)/(228), and the new guard's own
+comment says so rather than reusing their framing verbatim: this step is the
+LAST step of the SAME `backup` job (timeout-minutes: 30), so a hang is
+already bounded by whatever budget remains in that 30-minute window, not
+GitHub's 360-minute job default. But curl still has no response timeout of
+its own -- a DNS hang or slow-drip response from Telegram would silently
+consume the rest of the nightly backup job's remaining budget instead of
+failing in a couple seconds, on a step whose only job is a fast failure ping
+after the real backup work (dump/encrypt/upload) is already done and safe.
+Defense-in-depth under an existing coarser bound, same shape as this lane's
+items (210)/(216)/(217).
+
+**Fixed:** added `--max-time 30` to the curl call (same bound chosen for
+(227)/(228)). Closed with a new guard,
+`db-backup-alert-max-time-guard.test.ts`, isolating the "Alert on failure"
+step block the same way db-backup-alert-guard.test.ts already does.
+
+**Mutation-verified live:** wrote the guard against the pre-fix file (bare
+`curl -sS ...`, no --max-time) -- failed with the exact predicted message.
+Applied the fix, guard went green. Reverted `curl -sS --max-time 30` back to
+bare `curl -sS` -- guard caught it again, full suite otherwise green.
+Restored from a saved pre-mutation backup, confirmed `git diff --stat
+.github/workflows/db-backup.yml` showed only the intended one-line fix
+before and after the mutation round-trip.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit` zero
+errors, `eslint src/lib/db-backup-alert-max-time-guard.test.ts --quiet`
+clean, full vitest suite green (490 files / 2451 tests -- the new file's 2
+assertions plus every prior test still passing). db-backup.yml WAS
+intentionally touched this round (one-line curl fix) -- a genuine
+production gap on the third file of this surface, not only a coverage gap.
