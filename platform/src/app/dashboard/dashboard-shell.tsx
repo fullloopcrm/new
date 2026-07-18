@@ -90,7 +90,7 @@ const foldMap: Record<string, string[]> = {
 }
 
 const navPlatform: Array<{ label: string; href: string; perm?: string }> = [
-  { label: 'Business Profile', href: '/dashboard/onboarding', perm: 'settings.edit' },
+  { label: 'Onboarding', href: '/dashboard/onboarding', perm: 'settings.edit' },
   { label: 'Settings', href: '/dashboard/settings', perm: 'settings.view' },
   { label: 'Users', href: '/dashboard/users', perm: 'settings.edit' },
   { label: 'Selena', href: '/dashboard/selena', perm: 'settings.view' },
@@ -214,6 +214,19 @@ export default function DashboardShell({
       .then((r) => r.json())
       .then((data) => {
         if (data && !data.error) setCounts(data)
+      })
+      .catch(() => {})
+  }, [])
+
+  // Onboarding wizard completion, for the "X/Y" badge next to the Platform
+  // nav item — fetched once, not polled (it only changes when the tenant
+  // saves a step, which won't happen while this shell is mounted elsewhere).
+  const [onboardingProgress, setOnboardingProgress] = useState<{ completed: number; total: number; done: boolean } | null>(null)
+  useEffect(() => {
+    fetch('/api/dashboard/onboarding/progress')
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (data && typeof data.completed === 'number' && typeof data.total === 'number') setOnboardingProgress(data)
       })
       .catch(() => {})
   }, [])
@@ -416,6 +429,11 @@ export default function DashboardShell({
               >
                 <span style={{ width: '18px', flexShrink: 0 }} />
                 <span>{item.label}</span>
+                {item.href === '/dashboard/onboarding' && onboardingProgress && !onboardingProgress.done && (
+                  <span className="ml-auto" style={{ fontFamily: 'var(--mono)', fontSize: '10px', color: '#888', background: 'rgba(255,255,255,0.05)', padding: '1px 5px', borderRadius: '2px' }}>
+                    {onboardingProgress.completed}/{onboardingProgress.total}
+                  </span>
+                )}
               </Link>
             )
           })}
