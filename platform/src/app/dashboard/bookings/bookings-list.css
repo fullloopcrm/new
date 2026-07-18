@@ -104,6 +104,60 @@
 .bk-btn-ghost:hover { background: var(--bk-bg); border-color: var(--bk-ink); }
 .bk-btn-primary { background: var(--bk-ink); border: 1px solid var(--bk-ink); color: var(--bk-canvas); }
 .bk-btn-primary:hover { background: var(--bk-graphite); }
+/* Toggle-state ghost buttons (Filters/Waitlist/Close Out) — active state fills
+ * with a system token instead of an arbitrary Tailwind accent (purple-600/
+ * emerald-600), matching the ink/good/vip palette every other page uses. */
+.bk-btn-toggle.active { background: var(--bk-ink); border-color: var(--bk-ink); color: var(--bk-canvas); }
+.bk-btn-toggle.active.vip { background: var(--bk-vip); border-color: var(--bk-vip); }
+.bk-btn-toggle.active.good { background: var(--bk-good); border-color: var(--bk-good); }
+
+/* OUTLOOK — same stat-card pattern as clients.css / sales.css / schedule.css */
+.bk-bar-label {
+  font-family: var(--bk-mono);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--bk-ink);
+  font-weight: 600;
+  margin-bottom: 12px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid var(--bk-ink);
+  display: inline-block;
+  min-width: 100px;
+}
+.bk-outlook {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  padding-bottom: 20px;
+  margin-bottom: 20px;
+  border-bottom: 1px solid var(--bk-line);
+}
+.bk-stat { padding-right: 22px; border-right: 1px solid var(--bk-line); }
+.bk-stat:last-child { border-right: none; padding-right: 0; }
+.bk-stat:not(:first-child) { padding-left: 22px; }
+.bk-stat-label {
+  font-size: 9.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  color: var(--bk-muted);
+  font-weight: 600;
+  margin-bottom: 12px;
+  line-height: 1.3;
+}
+.bk-stat-value {
+  font-family: var(--bk-display);
+  font-size: 32px;
+  font-weight: 500;
+  letter-spacing: -0.025em;
+  line-height: 1;
+  color: var(--bk-ink);
+  font-feature-settings: 'tnum', 'lnum';
+}
+.bk-stat-value .unit { font-size: 16px; color: var(--bk-muted); font-weight: 400; vertical-align: top; margin-right: 1px; }
+.bk-stat-sub { font-size: 11.5px; color: var(--bk-muted); margin-top: 8px; line-height: 1.4; }
+@media (max-width: 720px) {
+  .bk-outlook { grid-template-columns: repeat(2, 1fr); row-gap: 16px; }
+}
 
 .bk-filter-row { display: flex; gap: 4px; flex-wrap: wrap; margin-bottom: 8px; align-items: center; }
 .bk-filter-row:last-child { margin-bottom: 18px; }

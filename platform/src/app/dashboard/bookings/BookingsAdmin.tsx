@@ -12,6 +12,7 @@ import BookingNotes from '@/components/BookingNotes'
 import { formatPhone } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
+import './bookings-list.css'
 
 export default function BookingsPageWrapper() {
   return (
@@ -1304,38 +1305,30 @@ function BookingsPage() {
   useEffect(() => { setCurrentPage(1) }, [filters, searchQuery])
 
   const statusPillClass = (status: string) => {
-    const isActive = filters.status === status
-    const base = 'px-3 py-2 rounded-full text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5'
-    if (status === '' && !filters.status) return base + ' bg-[#1E2A4A] text-white shadow-sm'
-    if (isActive) return base + ' bg-[#1E2A4A] text-white shadow-sm'
-    return base + ' bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+    const isActive = filters.status === status || (status === '' && !filters.status)
+    return `bk-chip ${isActive ? 'active' : ''}`
   }
 
   return (
     <>
-      <main className="p-3 md:p-6 max-w-[1400px] mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
-          <div>
-            <h2 className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-1">BOOKINGS</h2>
-            <p className="text-2xl font-bold text-[#1E2A4A]">Manage Bookings</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowFilters(!showFilters)} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all ' + (showFilters || activeFilterCount > 0 ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
-              <span className="flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
-                Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
-              </span>
-            </button>
-            <button onClick={() => { setShowWaitlist(!showWaitlist); if (!showWaitlist) loadWaitlist() }} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center gap-2 ' + (showWaitlist ? 'border-purple-600 bg-purple-600 text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Waitlist
-            </button>
-            <button onClick={() => setShowCloseOut(!showCloseOut)} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center gap-2 ' + (showCloseOut ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-              Close Out{closeOutJobs.length > 0 ? ` (${closeOutJobs.length})` : ''}
-            </button>
-            <button onClick={() => {
+      <main className="bk-scope p-3 md:p-6 max-w-[1400px] mx-auto">
+        {/* Page Header — masthead ("Schedule.") already rendered by DashboardShell
+            above this tab; only the action buttons live here, restyled onto the
+            same bk-btn tokens Clients/Sales use instead of a dark-navy fill. */}
+        <div className="flex items-center gap-2 mb-5 flex-wrap">
+          <button onClick={() => setShowFilters(!showFilters)} className={`bk-btn bk-btn-ghost bk-btn-toggle ${showFilters || activeFilterCount > 0 ? 'active' : ''}`}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
+            Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
+          </button>
+          <button onClick={() => { setShowWaitlist(!showWaitlist); if (!showWaitlist) loadWaitlist() }} className={`bk-btn bk-btn-ghost bk-btn-toggle vip ${showWaitlist ? 'active' : ''}`}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Waitlist
+          </button>
+          <button onClick={() => setShowCloseOut(!showCloseOut)} className={`bk-btn bk-btn-ghost bk-btn-toggle good ${showCloseOut ? 'active' : ''}`}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            Close Out{closeOutJobs.length > 0 ? ` (${closeOutJobs.length})` : ''}
+          </button>
+          <button onClick={() => {
               const escCsv = (v: unknown) => {
                 let s = v == null ? '' : String(v)
                 // Neutralize CSV formula injection (Excel/Sheets execute leading =,+,-,@).
@@ -1352,77 +1345,93 @@ function BookingsPage() {
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a'); a.href = url; a.download = `bookings-${new Date().toISOString().split('T')[0]}.csv`; a.click()
               URL.revokeObjectURL(url)
-            }} className="px-4 py-2.5 border border-gray-200 text-[#1E2A4A] rounded-xl font-medium text-sm hover:bg-gray-50 transition-all">Export</button>
-            <button onClick={openCreate} className="bg-[#1E2A4A] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#1E2A4A]/90 transition-all shadow-sm flex items-center gap-2">
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
-              New Booking
-            </button>
-          </div>
+            }} className="bk-btn bk-btn-ghost">Export</button>
+          <button onClick={openCreate} className="bk-btn bk-btn-primary" style={{ marginLeft: 'auto' }}>
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
+            New Booking
+          </button>
         </div>
 
         {/* Quick Links */}
-        <div className="text-xs text-gray-400 mb-4 hidden md:flex items-center gap-1 flex-wrap">
-          <a href="https://www.thenycmaid.com/book" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Client Portal</a>
-          <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/new" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">New Booking</a>
-          <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/collect" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Collect Info</a>
-          <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/team" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Team Portal</a>
+        <div className="text-xs mb-4 hidden md:flex items-center gap-1 flex-wrap" style={{ color: 'var(--bk-muted-2)' }}>
+          <a href="https://www.thenycmaid.com/book" target="_blank" style={{ color: 'var(--bk-muted)' }} className="hover:underline">Client Portal</a>
+          <span style={{ color: 'var(--bk-line)' }} className="mx-1">/</span>
+          <a href="https://www.thenycmaid.com/book/new" target="_blank" style={{ color: 'var(--bk-muted)' }} className="hover:underline">New Booking</a>
+          <span style={{ color: 'var(--bk-line)' }} className="mx-1">/</span>
+          <a href="https://www.thenycmaid.com/book/collect" target="_blank" style={{ color: 'var(--bk-muted)' }} className="hover:underline">Collect Info</a>
+          <span style={{ color: 'var(--bk-line)' }} className="mx-1">/</span>
+          <a href="https://www.thenycmaid.com/team" target="_blank" style={{ color: 'var(--bk-muted)' }} className="hover:underline">Team Portal</a>
         </div>
 
-        {/* Stat Cards */}
+        {/* Stat Cards — thin-line bk-outlook/bk-stat pattern, same as
+            Clients/Sales/Schedule instead of 4 tinted rounded-xl tiles. */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-              <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Upcoming</p>
-              <p className="text-2xl font-bold text-blue-700 mt-1">{upcomingCount}</p>
+          <>
+            <div className="bk-bar-label">Bookings</div>
+            <div className="bk-outlook">
+              <div className="bk-stat">
+                <div className="bk-stat-label">Upcoming</div>
+                <div className="bk-stat-value">{upcomingCount}</div>
+              </div>
+              <div className="bk-stat">
+                <div className="bk-stat-label">This Week</div>
+                <div className="bk-stat-value">{thisWeekCount}</div>
+              </div>
+              <div className="bk-stat">
+                <div className="bk-stat-label">Completed</div>
+                <div className="bk-stat-value">{statusCounts.completed}</div>
+              </div>
+              <div className="bk-stat">
+                <div className="bk-stat-label">Revenue</div>
+                <div className="bk-stat-value"><span className="unit">$</span>{(totalRevenue / 100).toLocaleString('en-US')}</div>
+              </div>
             </div>
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
-              <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">This Week</p>
-              <p className="text-2xl font-bold text-amber-700 mt-1">{thisWeekCount}</p>
-            </div>
-            <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-              <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Completed</p>
-              <p className="text-2xl font-bold text-green-700 mt-1">{statusCounts.completed}</p>
-            </div>
-            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-              <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Revenue</p>
-              <p className="text-2xl font-bold text-emerald-700 mt-1">${(totalRevenue / 100).toLocaleString('en-US')}</p>
-            </div>
-          </div>
+          </>
         )}
 
         {/* Search Bar */}
         <div className="relative mb-4">
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
-            <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+            <svg className="w-4 h-4" style={{ color: 'var(--bk-muted-2)' }} fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
-          <input type="text" placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
+          <input
+            type="text"
+            placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full pl-10 pr-4 py-2.5 text-sm focus:outline-none transition-all"
+            style={{ border: '1px solid var(--bk-line)', borderRadius: 4, color: 'var(--bk-ink)', background: 'var(--bk-canvas)' }}
+          />
         </div>
 
-        {/* Status Filter Pills */}
-        <div className="flex items-center gap-2 mb-4 overflow-x-auto pb-1 scrollbar-hide flex-nowrap">
-          <button onClick={() => setFilters({ ...filters, status: '' })} className={statusPillClass('')}>
-            All <span className="bg-white/20 text-xs px-1.5 py-0.5 rounded-full">{statusCounts.all}</span>
-          </button>
+        {/* Status Filter Pills — bk-chip, same as Clients/Sales instead of
+            dark-navy filled rounded-full pills. */}
+        <div className="bk-filter-row" style={{ flexWrap: 'nowrap', overflowX: 'auto' }}>
+          <span onClick={() => setFilters({ ...filters, status: '' })} className={statusPillClass('')}>
+            All <span className="bk-chip-count">{statusCounts.all}</span>
+          </span>
           {statusCounts.pending > 0 && (
-            <button onClick={() => setFilters({ ...filters, status: 'pending' })} className={statusPillClass('pending')}>
-              Pending <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'pending' ? 'bg-white/20' : 'bg-red-100 text-red-600')}>{statusCounts.pending}</span>
-            </button>
+            <span onClick={() => setFilters({ ...filters, status: 'pending' })} className={statusPillClass('pending')}>
+              <span className="bk-chip-dot danger" />
+              Pending <span className="bk-chip-count">{statusCounts.pending}</span>
+            </span>
           )}
-          <button onClick={() => setFilters({ ...filters, status: 'scheduled' })} className={statusPillClass('scheduled')}>
-            Scheduled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'scheduled' ? 'bg-white/20' : 'bg-blue-100 text-blue-600')}>{statusCounts.scheduled}</span>
-          </button>
-          <button onClick={() => setFilters({ ...filters, status: 'in_progress' })} className={statusPillClass('in_progress')}>
-            In Progress <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'in_progress' ? 'bg-white/20' : 'bg-amber-100 text-amber-600')}>{statusCounts.in_progress}</span>
-          </button>
-          <button onClick={() => setFilters({ ...filters, status: 'completed' })} className={statusPillClass('completed')}>
-            Completed <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'completed' ? 'bg-white/20' : 'bg-green-100 text-green-600')}>{statusCounts.completed}</span>
-          </button>
-          <button onClick={() => setFilters({ ...filters, status: 'cancelled' })} className={statusPillClass('cancelled')}>
-            Cancelled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'cancelled' ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>{statusCounts.cancelled}</span>
-          </button>
+          <span onClick={() => setFilters({ ...filters, status: 'scheduled' })} className={statusPillClass('scheduled')}>
+            <span className="bk-chip-dot scheduled" />
+            Scheduled <span className="bk-chip-count">{statusCounts.scheduled}</span>
+          </span>
+          <span onClick={() => setFilters({ ...filters, status: 'in_progress' })} className={statusPillClass('in_progress')}>
+            <span className="bk-chip-dot progress" />
+            In Progress <span className="bk-chip-count">{statusCounts.in_progress}</span>
+          </span>
+          <span onClick={() => setFilters({ ...filters, status: 'completed' })} className={statusPillClass('completed')}>
+            <span className="bk-chip-dot completed" />
+            Completed <span className="bk-chip-count">{statusCounts.completed}</span>
+          </span>
+          <span onClick={() => setFilters({ ...filters, status: 'cancelled' })} className={statusPillClass('cancelled')}>
+            <span className="bk-chip-dot cancelled" />
+            Cancelled <span className="bk-chip-count">{statusCounts.cancelled}</span>
+          </span>
         </div>
 
         {/* Advanced Filters Panel */}
