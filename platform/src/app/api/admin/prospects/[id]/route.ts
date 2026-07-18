@@ -84,6 +84,25 @@ export async function PATCH(request: Request, { params }: Params) {
   }
 
   const { data, error } = await supabaseAdmin.from('prospects').update(updates).eq('id', id).select('*').single()
-  if (error) throw error
+  if (error) {
+    // idx_prospects_trade_zip_active partial-uniques (trade, primary_zip) across
+    // approved/paid rows -- a real territory-exclusivity guarantee, not an
+    // incidental constraint. Two qualifying prospects for the same trade+zip
+    // applying around the same time is a normal occurrence, not a bug: approving
+    // the second one after the first already holds the slot must surface as a
+    // clear conflict. This used to `throw error` completely uncaught (no
+    // try/catch anywhere in this handler), producing a raw framework 500 with no
+    // JSON body and zero indication of what actually happened -- worse, by this
+    // point the Stripe checkout session above has already been created (a real
+    // API call) and its URL silently discarded, so the admin saw an opaque crash
+    // with no way to tell "already claimed" from "the DB is broken."
+    if (error.code === '23505' && body.action === 'approve') {
+      return NextResponse.json(
+        { error: 'Another prospect already holds the exclusive slot for this trade + zip code' },
+        { status: 409 },
+      )
+    }
+    return NextResponse.json({ error: error.message }, { status: 500 })
+  }
   return NextResponse.json({ prospect: data })
 }
