@@ -216,7 +216,7 @@ async function inspectOne(
 async function inspectAndDetect(
   prop: Property,
   urls: string[],
-): Promise<{ inspected: number; failed: number; failReason?: string; problems: number }> {
+): Promise<{ inspected: number; failed: number; failReason?: string; problems: Record<string, unknown>[] }> {
   const now = new Date().toISOString()
   const problems: Record<string, unknown>[] = []
   let inspected = 0
@@ -237,11 +237,25 @@ async function inspectAndDetect(
     }
   }
 
+  return { inspected, failed, failReason, problems }
+}
+
+// Replace one property's open not_indexed backlog with this run's findings.
+// Scoped to a single property and only called once we actually completed a
+// scan for it — a property that got skipped this run (no URLs, every
+// inspection failed, a thrown error) must keep whatever it had before, not
+// have it wiped and left empty until the next run reaches it.
+async function replaceNotIndexedIssues(property: string, problems: Record<string, unknown>[]): Promise<void> {
+  await supabaseAdmin
+    .from('seo_issues')
+    .delete()
+    .eq('status', 'open')
+    .eq('type', 'not_indexed')
+    .eq('property', property) // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
   if (problems.length) {
-    const { error } = await supabaseAdmin.from('seo_issues').insert(problems)  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
-    if (error) throw new Error(`not_indexed insert ${prop.property}: ${error.message}`)
+    const { error } = await supabaseAdmin.from('seo_issues').insert(problems)
+    if (error) throw new Error(`not_indexed insert ${property}: ${error.message}`)
   }
-  return { inspected, failed, failReason, problems: problems.length }
 }
 
 // ---------------------------------------------------------------------------
@@ -256,9 +270,6 @@ export type TechnicalScanResult = {
 }
 
 export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promise<TechnicalScanResult> {
-  // Fresh slate for indexing issues — GSC + competitor detectors don't touch these.
-  await supabaseAdmin.from('seo_issues').delete().eq('status', 'open').eq('type', 'not_indexed')
-
   const { data: props } = await supabaseAdmin
     .from('seo_properties')
     .select('property,domain,tenant_id')
@@ -284,7 +295,6 @@ export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promi
       }
       const { inspected, failed, failReason, problems } = await inspectAndDetect(prop, urls)
       out.urlsInspected += inspected
-      out.notIndexed += problems
       // Every attempted inspection failing (GSC permission, quota, transient API
       // error — see inspectUrl's throw) previously looked identical to "scanned,
       // confirmed zero indexing problems": inspected=0/problems=0 either way, no
@@ -293,14 +303,20 @@ export async function runTechnicalScan(opts?: { propertyLimit?: number }): Promi
       // Inspection would then permanently report clean with real ingest data
       // flowing in — the exact "fresh ingest, zero not_indexed rows" shape.
       // Surface it as skipped (same diagnostic channel as the no-URLs case)
-      // instead of silently counting it as a clean scan.
+      // instead of silently counting it as a clean scan — and, critically,
+      // leave its existing not_indexed backlog alone: we have no fresh signal
+      // for this property, so we must not delete what we already knew.
       if (inspected === 0 && failed > 0) {
         out.skipped.push(
           `${prop.domain ?? propertyToDomain(prop.property)}: ${failed}/${urls.length} URL inspections failed, 0 succeeded (last error: ${failReason ?? 'unknown'}) — check seo_properties.permission for this property`,
         )
-      } else {
-        out.scanned++
+        continue
       }
+      // This property genuinely completed a scan this run — replace its
+      // not_indexed state (may legitimately clear it to zero if truly clean).
+      await replaceNotIndexedIssues(prop.property, problems)
+      out.notIndexed += problems.length
+      out.scanned++
     } catch (e) {
       out.skipped.push(`${prop.domain ?? propertyToDomain(prop.property)}: ${e instanceof Error ? e.message : String(e)}`)
     }
