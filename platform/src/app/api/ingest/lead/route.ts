@@ -50,6 +50,16 @@ interface IngestLeadBody {
 // silently dropped.
 const STANDARD_KEYS = new Set(['tenant_slug', 'type', 'name', 'email', 'phone', 'details', 'message', 'source'])
 
+// The caller here is a sibling marketing site's own public form relay, not a
+// trusted operator — `name` and every arbitrary key folded into notes are
+// ultimately attacker-controlled. Cap both so a single request can't balloon a
+// client record (or, downstream, an admin SMS built from it in bookings/team-
+// assignment flows — see smsJobAssignment/smsLateCheckInAdmin) to megabytes of
+// chosen content. Mirrors the authenticated /api/clients name cap (200) and
+// the /api/prospects/waitlist notes cap (2000).
+const MAX_NAME = 200
+const MAX_NOTES = 2000
+
 function buildLeadNotes(body: IngestLeadBody): string | null {
   const lines: string[] = []
   const base = (body.details || body.message || '').toString().trim()
@@ -60,7 +70,8 @@ function buildLeadNotes(body: IngestLeadBody): string | null {
     lines.push(`${label}: ${String(v)}`)
   }
   const extra = lines.join('\n')
-  return [extra, base].filter(Boolean).join('\n\n').trim() || null
+  const combined = [extra, base].filter(Boolean).join('\n\n').trim()
+  return combined ? combined.slice(0, MAX_NOTES) : null
 }
 
 function secretMatches(provided: string | null): boolean {
@@ -94,7 +105,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
   }
 
-  const name = body.name?.trim()
+  const name = body.name?.trim().slice(0, MAX_NAME)
   const email = body.email?.trim().toLowerCase() || null
   const phoneRaw = body.phone?.trim() || ''
   const notes = buildLeadNotes(body)

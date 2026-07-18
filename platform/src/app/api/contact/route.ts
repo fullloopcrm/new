@@ -52,6 +52,16 @@ interface ContactBody {
   availability?: string
 }
 
+// Unauthenticated route — every field on `body` is caller-controlled. `name`
+// and the notes built below end up on clients/team_applications rows and,
+// downstream, in admin SMS built from a booking/team-assignment (see
+// smsJobAssignment/smsLateCheckInAdmin/smsLateCheckOutAdmin/
+// smsRunningLateAdmin) — cap both so one request can't balloon either to
+// megabytes of attacker-chosen content. Mirrors the authenticated /api/clients
+// name cap (200) and the /api/prospects/waitlist notes cap (2000).
+const MAX_NAME = 200
+const MAX_NOTES = 2000
+
 function inferFormType(body: ContactBody): 'service-quote' | 'general-inquiry' | 'job-application' {
   if (body.formType === 'job-application' || body.position) return 'job-application'
   if (body.formType === 'general-inquiry' || body.subject) return 'general-inquiry'
@@ -114,7 +124,7 @@ function buildLeadNotes(form: string, body: ContactBody, discountCents: number):
   if (body.location) lines.push(`Location: ${body.location}`)
   if (body.subject) lines.push(`Subject: ${body.subject}`)
   if (body.message) lines.push('', body.message.trim())
-  return lines.join('\n').trim()
+  return lines.join('\n').trim().slice(0, MAX_NOTES)
 }
 
 function buildJobNotes(body: ContactBody): string {
@@ -125,7 +135,7 @@ function buildJobNotes(body: ContactBody): string {
   if (body.availability) lines.push(`Availability: ${body.availability}`)
   if (body.location) lines.push(`Location: ${body.location}`)
   if (body.message) lines.push('', body.message.trim())
-  return lines.join('\n').trim()
+  return lines.join('\n').trim().slice(0, MAX_NOTES)
 }
 
 export async function POST(request: NextRequest) {
@@ -142,7 +152,7 @@ export async function POST(request: NextRequest) {
     }
 
     const body = (await request.json()) as ContactBody
-    const name = body.name?.trim()
+    const name = body.name?.trim().slice(0, MAX_NAME)
     const email = body.email?.trim().toLowerCase()
     const phone = body.phone?.trim()
 

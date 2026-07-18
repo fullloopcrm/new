@@ -36,6 +36,21 @@ interface IngestBody {
   source?: string
 }
 
+// The caller here is a sibling standalone site's own public application form
+// relay, not a trusted operator — `name` and the free-text fields below are
+// ultimately applicant-controlled. Cap both so a single request can't balloon
+// the row (or, downstream, an admin SMS built from the resulting team
+// member's name — see smsLateCheckInAdmin/smsLateCheckOutAdmin/
+// smsRunningLateAdmin) to megabytes of chosen content. Mirrors the
+// authenticated /api/clients name cap (200) and the /api/prospects/waitlist
+// notes cap (2000).
+const MAX_NAME = 200
+const MAX_TEXT = 2000
+const capText = (v: string | undefined | null, max = MAX_TEXT): string | null => {
+  const t = v?.trim()
+  return t ? t.slice(0, max) : null
+}
+
 function secretMatches(provided: string | null): boolean {
   const expected = process.env.INGEST_SECRET
   if (!expected || !provided) return false
@@ -74,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: `Unknown tenant: ${slug}` }, { status: 400 })
   }
 
-  const name = body.name?.trim()
+  const name = body.name?.trim().slice(0, MAX_NAME)
   const phone = body.phone?.trim()
   if (!name || !phone) {
     return NextResponse.json({ error: 'name and phone are required' }, { status: 400 })
@@ -118,12 +133,12 @@ export async function POST(request: Request) {
         name,
         email: body.email?.trim().toLowerCase() || null,
         phone: cleanPhone,
-        address: body.address?.trim() || null,
-        experience: body.experience || null,
-        availability: body.availability || null,
-        referral_source: body.referral_source || body.source || null,
-        references: body.references || null,
-        notes: body.notes || null,
+        address: capText(body.address, MAX_NAME),
+        experience: capText(body.experience),
+        availability: capText(body.availability, MAX_NAME),
+        referral_source: capText(body.referral_source || body.source, MAX_NAME),
+        references: capText(body.references),
+        notes: capText(body.notes),
         photo_url: body.photo_url || null,
         status: 'pending',
       })

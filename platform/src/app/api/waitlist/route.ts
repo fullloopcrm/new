@@ -106,13 +106,25 @@ export async function POST(request: Request) {
     return NextResponse.json({ ok: false, error: 'Invalid body' }, { status: 400 })
   }
 
-  const name = typeof body.name === 'string' ? body.name.trim() : ''
-  const phone = typeof body.phone === 'string' ? body.phone.trim() : ''
+  // Caps mirror the authenticated /api/clients name limit (200) and the
+  // /api/prospects free-text limit (2000) — this endpoint is unauthenticated,
+  // and `name` is interpolated verbatim into an admin SMS below (both the
+  // success and fallback paths), so an uncapped value lets an anonymous caller
+  // push arbitrary-length content (phishing text, multi-segment SMS cost) to
+  // every admin's phone from the tenant's own trusted number in one request.
+  const MAX_SHORT = 200
+  const MAX_NOTES = 2000
+  const name = (typeof body.name === 'string' ? body.name.trim() : '').slice(0, MAX_SHORT)
+  const phone = (typeof body.phone === 'string' ? body.phone.trim() : '').slice(0, MAX_SHORT)
   if (!name || !phone) {
     return NextResponse.json({ ok: false, error: 'name and phone are required' }, { status: 400 })
   }
 
-  const str = (v: unknown) => (typeof v === 'string' && v.trim() ? v.trim() : null)
+  const str = (v: unknown, max = MAX_SHORT) => {
+    if (typeof v !== 'string') return null
+    const t = v.trim()
+    return t ? t.slice(0, max) : null
+  }
   const num = (v: unknown) => (typeof v === 'number' && isFinite(v) ? v : null)
 
   const { error } = await tenantDb(tenant.id).from('waitlist').insert({
@@ -125,7 +137,7 @@ export async function POST(request: Request) {
     preferred_time: str(body.preferred_time),
     estimated_hours: num(body.estimated_hours),
     hourly_rate: num(body.hourly_rate),
-    notes: str(body.notes),
+    notes: str(body.notes, MAX_NOTES),
     source: 'web',
   })
 
