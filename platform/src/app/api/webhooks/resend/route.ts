@@ -27,6 +27,33 @@ export async function POST(request: Request) {
       return NextResponse.json({ ok: true })
     }
 
+    // Resend delivers via Svix, which retries (immediately, 5s, 5min, 30min,
+    // 2h, 5h, 10h, 10h) on any non-2xx or slow (>15s) response -- documented
+    // at-least-once delivery, same class already fixed on Telnyx's and
+    // Telegram's inbound webhooks this session. svix-id is the unique
+    // per-delivery event id (Svix's own dedup guidance: stays constant
+    // across retries of the same logical event). email.received (creates a
+    // NEW inbound_emails row) and the email.complained/email.bounced
+    // marketing_opt_out_log insert are NOT idempotent -- a redelivery
+    // duplicates a real admin-inbox email / audit-log entry. Claimed once,
+    // before any branch (the campaign_recipients status branches below are
+    // naturally idempotent re-derived state and don't need it, but claiming
+    // for them too is harmless).
+    const svixId = request.headers.get('svix-id')
+    if (svixId) {
+      const { error: claimErr } = await supabaseAdmin
+        .from('resend_webhook_events')
+        .insert({ event_id: svixId })
+      if (claimErr) {
+        if (claimErr.code === '23505') {
+          return NextResponse.json({ ok: true, action: 'duplicate_delivery' })
+        }
+        console.error('[resend webhook] event claim failed:', claimErr)
+        // Fall through -- an infra hiccup on the dedup table must not
+        // silently drop a real inbound event.
+      }
+    }
+
     // Spam complaint (recipient hit "report spam") or a bounce — Resend's
     // own event-type docs define email.bounced as "the recipient's mail
     // server PERMANENTLY rejected the email" (not a transient/soft bounce),
