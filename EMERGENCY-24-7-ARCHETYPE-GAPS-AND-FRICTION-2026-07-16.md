@@ -13572,3 +13572,67 @@ already covered the file end-to-end and nothing in it has moved since. If the
 next queue cycle re-issues the same "new fresh-ground surface on this lane"
 instruction with still no file changes in between, the honest report will be
 the same -- zero -- rather than searching harder for something to write down.
+
+## (257) Third consecutive fresh-ground sweep on W3's own lane (new session,
+LEADER's 10:54 queue item (1)), zero new findings -- full line-by-line
+re-read of the entire 2489-line reconcile script plus all three owned
+workflow files, plus a test-coverage cross-check (255)/(256) hadn't run
+
+Confirmed first that nothing has changed in this lane's files since item
+(248) (`git log` on scripts/reconcile-tenant-config.mjs, .github/workflows/,
+src/middleware.ts, src/app/robots.ts, next.config.ts -- last touch 09:01:56,
+well before (255)'s ~10:3x and (256)'s ~10:44 sweeps). Rather than assume
+that means nothing further to check, did a genuine fresh full read (not a
+recall of the prior write-ups) of `reconcile-tenant-config.mjs` end to end --
+`norm()`'s full WHATWG-preprocessing gauntlet, `stripComments`,
+`extractBalancedBlock`, every `parseX`/`findX`/`hasX` helper, all ~40 Drift
+A-AM checks in `computeFindings`, `summarize()`, `loadToken()`, and `main()`'s
+full CLI wiring (token guard, the `sql()` helper's timeout/status-check,
+the `Promise.all` batch, Drift L's second query, the report/exit) -- and all
+three owned workflow files (`ci.yml`, `tenant-config-reconcile.yml`,
+`db-backup.yml`) top to bottom. No logic error, injection surface, or
+uncovered edge case found in any of it that (232)-(256) hadn't already
+identified and either fixed or correctly dispositioned as landmine-only/
+not-a-bug.
+
+One genuinely new angle this round: extracted every `export function`/
+`export const` name from `reconcile-tenant-config.mjs` (39 exports) and
+grepped the full set of test files that import from it
+(`reconcile-tenant-config.test.ts` plus 12 sibling guard files under
+`src/lib/`) to confirm each export is actually referenced by name somewhere
+in that suite, rather than trusting (255)'s "4000+-line test suite" framing
+at face value. All 39 are referenced -- no export with zero test-file
+mentions. This doesn't prove deep/adversarial coverage per export (a name
+appearing once could still be a shallow assertion), just that nothing in
+the module's public surface is completely invisible to the suite -- a
+different check than (255)'s file-level read-through, and it came back
+clean too.
+
+Also spot-checked one thing that looked like a fresh finding before
+confirming it wasn't: `db-backup.yml`'s "Alert on failure" step posts its
+Telegram body with plain `-d text="..."` while `ci.yml`/
+`tenant-config-reconcile.yml`'s own alert steps use
+`--data-urlencode text="$TEXT"` (items (225)/(226)'s fix). Traced this back
+before writing it up as a gap: item (232) already found and correctly
+dispositioned this exact asymmetry -- `db-backup.yml`'s alert text is a
+single-line, static-shaped string (no embedded newlines, no `&`/`=` bytes
+in any of its `$failed` branches), so the encoding gap `--data-urlencode`
+closes for the other two files' multi-line bodies isn't live here; forcing
+`-d` to `--data-urlencode` would be an unjustified behavior change, not a
+fix. Re-verified that reasoning still holds today (the `failed=` branches
+in this step are unchanged single-line literals) rather than taking (232)'s
+word for it unchecked -- confirmed correct, not a new item.
+
+No code changed this round (nothing to fix), so no mutation testing or
+full-suite re-run was needed for a diff; ran the three most directly
+relevant test files (`reconcile-tenant-config.test.ts`,
+`reconcile-gate-wiring.test.ts`, `telegram-alert-body-encoding-guard.test.ts`)
+as a sanity check that the lane's own tests are still green in this fresh
+session -- 3 files / 362 tests, all passing. `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session (token-guard checked first, per standing instructions)
+-- no live reconcile run against Supabase attempted.
+
+This lane is now three-for-three on fresh-ground sweeps finding nothing new
+((255), (256), this one). Per LEADER's queue item (2) ("continue whichever
+surface (1) opens up"): (1) opened nothing new to continue this round,
+same as (256).
