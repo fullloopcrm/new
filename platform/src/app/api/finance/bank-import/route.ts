@@ -75,7 +75,17 @@ export async function POST(request: Request) {
       })
       .select('id')
       .single()
-    if (bErr) throw bErr
+    if (bErr) {
+      // The existingBatch check above is TOCTOU -- two concurrent uploads of
+      // the same exact file can both pass it before either insert commits.
+      // idx_bank_import_batches_sha (bank_account_id, sha256) is the real
+      // backstop; surface the same friendly 409 here instead of falling
+      // through to the generic 500 below.
+      if (bErr.code === '23505') {
+        return NextResponse.json({ error: 'This exact file was already imported' }, { status: 409 })
+      }
+      throw bErr
+    }
 
     // Build fingerprints
     const incoming = rows.map(r => ({
@@ -124,7 +134,17 @@ export async function POST(request: Request) {
           status: 'pending',
         })),
       )
-      if (iErr) throw iErr
+      if (iErr) {
+        // The batch row above already committed. A bulk insert is all-or-
+        // nothing -- ANY row hitting idx_bank_txns_account_fp (e.g. a real
+        // concurrent race, or any other transient failure here) aborts the
+        // whole insert, leaving this batch's sha256 slot occupied with ZERO
+        // transactions actually recorded. Without this rollback, the
+        // existingBatch check above would treat this exact file as
+        // "already imported" forever, with no way to ever retry it.
+        await supabaseAdmin.from('bank_import_batches').delete().eq('id', batch.id)
+        throw iErr
+      }
     }
 
     await supabaseAdmin
