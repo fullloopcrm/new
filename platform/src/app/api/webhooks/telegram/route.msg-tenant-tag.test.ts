@@ -37,6 +37,7 @@ const h = vi.hoisted(() => {
             select: () => ({ single: () => Promise.resolve({ data: { id: 'convo-1' }, error: null }) }),
           }
         }
+        if (table === 'telegram_webhook_events') return Promise.resolve({ error: null })
         return { then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }) }
       },
       then: (resolve: (v: unknown) => unknown) => resolve({ data: null, error: null }),

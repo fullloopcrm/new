@@ -1360,12 +1360,24 @@ async function handleProcessStripeRefund(input: { booking_id: string; amount_dol
   try {
     const Stripe = (await import('stripe')).default
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', { apiVersion: '2025-08-27.basil' as never })
+    // Idempotency key, same pattern as payment-processor.ts's cleaner-payout
+    // transfer. This tool is invoked from the Telegram owner webhook, which has
+    // no dedup against Telegram's own documented retry-on-slow-response behavior
+    // (askSelena's agent loop can easily exceed Telegram's ack window) — without
+    // this, a retried delivery re-runs the same "refund $X for booking Y"
+    // instruction and fires a second, real stripe.refunds.create for the same
+    // money. Bucketed to a 5-minute window (mirrors webhook-verify.ts's replay
+    // window) so a genuinely new refund for the same booking/amount later still
+    // goes through instead of being deduped forever.
+    const bucket = Math.floor(Date.now() / (5 * 60 * 1000))
+    const amountCents = Math.round(input.amount_dollars * 100)
+    const idempotencyKey = `refund:${tid}:${input.booking_id}:${payment.stripe_payment_intent_id}:${amountCents}:${bucket}`
     const refund = await stripe.refunds.create({
       payment_intent: payment.stripe_payment_intent_id,
-      amount: Math.round(input.amount_dollars * 100),
+      amount: amountCents,
       reason: 'requested_by_customer',
       metadata: { booking_id: input.booking_id, note: input.reason || '' },
-    })
+    }, { idempotencyKey })
     await supabaseAdmin.from('bookings').update({ payment_status: 'refunded' }).eq('id', input.booking_id).eq('tenant_id', tid)
     return JSON.stringify({ ok: true, refund_id: refund.id, amount: input.amount_dollars, status: refund.status })
   } catch (err) {

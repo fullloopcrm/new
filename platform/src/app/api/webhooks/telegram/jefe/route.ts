@@ -9,6 +9,7 @@ import { askJefe } from '@/lib/jefe/agent'
 import { loadJefeHistory, saveJefeTurn } from '@/lib/jefe/actions'
 import { sendTelegram } from '@/lib/telegram'
 import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
+import { claimTelegramUpdate } from '@/lib/telegram-webhook-dedup'
 
 export const maxDuration = 60
 
@@ -26,8 +27,13 @@ export async function POST(req: Request) {
   }
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try { body = await req.json() } catch { return NextResponse.json({ ok: true, parse: 'failed' }) }
+
+  // Telegram redelivers on a slow ack — askJefe can run long. Skip a
+  // redelivered update instead of re-running Jefe (and any tool it calls).
+  const { isDuplicate } = await claimTelegramUpdate('jefe', body.update_id)
+  if (isDuplicate) return NextResponse.json({ ok: true, duplicate: true })
 
   const post = body.message || body.channel_post
   const chatId = post?.chat?.id

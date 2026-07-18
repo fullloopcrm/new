@@ -12,6 +12,7 @@ import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { decryptSecret } from '@/lib/secret-crypto'
 import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
+import { claimTelegramUpdate } from '@/lib/telegram-webhook-dedup'
 
 export const maxDuration = 60
 
@@ -64,12 +65,18 @@ export async function POST(req: Request, { params }: { params: Promise<{ tenant:
   const botToken = decryptSecret(tenant.telegram_bot_token)
 
   type TgPost = { chat?: { id?: number | string }; text?: string }
-  let body: { message?: TgPost; channel_post?: TgPost } = {}
+  let body: { update_id?: number; message?: TgPost; channel_post?: TgPost } = {}
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: true, parse: 'failed' })
   }
+
+  // Telegram redelivers on a slow ack — askSelena can run long. Skip a
+  // redelivered update instead of re-running the agent (and any owner tool
+  // it calls, e.g. process_stripe_refund) a second time for this tenant.
+  const { isDuplicate } = await claimTelegramUpdate(`tenant:${tenant.id}`, body.update_id)
+  if (isDuplicate) return NextResponse.json({ ok: true, duplicate: true })
 
   // Groups/DMs deliver `message`; channels deliver `channel_post`.
   const post = body.message || body.channel_post

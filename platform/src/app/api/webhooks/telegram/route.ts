@@ -4,6 +4,7 @@ import { askSelena } from '@/lib/selena/agent'
 import { sendTelegram } from '@/lib/telegram'
 import { verifyTelegramWebhook } from '@/lib/telegram-webhook-auth'
 import { requireAdmin } from '@/lib/require-admin'
+import { claimTelegramUpdate } from '@/lib/telegram-webhook-dedup'
 
 export const maxDuration = 60
 
@@ -62,12 +63,18 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: 'unauthorized', reason: verified.reason }, { status: 401 })
   }
 
-  let body: { message?: { chat?: { id?: number | string }; text?: string } } = {}
+  let body: { update_id?: number; message?: { chat?: { id?: number | string }; text?: string } } = {}
   try {
     body = await req.json()
   } catch {
     return NextResponse.json({ ok: true, parse: 'failed' })
   }
+
+  // Telegram redelivers if we don't ack fast enough (askSelena's agent loop
+  // easily can run long) — skip a redelivered update rather than re-running
+  // the agent (and any owner tool it calls) a second time.
+  const { isDuplicate } = await claimTelegramUpdate('platform-owner', body.update_id)
+  if (isDuplicate) return NextResponse.json({ ok: true, duplicate: true })
 
   const msg = body.message
   const chatId = msg?.chat?.id
