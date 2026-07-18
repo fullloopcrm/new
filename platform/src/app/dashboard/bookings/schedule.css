@@ -137,6 +137,41 @@
 .sched-stat-sub strong { color: var(--sched-ink); font-weight: 500; }
 .sched-stat-sub.warn { color: var(--sched-warn); }
 
+/* BUTTONS — mirrors .clients-btn* (clients.css) with sched- tokens, so the
+   Bookings list tab (BookingsAdmin) matches Clients/Sales instead of its
+   former dark-navy Tailwind treatment. */
+.sched-btn {
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 14px;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  letter-spacing: -0.005em;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  white-space: nowrap;
+}
+.sched-btn-ghost {
+  background: var(--sched-canvas);
+  border: 1px solid var(--sched-line);
+  color: var(--sched-ink);
+}
+.sched-btn-ghost:hover { background: var(--sched-bg); border-color: var(--sched-ink); }
+.sched-btn-ghost.active {
+  background: var(--sched-ink);
+  border-color: var(--sched-ink);
+  color: var(--sched-canvas);
+}
+.sched-btn-primary {
+  background: var(--sched-ink);
+  border: 1px solid var(--sched-ink);
+  color: var(--sched-canvas);
+}
+.sched-btn-primary:hover { background: var(--sched-graphite); }
+
 /* SELENA QUERY */
 .sched-selena-query {
   display: flex;

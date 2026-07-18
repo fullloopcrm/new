@@ -142,7 +142,7 @@ function SuggestionStrip({ suggestions, onPick, variant }: { suggestions: SlotSu
             onClick={() => onPick(s.time24)}
             className="flex items-baseline justify-between gap-2 text-left px-2 py-1.5 bg-white border border-amber-300 rounded hover:bg-amber-100 transition-colors"
           >
-            <span className="text-sm font-semibold text-[#1E2A4A]">{s.label}</span>
+            <span className="text-sm font-semibold text-[var(--color-loop-ink)]">{s.label}</span>
             <span className="text-[11px] text-gray-600 flex-1">{s.reason}</span>
             {s.teamShort != null && s.teamShort > 0 && (
               <span className="text-[10px] text-red-500 font-medium">{s.teamShort} slot{s.teamShort > 1 ? 's' : ''} short</span>
@@ -1256,32 +1256,30 @@ function BookingsPage() {
   const statusPillClass = (status: string) => {
     const isActive = filters.status === status
     const base = 'px-3 py-2 rounded-full text-xs font-medium transition-all cursor-pointer whitespace-nowrap flex items-center gap-1.5'
-    if (status === '' && !filters.status) return base + ' bg-[#1E2A4A] text-white shadow-sm'
-    if (isActive) return base + ' bg-[#1E2A4A] text-white shadow-sm'
+    if (status === '' && !filters.status) return base + ' bg-[var(--color-loop-ink)] text-white shadow-sm'
+    if (isActive) return base + ' bg-[var(--color-loop-ink)] text-white shadow-sm'
     return base + ' bg-white text-gray-600 border border-gray-200 hover:border-gray-300 hover:bg-gray-50'
   }
 
   return (
     <>
       <main className="p-3 md:p-6 max-w-[1400px] mx-auto">
-        {/* Page Header */}
-        <div className="flex flex-col md:flex-row md:justify-between md:items-center gap-3 mb-6">
-          <div>
-            <h2 className="text-xs font-bold tracking-widest text-gray-400 uppercase mb-1">BOOKINGS</h2>
-            <p className="text-2xl font-bold text-[#1E2A4A]">Manage Bookings</p>
-          </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => setShowFilters(!showFilters)} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all ' + (showFilters || activeFilterCount > 0 ? 'border-[#1E2A4A] bg-[#1E2A4A] text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
+        {/* Page Header — masthead already renders "Schedule." + the tab bar already
+            highlights "Bookings", so this row is just the action toolbar (matches
+            Clients' toolbar, which carries no separate title either). */}
+        <div className="flex flex-col md:flex-row md:justify-end md:items-center gap-2 mb-5">
+          <div className="flex items-center gap-2 flex-wrap">
+            <button onClick={() => setShowFilters(!showFilters)} className={'sched-btn sched-btn-ghost' + (showFilters || activeFilterCount > 0 ? ' active' : '')}>
               <span className="flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" /></svg>
                 Filters{activeFilterCount > 0 ? ` (${activeFilterCount})` : ''}
               </span>
             </button>
-            <button onClick={() => { setShowWaitlist(!showWaitlist); if (!showWaitlist) loadWaitlist() }} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center gap-2 ' + (showWaitlist ? 'border-purple-600 bg-purple-600 text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
+            <button onClick={() => { setShowWaitlist(!showWaitlist); if (!showWaitlist) loadWaitlist() }} className={'sched-btn sched-btn-ghost' + (showWaitlist ? ' active' : '')}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Waitlist
             </button>
-            <button onClick={() => setShowCloseOut(!showCloseOut)} className={'px-4 py-2.5 border rounded-xl font-medium text-sm transition-all flex items-center gap-2 ' + (showCloseOut ? 'border-emerald-600 bg-emerald-600 text-white' : 'border-gray-200 text-[#1E2A4A] hover:border-gray-300 hover:bg-gray-50')}>
+            <button onClick={() => setShowCloseOut(!showCloseOut)} className={'sched-btn sched-btn-ghost' + (showCloseOut ? ' active' : '')}>
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
               Close Out{closeOutJobs.length > 0 ? ` (${closeOutJobs.length})` : ''}
             </button>
@@ -1302,8 +1300,8 @@ function BookingsPage() {
               const url = URL.createObjectURL(blob)
               const a = document.createElement('a'); a.href = url; a.download = `bookings-${new Date().toISOString().split('T')[0]}.csv`; a.click()
               URL.revokeObjectURL(url)
-            }} className="px-4 py-2.5 border border-gray-200 text-[#1E2A4A] rounded-xl font-medium text-sm hover:bg-gray-50 transition-all">Export</button>
-            <button onClick={openCreate} className="bg-[#1E2A4A] text-white px-5 py-2.5 rounded-xl font-medium text-sm hover:bg-[#1E2A4A]/90 transition-all shadow-sm flex items-center gap-2">
+            }} className="sched-btn sched-btn-ghost">Export</button>
+            <button onClick={openCreate} className="sched-btn sched-btn-primary">
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" /></svg>
               New Booking
             </button>
@@ -1312,33 +1310,35 @@ function BookingsPage() {
 
         {/* Quick Links */}
         <div className="text-xs text-gray-400 mb-4 hidden md:flex items-center gap-1 flex-wrap">
-          <a href="https://www.thenycmaid.com/book" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Client Portal</a>
+          <a href="https://www.thenycmaid.com/book" target="_blank" className="text-gray-500 hover:text-[var(--color-loop-ink)] hover:underline">Client Portal</a>
           <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/new" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">New Booking</a>
+          <a href="https://www.thenycmaid.com/book/new" target="_blank" className="text-gray-500 hover:text-[var(--color-loop-ink)] hover:underline">New Booking</a>
           <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/book/collect" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Collect Info</a>
+          <a href="https://www.thenycmaid.com/book/collect" target="_blank" className="text-gray-500 hover:text-[var(--color-loop-ink)] hover:underline">Collect Info</a>
           <span className="text-gray-300 mx-1">/</span>
-          <a href="https://www.thenycmaid.com/team" target="_blank" className="text-gray-500 hover:text-[#1E2A4A] hover:underline">Team Portal</a>
+          <a href="https://www.thenycmaid.com/team" target="_blank" className="text-gray-500 hover:text-[var(--color-loop-ink)] hover:underline">Team Portal</a>
         </div>
 
-        {/* Stat Cards */}
+        {/* Stat Cards — reuses .sched-outlook/.sched-stat (schedule.css), the
+            same thin-line stat treatment as Clients/Sales, instead of a
+            pastel-card grid. */}
         {!loading && (
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-            <div className="bg-blue-50 rounded-xl p-4 border border-blue-100">
-              <p className="text-xs font-medium text-blue-600 uppercase tracking-wide">Upcoming</p>
-              <p className="text-2xl font-bold text-blue-700 mt-1">{upcomingCount}</p>
+          <div className="sched-outlook" style={{ gridTemplateColumns: 'repeat(4, 1fr)' }}>
+            <div className="sched-stat">
+              <div className="sched-stat-label">Upcoming</div>
+              <div className="sched-stat-value">{upcomingCount}</div>
             </div>
-            <div className="bg-amber-50 rounded-xl p-4 border border-amber-100">
-              <p className="text-xs font-medium text-amber-600 uppercase tracking-wide">This Week</p>
-              <p className="text-2xl font-bold text-amber-700 mt-1">{thisWeekCount}</p>
+            <div className="sched-stat">
+              <div className="sched-stat-label">This Week</div>
+              <div className="sched-stat-value">{thisWeekCount}</div>
             </div>
-            <div className="bg-green-50 rounded-xl p-4 border border-green-100">
-              <p className="text-xs font-medium text-green-600 uppercase tracking-wide">Completed</p>
-              <p className="text-2xl font-bold text-green-700 mt-1">{statusCounts.completed}</p>
+            <div className="sched-stat">
+              <div className="sched-stat-label">Completed</div>
+              <div className="sched-stat-value">{statusCounts.completed}</div>
             </div>
-            <div className="bg-emerald-50 rounded-xl p-4 border border-emerald-100">
-              <p className="text-xs font-medium text-emerald-600 uppercase tracking-wide">Revenue</p>
-              <p className="text-2xl font-bold text-emerald-700 mt-1">${(totalRevenue / 100).toLocaleString('en-US')}</p>
+            <div className="sched-stat">
+              <div className="sched-stat-label">Revenue</div>
+              <div className="sched-stat-value"><span className="unit">$</span>{(totalRevenue / 100).toLocaleString('en-US')}</div>
             </div>
           </div>
         )}
@@ -1348,7 +1348,7 @@ function BookingsPage() {
           <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none">
             <svg className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
           </div>
-          <input type="text" placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded-xl text-sm text-[#1E2A4A] bg-white focus:outline-none focus:ring-2 focus:ring-[#1E2A4A]/10 focus:border-[#1E2A4A] transition-all" />
+          <input type="text" placeholder={`Search client, ${worker.singular.toLowerCase()}, address...`} value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-10 pr-4 py-2.5 border border-gray-200 rounded text-sm text-[var(--color-loop-ink)] bg-white focus:outline-none focus:border-[var(--color-loop-ink)] transition-all" />
         </div>
 
         {/* Status Filter Pills */}
@@ -1381,37 +1381,37 @@ function BookingsPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Service</label>
-                <select value={filters.service_type} onChange={(e) => setFilters({ ...filters, service_type: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]">
+                <select value={filters.service_type} onChange={(e) => setFilters({ ...filters, service_type: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[var(--color-loop-ink)] text-sm bg-white focus:outline-none focus:border-[var(--color-loop-ink)]">
                   <option value="">All</option>
                   {serviceTypes.map(s => <option key={s} value={s}>{s}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{worker.singular}</label>
-                <select value={filters.cleaner_id} onChange={(e) => setFilters({ ...filters, cleaner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]">
+                <select value={filters.cleaner_id} onChange={(e) => setFilters({ ...filters, cleaner_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[var(--color-loop-ink)] text-sm bg-white focus:outline-none focus:border-[var(--color-loop-ink)]">
                   <option value="">All</option>
                   {cleaners.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Client</label>
-                <select value={filters.client_id} onChange={(e) => setFilters({ ...filters, client_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]">
+                <select value={filters.client_id} onChange={(e) => setFilters({ ...filters, client_id: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[var(--color-loop-ink)] text-sm bg-white focus:outline-none focus:border-[var(--color-loop-ink)]">
                   <option value="">All</option>
                   {[...clients].sort((a,b) => a.name.localeCompare(b.name)).map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">From</label>
-                <input type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]" />
+                <input type="date" value={filters.date_from} onChange={(e) => setFilters({ ...filters, date_from: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[var(--color-loop-ink)] text-sm bg-white focus:outline-none focus:border-[var(--color-loop-ink)]" />
               </div>
               <div>
                 <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">To</label>
-                <input type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[#1E2A4A] text-sm bg-white focus:outline-none focus:border-[#1E2A4A]" />
+                <input type="date" value={filters.date_to} onChange={(e) => setFilters({ ...filters, date_to: e.target.value })} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-[var(--color-loop-ink)] text-sm bg-white focus:outline-none focus:border-[var(--color-loop-ink)]" />
               </div>
             </div>
             <div className="flex justify-between items-center pt-2">
               <p className="text-sm text-gray-500">{filteredBookings.length} booking{filteredBookings.length !== 1 ? 's' : ''} found</p>
-              <button onClick={clearFilters} className="text-sm text-gray-400 hover:text-[#1E2A4A] transition-colors">Clear All</button>
+              <button onClick={clearFilters} className="text-sm text-gray-400 hover:text-[var(--color-loop-ink)] transition-colors">Clear All</button>
             </div>
           </div>
         )}
@@ -1427,7 +1427,7 @@ function BookingsPage() {
               {bookings.filter(b => b.status === 'pending').map((b) => (
                 <div key={b.id} onClick={() => openEdit(b)} className="flex items-center justify-between bg-white/80 backdrop-blur-sm border border-red-200/40 rounded-xl p-3.5 cursor-pointer hover:bg-white hover:shadow-sm transition-all">
                   <div>
-                    <p className="text-[#1E2A4A] font-semibold text-sm">{b.clients?.name || '-'}</p>
+                    <p className="text-[var(--color-loop-ink)] font-semibold text-sm">{b.clients?.name || '-'}</p>
                     <p className="text-gray-500 text-xs mt-0.5">{formatDate(b.start_time)} · {b.service_type}</p>
                     <p className="text-gray-400 text-xs mt-0.5">{b.clients?.address || ''}</p>
                     {b.suggested_cleaner_id && (() => {
@@ -1439,7 +1439,7 @@ function BookingsPage() {
                   </div>
                   <div className="text-right flex flex-col items-end gap-1.5">
                     <span className="px-2.5 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">Pending</span>
-                    <p className="text-[#1E2A4A] text-sm font-semibold">~${(b.price / 100).toFixed(0)}</p>
+                    <p className="text-[var(--color-loop-ink)] text-sm font-semibold">~${(b.price / 100).toFixed(0)}</p>
                   </div>
                 </div>
               ))}
@@ -1470,7 +1470,7 @@ function BookingsPage() {
                     <div key={entry.id} className="bg-white rounded-xl border border-gray-200 p-4 transition-all">
                       <div className="flex items-start justify-between">
                         <div>
-                          <p className="text-[#1E2A4A] font-semibold text-sm">{entry.name || 'Unknown'}</p>
+                          <p className="text-[var(--color-loop-ink)] font-semibold text-sm">{entry.name || 'Unknown'}</p>
                           <p className="text-gray-500 text-xs mt-0.5">{formatPhone(entry.phone)}</p>
                           {entry.service_type && <p className="text-gray-400 text-xs mt-0.5">{entry.service_type}</p>}
                         </div>
@@ -1551,7 +1551,7 @@ function BookingsPage() {
                         {/* Job header */}
                         <div className="flex items-start justify-between mb-3">
                           <button onClick={toggleExpanded} className="flex-1 text-left hover:opacity-80 transition-opacity">
-                            <p className="text-[#1E2A4A] font-semibold text-sm flex items-center gap-1.5">
+                            <p className="text-[var(--color-loop-ink)] font-semibold text-sm flex items-center gap-1.5">
                               <span className={'inline-block transition-transform ' + (isExpanded ? 'rotate-90' : '')}>▸</span>
                               {b.clients?.name || '-'}
                             </p>
@@ -1559,7 +1559,7 @@ function BookingsPage() {
                             <p className="text-gray-400 text-xs mt-0.5 ml-4">{b.service_type}</p>
                           </button>
                           <div className="text-right">
-                            <p className="text-[#1E2A4A] font-bold text-lg">${(b.price / 100).toFixed(0)}</p>
+                            <p className="text-[var(--color-loop-ink)] font-bold text-lg">${(b.price / 100).toFixed(0)}</p>
                             {b.cleaner_pay ? <p className="text-gray-400 text-xs">Pay: ${(Number(b.cleaner_pay) / 100).toFixed(2)}</p> : null}
                           </div>
                         </div>
@@ -1660,13 +1660,13 @@ function BookingsPage() {
                       <div className="flex items-center gap-3">
                         <svg className="w-4 h-4 text-green-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
                         <div>
-                          <p className="text-sm text-[#1E2A4A] font-medium">{b.clients?.name || '-'}</p>
+                          <p className="text-sm text-[var(--color-loop-ink)] font-medium">{b.clients?.name || '-'}</p>
                           <p className="text-xs text-gray-400">{formatDate(b.start_time)} · {b.cleaners?.name || '-'}</p>
                         </div>
                       </div>
                       <div className="text-right flex items-center gap-3">
                         <span className="text-xs text-gray-400">{b.payment_method === 'zelle' ? 'Zelle' : 'Apple'}</span>
-                        <span className="text-sm font-semibold text-[#1E2A4A]">${(b.price / 100).toFixed(0)}</span>
+                        <span className="text-sm font-semibold text-[var(--color-loop-ink)]">${(b.price / 100).toFixed(0)}</span>
                       </div>
                     </div>
                   ))}
@@ -1681,7 +1681,7 @@ function BookingsPage() {
           {loading ? (
             <div className="flex items-center justify-center py-16">
               <div className="flex flex-col items-center gap-3">
-                <div className="w-8 h-8 border-2 border-[#1E2A4A] border-t-transparent rounded-full animate-spin" />
+                <div className="w-8 h-8 border-2 border-[var(--color-loop-ink)] border-t-transparent rounded-full animate-spin" />
                 <p className="text-gray-400 text-sm">Loading bookings...</p>
               </div>
             </div>
@@ -1724,7 +1724,7 @@ function BookingsPage() {
                   >
                     <td className="px-4 py-3.5">
                       <div>
-                        <p className={'text-sm font-medium ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>{b.clients?.name || '-'}</p>
+                        <p className={'text-sm font-medium ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--color-loop-ink)]')}>{b.clients?.name || '-'}</p>
                         <p className="text-xs text-gray-400 mt-0.5 truncate max-w-[180px]">{b.clients?.address || ''}</p>
                       </div>
                     </td>
@@ -1732,7 +1732,7 @@ function BookingsPage() {
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.service_type}</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>{formatDate(b.start_time)}</span>
+                      <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--color-loop-ink)]')}>{formatDate(b.start_time)}</span>
                     </td>
                     <td className="px-4 py-3.5">
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-600')}>{b.cleaners?.name || <span className="text-gray-300">--</span>}</span>
@@ -1741,7 +1741,7 @@ function BookingsPage() {
                       <span className={'text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-gray-500')}>${(() => { const hours = Math.max(1, Math.round((new Date(b.end_time).getTime() - new Date(b.start_time).getTime()) / (1000 * 60 * 60))); return b.hourly_rate ? b.hourly_rate : b.price ? Math.round(b.price / 100 / hours) : 69 })()}/hr</span>
                     </td>
                     <td className="px-4 py-3.5">
-                      <span className={'text-sm font-semibold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[#1E2A4A]')}>~${(b.price / 100).toFixed(0)}</span>
+                      <span className={'text-sm font-semibold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[var(--color-loop-ink)]')}>~${(b.price / 100).toFixed(0)}</span>
                     </td>
                     <td className="px-4 py-3.5 hidden lg:table-cell">
                       {b.recurring_type ? <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium border border-purple-100">{b.recurring_type}</span> : <span className="text-gray-300">--</span>}
@@ -1769,13 +1769,13 @@ function BookingsPage() {
                             </button>
                             {resendMenuId === b.id && (
                               <div className="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg z-20 py-1 min-w-[100px]">
-                                <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Email</button>
-                                <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[#1E2A4A] hover:bg-gray-50 transition-colors">Text</button>
+                                <button onClick={() => handleResend(b.id, 'email')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--color-loop-ink)] hover:bg-gray-50 transition-colors">Email</button>
+                                <button onClick={() => handleResend(b.id, 'sms')} className="w-full text-left px-3 py-1.5 text-sm text-[var(--color-loop-ink)] hover:bg-gray-50 transition-colors">Text</button>
                               </div>
                             )}
                           </div>
                         )}
-                        <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-gray-400 hover:text-[#1E2A4A] hover:bg-gray-100 transition-colors" title="Edit">
+                        <button onClick={() => openEdit(b)} className="p-1.5 rounded-lg text-gray-400 hover:text-[var(--color-loop-ink)] hover:bg-gray-100 transition-colors" title="Edit">
                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
                         </button>
                         {b.status === 'cancelled' ? (
@@ -1824,7 +1824,7 @@ function BookingsPage() {
                           onClick={() => setCurrentPage(p as number)}
                           className={
                             'min-w-[28px] h-7 rounded-lg text-xs font-medium transition-colors ' +
-                            (currentPage === p ? 'bg-[#1E2A4A] text-white' : 'text-gray-500 hover:bg-gray-100')
+                            (currentPage === p ? 'bg-[var(--color-loop-ink)] text-white' : 'text-gray-500 hover:bg-gray-100')
                           }
                         >
                           {p}
@@ -1849,7 +1849,7 @@ function BookingsPage() {
         <div className="md:hidden space-y-3">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="w-7 h-7 border-2 border-[#1E2A4A] border-t-transparent rounded-full animate-spin" />
+              <div className="w-7 h-7 border-2 border-[var(--color-loop-ink)] border-t-transparent rounded-full animate-spin" />
             </div>
           ) : filteredBookings.length === 0 ? (
             <div className="text-center py-12">
@@ -1871,7 +1871,7 @@ function BookingsPage() {
                 >
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex-1 min-w-0">
-                      <p className={'font-semibold text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[#1E2A4A]')}>{b.clients?.name || '-'}</p>
+                      <p className={'font-semibold text-sm ' + (b.status === 'cancelled' ? 'text-gray-400' : 'text-[var(--color-loop-ink)]')}>{b.clients?.name || '-'}</p>
                       <p className="text-xs text-gray-400 truncate mt-0.5">{b.clients?.address || ''}</p>
                     </div>
                     <span className={
@@ -1899,7 +1899,7 @@ function BookingsPage() {
                       {b.cleaners?.name && <span className="text-gray-400">/ {b.cleaners.name}</span>}
                       {b.recurring_type && <span className="px-1.5 py-0.5 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{b.recurring_type}</span>}
                     </div>
-                    <span className={'text-sm font-bold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[#1E2A4A]')}>~${(b.price / 100).toFixed(0)}</span>
+                    <span className={'text-sm font-bold ' + (b.status === 'cancelled' ? 'text-gray-400 line-through' : 'text-[var(--color-loop-ink)]')}>~${(b.price / 100).toFixed(0)}</span>
                   </div>
                 </div>
               ))}
@@ -1944,7 +1944,7 @@ function BookingsPage() {
                 {editingBooking.clients?.address && <p className="text-sm text-gray-600">{editingBooking.clients.address}</p>}
                 {editingBooking.clients?.phone && (
                   <div className="flex items-center gap-2 mt-1">
-                    <span className="text-sm font-medium text-[#1E2A4A]">{formatPhone(editingBooking.clients.phone)}</span>
+                    <span className="text-sm font-medium text-[var(--color-loop-ink)]">{formatPhone(editingBooking.clients.phone)}</span>
                     <a href={`/admin/comhub?dial=${encodeURIComponent(editingBooking.clients.phone)}`} className="px-2.5 py-1 bg-green-50 text-green-700 border border-green-200 rounded-full text-xs font-medium">Call</a>
                     <a href={`sms:${editingBooking.clients.phone}`} className="px-2.5 py-1 bg-gray-50 text-gray-600 border border-gray-200 rounded-full text-xs font-medium">Text</a>
                   </div>
@@ -1971,7 +1971,7 @@ function BookingsPage() {
               </div>
             </div>
             {editingBooking.cleaner_token && (
-              <button type="button" onClick={copyTeamLink} className="text-xs text-[#1E2A4A]/50 hover:text-[#1E2A4A] mb-2 block">{copied ? 'Copied!' : 'Copy team link'}</button>
+              <button type="button" onClick={copyTeamLink} className="text-xs text-[var(--color-loop-ink)]/50 hover:text-[var(--color-loop-ink)] mb-2 block">{copied ? 'Copied!' : 'Copy team link'}</button>
             )}
 
             {/* ── JOB PROGRESS ── */}
@@ -1991,7 +1991,7 @@ function BookingsPage() {
               )
             })()}
             {editingBooking.status === 'scheduled' && !editingBooking.check_in_time && (
-              <button type="button" onClick={async () => { setSaving(true); const now = new Date().toISOString(); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress', check_in_time: now, cleaner_id: form.cleaner_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'in_progress', check_in_time: now }); setForm({ ...form, status: 'in_progress' }); loadBookings(); setSaving(false) }} className="w-full mb-3 py-2 bg-[#1E2A4A] text-white rounded-lg text-sm font-medium">Check In (Admin)</button>
+              <button type="button" onClick={async () => { setSaving(true); const now = new Date().toISOString(); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'in_progress', check_in_time: now, cleaner_id: form.cleaner_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'in_progress', check_in_time: now }); setForm({ ...form, status: 'in_progress' }); loadBookings(); setSaving(false) }} className="w-full mb-3 py-2 bg-[var(--color-loop-ink)] text-white rounded-lg text-sm font-medium">Check In (Admin)</button>
             )}
             {editingBooking.check_in_time && (
               <div className="mb-3 space-y-1.5">
@@ -2061,15 +2061,15 @@ function BookingsPage() {
               <div className="grid grid-cols-4 gap-2">
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Date</label>
-                  <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                  <input type="date" value={form.start_date} onChange={(e) => setForm({ ...form, start_date: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Time</label>
-                  <input type="time" min="08:00" max="16:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                  <input type="time" min="08:00" max="16:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Hours</label>
-                  <select value={form.hours} onChange={(e) => setForm({ ...form, hours: parseInt(e.target.value) })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white">
+                  <select value={form.hours} onChange={(e) => setForm({ ...form, hours: parseInt(e.target.value) })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white">
                     {[1,2,3,4,5,6,7,8].map(h => <option key={h} value={h}>{h}hr</option>)}
                   </select>
                 </div>
@@ -2085,7 +2085,7 @@ function BookingsPage() {
                           setForm({ ...form, hourly_rate: isPreset ? 0 : form.hourly_rate })
                         } else setForm({ ...form, hourly_rate: parseInt(v) })
                       }}
-                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white"
+                      className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white"
                     >
                       <option value={59}>$59</option>
                       <option value={69}>$69</option>
@@ -2105,7 +2105,7 @@ function BookingsPage() {
                         step="1"
                         value={form.hourly_rate}
                         onChange={(e) => setForm({ ...form, hourly_rate: parseInt(e.target.value) || 0 })}
-                        className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white"
+                        className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white"
                         placeholder="$"
                       />
                     )}
@@ -2115,13 +2115,13 @@ function BookingsPage() {
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Service</label>
-                  <select value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white">
+                  <select value={form.service_type} onChange={(e) => setForm({ ...form, service_type: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white">
                     {serviceTypes.map(s => <option key={s} value={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="flex items-end">
                   <div className="flex items-center justify-between w-full px-2 py-1.5 border border-gray-200 rounded-lg bg-white">
-                    <span className="text-sm text-[#1E2A4A]">Discount</span>
+                    <span className="text-sm text-[var(--color-loop-ink)]">Discount</span>
                     <div onClick={() => setForm({ ...form, discount_enabled: !form.discount_enabled })} className={`w-9 h-5 rounded-full transition-colors ${form.discount_enabled ? 'bg-green-600' : 'bg-gray-300'} relative cursor-pointer`}>
                       <div className={`w-3.5 h-3.5 bg-white rounded-full absolute top-[3px] transition-transform ${form.discount_enabled ? 'translate-x-[18px]' : 'translate-x-[3px]'}`} />
                     </div>
@@ -2140,7 +2140,7 @@ function BookingsPage() {
                         setForm({ ...form, discount_percent: isPreset ? 15 : form.discount_percent })
                       } else setForm({ ...form, discount_percent: parseInt(v) })
                     }}
-                    className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white"
+                    className="flex-1 px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white"
                   >
                     <option value={20}>20% ($69 weekly)</option>
                     <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
@@ -2155,7 +2155,7 @@ function BookingsPage() {
                       step="1"
                       value={form.discount_percent}
                       onChange={(e) => setForm({ ...form, discount_percent: parseInt(e.target.value) || 0 })}
-                      className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A] bg-white"
+                      className="w-16 px-1.5 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white"
                       placeholder="%"
                     />
                   )}
@@ -2163,7 +2163,7 @@ function BookingsPage() {
               )}
               <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
                 <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}</span>
-                <span className="font-semibold text-[#1E2A4A]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
+                <span className="font-semibold text-[var(--color-loop-ink)]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
               </div>
               <div className="pt-2 border-t border-gray-200">
                 <RecurringOptions startDate={form.start_date} enabled={form.repeat_enabled} onEnabledChange={(v) => setForm({ ...form, repeat_enabled: v })} repeatType={form.repeat_type} onRepeatTypeChange={(v) => setForm({ ...form, repeat_type: v })} repeatEnd={form.repeat_end} onRepeatEndChange={(v) => setForm({ ...form, repeat_end: v })} repeatEndCount={form.repeat_end_count} onRepeatEndCountChange={(v) => setForm({ ...form, repeat_end_count: v })} repeatEndDate={form.repeat_end_date} onRepeatEndDateChange={(v) => setForm({ ...form, repeat_end_date: v })} customInterval={form.custom_interval} onCustomIntervalChange={(v) => setForm({ ...form, custom_interval: v })} previewDates={!(editingBooking?.recurring_type || editingBooking?.schedule_id) ? editRecurringDates : []} />
@@ -2176,15 +2176,15 @@ function BookingsPage() {
                 <div className="grid grid-cols-3 gap-2">
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Hours</label>
-                    <input type="number" step="0.5" min="0" value={form.actual_hours ?? ''} onChange={(e) => { const hrs = e.target.value ? parseFloat(e.target.value) : null; const cr = cleaners.find(c => c.id === form.cleaner_id)?.hourly_rate || 25; setForm({ ...form, actual_hours: hrs, cleaner_pay: hrs ? Math.round(hrs * cr * 100) : null }) }} placeholder="—" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                    <input type="number" step="0.5" min="0" value={form.actual_hours ?? ''} onChange={(e) => { const hrs = e.target.value ? parseFloat(e.target.value) : null; const cr = cleaners.find(c => c.id === form.cleaner_id)?.hourly_rate || 25; setForm({ ...form, actual_hours: hrs, cleaner_pay: hrs ? Math.round(hrs * cr * 100) : null }) }} placeholder="—" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Team Pay</label>
-                    <input type="number" step="0.01" min="0" value={form.cleaner_pay != null ? (form.cleaner_pay / 100).toFixed(2) : ''} onChange={(e) => setForm({ ...form, cleaner_pay: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })} placeholder="auto" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[#1E2A4A] bg-white" />
+                    <input type="number" step="0.01" min="0" value={form.cleaner_pay != null ? (form.cleaner_pay / 100).toFixed(2) : ''} onChange={(e) => setForm({ ...form, cleaner_pay: e.target.value ? Math.round(parseFloat(e.target.value) * 100) : null })} placeholder="auto" className="w-full px-2 py-1.5 border border-green-300 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
                   </div>
                   <div>
                     <label className="block text-[10px] text-green-600 uppercase">Team Paid</label>
-                    <select value={form.cleaner_paid ? 'paid' : 'not_paid'} onChange={(e) => setForm({ ...form, cleaner_paid: e.target.value === 'paid' })} className={'w-full px-2 py-1.5 border rounded-lg text-sm ' + (form.cleaner_paid ? 'border-green-300 text-green-700 bg-green-50' : 'border-green-300 text-[#1E2A4A] bg-white')}>
+                    <select value={form.cleaner_paid ? 'paid' : 'not_paid'} onChange={(e) => setForm({ ...form, cleaner_paid: e.target.value === 'paid' })} className={'w-full px-2 py-1.5 border rounded-lg text-sm ' + (form.cleaner_paid ? 'border-green-300 text-green-700 bg-green-50' : 'border-green-300 text-[var(--color-loop-ink)] bg-white')}>
                       <option value="not_paid">No</option><option value="paid">Yes</option>
                     </select>
                   </div>
@@ -2197,13 +2197,13 @@ function BookingsPage() {
             <div className="grid grid-cols-2 gap-2 mb-3">
               <div>
                 <label className="block text-[10px] text-gray-400 uppercase">Payment</label>
-                <select value={form.payment_status} onChange={(e) => setForm({ ...form, payment_status: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]">
+                <select value={form.payment_status} onChange={(e) => setForm({ ...form, payment_status: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)]">
                   <option value="pending">Pending</option><option value="paid">Paid</option>
                 </select>
               </div>
               <div>
                 <label className="block text-[10px] text-gray-400 uppercase">Method</label>
-                <select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[#1E2A4A]">
+                <select value={form.payment_method} onChange={(e) => setForm({ ...form, payment_method: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)]">
                   <option value="">—</option><option value="zelle">Zelle</option><option value="apple_pay">Apple Pay</option>
                 </select>
               </div>
@@ -2222,7 +2222,7 @@ function BookingsPage() {
                       const maxExtras = Math.max(0, n - 1)
                       setForm({ ...form, team_size: n, extra_cleaner_ids: form.extra_cleaner_ids.slice(0, maxExtras) })
                     }}
-                    className="px-2 py-0.5 border border-gray-300 rounded text-xs text-[#1E2A4A] bg-white"
+                    className="px-2 py-0.5 border border-gray-300 rounded text-xs text-[var(--color-loop-ink)] bg-white"
                   >
                     {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
                   </select>
@@ -2239,7 +2239,7 @@ function BookingsPage() {
                         const extras = ranked.slice(1).map(r => r.id)
                         setForm({ ...form, cleaner_id: lead, extra_cleaner_ids: extras })
                       }}
-                      className="text-[10px] px-2 py-0.5 bg-[#A8F0DC] text-[#1E2A4A] rounded font-semibold hover:bg-[#90E5CC]"
+                      className="text-[10px] px-2 py-0.5 bg-[var(--color-loop-line-soft)] text-[var(--color-loop-ink)] rounded font-semibold hover:bg-[var(--color-loop-line)]"
                     >
                       Auto-pick top {form.team_size}
                     </button>
@@ -2297,7 +2297,7 @@ function BookingsPage() {
                         >
                           <span className="flex items-center gap-2">
                             <span className="text-gray-400 text-base leading-none">⋮⋮</span>
-                            <span className="font-medium text-[#1E2A4A]">{c?.name || cid}</span>
+                            <span className="font-medium text-[var(--color-loop-ink)]">{c?.name || cid}</span>
                             {idx === 0 && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
                             {idx > 0 && <span className="text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
                           </span>
@@ -2318,7 +2318,7 @@ function BookingsPage() {
               )}
               <div className="space-y-1 max-h-36 overflow-y-auto">
                 {form.team_size <= 1 && (
-                  <button type="button" onClick={() => setForm({ ...form, cleaner_id: '' })} className={`w-full flex items-center px-3 py-1.5 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium' : 'border-gray-200 hover:border-gray-300'} text-[#1E2A4A]`}>Unassigned</button>
+                  <button type="button" onClick={() => setForm({ ...form, cleaner_id: '' })} className={`w-full flex items-center px-3 py-1.5 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium' : 'border-gray-200 hover:border-gray-300'} text-[var(--color-loop-ink)]`}>Unassigned</button>
                 )}
                 {cleaners
                   .filter(c => c.active !== false)
@@ -2375,7 +2375,7 @@ function BookingsPage() {
                                 : 'border-gray-200 text-gray-400'
                     }`}>
                       <div className="flex items-center justify-between">
-                        <span className={selected ? 'font-medium text-[#1E2A4A]' : ''}>
+                        <span className={selected ? 'font-medium text-[var(--color-loop-ink)]' : ''}>
                           <span style={{ display: 'inline-block', width: '8px', height: '8px', borderRadius: '9999px', background: colorForMember(memberColors, c.id), marginRight: '6px', verticalAlign: 'middle' }} />{(topPick || isSuggested) && !selected ? '★ ' : ''}{c.name}
                           {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1 py-0.5 rounded font-semibold">LEAD</span>}
                           {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1 py-0.5 rounded font-semibold">EXTRA</span>}
@@ -2426,29 +2426,29 @@ function BookingsPage() {
                 <button type="button" onClick={() => handleCancel('single')} className="px-3 py-2 text-red-600 hover:bg-red-50 rounded-lg text-sm">Cancel</button>
               )}
               <div className="flex-1" />
-              <button type="button" onClick={() => { setShowModal(false); setEditingBooking(null) }} className="px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A] text-sm">Close</button>
-              <button type="submit" disabled={saving} className="px-6 py-2 bg-[#1E2A4A] text-white rounded-lg text-sm font-medium">{saving ? '...' : 'Save'}</button>
+              <button type="button" onClick={() => { setShowModal(false); setEditingBooking(null) }} className="px-4 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)] text-sm">Close</button>
+              <button type="submit" disabled={saving} className="px-6 py-2 bg-[var(--color-loop-ink)] text-white rounded-lg text-sm font-medium">{saving ? '...' : 'Save'}</button>
             </div>
           </form>
         </SidePanel>
       )}
 
       {showUpdateChoice && (
-        <div className="fixed inset-0 bg-[#1E2A4A]/50 flex items-center justify-center z-[10001]" onClick={() => setShowUpdateChoice(false)}>
+        <div className="fixed inset-0 bg-[var(--color-loop-ink)]/50 flex items-center justify-center z-[10001]" onClick={() => setShowUpdateChoice(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-sm" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#1E2A4A] mb-4">Update Recurring Booking</h3>
+            <h3 className="text-lg font-semibold text-[var(--color-loop-ink)] mb-4">Update Recurring Booking</h3>
             <p className="text-gray-600 mb-6">Apply changes to:</p>
             <div className="space-y-3">
-              <button onClick={() => saveBooking('single')} className="w-full py-3 px-4 border border-gray-300 rounded-lg text-[#1E2A4A] hover:bg-gray-50 text-left">
+              <button onClick={() => saveBooking('single')} className="w-full py-3 px-4 border border-gray-300 rounded-lg text-[var(--color-loop-ink)] hover:bg-gray-50 text-left">
                 <p className="font-medium">This booking only</p>
                 <p className="text-sm text-gray-500">Only update this appointment</p>
               </button>
-              <button onClick={() => saveBooking('all')} className="w-full py-3 px-4 border border-gray-300 rounded-lg text-[#1E2A4A] hover:bg-gray-50 text-left">
+              <button onClick={() => saveBooking('all')} className="w-full py-3 px-4 border border-gray-300 rounded-lg text-[var(--color-loop-ink)] hover:bg-gray-50 text-left">
                 <p className="font-medium">All future bookings</p>
                 <p className="text-sm text-gray-500">Update this and all upcoming appointments</p>
               </button>
             </div>
-            <button onClick={() => setShowUpdateChoice(false)} className="w-full mt-4 py-2 text-gray-500 hover:text-[#1E2A4A]">Cancel</button>
+            <button onClick={() => setShowUpdateChoice(false)} className="w-full mt-4 py-2 text-gray-500 hover:text-[var(--color-loop-ink)]">Cancel</button>
           </div>
         </div>
       )}
@@ -2458,7 +2458,7 @@ function BookingsPage() {
             <form onSubmit={handleCreate}>
               <div className="space-y-4">
                 <div className="relative">
-                  <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Client *</label>
+                  <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Client *</label>
                   <input
                     type="text"
                     required={!createForm.client_id}
@@ -2466,16 +2466,16 @@ function BookingsPage() {
                     onChange={(e) => handleClientSearchChange(e.target.value)}
                     onFocus={() => setShowClientDropdown(true)}
                     placeholder="Search by name or phone..."
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]"
                   />
                   
                   {showClientDropdown && (
                     <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-64 overflow-y-auto">
-                      <button type="button" onClick={handleNewClientClick} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-200 font-medium text-[#1E2A4A]">+ New Client</button>
+                      <button type="button" onClick={handleNewClientClick} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-200 font-medium text-[var(--color-loop-ink)]">+ New Client</button>
                       {filteredClients.length > 0 ? (
                         filteredClients.map((client) => (
                           <button key={client.id} type="button" onClick={() => handleClientSelect(client)} className="w-full px-3 py-2 text-left hover:bg-gray-50 border-b border-gray-100 last:border-b-0">
-                            <div className="font-medium text-[#1E2A4A]">{client.name}</div>
+                            <div className="font-medium text-[var(--color-loop-ink)]">{client.name}</div>
                             <div className="text-sm text-gray-500">{formatPhone(client.phone)}</div>
                           </button>
                         ))
@@ -2496,11 +2496,11 @@ function BookingsPage() {
                 )}
                 {createForm.client_id && clientProperties.length > 0 && (
                   <div>
-                    <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Address{clientProperties.length > 1 ? ' *' : ''}</label>
+                    <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Address{clientProperties.length > 1 ? ' *' : ''}</label>
                     <select
                       value={createForm.property_id}
                       onChange={(e) => setCreateForm({ ...createForm, property_id: e.target.value })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]"
                     >
                       {clientProperties.map(p => (
                         <option key={p.id} value={p.id}>{p.address}{p.is_primary ? ' (primary)' : ''}</option>
@@ -2512,22 +2512,22 @@ function BookingsPage() {
                   </div>
                 )}
                 <div>
-                  <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Service</label>
+                  <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Service</label>
                   <select value={createForm.service_type} onChange={(e) => {
                     const isEmergency = e.target.value === 'Emergency / Same-Day'
                     setCreateForm({ ...createForm, service_type: e.target.value, is_emergency: isEmergency, cleaner_id: isEmergency ? '' : createForm.cleaner_id })
-                  }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">
+                  }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]">
                     {serviceTypes.map(s => <option key={s}>{s}</option>)}
                   </select>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Date *</label>
-                    <input type="date" required value={createForm.start_date} onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]" />
+                    <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Date *</label>
+                    <input type="date" required value={createForm.start_date} onChange={(e) => setCreateForm({ ...createForm, start_date: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]" />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Time *</label>
-                    <input type="time" required min="08:00" max="16:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]" />
+                    <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Time *</label>
+                    <input type="time" required min="08:00" max="16:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]" />
                   </div>
                 </div>
                 {createForm.is_emergency ? (
@@ -2535,7 +2535,7 @@ function BookingsPage() {
                     <p className="text-sm text-red-700 mb-3">🚨 Broadcasts to all team - first to claim gets it</p>
                     <label className="block text-sm font-medium text-red-700 mb-1">Team Pay Rate</label>
                     <div className="flex items-center">
-                      <span className="text-[#1E2A4A] text-lg mr-1">$</span>
+                      <span className="text-[var(--color-loop-ink)] text-lg mr-1">$</span>
                       <input
                         type="number"
                         step="1"
@@ -2543,15 +2543,15 @@ function BookingsPage() {
                         max="100"
                         value={createForm.cleaner_pay_rate}
                         onChange={(e) => setCreateForm({ ...createForm, cleaner_pay_rate: parseInt(e.target.value) || 40 })}
-                        className="w-24 px-3 py-2 border border-red-300 rounded-lg text-[#1E2A4A] text-center font-mono bg-white"
+                        className="w-24 px-3 py-2 border border-red-300 rounded-lg text-[var(--color-loop-ink)] text-center font-mono bg-white"
                       />
-                      <span className="text-[#1E2A4A] ml-1">/hr</span>
+                      <span className="text-[var(--color-loop-ink)] ml-1">/hr</span>
                     </div>
                   </div>
                 ) : (
                   <div>
                     <div className="flex items-center justify-between mb-1">
-                      <label className="block text-sm font-medium text-[#1E2A4A]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
+                      <label className="block text-sm font-medium text-[var(--color-loop-ink)]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
                       <div className="flex items-center gap-2">
                         <label className="text-xs text-gray-600">Team size</label>
                         <select
@@ -2566,7 +2566,7 @@ function BookingsPage() {
                               extra_cleaner_ids: createForm.extra_cleaner_ids.slice(0, maxExtras),
                             })
                           }}
-                          className="px-2 py-1 border border-gray-300 rounded text-sm text-[#1E2A4A] bg-white"
+                          className="px-2 py-1 border border-gray-300 rounded text-sm text-[var(--color-loop-ink)] bg-white"
                         >
                           {[1, 2, 3, 4, 5, 6].map(n => <option key={n} value={n}>{n}</option>)}
                         </select>
@@ -2583,7 +2583,7 @@ function BookingsPage() {
                               const extras = ranked.slice(1).map(r => r.id)
                               setCreateForm({ ...createForm, cleaner_id: lead, extra_cleaner_ids: extras })
                             }}
-                            className="text-xs px-2 py-1 bg-[#A8F0DC] text-[#1E2A4A] rounded font-semibold hover:bg-[#90E5CC]"
+                            className="text-xs px-2 py-1 bg-[var(--color-loop-line-soft)] text-[var(--color-loop-ink)] rounded font-semibold hover:bg-[var(--color-loop-line)]"
                           >
                             Auto-pick top {createForm.team_size}
                           </button>
@@ -2629,7 +2629,7 @@ function BookingsPage() {
                               >
                                 <span className="flex items-center gap-2">
                                   <span className="text-gray-400 text-base leading-none">⋮⋮</span>
-                                  <span className="font-medium text-[#1E2A4A]">{c?.name || cid}</span>
+                                  <span className="font-medium text-[var(--color-loop-ink)]">{c?.name || cid}</span>
                                   {idx === 0 && <span className="text-[10px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
                                   {idx > 0 && <span className="text-[10px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
                                 </span>
@@ -2707,14 +2707,14 @@ function BookingsPage() {
                             onClick={onClickPick}
                             className={`w-full text-left px-3 py-2 rounded-lg border text-sm transition-colors ${
                               isLead
-                                ? 'border-indigo-500 bg-indigo-50 text-[#1E2A4A]'
+                                ? 'border-indigo-500 bg-indigo-50 text-[var(--color-loop-ink)]'
                                 : isExtra
-                                  ? 'border-indigo-500 bg-indigo-50 text-[#1E2A4A]'
+                                  ? 'border-indigo-500 bg-indigo-50 text-[var(--color-loop-ink)]'
                                   : topPick
-                                    ? 'border-green-400 bg-green-50 text-[#1E2A4A]'
+                                    ? 'border-green-400 bg-green-50 text-[var(--color-loop-ink)]'
                                     : isZoneMatch
-                                      ? 'border-green-200 bg-green-50/40 text-[#1E2A4A]'
-                                      : 'border-gray-200 hover:border-gray-300 text-[#1E2A4A]'
+                                      ? 'border-green-200 bg-green-50/40 text-[var(--color-loop-ink)]'
+                                      : 'border-gray-200 hover:border-gray-300 text-[var(--color-loop-ink)]'
                             }`}
                           >
                             <div className="flex items-center justify-between">
@@ -2758,20 +2758,20 @@ function BookingsPage() {
                 )}
                 <div className="grid grid-cols-3 gap-4">
                   <div>
-                    <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Hours</label>
-                    <select value={createForm.hours} onChange={(e) => setCreateForm({ ...createForm, hours: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">
+                    <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Hours</label>
+                    <select value={createForm.hours} onChange={(e) => setCreateForm({ ...createForm, hours: parseInt(e.target.value) })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]">
                       {[1,2,3,4,5,6,7,8].map(h => <option key={h} value={h}>{h}hr</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Rate</label>
+                    <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Rate</label>
                     <input
                       type="number"
                       min={1}
                       step={1}
                       value={createForm.hourly_rate}
                       onChange={(e) => setCreateForm({ ...createForm, hourly_rate: parseInt(e.target.value) || 0 })}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]"
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]"
                       placeholder="$/hr"
                     />
                   </div>
@@ -2796,7 +2796,7 @@ function BookingsPage() {
 
                 <div className="py-3 border-t border-b border-gray-200 space-y-2">
                   <div className="flex justify-between items-center">
-                    <h4 className="font-medium text-[#1E2A4A]">Recurring Discount</h4>
+                    <h4 className="font-medium text-[var(--color-loop-ink)]">Recurring Discount</h4>
                     <div
                       onClick={() => setCreateForm({ ...createForm, discount_enabled: !createForm.discount_enabled })}
                       className={`w-10 h-6 rounded-full transition-colors ${createForm.discount_enabled ? 'bg-green-600' : 'bg-gray-300'} relative cursor-pointer`}
@@ -2816,7 +2816,7 @@ function BookingsPage() {
                             setCreateForm({ ...createForm, discount_percent: isPreset ? 15 : createForm.discount_percent })
                           } else setCreateForm({ ...createForm, discount_percent: parseInt(v) })
                         }}
-                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1E2A4A]"
+                        className="flex-1 px-2 py-1.5 border border-gray-300 rounded text-sm text-[var(--color-loop-ink)]"
                       >
                         <option value={20}>20% ($69 weekly)</option>
                         <option value={10}>10% ($69 biweekly/monthly &middot; $59 weekly)</option>
@@ -2831,7 +2831,7 @@ function BookingsPage() {
                           step="1"
                           value={createForm.discount_percent}
                           onChange={(e) => setCreateForm({ ...createForm, discount_percent: parseInt(e.target.value) || 0 })}
-                          className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-[#1E2A4A]"
+                          className="w-20 px-2 py-1.5 border border-gray-300 rounded text-sm text-[var(--color-loop-ink)]"
                           placeholder="%"
                         />
                       )}
@@ -2849,8 +2849,8 @@ function BookingsPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Status</label>
-                  <select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">
+                  <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Status</label>
+                  <select value={createForm.status} onChange={(e) => setCreateForm({ ...createForm, status: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]">
                     <option value="pending">Pending</option>
                     <option value="scheduled">Scheduled</option>
                     <option value="completed">Completed</option>
@@ -2858,13 +2858,13 @@ function BookingsPage() {
                   </select>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-[#1E2A4A] mb-1">Notes</label>
-                  <textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]" rows={2} placeholder="Access codes..." />
+                  <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Notes</label>
+                  <textarea value={createForm.notes} onChange={(e) => setCreateForm({ ...createForm, notes: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]" rows={2} placeholder="Access codes..." />
                 </div>
               </div>
               <div className="flex gap-3 mt-6">
-                <button type="button" onClick={() => { setShowCreateModal(false); setShowClientDropdown(false) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">Cancel</button>
-                <button type="submit" disabled={saving || !createForm.client_id} className="flex-1 px-4 py-2 bg-[#1E2A4A] text-white rounded-lg disabled:bg-gray-300">
+                <button type="button" onClick={() => { setShowCreateModal(false); setShowClientDropdown(false) }} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]">Cancel</button>
+                <button type="submit" disabled={saving || !createForm.client_id} className="flex-1 px-4 py-2 bg-[var(--color-loop-ink)] text-white rounded-lg disabled:bg-gray-300">
                   {saving ? 'Creating...' : recurringDates.length > 1 ? 'Create Schedule' : 'Create'}
                 </button>
               </div>
@@ -2873,21 +2873,21 @@ function BookingsPage() {
       )}
 
       {showNewClientModal && (
-        <div className="fixed inset-0 bg-[#1E2A4A]/50 flex items-center justify-center z-[60]" onClick={() => setShowNewClientModal(false)}>
+        <div className="fixed inset-0 bg-[var(--color-loop-ink)]/50 flex items-center justify-center z-[60]" onClick={() => setShowNewClientModal(false)}>
           <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            <h3 className="text-lg font-semibold text-[#1E2A4A] mb-4">New Client</h3>
+            <h3 className="text-lg font-semibold text-[var(--color-loop-ink)] mb-4">New Client</h3>
             <form onSubmit={handleNewClientSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Name *</label>
-                <input type="text" required value={newClientForm.name} onChange={(e) => setNewClientForm({ ...newClientForm, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]" placeholder="John Smith" />
+                <input type="text" required value={newClientForm.name} onChange={(e) => setNewClientForm({ ...newClientForm, name: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]" placeholder="John Smith" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                <input type="email" value={newClientForm.email} onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]" placeholder="john@email.com" />
+                <input type="email" value={newClientForm.email} onChange={(e) => setNewClientForm({ ...newClientForm, email: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]" placeholder="john@email.com" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Phone *</label>
-                <input type="tel" required value={newClientForm.phone} onChange={(e) => setNewClientForm({ ...newClientForm, phone: formatPhone(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]" placeholder="212-555-1234" />
+                <input type="tel" required value={newClientForm.phone} onChange={(e) => setNewClientForm({ ...newClientForm, phone: formatPhone(e.target.value) })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]" placeholder="212-555-1234" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
@@ -2895,22 +2895,22 @@ function BookingsPage() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Unit / Apt</label>
-                <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]" placeholder="Apt 4B" />
+                <input type="text" value={newClientForm.unit} onChange={(e) => setNewClientForm({ ...newClientForm, unit: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]" placeholder="Apt 4B" />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Referred By</label>
-                <select value={newClientForm.referrer_id} onChange={(e) => setNewClientForm({ ...newClientForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]">
+                <select value={newClientForm.referrer_id} onChange={(e) => setNewClientForm({ ...newClientForm, referrer_id: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]">
                   <option value="">None</option>
                   {referrers.filter(ref => ref.active).map(ref => <option key={ref.id} value={ref.id}>{ref.name} ({ref.ref_code})</option>)}
                 </select>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
-                <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[#1E2A4A]" rows={3} placeholder="Any special instructions..." />
+                <textarea value={newClientForm.notes} onChange={(e) => setNewClientForm({ ...newClientForm, notes: e.target.value })} className="w-full px-3 py-2 border rounded-lg text-[var(--color-loop-ink)]" rows={3} placeholder="Any special instructions..." />
               </div>
               <div className="flex gap-3 pt-2">
-                <button type="button" onClick={() => setShowNewClientModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[#1E2A4A]">Cancel</button>
-                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[#1E2A4A] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
+                <button type="button" onClick={() => setShowNewClientModal(false)} className="flex-1 px-4 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]">Cancel</button>
+                <button type="submit" disabled={saving} className="flex-1 px-4 py-2 bg-[var(--color-loop-ink)] text-white rounded-lg">{saving ? '...' : 'Create'}</button>
               </div>
             </form>
           </div>
