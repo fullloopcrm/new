@@ -87,20 +87,46 @@ export default function BudgetTab() {
     [quotes, statusFilter]
   )
 
-  function openBudget(row: QuoteRow) {
+  async function openBudget(row: QuoteRow) {
     setErr('')
     setOpenId(row.id)
     const b = row.budget
-    setForm({
-      labor_budget: b ? String((b.labor_budget_cents || 0) / 100) : '',
-      materials_budget: b ? String((b.materials_budget_cents || 0) / 100) : '',
-      other_budget: b ? String((b.other_budget_cents || 0) / 100) : '',
-      target_margin: b && b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '',
-      labor_actual: b ? String((b.labor_actual_cents || 0) / 100) : '',
-      materials_actual: b ? String((b.materials_actual_cents || 0) / 100) : '',
-      other_actual: b ? String((b.other_actual_cents || 0) / 100) : '',
-      notes: b?.notes || '',
-    })
+    if (b) {
+      setForm({
+        labor_budget: String((b.labor_budget_cents || 0) / 100),
+        materials_budget: String((b.materials_budget_cents || 0) / 100),
+        other_budget: String((b.other_budget_cents || 0) / 100),
+        target_margin: b.target_margin_bps != null ? String(b.target_margin_bps / 100) : '',
+        labor_actual: String((b.labor_actual_cents || 0) / 100),
+        materials_actual: String((b.materials_actual_cents || 0) / 100),
+        other_actual: String((b.other_actual_cents || 0) / 100),
+        notes: b.notes || '',
+      })
+      return
+    }
+    // No budget yet -- start from the template-derived suggestion (per
+    // matched catalog items' labor-hours/rate, materials cost, overhead,
+    // target margin defaults) instead of a blank form.
+    setForm({ ...emptyForm })
+    try {
+      const res = await fetch(`/api/quote-budgets/${row.id}`)
+      const d = await res.json().catch(() => null)
+      const s = d?.suggested as {
+        labor_budget_cents: number
+        materials_budget_cents: number
+        other_budget_cents: number
+        target_margin_bps: number | null
+      } | null
+      if (s) {
+        setForm({
+          ...emptyForm,
+          labor_budget: s.labor_budget_cents ? String(s.labor_budget_cents / 100) : '',
+          materials_budget: s.materials_budget_cents ? String(s.materials_budget_cents / 100) : '',
+          other_budget: s.other_budget_cents ? String(s.other_budget_cents / 100) : '',
+          target_margin: s.target_margin_bps != null ? String(s.target_margin_bps / 100) : '',
+        })
+      }
+    } catch { /* keep blank form on suggestion fetch failure */ }
   }
 
   async function save(quoteId: string) {

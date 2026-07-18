@@ -26,7 +26,7 @@ export async function GET() {
     const { tenantId } = await getTenantForRequest()
     const { data, error } = await supabaseAdmin
       .from('service_types')
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_hourly_rate, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .eq('tenant_id', tenantId)
       .order('sort_order', { ascending: true })
     if (error) throw error
@@ -81,10 +81,13 @@ export async function POST(request: Request) {
         taxable: body.taxable !== false,
         category: (body.category as string) || null,
         default_duration_hours: num(body.default_duration_hours),
+        default_labor_rate_cents: num(body.default_labor_rate_cents),
+        default_overhead_cents: num(body.default_overhead_cents),
+        default_target_margin_bps: num(body.default_target_margin_bps),
         sort_order: num(body.sort_order) ?? 0,
         active: body.active !== false,
       })
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     await audit({ tenantId, action: 'service.created', entityType: 'catalog_item', entityId: data.id })
@@ -118,6 +121,9 @@ export async function PATCH(request: Request) {
     if ('taxable' in body) patch.taxable = !!body.taxable
     if ('category' in body) patch.category = (body.category as string) || null
     if ('default_duration_hours' in body) patch.default_duration_hours = num(body.default_duration_hours)
+    if ('default_labor_rate_cents' in body) patch.default_labor_rate_cents = num(body.default_labor_rate_cents)
+    if ('default_overhead_cents' in body) patch.default_overhead_cents = num(body.default_overhead_cents)
+    if ('default_target_margin_bps' in body) patch.default_target_margin_bps = num(body.default_target_margin_bps)
     if ('unit_label' in body) patch.unit_label = (body.unit_label as string) || null
     if (ITEM_TYPES.includes(body.item_type as string)) patch.item_type = body.item_type
     if (PER_UNITS.includes(body.per_unit as string)) {
@@ -130,7 +136,7 @@ export async function PATCH(request: Request) {
       .update(patch)
       .eq('id', id)
       .eq('tenant_id', tenantId)
-      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, active, sort_order')
+      .select('id, name, description, notes, image_url, item_type, per_unit, unit_label, price_cents, min_charge_cents, cost_cents, taxable, category, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps, active, sort_order')
       .single()
     if (error) throw error
     return NextResponse.json({ item: data })

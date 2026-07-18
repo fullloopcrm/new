@@ -8,6 +8,7 @@ import { NextResponse } from 'next/server'
 import { supabaseAdmin } from '@/lib/supabase'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
+import { computeSuggestedBudget } from '@/lib/budget-template'
 
 type Params = { params: Promise<{ quoteId: string }> }
 
@@ -38,7 +39,21 @@ export async function GET(_request: Request, { params }: Params) {
       .eq('quote_id', quoteId)
       .maybeSingle()
 
-    return NextResponse.json({ quote, budget: budget || null })
+    // No budget set yet -- offer a suggested starting point derived from the
+    // tenant's per-service-type budget templates (see
+    // 2026_07_18_service_types_budget_defaults.sql), so the form pre-fills
+    // instead of starting blank. Only computed when there's nothing to
+    // override yet; an existing budget is never silently replaced.
+    let suggested = null
+    if (!budget) {
+      const { data: serviceTypes } = await supabaseAdmin
+        .from('service_types')
+        .select('name, cost_cents, default_duration_hours, default_labor_rate_cents, default_overhead_cents, default_target_margin_bps')
+        .eq('tenant_id', tenantId)
+      suggested = computeSuggestedBudget((quote.line_items as { name?: string; quantity?: number }[]) || [], serviceTypes || [])
+    }
+
+    return NextResponse.json({ quote, budget: budget || null, suggested })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })
     console.error('GET /api/quote-budgets/[quoteId]', err)
