@@ -67,6 +67,16 @@ jobs:
       # "read-only, never gains write scopes" invariant reconcile-gate-wiring.test.ts
       # locks in below). PIPESTATUS[0] preserves the real node exit code through the
       # tee pipe so the gate still fails on gating CRIT drift.
+      #
+      # `tr -d '`'` strips backticks before the report goes into the ``` fence:
+      # POST /api/admin/websites inserts tenant_domains.domain with zero
+      # normalization (see reconcile-tenant-config.test.ts's "pasted as a full
+      # URL" cases), so a finding's message can carry an admin-supplied domain
+      # value verbatim. A domain string containing a run of three backticks
+      # would otherwise close the Job Summary's code fence early and let the
+      # rest of the report render as live markdown instead of preformatted
+      # text. Reconcile output never legitimately contains a backtick, so this
+      # is a no-op on every real report.
       - name: Reconcile tenant config (read-only drift gate)
         id: reconcile-drift-gate
         working-directory: platform
@@ -80,7 +90,7 @@ jobs:
           {
             echo '### Tenant-config reconcile'
             echo '```'
-            cat reconcile-output.txt
+            tr -d '`' < reconcile-output.txt
             echo '```'
           } >> "$GITHUB_STEP_SUMMARY"
           exit "$exit_code"

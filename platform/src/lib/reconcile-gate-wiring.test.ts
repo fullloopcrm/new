@@ -137,4 +137,28 @@ describe('CI invariant — reconcile gate wiring is intact', () => {
         'Job Summary approach exists specifically to avoid this escalation.',
     ).toBe(false)
   })
+
+  it('strips backticks before writing the captured report into the ``` fence (no code-fence breakout)', () => {
+    const yaml = reconcileYaml()
+    // POST /api/admin/websites inserts tenant_domains.domain with zero
+    // normalization (reconcile-tenant-config.test.ts's "pasted as a full URL"
+    // cases), so a finding's message can carry an admin-supplied domain value
+    // verbatim into reconcile-output.txt. A raw `cat` of that file between the
+    // ``` fence lines would let a domain containing a run of three backticks
+    // close the fence early and render the rest of the report as live
+    // markdown instead of preformatted text.
+    expect(
+      /cat reconcile-output\.txt/.test(yaml),
+      'tenant-config-reconcile.yml writes reconcile-output.txt into the Job ' +
+        'Summary fence with a raw `cat` again — a domain value containing ``` ' +
+        'could break out of the code fence. Strip or escape backticks first ' +
+        "(e.g. `tr -d '`' < reconcile-output.txt`).",
+    ).toBe(false)
+    expect(
+      /reconcile-output\.txt/.test(yaml),
+      'tenant-config-reconcile.yml no longer reads reconcile-output.txt into the ' +
+        'Job Summary at all — update this guard if the report is now captured a ' +
+        'different way.',
+    ).toBe(true)
+  })
 })
