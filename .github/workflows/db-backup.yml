@@ -72,18 +72,34 @@ jobs:
           set -euo pipefail
           STAMP="$(date -u +%Y-%m-%dT%H-%M-%SZ)"
           echo "STAMP=$STAMP" >> "$GITHUB_ENV"
-          # -Fc custom format → restore with pg_restore. --no-owner/--no-privileges
-          # so it restores cleanly into a fresh project.
-          pg_dump "$SUPABASE_DB_URL" \
-            --no-owner --no-privileges \
-            -Fc -f "fullloop-$STAMP.dump"
-          SIZE=$(stat -c%s "fullloop-$STAMP.dump")
-          echo "Dump size: $SIZE bytes"
-          # Sanity gate: a real dump is not tiny. Fail loudly if it is.
-          if [ "$SIZE" -lt 100000 ]; then
-            echo "::error::Dump suspiciously small ($SIZE bytes) — treating as failure"
-            exit 1
-          fi
+          # Continuing (246)/(247)'s "exit 1 is ambiguous between a real
+          # finding and a script crash" fix onto the third owned workflow:
+          # this step's own exit 1 means EITHER a real small-dump finding
+          # (the explicit gate below) OR pg_dump itself failing (bad
+          # connection string, auth failure, dropped connection) — otherwise
+          # indistinguishable from the exit code alone. Captured to a file so
+          # the alert step can grep for the gate's own "::error::Dump
+          # suspiciously small" line as the finding-vs-crash signal, same
+          # technique as the sibling reconcile/ci.yml fixes. `set -e` stays
+          # in effect inside this group (no `set +e` here, unlike the
+          # single-command tee in ci.yml/reconcile.yml) so a failing pg_dump
+          # still halts immediately instead of falling through to stat a
+          # partial/missing file — db-backup-dump-size-sanity-gate.test.ts's
+          # existing fail-fast contract is unchanged by this wrap.
+          {
+            # -Fc custom format → restore with pg_restore. --no-owner/--no-privileges
+            # so it restores cleanly into a fresh project.
+            pg_dump "$SUPABASE_DB_URL" \
+              --no-owner --no-privileges \
+              -Fc -f "fullloop-$STAMP.dump"
+            SIZE=$(stat -c%s "fullloop-$STAMP.dump")
+            echo "Dump size: $SIZE bytes"
+            # Sanity gate: a real dump is not tiny. Fail loudly if it is.
+            if [ "$SIZE" -lt 100000 ]; then
+              echo "::error::Dump suspiciously small ($SIZE bytes) — treating as failure"
+              exit 1
+            fi
+          } 2>&1 | tee dump-output.txt
 
       - name: Encrypt dump (this repo is PUBLIC — never upload plaintext PII)
         id: encrypt
@@ -91,19 +107,32 @@ jobs:
           BACKUP_ENCRYPTION_KEY: ${{ secrets.BACKUP_ENCRYPTION_KEY }}
         run: |
           set -euo pipefail
-          if [ -z "${BACKUP_ENCRYPTION_KEY}" ]; then
-            echo "::error::BACKUP_ENCRYPTION_KEY secret is not configured. Refusing to upload an" \
-                 "unencrypted full-database dump — this repo (fullloopcrm/new) is PUBLIC and" \
-                 "GitHub Actions artifacts are downloadable by any GitHub account with read" \
-                 "access to the repo. Add BACKUP_ENCRYPTION_KEY in repo Settings > Secrets and" \
-                 "variables > Actions before this backup can run."
-            exit 1
-          fi
-          command -v gpg >/dev/null || sudo apt-get install -y gnupg
-          gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
-              --symmetric --cipher-algo AES256 \
-              -o "fullloop-$STAMP.dump.gpg" "fullloop-$STAMP.dump" <<< "$BACKUP_ENCRYPTION_KEY"
-          rm -f "fullloop-$STAMP.dump"
+          # Same (246)/(247) "exit 1 is ambiguous" fix as the "dump" step
+          # above: this step's own exit 1 means EITHER the real, known
+          # BACKUP_ENCRYPTION_KEY-missing finding (explicit gate below) OR
+          # gpg itself crashing (corrupt input, disk full) — captured to a
+          # file so the alert can grep for the gate's own "::error::
+          # BACKUP_ENCRYPTION_KEY secret is not configured" line as the
+          # finding-vs-crash signal. `set -e` (line above, outside this
+          # group) stays in effect inside it, preserving
+          # db-backup-encrypt-fail-safe-purge-guard.test.ts's existing
+          # fail-fast contract (a failing gpg still halts before reaching
+          # the plaintext-purge `rm -f` line).
+          {
+            if [ -z "${BACKUP_ENCRYPTION_KEY}" ]; then
+              echo "::error::BACKUP_ENCRYPTION_KEY secret is not configured. Refusing to upload an" \
+                   "unencrypted full-database dump — this repo (fullloopcrm/new) is PUBLIC and" \
+                   "GitHub Actions artifacts are downloadable by any GitHub account with read" \
+                   "access to the repo. Add BACKUP_ENCRYPTION_KEY in repo Settings > Secrets and" \
+                   "variables > Actions before this backup can run."
+              exit 1
+            fi
+            command -v gpg >/dev/null || sudo apt-get install -y gnupg
+            gpg --batch --yes --passphrase-fd 0 --pinentry-mode loopback \
+                --symmetric --cipher-algo AES256 \
+                -o "fullloop-$STAMP.dump.gpg" "fullloop-$STAMP.dump" <<< "$BACKUP_ENCRYPTION_KEY"
+            rm -f "fullloop-$STAMP.dump"
+          } 2>&1 | tee encrypt-output.txt
 
       - name: Upload encrypted dump as GitHub artifact (offsite — different provider than Supabase)
         id: upload
@@ -142,8 +171,27 @@ jobs:
           # readable here with no job-output indirection needed.
           failed="unknown"
           [ "${{ steps.install-pg-dump.outcome }}" = "failure" ] && failed="Install latest pg_dump"
-          [ "${{ steps.dump.outcome }}" = "failure" ] && failed="Dump full database"
-          [ "${{ steps.encrypt.outcome }}" = "failure" ] && failed="Encrypt dump"
+
+          # Continuing (246)/(247)'s "name the real cause, not just the step"
+          # track onto this workflow's own two ambiguous-exit-1 steps (see the
+          # comments on the "dump"/"encrypt" steps above for why each is
+          # ambiguous). Grep the tee-captured output each step now writes for
+          # its own explicit ::error:: line as the finding-vs-crash signal.
+          if [ "${{ steps.dump.outcome }}" = "failure" ]; then
+            if grep -q '::error::Dump suspiciously small' dump-output.txt 2>/dev/null; then
+              failed="Dump full database -- dump suspiciously small (not a script error; see the run log for the size)"
+            else
+              failed="Dump full database -- pg_dump itself failed (bad connection string, auth failure, or dropped connection; not a size finding -- see the run log)"
+            fi
+          fi
+          if [ "${{ steps.encrypt.outcome }}" = "failure" ]; then
+            if grep -q '::error::BACKUP_ENCRYPTION_KEY secret is not configured' encrypt-output.txt 2>/dev/null; then
+              failed="Encrypt dump -- BACKUP_ENCRYPTION_KEY secret is not configured (not a script error -- add the secret)"
+            else
+              failed="Encrypt dump -- gpg/the script itself errored (not a missing-secret finding -- see the run log)"
+            fi
+          fi
+
           [ "${{ steps.upload.outcome }}" = "failure" ] && failed="Upload encrypted dump as GitHub artifact"
           curl -sS --max-time 30 "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" \
             -d chat_id="${TG_CHAT}" \
