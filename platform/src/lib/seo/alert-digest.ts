@@ -51,7 +51,7 @@ function formatProperty(property: string, issues: PendingIssue[]): string {
 
 export async function sendSeoAlertDigest(): Promise<SeoAlertDigestResult> {
   const { data, error } = await supabaseAdmin
-    .from('seo_issues')
+    .from('seo_issues') // tenant-scope-ok: platform-wide admin digest to Jeff via alertOwner (Telegram), never tenant-facing -- same cross-tenant aggregate pattern as /admin/seo
     .select('id, property, target_url, detail')
     .eq('status', 'open')
     .in('type', ALERT_TYPES)

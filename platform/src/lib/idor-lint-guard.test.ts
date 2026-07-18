@@ -79,7 +79,7 @@ describe('idor-lint-guard CLI — collectCurrentSignatures', () => {
   it('returns an empty array when nothing is unscoped', () => {
     dir = mkdtempSync(join(tmpdir(), 'idor-lint-'))
     mkdirSync(join(dir, 'clean'), { recursive: true })
-    writeFileSync(join(dir, 'clean', 'route.ts'), `await supabaseAdmin.from('clients').select('*').eq('status', 'open')`)
+    writeFileSync(join(dir, 'clean', 'route.ts'), `await supabaseAdmin.from('clients').select('*').eq('status', 'open')`) // tenant-scope-ok: literal fixture text for idor-lint-guard's OWN test -- not a real Supabase call
     expect(collectCurrentSignatures(dir, dir)).toEqual([])
   })
 })
