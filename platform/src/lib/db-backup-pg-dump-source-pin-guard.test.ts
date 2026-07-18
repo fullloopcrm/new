@@ -81,8 +81,13 @@ describe('CI invariant — db-backup.yml pg_dump install step stays pinned to th
   it('the GPG key is still fetched from the real www.postgresql.org (not a lookalike/attacker domain)', () => {
     const block = installStepBlock(dbBackupYaml())
     expect(block).not.toBeNull()
+    // Allows an optional `--max-time <n>` between `-fsSL` and the URL (added
+    // by item (230)'s db-backup-pg-dump-key-fetch-max-time-guard.test.ts) —
+    // any OTHER token in that gap (a flag this guard doesn't name) still
+    // fails the match, so the pin stays as tight as before on everything but
+    // that one known, separately-guarded flag.
     expect(
-      /curl -fsSL https:\/\/www\.postgresql\.org\/media\/keys\/ACCC4CF8\.asc/.test(block!),
+      /curl -fsSL(?: --max-time \d+)? https:\/\/www\.postgresql\.org\/media\/keys\/ACCC4CF8\.asc/.test(block!),
       'db-backup.yml no longer fetches the apt signing key from ' +
         'https://www.postgresql.org/media/keys/ACCC4CF8.asc — an attacker-controlled key URL here ' +
         'would let apt trust arbitrary packages under the sudo-installed postgresql-client.',
