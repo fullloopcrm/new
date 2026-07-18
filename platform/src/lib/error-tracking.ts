@@ -1,8 +1,13 @@
 import { supabaseAdmin } from '@/lib/supabase'
 import { alertOwner } from '@/lib/telegram'
 
-// Rate limit: track last alert time per error type to avoid spamming
-const alertCooldowns = new Map<string, number>()
+// Rate limit: track last alert time per error type to avoid spamming.
+// Backed by error_alert_cooldowns (DB), not an in-memory Map -- a Map here
+// would live per-instance and reset on every cold start, so on Vercel it
+// never reliably suppresses anything across the dozens of call sites that
+// pass severity:'high'|'critical'. See
+// 2026_07_18_error_alert_cooldowns_durable.sql for the two-step atomic
+// claim this uses (same idiom as cron/system-check's own dedup fix).
 const COOLDOWN_MS = 10 * 60 * 1000 // 10 minutes
 
 interface ErrorContext {
@@ -51,14 +56,34 @@ export async function trackError(error: unknown, context: ErrorContext) {
     console.error('Failed to log error notification:', e)
   }
 
-  // 2. Email alert for high/critical errors (rate-limited)
+  // 2. Telegram alert for high/critical errors, DB-backed dedup.
   if (severity === 'high' || severity === 'critical') {
-    const cooldownKey = `${context.source}:${message.slice(0, 50)}`
-    const lastAlert = alertCooldowns.get(cooldownKey) || 0
-    const now = Date.now()
+    const fingerprint = `${context.source}:${message.slice(0, 50)}`
+    const alertedAtNow = new Date().toISOString()
+    const windowStart = new Date(Date.now() - COOLDOWN_MS).toISOString()
 
-    if (now - lastAlert > COOLDOWN_MS) {
-      alertCooldowns.set(cooldownKey, now)
+    let claimed: boolean
+    const { error: claimErr } = await supabaseAdmin
+      .from('error_alert_cooldowns')
+      .insert({ fingerprint, alerted_at: alertedAtNow })
+
+    if (!claimErr) {
+      claimed = true
+    } else if (claimErr.code !== '23505') {
+      console.error('Failed to claim error alert cooldown:', claimErr)
+      claimed = false
+    } else {
+      const { data: reclaimed } = await supabaseAdmin
+        .from('error_alert_cooldowns')
+        .update({ alerted_at: alertedAtNow })
+        .eq('fingerprint', fingerprint)
+        .lt('alerted_at', windowStart)
+        .select('fingerprint')
+        .maybeSingle()
+      claimed = !!reclaimed
+    }
+
+    if (claimed) {
       const detail = [
         `Source: ${context.source}`,
         `Error: ${message}`,
