@@ -294,7 +294,7 @@ describe('middleware — custom domain routing wiring', () => {
     expect(res?.headers.get('location')).toBeFalsy()
   })
 
-  it('uses the STATIC_TENANT_MAP fallback for www.thefloridamaid.com without querying getTenantByDomain', async () => {
+  it('falls back to the STATIC_TENANT_MAP for www.thefloridamaid.com only after getTenantByDomain finds no row', async () => {
     const domainSpy = vi.fn(async () => null)
     byDomain = domainSpy
     bySlug = async (slug) => (slug === 'the-florida-maid' ? { id: 'x', slug: 'the-florida-maid', name: 'x', domain: null, status: 'active' } : null)
@@ -305,7 +305,55 @@ describe('middleware — custom domain routing wiring', () => {
 
     expect(res!.headers.get('x-tenant-id')).toBe('56490a6b-820c-49e6-8c14-cb4e54ffcb06')
     expect(res!.headers.get('x-tenant-slug')).toBe('the-florida-maid')
-    expect(domainSpy).not.toHaveBeenCalled()
+    expect(domainSpy).toHaveBeenCalledWith('www.thefloridamaid.com')
+  })
+
+  // WRONG-TENANT PROBE: the STATIC_TENANT_MAP hardcodes an id/slug for this
+  // host, but that hardcode can go stale the moment the domain is legitimately
+  // reassigned in the DB (detached from the-florida-maid, re-registered to a
+  // different tenant via admin/websites). Before this fix, this branch never
+  // called getTenantByDomain at all, so it would keep serving the OLD
+  // hardcoded tenant forever regardless of what tenant_domains/tenants.domain
+  // now says — the resolver's own reassignment never reaches this host.
+  it('WRONG-TENANT PROBE: when the resolver says a DIFFERENT tenant now owns thefloridamaid.com, the resolver wins over the stale hardcoded map', async () => {
+    byDomain = async (domain) => (domain === 'www.thefloridamaid.com' ? beta : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(res!.headers.get('x-tenant-id')).toBe('tenant-beta')
+    expect(res!.headers.get('x-tenant-id')).not.toBe('56490a6b-820c-49e6-8c14-cb4e54ffcb06')
+  })
+
+  it('a suspended tenant now owning thefloridamaid.com per the resolver is NOT served, even though the hardcoded map would have served it', async () => {
+    byDomain = async (domain) => (domain === 'www.thefloridamaid.com' ? { ...beta, status: 'suspended' } : null)
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res?.headers.get('x-tenant-id')).toBeFalsy()
+  })
+
+  // The resolver's own TRANSITION divergence guard must not be silently
+  // defeated by falling through to the hardcoded map on this one host — that
+  // would make the guard pointless exactly where a stale second source of
+  // truth exists to mask it.
+  it('a TENANT_DIVERGENCE thrown by the resolver for thefloridamaid.com is NOT swallowed into serving the stale hardcoded tenant', async () => {
+    byDomain = async () => {
+      throw new Error('TENANT_DIVERGENCE host=www.thefloridamaid.com td=t-new legacy=t-old')
+    }
+    const errSpy = vi.spyOn(console, 'error').mockImplementation(() => {})
+    const { default: middleware } = await import('./middleware')
+
+    const req = new NextRequest('https://www.thefloridamaid.com/', { headers: { host: 'www.thefloridamaid.com' } })
+    const res = await middleware(req)
+
+    expect(rewriteTarget(res)).toBeNull()
+    expect(res?.headers.get('x-tenant-id')).toBeFalsy()
+    errSpy.mockRestore()
   })
 
   // PERMISSION-BOUNDARY PROBE (adversarial round, 2026-07-16): the STATIC_TENANT_MAP

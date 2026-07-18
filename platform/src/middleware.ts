@@ -300,8 +300,45 @@ export default async function middleware(req: NextRequest) {
     const cleanHost = hostname.split(':')[0].toLowerCase()
     const staticTenant = STATIC_TENANT_MAP[cleanHost]
     if (staticTenant) {
-      // The static map itself carries no status — unlike the DB-resolved
-      // path below (gated on tenantServesSite), this branch used to serve
+      // WRONG-TENANT GUARD: this hardcoded map predates tenant_domains and was
+      // added for when the edge lookup itself was flaky for this one host —
+      // but a static map has no way to notice a LEGITIMATE later domain
+      // reassignment (detached from this tenant, re-registered to another via
+      // admin/websites). Unlike every other host, this branch used to never
+      // call getTenantByDomain at all, so it couldn't participate in the
+      // tenant_domains-first/tenants.domain-fallback resolver OR its TRANSITION
+      // divergence guard — a reassignment would silently keep serving the OLD
+      // hardcoded tenant here forever, the exact wrong-tenant/brand-swap
+      // failure mode the guard exists to catch everywhere else. Consult the
+      // real resolver first; its answer (including "no answer" or "refuse")
+      // wins over the hardcoded id/slug.
+      try {
+        const resolved = await getTenantByDomain(cleanHost)
+        if (resolved) {
+          return tenantServesSite(resolved.status)
+            ? rewriteToSite(req, resolved.id, resolved.slug)
+            : applyProtectedRouteGate(req)
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (msg.startsWith('TENANT_DIVERGENCE')) {
+          // The resolver's own brand-swap guard fired for this host — refusing
+          // to serve is exactly what it's for. Falling through to the
+          // hardcoded map here would silently defeat the guard for the one
+          // host that has a second, non-resolver source of truth to fall back
+          // on.
+          console.error('Static-map resolver divergence:', msg)
+          return applyProtectedRouteGate(req)
+        }
+        // Any other resolver failure (transient DB error) — fall through to
+        // the hardcoded map below, same fail-open resilience intent as its
+        // original purpose.
+        console.error('Static-map resolver cross-check error:', e)
+      }
+      // Resolver has no row for this host at all (never migrated to
+      // tenant_domains and no legacy tenants.domain row either) — fall back to
+      // the hardcoded map. The static map itself carries no status — unlike
+      // the DB-resolved path above, this fallback used to serve
       // unconditionally, so a suspended/cancelled/deleted tenant on this
       // hardcoded domain kept serving its full site AND dashboard forever,
       // bypassing the same dark-on-suspension rule every other tenant is
