@@ -7,7 +7,7 @@ import { trackError } from '@/lib/error-tracking'
 export const maxDuration = 120
 
 /**
- * Self-healing health check — runs every 15 minutes.
+ * Self-healing health check — runs once daily (vercel.json: `0 12 * * *`).
  * Doesn't just detect problems — it fixes them.
  *
  * 1. Retry failed notifications (up to 3 attempts)
@@ -27,12 +27,21 @@ export async function GET(request: Request) {
   // 1. RETRY FAILED NOTIFICATIONS (self-healing)
   // =============================================
   try {
-    const oneHourAgo = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    // vercel.json actually schedules this cron once daily (`0 12 * * *`),
+    // not "every 15 minutes" as this file's docstring assumes. A 1-hour
+    // lookback only ever caught failures from the ~1hr before each day's
+    // single run -- everything else aged out of a backward-looking window
+    // before the next run could see it, and never got a single retry
+    // attempt despite the retry_count<3 cap implying up to three. Widen to
+    // cover a full day plus drift margin so any failure from the last cron
+    // cycle is still picked up on the very next run; the 7-day expiry in
+    // section 3 below remains the real backstop against runaway staleness.
+    const retryWindowStart = new Date(Date.now() - 26 * 60 * 60 * 1000).toISOString()
     const { data: failedNotifs } = await supabaseAdmin
       .from('notifications')
       .select('id, tenant_id, type, title, message, channel, recipient_type, recipient_id, booking_id, metadata, retry_count')
       .eq('status', 'failed')
-      .gte('created_at', oneHourAgo)
+      .gte('created_at', retryWindowStart)
       .lt('retry_count', 3) // max 3 retries
       .order('created_at', { ascending: true })
       .limit(50) // process up to 50 per run
