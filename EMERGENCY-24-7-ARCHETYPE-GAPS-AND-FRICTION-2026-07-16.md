@@ -11123,3 +11123,92 @@ assertions plus every prior test still passing). None of the three workflow
 YAML files themselves were touched this round (all mutations were made,
 verified, and reverted during testing only) -- their own coverage (items
 168-214 above) is unaffected; only new guard coverage was added.
+
+## (217) New fresh-ground surface -- tenant-config-reconcile.yml's own
+"Verify token-guard skips clean" step resets `HOME` to a fresh `mktemp -d`
+directory before invoking the script, and that reset had ZERO regression
+coverage anywhere in this lane
+
+The step forces `SUPABASE_ACCESS_TOKEN_FULLLOOP: ''` AND resets `HOME`
+before running `scripts/reconcile-tenant-config.mjs`, per its own comment:
+"so the ~/.env.local fallback cannot find one either". `loadToken()`
+cascades env var -> `~/.env.local` -> null (unit-tested directly in
+`reconcile-tenant-config.test.ts`'s "loadToken — local dev fallback"
+describe block). Forcing the env var empty only closes the FIRST half of
+that cascade; without the HOME reset, this verification step's own
+correctness would depend on whatever `~/.env.local` happens to exist at the
+real runner HOME. `reconcile-gate-wiring.test.ts`'s "still verifies the
+token-guard clean-skip contract" check only pins the asserted marker string
+(`skipping (exit 0)`) -- which appears in the step's own `grep -q` command
+regardless of whether HOME is actually reset. Grepping every guard test file
+in this lane for `mktemp` or `HOME=` turned up nothing.
+
+Not a live exploit today (GitHub-hosted runners don't ship a `~/.env.local`)
+-- same "close the currently-inert other half" shape as items (210)/(216) --
+but a plausible "this line looks redundant, drop it" cleanup edit would
+silently reintroduce a dependency on host state with nothing catching it.
+
+**Mutation-verified before writing the fix:** deleted the
+`export HOME="$(mktemp -d)"` line from the step's run script (leaving the
+forced-empty `SUPABASE_ACCESS_TOKEN_FULLLOOP: ''` override untouched) -- the
+full 479-file / 2394-test vitest suite stayed 100% green. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/reconcile-token-guard-home-isolation.test.ts`, pure
+source-reading of tenant-config-reconcile.yml's YAML, same approach as every
+other guard in this lane. Also pins that the HOME reset runs BEFORE the
+script invocation (ordering matters -- a reset after the script has already
+read `process.env` would isolate nothing). Re-ran the deletion mutation
+against the new guard -- 2 of 5 assertions failed with the exact predicted
+messages; restore left `git diff --stat .github/workflows/` empty afterward.
+
+## (218) Continuation (step 2 of the queue) -- investigating (217)'s
+"unpinned trust anchor" surface (host-state isolation on a token-guard
+script) surfaced a DIFFERENT kind of unpinned trust anchor in the same
+workflows directory: db-backup.yml's "Install latest pg_dump" step adds a
+new apt source and trusts a GPG key fetched over plain `curl`, from two
+hardcoded postgresql.org URLs, with ZERO regression coverage on either URL
+
+`actions-sha-pin-guard.test.ts` walks every `uses:` reference across all
+three workflows and pins each to a full 40-char commit SHA -- but it only
+reads `uses:` lines, never a step's own `run:` shell script, so this step's
+`sh -c 'echo "deb http://apt.postgresql.org/pub/repos/apt ..."'` +
+`curl -fsSL https://www.postgresql.org/media/keys/ACCC4CF8.asc | sudo gpg
+--dearmor ...` is invisible to it. Grepping every guard test file in this
+lane for `postgresql.org` or `ACCC4CF8` turned up nothing.
+
+Why it matters: this step runs `sudo` on every nightly backup (and every
+manual `workflow_dispatch`), on the same job that handles `SUPABASE_DB_URL`
+and `BACKUP_ENCRYPTION_KEY` moments later. If either the apt source domain
+or the GPG key URL were silently repointed at an attacker-controlled domain
+(a plausible "swap to a mirror for speed" cleanup edit, or a malicious edit
+disguised as one), `apt-get install postgresql-client-17` would trust a
+key/package set the workflow author never intended, installing an arbitrary
+`pg_dump` binary that then runs with access to the live production database
+URL right after.
+
+**Mutation-verified before writing the fix:** (1) changed the GPG key curl
+URL from `https://www.postgresql.org/...` to `https://evil.example.com/...`
+(apt source line untouched) -- the full 479-file / 2394-test vitest suite
+stayed 100% green. (2) independently changed the apt source domain from
+`apt.postgresql.org` to `apt.evil.example.com` (GPG key URL untouched) --
+same result, full suite green. Both restores left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-pg-dump-source-pin-guard.test.ts`, pure
+source-reading of db-backup.yml's YAML, same approach as
+`actions-sha-pin-guard.test.ts` for the sibling GitHub-Actions supply-chain
+surface. Pins the apt source domain, the GPG key URL, that the key is still
+piped into `gpg --dearmor` at the expected trust path, and that the exact
+`postgresql-client-17` package is still what gets installed. Re-ran both
+mutations above against the new guard -- each failed with the exact
+predicted message (1 of 6 assertions each); both restores left
+`git diff --stat .github/workflows/` empty afterward.
+
+Full suite + tsc + eslint re-run clean after this round: `tsc --noEmit` zero
+errors, eslint clean on both new files, full vitest suite green (481 files /
+2405 tests -- both new files' 11 total assertions plus every prior test
+still passing). None of the three workflow YAML files themselves were
+touched this round (all mutations were made, verified, and reverted during
+testing only) -- their own coverage (items 168-216 above) is unaffected;
+only new guard coverage was added.
