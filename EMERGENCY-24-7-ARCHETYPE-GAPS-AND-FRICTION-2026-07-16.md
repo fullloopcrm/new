@@ -12672,3 +12672,33 @@ leader-run-only in this worktree regardless (it touches live prod
 Supabase, enforced by a local hook), so this item's verification is
 entirely `tsc` + the full vitest suite + eslint, same discipline as
 every prior item in this lane's sessions when the token is absent.
+
+## (243) Fresh-ground sweep, zero new findings — the route-group-blindness
+class (237)-(242) closed is genuinely exhausted; no new distinct bug class
+surfaced this round
+
+Per LEADER's (243)-slot instruction to find "a new fresh-ground surface,
+different class entirely" from the route-group-blindness closed across
+(237)-(242): re-read this lane's gate script end to end (all ~40 Drift A-AM
+checks, its domain-normalization gauntlet, comment-stripping helper, its
+balanced-block/STATIC_TENANT_MAP parser, its dotenv-style token-value
+parsing) and its sibling build-time guard end to end, plus all three owned
+GitHub Actions workflow files end to end (secrets handling,
+encryption-fail-closed, timeouts, permissions, concurrency). Every surface
+this session already hardened stayed hardened; nothing new opened up.
+
+Verification this round (no code changed, so this is confirmation, not a
+fix): the sibling build-time guard, run directly — exit 0, all 22 PROTECTED
+tenants OK. Full repo suite — 495/495 files, 2508/2508 tests (357 of them in
+this lane's own 4 test files). `tsc --noEmit --pretty false` zero errors.
+`SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session — no live reconcile run
+against Supabase; a direct invocation of the reconcile script against the
+real DB is leader-run-only in this worktree regardless, enforced by a local
+hook, same discipline as every prior item in this lane's sessions when the
+token is absent.
+
+Reporting zero rather than manufacturing a fresh item to hit a quota: the
+same discipline (242)'s own writeup called out. The route-group-blindness
+bug class is closed; the honest state of this lane right now is "swept
+clean," not "found a seventh instance of the same shape" or "invented a new
+one that isn't real."
