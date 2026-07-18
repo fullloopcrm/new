@@ -10955,3 +10955,80 @@ still passing). None of the three workflow YAML files themselves were touched
 this round (all mutations were made, verified, and reverted during testing
 only) -- their own coverage (items 168-211 above) is unaffected; only new/
 tightened guard coverage was added.
+
+## (213) New fresh-ground surface -- ci.yml's own `notify-failure` job's
+`needs: verify` wiring had ZERO regression coverage, unlike the sibling
+`tenant-config-reconcile.yml` job which already had `needs: reconcile` +
+`if: failure()` anchored together by `reconcile-gate-wiring.test.ts`
+
+`ci-gate-conditional-skip-guard.test.ts` confirms ci.yml's `notify-failure` job
+exists and carries SOME `if:` conditional (its carve-out from the "no gating
+step/job may carry `if:`" rule), but it never reads the job's `needs:` key -- a
+job matching the notify-failure-job-id pattern with `if: failure()` satisfies
+every assertion there regardless of what it needs (or doesn't need) on.
+Grepping every guard test file in this lane for an anchored
+`notify-failure:\s*needs:\s*verify\s*if:\s*failure\(\)` pattern turned up
+nothing for ci.yml -- only `reconcile-gate-wiring.test.ts`'s equivalent check
+for `tenant-config-reconcile.yml`.
+
+**Verified clean today:** ci.yml's `notify-failure` job (lines 74-76) still
+declares `needs: verify` + `if: failure()`, unchanged.
+
+**Mutation-verified before writing the fix:** deleted the `needs: verify` line
+from ci.yml's `notify-failure` job (leaving `if: failure()` in place) -- the
+full 475-file / 2379-test vitest suite stayed 100% green. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+Why it matters: without `needs: verify`, the `notify-failure` job runs
+unscheduled relative to `verify` (starts immediately, in parallel) and its
+`if: failure()` (which resolves against the jobs it `needs:`) has nothing to
+evaluate -- the job is skipped every run. A red `verify` gate would then have
+NO Telegram alert firing: the same silent-alert-loss failure mode item (196)
+already fixed once for a wrong secret name, this time via a missing job
+dependency instead of a wrong secret name.
+
+**Fixed:** new `src/lib/ci-notify-failure-wiring-guard.test.ts`, pure
+source-reading of ci.yml's YAML, same anchored-regex approach as
+`reconcile-gate-wiring.test.ts`'s sibling check. Re-ran the `needs: verify`
+deletion against the new guard -- failed with the exact predicted message;
+restore left `git diff --stat .github/workflows/` empty afterward.
+
+## (214) Continuation (step 2 of the queue) -- investigating (213)'s
+notify-failure-alert-wiring surface surfaced a sibling silent-failure class one
+step upstream in the SAME pipeline: db-backup.yml's own "Upload encrypted dump
+as GitHub artifact" step had ZERO regression coverage on `if-no-files-found:`
+
+`actions/upload-artifact@v4` defaults `if-no-files-found` to `warn`: if the
+expected `fullloop-$STAMP.dump.gpg` path doesn't exist at upload time (a bug in
+an earlier step, a `$STAMP`/`$GITHUB_ENV` mismatch, a merge that reorders
+steps), the step prints a warning and reports SUCCESS -- the job goes green
+with an empty/no artifact for the night. Because the job never actually fails,
+the downstream "Alert on failure" step (gated on `if: failure()`, already
+covered by `db-backup-alert-guard.test.ts`) never fires either -- the exact
+same "red gate produces no visible signal" failure mode (213) closed at the
+job level, here one hop upstream at the step level. Grepping every guard test
+file in this lane for `if-no-files-found:\s*error` turned up nothing anywhere.
+
+**Verified clean today:** db-backup.yml's upload step (line 111) still
+declares `if-no-files-found: error`, unchanged.
+
+**Mutation-verified before writing the fix:** deleted the
+`if-no-files-found: error` line from the upload step (leaving
+`retention-days: 90` and everything else intact) -- the full 476-file /
+2380-test vitest suite stayed 100% green. Restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+**Fixed:** new `src/lib/db-backup-upload-fail-closed-guard.test.ts`, pure
+source-reading of db-backup.yml's YAML, same approach as
+`db-backup-alert-guard.test.ts` / `db-backup-encryption-fail-closed.test.ts`.
+Re-ran the `if-no-files-found: error` deletion against the new guard -- failed
+with the exact predicted message; restore left
+`git diff --stat .github/workflows/` empty afterward.
+
+Full suite + tsc re-run clean after this round: `tsc --noEmit` zero errors,
+eslint clean on both new files, full vitest suite green (477 files / 2383
+tests -- both new files' 4 total assertions plus every prior test still
+passing). None of the three workflow YAML files themselves were touched this
+round (all mutations were made, verified, and reverted during testing only) --
+their own coverage (items 168-212 above) is unaffected; only new guard
+coverage was added.
