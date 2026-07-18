@@ -121,7 +121,16 @@ export async function POST(request: Request) {
         // race and both see prospect.tenant_id = null before either writes.
         // Flip status approved|reviewing → paid in a single UPDATE so only one
         // delivery wins; losers return idempotent without inserting a tenant.
-        const { data: claim } = await supabaseAdmin
+        // error checked explicitly: this CAS update is the entry gate for the
+        // whole paid-signup flow. maybeSingle() legitimately returns
+        // data:null when the row is already claimed (the normal "another
+        // delivery won" case this comparison exists for) — but with only
+        // `data` destructured, a genuine DB-level failure (RLS deny,
+        // connection reset) looked IDENTICAL to that and silently took the
+        // `already_processed:true` early-return, permanently dropping a real
+        // Stripe payment with no tenant ever created and no signal to
+        // anyone: the webhook still returned 200, so Stripe never retries.
+        const { data: claim, error: claimError } = await supabaseAdmin
           .from('prospects')
           .update({
             status: 'paid',
@@ -133,11 +142,25 @@ export async function POST(request: Request) {
           .select('id')
           .maybeSingle()
 
+        if (claimError) {
+          throw new Error(`PROSPECT_CLAIM_ERROR prospect_id=${prospectId} error=${claimError.message}`)
+        }
+
         if (!claim) {
           return NextResponse.json({ received: true, already_processed: true })
         }
 
-        const { data: prospect } = await supabaseAdmin.from('prospects').select('*').eq('id', prospectId).single()
+        // error checked explicitly — same masked-error class as the claim
+        // above: a fetch failure right after a successful claim used to
+        // leave `prospect` undefined, silently skip the entire tenant
+        // creation block below, and still return 200 to Stripe.
+        const { data: prospect, error: prospectFetchError } = await supabaseAdmin
+          .from('prospects').select('*').eq('id', prospectId).single()
+
+        if (prospectFetchError) {
+          throw new Error(`PROSPECT_FETCH_ERROR prospect_id=${prospectId} error=${prospectFetchError.message}`)
+        }
+
         if (prospect && !prospect.tenant_id) {
           // Seat-based signup pricing, recomputed server-side from checkout
           // metadata (never from $ stored on the prospect row) so a corrupted
@@ -153,7 +176,13 @@ export async function POST(request: Request) {
             .replace(/[^a-z0-9]+/g, '-')
             .replace(/^-|-$/g, '')
             .slice(0, 48) + '-' + prospectId.slice(0, 6)
-          const { data: tenant } = await supabaseAdmin
+          // error checked explicitly — same masked-error class as the claim
+          // and fetch above: an unchecked failure here left `tenant`
+          // undefined, silently skipped provisioning/invite/email entirely,
+          // and the paid prospect stayed claimed (status:'paid') with no
+          // tenant ever created and no retry possible (the CAS guard above
+          // only lets one delivery through).
+          const { data: tenant, error: tenantInsertError } = await supabaseAdmin
             .from('tenants')
             .insert({
               name: prospect.business_name,
@@ -184,6 +213,11 @@ export async function POST(request: Request) {
             })
             .select('id')
             .single()
+
+          if (tenantInsertError) {
+            throw new Error(`TENANT_INSERT_ERROR prospect_id=${prospectId} error=${tenantInsertError.message}`)
+          }
+
           if (tenant) {
             // Seed default entity + chart of accounts + Selena config
             await supabaseAdmin.from('entities').insert({
@@ -194,9 +228,25 @@ export async function POST(request: Request) {
               tenantId: tenant.id,
               industry: (prospect.trade || 'general') as 'cleaning' | 'landscaping' | 'hvac' | 'plumbing' | 'handyman' | 'electrical' | 'pest' | 'general',
             })
-            await supabaseAdmin.from('prospects').update({
+            // error checked (logged, not thrown): purely a reporting/back-
+            // link concern (admin dashboard's prospect→tenant display) — the
+            // tenant itself is fully created and provisioned by this point,
+            // and the CAS guard above means there's no retry path that would
+            // ever revisit this write. Throwing here would abort the invite
+            // send just below over a lower-stakes linkage write, denying the
+            // paying customer their (higher-stakes) invite email. Logging
+            // loudly instead of the old silent discard is the proportionate
+            // fix.
+            const { error: prospectLinkError } = await supabaseAdmin.from('prospects').update({
               tenant_id: tenant.id,
             }).eq('id', prospectId)
+
+            if (prospectLinkError) {
+              console.error(
+                `[stripe] tenant ${tenant.id} created but prospect ${prospectId} tenant_id backfill failed:`,
+                prospectLinkError,
+              )
+            }
 
             // Send tenant owner an invite so they can log in and run setup.
             // Without this, a paid tenant has no way into their dashboard
