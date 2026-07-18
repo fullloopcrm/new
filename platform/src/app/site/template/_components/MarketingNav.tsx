@@ -194,6 +194,12 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
             </nav>
 
             <div className="hidden lg:flex items-center gap-2">
+              <Link href="/book/new" className="inline-block border-2 border-[var(--brand)] text-[var(--brand)] px-4 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)] hover:text-white transition-colors whitespace-nowrap">
+                Book Now
+              </Link>
+              <Link href="/contact" className="inline-block border-2 border-[var(--brand)] text-[var(--brand)] px-4 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[var(--brand)] hover:text-white transition-colors whitespace-nowrap">
+                Start a Project
+              </Link>
               <a href={`sms:${config.contact.phoneDigits}`} className="inline-block bg-[var(--brand)] text-white px-5 py-2.5 rounded-md font-bold text-sm tracking-widest uppercase hover:bg-[rgb(var(--brand-rgb)/0.9)] transition-colors whitespace-nowrap">
                 Text {config.contact.phone}
               </a>
@@ -320,6 +326,8 @@ export default function MarketingNav({ config }: { config: SiteConfig }) {
               </div>
 
               <div className="border-t border-white/10 mt-4 pt-6 space-y-3 text-center">
+                <Link href="/book/new" onClick={closeMenu} className="block bg-white text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">Book Now</Link>
+                <Link href="/contact" onClick={closeMenu} className="block bg-white/10 text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Start a Project</Link>
                 <Link href={primaryHref} onClick={closeMenu} className="block bg-[var(--accent)] text-[var(--brand)] py-3 rounded-lg font-bold text-sm tracking-widest uppercase">{primaryCta}</Link>
                 <a href={`sms:${config.contact.phoneDigits}`} className="block bg-[var(--brand)] text-white py-3 rounded-lg font-bold text-sm tracking-widest uppercase border border-white/20">Text {config.contact.phone}</a>
                 {config.contact.supportPhone && (
