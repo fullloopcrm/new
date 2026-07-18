@@ -1,69 +1,35 @@
 'use client'
 
-// Owner's side of the platform messaging thread with Full Loop (admin).
-// In-platform only. direction 'out' = from Full Loop, 'in' = this owner.
-import { useCallback, useEffect, useRef, useState } from 'react'
+// Messages: a pinned Full Loop (admin) thread + real team-to-team direct
+// messaging with every active team_members row on this tenant. Full Loop's
+// own thread/table (tenant_owner_messages) is untouched -- this only adds a
+// sidebar around it and a new, parallel team_direct_messages thread type.
+import { useCallback, useEffect, useState } from 'react'
+import FullLoopThread from './_FullLoopThread'
+import TeamThread from './_TeamThread'
+import ConversationSidebar, { type ConversationSummary } from './_ConversationSidebar'
 
-interface Message {
-  id: string
-  direction: 'in' | 'out'
-  channel: string | null
-  body: string
-  sender: string | null
-  sender_role: string | null
-  created_at: string
-}
+export default function MessagesPage() {
+  const [activeId, setActiveId] = useState('fullloop')
+  const [conversations, setConversations] = useState<ConversationSummary[]>([])
+  const [rosterLoading, setRosterLoading] = useState(true)
 
-const fmtTime = (iso: string) =>
-  new Date(iso).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
-
-export default function OwnerMessagesPage() {
-  const [messages, setMessages] = useState<Message[]>([])
-  const [draft, setDraft] = useState('')
-  const [sending, setSending] = useState(false)
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-  const endRef = useRef<HTMLDivElement>(null)
-
-  const load = useCallback(async () => {
-    const res = await fetch('/api/dashboard/messages')
-    if (res.ok) setMessages((await res.json()).messages || [])
-    setLoading(false)
+  const loadRoster = useCallback(async () => {
+    const res = await fetch('/api/dashboard/team-messages')
+    if (res.ok) setConversations((await res.json()).conversations || [])
+    setRosterLoading(false)
   }, [])
 
-  useEffect(() => { load() }, [load])
-  // Live-ish refresh: poll while the tab is visible (true push-realtime needs RLS).
+  useEffect(() => { loadRoster() }, [loadRoster])
   useEffect(() => {
-    const id = setInterval(() => { if (document.visibilityState === 'visible') load() }, 15000)
+    const id = setInterval(() => { if (document.visibilityState === 'visible') loadRoster() }, 15000)
     return () => clearInterval(id)
-  }, [load])
-  useEffect(() => { endRef.current?.scrollIntoView({ behavior: 'smooth' }) }, [messages, sending])
+  }, [loadRoster])
+  // Refresh the roster's last-message previews when switching into a thread
+  // (marks it read server-side).
+  useEffect(() => { if (activeId !== 'fullloop') loadRoster() }, [activeId, loadRoster])
 
-  async function send() {
-    const body = draft.trim()
-    if (!body || sending) return
-    setSending(true)
-    setError(null)
-    setDraft('')
-    try {
-      const res = await fetch('/api/dashboard/messages', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ body }),
-      })
-      const data = await res.json()
-      if (res.ok && data.message) {
-        setMessages((prev) => [...prev, data.message])
-      } else {
-        setError(data.error || 'Failed to send')
-        setDraft(body)
-      }
-    } catch {
-      setError('Network error')
-      setDraft(body)
-    }
-    setSending(false)
-  }
+  const activeTeamMember = conversations.find((c) => c.team_member_id === activeId)
 
   return (
     <div className="loop-scope">
@@ -72,58 +38,31 @@ export default function OwnerMessagesPage() {
           Messages<em style={{ fontStyle: 'italic', fontWeight: 400, color: 'var(--color-loop-muted)' }}>.</em>
         </h1>
         <p className="mt-2" style={{ fontSize: '13px', color: 'var(--color-loop-muted)' }}>
-          Direct line to the Full Loop team.
+          Full Loop support, pinned, plus direct messages with your team.
         </p>
       </div>
 
-      <div className="border border-slate-200 rounded-lg bg-white flex flex-col" style={{ height: 'calc(100vh - 230px)', minHeight: '420px' }}>
-        <div className="flex-1 overflow-y-auto p-5 space-y-3">
-          {loading && <p className="text-sm text-slate-400">Loading…</p>}
-          {!loading && messages.length === 0 && (
-            <div className="h-full flex items-center justify-center">
-              <p className="text-sm text-slate-500">No messages yet. Say hello to the Full Loop team.</p>
-            </div>
-          )}
-          {messages.map((m) => {
-            const fromOwner = m.direction === 'in'
-            return (
-              <div key={m.id} className={`flex ${fromOwner ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[78%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed whitespace-pre-wrap ${
-                  fromOwner ? 'bg-slate-900 text-white rounded-br-sm' : 'bg-slate-100 text-slate-800 rounded-bl-sm'
-                }`}>
-                  <div className="text-[10px] uppercase tracking-wide mb-0.5 opacity-50">
-                    {fromOwner ? 'You' : 'Full Loop'}
-                  </div>
-                  {m.body}
-                  <div className={`text-[10px] mt-1 ${fromOwner ? 'text-white/40' : 'text-slate-400'}`}>{fmtTime(m.created_at)}</div>
-                </div>
-              </div>
-            )
-          })}
-          <div ref={endRef} />
-        </div>
-
-        {error && <div className="px-5 py-2 text-xs text-red-600 border-t border-slate-200">{error}</div>}
-
-        <form
-          onSubmit={(e) => { e.preventDefault(); send() }}
-          className="border-t border-slate-200 p-3 flex items-center gap-2"
-        >
-          <input
-            value={draft}
-            onChange={(e) => setDraft(e.target.value)}
-            placeholder="Message the Full Loop team…"
-            disabled={sending}
-            className="flex-1 px-4 py-2.5 text-sm rounded-lg border border-slate-200 focus:outline-none focus:border-slate-400 disabled:opacity-60"
+      <div className="border border-slate-200 rounded-lg bg-white flex" style={{ height: 'calc(100vh - 230px)', minHeight: '420px' }}>
+        <ConversationSidebar
+          conversations={conversations}
+          loading={rosterLoading}
+          activeId={activeId}
+          onSelect={setActiveId}
+        />
+        {activeId === 'fullloop' && <FullLoopThread />}
+        {activeId !== 'fullloop' && activeTeamMember && (
+          <TeamThread
+            key={activeTeamMember.team_member_id}
+            teamMemberId={activeTeamMember.team_member_id}
+            teamMemberName={activeTeamMember.name}
+            onSent={loadRoster}
           />
-          <button
-            type="submit"
-            disabled={sending || !draft.trim()}
-            className="px-5 py-2.5 text-sm font-medium rounded-lg bg-slate-900 text-white hover:bg-slate-800 disabled:opacity-40 transition-colors"
-          >
-            Send
-          </button>
-        </form>
+        )}
+        {activeId !== 'fullloop' && !activeTeamMember && !rosterLoading && (
+          <div className="flex-1 flex items-center justify-center">
+            <p className="text-sm text-slate-500">Select a conversation.</p>
+          </div>
+        )}
       </div>
     </div>
   )
