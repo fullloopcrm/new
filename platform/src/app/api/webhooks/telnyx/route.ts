@@ -18,6 +18,7 @@ import { handleNycMaidReview } from '@/lib/nycmaid/review-engine'
 import { insertConversationMessage } from '@/lib/sms-messages'
 import { resolveTenantSmsCredentials } from '@/lib/sms-credentials'
 import { sanitizePostgrestValue } from '@/lib/postgrest-safe'
+import { tenantServesSite } from '@/lib/tenant-status'
 
 export const maxDuration = 60
 
@@ -142,7 +143,7 @@ export async function POST(request: Request) {
     const safeTo = sanitizePostgrestValue(to)
     const { data: tenantMatches, error: tenantLookupError } = await supabaseAdmin
       .from('tenants')
-      .select('id, name, telnyx_api_key, telnyx_phone, sms_number, owner_phone')
+      .select('id, name, status, telnyx_api_key, telnyx_phone, sms_number, owner_phone')
       .or(`telnyx_phone.eq.${safeTo},sms_number.eq.${safeTo}`)
       .order('id', { ascending: true })
       .limit(2)
@@ -159,6 +160,19 @@ export async function POST(request: Request) {
 
     if (!tenant) {
       return NextResponse.json({ received: true })
+    }
+
+    // Same class of gap fixed across every other slug/host/phone-resolved
+    // entry point this session (PIN-login, portal/team-portal auth tokens,
+    // public site header resolver, the per-tenant Telegram webhook): this
+    // resolver looks the tenant up by phone number and never inherited the
+    // tenantServesSite() status gate. Inbound SMS delivery has no dependency
+    // on the tenant's site/dashboard being reachable, so without this a
+    // suspended/cancelled/deleted tenant kept auto-confirming bookings and
+    // running the full Selena/Yinez AI conversation (with live tool calls)
+    // against that tenant's data indefinitely.
+    if (!tenantServesSite(tenant.status)) {
+      return NextResponse.json({ received: true, skip: 'tenant_not_active' })
     }
 
     const tenantId = tenant.id
