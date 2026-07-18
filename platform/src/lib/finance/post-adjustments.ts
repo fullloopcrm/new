@@ -127,6 +127,49 @@ export async function postChargebackToLedger(opts: {
 }
 
 /**
+ * Dispute resolved in the merchant's favor (Stripe returns the disputed
+ * funds) → reverse the loss `postChargebackToLedger` booked when the dispute
+ * was opened. Without this, a WON dispute still shows as a permanent loss —
+ * `charge.dispute.created` had no counterpart anywhere that ever reversed it.
+ * `sourceId` = the same dispute id as the original chargeback, but keyed
+ * under a different `source` ('chargeback_reversal') so it can never collide
+ * with — or be mistaken for a duplicate of — the original loss entry. Only
+ * reverses when the original chargeback entry actually exists, so a dispute
+ * won for a tenant/period with no recorded chargeback (e.g. onboarded after
+ * the fact) can't create an orphan reversal that inflates 1050 with no
+ * corresponding loss to cancel out.
+ */
+export async function postChargebackReversalToLedger(opts: {
+  tenantId: string
+  sourceId: string
+  amountCents: number
+  memo?: string
+}): Promise<PostAdjResult> {
+  const { tenantId, sourceId, amountCents } = opts
+  if (!(await journalEntryExists(tenantId, 'chargeback', sourceId))) return { posted: false, reason: 'no_original_chargeback' }
+  if (await journalEntryExists(tenantId, 'chargeback_reversal', sourceId)) return { posted: false, reason: 'already_posted' }
+  if (amountCents <= 0) return { posted: false, reason: 'zero_amount' }
+
+  const acct = await resolveAccounts(tenantId, ['1050', '6110'])
+  if (!acct) return { posted: false, reason: 'accounts_missing' }
+
+  const lines: JournalLineInput[] = [
+    { coa_id: acct['1050'], debit_cents: amountCents, memo: 'Chargeback reversed — dispute won' },
+    { coa_id: acct['6110'], credit_cents: amountCents, memo: 'Chargeback loss reversed' },
+  ]
+  const entryId = await postJournalEntry({
+    tenant_id: tenantId,
+    entry_date: nowNaiveET().slice(0, 10),
+    memo: opts.memo || 'Chargeback reversed (dispute won)',
+    source: 'chargeback_reversal',
+    source_id: sourceId,
+    lines,
+  })
+  if (entryId === null) return { posted: false, reason: 'already_posted' }
+  return { posted: true, entryId }
+}
+
+/**
  * Referral commission earned → accrue as an expense + a payable (accrual basis):
  *   DR 6045 Referral Commissions   CR 2400 Commissions Payable
  * Idempotent by (source='commission', source_id=commission.id).

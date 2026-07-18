@@ -16,7 +16,7 @@ import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { signupPricing } from '@/lib/tier-prices'
 import { postPaymentRevenue } from '@/lib/finance/post-revenue'
 import { postPayoutToLedger } from '@/lib/finance/post-labor'
-import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, postChargebackReversalToLedger, tenantFromPaymentIntent } from '@/lib/finance/post-adjustments'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
 import { decryptSecret } from '@/lib/secret-crypto'
 import Stripe from 'stripe'
@@ -698,6 +698,31 @@ export async function POST(request: Request) {
           related_type: 'booking',
           related_id: resolved.bookingId,
         }).then(() => {}, () => {})
+      }
+      break
+    }
+
+    case 'charge.dispute.closed': {
+      // Dispute resolved. charge.dispute.created (above) always books a loss
+      // the moment a dispute opens, but nothing anywhere ever reversed it if
+      // the merchant went on to WIN -- every won dispute still showed as a
+      // permanent loss in the ledger forever, same class of bug as the
+      // refund-status gap this pass started with, just on the chargeback
+      // rail instead. Only 'won' returns funds; 'lost' is already correctly
+      // reflected by the original entry, and other terminal statuses
+      // (warning_closed, etc.) move no money.
+      const dispute = event.data.object as Stripe.Dispute
+      if (dispute.status === 'won') {
+        const piId = typeof dispute.payment_intent === 'string' ? dispute.payment_intent : dispute.payment_intent?.id
+        const resolved = piId ? await tenantFromPaymentIntent(piId) : null
+        if (resolved) {
+          await postChargebackReversalToLedger({
+            tenantId: resolved.tenantId,
+            sourceId: dispute.id,
+            amountCents: dispute.amount,
+            memo: 'Chargeback reversed — dispute won',
+          }).catch(err => console.error('[stripe] chargeback reversal post failed:', err))
+        }
       }
       break
     }

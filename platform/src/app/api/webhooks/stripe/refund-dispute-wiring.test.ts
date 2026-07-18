@@ -39,6 +39,7 @@ const adj = vi.hoisted(() => ({
   } | null,
   postRefund: vi.fn(() => Promise.resolve({ posted: true })),
   postChargeback: vi.fn(() => Promise.resolve({ posted: true })),
+  postChargebackReversal: vi.fn(() => Promise.resolve({ posted: true })),
   postDeposit: vi.fn(() => Promise.resolve({ posted: true })),
 }))
 const stripeEvent = vi.hoisted(() => ({ current: null as unknown }))
@@ -49,6 +50,7 @@ vi.mock('@/lib/finance/post-adjustments', () => ({
   tenantFromPaymentIntent: vi.fn(() => Promise.resolve(adj.resolved)),
   postRefundToLedger: adj.postRefund,
   postChargebackToLedger: adj.postChargeback,
+  postChargebackReversalToLedger: adj.postChargebackReversal,
   postDepositToLedger: adj.postDeposit,
 }))
 // Stripe — no network, no real key. constructEvent just returns the fed event.
@@ -79,6 +81,7 @@ beforeEach(() => {
   adj.resolved = { tenantId: TENANT, bookingId: BOOKING }
   adj.postRefund.mockClear()
   adj.postChargeback.mockClear()
+  adj.postChargebackReversal.mockClear()
   adj.postDeposit.mockClear()
   stripeEvent.current = null
   process.env.STRIPE_SECRET_KEY = 'sk_test_x'
@@ -247,5 +250,51 @@ describe('charge.dispute.created → postChargebackToLedger wiring', () => {
     await post()
     expect(adj.postChargeback).not.toHaveBeenCalled()
     expect(h.store.admin_tasks).toHaveLength(0)
+  })
+})
+
+describe('charge.dispute.closed → postChargebackReversalToLedger wiring', () => {
+  // Before this fix, nothing ever reversed a WON dispute's original loss —
+  // charge.dispute.created's chargeback entry stood forever regardless of
+  // how the dispute was resolved.
+  it('reverses the chargeback keyed by the SAME dispute id when the dispute is won', async () => {
+    stripeEvent.current = {
+      type: 'charge.dispute.closed',
+      data: { object: { id: 'dp_3', payment_intent: 'pi_1', amount: 4200, status: 'won' } },
+    }
+    const res = await post()
+    expect(res.status).toBe(200)
+    expect(adj.postChargebackReversal).toHaveBeenCalledTimes(1)
+    expect(adj.postChargebackReversal).toHaveBeenCalledWith({
+      tenantId: TENANT, sourceId: 'dp_3', amountCents: 4200, memo: 'Chargeback reversed — dispute won',
+    })
+  })
+
+  it('posts NO reversal when the dispute is lost', async () => {
+    stripeEvent.current = {
+      type: 'charge.dispute.closed',
+      data: { object: { id: 'dp_4', payment_intent: 'pi_1', amount: 4200, status: 'lost' } },
+    }
+    await post()
+    expect(adj.postChargebackReversal).not.toHaveBeenCalled()
+  })
+
+  it('posts NO reversal for a non-final status (warning_closed)', async () => {
+    stripeEvent.current = {
+      type: 'charge.dispute.closed',
+      data: { object: { id: 'dp_5', payment_intent: 'pi_1', amount: 4200, status: 'warning_closed' } },
+    }
+    await post()
+    expect(adj.postChargebackReversal).not.toHaveBeenCalled()
+  })
+
+  it('posts NO reversal when the tenant is unresolved', async () => {
+    adj.resolved = null
+    stripeEvent.current = {
+      type: 'charge.dispute.closed',
+      data: { object: { id: 'dp_6', payment_intent: 'pi_unknown', amount: 4200, status: 'won' } },
+    }
+    await post()
+    expect(adj.postChargebackReversal).not.toHaveBeenCalled()
   })
 })

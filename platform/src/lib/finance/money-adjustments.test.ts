@@ -30,7 +30,7 @@ const h = vi.hoisted(() => ({ seq: 0, store: {} as Record<string, Array<Record<s
 // (rpc post_journal_entry + upsert idempotency).
 vi.mock('@/lib/supabase', () => ({ supabaseAdmin: makeLedgerSupabaseFake(h), supabase: makeLedgerSupabaseFake(h) }))
 
-import { postDepositToLedger, postRefundToLedger, postChargebackToLedger } from './post-adjustments'
+import { postDepositToLedger, postRefundToLedger, postChargebackToLedger, postChargebackReversalToLedger } from './post-adjustments'
 import { postPaymentRevenue } from './post-revenue'
 
 const A = 'tenant-A'
@@ -163,6 +163,44 @@ describe('postChargebackToLedger — record the loss', () => {
     const again = await postChargebackToLedger({ tenantId: A, sourceId: 'dp_2', amountCents: 15000 })
     expect(again).toMatchObject({ posted: false, reason: 'already_posted' })
     expect(h.store.journal_entries.filter((e) => e.source === 'chargeback')).toHaveLength(1)
+  })
+})
+
+describe('postChargebackReversalToLedger — dispute won, reverse the loss', () => {
+  it('refuses to reverse a dispute that never had an original chargeback entry', async () => {
+    // No prior postChargebackToLedger for 'dp_orphan' -- reversing here would
+    // credit 6110 with no matching debit ever posted, an orphan entry.
+    const r = await postChargebackReversalToLedger({ tenantId: A, sourceId: 'dp_orphan', amountCents: 15000 })
+    expect(r).toMatchObject({ posted: false, reason: 'no_original_chargeback' })
+    expect(h.store.journal_entries).toHaveLength(0)
+  })
+
+  it('posts DR 1050 / CR 6110 for the same amount as the original chargeback, balanced', async () => {
+    const original = await postChargebackToLedger({ tenantId: A, sourceId: 'dp_won', amountCents: 15000 })
+    expect(original.posted).toBe(true)
+    const r = await postChargebackReversalToLedger({ tenantId: A, sourceId: 'dp_won', amountCents: 15000 })
+    expect(r.posted).toBe(true)
+    const byCode = linesByCode(r.entryId!, A)
+    expect(byCode['1050']).toEqual({ debit: 15000, credit: 0 })
+    expect(byCode['6110']).toEqual({ debit: 0, credit: 15000 })
+    expect(isBalanced(r.entryId!)).toBe(true)
+    // Net effect across both entries: 6110 (the loss) nets to zero.
+    const netChargeback = (h.store.journal_entry_lines || [])
+      .filter((l) => [original.entryId, r.entryId].includes(l.entry_id as string))
+      .reduce((s, l) => s + Number(l.debit_cents) - Number(l.credit_cents), 0)
+    expect(netChargeback).toBe(0)
+  })
+
+  it('refuses zero / negative reversals and is idempotent by dispute id', async () => {
+    await postChargebackToLedger({ tenantId: A, sourceId: 'dp_z', amountCents: 5000 })
+    expect(await postChargebackReversalToLedger({ tenantId: A, sourceId: 'dp_z', amountCents: 0 }))
+      .toMatchObject({ posted: false, reason: 'zero_amount' })
+
+    await postChargebackToLedger({ tenantId: A, sourceId: 'dp_dupe', amountCents: 5000 })
+    await postChargebackReversalToLedger({ tenantId: A, sourceId: 'dp_dupe', amountCents: 5000 })
+    const again = await postChargebackReversalToLedger({ tenantId: A, sourceId: 'dp_dupe', amountCents: 5000 })
+    expect(again).toMatchObject({ posted: false, reason: 'already_posted' })
+    expect(h.store.journal_entries.filter((e) => e.source === 'chargeback_reversal')).toHaveLength(1)
   })
 })
 
