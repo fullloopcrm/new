@@ -15,6 +15,8 @@ type Item = {
   id: string
   name: string
   description: string | null
+  notes: string | null
+  image_url: string | null
   item_type: 'service' | 'project' | 'product' | string
   per_unit: string
   unit_label: string | null
@@ -53,7 +55,7 @@ function toCents(v: string): number | undefined {
 }
 
 const empty = {
-  item_type: 'service', name: '', category: '', description: '',
+  item_type: 'service', name: '', category: '', description: '', notes: '', image_url: '',
   per_unit: 'hour', unit_label: '', price: '', min_charge: '', cost: '',
   taxable: true, default_duration_hours: '',
 }
@@ -64,6 +66,7 @@ export default function CatalogTab() {
   const [form, setForm] = useState({ ...empty })
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
+  const [photoUploading, setPhotoUploading] = useState(false)
 
   function load() {
     setLoading(true)
@@ -74,6 +77,20 @@ export default function CatalogTab() {
       .finally(() => setLoading(false))
   }
   useEffect(() => { load() }, [])
+
+  async function uploadPhoto(file: File) {
+    setErr('')
+    setPhotoUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      formData.append('folder', 'catalog-items')
+      const res = await fetch('/api/uploads', { method: 'POST', body: formData })
+      if (!res.ok) { setErr('Photo upload failed.'); return }
+      const data = await res.json()
+      setForm((f) => ({ ...f, image_url: data.url }))
+    } finally { setPhotoUploading(false) }
+  }
 
   async function addItem() {
     setErr('')
@@ -88,6 +105,8 @@ export default function CatalogTab() {
           name: form.name.trim(),
           category: form.category.trim() || undefined,
           description: form.description.trim() || undefined,
+          notes: form.notes.trim() || undefined,
+          image_url: form.image_url || undefined,
           per_unit: form.per_unit,
           unit_label: form.per_unit === 'custom' ? (form.unit_label.trim() || undefined) : undefined,
           price_cents: toCents(form.price) ?? 0,
@@ -139,6 +158,24 @@ export default function CatalogTab() {
 
         <div style={{ marginBottom: 10 }}><label style={lbl}>Description <HelpTip text="Optional detail shown under the line on the proposal — scope, what's included." /></label><input style={inp} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Optional — shown on the proposal" /></div>
 
+        <div style={{ marginBottom: 10 }}><label style={lbl}>Internal notes <HelpTip text="Optional — for your team only. Never shown on the proposal, unlike Description above." /></label><input style={inp} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Optional — internal only, not shown to the customer" /></div>
+
+        <div style={{ marginBottom: 10 }}>
+          <label style={lbl}>Photo <HelpTip text="Optional item photo, e.g. for a product or before/after reference. Internal use — not currently shown on the proposal." /></label>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {form.image_url && (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={form.image_url} alt="" style={{ width: 40, height: 40, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)' }} />
+            )}
+            <input type="file" accept="image/jpeg,image/png,image/webp" disabled={photoUploading}
+              onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadPhoto(f); e.target.value = '' }} />
+            {photoUploading && <span style={{ fontSize: 12, color: 'var(--sl-muted)' }}>Uploading…</span>}
+            {form.image_url && !photoUploading && (
+              <button type="button" onClick={() => setForm({ ...form, image_url: '' })} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Remove</button>
+            )}
+          </div>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end' }}>
           <div><label style={lbl}>Unit <HelpTip text="How this item is priced — per hour, flat per job, each, per sq ft, etc. Pick 'custom' to name your own unit." /></label>
             <select style={inp} value={form.per_unit} onChange={(e) => setForm({ ...form, per_unit: e.target.value })}>{UNITS.map((u) => <option key={u.v} value={u.v}>{u.l}</option>)}</select>
@@ -170,10 +207,15 @@ export default function CatalogTab() {
           return (
             <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.active ? 1 : 0.5 }}>
               <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{it.item_type}</span>
+              {it.image_url && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={it.image_url} alt="" style={{ width: 32, height: 32, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--sl-line,#e6e6e0)', flexShrink: 0 }} />
+              )}
               <span style={{ flex: 1, minWidth: 0 }}>
                 <span style={{ fontWeight: 600, fontSize: 14, color: 'var(--sl-ink)' }}>{it.name}</span>
                 {it.category && <span style={{ fontSize: 10, marginLeft: 8, color: 'var(--sl-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>{it.category}</span>}
                 {it.description && <span style={{ display: 'block', fontSize: 12, color: 'var(--sl-muted)' }}>{it.description}</span>}
+                {it.notes && <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', fontStyle: 'italic' }} title="Internal only — not shown on the proposal">Note: {it.notes}</span>}
                 <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', marginTop: 2 }}>
                   {it.min_charge_cents ? `min ${money(it.min_charge_cents)} · ` : ''}
                   {it.default_duration_hours ? `${it.default_duration_hours}h · ` : ''}
