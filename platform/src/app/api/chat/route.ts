@@ -9,11 +9,23 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
 
 export const maxDuration = 60
 
+// Same risk/convention as admin/translate's MAX_TEXT_LENGTH (and the sibling
+// fix on ai/chat, ai/assistant, /api/yinez): this endpoint is fully
+// unauthenticated and rate-limited on call *volume* only (below), not
+// payload size. Without this cap, one request with an oversized `message`
+// still counts as a single call against the 20/min limit while driving
+// arbitrarily large, real Anthropic spend against the tenant's (or
+// platform's) stored key.
+const MAX_MESSAGE_LENGTH = 4000
+
 export async function POST(req: NextRequest) {
   try {
     const { message, sessionId, phone: rawPhone, tenantId: bodyTenantId } = await req.json()
     if (!message || typeof message !== 'string') {
       return NextResponse.json({ error: 'Message is required' }, { status: 400 })
+    }
+    if (message.length > MAX_MESSAGE_LENGTH) {
+      return NextResponse.json({ error: `Message too long — max ${MAX_MESSAGE_LENGTH} characters` }, { status: 400 })
     }
 
     // Tenant must come from middleware-signed header. A caller-supplied
