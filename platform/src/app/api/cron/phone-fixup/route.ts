@@ -47,28 +47,27 @@ export async function GET(request: Request) {
       process.env.NEXT_PUBLIC_SITE_URL?.replace(/\/$/, '') ||
       'https://www.thenycmaid.com'
 
+    // The `.lt(phone_fix_email_sent_at, sevenDaysAgo)` filter is an
+    // eligibility read only -- NOT the concurrency gate (kept as a real
+    // Postgres timestamptz comparison here rather than pulled into JS and
+    // compared as strings, which isn't safely orderable across differing
+    // ISO-8601 timezone-suffix formats). The real dedup is the atomic
+    // compare-and-swap claim inside the send loop below; this filter (and
+    // the CAP slice after it) just decides who's a plausible candidate for
+    // THIS run, mirroring the cap semantics the old notifications-scan
+    // approach had.
     const { data: cleaners } = await supabaseAdmin
       .from('team_members')
       .select('id, name, email, phone')
       .eq('tenant_id', tenantId)
       .eq('status', 'active')
+      .lt('phone_fix_email_sent_at', sevenDaysAgo)
 
     if (!cleaners || cleaners.length === 0) continue
-
-    const { data: recentNotifs } = await supabaseAdmin
-      .from('notifications')
-      .select('message')
-      .eq('tenant_id', tenantId)
-      .eq('type', 'phone_fix_email')
-      .gte('created_at', sevenDaysAgo)
-    const recentlyEmailedIds = new Set(
-      (recentNotifs || []).map(n => (n.message || '').match(/cleaner_id=([0-9a-f-]+)/i)?.[1]).filter(Boolean) as string[]
-    )
 
     const candidates = cleaners.filter(c => {
       if (!c.email) return false
       if (validateUsPhone(c.phone).valid) return false
-      if (recentlyEmailedIds.has(c.id)) return false
       return true
     })
 
@@ -77,6 +76,20 @@ export async function GET(request: Request) {
     totalSkippedCapped += Math.max(0, candidates.length - CAP)
 
     for (const c of toEmail) {
+      // Claim BEFORE sending: an overlapping invocation (retried cron
+      // delivery, manual re-trigger while a prior run is still mid-flight)
+      // re-reads the same `phone_fix_email_sent_at < sevenDaysAgo` condition
+      // atomically here -- the losing invocation's claim affects 0 rows and
+      // it skips before ever calling sendEmail.
+      const { data: claimed } = await supabaseAdmin
+        .from('team_members')
+        .update({ phone_fix_email_sent_at: new Date().toISOString() })
+        .eq('id', c.id)
+        .eq('tenant_id', tenantId)
+        .lt('phone_fix_email_sent_at', sevenDaysAgo)
+        .select('id')
+      if (!claimed || claimed.length === 0) continue // lost the race, or already emailed within 7 days
+
       try {
         const token = signToken(c.id)
         const link = `${baseUrl}/team/update-phone?token=${token}`
@@ -94,6 +107,8 @@ export async function GET(request: Request) {
         `)
         const result = await sendEmail(c.email!, 'Action needed — confirm your phone number', html, undefined, { skipOwnerBcc: true })
         if (result.success) {
+          // Audit trail only now -- phone_fix_email_sent_at above is the
+          // dedup source of truth.
           await supabaseAdmin.from('notifications').insert({
             tenant_id: tenantId,
             type: 'phone_fix_email',
@@ -103,9 +118,21 @@ export async function GET(request: Request) {
           totalSent++
         } else {
           errors.push(`${c.email}: send failed`)
+          // Release the claim on failure -- the old notifications-based
+          // dedup only ever recorded a SUCCESSFUL send, so a failed attempt
+          // was implicitly retried the next day. Un-claiming back to the
+          // epoch preserves that same daily-retry-on-failure behavior
+          // instead of silently blocking this cleaner for a full 7 days
+          // over a transient send error.
+          await supabaseAdmin.from('team_members')
+            .update({ phone_fix_email_sent_at: '1970-01-01T00:00:00+00' })
+            .eq('id', c.id)
         }
       } catch (e) {
         errors.push(`${c.email}: ${(e as Error).message}`)
+        await supabaseAdmin.from('team_members')
+          .update({ phone_fix_email_sent_at: '1970-01-01T00:00:00+00' })
+          .eq('id', c.id)
       }
     }
   }
