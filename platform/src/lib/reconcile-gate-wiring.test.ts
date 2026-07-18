@@ -93,12 +93,20 @@ describe('CI invariant — reconcile gate wiring is intact', () => {
     ).toBe(true)
   })
 
-  it('bounds the reconcile job with a timeout (no unbounded hang on a stuck query)', () => {
+  it('bounds the reconcile job — specifically — with a timeout (no unbounded hang on a stuck query)', () => {
     const yaml = reconcileYaml()
+    // Anchored to `reconcile:` + its own `runs-on:` line, not "timeout-minutes
+    // appears anywhere in the file". Item (212) mutation-verified that a
+    // same-shaped anywhere-in-file regex stayed green even when timeout-minutes
+    // was moved off the reconcile job (the one making the Supabase Management-API
+    // call) onto the trivial one-step notify-failure job instead — see
+    // ci-workflow-resilience-guard.test.ts for the sibling ci.yml/db-backup.yml
+    // checks and the mutation record.
     expect(
-      /timeout-minutes:\s*\d+/.test(yaml),
-      'tenant-config-reconcile.yml no longer sets timeout-minutes on the reconcile ' +
-        'job — a hung Supabase Management-API call could block the runner indefinitely.',
+      /reconcile:\s*\n\s*runs-on:\s*ubuntu-latest\s*\n\s*timeout-minutes:\s*\d+/.test(yaml),
+      'tenant-config-reconcile.yml no longer sets timeout-minutes directly on the ' +
+        'reconcile job — a hung Supabase Management-API call could block the ' +
+        'runner indefinitely.',
     ).toBe(true)
   })
 

@@ -10883,3 +10883,75 @@ still passing). None of the three workflow YAML files themselves were touched
 this round (all mutations were made, verified, and reverted during testing
 only) -- their own coverage (items 168-210 above) is unaffected; only new
 guard coverage was added.
+
+## (212) New fresh-ground surface -- ci.yml's and db-backup.yml's own
+`concurrency:` groups and `timeout-minutes:` job bounds had ZERO regression
+coverage, even though the sibling workflow (`tenant-config-reconcile.yml`)
+already had both locked in by `reconcile-gate-wiring.test.ts`
+
+Items (204)-(211) covered bypasses on gating STEPS and on the workflow-level
+`permissions:` ceiling. Neither asked about the two other resilience knobs each
+workflow's job declares: a `concurrency:` group (so a stale run on an old commit
+can't outlive a newer push and burn runner minutes on dead state) and
+`timeout-minutes:` (so a hung step can't block the runner indefinitely --
+GitHub's un-set default is 360 minutes). `tenant-config-reconcile.yml` has had
+both asserted since `reconcile-gate-wiring.test.ts` was written (item-era commit
+`774e89fc`/`15986180`). ci.yml (`concurrency: group: ci-${{ github.ref }},
+cancel-in-progress: true` + `timeout-minutes: 20` on `verify`) and db-backup.yml
+(`concurrency: group: db-backup, cancel-in-progress: false` + `timeout-minutes:
+30` on `backup`) declare the identical knobs -- grepping every guard test file
+in this lane for `cancel-in-progress` / `timeout-minutes` turned up exactly the
+one file, covering exactly the one workflow.
+
+**Verified clean today:** both knobs present, unchanged, in both files (ci.yml
+lines 18-20 + 29; db-backup.yml lines 50-52 + 57).
+
+**Fixed:** new `src/lib/ci-workflow-resilience-guard.test.ts`, pure
+source-reading of both workflows' YAML, same approach as every other guard in
+this lane. Asserts (1) ci.yml's concurrency group with `cancel-in-progress:
+true`, (2) ci.yml's verify-job timeout, (3) db-backup.yml's concurrency group
+with `cancel-in-progress: false` (deliberately the opposite polarity -- a
+partial dump must not be killed mid-upload by a newer trigger, the group just
+queues a second run behind the first instead of racing the same artifact
+stamp), (4) db-backup.yml's backup-job timeout.
+
+Mutation-verified before writing the fix: (1) deleted ci.yml's `concurrency:`
+block entirely; (2) deleted ci.yml's `timeout-minutes: 20` line; (3) deleted
+db-backup.yml's `concurrency:` block; (4) deleted db-backup.yml's
+`timeout-minutes: 30` line -- each individually, full vitest suite (474 files /
+2375 tests) stayed 100% green every time, confirming all four blind spots were
+real, not hypothetical. Restores left `git diff --stat .github/workflows/`
+empty afterward.
+
+**Continuation (step 2 of the queue):** while writing the fix, noticed my own
+first-draft `timeout-minutes:\s*\d+` regex (and the pre-existing one in
+`reconcile-gate-wiring.test.ts`) matches ANYWHERE in the file, not specifically
+on the job it's meant to bound -- the identical class of blind spot item (210)
+found in `.includes()`-anywhere argv checks. Mutation-verified live: moved
+`timeout-minutes: 20` off ci.yml's `verify` job (the long-running npm ci / tsc /
+vitest / eslint job) onto the trivial one-step `notify-failure` job instead --
+the anywhere-in-file regex stayed green, while the job that actually needs
+bounding went unbounded (GitHub's 360-minute default). Repeated the identical
+move against db-backup.yml (`backup` -> `notify-failure`... except db-backup.yml
+has no notify-failure timeout to move to, so this was verified as a straight
+deletion) and, crucially, against the PRE-EXISTING `reconcile-gate-wiring.
+test.ts` check by moving `tenant-config-reconcile.yml`'s `timeout-minutes: 10`
+off `reconcile` onto its own `notify-failure` job -- all 9 of that file's
+assertions stayed green too, confirming the sibling guard shared the exact same
+blind spot, not just the new one.
+
+Tightened all three: each timeout check is now anchored to `<jobname>:\s*\n\s*
+runs-on:\s*ubuntu-latest\s*\n\s*timeout-minutes:\s*\d+`, tying the assertion to
+that specific job's own `runs-on:` line rather than "the string appears
+somewhere in this file". Re-ran all three job-swap mutations against the
+tightened guards -- each failed with the exact predicted message; all three
+restores left `git diff --stat .github/workflows/` empty afterward.
+
+Full suite + tsc re-run clean after this round: `tsc --noEmit` zero errors,
+eslint clean on both touched files, full vitest suite green (475 files / 2379
+tests -- new file's 4 assertions plus every prior test, including
+`reconcile-gate-wiring.test.ts`'s original 9 with its tightened timeout check,
+still passing). None of the three workflow YAML files themselves were touched
+this round (all mutations were made, verified, and reverted during testing
+only) -- their own coverage (items 168-211 above) is unaffected; only new/
+tightened guard coverage was added.
