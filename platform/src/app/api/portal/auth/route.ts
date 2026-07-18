@@ -67,14 +67,24 @@ export async function POST(request: Request) {
       .eq('phone', phone)
       .eq('used', false)
 
-    // Insert new code
-    await supabaseAdmin.from('portal_auth_codes').insert({
+    // Insert new code. Unchecked before this fix -- a failed insert (RLS,
+    // transient DB error) still fell through to send the SMS/email below and
+    // report {sent: true}, texting/emailing a code that was never persisted;
+    // verify_code would then always 400 "Code expired or not found" for that
+    // login attempt with zero indication anything went wrong on the server
+    // side. Same false-success-on-unchecked-write shape fixed elsewhere this
+    // session -- fail closed here instead of sending a code nobody can use.
+    const { error: insErr } = await supabaseAdmin.from('portal_auth_codes').insert({
       phone,
       code,
       tenant_id: tenant.id,
       client_id: client.id,
       expires_at: new Date(Date.now() + 10 * 60 * 1000).toISOString(),
     })
+    if (insErr) {
+      console.error('[portal auth] send_code insert failed:', insErr)
+      return NextResponse.json({ error: 'Could not send code. Try again.' }, { status: 500 })
+    }
 
     // Send code via SMS (preferred) or email (fallback)
     let channel: 'sms' | 'email' = 'sms'
