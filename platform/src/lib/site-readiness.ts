@@ -170,8 +170,16 @@ async function auditPage(url: string): Promise<PageAudit> {
  */
 export async function resolveOrigin(tenant: { id?: string | null; slug?: string | null; domain?: string | null; domain_name?: string | null }): Promise<string | null> {
   const primary = tenant.id ? await getPrimaryTenantDomain(tenant.id) : null
-  const custom = (primary || tenant.domain || tenant.domain_name || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '')
-  if (custom) return `https://${custom.replace(/^www\./, 'www.')}`
+  // Strip any leftover "www." from a legacy tenant.domain/domain_name row —
+  // pre-fix admin writes (before the www-order normalization fix landed in
+  // admin/businesses POST) could persist "www.acme.com" literally. Matches
+  // the resolver's own normalized form (getTenantByDomain in tenant-lookup.ts
+  // strips www. too), so this audit fetches the same host the resolver
+  // actually routes. Previously `.replace(/^www\./, 'www.')` was a no-op —
+  // it replaced "www." with the identical string "www.", so a legacy
+  // "www.acme.com" row was fetched as-is instead of "acme.com".
+  const custom = (primary || tenant.domain || tenant.domain_name || '').trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+  if (custom) return `https://${custom}`
   if (tenant.slug) return `https://${tenant.slug}.fullloopcrm.com`
   return null
 }

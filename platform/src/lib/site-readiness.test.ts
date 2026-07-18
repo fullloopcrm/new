@@ -91,4 +91,25 @@ describe('resolveOrigin domain resolution (fresh-ground, mirrors tenantBrand/ten
     const origin = await resolveOrigin({ slug: 'ace', domain: 'legacy-ace.com' })
     expect(origin).toBe('https://legacy-ace.com')
   })
+
+  it('BUG PROBE: strips a leftover "www." from a legacy tenants.domain row instead of fetching it literally', async () => {
+    // Pre-fix admin writes (before the www-order normalization fix in
+    // admin/businesses POST) could persist "www.acme.com" literally into
+    // tenants.domain. `.replace(/^www\./, 'www.')` was a no-op -- it replaced
+    // "www." with the identical string "www.", so this legacy row was
+    // fetched as "https://www.legacy-ace.com" instead of the resolver's own
+    // normalized "https://legacy-ace.com".
+    const origin = await resolveOrigin({ id: 't-7', slug: 'ace', domain: 'www.legacy-ace.com' })
+    expect(origin).toBe('https://legacy-ace.com')
+  })
+
+  it('strips "www." case-insensitively (mixed-case legacy row)', async () => {
+    const origin = await resolveOrigin({ id: 't-8', slug: 'ace', domain: 'WWW.Legacy-Ace.com' })
+    expect(origin).toBe('https://legacy-ace.com')
+  })
+
+  it('leaves a bare domain (no www. prefix) unchanged', async () => {
+    const origin = await resolveOrigin({ id: 't-9', slug: 'ace', domain: 'legacy-ace.com' })
+    expect(origin).toBe('https://legacy-ace.com')
+  })
 })
