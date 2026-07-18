@@ -116,6 +116,34 @@ describe('getTenantFromHeaders', () => {
 
     await expect(getTenantFromHeaders()).rejects.toThrow(/TENANT_HEADER_LOOKUP_ERROR/)
   })
+
+  it.each(['suspended', 'cancelled', 'deleted'])(
+    'STATUS-GATE PROBE: returns null for a %s tenant even with a valid header signature',
+    async (status) => {
+      mockHeaderStore.set('x-tenant-id', 't-1')
+      mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+      verifyTenantHeaderSig.mockReturnValue(true)
+      resolve = (table, eqs) =>
+        table === 'tenants' && eqs.id === 't-1' ? { data: { id: 't-1', slug: 'acme', status } } : { data: null }
+
+      const result = await getTenantFromHeaders()
+      expect(result).toBeNull()
+    },
+  )
+
+  it.each(['active', 'setup', 'pending'])(
+    'resolves a %s tenant normally — a new tenant mid-onboarding must still serve its public site/forms',
+    async (status) => {
+      mockHeaderStore.set('x-tenant-id', 't-1')
+      mockHeaderStore.set('x-tenant-sig', 'valid-sig')
+      verifyTenantHeaderSig.mockReturnValue(true)
+      resolve = (table, eqs) =>
+        table === 'tenants' && eqs.id === 't-1' ? { data: { id: 't-1', slug: 'acme', status } } : { data: null }
+
+      const result = await getTenantFromHeaders()
+      expect(result).toEqual({ id: 't-1', slug: 'acme', status })
+    },
+  )
 })
 
 describe('requireLegacySeoPages', () => {

@@ -3,6 +3,7 @@ import { notFound } from 'next/navigation'
 import { supabaseAdmin } from './supabase'
 import { verifyTenantHeaderSig } from './tenant-header-sig'
 import { getPrimaryTenantDomain } from './domains'
+import { tenantServesSite } from './tenant-status'
 
 /**
  * Gate nycmaid-specific hardcoded SEO pages. Pages that contain
@@ -48,6 +49,24 @@ export async function getTenantFromHeaders() {
     console.error(`TENANT_HEADER_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
     throw new Error(`TENANT_HEADER_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
   }
+
+  // tenantServesSite() gate — this is the SAME signed x-tenant-id/x-tenant-sig
+  // header contract as getHeaderTenant() (tenant.ts) and getTenantForRequest()'s
+  // header branch (tenant-query.ts), both of which refuse a suspended/
+  // cancelled/deleted tenant. This helper (tenant-site.ts) backs ~35 PUBLIC
+  // site/API routes — client portal login/booking, lead capture, job
+  // applications, reviews, referrers, waitlist — none of which re-check status
+  // themselves (confirmed by grep: no caller imports tenantServesSite). It
+  // relied entirely on middleware's own pre-rewrite tenantServesSite() check
+  // to keep a dark tenant's public surface dark. That check reads through
+  // tenant-lookup.ts's 5-minute-TTL cache, so a tenant suspended/cancelled
+  // mid-window kept accepting client logins, bookings, leads, and job
+  // applications through this fresh (uncached) DB read for up to the rest of
+  // that TTL — the exact staleness gap already closed on every other
+  // tenantServesSite() consumer in this codebase. Aligning this helper closes
+  // it here too, instead of depending solely on middleware's cached check.
+  if (!data || !tenantServesSite(data.status)) return null
+
   return data
 }
 
