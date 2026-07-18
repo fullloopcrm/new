@@ -67,6 +67,37 @@ Full `src/app/api/cron` suite: 57 files / 175 tests, all passing.
 - `eslint`: 0 warnings on both touched files.
 - `src/app/api/cron` suite: 57/57 files, 175/175 tests passing.
 
+## Swept for siblings
+Checked every other marker `cron/health-monitor`, `admin/monitoring/status`,
+and `jefe/health.ts` watch for the same "written after an early-return, so a
+legitimate long quiet stretch is indistinguishable from cron death" shape:
+
+- `payment-reminder` (`payment_reminder_fired`), `daily-summary`
+  (`daily_summary_sent`), `recurring-expenses` (`recurring_expense_posted`) —
+  all three already write their marker **unconditionally after** their main
+  loop, count-in-message (`reminded=0 escalated=0`, `summaries_sent=0`,
+  `fired=0 failed=0`), with no early return in between. Correct pattern
+  already; email-monitor was the outlier.
+- `generate-recurring` (`recurring_generated`) — does have an early return
+  before its marker write (zero **platform-wide** active `recurring_schedules`
+  rows), same shape as email-monitor's bug. Materially lower risk though: the
+  precheck here is "does ANY tenant on the whole platform have an active
+  recurring schedule," not one tenant's opt-in flag — a real SaaS platform
+  hitting zero would itself be a business-critical fact worth surfacing, not
+  a benign silence. Left as-is; flagging rather than fixing since the
+  "should this alert" call is a product judgment, not a clear bug.
+- `late-check-in` (`late_check_in`) — no unconditional heartbeat write at
+  all; the notification only fires per actual late-checkin event, same as
+  `pipeline.new_lead`/`new_booking`'s already-documented intentional design
+  ("if these go silent, upstream capture is broken" — a business signal, not
+  a heartbeat). Not the same bug: there's no comment here claiming this
+  "proves the cron ran" the way email-monitor's did, so there's no
+  stated-intent-vs-implementation contradiction to fix.
+
+Net: email-monitor was the one sibling with an actual implementation bug
+(comment claimed "proves the cron ran," code didn't). The others are either
+already correct or intentionally event-scoped by an already-accepted design.
+
 ## Not touched
 - The downstream `/api/email/monitor` handler and its own dedup/claim
   logic — unaffected, this fix is purely about when the heartbeat marker
