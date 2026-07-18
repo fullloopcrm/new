@@ -51,7 +51,7 @@ beforeEach(() => {
     team_members: [],
     bookings: [],
     recurring_schedules: [
-      { id: 'sched-1', tenant_id: 'tenant-A', client_id: 'client-1', recurring_type: 'weekly', status: 'active', clients: { name: 'Jane Client' } },
+      { id: 'sched-1', tenant_id: 'tenant-A', client_id: 'client-1', recurring_type: 'weekly', status: 'active', clients: { name: 'Jane Client' }, expiring_last_notified_at: '1970-01-01T00:00:00.000Z' },
     ],
     notifications: [],
   }

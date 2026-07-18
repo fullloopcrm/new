@@ -206,16 +206,22 @@ export async function GET(request: Request) {
       if (lastDate <= thirtyDaysOut && lastDate >= now) {
         const clientName = schedule.clients?.name || 'Unknown'
 
-        // Check if already notified within 7 days
-        const { data: existingNotif } = await supabaseAdmin
-          .from('notifications')
+        // Claim BEFORE notifying -- compare-and-swap scoped to THIS
+        // schedule, not the whole tenant (see
+        // 2026_07_17_recurring_schedules_expiring_notified_at.sql: the old
+        // tenant-wide notifications check let one schedule's warning
+        // silently suppress every other schedule's for 7 days, and raced
+        // besides).
+        const sevenDaysAgoIso = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+        const { data: claimed } = await supabaseAdmin
+          .from('recurring_schedules')
+          .update({ expiring_last_notified_at: now.toISOString() })
+          .eq('id', schedule.id)
+          .lt('expiring_last_notified_at', sevenDaysAgoIso)
           .select('id')
-          .eq('tenant_id', tenantId)
-          .eq('type', 'recurring_expiring' as string)
-          .gte('created_at', new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString())
-          .limit(1)
+          .maybeSingle()
 
-        if (!existingNotif || existingNotif.length === 0) {
+        if (claimed) {
           const lastDateStr = lastDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })
 
           await supabaseAdmin.from('notifications').insert({
