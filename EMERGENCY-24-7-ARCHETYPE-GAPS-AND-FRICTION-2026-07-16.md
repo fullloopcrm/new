@@ -12440,3 +12440,70 @@ absent this session -- no live reconcile run; this item's fix and
 verification are entirely within a pure, no-network filesystem-walking
 function, run end-to-end through vitest with real temp-directory
 fixtures, same discipline as every prior item in this lane's sessions.
+
+## (239) Fresh ground, same surface as (237)/(238) -- `hasSitemap` was the
+fourth (and last) fs-walking closure inside `main()` with zero test
+coverage, and its real implementation was blind to a route group wrapping
+its own sitemap file
+
+(237) promoted `collectFirstSegmentDirs`/`findClientPortalLoginDir`/
+`collectPageFiles` out of `main()`'s closures; (238) did the same for
+`hasHome` -> `hasHomePage`. One closure in `main()` was left: `hasSitemap`,
+which backs Drift Q (CRIT -- a `TENANTS_WITH_RICH_SITEMAP` entry with no
+matching sitemap file) and Drift Y (WARN -- the mirror: a real sitemap file
+not listed in `TENANTS_WITH_RICH_SITEMAP`). Every `computeFindings` test in
+this file's own suite injects a hand-written `alwaysSitemap`/`neverSitemap`
+fixture instead of exercising the real filesystem check, same blind spot
+(237)/(238) closed for their four sibling functions -- this fifth one
+(counting `hasHomePage`) was simply never reached.
+
+Promoting it to a module-level exported function (`hasSitemapFile`, wired
+up in `main()` as `hasSitemap = (slug) => hasSitemapFile(join(siteDir,
+slug))`) surfaced the identical bug SHAPE (237)/(238) already closed twice
+over, on a third function: the old check (`existsSync(join(d,
+'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))`) only
+looked at DIRECT children of the tenant's site folder -- a `sitemap.ts` (or
+`sitemap.xml/route.ts`) behind a route group (e.g.
+`site/<slug>/(app)/sitemap.ts`, an entirely ordinary layout choice --
+wash-and-fold-nyc/hoboken already split their own tree into
+`(app)/(marketing)` one level up) was invisible to it. Because Drift Q is
+CRIT and gates the merge, this is the highest-severity instance of the
+pattern so far: a tenant whose sitemap.ts legitimately renders behind a
+route group would fail the build with a false "missing sitemap file" CRIT
+-- the exact false-positive failure mode (238) closed for `hasHomePage`/
+Drift C/D, here landing on a gating check instead of a non-gating one.
+
+**Fixed** by recursing through the FULL route-group chain for both the
+`sitemap.ts` and `sitemap.xml/route.ts` forms, same discipline
+`hasHomePage`/`collectFirstSegmentDirs` already apply. **Mutation-verified
+live:** reverted to the old direct-children-only check, ran the three new
+route-group assertions ("one route group deep", "CHAIN of nested route
+groups", "sitemap.xml/route.ts behind a route group") against the pre-fix
+code -- all three failed exactly as predicted (returned `false` instead of
+`true`); reapplied the fix, all three and the 4 sibling assertions in the
+same `describe` block went green. No CURRENT bespoke tenant's sitemap.ts
+or sitemap.xml/route.ts sits behind a route group (verified against every
+real `src/app/site/<slug>/` folder, including nycmaid's
+`sitemap.xml/route.ts` and wash-and-fold-nyc's own direct-child
+`sitemap.ts` despite that tenant's `(app)/(marketing)` split existing one
+level below it) -- landmine-only today, same disposition as (237)/(238)
+and items (233)-(235).
+
+Closed with 7 new tests in a new `hasSitemapFile` `describe` block (direct
+`sitemap.ts`, direct `sitemap.xml/route.ts`, one-level route group, no
+sitemap anywhere, absent directory, chain of nested route groups,
+`sitemap.xml/route.ts` behind a route group).
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 494/494 files,
+2497/2497 tests -- zero regressions, same pre-existing unused-`_slug`
+eslint warnings every prior report in this lane has flagged (eslint
+clean, 0 errors, on both touched files). `SUPABASE_ACCESS_TOKEN_FULLLOOP`
+absent this session -- no live reconcile run; this item's fix and
+verification are entirely within a pure, no-network filesystem-walking
+function, run end-to-end through vitest with real temp-directory
+fixtures, same discipline as every prior item in this lane's sessions.
+
+With `hasSitemapFile` closed, every fs-walking closure that USED to live
+inside `main()` (the four (237)/(238) promoted plus this one) is now a
+module-level exported function with its own direct test coverage -- no
+closure inside `main()` remains untested by this file's own suite.

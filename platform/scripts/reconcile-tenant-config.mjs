@@ -636,6 +636,58 @@ export function hasHomePage(dir) {
   )
 }
 
+// --- fresh ground, same "closure inside main() with zero test coverage"
+// class as (237)/(238): does `dir` render a real sitemap.xml at its own root
+// URL — i.e. does src/app/site/<slug>/sitemap.ts OR
+// src/app/site/<slug>/sitemap.xml/route.ts exist, resolving a chain of
+// Next.js route groups ("(name)") at ANY depth the same way hasHomePage
+// above already does for page.tsx. This backs Drift Q (CRIT — a
+// TENANTS_WITH_RICH_SITEMAP entry with no matching sitemap file) and Drift Y
+// (WARN — the mirror: a real sitemap file not listed in
+// TENANTS_WITH_RICH_SITEMAP). main() wires it up as
+// `hasSitemap = (slug) => hasSitemapFile(join(siteDir, slug))`, the single
+// callback threaded through both hasSitemap(...) call sites in
+// computeFindings.
+//
+// Exported for the same reason hasHomePage/collectFirstSegmentDirs/
+// findClientPortalLoginDir/collectPageFiles were: every computeFindings test
+// in this file's own suite injects a hand-written `alwaysSitemap`/
+// `neverSitemap` fixture instead of exercising the real filesystem check
+// even once, so a bug in the REAL hasSitemap implementation had zero red
+// test anywhere in this file — the same blind spot (237)/(238) closed for
+// their four sibling functions, just never closed for this one.
+//
+// The OLD implementation (`existsSync(join(d, 'sitemap.ts')) ||
+// existsSync(join(d, 'sitemap.xml', 'route.ts'))`) only checked DIRECT
+// children of `dir` — a sitemap.ts (or sitemap.xml/route.ts) behind a route
+// group (e.g. site/<slug>/(app)/sitemap.ts, an entirely ordinary layout
+// choice — wash-and-fold-nyc/hoboken already split their own tree into
+// (app)/(marketing) one level up) was invisible to it. Because Drift Q is
+// CRIT and gates the merge, that false negative would fail the build for a
+// tenant whose sitemap.xml renders correctly in production — the exact
+// false-positive failure mode item (238) just closed for hasHomePage/Drift
+// C/D, here on Drift Q's CRIT instead. Recursing through the FULL
+// route-group chain (same discipline hasHomePage/collectFirstSegmentDirs
+// already apply) closes that gap for both the sitemap.ts and the
+// sitemap.xml/route.ts form.
+//
+// No CURRENT bespoke tenant's sitemap.ts or sitemap.xml/route.ts sits behind
+// a route group (verified against every real src/app/site/<slug>/ folder —
+// every existing sitemap file is a direct child of its slug's own root,
+// including nycmaid's sitemap.xml/route.ts and wash-and-fold-nyc's own
+// direct-child sitemap.ts despite that tenant's (app)/(marketing) split
+// existing one level below it), so this is landmine-only today, same
+// disposition as (237)/(238) and items (233)-(235): a parser/fs-walk
+// assumption an ordinary future route-group refactor could silently violate
+// without anyone touching this function itself.
+export function hasSitemapFile(dir) {
+  if (!existsSync(dir)) return false
+  if (existsSync(join(dir, 'sitemap.ts')) || existsSync(join(dir, 'sitemap.xml', 'route.ts'))) return true
+  return readdirSync(dir, { withFileTypes: true }).some(
+    (e) => e.isDirectory() && e.name.startsWith('(') && e.name.endsWith(')') && hasSitemapFile(join(dir, e.name)),
+  )
+}
+
 // --- given the single-segment (no nested "/") entries of APP_ROOT_PREFIXES
 // and, per bespoke tenant, the top-level route-segment names found on disk
 // under its own site/<slug>/ folder (route groups already resolved down to
@@ -2238,10 +2290,10 @@ async function main() {
   // closure here with zero test coverage, and only resolved ONE level of
   // route-group nesting instead of the full chain.
   const hasHome = (slug) => hasHomePage(join(siteDir, slug))
-  const hasSitemap = (slug) => {
-    const d = join(siteDir, slug)
-    return existsSync(join(d, 'sitemap.ts')) || existsSync(join(d, 'sitemap.xml', 'route.ts'))
-  }
+  // hasSitemapFile is now a module-level exported function (see above) — was
+  // a closure here with zero test coverage, and only resolved DIRECT
+  // children instead of the full route-group chain.
+  const hasSitemap = (slug) => hasSitemapFile(join(siteDir, slug))
 
   // Feeds Drift AD: for every KILLED_ROUTES entry, collect the relative path of
   // every page.tsx/route.ts that still exists on disk directly under

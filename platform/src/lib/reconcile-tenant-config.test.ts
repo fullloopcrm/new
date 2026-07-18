@@ -36,6 +36,7 @@ import {
   collectPageFiles,
   findClientPortalLoginDir,
   hasHomePage,
+  hasSitemapFile,
   computeFindings,
   summarize,
   loadToken,
@@ -4292,5 +4293,67 @@ describe('hasHomePage', () => {
     mkdirSync(join(dir, '(outer)', '(inner)'), { recursive: true })
     writeFileSync(join(dir, '(outer)', '(inner)', 'page.tsx'), '')
     expect(hasHomePage(dir)).toBe(true)
+  })
+})
+
+// Fresh ground (same "closure inside main() with zero test coverage" class as
+// (237)/(238)): hasSitemapFile's real implementation, feeding Drift Q (CRIT)
+// and Drift Y (WARN), had zero red test anywhere in this file — every
+// computeFindings test above injects a hand-written alwaysSitemap/
+// neverSitemap fixture instead.
+describe('hasSitemapFile', () => {
+  let dir: string | undefined
+  afterEach(() => dir && rmSync(dir, { recursive: true, force: true }))
+
+  it('returns false for a directory that does not exist', () => {
+    expect(hasSitemapFile(join(tmpdir(), 'reconcile-does-not-exist-xyz'))).toBe(false)
+  })
+
+  it('returns true for a direct sitemap.ts', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    writeFileSync(join(dir, 'sitemap.ts'), '')
+    expect(hasSitemapFile(dir)).toBe(true)
+  })
+
+  it('returns true for a direct sitemap.xml/route.ts', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    mkdirSync(join(dir, 'sitemap.xml'), { recursive: true })
+    writeFileSync(join(dir, 'sitemap.xml', 'route.ts'), '')
+    expect(hasSitemapFile(dir)).toBe(true)
+  })
+
+  it('returns true for a sitemap.ts one route group deep (the live shape, e.g. site/<slug>/(app)/sitemap.ts)', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    mkdirSync(join(dir, '(app)'), { recursive: true })
+    writeFileSync(join(dir, '(app)', 'sitemap.ts'), '')
+    expect(hasSitemapFile(dir)).toBe(true)
+  })
+
+  it('returns false when there is no sitemap anywhere', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    mkdirSync(join(dir, '(app)', 'dashboard'), { recursive: true })
+    writeFileSync(join(dir, '(app)', 'dashboard', 'page.tsx'), '')
+    expect(hasSitemapFile(dir)).toBe(false)
+  })
+
+  // Mutation-verified live: reverting hasSitemapFile back to the OLD
+  // direct-children-only check (`existsSync(join(d, 'sitemap.ts')) ||
+  // existsSync(join(d, 'sitemap.xml', 'route.ts'))`) makes this assertion
+  // fail — the old code never looks inside a route group at all, so a
+  // sitemap.ts behind a route group is invisible to it, wrongly reporting
+  // Drift Q's "missing sitemap file" CRIT for a tenant whose sitemap.xml
+  // renders fine in production.
+  it('returns true for a sitemap.ts behind a CHAIN of nested route groups', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    mkdirSync(join(dir, '(outer)', '(inner)'), { recursive: true })
+    writeFileSync(join(dir, '(outer)', '(inner)', 'sitemap.ts'), '')
+    expect(hasSitemapFile(dir)).toBe(true)
+  })
+
+  it('returns true for a sitemap.xml/route.ts behind a route group', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-sitemap-'))
+    mkdirSync(join(dir, '(app)', 'sitemap.xml'), { recursive: true })
+    writeFileSync(join(dir, '(app)', 'sitemap.xml', 'route.ts'), '')
+    expect(hasSitemapFile(dir)).toBe(true)
   })
 })
