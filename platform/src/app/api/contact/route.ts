@@ -25,7 +25,7 @@ import { trackError } from '@/lib/error-tracking'
 import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
-import { randomInt } from 'crypto'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 
 interface ContactBody {
   formType?: string
@@ -278,25 +278,34 @@ export async function POST(request: NextRequest) {
       if (error) throw error
       clientId = updated.id
     } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenant.id,
-          name,
-          email: email || null,
-          phone: phone || null,
-          address,
-          source: clientSource,
-          // Express-consent going forward: a brand-new lead is marketing-textable
-          // only if they affirmatively opted in on the form. (Existing clients
-          // keep their prior value and are unaffected.)
-          sms_consent: !!body.smsConsent,
-          notes,
-          pin: randomInt(100000, 1000000).toString(),
-        })
-        .select('id')
-        .single()
-      if (error) throw error
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- regenerate-and-retry on 23505, same pattern
+      // client/collect's identical insert uses, instead of throwing a raw
+      // collision error and losing a real contact-form lead outright.
+      let inserted, error
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: inserted, error } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email: email || null,
+            phone: phone || null,
+            address,
+            source: clientSource,
+            // Express-consent going forward: a brand-new lead is marketing-textable
+            // only if they affirmatively opted in on the form. (Existing clients
+            // keep their prior value and are unaffected.)
+            sms_consent: !!body.smsConsent,
+            notes,
+            pin: randomClientPin(),
+          })
+          .select('id')
+          .single())
+        if (!error || error.code !== '23505') break
+      }
+      if (error || !inserted) throw error || new Error('insert failed')
       clientId = inserted.id
     }
 

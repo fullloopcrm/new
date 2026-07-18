@@ -9,10 +9,10 @@ import { NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
-import { randomInt } from 'crypto'
 import { audit } from '@/lib/audit'
 import { escapeHtml } from '@/lib/escape-html'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 
 export async function POST(request: Request) {
   try {
@@ -68,18 +68,27 @@ export async function POST(request: Request) {
       if (data) clientId = data.id
     }
     if (!clientId) {
-      const { data: created, error: cErr } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenantId,
-          name,
-          email: email || null,
-          phone: phone || null,
-          notes: notes || null,
-          pin: String(randomInt(100000, 1000000)),
-        })
-        .select('id')
-        .single()
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- regenerate-and-retry on 23505, same pattern
+      // client/collect's identical insert uses, instead of surfacing a raw
+      // collision as a generic "Failed to create client" 500 to the operator.
+      let created, cErr
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: created, error: cErr } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenantId,
+            name,
+            email: email || null,
+            phone: phone || null,
+            notes: notes || null,
+            pin: randomClientPin(),
+          })
+          .select('id')
+          .single())
+        if (!cErr || cErr.code !== '23505') break
+      }
       if (cErr || !created) {
         return NextResponse.json({ error: `Failed to create client: ${cErr?.message}` }, { status: 500 })
       }

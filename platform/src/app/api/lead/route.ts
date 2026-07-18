@@ -20,7 +20,7 @@ import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { sendEmail } from '@/lib/email'
 import { emailShell } from '@/lib/messaging/shell'
 import { isCommEnabled } from '@/lib/comms-prefs'
-import { randomInt } from 'crypto'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 
 interface LeadBody {
   type?: string
@@ -212,19 +212,28 @@ export async function POST(request: NextRequest) {
       if (error) throw error
       clientId = updated.id
     } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenant.id,
-          name,
-          email,
-          phone,
-          notes,
-          pin: randomInt(100000, 1000000).toString(),
-        })
-        .select('id')
-        .single()
-      if (error) throw error
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- regenerate-and-retry on 23505, same pattern
+      // client/collect's identical insert uses, instead of throwing a raw
+      // collision error and losing a real lead's submission outright.
+      let inserted, error
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: inserted, error } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email,
+            phone,
+            notes,
+            pin: randomClientPin(),
+          })
+          .select('id')
+          .single())
+        if (!error || error.code !== '23505') break
+      }
+      if (error || !inserted) throw error || new Error('insert failed')
       clientId = inserted.id
     }
 

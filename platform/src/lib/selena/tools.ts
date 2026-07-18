@@ -2,8 +2,8 @@
 // Client-facing tools (14) → call into yinez/core.ts handleTool.
 // Owner-facing tools (8) → inline supabase queries.
 
-import crypto from 'crypto'
 import { supabaseAdmin } from '@/lib/supabase'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 import { handleTool as coreHandleTool, EMPTY_CHECKLIST, type YinezResult as CoreResult } from '@/lib/selena/core'
 import { isOwnerOfTenant, type YinezResult } from '@/lib/selena/agent'
 import { sendSMS } from '@/lib/nycmaid/sms'
@@ -1666,12 +1666,21 @@ async function handleCreateClient(input: { name: string; phone: string; email?: 
     return JSON.stringify({ ok: true, client_id: existing.id, name: existing.name, note: 'already existed; linked conversation' })
   }
 
-  const pin = crypto.randomInt(100000, 1000000).toString()
-  const { data: client, error } = await supabaseAdmin
-    .from('clients')
-    .insert({ tenant_id: tid, name: input.name, phone, email: input.email || null, status: 'potential', pin })
-    .select('id')
-    .single()
+  // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+  // uniquely constrains (tenant_id, pin) with no application-layer check
+  // before this insert -- regenerate-and-retry on 23505, same pattern
+  // client/collect's identical insert uses, instead of failing this
+  // admin/AI-driven client creation outright on a random collision.
+  let client, error, pin
+  for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+    pin = randomClientPin()
+    ;({ data: client, error } = await supabaseAdmin
+      .from('clients')
+      .insert({ tenant_id: tid, name: input.name, phone, email: input.email || null, status: 'potential', pin })
+      .select('id')
+      .single())
+    if (!error || error.code !== '23505') break
+  }
   if (error || !client) return JSON.stringify({ error: error?.message || 'insert failed' })
 
   // Link this conversation to the new client so the transcript appears in their feed

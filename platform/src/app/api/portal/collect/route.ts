@@ -22,7 +22,7 @@ import { notify } from '@/lib/notify'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { getTenantFromHeaders, tenantSiteUrl } from '@/lib/tenant-site'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-import { randomInt } from 'crypto'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 
 interface CollectBody {
   name?: string
@@ -162,24 +162,33 @@ export async function POST(request: NextRequest) {
       if (error) throw error
       data = updated as { id: string;[key: string]: unknown }
     } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenant.id,
-          name,
-          email: email || null,
-          phone,
-          address: address || null,
-          notes: notesValue,
-          referrer_id: referrerId,
-          pet_name: pet_name || null,
-          pet_type: pet_type || null,
-          pin: randomInt(100000, 1000000).toString(),
-        })
-        .select()
-        .single()
-
-      if (error) throw error
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- regenerate-and-retry on 23505, same pattern
+      // client/collect's identical insert uses, instead of throwing a raw
+      // collision error and losing a real lead's "finish your booking"
+      // submission outright.
+      let inserted, error
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: inserted, error } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email: email || null,
+            phone,
+            address: address || null,
+            notes: notesValue,
+            referrer_id: referrerId,
+            pet_name: pet_name || null,
+            pet_type: pet_type || null,
+            pin: randomClientPin(),
+          })
+          .select()
+          .single())
+        if (!error || error.code !== '23505') break
+      }
+      if (error || !inserted) throw error || new Error('insert failed')
       data = inserted as { id: string;[key: string]: unknown }
     }
 

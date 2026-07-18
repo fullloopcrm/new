@@ -1,5 +1,5 @@
-import crypto from 'crypto'
 import Anthropic from '@anthropic-ai/sdk'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 import { supabaseAdmin } from '@/lib/supabase'
 import { resolveAnthropic } from '@/lib/anthropic-client'
 import { scoreTeamForBooking } from '@/lib/smart-schedule'
@@ -857,8 +857,17 @@ async function createOrLinkClient(name: string, conversationId: string): Promise
       }
     }
 
-    const { data: client } = await supabaseAdmin
-      .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: crypto.randomInt(100000, 1000000).toString() }).select('id').single()
+    // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+    // uniquely constrains (tenant_id, pin) with no application-layer check
+    // before this insert -- regenerate-and-retry on 23505, same pattern
+    // client/collect's identical insert uses, instead of silently dropping
+    // this SMS-lead's client creation on a collision.
+    let client, clientInsertError
+    for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+      ;({ data: client, error: clientInsertError } = await supabaseAdmin
+        .from('clients').insert({ tenant_id: tid, name, phone, status: 'potential', pin: randomClientPin() }).select('id').single())
+      if (!clientInsertError || clientInsertError.code !== '23505') break
+    }
 
     if (client) {
       const { createPrimaryContact } = await import('@/lib/nycmaid/client-contacts')
@@ -1088,12 +1097,20 @@ export async function handleCreateBooking(input: Record<string, unknown>, conver
       }
       const inputEmail = typeof input.client_email === 'string' ? input.client_email.trim() || null : null
       const inputAddress = typeof input.client_address === 'string' ? input.client_address.trim() || null : null
-      const pin = crypto.randomInt(100000, 1000000).toString()
-      const { data: newClient, error: clientErr } = await supabaseAdmin
-        .from('clients')
-        .insert({ tenant_id: tid, name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin })
-        .select('id')
-        .single()
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- regenerate-and-retry on 23505, same pattern
+      // client/collect's identical insert uses, instead of failing a
+      // first-time SMS booking outright on a random collision.
+      let newClient, clientErr
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: newClient, error: clientErr } = await supabaseAdmin
+          .from('clients')
+          .insert({ tenant_id: tid, name: inputName, phone: digits, email: inputEmail, address: inputAddress, status: 'potential', pin: randomClientPin() })
+          .select('id')
+          .single())
+        if (!clientErr || clientErr.code !== '23505') break
+      }
       if (clientErr || !newClient) {
         return JSON.stringify({ error: `Auto-create client failed: ${clientErr?.message || 'insert returned no row'}` })
       }
@@ -1323,8 +1340,19 @@ async function handleSendPin(conversationId: string): Promise<string> {
     // Validate PIN is 6 digits — regenerate if not
     let pin = client.pin
     if (!pin || pin.length !== 6 || !/^\d{6}$/.test(pin)) {
-      pin = crypto.randomInt(100000, 1000000).toString()
-      await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid)
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) -- regenerate-and-retry on
+      // 23505 instead of the prior behavior of ignoring the update's error
+      // entirely and texting the customer a "new" PIN that was never
+      // actually persisted (leaving them permanently unable to log in with
+      // the PIN they were just sent).
+      let updateError
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        pin = randomClientPin()
+        ;({ error: updateError } = await supabaseAdmin.from('clients').update({ pin }).eq('id', client.id).eq('tenant_id', tid))
+        if (!updateError || updateError.code !== '23505') break
+      }
+      if (updateError) return JSON.stringify({ error: 'Failed to send PIN' })
     }
 
     const phone = client.phone || convo.phone
