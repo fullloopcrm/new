@@ -13912,3 +13912,84 @@ session's changes). `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent this session
 run against Supabase attempted. Webhook route + lib + test-file change
 only, outside `reconcile-tenant-config.mjs`/`ci.yml`/`db-backup.yml`
 entirely, per LEADER's broadened authorization; no push/deploy/DB write.
+
+## (262) LEADER's 11:49 queue item (1) -- reconcile/CI lane itself (not an
+adjacent app surface) this round: ran this lane's own live CI gate,
+`node scripts/audit-tenant-scope.mjs` (the "Tenant-isolation guard" step
+`ci.yml` runs on every PR), directly against the current worktree instead
+of re-reading its test file. It exited 1 -- **2 NEW unscoped queries**, on
+committed HEAD, no local diff before this session's edits. Since
+`d1beff06` drove the isolation baseline to zero debt, ANY new unscoped hit
+is a real gate-red, not "known debt" -- so this was two live gaps in a gate
+every worker's every PR depends on, sitting unnoticed on `p1-w3`'s HEAD.
+
+**Gap 1** -- `src/lib/seo/alert-digest.ts:54`, committed by `fd913d37`
+("route not_indexed seo_issues to Jeff via Telegram, daily digest") after
+the zero-baseline commit, so it was simply missed rather than
+grandfathered. `sendSeoAlertDigest()` reads `seo_issues` with `.eq('status',
+'open')` and no `tenant_id` filter across ALL tenants, batches by
+`property`, and pushes one combined digest via `alertOwner()`. Confirmed
+`alertOwner` (`src/lib/telegram.ts:73`) sends to a single fixed
+`JEFE_OWNER_CHAT_ID`/`TELEGRAM_OWNER_CHAT_ID` -- the platform owner's own
+ops channel, never a tenant's chat -- and confirmed `seo_issues` does carry
+`tenant_id` (`src/lib/migrations/2026_07_04_seo_signal.sql:125`, with its
+own comment documenting the tenant-scoped consumer: "tenant admin — reads
+WHERE tenant_id = <their tenant> via /dashboard/seo"). So this file's own
+header ("closes the gap where seo_issues only ever surfaced in /admin/seo")
+checks out as literally true: it's a second, alert-pushed view onto the
+same admin-only cross-tenant aggregate `/admin/seo` already shows Jeff,
+not a tenant-facing leak. Matches the audit script's own documented
+exemption category verbatim ("intentional cross-tenant admin aggregate").
+
+**Gap 2** -- `src/lib/idor-lint-guard.test.ts:82`, a DIFFERENT guard's test
+file self-flagging. Its "returns an empty array when nothing is unscoped"
+case writes a literal `` `await supabaseAdmin.from('clients').select('*')
+.eq('status', 'open')` `` string to a throwaway fixture file to prove
+`idor-lint-guard`'s OWN detector reads it as clean. This lane's
+`audit-tenant-scope.mjs` text-scans every `.ts` file under `src` with no
+test-file exclusion (confirmed: only two dead-clone dirs +
+`admin/analytics` are excluded), so the literal string matched exactly
+like real code. `audit-tenant-scope-guard.test.ts` already solved this
+exact problem for itself -- its header explicitly builds `.from('table')`
+substrings at runtime via a `FROM()` helper specifically so the guard
+never matches its own literal source (see that file's comments,
+referenced in item (194)) -- but `idor-lint-guard.test.ts` predates that
+convention and never adopted it, so it tripped the OTHER guard blind.
+
+Checked whether either gap was already accepted differently (baseline-key
+drift rather than a true miss) by grepping
+`scripts/.tenant-scope-baseline.json` for `seo_issues`, `alert-digest`, and
+`idor-lint-guard` -- zero hits on all three; genuinely unbaselined, not a
+key-format bug.
+
+**Fixed** both the documented way -- an inline `// tenant-scope-ok:
+<reason>` comment on the flagged line, the script's own sanctioned escape
+hatch (its header comment: "add `// tenant-scope-ok: <reason>` on the
+.from() line to silence it"; confirmed same-line requirement by reading the
+matcher: `if (/tenant-scope-ok/.test(lines[i])) continue` checks the exact
+`.from()` line, not a preceding one). Gap 1: reasoned inline on the
+`.from('seo_issues')` line. Gap 2: appended inline on the same line as the
+literal fixture string, preserving the test's fixture content byte-for-byte
+(no behavior change to what `idor-lint-guard` itself is tested against).
+Chose the inline-comment fix over porting the `FROM()` helper into
+`idor-lint-guard.test.ts` for gap 2 -- smaller diff, same sanctioned
+mechanism already used lane-wide, and the helper refactor would be scope
+creep on a file this lane doesn't own.
+
+Re-ran `node scripts/audit-tenant-scope.mjs` after each fix: 2 -> 1 -> 0
+NEW unscoped queries, confirming each fix independently closed its own
+gap rather than one masking the other. Per LEADER's queue item (2)
+("continue whichever surface (1) opens up"): grepped both flagged tables
+(`seo_issues`, `clients`) across `src/lib/seo/` and `src/lib/*idor*` for
+any other literal/unscoped `.from()` call the same convention gap could
+have produced -- none found; nothing further to continue.
+
+`npx tsc --noEmit --pretty false` zero errors. Full repo suite: 507/507
+files, 2591/2591 tests, 0 regressions (targeted re-run of
+`idor-lint-guard.test.ts`, `audit-tenant-scope-guard.test.ts`, and
+`src/lib/seo/` first: 35/35 green). `SUPABASE_ACCESS_TOKEN_FULLLOOP` absent
+this session (token-guard checked first, per standing instructions) — no
+live reconcile run against Supabase attempted. This IS this lane's own
+`scripts/audit-tenant-scope.mjs` + `ci.yml`-wired gate, unlike (259)-(261)
+which had to broaden outward to adjacent app surfaces; two lib/test-file
+fixes only, no push/deploy/DB write.
