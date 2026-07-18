@@ -215,7 +215,7 @@ export async function runTool(
 // Verify each referenced id resolves INSIDE the caller's tenant before the
 // side-effect runs; reject with a stable not-found error otherwise (do not
 // disclose that the id exists in some other tenant).
-async function idInTenant(table: 'clients' | 'cleaners' | 'deals' | 'bookings', id: string, tid: string): Promise<boolean> {
+async function idInTenant(table: 'clients' | 'cleaners' | 'deals' | 'bookings' | 'recurring_schedules' | 'cleaner_payouts' | 'notifications' | 'cleaner_applications', id: string, tid: string): Promise<boolean> {
   if (!id) return false
   const { data } = await supabaseAdmin.from(table).select('id').eq('id', id).eq('tenant_id', tid).maybeSingle()
   return !!data
@@ -1131,6 +1131,13 @@ async function handleMarkPaymentReceived(input: { booking_id: string; amount_dol
 }
 
 async function handleMarkPayoutPaid(input: { payout_id: string }, tid: string): Promise<string> {
+  // Without this, a foreign-tenant payout_id matches zero rows in the update's
+  // own WHERE clause — Supabase returns no error, so the handler would falsely
+  // report ok:true while paying out nothing (same false-success class as
+  // assign_cleaner_to_booking's booking_id check above).
+  if (!(await idInTenant('cleaner_payouts', input.payout_id, tid))) {
+    return JSON.stringify({ error: 'payout not found' })
+  }
   const { error } = await supabaseAdmin
     .from('cleaner_payouts')
     .update({ status: 'paid', paid_at: new Date().toISOString() })
@@ -1147,6 +1154,10 @@ async function handleBlockClient(input: { client_id: string; reason: string }, t
     .eq('id', input.client_id)
     .eq('tenant_id', tid)
     .maybeSingle()
+  // A foreign-tenant client_id matches zero rows below (same false-success
+  // class as the other FK/self-id checks in this file) — reject explicitly
+  // instead of reporting ok:true for a client that was never blocked.
+  if (!client) return JSON.stringify({ error: 'client not found' })
   const note = `[DNS ${new Date().toISOString().slice(0, 10)} — ${input.reason}]`
   await supabaseAdmin
     .from('clients')
@@ -1175,12 +1186,21 @@ async function handleUpdateCleaner(input: { cleaner_id: string; fields: Record<s
   const update: Record<string, unknown> = {}
   for (const [k, v] of Object.entries(input.fields || {})) if (allowed.includes(k)) update[k] = v
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
+  // Same false-success class as the FK checks above: a foreign-tenant
+  // cleaner_id matches zero rows in the update below, so without this the
+  // handler would report ok:true while updating nothing.
+  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
   const { error } = await supabaseAdmin.from('cleaners').update(update).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, updated_fields: Object.keys(update) })
 }
 
 async function handleDeactivateCleaner(input: { cleaner_id: string; reason?: string }, tid: string): Promise<string> {
+  if (!(await idInTenant('cleaners', input.cleaner_id, tid))) {
+    return JSON.stringify({ error: 'cleaner not found' })
+  }
   const { error } = await supabaseAdmin.from('cleaners').update({ status: 'inactive' }).eq('id', input.cleaner_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, cleaner_id: input.cleaner_id, status: 'inactive', reason: input.reason })
@@ -1205,6 +1225,12 @@ async function handleListRecurring(input: { client_id?: string; status?: string 
 }
 
 async function handlePauseRecurring(input: { schedule_id: string; until_date?: string }, tid: string): Promise<string> {
+  // Same false-success class as the FK checks above: a foreign-tenant
+  // schedule_id matches zero rows in the update below, so without this the
+  // handler would report ok:true while pausing nothing.
+  if (!(await idInTenant('recurring_schedules', input.schedule_id, tid))) {
+    return JSON.stringify({ error: 'schedule not found' })
+  }
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'paused', paused_until: input.until_date || null })
@@ -1215,6 +1241,9 @@ async function handlePauseRecurring(input: { schedule_id: string; until_date?: s
 }
 
 async function handleResumeRecurring(input: { schedule_id: string }, tid: string): Promise<string> {
+  if (!(await idInTenant('recurring_schedules', input.schedule_id, tid))) {
+    return JSON.stringify({ error: 'schedule not found' })
+  }
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'active', paused_until: null })
@@ -1225,6 +1254,9 @@ async function handleResumeRecurring(input: { schedule_id: string }, tid: string
 }
 
 async function handleCancelRecurring(input: { schedule_id: string; reason?: string }, tid: string): Promise<string> {
+  if (!(await idInTenant('recurring_schedules', input.schedule_id, tid))) {
+    return JSON.stringify({ error: 'schedule not found' })
+  }
   const { error } = await supabaseAdmin
     .from('recurring_schedules')
     .update({ status: 'cancelled' })
@@ -1275,6 +1307,12 @@ async function handleUpdateDeal(input: { deal_id: string; fields: Record<string,
     }
   }
   if (Object.keys(update).length === 0) return JSON.stringify({ error: 'no allowed fields' })
+  // Same false-success class as the FK checks above: a foreign-tenant
+  // deal_id matches zero rows in the update below, so without this the
+  // handler would report ok:true while updating nothing.
+  if (!(await idInTenant('deals', input.deal_id, tid))) {
+    return JSON.stringify({ error: 'deal not found' })
+  }
   const { error } = await supabaseAdmin.from('deals').update(update).eq('id', input.deal_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, deal_id: input.deal_id, updated_fields: Object.keys(update) })
@@ -1289,6 +1327,12 @@ async function handleListNotifications(input: { type?: string; limit?: number },
 }
 
 async function handleMarkNotificationRead(input: { notification_id: string }, tid: string): Promise<string> {
+  // Same false-success class as the FK checks above: a foreign-tenant
+  // notification_id matches zero rows in the update below, so without this
+  // the handler would report ok:true while updating nothing.
+  if (!(await idInTenant('notifications', input.notification_id, tid))) {
+    return JSON.stringify({ error: 'notification not found' })
+  }
   const { error } = await supabaseAdmin.from('notifications').update({ read: true }).eq('id', input.notification_id).eq('tenant_id', tid)
   if (error) return JSON.stringify({ error: error.message })
   return JSON.stringify({ ok: true, notification_id: input.notification_id })
@@ -1318,6 +1362,13 @@ async function handleApproveCleanerApplication(input: { application_id: string }
 }
 
 async function handleRejectCleanerApplication(input: { application_id: string; reason?: string }, tid: string): Promise<string> {
+  // Same false-success class as the FK checks above (and as its sibling
+  // approve_cleaner_application, which already selects the row first): a
+  // foreign-tenant application_id matches zero rows in the update below, so
+  // without this the handler would report ok:true while updating nothing.
+  if (!(await idInTenant('cleaner_applications', input.application_id, tid))) {
+    return JSON.stringify({ error: 'application not found' })
+  }
   const { error } = await supabaseAdmin
     .from('cleaner_applications')
     .update({ status: 'rejected', rejected_reason: input.reason || null, rejected_at: new Date().toISOString() })
