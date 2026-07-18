@@ -89,13 +89,38 @@ export async function acceptInviteForAdmin(
     })
   }
 
-  await supabaseAdmin.from('tenant_invites').update({ accepted: true }).eq('id', invite.id)
+  // error checked explicitly (not discarded) — same masked-error class fixed
+  // elsewhere in this function (existingMemberError) and across
+  // tenant.ts/tenant-lookup.ts/domains.ts: neither write below had its
+  // returned `error` destructured at all, so a genuine DB failure on either
+  // one used to be silently swallowed and this function would still return
+  // `{ status: 'accepted' }` — telling the caller (and the admin) the invite
+  // was accepted when the invite could still show as unaccepted (replayable)
+  // and/or the tenant could still be stuck in 'setup' (never actually
+  // resolves as serving — see tenantServesSite) despite the UI redirecting
+  // straight to /dashboard as if activation succeeded.
+  const { error: inviteAcceptError } = await supabaseAdmin
+    .from('tenant_invites')
+    .update({ accepted: true })
+    .eq('id', invite.id)
 
-  await supabaseAdmin
+  if (inviteAcceptError) {
+    throw new Error(
+      `TENANT_INVITE_ACCEPT_UPDATE_ERROR invite_id=${invite.id} error=${inviteAcceptError.message}`,
+    )
+  }
+
+  const { error: tenantActivateError } = await supabaseAdmin
     .from('tenants')
     .update({ status: 'active' })
     .eq('id', invite.tenant_id)
     .eq('status', 'setup')
+
+  if (tenantActivateError) {
+    throw new Error(
+      `TENANT_INVITE_ACTIVATE_ERROR tenant_id=${invite.tenant_id} error=${tenantActivateError.message}`,
+    )
+  }
 
   // Bust tenant-lookup.ts's 5-min slug/domain cache — same class already fixed
   // for the admin-side status writes (admin/tenants/[id], admin/businesses/[id]).

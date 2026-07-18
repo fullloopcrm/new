@@ -33,6 +33,8 @@ const holder = vi.hoisted(() => ({
   existingMemberError: null as { message: string } | null,
   inviteLookupData: null as Record<string, unknown> | null,
   inviteLookupError: null as { message: string } | null,
+  inviteAcceptError: null as { message: string } | null,
+  tenantActivateError: null as { message: string } | null,
 }))
 
 vi.mock('@/lib/supabase', () => ({
@@ -69,7 +71,7 @@ vi.mock('@/lib/supabase', () => ({
           update: (_fields: Record<string, unknown>) => ({
             eq: (_col: string, id: string) => {
               holder.inviteMarkedAcceptedId = id
-              return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: null }) }
+              return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: holder.inviteAcceptError }) }
             },
           }),
         }
@@ -80,7 +82,7 @@ vi.mock('@/lib/supabase', () => ({
             eq: (_col: string, id: string) => ({
               eq: () => {
                 holder.tenantActivated = id
-                return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: null }) }
+                return { then: (resolve: (v: unknown) => void) => resolve({ data: null, error: holder.tenantActivateError }) }
               },
             }),
           }),
@@ -105,6 +107,8 @@ beforeEach(() => {
   holder.existingMemberError = null
   holder.inviteLookupData = null
   holder.inviteLookupError = null
+  holder.inviteAcceptError = null
+  holder.tenantActivateError = null
 })
 
 describe('acceptInviteForAdmin — signed-in identity must match the invite', () => {
@@ -166,6 +170,31 @@ describe('acceptInviteForAdmin — signed-in identity must match the invite', ()
     )
     expect(holder.tenantMembersInserted).toHaveLength(0)
     expect(holder.inviteMarkedAcceptedId).toBeNull()
+  })
+
+  // MASKED-ERROR PROBE: neither write below had its returned `error`
+  // destructured at all before this fix — a genuine DB failure was
+  // completely invisible and the function still returned
+  // { status: 'accepted' }, so the caller (join/[token]/accept/page.tsx)
+  // redirected to /dashboard as if activation succeeded.
+  it('MASKED-ERROR PROBE: throws on a genuine tenant_invites.accepted write failure instead of reporting accepted', async () => {
+    holder.inviteAcceptError = { message: 'connection reset' }
+    const recipient = { id: 'admin_recipient', email: 'owner@victim-biz.com' }
+
+    await expect(acceptInviteForAdmin(TENANT_INVITE, recipient)).rejects.toThrow(
+      /TENANT_INVITE_ACCEPT_UPDATE_ERROR/,
+    )
+    expect(holder.tenantActivated).toBeNull()
+  })
+
+  it('MASKED-ERROR PROBE: throws on a genuine tenants.status=active write failure instead of reporting accepted', async () => {
+    holder.tenantActivateError = { message: 'connection reset' }
+    const recipient = { id: 'admin_recipient', email: 'owner@victim-biz.com' }
+
+    await expect(acceptInviteForAdmin(TENANT_INVITE, recipient)).rejects.toThrow(
+      /TENANT_INVITE_ACTIVATE_ERROR/,
+    )
+    expect(holder.inviteMarkedAcceptedId).toBe('invite_1')
   })
 })
 
