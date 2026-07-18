@@ -60,7 +60,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     // Verify deal belongs to tenant.
     const { data: deal } = await supabaseAdmin
       .from('deals')
-      .select('id')
+      .select('id, client_id')
       .eq('id', id)
       .eq('tenant_id', tenantId)
       .maybeSingle()
@@ -68,7 +68,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
 
     const { data, error } = await supabaseAdmin
       .from('deal_activities')
-      .insert({ tenant_id: tenantId, deal_id: id, type, description })
+      .insert({ tenant_id: tenantId, deal_id: id, client_id: deal.client_id, type, description })
       .select()
       .single()
     if (error) throw error

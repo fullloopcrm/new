@@ -108,6 +108,29 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
     }
   }
 
+  const dealActivityTitles: Record<string, string> = {
+    note: 'Note logged',
+    call: 'Call logged',
+    text: 'Text logged',
+    email: 'Email logged',
+    quote_sent: 'Quote sent',
+  }
+
+  const { data: dealActivities } = await supabaseAdmin
+    .from('deal_activities')
+    .select('type, description, created_at')
+    .eq('client_id', id)
+    .eq('tenant_id', tenant.tenantId)
+
+  for (const da of dealActivities || []) {
+    activities.push({
+      type: da.type,
+      title: dealActivityTitles[da.type] || 'Activity logged',
+      description: da.description || '',
+      timestamp: da.created_at,
+    })
+  }
+
   activities.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
   return NextResponse.json(activities)
