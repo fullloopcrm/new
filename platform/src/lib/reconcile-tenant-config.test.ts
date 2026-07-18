@@ -1760,6 +1760,38 @@ describe('loadToken — local dev fallback (~/.env.local)', () => {
   it('returns null (clean skip) when both the env var and HOME are absent', () => {
     expect(loadToken({})).toBeNull()
   })
+
+  // dotenv's own LINE regex (the convention this repo's Next.js app/every
+  // other script in scripts/ that loads .env.local actually follows —
+  // node_modules/dotenv/lib/main.js's `[^#\r\n]+` unquoted-value alternative)
+  // treats a bare, unquoted trailing `#...` as a comment, not part of the
+  // value — ordinary, valid dotenv syntax (`KEY=value # note`). This parser
+  // predates that check and had no comment-awareness at all: an unquoted
+  // token line written in that ordinary style got the comment text glued
+  // straight onto the token instead of stripped, so loadToken returned a
+  // non-null but INVALID credential — main() then treats the token as
+  // present (skips the clean-skip path) and every subsequent Supabase API
+  // call 401s, turning what should be a quiet local skip into a confusing
+  // auth failure with no clean-skip message anywhere in the output.
+  it('strips a trailing unquoted "# comment" the same way dotenv itself would', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    writeFileSync(join(dir, '.env.local'), 'SUPABASE_ACCESS_TOKEN_FULLLOOP=sbp_realtoken123 # personal PAT, rotate quarterly\n')
+    expect(loadToken({ HOME: dir })).toBe('sbp_realtoken123')
+  })
+
+  // The quoted-value counterpart: dotenv's quoted-value alternatives
+  // (`'(?:\\'|[^'])*'`, `"(?:\\"|[^"])*"`) capture EVERYTHING between the
+  // matching quotes verbatim, including a literal '#' — a quoted value is
+  // never comment-truncated. A fix that just chops the raw line at the
+  // first '#' (ignoring quoting) would wrongly truncate this one too, so
+  // this case is required to tell "comment-aware" apart from "comment-blind
+  // truncation" — the same quote-discipline this file's other parsers
+  // (stripComments, extractBalancedBlock) already apply elsewhere.
+  it('does NOT truncate a quoted value containing a literal "#"', () => {
+    dir = mkdtempSync(join(tmpdir(), 'reconcile-token-'))
+    writeFileSync(join(dir, '.env.local'), `SUPABASE_ACCESS_TOKEN_FULLLOOP="sbp_has#hash_inside"\n`)
+    expect(loadToken({ HOME: dir })).toBe('sbp_has#hash_inside')
+  })
 })
 
 describe('computeFindings — Drift K (tenant_domains row with no vercel_project)', () => {

@@ -2008,7 +2008,20 @@ export function loadToken(env = process.env) {
   if (!existsSync(envPath)) return null
   for (const line of readFileSync(envPath, 'utf8').split('\n')) {
     const m = line.match(/^\s*SUPABASE_ACCESS_TOKEN_FULLLOOP\s*=\s*(.*)\s*$/)
-    if (m) return m[1].replace(/^["']|["']$/g, '').trim() || null
+    if (!m) continue
+    // dotenv-compatible value extraction (matches node_modules/dotenv/lib/main.js's
+    // own LINE regex, the convention every other script in scripts/ that loads
+    // .env.local already follows): a quoted value captures everything up to its
+    // TRUE matching closing quote verbatim, so a literal '#' inside stays part of
+    // the value; an unquoted value stops at the first '#' -- everything from
+    // there on is a trailing comment, never part of the value. Without this, an
+    // ordinary dotenv-style token line (`KEY=value # note`) got the comment text
+    // glued onto the token instead of stripped, returning a non-null but INVALID
+    // credential -- main() then skips the clean-skip path and every subsequent
+    // Supabase call 401s.
+    const valueMatch = m[1].match(/^\s*(?:'((?:\\'|[^'])*)'|"((?:\\"|[^"])*)"|`((?:\\`|[^`])*)`|([^#]*))/)
+    const value = valueMatch ? (valueMatch[1] ?? valueMatch[2] ?? valueMatch[3] ?? valueMatch[4] ?? '') : m[1]
+    return value.trim() || null
   }
   return null
 }
