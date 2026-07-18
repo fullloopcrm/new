@@ -40,6 +40,16 @@ function generateCleanerToken(): string {
   return randomBytes(24).toString('base64url')
 }
 
+// This is a PUBLIC, unauthenticated endpoint — body.name/body.notes are
+// caller-controlled with no length limit. name in particular flows verbatim
+// into nmSmsAdmins() below for NYC Maid same-day/emergency bookings (an
+// admin-bound SMS on the tenant's trusted Telnyx number, no human review),
+// the same smsAdmins-relay bug class already capped on /api/waitlist,
+// /api/lead, /api/ingest/lead, /api/ingest/application, /api/contact — this
+// route was the missed sibling. Same 200/2000 convention.
+const MAX_NAME = 200
+const MAX_NOTES = 2000
+
 function templateData(tenant: { name: string; primary_color?: string | null; logo_url?: string | null }) {
   return {
     tenantName: tenant.name,
@@ -64,6 +74,9 @@ export async function POST(request: Request) {
     if (!body.client_id && !body.email && !body.phone) {
       return NextResponse.json({ error: 'Client ID, email, or phone is required' }, { status: 400 })
     }
+
+    const safeName = typeof body.name === 'string' ? body.name.trim().slice(0, MAX_NAME) : ''
+    const safeNotes = typeof body.notes === 'string' ? body.notes.trim().slice(0, MAX_NOTES) : ''
 
     // This is a PUBLIC, unauthenticated endpoint and body.client_id comes
     // straight from the caller's localStorage (see client dashboards) with no
@@ -120,11 +133,11 @@ export async function POST(request: Request) {
         const { data: newClient, error: createErr } = await tenantDb(tenant.id)
           .from('clients')
           .insert({
-            name: body.name as string,
+            name: safeName,
             email: emailLower,
             phone,
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
-            notes: (body.notes as string) || '',
+            notes: safeNotes,
             pin: String(100000 + randomInt(0, 900000)),
           })
           .select()
@@ -138,7 +151,7 @@ export async function POST(request: Request) {
           tenantId: tenant.id,
           type: 'new_client',
           title: 'New Client (via Booking)',
-          message: `${body.name} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
+          message: `${safeName} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
         })
       }
     }
@@ -235,7 +248,7 @@ export async function POST(request: Request) {
     // past the hourly-rate clamp above and still yield a near-zero total.
     const bkEstimatedHours = Math.max(1, Number(body.estimated_hours) || 2)
     let bkPrice = applyRecurringDiscount(bkHourlyRate * bkEstimatedHours * 100, body.recurring_type === 'none' ? null : (body.recurring_type as string | undefined))
-    let bkNotes = (body.notes as string) || ''
+    let bkNotes = safeNotes
     const bkTeamSize = Math.max(1, Math.min(8, Number(body.team_size) || 1))
     let bkIsEmergency = false
     const bkMaxHours = typeof body.max_hours === 'number' && body.max_hours > 0 ? (body.max_hours as number) : null
@@ -263,7 +276,7 @@ export async function POST(request: Request) {
       bkHourlyRate = effectiveRate
       bkPrice = Math.round(effectiveRate * billableHours * bkTeamSize * 100)
       const discountEligible = !bkIsEmergency && !isMultiCleaner
-      bkNotes = ((body.notes as string) || '') + (discountEligible
+      bkNotes = safeNotes + (discountEligible
         ? '\n\n[Promo: $10 self-booking discount applies at billing]'
         : isMultiCleaner
           ? `\n\n[Multi-cleaner booking — no discount, 4-hour minimum${bkIsEmergency ? ', under-48hr emergency $89/hr' : ''}]`
@@ -400,7 +413,7 @@ export async function POST(request: Request) {
           address: data.clients?.address,
           date: bookingDate,
           time: (body.time as string) || '',
-          notes: (body.notes as string) || '',
+          notes: safeNotes,
         }, td)
         await emailAdmins(tenant, admin.subject, admin.html)
 
