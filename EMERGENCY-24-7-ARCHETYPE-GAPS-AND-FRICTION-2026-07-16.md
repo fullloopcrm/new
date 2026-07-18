@@ -13170,3 +13170,98 @@ restored the guard and re-confirmed green.
 `tsc --noEmit --pretty false` zero errors. Full suite counts folded into
 (249)'s report above (501/501 files, 2561/2561 tests, same single
 pre-existing unrelated lint error, same token-guard disposition).
+
+## (251) New track per LEADER's 09:23 priority item (C) -- SIGNAL (SEO)
+issues never reached Jeff outside of him opening /admin/seo, even though the
+underlying problem (Google not indexing pages) is the exact thing he's
+currently getting flooded with raw Search Console emails about.
+
+Traced the full alert surface before writing anything, per LEADER's "check
+what already exists, don't invent a new one" instruction. Found it splits
+into two genuinely different problems, not one:
+
+**site_down is already closed, real-time, today.** Grepped the whole repo
+for a `site_down` seo_issues type -- none exists; no detector anywhere emits
+it. What Jeff actually means by "site down" (the live tenant site itself
+unreachable) is already covered, more directly and faster than GSC crawl
+signals ever could be, by `cron/tenant-health` ("Fortress",
+`src/app/api/cron/tenant-health/route.ts`) -- runs every 15 minutes, checks
+live reachability + correct-site-served per tenant domain, and already
+Telegram-alerts via `alertOwner()` on any failure
+(`🚨 Fortress: N tenant site(s) FAILING`). Building a second, GSC-crawl-based
+"site down" detector on top of this would be strictly worse (crawl lag is
+days, not minutes) and would violate the explicit "reuse, don't invent a new
+one" instruction. Decision: no new code for site_down -- it's already
+real-time and already reaches Jeff without /admin/seo. Verified by reading
+the route, not assumed.
+
+**not_indexed was the real, unclosed gap.** `src/lib/seo/technical.ts`'s
+weekly `seo-technical` cron (Tuesdays 7am) already detects and writes
+`seo_issues` rows with `type: 'not_indexed'` -- but nothing downstream of
+that insert ever notified anyone. The only consumer was
+`/api/admin/seo` (`route.ts:46-50`), gated behind `requireAdmin()`, rendered
+by `src/app/admin/seo/page.tsx`. A page falling out of Google's index sat
+silently in a dashboard Jeff has no reason to open unless he's already
+worried something's wrong -- exactly backwards from the point of detecting it
+automatically.
+
+**Built:** `src/lib/seo/alert-digest.ts` (`sendSeoAlertDigest()`) + a new
+cron route `src/app/api/cron/seo-alert-digest/route.ts`, wired into
+`vercel.json` at `15 8 * * *` (daily, after `seo-detect` 6:30am, weekly
+`seo-technical` Tue 7am, and `seo-autoverify` 8:00am, so same-day coverage on
+the one day a week technical actually re-scans). It queries `seo_issues`
+where `status='open' AND type='not_indexed' AND notified_at IS NULL`, groups
+by property, and pushes through **the exact same `alertOwner()` primitive**
+`cron/system-check`, `cron/tenant-health`, `cron/comms-monitor`, and
+`cron/health-monitor` already use (`src/lib/telegram.ts`) -- same bot, same
+Jefe channel, zero new wiring. Migration
+`src/lib/migrations/2026_07_18_seo_issues_notified.sql` adds the
+`notified_at` column (file only, per standing rules -- not applied to prod;
+leader/Jeff run the DDL).
+
+**Cadence decision: digest, not per-issue real-time, and notify-once not
+daily-repeat.** not_indexed doesn't have site_down's urgency -- a page losing
+its index slot is a slow-moving problem (Google re-crawls on its own
+timescale; the fastest technical rescan is weekly), so real-time alerting on
+it would just be noise on the same channel that needs to stay high-signal for
+genuine site-down pages. Daily digest and a `notified_at` marker (not
+resending an issue every day it stays open) means: (1) Jeff sees a new
+not_indexed problem within at most ~1 day of it being detected, (2) he never
+sees the same still-broken page repeated in his feed every single day it
+stays open, and (3) if seo-technical's weekly rescan confirms a page is
+STILL not indexed next week, that's a fresh row (the scan deletes + reinserts
+the whole open set each run, per `technical.ts:239`) and correctly re-alerts
+-- "still broken a week later" is exactly the kind of thing that should
+re-surface, not go silent forever after the first ping. An empty digest run
+(no un-notified issues) sends nothing, matching the existing
+system-check/tenant-health precedent of alert-only-on-signal rather than a
+noisy "all clear" ping every day.
+
+**Scope boundary, explicit:** the other four seo_issues types
+(`striking_distance`, `deep_underperformer`, `low_ctr`, `competitor_gap`)
+remain /admin/seo-only. LEADER's minimum bar named site_down + not_indexed
+specifically (the two that map to Jeff's GSC email flood); the other four are
+growth-opportunity signals, not the "something is actively breaking" class
+this alert path is for. Noted here rather than silently pulled into the same
+digest.
+
+New test file `src/lib/seo/alert-digest.test.ts`, 4 tests, all passing
+against the real implementation using the shared `fake-supabase` in-memory
+store + a mocked `alertOwner`: no-op when nothing is un-notified,
+alert-and-group-by-property when there is, `notified_at` actually suppresses
+a same-day re-run, and other seo_issues types are correctly excluded from the
+digest. Not a strict RED-first TDD cycle (no separate revert-and-confirm-fail
+pass like several earlier items in this doc did) -- flagging that honestly
+rather than implying more process than actually happened.
+
+`tsc --noEmit --pretty false` zero errors. Full repo suite: 502/502 files,
+2565/2565 tests (2561 baseline + 4 new via (251), zero regressions). One
+unrelated pretest tenant-scope-guard warning on `src/app/api/fixture/
+route.ts` (a pre-existing fixture route this item never touched -- confirmed
+via `git status` showing no diff on that path) does not fail the run. The
+Supabase Management-API token was absent this session -- token-guard skipped
+the local reconcile run cleanly per standing instructions; this item touched
+neither the reconcile script nor any CI workflow file, so nothing there
+needed re-verification against a live token. File-only for the DB side (new
+migration, not applied) and app-code-only otherwise -- no push/deploy/prod
+write.
