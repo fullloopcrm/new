@@ -12,6 +12,15 @@ import { describe, it, expect, vi } from 'vitest'
  * unrelated dashboard panels (calendar, quotes, sms, websites, selena)
  * for non-sensitive prefill data, so the fix redacts sensitive fields for
  * roles without settings.view instead of gating the whole route.
+ *
+ * Follow-up (this pass): the original fix gated on `settings.view`, but
+ * `manager` also holds `settings.view` (per rbac.ts) while lacking
+ * `settings.edit` entirely -- a manager-tier team member could still pull
+ * the tenant's live vendor API keys and owner PII/billing rate read-only
+ * via this endpoint (and see them rendered in plaintext inputs on the
+ * dashboard Settings > Integrations tab), despite having no ability to
+ * ever set/rotate them. The gate now checks `settings.edit` (owner/admin,
+ * the only roles that can actually write these fields) instead.
  */
 
 const TENANT_ROW = {
@@ -61,7 +70,7 @@ const SENSITIVE_KEYS = [
   'owner_email', 'owner_phone', 'owner_name',
 ]
 
-describe('GET /api/settings — settings.view redaction', () => {
+describe('GET /api/settings — settings.edit redaction', () => {
   it('strips secrets/PII/billing fields for a role without settings.view (staff)', async () => {
     mockRole = 'staff'
     const { GET } = await import('./route')
@@ -77,8 +86,33 @@ describe('GET /api/settings — settings.view redaction', () => {
     expect(body.tenant.selena_config).toEqual(TENANT_ROW.selena_config)
   })
 
-  it('returns the full row for a role with settings.view (admin)', async () => {
+  it('strips secrets/PII/billing fields for manager (has settings.view but not settings.edit)', async () => {
+    mockRole = 'manager'
+    vi.resetModules()
+    const { GET } = await import('./route')
+    const res = await GET()
+    const body = await res.json()
+
+    for (const key of SENSITIVE_KEYS) {
+      expect(body.tenant[key]).toBeUndefined()
+    }
+    expect(body.tenant.business_hours).toBe(TENANT_ROW.business_hours)
+  })
+
+  it('returns the full row for a role with settings.edit (admin)', async () => {
     mockRole = 'admin'
+    vi.resetModules()
+    const { GET } = await import('./route')
+    const res = await GET()
+    const body = await res.json()
+
+    for (const key of SENSITIVE_KEYS) {
+      expect(body.tenant[key]).toBe((TENANT_ROW as Record<string, unknown>)[key])
+    }
+  })
+
+  it('returns the full row for owner', async () => {
+    mockRole = 'owner'
     vi.resetModules()
     const { GET } = await import('./route')
     const res = await GET()

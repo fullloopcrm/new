@@ -9,7 +9,9 @@ import { encryptTenantSecrets } from '@/lib/secret-crypto'
 import { hasPermission } from '@/lib/rbac'
 
 // Vendor secrets + internal/billing/PII columns. Only returned to callers
-// with settings.view — every other role gets the rest of the row (business
+// with settings.edit (owner/admin, the only roles that can actually set
+// these fields) — every other role, including `manager` (which holds
+// settings.view but not settings.edit), gets the rest of the row (business
 // hours, selena_config, telnyx_phone, etc.) that non-settings dashboard
 // panels (calendar, quotes, sms, websites, selena) rely on for prefill.
 const SENSITIVE_TENANT_FIELDS = new Set([
@@ -22,8 +24,8 @@ const SENSITIVE_TENANT_FIELDS = new Set([
 export async function GET() {
   try {
     const ctx = await getTenantForRequest()
-    const canViewSettings = hasPermission(ctx.role, 'settings.view', overridesFor(ctx))
-    const tenant = canViewSettings
+    const canViewSecrets = hasPermission(ctx.role, 'settings.edit', overridesFor(ctx))
+    const tenant = canViewSecrets
       ? ctx.tenant
       : Object.fromEntries(
           Object.entries(ctx.tenant).filter(([key]) => !SENSITIVE_TENANT_FIELDS.has(key)),
