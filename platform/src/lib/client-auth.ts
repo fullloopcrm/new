@@ -8,11 +8,25 @@
  */
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
-import crypto from 'crypto'
+import crypto, { randomInt } from 'crypto'
 import { supabaseAdmin } from './supabase'
 
 const COOKIE = 'client_session'
 const MAX_AGE_MS = 30 * 24 * 60 * 60 * 1000 // 30 days
+
+/**
+ * Client-portal login PIN (clients.pin). idx_clients_tenant_pin_unique
+ * (2026_07_17_clients_pin_unique.sql) uniquely constrains (tenant_id, pin);
+ * every insert that mints one must be prepared to regenerate and retry on a
+ * 23505 collision rather than fail the caller's request outright — see the
+ * MAX_CLIENT_PIN_ATTEMPTS retry loops in client/collect, client/verify-code,
+ * and client/book.
+ */
+export function randomClientPin(): string {
+  return String(100000 + randomInt(0, 900000))
+}
+
+export const MAX_CLIENT_PIN_ATTEMPTS = 5
 
 function secret(): string {
   const s = process.env.PORTAL_SECRET

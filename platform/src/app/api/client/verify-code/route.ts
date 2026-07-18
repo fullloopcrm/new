@@ -3,9 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { notify } from '@/lib/notify'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
-import { createClientSession, clientSessionCookieOptions } from '@/lib/client-auth'
+import { createClientSession, clientSessionCookieOptions, randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-import { randomInt } from 'crypto'
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -99,17 +98,28 @@ export async function POST(request: Request) {
 
     // Create new client if still none — email flow only.
     if (!client && email) {
-      const { data: newClient, error: createError } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenant.id,
-          email: email.toLowerCase(),
-          name: email.split('@')[0],
-          phone: phone || '',
-          pin: String(100000 + randomInt(0, 900000)),
-        })
-        .select()
-        .single()
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert. This runs mid-login, after the caller already
+      // proved ownership of the email by supplying the code just sent to it --
+      // a collision here shouldn't fail their login outright when a fresh PIN
+      // is trivially safe to regenerate and retry, same pattern POST
+      // /api/invoices uses for invoice_number/public_token collisions.
+      let newClient, createError
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: newClient, error: createError } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenant.id,
+            email: email.toLowerCase(),
+            name: email.split('@')[0],
+            phone: phone || '',
+            pin: randomClientPin(),
+          })
+          .select()
+          .single())
+        if (!createError || createError.code !== '23505') break
+      }
       if (createError || !newClient) {
         console.error('Create client error:', createError)
         return NextResponse.json({ error: 'Failed to create account' }, { status: 500 })

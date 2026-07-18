@@ -79,17 +79,28 @@ export async function POST(request: Request) {
       fieldsWithDefaults.working_days = settings.default_working_days
     }
 
-    // Auto-generate 4-digit PIN (cryptographically random).
-    // The DB enforces uniqueness via idx_team_members_tenant_pin_unique (migration 014);
-    // a collision returns a 500 and the caller retries.
+    // Auto-generate 4-digit PIN (cryptographically random, only 9000 possible
+    // values -- a much smaller space than clients.pin's 900000, so collision
+    // odds climb fast with headcount). idx_team_members_tenant_pin_unique
+    // (migration 014) enforces uniqueness per tenant, but this insert never
+    // retried on a collision -- unlike provisionApprovedApplicant() in
+    // src/lib/team-provisioning.ts (same table, same PIN scheme, the OTHER
+    // team_members-creating write path), which already regenerates and
+    // retries. A stale comment here claimed "a collision returns a 500 and
+    // the caller retries", but no caller ever implemented that: a real add-
+    // team-member request just failed outright. Same regenerate-and-retry
+    // fix, same idiom already established in that sibling function.
     const crypto = await import('node:crypto')
-    const pin = String(1000 + crypto.randomInt(0, 9000))
-
-    const { data, error } = await supabaseAdmin
-      .from('team_members')
-      .insert({ ...fieldsWithDefaults, tenant_id: tenantId, pin })
-      .select()
-      .single()
+    let data, error
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const pin = String(1000 + crypto.randomInt(0, 9000))
+      ;({ data, error } = await supabaseAdmin
+        .from('team_members')
+        .insert({ ...fieldsWithDefaults, tenant_id: tenantId, pin })
+        .select()
+        .single())
+      if (!error || !/duplicate|unique/i.test(error.message)) break
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })

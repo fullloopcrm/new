@@ -17,15 +17,14 @@
 -- client-auth.ts), not part of this invariant.
 --
 -- Going forward this also backstops the write sites that mint PINs
--- (client/collect, client/verify-code, client/book): none of them currently
--- check for a collision before inserting, so a 23505 on this index is the
--- real collision-prevention mechanism today. Those call sites are NOT
--- updated in this pass to catch-and-retry on 23505 (unlike
--- 065_unique_payments_reference.sql's processPayment(), which was updated
--- in the same commit as its index) -- a raw insert failure there currently
--- surfaces as a generic 500 rather than a silent duplicate, which is a
--- known, flagged tradeoff, not an oversight: retry-on-collision at those
--- three sites is a natural follow-up once this index is confirmed live.
+-- (client/collect, client/verify-code, client/book). UPDATE 2026-07-18: the
+-- flagged follow-up landed -- all three now regenerate via
+-- randomClientPin() (src/lib/client-auth.ts) and retry up to
+-- MAX_CLIENT_PIN_ATTEMPTS on a 23505 from this index, same pattern
+-- 065_unique_payments_reference.sql's processPayment() and POST
+-- /api/invoices already use for their own collision classes, instead of
+-- surfacing a raw insert failure as a generic 500 (client/book) or failing a
+-- real customer's booking / a just-verified login outright.
 
 do $$
 declare

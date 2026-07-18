@@ -7,7 +7,7 @@ import { attributeCollectForm } from '@/lib/attribution'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-import { randomInt } from 'crypto'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 
 export async function POST(request: Request) {
   const tenant = await getTenantFromHeaders()
@@ -122,22 +122,35 @@ export async function POST(request: Request) {
       if (error || !updated) throw error || new Error('update failed')
       data = updated as typeof data
     } else {
-      const { data: inserted, error } = await supabaseAdmin
-        .from('clients')
-        .insert({
-          tenant_id: tenant.id,
-          name,
-          email: email || null,
-          phone,
-          address: address || null,
-          notes: notesValue,
-          referrer_id: referrerId,
-          pet_name: pet_name || null,
-          pet_type: pet_type || null,
-          pin: String(100000 + randomInt(0, 900000)),
-        })
-        .select()
-        .single()
+      // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+      // uniquely constrains (tenant_id, pin) with no application-layer check
+      // before this insert -- a fresh random PIN can collide with an existing
+      // client's (birthday-paradox odds that grow with the tenant's client
+      // count), and this is a real lead's first submission, not a retry-safe
+      // background job. Regenerate-and-retry on 23505, same pattern POST
+      // /api/invoices uses for invoice_number/public_token collisions --
+      // without it, a collision here threw the raw insert error and the whole
+      // submission failed with a generic 500, silently losing the lead.
+      let inserted, error
+      for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+        ;({ data: inserted, error } = await supabaseAdmin
+          .from('clients')
+          .insert({
+            tenant_id: tenant.id,
+            name,
+            email: email || null,
+            phone,
+            address: address || null,
+            notes: notesValue,
+            referrer_id: referrerId,
+            pet_name: pet_name || null,
+            pet_type: pet_type || null,
+            pin: randomClientPin(),
+          })
+          .select()
+          .single())
+        if (!error || error.code !== '23505') break
+      }
       if (error || !inserted) throw error || new Error('insert failed')
       data = inserted as typeof data
     }

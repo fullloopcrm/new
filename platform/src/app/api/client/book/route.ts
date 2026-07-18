@@ -17,7 +17,8 @@ import { scoreTeamForBooking } from '@/lib/smart-schedule'
 import { getTenantFromHeaders } from '@/lib/tenant-site'
 import { rateLimitDb } from '@/lib/rate-limit-db'
 import { escapeLikeValue } from '@/lib/postgrest-safe'
-import { randomInt, randomBytes } from 'crypto'
+import { randomBytes } from 'crypto'
+import { randomClientPin, MAX_CLIENT_PIN_ATTEMPTS } from '@/lib/client-auth'
 import { audit } from '@/lib/audit'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
@@ -120,19 +121,30 @@ export async function POST(request: Request) {
       }
 
       if (!clientId) {
-        const { data: newClient, error: createErr } = await supabaseAdmin
-          .from('clients')
-          .insert({
-            tenant_id: tenant.id,
-            name: body.name as string,
-            email: emailLower,
-            phone,
-            address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
-            notes: (body.notes as string) || '',
-            pin: String(100000 + randomInt(0, 900000)),
-          })
-          .select()
-          .single()
+        // idx_clients_tenant_pin_unique (2026_07_17_clients_pin_unique.sql)
+        // uniquely constrains (tenant_id, pin) with no application-layer check
+        // before this insert -- and this is the public self-service booking
+        // funnel: a collision here fails a real customer's booking (and its
+        // revenue) outright instead of just retrying with a fresh PIN, same
+        // pattern POST /api/invoices uses for invoice_number/public_token
+        // collisions.
+        let newClient, createErr
+        for (let attempt = 0; attempt < MAX_CLIENT_PIN_ATTEMPTS; attempt++) {
+          ;({ data: newClient, error: createErr } = await supabaseAdmin
+            .from('clients')
+            .insert({
+              tenant_id: tenant.id,
+              name: body.name as string,
+              email: emailLower,
+              phone,
+              address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
+              notes: (body.notes as string) || '',
+              pin: randomClientPin(),
+            })
+            .select()
+            .single())
+          if (!createErr || createErr.code !== '23505') break
+        }
         if (createErr || !newClient) {
           return NextResponse.json({ error: `Failed to create client: ${createErr?.message}` }, { status: 500 })
         }

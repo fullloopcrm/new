@@ -157,6 +157,8 @@ vi.mock('@/lib/client-auth', () => ({
     maxAge: 3600,
     path: '/',
   })),
+  randomClientPin: vi.fn(() => '482913'),
+  MAX_CLIENT_PIN_ATTEMPTS: 5,
 }))
 
 import { POST } from './route'
