@@ -27,12 +27,43 @@ export async function getTenantDomains(tenantId: string): Promise<TenantDomain[]
   return (data || []) as TenantDomain[]
 }
 
-// Get all domains as a Set for fast lookup (includes www variants)
+// Get all domains as a Set for fast lookup (includes www variants).
+//
+// Unions tenant_domains rows WITH the legacy tenants.domain/domain_name
+// columns — this is deliberately NOT a first-wins fallback like
+// getPrimaryTenantDomain()/getTenantByDomain(). Those resolve "which ONE host
+// serves this tenant right now"; this answers "which hosts count as THIS
+// tenant's own site" for referrer-attribution callers (isOwnedReferrer). A
+// tenant already migrated to tenant_domains can still have a live (or
+// recently live) legacy tenants.domain — dropping it from the set would
+// misclassify that tenant's own self-referral traffic as an external
+// referrer. Previously read tenant_domains only, so a tenant whose site
+// still lived solely at tenants.domain (not yet migrated) got an EMPTY owned
+// set — every visit from their own domain looked like an external referrer.
 export async function getOwnedDomainSet(tenantId: string): Promise<Set<string>> {
   const domains = await getTenantDomains(tenantId)
-  return new Set(
-    domains.flatMap(d => [d.domain, `www.${d.domain}`])
-  )
+  const owned = new Set(domains.flatMap(d => [d.domain, `www.${d.domain}`]))
+
+  const { data: tenant, error } = await supabaseAdmin
+    .from('tenants')
+    .select('domain, domain_name')
+    .eq('id', tenantId)
+    .maybeSingle()
+
+  if (error) {
+    console.error(`OWNED_DOMAIN_SET_TENANT_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+    throw new Error(`OWNED_DOMAIN_SET_TENANT_LOOKUP_ERROR tenant_id=${tenantId} error=${error.message}`)
+  }
+
+  for (const raw of [tenant?.domain, tenant?.domain_name]) {
+    if (!raw) continue
+    const clean = raw.trim().toLowerCase().replace(/^https?:\/\//, '').replace(/\/.*$/, '').replace(/^www\./, '')
+    if (!clean) continue
+    owned.add(clean)
+    owned.add(`www.${clean}`)
+  }
+
+  return owned
 }
 
 // Resolve a tenant's primary active domain from tenant_domains (tenant_id ->

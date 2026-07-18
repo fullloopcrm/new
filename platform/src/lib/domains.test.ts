@@ -72,21 +72,57 @@ describe('getTenantDomains', () => {
 })
 
 describe('getOwnedDomainSet', () => {
-  it('includes both the bare domain and its www. variant for every row', async () => {
-    resolve = () => ({
-      data: [
-        { id: 'd1', tenant_id: 't-1', domain: 'acme.com', type: 'primary', active: true },
-        { id: 'd2', tenant_id: 't-1', domain: 'brooklyn.acme.com', type: 'neighborhood', active: true },
-      ],
-    })
+  it('includes both the bare domain and its www. variant for every row, unioned with the legacy tenants.domain/domain_name columns', async () => {
+    resolve = (table) =>
+      table === 'tenant_domains'
+        ? {
+            data: [
+              { id: 'd1', tenant_id: 't-1', domain: 'acme.com', type: 'primary', active: true },
+              { id: 'd2', tenant_id: 't-1', domain: 'brooklyn.acme.com', type: 'neighborhood', active: true },
+            ],
+          }
+        : { data: { domain: 'legacy-acme.com', domain_name: null } }
     const set = await getOwnedDomainSet('t-1')
-    expect(set).toEqual(new Set(['acme.com', 'www.acme.com', 'brooklyn.acme.com', 'www.brooklyn.acme.com']))
+    expect(set).toEqual(
+      new Set([
+        'acme.com', 'www.acme.com',
+        'brooklyn.acme.com', 'www.brooklyn.acme.com',
+        'legacy-acme.com', 'www.legacy-acme.com',
+      ]),
+    )
   })
 
-  it('is empty for a tenant with no domains', async () => {
-    resolve = () => ({ data: [] })
+  it('MASKED-ORIGIN-GAP PROBE: falls back to the legacy tenants.domain when tenant_domains is empty — a tenant not yet migrated must still recognize its own site as owned, not just tenant_domains-migrated ones', async () => {
+    resolve = (table) =>
+      table === 'tenant_domains'
+        ? { data: [] }
+        : { data: { domain: 'https://WWW.Legacy-Only.com/', domain_name: null } }
+    const set = await getOwnedDomainSet('t-1')
+    expect(set).toEqual(new Set(['legacy-only.com', 'www.legacy-only.com']))
+  })
+
+  it('is empty for a tenant with no tenant_domains rows and no legacy domain/domain_name', async () => {
+    resolve = (table) => (table === 'tenant_domains' ? { data: [] } : { data: null })
     const set = await getOwnedDomainSet('t-1')
     expect(set.size).toBe(0)
+  })
+
+  it('CROSS-TENANT PROBE: a domain that belongs only to a DIFFERENT tenant is never in this tenant\'s owned set', async () => {
+    resolve = (table) =>
+      table === 'tenant_domains'
+        ? { data: [] }
+        : { data: { domain: 'this-tenant.com', domain_name: null } }
+    const set = await getOwnedDomainSet('t-1')
+    expect(set.has('other-tenant.com')).toBe(false)
+    expect(set.has('www.other-tenant.com')).toBe(false)
+  })
+
+  it('MASKED-ERROR PROBE: throws loud on a genuine DB error from the legacy tenants lookup instead of silently omitting it', async () => {
+    resolve = (table) =>
+      table === 'tenant_domains'
+        ? { data: [] }
+        : { data: null, error: { message: 'connection timeout' } }
+    await expect(getOwnedDomainSet('t-1')).rejects.toThrow(/OWNED_DOMAIN_SET_TENANT_LOOKUP_ERROR/)
   })
 })
 
