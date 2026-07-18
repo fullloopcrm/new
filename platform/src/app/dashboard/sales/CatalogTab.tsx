@@ -26,6 +26,9 @@ type Item = {
   taxable: boolean
   category: string | null
   default_duration_hours: number | null
+  default_labor_rate_cents: number | null
+  default_overhead_cents: number | null
+  default_target_margin_bps: number | null
   active: boolean
 }
 
@@ -53,11 +56,19 @@ function toCents(v: string): number | undefined {
   const n = Number(v)
   return Number.isFinite(n) ? Math.round(n * 100) : undefined
 }
+function centsOrNull(v: string): number | null {
+  return toCents(v) ?? null
+}
+function pct(bps: number | null | undefined): string {
+  if (bps == null) return '—'
+  return (bps / 100).toFixed(1) + '%'
+}
 
 const empty = {
   item_type: 'service', name: '', category: '', description: '', notes: '', image_url: '',
   per_unit: 'hour', unit_label: '', price: '', min_charge: '', cost: '',
   taxable: true, default_duration_hours: '',
+  labor_rate: '', overhead: '', target_margin: '',
 }
 
 export default function CatalogTab() {
@@ -67,6 +78,9 @@ export default function CatalogTab() {
   const [err, setErr] = useState('')
   const [saving, setSaving] = useState(false)
   const [photoUploading, setPhotoUploading] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editForm, setEditForm] = useState({ ...empty })
+  const [editSaving, setEditSaving] = useState(false)
 
   function load() {
     setLoading(true)
@@ -92,6 +106,62 @@ export default function CatalogTab() {
     } finally { setPhotoUploading(false) }
   }
 
+  function startEdit(it: Item) {
+    setErr('')
+    setEditingId(it.id)
+    setEditForm({
+      item_type: it.item_type,
+      name: it.name,
+      category: it.category || '',
+      description: it.description || '',
+      notes: it.notes || '',
+      image_url: it.image_url || '',
+      per_unit: it.per_unit,
+      unit_label: it.unit_label || '',
+      price: it.price_cents != null ? String(it.price_cents / 100) : '',
+      min_charge: it.min_charge_cents != null ? String(it.min_charge_cents / 100) : '',
+      cost: it.cost_cents != null ? String(it.cost_cents / 100) : '',
+      taxable: it.taxable,
+      default_duration_hours: it.default_duration_hours != null ? String(it.default_duration_hours) : '',
+      labor_rate: it.default_labor_rate_cents != null ? String(it.default_labor_rate_cents / 100) : '',
+      overhead: it.default_overhead_cents != null ? String(it.default_overhead_cents / 100) : '',
+      target_margin: it.default_target_margin_bps != null ? String(it.default_target_margin_bps / 100) : '',
+    })
+  }
+  function cancelEdit() {
+    setEditingId(null)
+  }
+  async function saveEdit() {
+    setErr('')
+    if (!editForm.name.trim()) { setErr('Name is required.'); return }
+    setEditSaving(true)
+    try {
+      const res = await fetch('/api/catalog', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: editingId,
+          item_type: editForm.item_type,
+          name: editForm.name.trim(),
+          category: editForm.category.trim() || null,
+          per_unit: editForm.per_unit,
+          unit_label: editForm.per_unit === 'custom' ? (editForm.unit_label.trim() || null) : null,
+          price_cents: centsOrNull(editForm.price) ?? 0,
+          min_charge_cents: centsOrNull(editForm.min_charge),
+          cost_cents: centsOrNull(editForm.cost),
+          taxable: editForm.taxable,
+          default_duration_hours: editForm.default_duration_hours ? Number(editForm.default_duration_hours) : null,
+          default_labor_rate_cents: centsOrNull(editForm.labor_rate),
+          default_overhead_cents: centsOrNull(editForm.overhead),
+          default_target_margin_bps: editForm.target_margin.trim() ? Math.round(Number(editForm.target_margin) * 100) : null,
+        }),
+      })
+      if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not save item.'); return }
+      setEditingId(null)
+      load()
+    } finally { setEditSaving(false) }
+  }
+
   async function addItem() {
     setErr('')
     if (!form.name.trim()) { setErr('Name is required.'); return }
@@ -114,6 +184,9 @@ export default function CatalogTab() {
           cost_cents: toCents(form.cost),
           taxable: form.taxable,
           default_duration_hours: form.default_duration_hours ? Number(form.default_duration_hours) : undefined,
+          default_labor_rate_cents: toCents(form.labor_rate),
+          default_overhead_cents: toCents(form.overhead),
+          default_target_margin_bps: form.target_margin.trim() ? Math.round(Number(form.target_margin) * 100) : undefined,
         }),
       })
       if (!res.ok) { const d = await res.json().catch(() => null); setErr((d && d.error) || 'Could not add item.'); return }
@@ -189,6 +262,18 @@ export default function CatalogTab() {
           {form.per_unit !== 'custom' && <div><label style={lbl}>Est. hrs <HelpTip text="Typical duration — used to pre-fill the schedule window when this becomes a job. Optional." /></label><input style={inp} value={form.default_duration_hours} onChange={(e) => setForm({ ...form, default_duration_hours: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>}
         </div>
 
+        <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--sl-muted)', fontWeight: 600, margin: '14px 0 8px' }}>
+          Budget template <HelpTip text="Optional per-service defaults. When this item appears on a proposal, they pre-fill that quote's Master Budget instead of starting at zero." />
+        </div>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
+          <div><label style={lbl}>Labor rate $/hr <HelpTip text="Your labor cost per hour for this item — multiplied by Est. hrs above to seed the budget's labor line." /></label>
+            <input style={inp} value={form.labor_rate} onChange={(e) => setForm({ ...form, labor_rate: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+          <div><label style={lbl}>Overhead $ <HelpTip text="A flat overhead cost per unit sold — seeds the budget's 'other' line." /></label>
+            <input style={inp} value={form.overhead} onChange={(e) => setForm({ ...form, overhead: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+          <div><label style={lbl}>Target margin % <HelpTip text="The margin you want to hit when this item is sold — seeds the budget's target margin." /></label>
+            <input style={inp} value={form.target_margin} onChange={(e) => setForm({ ...form, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+        </div>
+
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: 12 }}>
           <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
             <input type="checkbox" checked={form.taxable} onChange={(e) => setForm({ ...form, taxable: e.target.checked })} /> Taxable
@@ -204,6 +289,54 @@ export default function CatalogTab() {
         {!loading && items.length === 0 && <div className="sl-empty">No items yet — add your first above.</div>}
         {items.map((it) => {
           const margin = it.cost_cents != null && it.price_cents ? Math.round(((it.price_cents - it.cost_cents) / it.price_cents) * 100) : null
+          const hasBudgetTemplate = it.default_labor_rate_cents != null || it.default_overhead_cents != null || it.default_target_margin_bps != null
+
+          if (editingId === it.id) {
+            return (
+              <div key={it.id} style={{ background: 'var(--sl-canvas,#fff)', border: '1px solid var(--sl-line,#e6e6e0)', borderRadius: 12, padding: 14, marginBottom: 10 }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '0.8fr 1.6fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div><label style={lbl}>Type</label>
+                    <select style={inp} value={editForm.item_type} onChange={(e) => setEditForm({ ...editForm, item_type: e.target.value })}>{TYPES.map((t) => <option key={t} value={t}>{t}</option>)}</select>
+                  </div>
+                  <div><label style={lbl}>Name</label><input style={inp} value={editForm.name} onChange={(e) => setEditForm({ ...editForm, name: e.target.value })} /></div>
+                  <div><label style={lbl}>Category</label><input style={inp} value={editForm.category} onChange={(e) => setEditForm({ ...editForm, category: e.target.value })} /></div>
+                </div>
+
+                <div style={{ display: 'grid', gridTemplateColumns: '1.1fr 0.9fr 0.9fr 0.9fr 0.9fr', gap: 10, alignItems: 'end', marginBottom: 10 }}>
+                  <div><label style={lbl}>Unit</label>
+                    <select style={inp} value={editForm.per_unit} onChange={(e) => setEditForm({ ...editForm, per_unit: e.target.value })}>{UNITS.map((u) => <option key={u.v} value={u.v}>{u.l}</option>)}</select>
+                  </div>
+                  {editForm.per_unit === 'custom'
+                    ? <div><label style={lbl}>Unit label</label><input style={inp} value={editForm.unit_label} onChange={(e) => setEditForm({ ...editForm, unit_label: e.target.value })} placeholder="per window" /></div>
+                    : <div><label style={lbl}>Price $ / {unitShort(editForm.per_unit, null)}</label><input style={inp} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value.replace(/[^\d.]/g, '') })} /></div>}
+                  {editForm.per_unit === 'custom' && <div><label style={lbl}>Price $</label><input style={inp} value={editForm.price} onChange={(e) => setEditForm({ ...editForm, price: e.target.value.replace(/[^\d.]/g, '') })} /></div>}
+                  <div><label style={lbl}>Min charge $</label><input style={inp} value={editForm.min_charge} onChange={(e) => setEditForm({ ...editForm, min_charge: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+                  <div><label style={lbl}>Cost $</label><input style={inp} value={editForm.cost} onChange={(e) => setEditForm({ ...editForm, cost: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+                  {editForm.per_unit !== 'custom' && <div><label style={lbl}>Est. hrs</label><input style={inp} value={editForm.default_duration_hours} onChange={(e) => setEditForm({ ...editForm, default_duration_hours: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>}
+                </div>
+
+                <div style={{ fontSize: 10, textTransform: 'uppercase', letterSpacing: '0.06em', color: 'var(--sl-muted)', fontWeight: 600, margin: '4px 0 8px' }}>
+                  Budget template <HelpTip text="Optional per-service defaults. When this item appears on a proposal, they pre-fill that quote's Master Budget instead of starting at zero." />
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10, marginBottom: 10 }}>
+                  <div><label style={lbl}>Labor rate $/hr</label><input style={inp} value={editForm.labor_rate} onChange={(e) => setEditForm({ ...editForm, labor_rate: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+                  <div><label style={lbl}>Overhead $</label><input style={inp} value={editForm.overhead} onChange={(e) => setEditForm({ ...editForm, overhead: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+                  <div><label style={lbl}>Target margin %</label><input style={inp} value={editForm.target_margin} onChange={(e) => setEditForm({ ...editForm, target_margin: e.target.value.replace(/[^\d.]/g, '') })} placeholder="—" /></div>
+                </div>
+
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <label style={{ fontSize: 13, color: 'var(--sl-ink)', display: 'flex', alignItems: 'center', gap: 6 }}>
+                    <input type="checkbox" checked={editForm.taxable} onChange={(e) => setEditForm({ ...editForm, taxable: e.target.checked })} /> Taxable
+                  </label>
+                  <span style={{ display: 'flex', gap: 8 }}>
+                    <button type="button" onClick={cancelEdit} style={{ fontSize: 12, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '5px 10px', cursor: 'pointer' }}>Cancel</button>
+                    <button type="button" className="sl-newlead-btn" disabled={editSaving} onClick={saveEdit}>{editSaving ? 'Saving…' : 'Save'}</button>
+                  </span>
+                </div>
+              </div>
+            )
+          }
+
           return (
             <div key={it.id} style={{ display: 'flex', alignItems: 'center', gap: 10, padding: '10px 0', borderBottom: '1px solid var(--sl-line,#eee)', opacity: it.active ? 1 : 0.5 }}>
               <span className={`sl-deal-status ${it.item_type === 'product' ? 'sold' : it.item_type === 'project' ? 'pending' : 'lost'}`} style={{ minWidth: 62, textAlign: 'center' }}>{it.item_type}</span>
@@ -222,10 +355,18 @@ export default function CatalogTab() {
                   {it.taxable ? 'taxable' : 'no tax'}
                   {margin != null ? ` · ${margin}% margin` : ''}
                 </span>
+                {hasBudgetTemplate && (
+                  <span style={{ display: 'block', fontSize: 11, color: 'var(--sl-muted)', marginTop: 2 }} title="Budget template — pre-fills this quote's Master Budget">
+                    budget: {it.default_labor_rate_cents != null ? `${money(it.default_labor_rate_cents)}/hr labor · ` : ''}
+                    {it.default_overhead_cents != null ? `${money(it.default_overhead_cents)} overhead · ` : ''}
+                    {it.default_target_margin_bps != null ? `${pct(it.default_target_margin_bps)} target margin` : ''}
+                  </span>
+                )}
               </span>
               <span style={{ fontSize: 14, color: 'var(--sl-ink)', minWidth: 120, textAlign: 'right' }}>
                 {money(it.price_cents)} <span style={{ color: 'var(--sl-muted)', fontSize: 11 }}>/ {unitShort(it.per_unit, it.unit_label)}</span>
               </span>
+              <button type="button" onClick={() => startEdit(it)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>Edit</button>
               <button type="button" onClick={() => toggleActive(it.id, it.active)} style={{ fontSize: 11, background: 'none', border: '1px solid var(--sl-line,#ddd)', borderRadius: 6, padding: '3px 8px', cursor: 'pointer' }}>{it.active ? 'Active' : 'Off'}</button>
               <button type="button" onClick={() => remove(it.id)} style={{ fontSize: 11, background: 'none', border: 'none', color: '#c0392b', cursor: 'pointer' }}>Delete</button>
             </div>
