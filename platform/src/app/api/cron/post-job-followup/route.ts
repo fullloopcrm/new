@@ -48,17 +48,12 @@ export async function GET(request: Request) {
         .eq('tenant_id', tenant.id)
         .eq('status', 'completed')
         .is('job_id', null)
+        .is('review_followup_sent_at', null)
         .gte('check_out_time', threeHoursAgo.toISOString())
         .lte('check_out_time', twoHoursAgo.toISOString())
         .limit(500)
 
       for (const booking of bookings || []) {
-        // Skip if already sent
-        if (booking.notes?.includes('[FOLLOWUP_SENT]')) {
-          skipped++
-          continue
-        }
-
         const client = booking.clients as unknown as { name: string; phone: string | null; sms_consent?: boolean | null } | null
         if (!client?.phone) {
           skipped++
@@ -83,6 +78,31 @@ export async function GET(request: Request) {
             ? `https://${tenant.domain.replace(/^https?:\/\//, '').replace(/\/+$/, '')}/reviews/submit`
             : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
 
+        // Claim BEFORE sending: compare-and-swap update conditioned on
+        // review_followup_sent_at still being null. Two overlapping cron
+        // invocations racing on the same booking can no longer both send --
+        // the loser's claim affects 0 rows and it skips. Also replaces the
+        // old notes-substring marker as the dedup source: any later admin
+        // edit to notes (PATCH /api/bookings/:id allows it) used to silently
+        // erase the marker and trigger a duplicate send on the next pass --
+        // this column is never touched by that route, so it can't happen.
+        const nowIso = new Date().toISOString()
+        const updatedNotes = booking.notes
+          ? `${booking.notes}\n[FOLLOWUP_SENT] ${nowIso}`
+          : `[FOLLOWUP_SENT] ${nowIso}`
+
+        const { data: claimed } = await supabaseAdmin
+          .from('bookings')
+          .update({ review_followup_sent_at: nowIso, notes: updatedNotes })
+          .eq('id', booking.id)
+          .is('review_followup_sent_at', null)
+          .select('id')
+
+        if (!claimed || claimed.length === 0) {
+          skipped++
+          continue // lost the race to a concurrent/overlapping invocation
+        }
+
         try {
           await sendSMS({
             to: client.phone,
@@ -90,16 +110,6 @@ export async function GET(request: Request) {
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
           })
-
-          // Mark booking notes with [FOLLOWUP_SENT]
-          const updatedNotes = booking.notes
-            ? `${booking.notes}\n[FOLLOWUP_SENT] ${new Date().toISOString()}`
-            : `[FOLLOWUP_SENT] ${new Date().toISOString()}`
-
-          await supabaseAdmin
-            .from('bookings')
-            .update({ notes: updatedNotes })
-            .eq('id', booking.id)
 
           sent++
         } catch (smsErr) {
@@ -126,6 +136,10 @@ export async function GET(request: Request) {
           : `https://${tenant.slug}.homeservicesbusinesscrm.com/reviews/submit`)
 
       for (const job of doneJobs || []) {
+        // Cheap pre-filter only -- NOT the atomic claim (job_events carries
+        // no constraint backing this count(), so two overlapping invocations
+        // could both read 0 here). Kept purely to skip an obviously-already-
+        // handled job before the network round trip below.
         const { count: already } = await supabaseAdmin
           .from('job_events')
           .select('id', { count: 'exact', head: true })
@@ -138,15 +152,31 @@ export async function GET(request: Request) {
         if (jc.sms_consent === false) { skipped++; continue }
         const jFirst = jc.name?.split(' ')[0] || 'there'
 
+        // Claim BEFORE sending: insert the job_events row first -- the
+        // partial unique index on (job_id) WHERE event_type =
+        // 'review_requested' is the atomic dedup boundary, not the count()
+        // check above. Same bug class + fix shape as outreach's
+        // insert-then-send fix (this session, 17:50): sending first and
+        // logging after left a window where two overlapping invocations
+        // could both text the client for the same completed job before
+        // either's insert landed.
+        const { error: claimErr } = await supabaseAdmin.from('job_events').insert({
+          tenant_id: tenant.id, job_id: job.id, event_type: 'review_requested', detail: {},
+        })
+        if (claimErr) {
+          if (!claimErr.message.includes('duplicate key')) {
+            errors.push(`Job review claim ${job.id}: ${claimErr.message}`)
+          }
+          skipped++
+          continue // lost the race, or the claim write itself failed -- either way, do not send
+        }
+
         try {
           await sendSMS({
             to: jc.phone,
             body: `Hi ${jFirst}! How did everything go? We'd love your feedback — takes 30 sec:\n${jobReviewUrl}\nReply STOP to opt out.`,
             telnyxApiKey: tenant.telnyx_api_key,
             telnyxPhone: tenant.telnyx_phone,
-          })
-          await supabaseAdmin.from('job_events').insert({
-            tenant_id: tenant.id, job_id: job.id, event_type: 'review_requested', detail: {},
           })
           sent++
         } catch (smsErr) {
