@@ -223,10 +223,20 @@ export async function createTenantFromLead(
   // Owner login: create an owner member with a PIN so they can sign in on the
   // PIN pad — no email, no password. The plaintext PIN is returned ONCE for the
   // admin to relay (pin_hash is one-way; it can't be recovered later).
+  //
+  // error checked explicitly (not discarded): the insert's own returned
+  // `error` was never read, only exceptions were caught — but supabase-js
+  // resolves DB errors (RLS deny, constraint violation) into that `error`
+  // field rather than throwing. A genuine failure there used to leave
+  // `ownerPin` set to a real-looking PIN with no matching tenant_members row,
+  // returned as if provisioning succeeded. The one caller that surfaces this
+  // to a human (admin/sales/LeadsPanel.tsx) displays exactly that dead PIN
+  // for the admin to relay to the owner, who could never log in with it —
+  // silently, since this path returns `ok:true` regardless.
   let ownerPin: string | null = null
   try {
     ownerPin = String(crypto.randomInt(100000, 1000000)) // 6-digit
-    await supabaseAdmin.from('tenant_members').insert({
+    const { error: memberInsertError } = await supabaseAdmin.from('tenant_members').insert({
       tenant_id: tenant.id,
       email: lead.email || null,
       name: lead.contact_name || lead.business_name || 'Owner',
@@ -234,6 +244,10 @@ export async function createTenantFromLead(
       pin_hash: hashAdminPin(ownerPin),
       pin_set_at: new Date().toISOString(),
     })
+    if (memberInsertError) {
+      console.error('[create-tenant-from-lead] owner member/PIN insert error:', memberInsertError.message)
+      ownerPin = null
+    }
   } catch (e) {
     console.error('[create-tenant-from-lead] owner member/PIN failed:', e)
     ownerPin = null
