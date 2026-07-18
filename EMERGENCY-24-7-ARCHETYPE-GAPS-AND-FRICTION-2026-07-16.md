@@ -11822,3 +11822,78 @@ Neither is wired into any .github/workflows file today (grepped both
 script basenames across .github/workflows/, zero hits) -- they are
 run-manually/local-dev scripts, not CI-gating, so they sit outside this
 lane's CI-wiring scope. Flagging for whichever lane owns those scripts.
+
+## (232) Fresh ground -- continuing item (231)'s surface: sql()'s RESPONSE
+side had the sibling gap to (231)'s REQUEST-side (hang) fix
+
+Before touching anything, swept the full 2130-line reconcile script (all
+Drift A-AM checks, the token guard, and the CLI) plus ci.yml/db-backup.yml/
+tenant-config-reconcile.yml end to end looking for a genuinely new gap on top
+of the 27 guard files already in this lane (curl/fetch timeouts, SHA pins,
+Telegram body encoding, retention-days, dump-format flags, purge ordering,
+schedule/push-branch scoping, gate-neutering/conditional-skip, tenant-scope/
+lint/typecheck-scope invocation, install integrity, resilience knobs,
+checkout-credential/untrusted-ref, workflow permissions). Nearly every angle
+checked (db-backup.yml's non-`--data-urlencode` alert body, working-directory
+defaults, node-version quoting, the checkout-block regex's over-broad match)
+turned out to be either already covered, or not a real gap (the db-backup
+alert text is static/single-line, so bare `-d text=` isn't actually broken
+today -- forcing it to match ci.yml's shape would be an unjustified behavior
+change, not a fix).
+
+The one real, unguarded gap: item (231) fixed sql()'s REQUEST side (the
+fetch() call itself could hang forever, no `signal:`). It left the RESPONSE
+side untouched -- `const d = await r.json()` ran unconditionally, with no
+check of `r.ok`/`r.status` first. api.supabase.com can return a non-2xx for
+reasons that have nothing to do with a real drift bug: an expired/rotated
+SUPABASE_ACCESS_TOKEN_FULLLOOP (401), a rate limit (429), or a plain outage
+(5xx -- and a 5xx from a gateway in front of that API can come back as an
+HTML error page, not JSON). Falling straight into `r.json()` on that path
+throws a bare, opaque `SyntaxError: Unexpected token '<'...` with no HTTP
+status and no indication of which of this gate's up-to-5 per-run queries
+failed. For a MERGE-BLOCKING CI gate, that is the wrong failure shape: a
+human triaging a red PR check sees a raw stack trace that looks identical
+whether the cause is "Supabase token expired" or "this PR introduced a real
+routing-drift bug" -- exactly the ambiguity a fast, actionable failure
+message exists to remove. The pre-existing `!Array.isArray(d)` error path had
+the same weakness one layer in: its message stringified the response body but
+never said which of the 5 queries (tenants / tenant_domains / allTenantDomains
+/ allTenants / Drift L's resolvableSlugs) had actually failed.
+
+**Fixed:** added an `if (!r.ok)` check before `r.json()`, throwing
+`SQL ${r.status} ${r.statusText} for query "<first 80 chars>": <response
+body, first 200 chars>`. Also added the same query-text context to the
+pre-existing `!Array.isArray(d)` throw. Closed with a new guard,
+`reconcile-sql-http-status-guard.test.ts`, pure-source-reading the same
+`sql()` helper block `reconcile-sql-fetch-timeout-guard.test.ts` (item
+(231)'s own guard) already anchors, checking: the `r.ok` check exists and
+runs BEFORE `r.json()`; its error message carries `r.status`/`r.statusText`;
+and every `throw new Error(...)` in the helper interpolates the query text.
+
+**Mutation-verified live:** ran the new guard against the pre-fix `sql()`
+(bare `await r.json()`, no `r.ok` check, `!Array.isArray(d)` message with no
+query text) -- failed on both the missing-status-check and
+missing-query-context assertions, with the exact predicted messages. Applied
+the fix, guard went green (5/5). Reverted to the pre-fix block again --
+guard caught it again identically. Restored from a saved pre-mutation
+backup, confirmed `git diff --stat scripts/reconcile-tenant-config.mjs`
+showed only the intended fix before and after the round-trip.
+
+Full suite + tsc + eslint clean after this round: `tsc --noEmit --pretty
+false` zero errors, eslint clean on both touched files, full vitest suite
+green (493 files / 2462 tests -- the new file's 5 assertions plus every
+prior test still passing).
+`node scripts/reconcile-tenant-config.mjs` is leader-run-only (blocked by a
+local hook -- it touches live prod Supabase even in the clean-skip path), so
+the token-guard clean-skip contract was verified via
+reconcile-gate-wiring.test.ts / reconcile-token-guard-home-isolation.test.ts
+(both green in the full-suite run) rather than a direct local invocation.
+scripts/reconcile-tenant-config.mjs WAS intentionally touched this round (an
+error-message-clarity fix to its own sql() helper) -- a genuine production
+gap on the gate script's failure-mode quality, not only a coverage gap.
+
+No further sibling surface opened up from this fix (unlike items (227)-(230),
+which each opened onto another file's curl call, this fix's request-side and
+response-side halves are both in the SAME shared `sql()` helper used by all 5
+per-run calls uniformly, so there is no separate call site left uncovered) --
+step (2) of this round's queue folds into this single item.
