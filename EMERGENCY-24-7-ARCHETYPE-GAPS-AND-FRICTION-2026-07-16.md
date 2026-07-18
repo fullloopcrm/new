@@ -14077,3 +14077,101 @@ first, per standing instructions) -- no live reconcile run against
 Supabase attempted. Lib + test-file changes only
 (`scripts/audit-tenant-scope.mjs`, `src/lib/audit-tenant-scope-guard.test.ts`),
 this lane's own gate, no push/deploy/DB write.
+
+## (264) LEADER's 12:09 queue item (1) -- new fresh-ground surface on this
+lane's own CI wiring, not yet swept this session: `ci.yml`'s and
+`tenant-config-reconcile.yml`'s `identify-failed-step` step -- added by
+items (244)/(246) so the Telegram alert names WHICH step actually broke --
+itself depended on a working directory that the one step it most needs to
+correctly diagnose can fail to create.
+
+`ci.yml` sets `defaults: run: working-directory: platform` at the job level
+(inherited by every step, including `identify-failed-step`);
+`tenant-config-reconcile.yml`'s copy of the same step declared an explicit
+`working-directory: platform` directly. In both files that directory is
+created BY the checkout step, as part of checking out the repo -- it does
+not exist until checkout succeeds. `identify-failed-step` runs on
+`if: failure()` (so it fires no matter which earlier step failed) and its
+own shell script explicitly checks `steps.checkout.outcome = "failure"`,
+setting `failed="Checkout"` so the alert can name it. But if checkout is
+the step that actually failed, `platform/` was never created -- so this
+step's own `working-directory: platform` fails to resolve before the
+runner ever executes its `run:` script, meaning it never reaches its own
+`steps.checkout.outcome` check. `failed_step` is then never set, and
+notify-failure's Telegram TEXT renders `failed step: ` with nothing after
+the colon -- for exactly the one failure case this diagnostic step exists
+to name. Every OTHER step's failure is unaffected: checkout succeeding is
+a precondition for setup-node/install/etc. to run at all, so their failure
+implies `platform/` already exists by the time `identify-failed-step`
+would need it.
+
+Same root-cause shape as items (237)-(239)'s "zero test coverage on a
+closure inside main()" and (233)-(236)'s parser-assumption landmines: a
+piece of diagnostic/guard tooling whose own correctness silently depends
+on an assumption ("the directory I run in exists") that the exact failure
+mode it's built to catch is the one thing that can violate it -- landmine-
+only until the day checkout itself actually fails (a bad ref, a GitHub
+outage, an auth hiccup), at which point the on-call recipient gets a
+blank "failed step: " instead of "Checkout" on the one call where a fast,
+correct diagnosis matters most (nothing else in the job ran; the whole
+gate is dark).
+
+Checked queue item (2) ("continue whichever surface (1) opens up") for
+sibling instances: `db-backup.yml`'s own alert step lives in the SAME job
+as the steps it reports on (no separate `identify-failed-step` job-output
+step, no job-level `defaults.run.working-directory` at all -- confirmed no
+`checkout` step even exists in that workflow, so no directory-existence
+dependency to have this bug). Checked every OTHER step in both `ci.yml`
+and `tenant-config-reconcile.yml` for the same "`if: failure()` step
+depending on a conditionally-created directory" shape: `identify-failed-
+step` is the ONLY step in either job carrying `if: failure()` -- every
+other step runs only via normal step-chaining (implicitly skipped once an
+earlier step fails), so none of them can run with a missing `platform/`
+the way this one can. Also confirmed both `notify-failure` jobs' own
+Telegram alert steps ALREADY set `working-directory: ${{ github.workspace
+}}` explicitly -- the original author clearly knew to do this for that
+one step (a separate job, also subject to the top-level `defaults:` in
+ci.yml) but missed the same fix for `identify-failed-step`, which sits in
+the SAME job as checkout and so looked, at a glance, safe to leave on the
+job default. Nothing further to continue.
+
+Fixed by overriding `working-directory: ${{ github.workspace }}` on
+`identify-failed-step` in both workflows -- `github.workspace` is created
+by the runner before any step runs, unconditionally, unlike `platform/` --
+and prefixing the three tee-captured files this step greps
+(`tenant-scope-output.txt`, `protected-tenant-output.txt` in `ci.yml`;
+`reconcile-output.txt` in `tenant-config-reconcile.yml`) with `platform/`,
+since the step no longer implicitly `cd`s there. The steps that WRITE
+those files (`tenant-scope`, `protected-tenant`, `reconcile-drift-gate`)
+are untouched and still run under `working-directory: platform` -- only
+the later, separate step that reads them back needed to change.
+
+Updated the four existing wiring-guard assertions that pinned the old
+(buggy) shape -- `ci-notify-failure-gate-vs-error-guard.test.ts`'s two
+grep-path checks, and `reconcile-notify-failure-drift-vs-error-guard
+.test.ts`'s working-directory and grep-path checks -- to require the
+`platform/`-prefixed paths and the `github.workspace` override instead.
+Added a new regression file,
+`ci-identify-failed-step-checkout-working-directory-guard.test.ts` (6
+tests), pinning the exact landmine: both workflows' `identify-failed-step`
+overrides to `github.workspace` (not the job-default/hardcoded `platform`),
+both grep the `platform/`-prefixed output files, and
+`reconcile-drift-gate` (the step that WRITES `reconcile-output.txt`) is
+confirmed still on `working-directory: platform`, unaffected.
+
+Mutation-verified: reverted both workflow files to their pre-fix state
+(`git diff > patch && git apply -R patch`, since this session's worker
+worktree has stash disabled -- shared `.git` dir across sibling worktrees)
+and re-ran the new test file -- 4 of 6 assertions failed for the right
+reason (the `github.workspace` override and `platform/`-prefixed grep
+checks), the 2 that still passed were the ones unrelated to this specific
+diff (the file-existence check and the reconcile-drift-gate
+working-directory check, which that revert didn't touch). Re-applied the
+fix -- green again.
+
+`npx tsc --noEmit --pretty false` zero errors. Full repo suite: 508/508
+files, 2598/2598 tests (6 new, 0 regressions). `SUPABASE_ACCESS_TOKEN_
+FULLLOOP` absent this session (token-guard checked first, per standing
+instructions) -- no live reconcile run against Supabase attempted. This is
+this lane's own CI wiring under `.github/workflows`, pure YAML + test-file
+changes, no push/deploy/DB write.
