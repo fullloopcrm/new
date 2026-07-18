@@ -45,13 +45,13 @@ export async function POST(request: Request) {
     // to an arbitrary client, since a match below gets its name/email/
     // address/notes silently overwritten with attacker-supplied data.
     const cleanPhone = phone.replace(/\D/g, '')
-    let existingClient: { id: string; status: string } | undefined
+    let existingClient: { id: string; status: string; email: string | null } | undefined
     if (cleanPhone.length >= 10) {
       const nat = (d: string) => (d.length === 11 && d.startsWith('1') ? d.slice(1) : d)
       const target = nat(cleanPhone)
       const { data: candidates } = await tenantDb(tenant.id)
         .from('clients')
-        .select('id, status, phone')
+        .select('id, status, phone, email')
       existingClient = (candidates || []).find(c => {
         const cDigits = nat((c.phone || '').replace(/\D/g, ''))
         return cDigits.length >= 10 && cDigits === target
@@ -112,7 +112,14 @@ export async function POST(request: Request) {
         .from('clients')
         .update({
           name,
-          email: email || null,
+          // Never overwrite an email already on file via this unauthenticated
+          // form — clients.email doubles as the client-portal login
+          // identifier (/api/client/verify-code matches by phone, then by
+          // email), so letting a phone match reassign it would let anyone
+          // who merely knows a client's phone number redirect their login
+          // email to an address they control and hijack the account. Same
+          // fix as /api/lead, /api/contact, and /api/portal/collect.
+          ...(existingClient.email ? {} : { email: email || null }),
           address: address || null,
           notes: notesValue,
           referrer_id: referrerId || undefined,
