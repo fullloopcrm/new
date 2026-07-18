@@ -161,6 +161,49 @@ async function lastCronOccurrence(check: CronCheck): Promise<Date | null> {
   return ts ? new Date(ts) : null
 }
 
+// Most CRON_CHECKS are single-column `notifications.type` lookups that only
+// differ by which type they're looking for. Firing one Supabase round-trip
+// per check (up to 10) fans out a lot of concurrent connections for one page
+// load; batching the `notifications`-by-type checks into a single query cuts
+// that fan-out without changing the per-check result.
+async function resolveCronLasts(checks: readonly CronCheck[]): Promise<(Date | null)[]> {
+  const isBatchableType = (c: CronCheck) =>
+    c.source === 'notifications' && Object.keys(c.match).length === 1 && 'type' in c.match
+
+  const batchable = checks.map((c, i) => ({ c, i })).filter(({ c }) => isBatchableType(c))
+  const individual = checks.map((c, i) => ({ c, i })).filter(({ c }) => !isBatchableType(c))
+
+  const results: (Date | null)[] = new Array(checks.length).fill(null)
+
+  const [batchRes, ...individualResults] = await Promise.all([
+    batchable.length > 0
+      ? supabaseAdmin
+          .from('notifications')
+          .select('type, created_at')
+          .in('type', batchable.map(({ c }) => c.match.type))
+          .order('created_at', { ascending: false })
+          .limit(500)
+      : Promise.resolve({ data: [] as { type: string; created_at: string }[], error: null }),
+    ...individual.map(({ c }) => lastCronOccurrence(c)),
+  ])
+
+  if (!batchRes.error && batchRes.data) {
+    const latestByType = new Map<string, Date>()
+    for (const row of batchRes.data as Array<{ type: string; created_at: string }>) {
+      if (!latestByType.has(row.type)) latestByType.set(row.type, new Date(row.created_at))
+    }
+    for (const { c, i } of batchable) {
+      results[i] = latestByType.get(c.match.type) ?? null
+    }
+  }
+
+  individual.forEach(({ i }, idx) => {
+    results[i] = individualResults[idx] as Date | null
+  })
+
+  return results
+}
+
 interface TenantRow {
   id: string
   name: string
@@ -179,8 +222,6 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
   const stuckBefore = noTz(hoursAgo(now, 24)) // ended >24h ago
   const stuckAfter = noTz(hoursAgo(now, 24 * 30)) // bounded to last 30d so "stuck" stays a recent signal
 
-  const cronPromises = CRON_CHECKS.map((c) => lastCronOccurrence(c))
-
   const [
     tenantsRes,
     issuesRes,
@@ -189,9 +230,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     prospectsRes,
     secRes,
     commsRes,
-    err1hRes,
-    err24hRes,
-    err7dRes,
+    errLogs7dRes,
     stuckRes,
     cronLasts,
     seoSiteDownRes,
@@ -213,9 +252,9 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     supabaseAdmin.from('prospects').select('id', { count: 'exact', head: true }),
     supabaseAdmin.from('security_events').select('id', { count: 'exact', head: true }).gte('created_at', since24h),
     supabaseAdmin.from('notifications').select('tenant_id, status').gte('created_at', since24h),
-    supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since1h),
-    supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since24h),
-    supabaseAdmin.from('error_logs').select('id', { count: 'exact', head: true }).gte('created_at', since7d),
+    // Single bounded fetch covering the widest (7d) window; 1h/24h/7d counts are
+    // sliced from it client-side instead of firing 3 separate count round-trips.
+    supabaseAdmin.from('error_logs').select('created_at').gte('created_at', since7d),
     supabaseAdmin
       .from('bookings')
       .select('tenant_id, payment_status')
@@ -223,7 +262,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       .lt('end_time', stuckBefore)
       .gt('end_time', stuckAfter)
       .limit(1000),
-    Promise.all(cronPromises),
+    resolveCronLasts(CRON_CHECKS),
     supabaseAdmin
       .from('seo_issues')  // tenant-scope-ok: seomgr FL-admin engine, keyed by property/domain not tenant
       .select('tenant_id, target_url, detail')
@@ -239,6 +278,13 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
       .select('domain, tenant_id, first_seen_at')
       .is('last_ingest_at', null),
   ])
+
+  const errorLogRows = (errLogs7dRes.data || []) as Array<{ created_at: string }>
+  const errors = {
+    last_1h: errorLogRows.filter((r) => r.created_at >= since1h).length,
+    last_24h: errorLogRows.filter((r) => r.created_at >= since24h).length,
+    last_7d: errorLogRows.length,
+  }
 
   const tenants = (tenantsRes.data || []) as TenantRow[]
   const nameById = new Map<string, string>(tenants.map((t) => [t.id, t.name]))
@@ -393,11 +439,7 @@ export async function getPlatformHealth(now: Date = new Date()): Promise<Platfor
     },
     comms: { sent_24h, failed_24h, unknown_24h, success_rate, worst_tenants },
     crons: { silent },
-    errors: {
-      last_1h: err1hRes.count || 0,
-      last_24h: err24hRes.count || 0,
-      last_7d: err7dRes.count || 0,
-    },
+    errors,
     payments: { stuck_unpaid_24h: stuckUnpaid.length, by_tenant: payments_by_tenant },
     lifecycle: { new_7d, inactive },
     tenants_with_issues,
