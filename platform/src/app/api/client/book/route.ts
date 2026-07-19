@@ -89,17 +89,26 @@ export async function POST(request: Request) {
     let clientId = body.client_id as string | undefined
     let isNewClient = false
 
-    if (!clientId && body.email) {
+    // The top-level gate (above) only requires ONE of client_id/email/phone.
+    // This used to resolve client_id from `body.email` ONLY — a phone-only
+    // submission (allowed by that same gate) silently fell through with
+    // clientId left undefined, producing a clientless booking (p_client_id:
+    // null in create_booking_atomic) and a clientless mirror `deals` row
+    // below. Widened to email-or-phone so every path the gate accepts also
+    // resolves (or creates) a real client.
+    if (!clientId && (body.email || body.phone)) {
       const phone = (body.phone as string | undefined)?.replace(/\D/g, '') || ''
-      const emailLower = (body.email as string).toLowerCase()
+      const emailLower = body.email ? (body.email as string).toLowerCase() : ''
 
-      const { data: byEmail } = await supabaseAdmin
-        .from('clients')
-        .select('id')
-        .eq('tenant_id', tenant.id)
-        .ilike('email', escapeLike(emailLower))
-        .maybeSingle()
-      if (byEmail) clientId = byEmail.id
+      if (emailLower) {
+        const { data: byEmail } = await supabaseAdmin
+          .from('clients')
+          .select('id')
+          .eq('tenant_id', tenant.id)
+          .ilike('email', escapeLike(emailLower))
+          .maybeSingle()
+        if (byEmail) clientId = byEmail.id
+      }
 
       if (!clientId && phone) {
         const { data: byPhone } = await supabaseAdmin
@@ -117,7 +126,7 @@ export async function POST(request: Request) {
           .insert({
             tenant_id: tenant.id,
             name: body.name as string,
-            email: emailLower,
+            email: emailLower || null,
             phone,
             address: (body.address as string) + (body.unit ? `, ${body.unit}` : ''),
             notes: (body.notes as string) || '',
@@ -134,9 +143,19 @@ export async function POST(request: Request) {
           tenantId: tenant.id,
           type: 'new_client',
           title: 'New Client (via Booking)',
-          message: `${body.name} • ${emailLower}${phone ? ` • ${phone}` : ''}`,
+          message: `${body.name} • ${[emailLower, phone].filter(Boolean).join(' • ')}`,
         })
       }
+    }
+
+    // Guaranteed by the top-level gate (client_id/email/phone, one required)
+    // plus the resolution block above (which now covers both email and
+    // phone paths, and always returns early on a create failure) — clientId
+    // is never actually undefined here. Narrows the type for every
+    // downstream use and closes the clientless-booking gap for good instead
+    // of masking it with `clientId || null` at each write site.
+    if (!clientId) {
+      return NextResponse.json({ error: 'Unable to resolve client for booking' }, { status: 400 })
     }
 
     // Referral resolution (tenant-scoped)
@@ -552,7 +571,7 @@ export async function POST(request: Request) {
     try {
       await supabaseAdmin.from('deals').insert({
         tenant_id: tenant.id,
-        client_id: clientId || null,
+        client_id: clientId,
         booking_id: data.id,
         mode: 'booking',
         stage: 'pending',
