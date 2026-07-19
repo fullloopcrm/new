@@ -82,6 +82,11 @@ export async function PATCH(request: Request, { params }: Params) {
       notes?: string
       starts_on?: string | null
       ends_on?: string | null
+      tagged_user_ids?: unknown
+    }
+
+    if (body.tagged_user_ids !== undefined && !Array.isArray(body.tagged_user_ids)) {
+      return NextResponse.json({ error: 'tagged_user_ids must be an array' }, { status: 400 })
     }
 
     const { data: current, error: readError } = await supabaseAdmin
@@ -99,9 +104,28 @@ export async function PATCH(request: Request, { params }: Params) {
 
     const patch: Record<string, unknown> = {}
     if (body.title !== undefined) patch.title = body.title
-    if (body.notes !== undefined) patch.notes = body.notes
     if (body.starts_on !== undefined) patch.starts_on = body.starts_on
     if (body.ends_on !== undefined) patch.ends_on = body.ends_on
+
+    // Only store tags for team members that actually belong to this tenant —
+    // same guard as the sales pipeline's deal-note composer (@-mention
+    // pattern ported from deal_activities.tagged_user_ids).
+    let taggedUserIds: string[] = []
+    if (body.notes !== undefined) {
+      patch.notes = body.notes
+      const candidates = Array.isArray(body.tagged_user_ids)
+        ? body.tagged_user_ids.filter((v): v is string => typeof v === 'string')
+        : []
+      if (candidates.length > 0) {
+        const { data: validMembers } = await supabaseAdmin
+          .from('team_members')
+          .select('id')
+          .eq('tenant_id', tenantId)
+          .in('id', candidates)
+        taggedUserIds = (validMembers || []).map((m) => m.id)
+      }
+      patch.notes_tagged_user_ids = taggedUserIds
+    }
 
     if (body.status !== undefined) {
       if (!VALID_STATUS.includes(body.status)) {
@@ -164,6 +188,14 @@ export async function PATCH(request: Request, { params }: Params) {
           sms: `Job complete: ${title} (${money}).`,
         })
       }
+    }
+
+    // Notes save silently otherwise -- log it to the same job timeline as
+    // status changes so "who touched this job and when" stays complete, and
+    // carry any @-mention tags along so a future notify pass can read them
+    // off the event (same shape as deal_activities.tagged_user_ids).
+    if (body.notes !== undefined) {
+      await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: 'notes_updated', detail: { tagged_user_ids: taggedUserIds } })
     }
 
     return NextResponse.json({ job })
