@@ -244,7 +244,10 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     try {
       let payAmountCents: number | null = (booking.team_member_pay as number | null) || null
       if (!payAmountCents) {
-        let rate = teamMember.pay_rate || teamMember.hourly_rate || (booking.pay_rate as number | null) || 25
+        // Booking-level pay_rate is an admin override and must win over the team
+        // member's own default rate, not lose to it (see cleaner-pay-rate-override
+        // port from nycmaid 2428c8c4 — same precedence bug, same 5 call sites).
+        let rate = (booking.pay_rate as number | null) || teamMember.pay_rate || teamMember.hourly_rate || 25
         // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY
         // (parity with team-portal/checkout + stripe webhook payout paths).
         if (isNycMaid(tenantId)) rate = effectiveCleanerRate(rate, clientJoin?.address ?? null)
