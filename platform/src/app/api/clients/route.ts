@@ -67,6 +67,8 @@ export async function POST(request: Request) {
       source: { type: 'string', max: 100 },
       status: { type: 'string', max: 50 },
       sales_partner_id: { type: 'uuid' },
+      referrer_id: { type: 'uuid' },
+      notes: { type: 'string', max: 2000 },
     })
     if (validated.error) return NextResponse.json({ error: validated.error }, { status: 400 })
     const fields = validated.data
@@ -96,6 +98,22 @@ export async function POST(request: Request) {
         .maybeSingle()
       if (!partnerRow) {
         return NextResponse.json({ error: 'Invalid sales partner' }, { status: 400 })
+      }
+    }
+
+    // Same tenant-ownership check as sales_partner_id above -- referrer_id
+    // drives the sticky commission attribution read on every completed
+    // cleaning (see 2026_07_18_sales_partners.sql), so a cross-tenant id here
+    // would misattribute commission earnings to the wrong tenant's referrer.
+    if (fields?.referrer_id) {
+      const { data: referrerRow } = await supabaseAdmin
+        .from('referrers')
+        .select('id')
+        .eq('id', fields.referrer_id as string)
+        .eq('tenant_id', tenantId)
+        .maybeSingle()
+      if (!referrerRow) {
+        return NextResponse.json({ error: 'Invalid referrer' }, { status: 400 })
       }
     }
 
