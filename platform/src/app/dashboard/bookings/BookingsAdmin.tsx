@@ -428,8 +428,20 @@ function BookingsPage() {
         const json = await res.json()
         // API returns { bookings, total }; tolerate a bare array too.
         const list: Booking[] = Array.isArray(json) ? json : (json.bookings ?? [])
-        list.sort((a: Booking, b: Booking) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
-        setBookings(list)
+        // Bucket today/upcoming (soonest first) ahead of past (most-recent
+        // first) instead of one flat DESC sort — a flat DESC sort puts the
+        // FURTHEST-future booking at the top, which with recurring schedules
+        // now booked out through next year buries today's jobs under a wall
+        // of far-future rows (nycmaid ref 6495a1b2). The API already returns
+        // rows in this bucketed order for the plain unfiltered list; this
+        // sort keeps the same order correct for status/date-filtered fetches
+        // and the 5-min auto-refresh poll too.
+        const startOfToday = new Date(); startOfToday.setHours(0, 0, 0, 0)
+        const upcoming = list.filter(b => new Date(b.start_time) >= startOfToday)
+          .sort((a, b) => new Date(a.start_time).getTime() - new Date(b.start_time).getTime())
+        const past = list.filter(b => new Date(b.start_time) < startOfToday)
+          .sort((a, b) => new Date(b.start_time).getTime() - new Date(a.start_time).getTime())
+        setBookings([...upcoming, ...past])
       }
     } catch (e) {
       console.error('loadBookings failed', e)
@@ -2065,7 +2077,7 @@ function BookingsPage() {
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Time</label>
-                  <input type="time" min="08:00" max="16:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
+                  <input type="time" min="07:00" max="19:00" value={form.start_time} onChange={(e) => setForm({ ...form, start_time: e.target.value })} className="w-full px-2 py-1.5 border border-gray-200 rounded-lg text-sm text-[var(--color-loop-ink)] bg-white" />
                 </div>
                 <div>
                   <label className="block text-[10px] text-gray-400 uppercase">Hours</label>
@@ -2527,7 +2539,7 @@ function BookingsPage() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-[var(--color-loop-ink)] mb-1">Time *</label>
-                    <input type="time" required min="08:00" max="16:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]" />
+                    <input type="time" required min="07:00" max="19:00" value={createForm.start_time} onChange={(e) => setCreateForm({ ...createForm, start_time: e.target.value })} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--color-loop-ink)]" />
                   </div>
                 </div>
                 {createForm.is_emergency ? (

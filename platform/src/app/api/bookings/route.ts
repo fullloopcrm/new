@@ -37,20 +37,79 @@ export async function GET(request: NextRequest) {
     const limit = Math.min(parseInt(url.searchParams.get('limit') || (isRange ? '500' : '50')), isRange ? 1000 : 200)
     const offset = (page - 1) * limit
 
-    let query = supabaseAdmin
-      .from('bookings')
-      .select('*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)', { count: 'exact' })
-      .eq('tenant_id', tenantId)
-      .order('start_time', { ascending: false })
-      .range(offset, offset + limit - 1)
+    const SELECT = '*, clients(name, phone, address), team_members!bookings_team_member_id_fkey(name, phone), client_properties(*)'
+    const withFilters = <T extends { eq: (c: string, v: unknown) => T; gte: (c: string, v: unknown) => T; lte: (c: string, v: unknown) => T }>(q: T): T => {
+      if (status) q = q.eq('status', status)
+      if (clientId) q = q.eq('client_id', clientId)
+      if (teamMemberId) q = q.eq('team_member_id', teamMemberId)
+      if (dateFrom) q = q.gte('start_time', dateFrom)
+      if (dateTo) q = q.lte('start_time', dateTo)
+      return q
+    }
 
-    if (status) query = query.eq('status', status)
-    if (clientId) query = query.eq('client_id', clientId)
-    if (teamMemberId) query = query.eq('team_member_id', teamMemberId)
-    if (dateFrom) query = query.gte('start_time', dateFrom)
-    if (dateTo) query = query.lte('start_time', dateTo)
+    let data: unknown[] | null
+    let count: number | null
+    let error: { message: string } | null
 
-    const { data, count, error } = await query
+    if (!isRange && offset === 0) {
+      // Default (unpaginated, no explicit date filter) list — every caller of
+      // this shape uses it as "the current bookings list" (BookingsAdmin,
+      // client/team detail pages, analytics), not a literal single DESC page.
+      // A plain ORDER BY start_time DESC + LIMIT here returns the
+      // FURTHEST-future bookings first; harmless when only a handful of
+      // near-term recurring bookings existed, but the widened
+      // recurring-generation horizon (cron/generate-recurring now books
+      // every active schedule out through next year) means a naive DESC
+      // page can fill entirely with next-December bookings and never reach
+      // today's jobs (nycmaid ref 6495a1b2 — same "upcoming vanishes behind
+      // far-future" symptom, fixed there client-side; fixed here at the
+      // query level since this route paginates before the client ever sees
+      // the rows).
+      const todayStr = new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
+
+      const upcomingRes = await withFilters(
+        supabaseAdmin.from('bookings').select(SELECT, { count: 'exact' })
+          .eq('tenant_id', tenantId)
+          .gte('start_time', todayStr)
+          .order('start_time', { ascending: true })
+          .range(0, limit - 1),
+      )
+      if (upcomingRes.error) {
+        return NextResponse.json({ error: upcomingRes.error.message }, { status: 500 })
+      }
+      const upcoming = upcomingRes.data || []
+
+      let past: unknown[] = []
+      let pastCount = 0
+      if (upcoming.length < limit) {
+        const pastRes = await withFilters(
+          supabaseAdmin.from('bookings').select(SELECT, { count: 'exact' })
+            .eq('tenant_id', tenantId)
+            .lt('start_time', todayStr)
+            .order('start_time', { ascending: false })
+            .range(0, limit - upcoming.length - 1),
+        )
+        if (pastRes.error) {
+          return NextResponse.json({ error: pastRes.error.message }, { status: 500 })
+        }
+        past = pastRes.data || []
+        pastCount = pastRes.count || 0
+      }
+
+      data = [...upcoming, ...past]
+      count = (upcomingRes.count || 0) + pastCount
+      error = null
+    } else {
+      const res = await withFilters(
+        supabaseAdmin.from('bookings').select(SELECT, { count: 'exact' })
+          .eq('tenant_id', tenantId)
+          .order('start_time', { ascending: false })
+          .range(offset, offset + limit - 1),
+      )
+      data = res.data
+      count = res.count
+      error = res.error
+    }
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
