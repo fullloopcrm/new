@@ -47,6 +47,7 @@ const navMain: Array<{
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
   { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
+    { letter: 'B', label: 'Master Budget', href: '/dashboard/sales/budget' },
   ]},
   { num: '04', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
@@ -76,7 +77,7 @@ const navMain: Array<{
 // determine the active highlight when a user is on a sub-page.
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
-  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
+  sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules', '/dashboard/sales/budget'],
   production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/jobs/vendors', '/dashboard/calendar', '/dashboard/bookings'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],

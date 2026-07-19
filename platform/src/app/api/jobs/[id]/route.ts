@@ -153,6 +153,12 @@ export async function PATCH(request: Request, { params }: Params) {
       }
     }
 
+    // Notes save silently otherwise -- log it to the same job timeline as
+    // status changes so "who touched this job and when" stays complete.
+    if (body.notes !== undefined) {
+      await logJobEvent({ tenant_id: tenantId, job_id: id, event_type: 'notes_updated', detail: {} })
+    }
+
     return NextResponse.json({ job })
   } catch (err) {
     if (err instanceof AuthError) return NextResponse.json({ error: err.message }, { status: err.status })

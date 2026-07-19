@@ -184,6 +184,7 @@ export default function JobDetailPage() {
   const [adding, setAdding] = useState(false)
   const [form, setForm] = useState<SessionForm>(EMPTY_FORM)
   const [expandedSessions, setExpandedSessions] = useState<Set<string>>(new Set())
+  const [notesDraft, setNotesDraft] = useState('')
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
@@ -193,6 +194,7 @@ export default function JobDetailPage() {
     }).catch(() => setLoading(false))
   }, [id])
   useEffect(() => { load() }, [load])
+  useEffect(() => { if (job) setNotesDraft(job.notes ?? '') }, [job])
   useEffect(() => {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
@@ -217,6 +219,10 @@ export default function JobDetailPage() {
 
   const setJobStatus = (status: string) => act(`job-${status}`, () =>
     fetch(`/api/jobs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status }) }))
+
+  const notesDirty = !!job && notesDraft !== (job.notes ?? '')
+  const saveNotes = () => act('save-notes', () =>
+    fetch(`/api/jobs/${id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ notes: notesDraft.trim() || null }) }))
 
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
@@ -318,12 +324,17 @@ export default function JobDetailPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
       <div className="lg:col-span-2 min-w-0">
 
-      {job.notes && (
-        <section className="mb-6">
-          <h2 className="text-sm font-semibold text-slate-800 mb-2">Job notes</h2>
-          <p className="text-sm text-slate-600 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3">{job.notes}</p>
-        </section>
-      )}
+      <section className="mb-6">
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Job notes</h2>
+        <textarea value={notesDraft} onChange={(e) => setNotesDraft(e.target.value)} rows={4} placeholder="Add job notes…"
+          className="w-full text-sm text-slate-600 whitespace-pre-wrap rounded-lg border border-slate-200 bg-white p-3 resize-y" />
+        {notesDirty && (
+          <button onClick={saveNotes} disabled={busy === 'save-notes'}
+            className="mt-2 px-3 py-1 text-xs font-medium rounded bg-slate-800 text-white hover:bg-slate-900 disabled:opacity-50">
+            {busy === 'save-notes' ? 'Saving…' : 'Save notes'}
+          </button>
+        )}
+      </section>
 
       {/* Payment plan */}
       <section className="mb-6">
