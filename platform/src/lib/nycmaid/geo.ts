@@ -14,18 +14,44 @@ export const CHECK_IN_HARD_BLOCK_MILES = Number(process.env.CHECK_IN_HARD_BLOCK_
 // Opt back in explicitly with CHECK_IN_GPS_ENABLED=on.
 export const CHECK_IN_GPS_ENABLED = process.env.CHECK_IN_GPS_ENABLED === 'on'
 
+// Primary geocoder: US Census (free, no API key, strong US/NYC coverage).
+// Falls back to Radar only if a key is set and Census finds nothing. Ported from
+// nycmaid (5790261b) after Radar's paid tier hit its quota and silently broke
+// all geocoding (clustering, check-in distance, availability proximity).
 export async function geocodeAddress(address: string): Promise<{ lat: number; lng: number } | null> {
+  const census = await geocodeCensus(address)
+  if (census) return census
+
+  if (RADAR_API_KEY) {
+    try {
+      const res = await fetch(
+        `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`,
+        { headers: { 'Authorization': RADAR_API_KEY } }
+      )
+      const data = await res.json()
+      if (data.addresses && data.addresses.length > 0) {
+        return { lat: data.addresses[0].latitude, lng: data.addresses[0].longitude }
+      }
+    } catch (e) {
+      console.error('Radar geocode error:', e)
+    }
+  }
+  return null
+}
+
+// US Census Bureau onelineaddress geocoder. Returns {x: lng, y: lat} on match.
+async function geocodeCensus(address: string): Promise<{ lat: number; lng: number } | null> {
   try {
-    const res = await fetch(
-      `https://api.radar.io/v1/geocode/forward?query=${encodeURIComponent(address)}`,
-      { headers: { 'Authorization': RADAR_API_KEY } }
-    )
+    const url = `https://geocoding.geo.census.gov/geocoder/locations/onelineaddress?address=${encodeURIComponent(address)}&benchmark=Public_AR_Current&format=json`
+    const res = await fetch(url, { signal: AbortSignal.timeout(8000) })
+    if (!res.ok) return null
     const data = await res.json()
-    if (data.addresses && data.addresses.length > 0) {
-      return { lat: data.addresses[0].latitude, lng: data.addresses[0].longitude }
+    const c = data?.result?.addressMatches?.[0]?.coordinates
+    if (c && typeof c.x === 'number' && typeof c.y === 'number') {
+      return { lat: c.y, lng: c.x }
     }
   } catch (e) {
-    console.error('Geocode error:', e)
+    console.error('Census geocode error:', e)
   }
   return null
 }
