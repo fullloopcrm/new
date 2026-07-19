@@ -29,6 +29,7 @@ export async function GET(request: Request) {
         .from('sales_partners')
         .select('tenant_id')
         .eq('id', portalAuth.pid)
+        .eq('tenant_id', portalAuth.tid)
         .maybeSingle()
       if (!partnerRow || partnerRow.tenant_id !== portalAuth.tid) {
         return NextResponse.json({ error: 'Sales partner not found' }, { status: 404 })

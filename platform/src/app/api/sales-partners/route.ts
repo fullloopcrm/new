@@ -155,7 +155,7 @@ export async function POST(request: Request) {
       .select('id')
       .single()
     if (dErr || !doc) {
-      await supabaseAdmin.from('sales_partners').delete().eq('id', partner.id)
+      await supabaseAdmin.from('sales_partners').delete().eq('id', partner.id).eq('tenant_id', tenantId)
       return NextResponse.json({ error: dErr?.message || 'Could not create agreement document' }, { status: 500 })
     }
 
@@ -164,8 +164,8 @@ export async function POST(request: Request) {
       .from(DOCUMENTS_BUCKET)
       .upload(path, pdf.bytes, { contentType: 'application/pdf', upsert: true })
     if (upErr) {
-      await supabaseAdmin.from('documents').delete().eq('id', doc.id)
-      await supabaseAdmin.from('sales_partners').delete().eq('id', partner.id)
+      await supabaseAdmin.from('documents').delete().eq('id', doc.id).eq('tenant_id', tenantId)
+      await supabaseAdmin.from('sales_partners').delete().eq('id', partner.id).eq('tenant_id', tenantId)
       return NextResponse.json({ error: `Upload failed: ${upErr.message}` }, { status: 500 })
     }
 
@@ -175,7 +175,7 @@ export async function POST(request: Request) {
       original_sha256: sha256Hex(Buffer.from(pdf.bytes)),
       status: 'sent',
       sent_at: now,
-    }).eq('id', doc.id)
+    }).eq('id', doc.id).eq('tenant_id', tenantId)
 
     const token = generateSignerToken()
     const { data: signer, error: sErr } = await supabaseAdmin
@@ -201,7 +201,7 @@ export async function POST(request: Request) {
     ])
     if (fErr) return NextResponse.json({ error: fErr.message }, { status: 500 })
 
-    await supabaseAdmin.from('sales_partners').update({ agreement_document_id: doc.id }).eq('id', partner.id)
+    await supabaseAdmin.from('sales_partners').update({ agreement_document_id: doc.id }).eq('id', partner.id).eq('tenant_id', tenantId)
 
     const host = request.headers.get('x-forwarded-host') || request.headers.get('host') || ''
     const proto = request.headers.get('x-forwarded-proto') || (host.startsWith('localhost') || host.startsWith('127.') ? 'http' : 'https')
