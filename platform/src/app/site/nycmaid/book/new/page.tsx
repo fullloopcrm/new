@@ -571,13 +571,8 @@ function BookFormContent() {
                 </div>
               </div>
 
-              <div className="border border-gray-200 bg-white rounded-lg p-3">
-                <div className="flex items-center justify-between mb-2">
-                  <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase">Pick a specific cleaner (optional)</label>
-                  <span className="text-[10px] text-gray-500">{form.team_size > 1 ? `Team of ${form.team_size}` : ''}</span>
-                </div>
-                {loadingCleaners && <p className="text-xs text-gray-400">Loading team…</p>}
-                {!loadingCleaners && availableCleaners.length === 0 && (
+              {!loadingCleaners && availableCleaners.length === 0 && (
+                <div className="border border-gray-200 bg-white rounded-lg p-3">
                   <>
                     {timeSuggestions.length > 0 ? (
                       <div>
@@ -622,50 +617,8 @@ function BookFormContent() {
                       </div>
                     )}
                   </>
-                )}
-                {!loadingCleaners && availableCleaners.length > 0 && (
-                  <div className="space-y-1">
-                    <button type="button" onClick={() => { update('cleaner_id', ''); update('extra_cleaner_ids', []) }} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${!form.cleaner_id ? 'border-indigo-500 bg-indigo-50 font-medium text-[#1E2A4A]' : 'border-gray-200 hover:border-gray-300 text-[#1E2A4A]'}`}>
-                      Any available cleaner
-                    </button>
-                    {availableCleaners.map(c => {
-                      const isLead = form.cleaner_id === c.id
-                      const isExtra = form.extra_cleaner_ids.includes(c.id)
-                      const onClick = () => {
-                        if (form.team_size <= 1) {
-                          update('cleaner_id', c.id)
-                          update('extra_cleaner_ids', [])
-                          return
-                        }
-                        if (isLead) {
-                          const [newLead, ...rest] = form.extra_cleaner_ids
-                          update('cleaner_id', newLead || '')
-                          update('extra_cleaner_ids', rest)
-                        } else if (isExtra) {
-                          update('extra_cleaner_ids', form.extra_cleaner_ids.filter(x => x !== c.id))
-                        } else if (!form.cleaner_id) {
-                          update('cleaner_id', c.id)
-                        } else if (form.extra_cleaner_ids.length < form.team_size - 1) {
-                          update('extra_cleaner_ids', [...form.extra_cleaner_ids, c.id])
-                        }
-                      }
-                      return (
-                        <button key={c.id} type="button" onClick={onClick} className={`w-full text-left px-3 py-2 rounded-lg border text-sm ${isLead ? 'border-indigo-500 bg-indigo-50' : isExtra ? 'border-indigo-300 bg-indigo-50/60' : c.is_preferred ? 'border-amber-300 bg-amber-50/40' : 'border-gray-200 hover:border-gray-300'} text-[#1E2A4A]`}>
-                          <div className="flex items-center justify-between">
-                            <span>
-                              {c.name}
-                              {isLead && form.team_size > 1 && <span className="ml-1.5 text-[9px] bg-indigo-600 text-white px-1.5 py-0.5 rounded font-semibold">LEAD</span>}
-                              {isExtra && <span className="ml-1.5 text-[9px] bg-indigo-400 text-white px-1.5 py-0.5 rounded font-semibold">EXTRA</span>}
-                              {c.is_preferred && <span className="ml-1.5 text-[9px] bg-amber-500 text-white px-1.5 py-0.5 rounded font-semibold">★ YOUR PICK</span>}
-                            </span>
-                            <span className="text-[10px] text-gray-500">{c.reason}</span>
-                          </div>
-                        </button>
-                      )
-                    })}
-                  </div>
-                )}
-              </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold text-gray-500 tracking-widest uppercase mb-2">Notes</label>
