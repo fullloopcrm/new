@@ -7,6 +7,7 @@ import { calculateDistance, estimateTransitMinutes } from '@/lib/geo'
 import { worksScheduledDay } from '@/lib/day-availability'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { nowNaiveET, etToday, addCalendarDays, formatNaiveET } from '@/lib/recurring'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 
 export const maxDuration = 300
 
@@ -49,7 +50,7 @@ export async function GET(request: Request) {
 
       const { data: bookings } = await supabaseAdmin
         .from('bookings')
-        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
+        .select('id, client_id, team_member_id, start_time, end_time, status, price, hourly_rate, notes, recurring_type, actual_hours, discount_percent, one_time_credit_cents, clients(id, name, address), team_members!bookings_team_member_id_fkey(id, name, working_days, schedule, unavailable_dates, max_jobs_per_day, service_zones, has_car, home_by_time, home_latitude, home_longitude)')
         .eq('tenant_id', tenantId)
         .gte('start_time', todayStr + 'T00:00:00')
         .lte('start_time', endDateStr + 'T23:59:59')
@@ -253,7 +254,13 @@ export async function GET(request: Request) {
             const hasActual = (b as { actual_hours?: number | null }).actual_hours != null && Number((b as { actual_hours?: number | null }).actual_hours) > 0
             if (b.hourly_rate && b.price && !hasPromo && !isRec && !hasActual) {
               const hrs = (toMin(b.end_time) - toMin(b.start_time)) / 60
-              const expected = hrs * Number(b.hourly_rate) * 100
+              // Expected price still runs through this booking's own
+              // discount_percent + one_time_credit_cents — otherwise a
+              // one-off booking with an admin-set discount or comp
+              // false-positives here every run (nycmaid a8efe43f parity).
+              const bDiscount = (b as { discount_percent?: number | null }).discount_percent
+              const bCredit = (b as { one_time_credit_cents?: number | null }).one_time_credit_cents
+              const expected = applyCredit(applyDiscount(hrs * Number(b.hourly_rate) * 100, bDiscount), bCredit)
               if (Math.abs(Number(b.price) - expected) > 1000 && Number(b.price) > 0) {
                 issues.push({ type: 'price_mismatch', severity: 'info', message: `${(b.clients as { name?: string } | null)?.name || 'Client'} on ${date} — price $${(Number(b.price) / 100).toFixed(0)} ≠ ${hrs}hrs × $${b.hourly_rate}/hr`, booking_ids: [b.id], tenant_id: tenantId, date })
               }

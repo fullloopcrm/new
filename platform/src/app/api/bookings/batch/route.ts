@@ -79,6 +79,9 @@ export async function POST(request: Request) {
       token_expires_at: tokenExpires.toISOString(),
       status: (b.status as string) || 'scheduled',
       pay_rate: b.pay_rate || null,
+      discount_percent: b.discount_percent || null,
+      one_time_credit_cents: b.one_time_credit_cents || null,
+      one_time_credit_reason: b.one_time_credit_reason || null,
       schedule_id: (b.schedule_id as string) || schedule_id || null,
     }
   })

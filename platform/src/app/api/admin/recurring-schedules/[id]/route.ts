@@ -76,6 +76,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   if (body.duration_hours !== undefined) updatePayload.duration_hours = body.duration_hours
   if (body.hourly_rate !== undefined) updatePayload.hourly_rate = body.hourly_rate
   if (payRate !== undefined) updatePayload.pay_rate = payRate
+  if (body.discount_percent !== undefined) updatePayload.discount_percent = body.discount_percent
   if (body.notes !== undefined) updatePayload.notes = body.notes
   if (body.special_instructions !== undefined) updatePayload.special_instructions = body.special_instructions
   if (body.status !== undefined) updatePayload.status = body.status

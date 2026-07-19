@@ -22,6 +22,7 @@ import { decryptSecret } from './secret-crypto'
 import { postPaymentRevenue } from './finance/post-revenue'
 import { postPayoutToLedger } from './finance/post-labor'
 import { effectiveCleanerRate } from './cleaner-pay'
+import { applyDiscount, applyCredit } from './discount'
 import { isNycMaid } from './nycmaid/tenant'
 import { parseTimestamp } from './dates'
 import type { Tenant } from './tenant'
@@ -91,6 +92,8 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
       hourly_rate,
       pay_rate,
       price,
+      discount_percent,
+      one_time_credit_cents,
       check_in_time,
       start_time,
       clients:clients(name, phone, address),
@@ -129,8 +132,20 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
   // to the booked estimate (price) when actual isn't known yet, then to
   // check-in-elapsed. Previously `price` won first → long jobs billed the
   // estimate (under-billed overruns). parseTimestamp: check_in_time is naive.
+  //
+  // The admin-set discount_percent + one_time_credit_cents apply on the two
+  // recompute-from-raw-rate branches below, same as every other collection
+  // point (team-portal/checkout, Stripe webhook, 15min-alert) -- without this,
+  // an admin discount/credit set on the booking got silently dropped the
+  // moment actual_hours was recorded or a check-in-elapsed estimate was used,
+  // even though it's still sitting on the row (nycmaid 6ec48424 parity). The
+  // `price` branch is left untouched -- it already reflects whatever discount
+  // was baked in at creation (including the separate automatic recurring-type
+  // discount, see recurring-discount.ts), and re-applying discount_percent on
+  // top of it here would double-discount.
   if (booking.actual_hours) {
-    expectedCents = Math.round((booking.actual_hours as number) * clientRate * 100)
+    const rawCents = Math.round((booking.actual_hours as number) * clientRate * 100)
+    expectedCents = applyCredit(applyDiscount(rawCents, booking.discount_percent as number | null), booking.one_time_credit_cents as number | null)
   } else if (booking.price && booking.price > 0) {
     expectedCents = booking.price as number
   } else if (booking.check_in_time) {
@@ -138,7 +153,8 @@ export async function processPayment(input: ProcessPaymentInput): Promise<Proces
     const rawMinutes = Math.max(0, (Date.now() - checkIn.getTime()) / (1000 * 60))
     // Round up to next 30 min with a 30 min buffer (nycmaid rule)
     const estHours = Math.max(0.5, Math.ceil((rawMinutes + 30) / 30) * 0.5)
-    expectedCents = Math.round(estHours * clientRate * 100)
+    const rawCents = Math.round(estHours * clientRate * 100)
+    expectedCents = applyCredit(applyDiscount(rawCents, booking.discount_percent as number | null), booking.one_time_credit_cents as number | null)
   }
 
   // Sum prior payments for this booking (tenant-scoped)

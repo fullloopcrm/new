@@ -58,6 +58,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
     price,
     status: bookingStatus,
     from_date, // ISO/naive cutoff: cancel + regenerate from here forward
+    discount_percent,
   } = body
 
   const dates: string[] = Array.isArray(body.dates)
@@ -88,15 +89,18 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   // preserve them on the regenerated bookings.
   const { data: schedule } = await db
     .from('recurring_schedules')
-    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size, extra_team_member_ids')
+    .select('id, client_id, property_id, pay_rate, hourly_rate, recurring_type, team_size, extra_team_member_ids, discount_percent')
     .eq('id', id)
     .single()
   if (!schedule) return NextResponse.json({ error: 'Schedule not found' }, { status: 404 })
 
   // Fall back to the schedule's stored rates when the caller omits them, so an
-  // edit that doesn't resend pay_rate can't zero out cleaner payout.
+  // edit that doesn't resend pay_rate can't zero out cleaner payout. Same
+  // fallback class applies to discount_percent -- a pattern edit (day/time/
+  // member) that doesn't resend the discount must not silently drop it.
   const effPayRate = payRate ?? schedule.pay_rate ?? null
   const effHourlyRate = hourly_rate ?? schedule.hourly_rate ?? null
+  const effDiscountPercent = discount_percent !== undefined ? discount_percent : (schedule.discount_percent ?? null)
 
   // team_member_id is a cross-table FK -- same class of bug already fixed on
   // POST /api/bookings (fkChecks): an unvalidated FK here gets carried onto
@@ -128,6 +132,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   if (duration_hours !== undefined) rulePatch.duration_hours = hours
   if (hourly_rate !== undefined) rulePatch.hourly_rate = hourly_rate
   if (payRate !== null) rulePatch.pay_rate = effPayRate
+  if (discount_percent !== undefined) rulePatch.discount_percent = effDiscountPercent
   if (teamMemberProvided) rulePatch.team_member_id = teamMemberId
   if (notes !== undefined) rulePatch.notes = notes
   await db.from('recurring_schedules').update(rulePatch).eq('id', id)
@@ -181,6 +186,7 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       price: price !== undefined ? (Number(price) || 0) : fallbackPrice,
       hourly_rate: effHourlyRate,
       pay_rate: effPayRate,
+      discount_percent: effDiscountPercent,
       notes: notes || null,
       // effRecurringType (not the raw, possibly-omitted `recurring_type`) --
       // same fallback-to-existing-value fix already applied to pay_rate/

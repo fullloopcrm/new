@@ -102,6 +102,7 @@ export async function POST(request: Request) {
     service_type,
     status: bookingStatus,
     invoice_consolidation,
+    discount_percent,
   } = body
 
   const teamMemberId = team_member_id || cleaner_id || null
@@ -214,6 +215,7 @@ export async function POST(request: Request) {
       status: 'active',
       next_generate_after: nextGenerateAfter,
       invoice_consolidation: invoice_consolidation === 'monthly' ? 'monthly' : 'per_visit',
+      discount_percent: discount_percent || null,
     })
     .select()
     .single()
@@ -246,6 +248,7 @@ export async function POST(request: Request) {
       token_expires_at: tokenExpires.toISOString(),
       status: bookingStatus || 'scheduled',
       schedule_id: schedule.id,
+      discount_percent: discount_percent || null,
     }
   })
 

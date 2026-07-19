@@ -5,6 +5,7 @@
 import { clientArrivalWindow } from '../time-window'
 import { escapeHtml } from '../escape-html'
 import { formatRecurringLabel } from '../recurring'
+import { applyDiscount } from '../discount'
 
 export const emailWrapper = (content: string) => `
 <!DOCTYPE html>
@@ -260,13 +261,16 @@ export function clientConfirmationEmail(booking: any) {
   const teamSize = booking.team_size || 1
   const teamLabel = teamSize > 1 ? `Your team of ${teamSize} (lead: <strong>${cleanerFirst}</strong>)` : `Your cleaner: <strong>${cleanerFirst}</strong>`
 
-  // Discounts to surface on the confirmation: (1) any reduction already baked into
-  // price vs the full hours×rate×team estimate (e.g. recurring discount), and
-  // (2) the $10 self-booking promo, which is applied at billing (not in price yet).
+  // Discounts to surface on the confirmation: (1) the admin-set discount from
+  // discount_percent -- the same column applyDiscount() uses at
+  // payment-processor/Stripe-webhook time, so this always matches what's
+  // actually charged (previously re-derived from a price-vs-estimate ratio,
+  // which conflated the automatic recurring discount, this admin discount,
+  // and any one-time credit into a single misleading "% off" label — nycmaid
+  // 6ec48424 parity) -- and (2) the $10 self-booking promo, which is applied
+  // at billing (not baked into price yet).
   const fullEstimateCents = Math.round(exactHours * hourlyRate * teamSize * 100)
-  const priceCents = typeof booking.price === 'number' ? booking.price : 0
-  const discountCents = priceCents > 0 && fullEstimateCents > priceCents ? fullEstimateCents - priceCents : 0
-  const discountPct = discountCents > 0 ? Math.round((discountCents / fullEstimateCents) * 100) : 0
+  const discountCents = Math.max(0, fullEstimateCents - applyDiscount(fullEstimateCents, booking.discount_percent ?? null))
   const hasSelfBookingPromo = typeof booking.notes === 'string' && /self-?booking discount/i.test(booking.notes)
   const cleanerPhotoHtml = cleanerPhotoUrl ? `
     <div style="text-align: left; margin: 0 0 24px 0;">
@@ -297,7 +301,7 @@ export function clientConfirmationEmail(booking: any) {
       ${infoRow('Cleaner', escapeHtml(cleanerName))}
       ${isRecurring ? infoRow('Schedule', escapeHtml(formatRecurringLabel(booking.recurring_type, booking.start_time))) : ''}
       ${infoRow('Estimate', `${estimatedHoursLabel} hrs × $${hourlyRate}/hr`)}
-      ${discountCents > 0 ? infoRow('Discount', `<span style="color:#15803d;font-weight:600;">−$${(discountCents / 100).toFixed(0)} (${discountPct}% off)</span>`) : ''}
+      ${discountCents > 0 ? infoRow('Discount', `<span style="color:#15803d;font-weight:600;">−$${(discountCents / 100).toFixed(0)}${booking.discount_percent ? ` (${booking.discount_percent}% off)` : ''}</span>`) : ''}
       ${hasSelfBookingPromo ? infoRow('Promo', `<span style="color:#15803d;font-weight:600;">$10 self-booking discount — applied to your final bill</span>`) : ''}
     `)}
 

@@ -6,6 +6,7 @@ import { clientBilledHours, cleanerPaidHours } from '@/lib/billing-hours'
 import { effectiveCleanerRate } from '@/lib/cleaner-pay'
 import { isNycMaid } from '@/lib/nycmaid/tenant'
 import { applyRecurringDiscount } from '@/lib/nycmaid/recurring-discount'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 import { smsAdmins as nmSmsAdmins } from '@/lib/nycmaid/admin-contacts'
 import { processPayment } from '@/lib/payment-processor'
 import { sendPushToClient } from '@/lib/push'
@@ -29,7 +30,7 @@ export async function POST(request: Request) {
   // Get booking with check-in time + the fields needed to compute the bill.
   const { data: booking } = await supabaseAdmin
     .from('bookings')
-    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(pay_rate)')
+    .select('id, check_in_time, check_out_time, hourly_rate, pay_rate, team_size, max_hours, price, discount_percent, one_time_credit_cents, service_type_id, recurring_type, team_member_id, referrer_id, sales_partner_id, client_id, clients(name, address, sales_partner_id), team_members!bookings_team_member_id_fkey(pay_rate)')
     .eq('id', booking_id)
     .eq('tenant_id', auth.tid)
     .single()
@@ -106,9 +107,19 @@ export async function POST(request: Request) {
       // recompute from raw hourly_rate silently wiped that discount back out
       // at the moment of actual billing, so every discounted recurring client
       // was charged full price the instant their cleaner checked out.
-      updatedPriceCents = applyRecurringDiscount(
-        Math.round(billableClient * clientRate * teamSize * 100),
-        booking.recurring_type as string | null,
+      //
+      // The admin-set discount_percent + one_time_credit_cents (nycmaid 6ec48424
+      // parity) stack on TOP of the automatic recurring discount, same order
+      // BookingsAdmin.tsx's own calculateEditPrice() applies them in.
+      updatedPriceCents = applyCredit(
+        applyDiscount(
+          applyRecurringDiscount(
+            Math.round(billableClient * clientRate * teamSize * 100),
+            booking.recurring_type as string | null,
+          ),
+          booking.discount_percent as number | null,
+        ),
+        booking.one_time_credit_cents as number | null,
       )
     } else {
       // Flat / per-unit: price was fixed at booking/quote time — elapsed hours

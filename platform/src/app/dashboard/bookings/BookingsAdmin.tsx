@@ -13,6 +13,7 @@ import BookingNotes from '@/components/BookingNotes'
 import { formatPhone } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
 import { worksScheduledDay, getDaySchedule, scheduleHasAnyDay } from '@/lib/day-availability'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 
 // recurring_schedules.recurring_type drives real cron/generate-recurring date
 // math (lib/recurring.ts's strict generateRecurringDates switch, no default
@@ -64,6 +65,9 @@ interface Booking {
   team_paid: boolean | null
   team_paid_at: string | null
   pay_rate: number | null
+  discount_percent: number | null
+  one_time_credit_cents: number | null
+  one_time_credit_reason: string | null
   walkthrough_video_url: string | null
   final_video_url: string | null
   suggested_team_member_id: string | null
@@ -194,10 +198,13 @@ function BookingsPage() {
   const [showUpdateChoice, setShowUpdateChoice] = useState(false)
   const [showCancelMenu, setShowCancelMenu] = useState(false)
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [showOneTimeCredit, setShowOneTimeCredit] = useState(false)
+  const [showOneTimeCreditCreate, setShowOneTimeCreditCreate] = useState(false)
   const [form, setForm] = useState({
     status: '', payment_status: '', payment_method: '', notes: '', team_member_id: '',
     start_date: '', start_time: '', hours: 2, service_type: '', hourly_rate: 69,
     discount_enabled: false, discount_percent: 10,
+    one_time_credit_dollars: 0, one_time_credit_reason: '',
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
     actual_hours: null as number | null, team_pay: null as number | null,
@@ -215,6 +222,7 @@ function BookingsPage() {
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
     discount_enabled: false, discount_percent: 10,
+    one_time_credit_dollars: 0, one_time_credit_reason: '',
     is_emergency: false, pay_rate: null as number | null, status: 'scheduled' as string,
     team_size: 1, extra_team_member_ids: [] as string[], max_hours: null as number | null,
     override_availability: false, property_id: '' as string,
@@ -317,13 +325,14 @@ function BookingsPage() {
       tomorrow.setDate(tomorrow.getDate() + 1)
       const endDate = new Date()
       endDate.setMonth(endDate.getMonth() + 3)
+      setShowOneTimeCreditCreate(false)
       setCreateForm({
         client_id: client ? client.id : '',
         team_member_id: '', start_date: tomorrow.toISOString().split('T')[0],
         start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
         team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       if (client) {
         setClientSearch(client.name + ' - ' + client.phone)
@@ -353,12 +362,13 @@ function BookingsPage() {
     if (date && !searchParams.get('new') && !searchParams.get('edit')) {
       const endDate = new Date()
       endDate.setMonth(endDate.getMonth() + 3)
+      setShowOneTimeCreditCreate(false)
       setCreateForm({
         client_id: '', team_member_id: '', start_date: date,
         start_time: time || '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
         team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       setClientSearch('')
       setShowClientDropdown(false)
@@ -635,15 +645,20 @@ function BookingsPage() {
     const snappedRate = isKnownRate
       ? knownRates.reduce((best, r) => Math.abs(r - rate) < Math.abs(best - rate) ? r : best, 69)
       : rate
-    const fullPrice = (hours || 2) * snappedRate * 100
-    const hasDiscount = booking.price < fullPrice && booking.price > 0
-    const inferredDiscountPercent = hasDiscount && fullPrice > 0
-      ? Math.max(1, Math.min(50, Math.round((1 - booking.price / fullPrice) * 100)))
-      : 10
+    // Discount is read straight off the booking's own discount_percent column —
+    // the source of truth applyDiscount() uses everywhere else — never
+    // re-derived from a price ratio (that guess ignored team size, one-time
+    // credits, and the separate automatic recurring discount, and could
+    // corrupt the value on re-save). Existing bookings created before this
+    // column existed will show no discount here even if one was originally
+    // baked into price — there's no reliable way to back-derive the exact
+    // percent from historical price alone (nycmaid 6ec48424 parity).
+    const hasDiscount = !!booking.discount_percent && booking.discount_percent > 0
 
     const endDate3 = new Date()
     endDate3.setMonth(endDate3.getMonth() + 3)
 
+    setShowOneTimeCredit(!!booking.one_time_credit_cents)
     setForm({
       status: booking.status,
       payment_status: booking.payment_status,
@@ -656,7 +671,9 @@ function BookingsPage() {
       service_type: booking.service_type,
       hourly_rate: snappedRate,
       discount_enabled: hasDiscount,
-      discount_percent: inferredDiscountPercent,
+      discount_percent: hasDiscount ? (booking.discount_percent as number) : 10,
+      one_time_credit_dollars: booking.one_time_credit_cents ? booking.one_time_credit_cents / 100 : 0,
+      one_time_credit_reason: booking.one_time_credit_reason || '',
       repeat_enabled: !!booking.recurring_type,
       repeat_type: reverseRecurringType(booking.recurring_type),
       repeat_end: 'never',
@@ -693,12 +710,13 @@ function BookingsPage() {
     tomorrow.setDate(tomorrow.getDate() + 1)
     const endDate = new Date()
     endDate.setMonth(endDate.getMonth() + 3)
+    setShowOneTimeCreditCreate(false)
     setCreateForm({
       client_id: '', team_member_id: '', start_date: tomorrow.toISOString().split('T')[0],
       start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
       repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
       repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-      discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
+      discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
       team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''    })
     setClientSearch('')
     setShowClientDropdown(false)
@@ -751,28 +769,45 @@ function BookingsPage() {
     return new Date(client.created_at) < new Date(Date.now() - 24 * 60 * 60 * 1000)
   }
 
+  // Persisted discount/credit fields for the create-booking payload — see
+  // calculatePrice() for why one_time_credit is repeat_enabled-gated.
+  const getCreateFormDiscount = () => ({
+    discount_percent: createForm.discount_enabled ? createForm.discount_percent : null,
+    one_time_credit_cents: (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? Math.round(createForm.one_time_credit_dollars * 100) : null,
+    one_time_credit_reason: (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? (createForm.one_time_credit_reason || null) : null,
+  })
+
   const calculatePrice = () => {
     const teamSize = Math.max(1, createForm.team_size || 1)
     const basePrice = createForm.hours * createForm.hourly_rate * teamSize * 100
-    if (createForm.discount_enabled && createForm.discount_percent > 0) {
-      const discounted = basePrice * (1 - createForm.discount_percent / 100)
-      return Math.floor(discounted / 500) * 500 // round down to nearest $5
-    }
-    return basePrice
+    const discountPercent = createForm.discount_enabled ? createForm.discount_percent : null
+    // Never bake the one-time credit into a recurring booking's price — a
+    // recurring schedule's price gets stored verbatim on every initial
+    // occurrence (and the schedule itself, which future cron-generated visits
+    // copy from), never recomputed per-visit. A "one-time" credit must NEVER
+    // ride along on a repeat_enabled submission, or it silently becomes a
+    // standing discount across every future visit instead of just this one
+    // (nycmaid a8efe43f).
+    const creditCents = (!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0) ? Math.round(createForm.one_time_credit_dollars * 100) : null
+    return applyCredit(applyDiscount(basePrice, discountPercent), creditCents)
   }
 
   const calculateEditPrice = () => {
     const teamSize = Math.max(1, form.team_size || 1)
-    // If editing a completed booking with actual_hours, use actual_hours for pricing
+    const discountPercent = form.discount_enabled ? form.discount_percent : null
+    const creditCents = form.one_time_credit_dollars > 0 ? Math.round(form.one_time_credit_dollars * 100) : null
+    // If editing a completed booking with actual_hours, use actual_hours for pricing —
+    // but the discount + one-time credit still apply on top, same as every other
+    // recompute path (payment-processor, Stripe webhook, cleaner self-checkout).
+    // This branch used to drop the discount entirely once actual_hours was set,
+    // which could overcharge a discounted client on any post-checkout edit
+    // (nycmaid 6ec48424).
     if (form.actual_hours && form.actual_hours > 0) {
-      return Math.round(form.actual_hours * form.hourly_rate * teamSize * 100)
+      const basePrice = Math.round(form.actual_hours * form.hourly_rate * teamSize * 100)
+      return applyCredit(applyDiscount(basePrice, discountPercent), creditCents)
     }
     const basePrice = form.hours * form.hourly_rate * teamSize * 100
-    if (form.discount_enabled && form.discount_percent > 0) {
-      const discounted = basePrice * (1 - form.discount_percent / 100)
-      return Math.floor(discounted / 500) * 500
-    }
-    return basePrice
+    return applyCredit(applyDiscount(basePrice, discountPercent), creditCents)
   }
 
   // Check if pricing fields changed from what was loaded
@@ -857,6 +892,9 @@ function BookingsPage() {
       end_time: newEndStr,
       price: pricingChanged() ? calculateEditPrice() : form._originalPrice,
       recurring_type: recurringType,
+      discount_percent: form.discount_enabled ? form.discount_percent : null,
+      one_time_credit_cents: form.one_time_credit_dollars > 0 ? Math.round(form.one_time_credit_dollars * 100) : null,
+      one_time_credit_reason: form.one_time_credit_dollars > 0 ? (form.one_time_credit_reason || null) : null,
       force: true,
     }
 
@@ -891,6 +929,7 @@ function BookingsPage() {
             notes: form.notes || null,
             dates: newDates,
             from_date: editingBooking.start_time,
+            discount_percent: form.discount_enabled ? form.discount_percent : null,
           })
         })
         if (!res.ok) {
@@ -932,6 +971,7 @@ function BookingsPage() {
             serviceType: form.service_type,
             notes: form.notes || null,
             recurringType: recurringType,
+            discountPercent: form.discount_enabled ? form.discount_percent : null,
           })
         }))
 
@@ -958,6 +998,7 @@ function BookingsPage() {
               hourly_rate: form.hourly_rate,
               team_member_id: form.team_member_id,
               notes: form.notes || null,
+              discount_percent: form.discount_enabled ? form.discount_percent : null,
             })
           })
         }
@@ -1034,6 +1075,7 @@ function BookingsPage() {
           status: 'available', pay_rate: createForm.pay_rate,
           max_hours: createForm.max_hours,
           force: true,
+          ...getCreateFormDiscount(),
         })
       })
       if (res.ok) {
@@ -1068,6 +1110,7 @@ function BookingsPage() {
           service_type: createForm.service_type,
           status: createForm.status,
           dates: initialDates,
+          discount_percent: getCreateFormDiscount().discount_percent,
         })
       })
       if (!scheduleRes.ok) {
@@ -1092,6 +1135,7 @@ function BookingsPage() {
         extra_team_member_ids: createForm.extra_team_member_ids,
         max_hours: createForm.max_hours,
         pay_rate: createForm.pay_rate,
+        ...getCreateFormDiscount(),
       }))
 
       await fetch('/api/bookings/batch', {
@@ -1507,6 +1551,7 @@ function BookingsPage() {
                             tomorrow.setDate(tomorrow.getDate() + 1)
                             const endDate = new Date()
                             endDate.setMonth(endDate.getMonth() + 3)
+                            setShowOneTimeCreditCreate(false)
                             setCreateForm({
                               client_id: entry.client_id || '',
                               team_member_id: '', start_date: entry.preferred_date || tomorrow.toISOString().split('T')[0],
@@ -1514,7 +1559,7 @@ function BookingsPage() {
                               hours: 2, hourly_rate: 69, service_type: entry.service_type || 'Standard Cleaning', notes: 'Booked from waitlist',
                               repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
                               repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-                              discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
+                              discount_enabled: false, discount_percent: 10, one_time_credit_dollars: 0, one_time_credit_reason: '', is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
                               team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''                            })
                             if (entry.name) setClientSearch(entry.name + ' - ' + entry.phone)
                             setShowClientDropdown(false)
@@ -2044,7 +2089,7 @@ function BookingsPage() {
                     <div className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center gap-2 flex-wrap">
                       <span>Check-out:</span>
                       <input type="datetime-local" value={editCheckOutVal} onChange={(e) => setEditCheckOutVal(e.target.value)} className="bg-white border border-green-200 rounded px-1 py-0.5 text-xs" />
-                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
+                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = applyCredit(applyDiscount(Math.round(billableHours * clientRate * teamSize * 100), editingBooking.discount_percent), editingBooking.one_time_credit_cents); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
                       <button type="button" onClick={() => setEditCheckOutVal(null)} className="px-2 py-0.5 border border-green-300 rounded text-[10px]">Cancel</button>
                     </div>
                   )
@@ -2059,7 +2104,7 @@ function BookingsPage() {
                     ) : (
                       <div className="flex-1 flex gap-1.5">
                         <button type="button" onClick={() => setConfirmCheckout(false)} className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs">Cancel</button>
-                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, team_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
+                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = applyCredit(applyDiscount(Math.round(billableHours * clientRate * teamSize * 100), editingBooking.discount_percent), editingBooking.one_time_credit_cents); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, team_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
                       </div>
                     )}
                   </div>
@@ -2178,8 +2223,41 @@ function BookingsPage() {
                   )}
                 </div>
               )}
+              {/* One-time credit: a flat comp on THIS visit only (e.g. service
+                  recovery). Stacks on top of the discount above and never
+                  touches the recurring schedule, so future visits are unaffected. */}
+              {!showOneTimeCredit ? (
+                <button type="button" onClick={() => setShowOneTimeCredit(true)} className="text-left text-[11px] text-amber-700 hover:text-amber-800 font-medium pt-0.5">
+                  + One-time credit (this visit only)
+                </button>
+              ) : (
+                <div className="bg-amber-50 border border-amber-200 rounded-lg p-2 space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-amber-700 uppercase font-semibold">One-time credit — this visit only</span>
+                    <button type="button" onClick={() => { setShowOneTimeCredit(false); setForm({ ...form, one_time_credit_dollars: 0, one_time_credit_reason: '' }) }} className="text-[10px] text-amber-600 hover:text-amber-800">Remove</button>
+                  </div>
+                  <div className="flex gap-1.5">
+                    <input
+                      type="number"
+                      min="0"
+                      step="1"
+                      value={form.one_time_credit_dollars || ''}
+                      onChange={(e) => setForm({ ...form, one_time_credit_dollars: parseFloat(e.target.value) || 0 })}
+                      className="w-20 px-2 py-1.5 border border-amber-300 rounded-lg text-sm text-[var(--sched-ink)] bg-white"
+                      placeholder="$ off"
+                    />
+                    <input
+                      type="text"
+                      value={form.one_time_credit_reason}
+                      onChange={(e) => setForm({ ...form, one_time_credit_reason: e.target.value })}
+                      className="flex-1 px-2 py-1.5 border border-amber-300 rounded-lg text-sm text-[var(--sched-ink)] bg-white"
+                      placeholder="Reason (optional) — e.g. service recovery"
+                    />
+                  </div>
+                </div>
+              )}
               <div className="flex justify-between text-xs pt-1 border-t border-gray-200">
-                <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}</span>
+                <span className="text-gray-500">~{getEstimatedHoursRange(form.hours)}hrs × ${form.hourly_rate}{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.discount_enabled && form.discount_percent > 0 ? ` − ${form.discount_percent}%` : ''}{form.one_time_credit_dollars > 0 ? ` − $${form.one_time_credit_dollars} credit` : ''}</span>
                 <span className="font-semibold text-[var(--sched-ink)]">~${(calculateEditPrice() / 100).toFixed(0)}</span>
               </div>
               <div className="pt-2 border-t border-gray-200">
@@ -2847,7 +2925,7 @@ function BookingsPage() {
 
                 <div className="py-3 border-t border-b border-gray-200 space-y-2">
                   <div className="flex justify-between items-center">
-                    <h4 className="font-medium text-[var(--sched-ink)]">Recurring Discount</h4>
+                    <h4 className="font-medium text-[var(--sched-ink)]">Discount</h4>
                     <div
                       onClick={() => setCreateForm({ ...createForm, discount_enabled: !createForm.discount_enabled })}
                       className={`w-10 h-6 rounded-full transition-colors ${createForm.discount_enabled ? 'bg-green-600' : 'bg-gray-300'} relative cursor-pointer`}
@@ -2890,10 +2968,48 @@ function BookingsPage() {
                   )}
                 </div>
 
+                {/* One-time credit: a flat comp on THIS visit only. Stacks on
+                    top of the discount above and never touches recurring_schedules.
+                    Hidden when Repeat is on — a recurring schedule's price/discount
+                    apply to every generated visit, so a "one-time" credit here
+                    would silently become a standing discount instead of a comp
+                    for just this visit. Use the edit modal on the specific
+                    occurrence once it exists instead. */}
+                {createForm.repeat_enabled ? null : !showOneTimeCreditCreate ? (
+                  <button type="button" onClick={() => setShowOneTimeCreditCreate(true)} className="text-left text-xs text-amber-700 hover:text-amber-800 font-medium">
+                    + One-time credit (this visit only)
+                  </button>
+                ) : (
+                  <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 space-y-2">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs text-amber-700 uppercase font-semibold">One-time credit — this visit only</span>
+                      <button type="button" onClick={() => { setShowOneTimeCreditCreate(false); setCreateForm({ ...createForm, one_time_credit_dollars: 0, one_time_credit_reason: '' }) }} className="text-xs text-amber-600 hover:text-amber-800">Remove</button>
+                    </div>
+                    <div className="flex gap-2">
+                      <input
+                        type="number"
+                        min="0"
+                        step="1"
+                        value={createForm.one_time_credit_dollars || ''}
+                        onChange={(e) => setCreateForm({ ...createForm, one_time_credit_dollars: parseFloat(e.target.value) || 0 })}
+                        className="w-24 px-2 py-1.5 border border-amber-300 rounded text-sm text-[var(--sched-ink)]"
+                        placeholder="$ off"
+                      />
+                      <input
+                        type="text"
+                        value={createForm.one_time_credit_reason}
+                        onChange={(e) => setCreateForm({ ...createForm, one_time_credit_reason: e.target.value })}
+                        className="flex-1 px-2 py-1.5 border border-amber-300 rounded text-sm text-[var(--sched-ink)]"
+                        placeholder="Reason (optional)"
+                      />
+                    </div>
+                  </div>
+                )}
+
                 <div className="bg-gray-50 rounded-lg p-4">
                   <p className="text-xs text-gray-500 mb-2">ESTIMATE{recurringDates.length > 1 ? ' (per visit)' : ''}</p>
                   <div className="flex justify-between">
-                    <span>~{getEstimatedHoursRange(createForm.hours)}hrs × ${createForm.hourly_rate}/hr{createForm.team_size > 1 ? ` × ${createForm.team_size} cleaners` : ''}{createForm.discount_enabled && createForm.discount_percent > 0 ? ` − ${createForm.discount_percent}%` : ''}</span>
+                    <span>~{getEstimatedHoursRange(createForm.hours)}hrs × ${createForm.hourly_rate}/hr{createForm.team_size > 1 ? ` × ${createForm.team_size} cleaners` : ''}{createForm.discount_enabled && createForm.discount_percent > 0 ? ` − ${createForm.discount_percent}%` : ''}{!createForm.repeat_enabled && createForm.one_time_credit_dollars > 0 ? ` − $${createForm.one_time_credit_dollars} credit` : ''}</span>
                     <span className="font-semibold">~${(calculatePrice() / 100).toFixed(0)}</span>
                   </div>
                   {recurringDates.length > 1 && <p className="text-xs text-gray-500 mt-1">Recurring schedule — billed per visit</p>}

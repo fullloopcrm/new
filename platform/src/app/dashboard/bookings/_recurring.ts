@@ -253,6 +253,7 @@ export function buildSeriesUpdateData(opts: {
   serviceType: string
   notes: string | null
   recurringType: string | null
+  discountPercent?: number | null
 }): Record<string, unknown> {
   return {
     start_time: opts.startTime,
@@ -263,6 +264,7 @@ export function buildSeriesUpdateData(opts: {
     service_type: opts.serviceType,
     notes: opts.notes,
     recurring_type: opts.recurringType,
+    discount_percent: opts.discountPercent ?? null,
   }
 }
 
