@@ -55,6 +55,7 @@ const navMain: Array<{
     { letter: 'B', label: 'Calendar', href: '/dashboard/calendar' },
     { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
     { letter: 'D', label: 'Treatment Log', href: '/dashboard/treatments' },
+    { letter: 'E', label: 'Inventory', href: '/dashboard/inventory' },
   ]},
   { num: '05', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '06', label: 'HR', href: '/dashboard/hr', fold: 'hr', perm: 'team.view', subs: [
@@ -81,7 +82,7 @@ const navMain: Array<{
 const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
-  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/treatments'],
+  production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings', '/dashboard/treatments', '/dashboard/inventory'],
   clients: ['/dashboard/clients', '/dashboard/sms'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],

@@ -21,6 +21,7 @@ export type Permission =
   | 'referrals.view' | 'referrals.create' | 'referrals.payout'
   | 'sales_partners.view' | 'sales_partners.manage' | 'sales_partners.payout'
   | 'sales.view' | 'sales.edit'
+  | 'inventory.view' | 'inventory.edit'
   | 'leads.view'
   | 'notifications.view'
   | 'audit.view'
@@ -46,6 +47,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'referrals.view', 'referrals.create', 'referrals.payout',
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
+    'inventory.view', 'inventory.edit',
     'leads.view', 'notifications.view', 'audit.view',
   ],
   admin: [
@@ -60,6 +62,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'referrals.view', 'referrals.create', 'referrals.payout',
     'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
+    'inventory.view', 'inventory.edit',
     'leads.view', 'notifications.view', 'audit.view',
   ],
   manager: [
@@ -74,6 +77,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'referrals.view',
     'sales_partners.view',
     'sales.view', 'sales.edit',
+    'inventory.view', 'inventory.edit',
     'leads.view', 'notifications.view',
   ],
   staff: [
@@ -83,6 +87,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view',
     'reviews.view',
     'sales.view',
+    'inventory.view',
     'notifications.view',
   ],
 }
@@ -148,6 +153,10 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
   { key: 'sales', label: 'Sales & Documents', permissions: [
     { value: 'sales.view', label: 'View proposals & documents' },
     { value: 'sales.edit', label: 'Create / edit / send documents' },
+  ] },
+  { key: 'inventory', label: 'Inventory', permissions: [
+    { value: 'inventory.view', label: 'View inventory & stock levels' },
+    { value: 'inventory.edit', label: 'Create / edit inventory items' },
   ] },
   { key: 'settings', label: 'Settings', permissions: [
     { value: 'settings.view', label: 'View settings' },

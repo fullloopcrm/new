@@ -45,7 +45,7 @@ const TENANT_TABLES = new Set([
   'document_signers','documents','domain_notes','domains','email_logs',
   'entities','error_logs','expenses','google_posts','google_reviews','hr_document_reminders',
   'hr_document_requirements','hr_documents','hr_employee_profiles','hr_notes','impersonation_events',
-  'import_batches','import_rows','invoice_activity','invoices','jefe_tasks',
+  'import_batches','import_rows','invoice_activity','invoices','inventory_items','jefe_tasks',
   'job_events','job_payments','jobs','journal_entries','journal_lines',
   'lead_clicks','management_application_drafts','management_applications','marketing_opt_out_log','notifications',
   'oauth_state_nonces','onboarding_tasks','outreach_log','payments','payroll_payments',
