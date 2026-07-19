@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { usePortalAuth } from './layout'
 import PushPrompt from '@/components/PushPrompt'
+import ClientPhotoCapture from '@/components/ClientPhotoCapture'
 import { formatRecurringLabel } from '@/lib/recurring'
 
 interface Booking {
@@ -808,6 +809,12 @@ export default function PortalHomePage() {
                   {booking.notes && (
                     <div className="text-sm mb-3">
                       <span className="text-slate-400">Notes: </span>{booking.notes}
+                    </div>
+                  )}
+
+                  {auth && (
+                    <div className="mb-3">
+                      <ClientPhotoCapture bookingId={booking.id} token={auth.token} />
                     </div>
                   )}
 

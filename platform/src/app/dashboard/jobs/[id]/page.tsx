@@ -1,11 +1,11 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react'
 import { useParams } from 'next/navigation'
 import Link from 'next/link'
 
 type Assignee = { id: string; name: string }
-type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null; ends_on: string | null }
+type Job = { id: string; title: string | null; status: string; total_cents: number; service_address: string | null; notes: string | null; ends_on: string | null; notes_tagged_user_ids: string[] | null }
 type Payment = { id: string; label: string; kind: string; amount_cents: number; status: string; trigger: string; paid_at: string | null }
 type Session = {
   id: string
@@ -24,6 +24,11 @@ type ChangeOrder = { id: string; quote_number: string; title: string | null; sta
 type Crew = { id: string; name: string; color: string | null; members: Assignee[] }
 type TeamMember = { id: string; name: string | null }
 type JobExpense = { id: string; category: string; amount: number; vendor_name: string | null; description: string | null; receipt_url: string | null; date: string }
+type JobPhoto = {
+  id: string; url: string; media_type: 'photo' | 'video'; photo_type: 'before' | 'after' | 'progress'
+  source: 'crew' | 'client'; caption: string | null; uploaded_by: string | null; taken_at: string
+}
+type PhotoComment = { id: string; body: string | null; author: string; created_at: string }
 
 const EXPENSE_CATEGORIES = ['Materials', 'Supplies', 'Equipment rental', 'Fuel', 'Permits', 'Subcontractor', 'Other']
 
@@ -156,6 +161,183 @@ function SessionEditor({
   )
 }
 
+const PHOTO_TYPE_LABEL: Record<string, string> = { before: 'Before', after: 'After', progress: 'Progress' }
+const PHOTO_TYPE_STYLE: Record<string, string> = {
+  before: 'bg-amber-50 text-amber-700', after: 'bg-green-50 text-green-600', progress: 'bg-slate-100 text-slate-500',
+}
+
+function PhotoLightbox({
+  photo, jobId, onClose,
+}: { photo: JobPhoto; jobId: string; onClose: () => void }) {
+  const [comments, setComments] = useState<PhotoComment[]>([])
+  const [text, setText] = useState('')
+  const [sending, setSending] = useState(false)
+
+  const loadComments = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`).then(r => r.json())
+      .then(d => setComments(d.comments || [])).catch(() => {})
+  }, [jobId, photo.id])
+  useEffect(() => { loadComments() }, [loadComments])
+
+  const send = async () => {
+    if (!text.trim()) return
+    setSending(true)
+    try {
+      await fetch(`/api/jobs/${jobId}/photos/${photo.id}/comments`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ body: text }),
+      })
+      setText('')
+      loadComments()
+    } finally { setSending(false) }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+        {photo.media_type === 'video'
+          ? <video src={photo.url} controls className="w-full max-h-[60vh] bg-slate-900" />
+          // eslint-disable-next-line @next/next/no-img-element
+          : <img src={photo.url} alt={photo.caption || 'Job photo'} className="w-full max-h-[60vh] object-contain bg-slate-900" />}
+        <div className="p-3">
+          <div className="flex items-center gap-2 mb-1">
+            <span className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[photo.photo_type]}`}>{PHOTO_TYPE_LABEL[photo.photo_type]}</span>
+            <span className="text-[10px] text-slate-400">{photo.source === 'client' ? 'From client' : (photo.uploaded_by || 'Crew')}</span>
+            <span className="text-[10px] text-slate-400">{when(photo.taken_at)}</span>
+          </div>
+          {photo.caption && <p className="text-sm text-slate-700 mb-2">{photo.caption}</p>}
+
+          <div className="space-y-1.5 mb-2">
+            {comments.map(c => (
+              <div key={c.id} className="text-xs bg-slate-50 rounded p-1.5">
+                <span className="font-medium text-slate-700">{c.author}</span>
+                <span className="text-slate-400 ml-1.5">{when(c.created_at)}</span>
+                <p className="text-slate-600 mt-0.5">{c.body}</p>
+              </div>
+            ))}
+            {comments.length === 0 && <p className="text-xs text-slate-400">No comments yet.</p>}
+          </div>
+
+          <div className="flex gap-1.5">
+            <input value={text} onChange={(e) => setText(e.target.value)} placeholder="Add a comment…"
+              className="flex-1 px-2 py-1 text-xs rounded border border-slate-300"
+              onKeyDown={(e) => { if (e.key === 'Enter') send() }} />
+            <button onClick={send} disabled={sending || !text.trim()} className="text-xs px-2 py-1 rounded bg-slate-800 text-white disabled:opacity-50">Send</button>
+          </div>
+          <button onClick={onClose} className="mt-2 text-[11px] text-slate-400 hover:underline">Close</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function PhotoGallery({ jobId }: { jobId: string }) {
+  const [photos, setPhotos] = useState<JobPhoto[]>([])
+  const [uploading, setUploading] = useState(false)
+  const [uploadingVideo, setUploadingVideo] = useState(false)
+  const [photoType, setPhotoType] = useState<'before' | 'after' | 'progress'>('progress')
+  const [selected, setSelected] = useState<JobPhoto | null>(null)
+  const [err, setErr] = useState('')
+
+  const load = useCallback(() => {
+    fetch(`/api/jobs/${jobId}/photos`).then(r => r.json()).then(d => setPhotos(d.photos || [])).catch(() => {})
+  }, [jobId])
+  useEffect(() => { load() }, [load])
+
+  const onUpload = async (files: FileList | null) => {
+    if (!files || files.length === 0) return
+    setUploading(true); setErr('')
+    try {
+      for (const file of Array.from(files)) {
+        const form = new FormData()
+        form.append('file', file)
+        form.append('photo_type', photoType)
+        const res = await fetch(`/api/jobs/${jobId}/photos`, { method: 'POST', body: form })
+        if (!res.ok) { const d = await res.json().catch(() => ({})); throw new Error(d.error || 'Upload failed') }
+      }
+      load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Upload failed')
+    } finally { setUploading(false) }
+  }
+
+  const onUploadVideo = async (file: File | null) => {
+    if (!file) return
+    setUploadingVideo(true); setErr('')
+    try {
+      const signedRes = await fetch(`/api/jobs/${jobId}/photos/signed-url`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ filename: file.name, contentType: file.type || 'video/mp4' }),
+      })
+      if (!signedRes.ok) { const d = await signedRes.json().catch(() => ({})); throw new Error(d.error || 'Failed to get upload URL') }
+      const { signedUrl, publicUrl } = await signedRes.json()
+
+      const putRes = await fetch(signedUrl, {
+        method: 'PUT', headers: { 'Content-Type': file.type || 'video/mp4', 'x-upsert': 'true' }, body: file,
+      })
+      if (!putRes.ok) throw new Error('Upload failed')
+
+      const saveRes = await fetch(`/api/jobs/${jobId}/photos`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: publicUrl, photo_type: photoType }),
+      })
+      if (!saveRes.ok) { const d = await saveRes.json().catch(() => ({})); throw new Error(d.error || 'Failed to save video') }
+      load()
+    } catch (e) {
+      setErr(e instanceof Error ? e.message : 'Upload failed')
+    } finally { setUploadingVideo(false) }
+  }
+
+  return (
+    <section className="mb-6">
+      <div className="flex items-center justify-between mb-2 flex-wrap gap-2">
+        <h2 className="text-sm font-semibold text-slate-800">Job photos & video</h2>
+        <div className="flex items-center gap-1.5">
+          <select value={photoType} onChange={(e) => setPhotoType(e.target.value as typeof photoType)}
+            className="text-[11px] px-1.5 py-1 rounded border border-slate-300">
+            <option value="progress">Progress</option>
+            <option value="before">Before</option>
+            <option value="after">After</option>
+          </select>
+          <label className={`text-[11px] px-2 py-1 rounded bg-slate-800 text-white cursor-pointer ${uploading ? 'opacity-50' : 'hover:bg-slate-900'}`}>
+            {uploading ? 'Uploading…' : '+ Add photos'}
+            <input type="file" accept="image/*" multiple className="hidden" disabled={uploading}
+              onChange={(e) => onUpload(e.target.files)} />
+          </label>
+          <label className={`text-[11px] px-2 py-1 rounded border border-slate-300 text-slate-600 cursor-pointer ${uploadingVideo ? 'opacity-50' : 'hover:bg-slate-50'}`}>
+            {uploadingVideo ? 'Uploading…' : '+ Add video'}
+            <input type="file" accept="video/*" className="hidden" disabled={uploadingVideo}
+              onChange={(e) => onUploadVideo(e.target.files?.[0] ?? null)} />
+          </label>
+        </div>
+      </div>
+
+      {err && <p className="text-xs text-red-600 mb-2">{err}</p>}
+
+      {photos.length === 0
+        ? <p className="text-sm text-slate-400">No photos or video yet.</p>
+        : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
+            {photos.map(p => (
+              <button key={p.id} onClick={() => setSelected(p)} className="relative aspect-square rounded-lg overflow-hidden border border-slate-200 group">
+                {p.media_type === 'video'
+                  ? <video src={p.url} className="w-full h-full object-cover group-hover:opacity-90" muted />
+                  // eslint-disable-next-line @next/next/no-img-element
+                  : <img src={p.url} alt={p.caption || 'Job photo'} className="w-full h-full object-cover group-hover:opacity-90" />}
+                {p.media_type === 'video' && (
+                  <span className="absolute inset-0 flex items-center justify-center text-white text-xl drop-shadow">▶</span>
+                )}
+                <span className={`absolute top-1 left-1 text-[9px] px-1 py-0.5 rounded font-medium ${PHOTO_TYPE_STYLE[p.photo_type]}`}>{PHOTO_TYPE_LABEL[p.photo_type]}</span>
+                {p.source === 'client' && <span className="absolute top-1 right-1 text-[9px] px-1 py-0.5 rounded bg-blue-50 text-blue-600 font-medium">Client</span>}
+              </button>
+            ))}
+          </div>
+        )}
+
+      {selected && <PhotoLightbox photo={selected} jobId={jobId} onClose={() => setSelected(null)} />}
+    </section>
+  )
+}
+
 export default function JobDetailPage() {
   const id = useParams<{ id: string }>().id
   const [job, setJob] = useState<Job | null>(null)
@@ -175,8 +357,11 @@ export default function JobDetailPage() {
   const [expenseForm, setExpenseForm] = useState({ vendor: '', amount: '', category: EXPENSE_CATEGORIES[0], note: '' })
   const [expenseFile, setExpenseFile] = useState<File | null>(null)
   const [uploadingExpense, setUploadingExpense] = useState(false)
-  const [details, setDetails] = useState({ notes: '', ends_on: '' })
+  const [details, setDetails] = useState({ notes: '', ends_on: '', taggedIds: [] as string[] })
   const [budget, setBudget] = useState<{ budgeted_total_cents: number } | null>(null)
+  const [mentionMembers, setMentionMembers] = useState<Assignee[]>([])
+  const [mention, setMention] = useState<{ query: string; start: number } | null>(null)
+  const notesRef = useRef<HTMLTextAreaElement | null>(null)
 
   const load = useCallback(() => {
     fetch(`/api/jobs/${id}`).then(r => r.json()).then(d => {
@@ -193,9 +378,10 @@ export default function JobDetailPage() {
   useEffect(() => {
     fetch('/api/crews').then(r => r.json()).then(d => setCrews(d.crews || [])).catch(() => {})
     fetch('/api/team').then(r => r.json()).then(d => setTeam(d.team || [])).catch(() => {})
+    fetch('/api/jobs/team-mentions').then(r => r.json()).then(d => setMentionMembers(Array.isArray(d) ? d : [])).catch(() => {})
   }, [])
   useEffect(() => {
-    if (job) setDetails({ notes: job.notes ?? '', ends_on: job.ends_on ?? '' })
+    if (job) setDetails({ notes: job.notes ?? '', ends_on: job.ends_on ?? '', taggedIds: job.notes_tagged_user_ids ?? [] })
   }, [job])
   useEffect(() => {
     // W4's contract (GET /api/jobs/[id]/budget-variance) — degrades to null (section hidden)
@@ -219,8 +405,44 @@ export default function JobDetailPage() {
   const saveDetails = () => act('save-details', () =>
     fetch(`/api/jobs/${id}`, {
       method: 'PATCH', headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ notes: details.notes.trim() || null, ends_on: details.ends_on || null }),
+      body: JSON.stringify({ notes: details.notes.trim() || null, ends_on: details.ends_on || null, tagged_user_ids: details.taggedIds }),
     }))
+
+  function handleNotesChange(e: React.ChangeEvent<HTMLTextAreaElement>) {
+    const val = e.target.value
+    const pos = e.target.selectionStart ?? val.length
+    setDetails((d) => ({ ...d, notes: val }))
+    const before = val.slice(0, pos)
+    const m = before.match(/(?:^|\s)@([^\s@]*)$/)
+    setMention(m ? { query: m[1], start: pos - m[1].length - 1 } : null)
+  }
+
+  function selectMention(member: Assignee) {
+    if (!mention) return
+    const text = details.notes
+    const end = mention.start + 1 + mention.query.length
+    const before = text.slice(0, mention.start)
+    const after = text.slice(end)
+    const insert = `@${member.name} `
+    const newText = before + insert + after
+    setDetails((d) => ({
+      ...d,
+      notes: newText,
+      taggedIds: d.taggedIds.includes(member.id) ? d.taggedIds : [...d.taggedIds, member.id],
+    }))
+    setMention(null)
+    requestAnimationFrame(() => {
+      const pos = before.length + insert.length
+      notesRef.current?.focus()
+      notesRef.current?.setSelectionRange(pos, pos)
+    })
+  }
+
+  const mentionMatches = useMemo(() => {
+    if (!mention) return []
+    const q = mention.query.toLowerCase()
+    return mentionMembers.filter((m) => m.name.toLowerCase().includes(q)).slice(0, 6)
+  }, [mention, mentionMembers])
 
   const markPaid = (p: Payment) => act(`pay-${p.id}`, () =>
     fetch(`/api/jobs/${id}/payments`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ payment_id: p.id, status: 'paid' }) }))
@@ -376,8 +598,31 @@ export default function JobDetailPage() {
           </label>
           <label className="flex flex-col gap-1">
             <span className="text-[10px] uppercase tracking-wide text-slate-400">Job notes</span>
-            <textarea value={details.notes} onChange={(e) => setDetails({ ...details, notes: e.target.value })} rows={4}
-              placeholder="Add job notes…" className="px-2 py-1.5 text-xs rounded border border-slate-300 bg-white resize-y w-full" />
+            <div className="relative">
+              <textarea
+                ref={notesRef}
+                value={details.notes}
+                onChange={handleNotesChange}
+                onBlur={() => setTimeout(() => setMention(null), 150)}
+                rows={4}
+                placeholder="Add job notes… (@ to tag a teammate)"
+                className="px-2 py-1.5 text-xs rounded border border-slate-300 bg-white resize-y w-full"
+              />
+              {mention && mentionMatches.length > 0 && (
+                <div className="absolute left-0 right-0 bottom-full mb-1 z-20 flex flex-col bg-white border border-slate-200 rounded-md shadow-lg max-h-[180px] overflow-y-auto">
+                  {mentionMatches.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="block w-full text-left px-2.5 py-1.5 text-xs text-slate-700 border-b border-slate-100 last:border-b-0 hover:bg-slate-50"
+                      onMouseDown={(e) => { e.preventDefault(); selectMention(m) }}
+                    >
+                      {m.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </label>
           {detailsDirty && (
             <button onClick={saveDetails} disabled={busy === 'save-details'}
@@ -586,6 +831,8 @@ export default function JobDetailPage() {
           ))}
         </div>
       </section>
+
+      <PhotoGallery jobId={id} />
 
       {/* Activity log */}
       <section>
