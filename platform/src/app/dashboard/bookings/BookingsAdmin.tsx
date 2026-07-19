@@ -8,7 +8,6 @@ import { useSearchParams } from 'next/navigation'
 import { RecurringOptions, generateRecurringDates, getRecurringDisplayName } from './_RecurringOptions'
 import { buildSeriesUpdateData } from './_recurring'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
-import { useServiceTypes } from '@/lib/useServiceTypes'
 import BookingNotes from '@/components/BookingNotes'
 import { formatPhone } from '@/lib/format'
 import { CloseoutDetail } from '@/components/closeout-detail'
@@ -75,6 +74,7 @@ interface Booking {
 }
 
 interface Client { id: string; name: string; phone: string; email: string; address: string; created_at: string; do_not_service?: boolean; preferred_team_member_id?: string | null }
+interface CatalogItem { id: string; name: string; item_type: string; active: boolean; sort_order: number }
 interface Cleaner { id: string; name: string; hourly_rate?: number; working_days?: string[]; unavailable_dates?: string[]; schedule?: Record<string, unknown>; active?: boolean; max_jobs_per_day?: number }
 interface Referrer { id: string; name: string; ref_code: string; active: boolean }
 interface SalesPartner { id: string; name: string; referral_code: string; active: boolean }
@@ -286,6 +286,7 @@ function BookingsPage() {
   const [showFilters, setShowFilters] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [catalogItems, setCatalogItems] = useState<CatalogItem[]>([])
   const pageSize = 25
 
   useEffect(() => {
@@ -297,7 +298,7 @@ function BookingsPage() {
   }, [])
 
   useEffect(() => {
-    loadBookings(); loadClients(); loadCleaners(); loadReferrers(); loadSalesPartners()
+    loadBookings(); loadClients(); loadCleaners(); loadReferrers(); loadSalesPartners(); loadCatalogItems()
     const interval = setInterval(loadBookings, 300000) // Auto-refresh bookings every 5min
     return () => clearInterval(interval)
   }, [])
@@ -475,6 +476,7 @@ function BookingsPage() {
   const loadCleaners = async () => { const res = await fetch('/api/cleaners'); if (!res.ok) return; const j = await res.json(); setCleaners(Array.isArray(j) ? j : (j.cleaners ?? j.team ?? [])) }
   const loadReferrers = async () => { const res = await fetch('/api/referrers'); if (!res.ok) return; const j = await res.json(); setReferrers(Array.isArray(j) ? j : (j.referrers ?? [])) }
   const loadSalesPartners = async () => { const res = await fetch('/api/sales-partners'); if (!res.ok) return; const j = await res.json(); setSalesPartners(Array.isArray(j) ? j : (j.sales_partners ?? [])) }
+  const loadCatalogItems = async () => { const res = await fetch('/api/catalog'); if (!res.ok) return; const j = await res.json(); setCatalogItems(Array.isArray(j) ? j : (j.items ?? [])) }
 
   const loadWaitlist = async () => {
     setWaitlistLoading(true)
@@ -1261,9 +1263,11 @@ function BookingsPage() {
     return dt.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })
   }
 
-  const serviceTypesData = useServiceTypes()
-  // Catalog-driven only — no cleaning fallback. Shows the tenant's own services.
-  const serviceTypes = serviceTypesData.map(s => s.name)
+  // Master Catalog-driven, filtered to type "service" only (excludes projects/packages/products).
+  const serviceTypes = catalogItems
+    .filter(c => c.item_type === 'service' && c.active !== false)
+    .sort((a, b) => a.sort_order - b.sort_order)
+    .map(c => c.name)
 
   // Reverse-map stored recurring_type display name back to form repeat_type
   const reverseRecurringType = (displayName: string | null): string => {
