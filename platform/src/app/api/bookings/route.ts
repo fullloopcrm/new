@@ -15,6 +15,7 @@ import { getSettings } from '@/lib/settings'
 import { applyPropertyToBookingClient } from '@/lib/client-properties'
 import { deriveDurationClass } from '@/lib/schedule/duration-class'
 import { findSchedulingConflicts } from '@/lib/schedule/conflict-check'
+import { markFeedbackCreditApplied } from '@/lib/client-feedback'
 
 function formatMin(min: number): string {
   const h = Math.floor(min / 60), m = min % 60
@@ -251,6 +252,13 @@ export async function POST(request: Request) {
     applyPropertyToBookingClient(data as Parameters<typeof applyPropertyToBookingClient>[0])
 
     await audit({ tenantId, action: 'booking.created', entityType: 'booking', entityId: data.id, details: { service: validated.service_type_id } })
+
+    // Auto-applied feedback credit (see /api/bookings/batch for the same
+    // pattern) -- BookingsAdmin.tsx's emergency-booking path posts here
+    // directly rather than through the batch route.
+    if (typeof body.applied_feedback_credit_id === 'string' && body.applied_feedback_credit_id) {
+      await markFeedbackCreditApplied(tenantId, body.applied_feedback_credit_id, data.id).catch(() => {})
+    }
 
     // Send notifications to client + team member
     try {

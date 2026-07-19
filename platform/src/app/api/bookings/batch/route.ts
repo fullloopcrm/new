@@ -7,6 +7,7 @@ import { escapeHtml } from '@/lib/escape-html'
 import { sendSMS } from '@/lib/sms'
 import { smsJobAssignment } from '@/lib/sms-templates'
 import { clientSmsTemplatesFor } from '@/lib/messaging/client-sms'
+import { markFeedbackCreditApplied } from '@/lib/client-feedback'
 
 /**
  * POST /api/bookings/batch
@@ -88,6 +89,18 @@ export async function POST(request: Request) {
     .select('*, clients(*), team_members!bookings_team_member_id_fkey(*)')
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+
+  // Auto-applied feedback credit (BookingsAdmin.tsx pre-fills the flat-dollar
+  // discount from getPendingFeedbackCredit and sends the credit's id back so
+  // it's marked used exactly once, tied to the row it actually discounted —
+  // never re-derived server-side, since price is computed client-side here.
+  const appliedCreditIdx = bookingInputs.findIndex(b => typeof b.applied_feedback_credit_id === 'string' && b.applied_feedback_credit_id)
+  if (appliedCreditIdx !== -1) {
+    const creditRow = data?.[appliedCreditIdx]
+    if (creditRow?.id) {
+      await markFeedbackCreditApplied(tenantId, bookingInputs[appliedCreditIdx].applied_feedback_credit_id as string, creditRow.id).catch(() => {})
+    }
+  }
 
   const first = (data || [])[0]
   if (first && first.status !== 'pending') {

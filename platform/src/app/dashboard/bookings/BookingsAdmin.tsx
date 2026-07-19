@@ -230,6 +230,35 @@ function BookingsPage() {
       .catch(() => {})
     return () => { cancelled = true }
   }, [showCreateModal, createForm.client_id])
+
+  // A client who replied to a feedback-request campaign may have an unclaimed
+  // $ credit (client_feedback.credit_cents) queued for their next booking.
+  // Auto-fill it into the flat-dollar discount toggle so the admin doesn't
+  // have to know it exists; submit only marks it applied if the admin left
+  // these values as auto-filled (see handleCreate).
+  const [pendingFeedbackCredit, setPendingFeedbackCredit] = useState<{ id: string; credit_cents: number } | null>(null)
+  useEffect(() => {
+    const cid = createForm.client_id
+    if (!showCreateModal || !cid) { setPendingFeedbackCredit(null); return }
+    let cancelled = false
+    fetch(`/api/admin/client-feedback?client_id=${cid}`)
+      .then(r => r.ok ? r.json() : { pendingCredit: null })
+      .then(d => {
+        if (cancelled) return
+        const credit = d.pendingCredit as { id: string; credit_cents: number } | null
+        setPendingFeedbackCredit(credit)
+        if (credit) {
+          setCreateForm(prev => ({
+            ...prev,
+            discount_enabled: true,
+            discount_type: 'dollar',
+            discount_dollars: credit.credit_cents / 100,
+          }))
+        }
+      })
+      .catch(() => {})
+    return () => { cancelled = true }
+  }, [showCreateModal, createForm.client_id])
   const [copied, setCopied] = useState(false)
   const [resendMenuId, setResendMenuId] = useState<string | null>(null)
   const [editCheckInVal, setEditCheckInVal] = useState<string | null>(null)
@@ -1008,6 +1037,16 @@ function BookingsPage() {
     e.preventDefault(); setSaving(true)
     const recurringType = createForm.repeat_enabled ? getRecurringDisplayName(createForm.repeat_type, createForm.start_date) : null
 
+    // Only mark the credit used if the admin left the auto-filled discount
+    // untouched (see the pendingFeedbackCredit effect above) -- if they
+    // disabled the discount or changed the amount, the credit stays pending
+    // for next time rather than being silently consumed.
+    const appliedCreditId = pendingFeedbackCredit
+      && createForm.discount_enabled && createForm.discount_type === 'dollar'
+      && createForm.discount_dollars === pendingFeedbackCredit.credit_cents / 100
+      ? pendingFeedbackCredit.id
+      : null
+
     if (createForm.is_emergency) {
       // Emergency: single booking + broadcast (can't batch)
       const date = recurringDates[0]
@@ -1023,6 +1062,7 @@ function BookingsPage() {
           status: 'available', cleaner_pay_rate: createForm.cleaner_pay_rate,
           max_hours: createForm.max_hours,
           force: true,
+          applied_feedback_credit_id: appliedCreditId || undefined,
         })
       })
       if (res.ok) {
@@ -1065,7 +1105,7 @@ function BookingsPage() {
       }
     } else {
       // Single booking via batch (1 booking)
-      const bookings = recurringDates.map(date => ({
+      const bookings = recurringDates.map((date, i) => ({
         client_id: createForm.client_id,
         property_id: createForm.property_id || null,
         cleaner_id: createForm.cleaner_id,
@@ -1080,6 +1120,9 @@ function BookingsPage() {
         team_size: createForm.team_size,
         extra_cleaner_ids: createForm.extra_cleaner_ids,
         max_hours: createForm.max_hours,
+        // One-time credit -- only the first row (a real multi-date "recurring"
+        // series goes through the schedule branch above, not this one).
+        applied_feedback_credit_id: i === 0 ? (appliedCreditId || undefined) : undefined,
       }))
 
       await fetch('/api/bookings/batch', {
@@ -2841,6 +2884,12 @@ function BookingsPage() {
                         />
                       )}
                     </div>
+                  )}
+                  {pendingFeedbackCredit && createForm.discount_enabled && createForm.discount_type === 'dollar'
+                    && createForm.discount_dollars === pendingFeedbackCredit.credit_cents / 100 && (
+                    <p className="text-xs text-green-700 pt-1">
+                      ${(pendingFeedbackCredit.credit_cents / 100).toFixed(0)} feedback credit auto-applied — will be marked used on save.
+                    </p>
                   )}
                 </div>
 

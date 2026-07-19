@@ -4,15 +4,25 @@
  * scoped to the caller's tenant via requirePermission instead of nycmaid's
  * single-tenant protectAdminAPI.
  */
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { AuthError } from '@/lib/tenant-query'
 import { requirePermission } from '@/lib/require-permission'
 import { supabaseAdmin } from '@/lib/supabase'
+import { getPendingFeedbackCredit } from '@/lib/client-feedback'
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const { tenant, error: authError } = await requirePermission('clients.view')
     if (authError) return authError
+
+    // Booking-create UI (BookingsAdmin.tsx) checks a single client for an
+    // unapplied feedback credit before submitting, so it can pre-fill the
+    // flat-dollar discount toggle. Narrow lookup, not the full feedback list.
+    const clientId = request.nextUrl.searchParams.get('client_id')
+    if (clientId) {
+      const pendingCredit = await getPendingFeedbackCredit(tenant.tenantId, clientId)
+      return NextResponse.json({ pendingCredit })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('client_feedback')
