@@ -164,6 +164,30 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sales partner resolution — same ?ref= flow as referrers, separate
+    // referral_code namespace, so only checked when no referrer matched.
+    let salesPartnerId: string | null = null
+    if (!referrerId && body.ref_code) {
+      const { data: salesPartner } = await supabaseAdmin
+        .from('sales_partners')
+        .select('id')
+        .eq('tenant_id', tenant.id)
+        .eq('referral_code', (body.ref_code as string).toUpperCase())
+        .eq('active', true)
+        .maybeSingle()
+      if (salesPartner) {
+        salesPartnerId = salesPartner.id
+        if (clientId) {
+          await supabaseAdmin
+            .from('clients')
+            .update({ sales_partner_id: salesPartnerId })
+            .eq('id', clientId)
+            .eq('tenant_id', tenant.id)
+            .is('sales_partner_id', null)
+        }
+      }
+    }
+
     // Time computation
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
@@ -314,6 +338,19 @@ export async function POST(request: Request) {
         return NextResponse.json({ error: 'You already have a booking on this date.' }, { status: 409 })
       }
       return NextResponse.json({ error: 'Insert failed' }, { status: 500 })
+    }
+
+    // sales_partner_id isn't a param on create_booking_atomic (predates the
+    // Sales Partner feature) -- set it in a small follow-up update rather
+    // than widening the atomic RPC's surface. Not race-prone: unlike the
+    // same-date dedup check, two concurrent submits can't both "win" a
+    // sales-partner attribution the way they could a duplicate date.
+    if (salesPartnerId) {
+      await supabaseAdmin
+        .from('bookings')
+        .update({ sales_partner_id: salesPartnerId })
+        .eq('id', claim.booking.id)
+        .eq('tenant_id', tenant.id)
     }
 
     const { data, error } = await supabaseAdmin

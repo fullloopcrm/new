@@ -191,6 +191,18 @@
     {
       "path": "/api/cron/gdpr-purge",
       "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/seo-index-cliff",
+      "schedule": "0 8 * * 2"
+    },
+    {
+      "path": "/api/cron/seo-alerts",
+      "schedule": "15 8 * * 2"
+    },
+    {
+      "path": "/api/cron/score-conversations",
+      "schedule": "0 * * * *"
     }
   ]
 }

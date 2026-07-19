@@ -1,13 +1,19 @@
 'use client'
 
-import {useState, useEffect } from 'react'
+import { useState, useEffect, Suspense } from 'react'
 import Link from 'next/link'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { useFormTracking } from '@/lib/useFormTracking'
 
-export default function ReferralSignupPage() {
+function ReferralSignupContent() {
   useEffect(() => { document.title = 'Become a Referrer | The NYC Maid' }, []);
   const router = useRouter()
+  const searchParams = useSearchParams()
+  // A sales partner's "recruit a referrer" link carries ?ref=<their code> --
+  // captured here so the new referrer is linked to the recruiting partner
+  // (referrers.recruited_by_sales_partner_id) and the partner earns an
+  // override on this referrer's future commissions.
+  const recruitedBy = searchParams.get('ref')
   const { trackStart, trackSuccess } = useFormTracking('/referral/signup')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -36,7 +42,8 @@ export default function ReferralSignupPage() {
           ...form,
           zelle_email: form.zelle_email || form.email,
           website: honeypot,
-          _t: loadedAt
+          _t: loadedAt,
+          recruited_by_sales_partner_ref: recruitedBy || undefined,
         })
       })
 
@@ -297,5 +304,13 @@ export default function ReferralSignupPage() {
         <p>Questions? Email us at hi@thenycmaid.com</p>
       </div>
     </div>
+  )
+}
+
+export default function ReferralSignupPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-50 flex items-center justify-center"><p className="text-gray-500">Loading...</p></div>}>
+      <ReferralSignupContent />
+    </Suspense>
   )
 }

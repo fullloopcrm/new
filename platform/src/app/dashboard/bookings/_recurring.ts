@@ -89,6 +89,43 @@ export function generateRecurringDates(
   return dates
 }
 
+// Payload for PUT /api/bookings/batch-update's "pattern unchanged, apply to
+// all future occurrences" edit in BookingsAdmin.tsx. That route spreads this
+// object straight into `supabaseAdmin.from('bookings').update(data)` with no
+// field allowlist/aliasing (unlike its single-booking, /regenerate, and
+// recurring-schedules PUT siblings, which all alias the nycmaid-era
+// `cleaner_id` body key to the real `bookings.team_member_id` column).
+// bookings has never had a `cleaner_id` column -- only the legacy per-tenant
+// site booking tables ported in from nycmaid do -- so sending `cleaner_id`
+// here 400s every row in the batch on an unknown-column error, and the
+// resulting `if (!res.ok)` early-return silently skips BOTH the schedule-
+// record PUT and the per-booking team save that follow it, breaking the
+// entire "apply to all future" edit (price/notes/hours/lead reassignment)
+// whenever the recurring pattern itself wasn't also changed.
+export function buildSeriesUpdateData(opts: {
+  startTime: string
+  endTime: string
+  teamMemberId: string | null
+  price: number
+  hourlyRate: number | null
+  serviceType: string
+  notes: string | null
+  recurringType: string | null
+  discountPercent?: number | null
+}): Record<string, unknown> {
+  return {
+    start_time: opts.startTime,
+    end_time: opts.endTime,
+    team_member_id: opts.teamMemberId,
+    price: opts.price,
+    hourly_rate: opts.hourlyRate,
+    service_type: opts.serviceType,
+    notes: opts.notes,
+    recurring_type: opts.recurringType,
+    discount_percent: opts.discountPercent ?? null,
+  }
+}
+
 // Helper to get display name for recurring type
 export function getRecurringDisplayName(
   repeatType: string,

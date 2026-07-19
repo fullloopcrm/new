@@ -44,8 +44,14 @@ function startOfPeriod(period: string): { from: string; to: string } {
   return { from: today, to: today }
 }
 
+// create_booking is deliberately NOT here — self-book-only enforcement
+// (nycmaid cc92e0e6 parity). A client never gets a booking created for them
+// by the AI on a client channel; she always directs them to the tenant's own
+// self-book form instead. Only the owner (Telegram, isOwnerOfTenant-gated)
+// can call create_booking, via create_manual_booking, which already lives in
+// the owner-only tool set below.
 const CLIENT_TOOLS = new Set([
-  'create_booking', 'lookup_bookings', 'reschedule_booking',
+  'lookup_bookings', 'reschedule_booking',
   'cancel_booking', 'confirm_payment', 'check_payment', 'send_pin', 'resend_confirmation',
   'update_account', 'request_callback', 'report_issue', 'remember',
 ])

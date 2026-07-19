@@ -6,6 +6,8 @@ import dayGridPlugin from '@fullcalendar/daygrid'
 import timeGridPlugin from '@fullcalendar/timegrid'
 import interactionPlugin from '@fullcalendar/interaction'
 import SidePanel from '@/components/SidePanel'
+import { formatRecurringLabel } from '@/lib/recurring'
+import { applyDiscount, applyCredit } from '@/lib/discount'
 
 interface Client { id: string; name: string; phone: string; address: string }
 interface TeamMember { id: string; name: string }
@@ -27,6 +29,9 @@ interface Booking {
   hourly_rate?: number
   recurring_type?: string | null
   schedule_id?: string | null
+  duration_class?: string | null
+  discount_percent?: number | null
+  one_time_credit_cents?: number | null
 }
 
 interface BookingEvent {
@@ -375,10 +380,14 @@ export default function CalendarBoard() {
     const clientName = booking.clients?.name || 'this client'
     if (!confirm(`Resize ${clientName} to ${hours} hours?`)) { info.revert(); return }
     const hourlyRate = booking.hourly_rate || 75
+    // Resizing changes hours, so price must be recomputed — but still through
+    // this booking's own discount + one-time credit, not a bare hours×rate
+    // that would silently strip whatever was agreed (nycmaid a8efe43f parity).
+    const price = applyCredit(applyDiscount(hours * hourlyRate * 100, booking.discount_percent), booking.one_time_credit_cents)
     const res = await fetch(`/api/bookings/${booking.id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ start_time: newStart, end_time: newEnd, price: hours * hourlyRate * 100 })
+      body: JSON.stringify({ start_time: newStart, end_time: newEnd, price })
     })
     if (res.ok) { if (dateRange) loadBookings(dateRange.from, dateRange.to) }
     else { info.revert() }
