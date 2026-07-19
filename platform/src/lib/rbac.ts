@@ -19,6 +19,7 @@ export type Permission =
   | 'schedules.view' | 'schedules.create' | 'schedules.edit'
   | 'reviews.view' | 'reviews.request'
   | 'referrals.view' | 'referrals.create' | 'referrals.payout'
+  | 'sales_partners.view' | 'sales_partners.manage' | 'sales_partners.payout'
   | 'sales.view' | 'sales.edit'
   | 'leads.view'
   | 'notifications.view'
@@ -43,6 +44,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view', 'schedules.create', 'schedules.edit',
     'reviews.view', 'reviews.request',
     'referrals.view', 'referrals.create', 'referrals.payout',
+    'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
   ],
@@ -56,6 +58,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view', 'schedules.create', 'schedules.edit',
     'reviews.view', 'reviews.request',
     'referrals.view', 'referrals.create', 'referrals.payout',
+    'sales_partners.view', 'sales_partners.manage', 'sales_partners.payout',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view', 'audit.view',
   ],
@@ -69,6 +72,7 @@ const ROLE_PERMISSIONS: Record<Role, Permission[]> = {
     'schedules.view', 'schedules.create', 'schedules.edit',
     'reviews.view', 'reviews.request',
     'referrals.view',
+    'sales_partners.view',
     'sales.view', 'sales.edit',
     'leads.view', 'notifications.view',
   ],
@@ -135,6 +139,11 @@ export const PERMISSION_CATALOG: PermissionGroup[] = [
     { value: 'referrals.view', label: 'View referrals' },
     { value: 'referrals.create', label: 'Create referrals' },
     { value: 'referrals.payout', label: 'Pay out referrals' },
+  ] },
+  { key: 'sales_partners', label: 'Sales Partners', permissions: [
+    { value: 'sales_partners.view', label: 'View sales partners' },
+    { value: 'sales_partners.manage', label: 'Manage sales partners (tier, active status)' },
+    { value: 'sales_partners.payout', label: 'Pay out sales partner commissions' },
   ] },
   { key: 'sales', label: 'Sales & Documents', permissions: [
     { value: 'sales.view', label: 'View proposals & documents' },

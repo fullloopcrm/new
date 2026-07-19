@@ -179,6 +179,28 @@ export async function POST(request: Request) {
       }
     }
 
+    // Sales partner resolution — same ?ref= flow as referrers, separate
+    // referral_code namespace, so only checked when no referrer matched.
+    let salesPartnerId: string | null = null
+    if (!referrerId && body.ref_code) {
+      const { data: salesPartner } = await tenantDb(tenant.id)
+        .from('sales_partners')
+        .select('id')
+        .eq('referral_code', (body.ref_code as string).toUpperCase())
+        .eq('active', true)
+        .maybeSingle()
+      if (salesPartner) {
+        salesPartnerId = salesPartner.id
+        if (clientId) {
+          await tenantDb(tenant.id)
+            .from('clients')
+            .update({ sales_partner_id: salesPartnerId })
+            .eq('id', clientId)
+            .is('sales_partner_id', null)
+        }
+      }
+    }
+
     // Time computation
     let startTime = body.start_time as string | undefined
     let endTime = body.end_time as string | undefined
@@ -324,6 +346,7 @@ export async function POST(request: Request) {
         team_member_token: cleanerToken,
         token_expires_at: tokenExpiresAt.toISOString(),
         referrer_id: referrerId,
+        sales_partner_id: salesPartnerId,
         ref_code: (body.ref_code as string) || null,
       })
       .select('*, clients(*), client_properties(*)')
