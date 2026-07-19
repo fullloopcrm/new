@@ -71,7 +71,7 @@ const deleteReq = (id: string) => new Request(`http://x/api/crews?id=${id}`, { m
 
 describe('/api/crews — permission gate', () => {
   it('allows a staff member on GET (staff has schedules.view)', async () => {
-    const res = await GET()
+    const res = await GET(new Request('http://x/api/crews'))
     expect(res.status).toBe(200)
   })
 
@@ -95,7 +95,7 @@ describe('/api/crews — permission gate', () => {
 
   it('allows a manager (has schedules.view/create/edit) to list and create', async () => {
     currentRole.value = 'manager'
-    const getRes = await GET()
+    const getRes = await GET(new Request('http://x/api/crews'))
     expect(getRes.status).toBe(200)
     const postRes = await POST(postReq({ name: 'New Crew' }))
     expect(postRes.status).toBe(200)
