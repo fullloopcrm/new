@@ -3,22 +3,24 @@
 import { useEffect, useState, type CSSProperties } from 'react'
 import RichMonthView from './RichMonthView'
 import KanbanView from './KanbanView'
-import ProjectsView from './ProjectsView'
 import TimelineView from './TimelineView'
 
-// The multi-view scheduling surface. One job model, four projections; the switcher
+// The multi-view scheduling surface. One job model, three projections; the switcher
 // picks the axis. Each view has its own persisted size (+/-) so an operator can
 // tune density per view (dense Month, larger Timeline, etc.). Size uses CSS zoom,
 // which scales the whole view proportionally regardless of Tailwind's fixed text
 // sizes — best in Chromium (the operator app's target).
+//
+// Projects used to be a fourth tab here (ProjectsView) — moved out to its own
+// page (/dashboard/jobs/projects) since a project deserves more than a Gantt
+// strip squeezed into the calendar switcher. Don't re-add it here.
 
-type View = 'month' | 'timeline' | 'kanban' | 'projects'
+type View = 'month' | 'timeline' | 'kanban'
 
 const VIEWS: { key: View; label: string; hint: string; ready: boolean }[] = [
   { key: 'month', label: 'Month', hint: 'Overview + recurring + long-job spans', ready: true },
   { key: 'timeline', label: 'Timeline', hint: 'Dispatch by team member × time', ready: true },
   { key: 'kanban', label: 'Kanban', hint: 'Jobs by status — drag to advance', ready: true },
-  { key: 'projects', label: 'Projects', hint: 'Long jobs as spans + milestones', ready: true },
 ]
 
 const SCALE_MIN = 0.7
@@ -41,7 +43,7 @@ function Scaffold({ view }: { view: (typeof VIEWS)[number] }) {
 
 export default function CalendarShell() {
   const [view, setView] = useState<View>('month')
-  const [scales, setScales] = useState<Record<View, number>>({ month: 1, timeline: 1, kanban: 1, projects: 1 })
+  const [scales, setScales] = useState<Record<View, number>>({ month: 1, timeline: 1, kanban: 1 })
   const active = VIEWS.find((v) => v.key === view)!
 
   // Load persisted per-view sizes once.
@@ -54,7 +56,6 @@ export default function CalendarShell() {
           month: clampScale(parsed.month ?? cur.month),
           timeline: clampScale(parsed.timeline ?? cur.timeline),
           kanban: clampScale(parsed.kanban ?? cur.kanban),
-          projects: clampScale(parsed.projects ?? cur.projects),
         }))
       }
     } catch { /* ignore bad storage */ }
@@ -125,7 +126,7 @@ export default function CalendarShell() {
           .cal-scale .cal-chip-sm { font-size: calc(10px * var(--cal-fs, 1)); }
           .cal-scale .cal-chip-md { font-size: calc(14px * var(--cal-fs, 1)); }
         `}</style>
-        {view === 'month' ? <RichMonthView /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : view === 'projects' ? <ProjectsView /> : <Scaffold view={active} />}
+        {view === 'month' ? <RichMonthView /> : view === 'timeline' ? <TimelineView /> : view === 'kanban' ? <KanbanView /> : <Scaffold view={active} />}
       </div>
     </div>
   )

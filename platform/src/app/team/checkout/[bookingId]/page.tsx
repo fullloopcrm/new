@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { useTeamAuth } from '../../layout'
-import VideoUpload from '@/components/VideoUpload'
+import LoopCamRecorder from '@/components/LoopCamRecorder'
 
 export default function CheckOutPage() {
   const { bookingId } = useParams<{ bookingId: string }>()
@@ -85,15 +85,7 @@ export default function CheckOutPage() {
             <span className="text-3xl mb-1">✓</span>
             <p className="text-xs text-blue-700 font-mono">{coords.lat.toFixed(4)}, {coords.lng.toFixed(4)}</p>
           </div>
-          <div className="w-full max-w-sm mx-auto">
-            <VideoUpload
-              bookingId={bookingId}
-              type="final"
-              token={auth!.token}
-              t={t}
-              onUploaded={() => {}}
-            />
-          </div>
+          <LoopCamRecorder bookingId={bookingId} token={auth!.token} t={t} defaultSessionType="after" onComplete={() => {}} />
           <button onClick={checkOut} className="bg-blue-600 text-white px-8 py-3 rounded-xl font-medium">
             {t('Confirm Check Out', 'Confirmar Salida')}
           </button>

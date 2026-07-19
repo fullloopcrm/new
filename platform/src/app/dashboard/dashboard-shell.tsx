@@ -54,9 +54,10 @@ const navMain: Array<{
   ]},
   { num: '05', label: 'Production', href: '/dashboard/jobs', fold: 'production', perm: 'bookings.view', subs: [
     { letter: 'A', label: 'Bookings', href: '/dashboard/bookings' },
-    { letter: 'B', label: 'Schedule', href: '/dashboard/calendar' },
-    { letter: 'C', label: 'Crews', href: '/dashboard/jobs/crews' },
-    { letter: 'D', label: 'Vendors', href: '/dashboard/jobs/vendors' },
+    { letter: 'B', label: 'Projects', href: '/dashboard/jobs/projects' },
+    { letter: 'C', label: 'Schedule', href: '/dashboard/calendar' },
+    { letter: 'D', label: 'Crews', href: '/dashboard/jobs/crews' },
+    { letter: 'E', label: 'Vendors', href: '/dashboard/jobs/vendors' },
   ]},
   { num: '06', label: 'Finance', href: '/dashboard/finance', fold: 'finance', perm: 'finance.view', subs: [] },
   { num: '07', label: 'HR', href: '/dashboard/team', fold: 'hr', perm: 'team.view', subs: [] },
@@ -108,11 +109,12 @@ function activeFold(pathname: string): string | null {
 }
 
 // Path → masthead title overrides. Used when the URL segment doesn't match
-// the human label we want shown (e.g. /dashboard/bookings is the Schedule hub).
+// the human label we want shown, or when the default (first-segment-only)
+// derivation can't reach a nested route like /dashboard/jobs/projects.
 const TITLE_OVERRIDES: Record<string, string> = {
-  '/dashboard/bookings': 'Schedule',
   '/dashboard/connect': 'Loop Connect',
   '/dashboard/jobs': 'Production',
+  '/dashboard/jobs/projects': 'Projects',
 }
 
 function pageTitleFromPath(pathname: string): string {

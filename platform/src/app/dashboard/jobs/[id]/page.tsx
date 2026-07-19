@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation'
 import Link from 'next/link'
 import { stageMeta } from '@/lib/pipeline'
 import { CloseoutDetail } from '@/components/closeout-detail'
+import BookingNotes from '@/components/BookingNotes'
 
 type Assignee = { id: string; name: string }
 type Job = {
@@ -629,6 +630,16 @@ export default function JobDetailPage() {
           ))}
           {events.length === 0 && <li className="text-sm text-slate-400">No activity yet.</li>}
         </ul>
+      </section>
+
+      {/* Notes — project-level thread (job_id anchor, no single booking).
+          Per-visit notes still live on each booking; this is the LoopCam
+          video/photo/text thread for the project as a whole. */}
+      <section>
+        <h2 className="text-sm font-semibold text-slate-800 mb-2">Notes</h2>
+        <div className="rounded-xl border border-slate-200 bg-white p-3 h-[420px] min-h-[280px] resize-y overflow-auto">
+          <BookingNotes jobId={id} mode="admin" authorName="Admin" projectName={job.title || 'Job'} />
+        </div>
       </section>
 
       </div>

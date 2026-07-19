@@ -7,31 +7,44 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File | null
-    const bookingId = formData.get('booking_id') as string
+    const bookingId = (formData.get('booking_id') as string) || null
+    const jobId = (formData.get('job_id') as string) || null
     const authorType = formData.get('author_type') as string
     const authorName = formData.get('author_name') as string
     const content = formData.get('content') as string | null
     const imageUrlsRaw = formData.get('image_urls') as string | null
 
-    if (!bookingId) return NextResponse.json({ error: 'Missing booking_id' }, { status: 400 })
+    if (!bookingId && !jobId) return NextResponse.json({ error: 'Missing booking_id or job_id' }, { status: 400 })
 
     const ctx = await getTenantForRequest()
 
-    // booking_id is a caller-supplied FK used both as an insert value and as a
-    // storage path segment below — booking_notes has no cross-tenant FK check,
-    // and an unsanitized id would also let a path-traversal payload write
-    // outside this tenant's storage prefix. Verify ownership before either.
-    const { data: ownedBooking } = await supabaseAdmin
-      .from('bookings')
-      .select('id')
-      .eq('id', bookingId)
-      .eq('tenant_id', ctx.tenantId)
-      .maybeSingle()
-    if (!ownedBooking) {
-      return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+    // booking_id/job_id are caller-supplied FKs used both as insert values and
+    // as a storage path segment below — booking_notes has no cross-tenant FK
+    // check, and an unsanitized id would also let a path-traversal payload
+    // write outside this tenant's storage prefix. Verify ownership before either.
+    let resolvedJobId: string | null = null
+    if (bookingId) {
+      const { data: owned } = await supabaseAdmin
+        .from('bookings')
+        .select('id, job_id')
+        .eq('id', bookingId)
+        .eq('tenant_id', ctx.tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Booking not found' }, { status: 404 })
+      resolvedJobId = (owned.job_id as string | null) ?? null
+    } else {
+      const { data: owned } = await supabaseAdmin
+        .from('jobs')
+        .select('id')
+        .eq('id', jobId)
+        .eq('tenant_id', ctx.tenantId)
+        .maybeSingle()
+      if (!owned) return NextResponse.json({ error: 'Job not found' }, { status: 404 })
+      resolvedJobId = owned.id as string
     }
 
     const allowedTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/heic', 'image/heif']
+    const storageScope = bookingId || `job-${jobId}`
 
     // MODE 1: URLs already uploaded
     if (imageUrlsRaw) {
@@ -40,6 +53,7 @@ export async function POST(request: NextRequest) {
         .from('booking_notes')
         .insert({
           booking_id: bookingId,
+          job_id: resolvedJobId,
           author_type: authorType || 'admin',
           author_name: authorName || 'Admin',
           content: content?.trim() || null,
@@ -61,7 +75,7 @@ export async function POST(request: NextRequest) {
     // alnum extension before it reaches the path.
     const rawExt = (file.name.split('.').pop() || 'jpg').toLowerCase()
     const ext = rawExt.replace(/[^a-z0-9]/g, '').slice(0, 8) || 'jpg'
-    const path = `booking-notes/${bookingId}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
+    const path = `booking-notes/${storageScope}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`
     const buffer = Buffer.from(await file.arrayBuffer())
 
     const { error: uploadError } = await supabaseAdmin.storage
@@ -77,6 +91,7 @@ export async function POST(request: NextRequest) {
       .from('booking_notes')
       .insert({
         booking_id: bookingId,
+        job_id: resolvedJobId,
         author_type: authorType || 'admin',
         author_name: authorName || 'Admin',
         content: content?.trim() || null,

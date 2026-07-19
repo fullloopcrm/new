@@ -47,6 +47,7 @@ type Tenant = {
   imap_user: string | null
   imap_pass: string | null
   anthropic_api_key: string | null
+  deepgram_api_key: string | null
   indexnow_key: string | null
 
   // Scheduling fields
@@ -1141,6 +1142,21 @@ export default function SettingsPage() {
             <div>
               <label className="text-sm text-slate-400 block mb-1">Anthropic API Key</label>
               <input type="password" value={form.anthropic_api_key || ''} onChange={(e) => setForm({ ...form, anthropic_api_key: e.target.value || null })} placeholder="sk-ant-xxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
+            </div>
+          </div>
+
+          {/* Deepgram — LoopCam video note transcription */}
+          <div className="space-y-3 pb-5 border-b border-slate-100">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-slate-700">Video Transcription (Deepgram)</h3>
+              <span className={`text-xs font-semibold px-2.5 py-1 rounded ${form.deepgram_api_key ? 'bg-green-50 text-green-600' : 'bg-amber-50 text-amber-600'}`}>
+                {form.deepgram_api_key ? 'Using your key' : 'Using platform key'}
+              </span>
+            </div>
+            <p className="text-xs text-slate-400">Sign up at console.deepgram.com, generate a key. Powers transcription for job video notes. Leave blank to use the platform-billed key.</p>
+            <div>
+              <label className="text-sm text-slate-400 block mb-1">Deepgram API Key</label>
+              <input type="password" value={form.deepgram_api_key || ''} onChange={(e) => setForm({ ...form, deepgram_api_key: e.target.value || null })} placeholder="xxxxxxxx" className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm font-mono" />
             </div>
           </div>
 

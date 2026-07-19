@@ -7,7 +7,9 @@
  * A job's class decides which view lane it renders in:
  *   slot     — within one day (maid, salon, pest, tow, junk, laundry, fitness)
  *   multiday — spans 2-14 days (dumpster rental, small landscaping)
- *   project  — has a project_id OR spans >14 days (interior design, construction)
+ *   project  — has a project_id, OR a job_id (a sales-converted multi-booking
+ *              job — per jobs.ts, job_id is only ever set for genuine projects,
+ *              never a single-booking cleaning), OR spans >14 days
  *
  * `duration_class` may be stored on the booking as an explicit override; when
  * absent, derive it here so existing rows (nycmaid cleaning) need no backfill.
@@ -44,19 +46,21 @@ export interface DurationClassInput {
   start_time: string
   end_time?: string | null
   project_id?: string | null
+  job_id?: string | null
   duration_class?: string | null
 }
 
 /**
  * Resolve a booking's duration class. Explicit stored value wins; otherwise
- * derive from project linkage + span. A booking tied to a project is always
- * `project` (it's a touchpoint of a long job).
+ * derive from project/job linkage + span. A booking tied to a project (either
+ * primitive — the lightweight calendar `projects` table via project_id, or a
+ * sales-converted multi-booking `jobs` row via job_id) is always `project`.
  */
 export function deriveDurationClass(b: DurationClassInput): DurationClass {
   if (b.duration_class === 'slot' || b.duration_class === 'multiday' || b.duration_class === 'project') {
     return b.duration_class
   }
-  if (b.project_id) return 'project'
+  if (b.project_id || b.job_id) return 'project'
   const days = spanDays(b.start_time, b.end_time)
   if (days == null) return 'slot'
   if (days > MULTIDAY_MAX_DAYS) return 'project'
