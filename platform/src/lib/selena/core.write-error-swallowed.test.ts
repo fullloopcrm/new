@@ -85,22 +85,13 @@ beforeEach(() => {
   fake._store.clear()
 })
 
-describe('cancel_booking — update error is no longer swallowed', () => {
-  it('does not report success when the bookings.update write fails', async () => {
-    fake._seed('sms_conversations', [{ id: CONVO_ID, tenant_id: TENANT, client_id: CLIENT_ID }])
-    fake._seed('bookings', [{ id: 'booking-1', tenant_id: TENANT, client_id: CLIENT_ID, status: 'confirmed', recurring_type: 'weekly', start_time: new Date(Date.now() + 10 * 86400000).toISOString() }])
-    forceUpdateError('bookings')
-
-    const out = await handleTool('cancel_booking', { booking_id: 'booking-1', reason: 'test' }, CONVO_ID, freshResult())
-    const parsed = JSON.parse(out)
-
-    expect(parsed.success).not.toBe(true)
-    expect(parsed.error).toBeTruthy()
-    // The admin notify for a "confirmed cancelled" booking must not fire
-    // when the write never actually happened.
-    expect(notifyMock).not.toHaveBeenCalledWith(expect.objectContaining({ type: 'booking_cancelled' }))
-  })
-})
+// cancel_booking's own "update error is no longer swallowed" coverage was
+// removed here: the self-book-only refactor (4b4b2fad) replaced its direct
+// `bookings.update` with an `admin_tasks.insert` (owner-approval-queue)
+// instead -- forcing a `bookings.update` failure no longer exercises this
+// handler's write path at all, since it never calls that anymore. The
+// insert-failure path has its own real error handling (see handleCancelBooking's
+// `if (taskError)` branch) but isn't covered by this specific test shape.
 
 describe('manage_recurring cancel — update error is no longer swallowed', () => {
   it('does not report success when the recurring_schedules.update write fails', async () => {
