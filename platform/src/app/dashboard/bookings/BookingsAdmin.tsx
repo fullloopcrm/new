@@ -201,6 +201,7 @@ function BookingsPage() {
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
     actual_hours: null as number | null, team_pay: null as number | null,
+    pay_rate: null as number | null,
     team_paid: false,
     team_size: 1,
     extra_team_member_ids: [] as string[],
@@ -214,7 +215,7 @@ function BookingsPage() {
     repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
     repeat_end_count: 10, repeat_end_date: '', custom_interval: 3,
     discount_enabled: false, discount_percent: 10,
-    is_emergency: false, pay_rate: 40, status: 'scheduled' as string,
+    is_emergency: false, pay_rate: null as number | null, status: 'scheduled' as string,
     team_size: 1, extra_team_member_ids: [] as string[], max_hours: null as number | null,
     override_availability: false, property_id: '' as string,
   })
@@ -322,7 +323,7 @@ function BookingsPage() {
         start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: 40, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
         team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       if (client) {
         setClientSearch(client.name + ' - ' + client.phone)
@@ -357,7 +358,7 @@ function BookingsPage() {
         start_time: time || '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
         repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
         repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: 40, status: 'scheduled',
+        discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
         team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''      })
       setClientSearch('')
       setShowClientDropdown(false)
@@ -664,6 +665,7 @@ function BookingsPage() {
       custom_interval: 3,
       actual_hours: booking.actual_hours,
       team_pay: booking.team_pay,
+      pay_rate: booking.pay_rate ?? null,
       team_paid: !!(booking as any).team_paid,
       team_size: (booking as any).team_size || 1,
       extra_team_member_ids: [],
@@ -696,7 +698,7 @@ function BookingsPage() {
       start_time: '09:00', hours: 2, hourly_rate: 69, service_type: 'Standard Cleaning', notes: '',
       repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
       repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-      discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: 40, status: 'scheduled',
+      discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
       team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''    })
     setClientSearch('')
     setShowClientDropdown(false)
@@ -1089,6 +1091,7 @@ function BookingsPage() {
         team_size: createForm.team_size,
         extra_team_member_ids: createForm.extra_team_member_ids,
         max_hours: createForm.max_hours,
+        pay_rate: createForm.pay_rate,
       }))
 
       await fetch('/api/bookings/batch', {
@@ -1511,7 +1514,7 @@ function BookingsPage() {
                               hours: 2, hourly_rate: 69, service_type: entry.service_type || 'Standard Cleaning', notes: 'Booked from waitlist',
                               repeat_enabled: false, repeat_type: 'weekly', repeat_end: 'never',
                               repeat_end_count: 10, repeat_end_date: endDate.toISOString().split('T')[0], custom_interval: 3,
-                              discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: 40, status: 'scheduled',
+                              discount_enabled: false, discount_percent: 10, is_emergency: false, pay_rate: null as number | null, status: 'scheduled',
                               team_size: 1, extra_team_member_ids: [], max_hours: null, override_availability: false, property_id: ''                            })
                             if (entry.name) setClientSearch(entry.name + ' - ' + entry.phone)
                             setShowClientDropdown(false)
@@ -2041,7 +2044,7 @@ function BookingsPage() {
                     <div className="text-xs text-green-700 bg-green-50 px-3 py-1.5 rounded-lg flex items-center gap-2 flex-wrap">
                       <span>Check-out:</span>
                       <input type="datetime-local" value={editCheckOutVal} onChange={(e) => setEditCheckOutVal(e.target.value)} className="bg-white border border-green-200 rounded px-1 py-0.5 text-xs" />
-                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
+                      <button type="button" disabled={saving} onClick={async () => { if (!editCheckOutVal) return; setSaving(true); const iso = fromDateTimeLocalET(editCheckOutVal); const ciIso = editingBooking.check_in_time!; const checkIn = new Date(ciIso.endsWith('Z') || ciIso.includes('+') ? ciIso : ciIso + 'Z'); const totalMin = (new Date(iso).getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, skip_email: true }) }); setEditingBooking({ ...editingBooking, check_out_time: iso, actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, actual_hours: actualHours, team_pay: cleanerPay }); setEditCheckOutVal(null); loadBookings(); setSaving(false) }} className="px-2 py-0.5 bg-green-700 text-white rounded text-[10px]">Save</button>
                       <button type="button" onClick={() => setEditCheckOutVal(null)} className="px-2 py-0.5 border border-green-300 rounded text-[10px]">Cancel</button>
                     </div>
                   )
@@ -2056,7 +2059,7 @@ function BookingsPage() {
                     ) : (
                       <div className="flex-1 flex gap-1.5">
                         <button type="button" onClick={() => setConfirmCheckout(false)} className="flex-1 py-2 border border-gray-300 text-gray-600 rounded-lg text-xs">Cancel</button>
-                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = clientRate <= 60 ? 25 : 30; const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, team_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
+                        <button type="button" onClick={async () => { setConfirmCheckout(false); setSaving(true); const now = new Date(); const ciStr = editingBooking.check_in_time!; const checkIn = new Date(ciStr.endsWith('Z') || ciStr.includes('+') ? ciStr : ciStr + 'Z'); const totalMin = (now.getTime() - checkIn.getTime()) / 60000; const halfHrs = Math.floor(totalMin / 30); const rem = totalMin - halfHrs * 30; const actualHours = Math.max(0.5, rem >= 5 ? (halfHrs + 1) * 0.5 : halfHrs * 0.5); const cap = (editingBooking as any).max_hours; const billableHours = (typeof cap === 'number' && cap > 0) ? Math.min(actualHours, cap) : actualHours; const teamSize = Math.max(1, (editingBooking as any).team_size || 1); const clientRate = editingBooking.hourly_rate || 69; const updatedPrice = Math.round(billableHours * clientRate * teamSize * 100); const cleanerHourlyPay = form.pay_rate || cleaners.find(c => c.id === form.team_member_id)?.hourly_rate || (clientRate <= 60 ? 25 : 30); const cleanerPay = Math.round(billableHours * cleanerHourlyPay * 100); await fetch('/api/bookings/' + editingBooking.id, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay, team_member_id: form.team_member_id || null, skip_email: true }) }); setEditingBooking({ ...editingBooking, status: 'completed', check_out_time: now.toISOString(), actual_hours: actualHours, price: updatedPrice, team_pay: cleanerPay }); setForm({ ...form, status: 'completed', actual_hours: actualHours, team_pay: cleanerPay }); loadBookings(); setSaving(false) }} className="flex-1 py-2 bg-red-600 text-white rounded-lg text-xs font-bold">Confirm Check Out</button>
                       </div>
                     )}
                   </div>
@@ -2228,6 +2231,20 @@ function BookingsPage() {
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-[10px] text-gray-400 uppercase">{form.team_size > 1 ? worker.plural : worker.singular}</label>
                 <div className="flex items-center gap-2">
+                  <label className="text-[10px] text-gray-500">Rate</label>
+                  <div className="flex items-center">
+                    <span className="text-[var(--sched-ink)] text-xs mr-0.5">$</span>
+                    <input
+                      type="number"
+                      step="1"
+                      min="0"
+                      value={form.pay_rate ?? ''}
+                      onChange={(e) => setForm({ ...form, pay_rate: e.target.value ? parseInt(e.target.value) : null })}
+                      placeholder="auto"
+                      className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-[var(--sched-ink)] bg-white"
+                    />
+                    <span className="text-[var(--sched-ink)] text-xs ml-0.5">/hr</span>
+                  </div>
                   <label className="text-[10px] text-gray-500">Team size</label>
                   <select
                     value={form.team_size}
@@ -2529,7 +2546,13 @@ function BookingsPage() {
                   <label className="block text-sm font-medium text-[var(--sched-ink)] mb-1">Service</label>
                   <select value={createForm.service_type} onChange={(e) => {
                     const isEmergency = e.target.value === 'Emergency / Same-Day'
-                    setCreateForm({ ...createForm, service_type: e.target.value, is_emergency: isEmergency, team_member_id: isEmergency ? '' : createForm.team_member_id })
+                    // Only clear pay_rate when LEAVING emergency mode — the emergency
+                    // "Team Pay Rate" field and the normal per-cleaner rate override share
+                    // this same state, and a stray emergency rate must not leak into a
+                    // normal booking. Switching between two non-emergency service types
+                    // must NOT wipe an admin's intentional per-cleaner rate override.
+                    const clearedPayRate = createForm.is_emergency && !isEmergency ? null : createForm.pay_rate
+                    setCreateForm({ ...createForm, service_type: e.target.value, is_emergency: isEmergency, team_member_id: isEmergency ? '' : createForm.team_member_id, pay_rate: clearedPayRate })
                   }} className="w-full px-3 py-2 border border-gray-300 rounded-lg text-[var(--sched-ink)]">
                     {serviceTypes.map(s => <option key={s}>{s}</option>)}
                   </select>
@@ -2555,7 +2578,7 @@ function BookingsPage() {
                         step="1"
                         min="25"
                         max="100"
-                        value={createForm.pay_rate}
+                        value={createForm.pay_rate ?? 40}
                         onChange={(e) => setCreateForm({ ...createForm, pay_rate: parseInt(e.target.value) || 40 })}
                         className="w-24 px-3 py-2 border border-red-300 rounded-lg text-[var(--sched-ink)] text-center font-mono bg-white"
                       />
@@ -2567,6 +2590,20 @@ function BookingsPage() {
                     <div className="flex items-center justify-between mb-1">
                       <label className="block text-sm font-medium text-[var(--sched-ink)]">{createForm.team_size > 1 ? worker.plural : worker.singular} *</label>
                       <div className="flex items-center gap-2">
+                        <label className="text-xs text-gray-600">Rate</label>
+                        <div className="flex items-center">
+                          <span className="text-[var(--sched-ink)] text-xs mr-0.5">$</span>
+                          <input
+                            type="number"
+                            step="1"
+                            min="0"
+                            value={createForm.pay_rate ?? ''}
+                            onChange={(e) => setCreateForm({ ...createForm, pay_rate: e.target.value ? parseInt(e.target.value) : null })}
+                            placeholder="auto"
+                            className="w-14 px-1.5 py-0.5 border border-gray-300 rounded text-xs text-[var(--sched-ink)] bg-white"
+                          />
+                          <span className="text-[var(--sched-ink)] text-xs ml-0.5">/hr</span>
+                        </div>
                         <label className="text-xs text-gray-600">Team size</label>
                         <select
                           value={createForm.team_size}

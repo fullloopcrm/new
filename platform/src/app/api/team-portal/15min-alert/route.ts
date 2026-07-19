@@ -116,7 +116,9 @@ export async function POST(req: NextRequest) {
     const clientOwes = Math.max(0, Number(grossOwed) - selfBookingDiscount).toFixed(2)
 
     const teamMember = booking.team_members as unknown as { name: string; pay_rate: number | null } | null
-    const baseCleanerRate = teamMember?.pay_rate || booking.pay_rate || 25
+    // Booking-level pay_rate is an admin override and must win over the team
+    // member's own default rate (nycmaid 2428c8c4 precedence parity).
+    const baseCleanerRate = booking.pay_rate || teamMember?.pay_rate || 25
     // $35 NJ / Long Island / Westchester floor by JOB location — NYC Maid tenant ONLY.
     const cleanerRate = isNycMaid(tenantId)
       ? effectiveCleanerRate(baseCleanerRate, (booking.clients as unknown as { address?: string | null } | null)?.address ?? null)
