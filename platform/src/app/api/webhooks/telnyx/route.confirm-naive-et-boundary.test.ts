@@ -66,6 +66,10 @@ vi.mock('@/lib/supabase', () => {
             const match = filters.every((f) => f(client))
             return match ? { data: { ...client }, error: null } : { data: null, error: null }
           },
+          maybeSingle: async () => {
+            const match = filters.every((f) => f(client))
+            return match ? { data: { ...client }, error: null } : { data: null, error: null }
+          },
         }
         return c
       },
@@ -74,6 +78,31 @@ vi.mock('@/lib/supabase', () => {
           if (client[col] === val) Object.assign(client, payload)
           return { data: null, error: null }
         },
+      }),
+    }
+  }
+
+  // Feedback-campaign-reply lookup always misses here (no campaign_recipients
+  // fixture set up) -- irrelevant to the YES/CONFIRM ET-boundary bug this file
+  // locks down, so the block short-circuits into the confirm flow below.
+  function campaignRecipientsChain() {
+    return {
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => ({
+              in: () => ({
+                gte: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({ data: null, error: null }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
       }),
     }
   }
@@ -149,6 +178,7 @@ vi.mock('@/lib/supabase', () => {
     if (table === 'clients') return clientsChain()
     if (table === 'bookings') return bookingsChain()
     if (table === 'notifications') return notificationsChain()
+    if (table === 'campaign_recipients') return campaignRecipientsChain()
     throw new Error(`unexpected table ${table}`)
   }
   return { supabaseAdmin: { from } }

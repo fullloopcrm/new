@@ -62,6 +62,10 @@ vi.mock('@/lib/supabase', () => {
             const match = filters.every((f) => f(client))
             return match ? { data: { ...client }, error: null } : { data: null, error: null }
           },
+          maybeSingle: async () => {
+            const match = filters.every((f) => f(client))
+            return match ? { data: { ...client }, error: null } : { data: null, error: null }
+          },
         }
         return c
       },
@@ -147,6 +151,31 @@ vi.mock('@/lib/supabase', () => {
     }
   }
 
+  // Feedback-campaign-reply lookup always misses here (no campaign_recipients
+  // fixture set up) -- irrelevant to the status='paid' rating-blind-spot this
+  // file locks down, so the block short-circuits into the rating flow below.
+  function campaignRecipientsChain() {
+    return {
+      select: () => ({
+        eq: () => ({
+          eq: () => ({
+            eq: () => ({
+              in: () => ({
+                gte: () => ({
+                  order: () => ({
+                    limit: () => ({
+                      maybeSingle: async () => ({ data: null, error: null }),
+                    }),
+                  }),
+                }),
+              }),
+            }),
+          }),
+        }),
+      }),
+    }
+  }
+
   const from = (table: string) => {
     if (table === 'tenants') return tenantsChain()
     if (table === 'clients') return clientsChain()
@@ -154,6 +183,7 @@ vi.mock('@/lib/supabase', () => {
     if (table === 'notifications') return notificationsChain()
     if (table === 'client_sms_messages') return clientSmsMessagesChain()
     if (table === 'team_members') return teamMembersChain()
+    if (table === 'campaign_recipients') return campaignRecipientsChain()
     throw new Error(`unexpected table ${table}`)
   }
   return { supabaseAdmin: { from } }

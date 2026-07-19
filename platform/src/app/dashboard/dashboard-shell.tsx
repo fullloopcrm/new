@@ -43,7 +43,9 @@ const navMain: Array<{
   subs: Sub[]
 }> = [
   { num: '00', label: 'The Loop', href: '/dashboard', fold: 'loop', subs: [] },
-  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [] },
+  { num: '01', label: 'Clients', href: '/dashboard/clients', countKey: 'clients', fold: 'clients', perm: 'clients.view', subs: [
+    { letter: 'A', label: 'Feedback', href: '/dashboard/clients/feedback' },
+  ]},
   { num: '02', label: 'ComHub', href: '/dashboard/comhub', fold: 'comhub', subs: [] },
   { num: '03', label: 'Sales', href: '/dashboard/sales', countKey: 'leads', fold: 'sales', perm: 'leads.view', subs: [
     { letter: 'A', label: 'Master Catalog', href: '/dashboard/catalog' },
@@ -78,7 +80,7 @@ const foldMap: Record<string, string[]> = {
   loop: ['/dashboard'],
   sales: ['/dashboard/sales', '/dashboard/catalog', '/dashboard/leads', '/dashboard/schedules'],
   production: ['/dashboard/jobs', '/dashboard/jobs/crews', '/dashboard/calendar', '/dashboard/bookings'],
-  clients: ['/dashboard/clients', '/dashboard/sms'],
+  clients: ['/dashboard/clients', '/dashboard/sms', '/dashboard/clients/feedback'],
   hr: ['/dashboard/hr', '/dashboard/team', '/dashboard/team/crews'],
   finance: ['/dashboard/finance', '/dashboard/books'],
   marketing: [

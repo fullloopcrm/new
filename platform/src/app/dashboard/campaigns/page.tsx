@@ -35,6 +35,7 @@ export default function CampaignsPage() {
   const [form, setForm] = useState({
     name: '', type: 'email', subject: '', body: '',
     recipient_filter: 'all', scheduled_at: '',
+    campaign_type: 'promo', reply_credit_cents: '',
   })
   const [saving, setSaving] = useState(false)
   const [aiPrompt, setAiPrompt] = useState('')
@@ -79,13 +80,16 @@ export default function CampaignsPage() {
       body: JSON.stringify({
         ...form,
         scheduled_at: form.scheduled_at || null,
+        reply_credit_cents: form.campaign_type === 'feedback' && form.reply_credit_cents
+          ? Math.round(Number(form.reply_credit_cents) * 100)
+          : null,
       }),
     })
     if (res.ok) {
       const { campaign } = await res.json()
       setCampaigns((prev) => [campaign, ...prev])
       setShowCreate(false)
-      setForm({ name: '', type: 'email', subject: '', body: '', recipient_filter: 'all', scheduled_at: '' })
+      setForm({ name: '', type: 'email', subject: '', body: '', recipient_filter: 'all', scheduled_at: '', campaign_type: 'promo', reply_credit_cents: '' })
     }
     setSaving(false)
   }
@@ -241,6 +245,30 @@ export default function CampaignsPage() {
                 onChange={(e) => setForm({ ...form, scheduled_at: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
             </div>
+          </div>
+
+          {/* Feedback-request toggle */}
+          <div className="mb-5 border border-slate-200 rounded-lg p-3">
+            <label className="flex items-center gap-2.5 cursor-pointer select-none">
+              <input type="checkbox" checked={form.campaign_type === 'feedback'}
+                onChange={(e) => setForm({ ...form, campaign_type: e.target.checked ? 'feedback' : 'promo' })}
+                className="w-4 h-4 rounded border-slate-300" />
+              <span className="text-sm font-medium text-slate-700">Feedback request</span>
+              <span className="text-xs text-slate-400">— a reply lands in Clients → Feedback instead of the normal chatbot flow</span>
+            </label>
+            {form.campaign_type === 'feedback' && (
+              <div className="mt-3 max-w-xs">
+                <label className="text-xs text-slate-400 uppercase mb-1 block">Reply credit (optional)</label>
+                <div className="flex items-center gap-1">
+                  <span className="text-sm text-slate-400">$</span>
+                  <input type="number" min="0" step="1" value={form.reply_credit_cents}
+                    onChange={(e) => setForm({ ...form, reply_credit_cents: e.target.value })}
+                    placeholder="25"
+                    className="w-full bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm" />
+                </div>
+                <p className="text-[10px] text-slate-400 mt-1">Queued on the recipient&apos;s feedback entry when they reply — not auto-applied to bookings yet.</p>
+              </div>
+            )}
           </div>
 
           {/* Step 2: Recipients */}

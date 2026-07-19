@@ -48,6 +48,11 @@ const h = vi.hoisted(() => {
         if (table === 'sms_conversations') return Promise.resolve({ data: state.existingConvo, error: null })
         return Promise.resolve({ data: null, error: null })
       },
+      // Feedback-campaign-reply lookup (clients/campaign_recipients/client_feedback)
+      // always misses in this fixture -- irrelevant to the tenant-tagging
+      // regression this file locks down, so the block short-circuits and the
+      // chatbot flow below runs exactly as before.
+      maybeSingle: () => Promise.resolve({ data: null, error: null }),
       insert: (row: Record<string, unknown>) => {
         if (table === 'sms_conversation_messages') state.messageInserts.push(row)
         if (table === 'sms_conversations') {

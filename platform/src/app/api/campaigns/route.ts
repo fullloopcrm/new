@@ -45,8 +45,19 @@ export async function POST(request: Request) {
       subject: { type: 'string', max: 500 },
       body: { type: 'string', max: 10000 },
       recipient_filter: { type: 'string', max: 500 },
+      scheduled_at: { type: 'date' },
+      // Feedback-request campaigns: a reply from a recipient gets captured
+      // into client_feedback (Clients -> Feedback) instead of the normal
+      // AI/booking flow, and reply_credit_cents (if set) is queued as a
+      // one-time credit on that feedback row. Default 'promo' — existing
+      // campaigns and callers that never send these fields are unaffected.
+      campaign_type: { type: 'string', max: 20 },
+      reply_credit_cents: { type: 'number', min: 0 },
     })
     if (vError) return NextResponse.json({ error: vError }, { status: 400 })
+    if (fields!.campaign_type && !['promo', 'feedback'].includes(fields!.campaign_type as string)) {
+      return NextResponse.json({ error: "campaign_type must be 'promo' or 'feedback'" }, { status: 400 })
+    }
 
     const { data, error } = await supabaseAdmin
       .from('campaigns')
