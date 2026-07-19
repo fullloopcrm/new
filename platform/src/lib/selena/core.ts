@@ -873,7 +873,7 @@ function buildStepPrompt(intent: Intent, cl: BookingChecklist, next: NextStep, i
     not_interested: 'Say ONLY: "No worries at all! We\'re here whenever you need us 😊" If they\'re offering cleaning services, say "Thanks for reaching out! We\'re not hiring right now but we\'ll keep you in mind." Do NOT ask any questions. Do NOT mention booking.',
     human_request: '"Let me have someone call you — give us just a few minutes 😊" then use request_callback.',
     payment_confirm: 'Client says they paid. If the message mentions the payer (e.g. "my husband sent it" / "my wife paid" / "my partner sent") OR the message includes a different name, extract that name as sender_name. If NOT mentioned AND you don\'t know it, FIRST reply: "Got it — was that paid from your own account or someone else\'s? If someone else, please reply with their name so we can match it 😊" DO NOT call confirm_payment yet. If they confirm own name OR give sender name, THEN call confirm_payment with method + optional sender_name. Thank them warmly by name. "Got it, thank you! We\'re verifying now 😊"',
-    payment_question: 'Use check_payment tool. Payment options: card (Stripe), Zelle (hi@thenycmaid.com), Venmo (@thenycmaid). Collected 30 min before completion, billed in 30-min increments.',
+    payment_question: 'Use check_payment tool. Payment options: secure Stripe link only (card, Apple Pay, or Cash App). Collected 30 min before completion, billed in 30-min increments.',
     dispute: 'The BOOKING DATA below has already been pulled. You ARE The NYC Maid — use "we" and "our." Present the facts: "I pulled up your records — she checked in at [check_in time] at [check_in location] and checked out at [check_out time]. That is [raw_minutes] minutes, which we round to [billed_hours] hours at $[rate]/hr = $[total]." Explain rounding: "We bill in 30-minute increments — after 10 minutes past a half hour, we round up to the next 30 minutes. Our check-in and check-out times are recorded automatically by GPS." Be empathetic but firm — the data is the data. If they still disagree, say "I understand your concern. Let me have my manager review this and give you a call."',
     schedule_change: 'Use lookup_bookings to find their booking. First-time bookings CANNOT be cancelled or rescheduled. Recurring = 7 days notice. Use reschedule_booking or cancel_booking.',
     account_help: 'PIN issues → send_pin tool. Missing confirmation email → resend_confirmation tool. Update info → update_account tool. Portal: thenycmaid.com/portal',
@@ -940,7 +940,7 @@ function buildStepPrompt(intent: Intent, cl: BookingChecklist, next: NextStep, i
 
 HERE IS EVERYTHING — say this EXACTLY:
 
-"To recap: We are scheduling you for ${cl.day} ${cl.date || ''} @ ${cl.time} (${buffer}) at the rate of $${cl.rate}/hr for an estimated ${est || '2-4'} hours to be paid via Zelle, credit card, CashApp, or Venmo 30 minutes before completion. You will receive a text with total time, balance and payment links. Payment needs to be made before the cleaner is complete please. We have a no cancellation policy for first-time services so I want to make sure all is correct 😊 Upon confirmation you will receive an email confirmation with all related info."
+"To recap: We are scheduling you for ${cl.day} ${cl.date || ''} @ ${cl.time} (${buffer}) at the rate of $${cl.rate}/hr for an estimated ${est || '2-4'} hours to be paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before completion. You will receive a text with total time, balance and a payment link. Payment needs to be made before the cleaner is complete please. We have a no cancellation policy for first-time services so I want to make sure all is correct 😊 Upon confirmation you will receive an email confirmation with all related info."
 
 Client: ${cl.name} | Phone: ${cl.phone} | Address: ${cl.address} | Email: ${cl.email} | Service: ${cl.service_type} | Size: ${cl.bedrooms}BR/${cl.bathrooms}BA | Notes: ${cl.notes}
 
@@ -2166,7 +2166,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
       return "I'll check your balance — you can also see it anytime at thenycmaid.com/portal. Call (212) 202-8400 for instant lookup."
     }
     if (/\b(?:pay (?:with|via|by)|accept|payment method|how do i pay)\b/i.test(lower)) {
-      return 'We accept Zelle (hi@thenycmaid.com), Venmo (@thenycmaid), CashApp, and credit/debit card. Payment is collected 30 minutes before the cleaner finishes.'
+      return 'We accept card, Apple Pay, or Cash App via a secure Stripe link. Payment is collected 30 minutes before the cleaner finishes.'
     }
     return "Happy to help with billing — call (212) 202-8400 and we'll pull it up 😊"
   }
@@ -2199,7 +2199,7 @@ export function generateNonBookingResponse(intent: Intent, message: string, cl: 
       return 'You can tip via the same payment method — 100% goes to your cleaner 😊'
     }
     if (/\b(pay|payment|method|venmo|zelle|cashapp|cash app|credit card|stripe)/i.test(lower)) {
-      return 'We accept Zelle (hi@thenycmaid.com), Venmo (@thenycmaid), CashApp, and credit/debit card. Payment is collected 30 minutes before the cleaner finishes.'
+      return 'We accept card, Apple Pay, or Cash App via a secure Stripe link. Payment is collected 30 minutes before the cleaner finishes.'
     }
     if (/\b(today|same day|asap|now|emergency|urgent)/i.test(lower)) {
       return 'Same-day cleaning is $89/hr. Want me to check today\'s availability?'
@@ -2285,7 +2285,7 @@ function generateRecap(cl: BookingChecklist): string {
   const isWeekend = cl.day ? ['Saturday', 'Sunday'].includes(cl.day) : false
   const buffer = isWeekend ? '60 min arrival buffer due to traffic' : '30 min arrival buffer'
   const dateStr = cl.date ? `${cl.day} ${cl.date}` : (cl.day || '')
-  return `To recap: We are scheduling you for ${dateStr} @ ${cl.time} (${buffer}) at the rate of $${cl.rate}/hr for an estimated ${est} hours to be paid via Zelle, credit card, CashApp, or Venmo 30 minutes before completion. You will receive a text with total time, balance and payment links. Payment needs to be made before the cleaner is complete please. We have a no cancellation policy for first-time services so I want to make sure all is correct 😊 Upon confirmation you will receive an email confirmation with all related info.`
+  return `To recap: We are scheduling you for ${dateStr} @ ${cl.time} (${buffer}) at the rate of $${cl.rate}/hr for an estimated ${est} hours to be paid via a secure Stripe link (card, Apple Pay, or Cash App) 30 minutes before completion. You will receive a text with total time, balance and a payment link. Payment needs to be made before the cleaner is complete please. We have a no cancellation policy for first-time services so I want to make sure all is correct 😊 Upon confirmation you will receive an email confirmation with all related info.`
 }
 
 export function generateBookingResponse(cl: BookingChecklist, next: NextStep, extracted: Partial<BookingChecklist>): string | null {
