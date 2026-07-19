@@ -1,0 +1,127 @@
+diff --git a/platform/src/app/dashboard/bookings/BookingsAdmin.tsx b/platform/src/app/dashboard/bookings/BookingsAdmin.tsx
+index 0a60e827..6b4e3a42 100644
+--- a/platform/src/app/dashboard/bookings/BookingsAdmin.tsx
++++ b/platform/src/app/dashboard/bookings/BookingsAdmin.tsx
+@@ -1377,7 +1377,7 @@ function BookingsPage() {
+             Completed <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'completed' ? 'bg-white/20' : 'bg-green-100 text-green-600')}>{statusCounts.completed}</span>
+           </button>
+           <button onClick={() => setFilters({ ...filters, status: 'cancelled' })} className={statusPillClass('cancelled')}>
+-            Cancelled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'cancelled' ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>{statusCounts.cancelled}</span>
++            Canceled <span className={'text-xs px-1.5 py-0.5 rounded-full ' + (filters.status === 'cancelled' ? 'bg-white/20' : 'bg-gray-100 text-gray-500')}>{statusCounts.cancelled}</span>
+           </button>
+         </div>
+ 
+@@ -1785,7 +1785,7 @@ function BookingsPage() {
+                           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+                         </button>
+                         {b.status === 'cancelled' ? (
+-                          <button onClick={() => { if (confirm(`Permanently delete this cancelled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
++                          <button onClick={() => { if (confirm(`Permanently delete this canceled booking for ${b.clients?.name || 'this client'}?`)) { fetch('/api/bookings/' + b.id + '?hard_delete=true', { method: 'DELETE' }).then(() => loadBookings()) } }} className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors" title="Delete">
+                             <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                           </button>
+                         ) : (
+@@ -1964,7 +1964,7 @@ function BookingsPage() {
+                   <option value="scheduled">Scheduled</option>
+                   <option value="in_progress">In Progress</option>
+                   <option value="completed">Completed</option>
+-                  <option value="cancelled">Cancelled</option>
++                  <option value="cancelled">Canceled</option>
+                 </select>
+                 {(editingBooking.recurring_type || editingBooking.schedule_id) && (
+                   <span className="px-2 py-1 bg-purple-50 text-purple-600 rounded-full text-xs font-medium">{editingBooking.recurring_type || 'Recurring'}</span>
+@@ -2860,7 +2860,7 @@ function BookingsPage() {
+                     <option value="pending">Pending</option>
+                     <option value="scheduled">Scheduled</option>
+                     <option value="completed">Completed</option>
+-                    <option value="cancelled">Cancelled</option>
++                    <option value="cancelled">Canceled</option>
+                   </select>
+                 </div>
+                 <div>
+diff --git a/platform/src/app/dashboard/bookings/bookings-list-tab.tsx b/platform/src/app/dashboard/bookings/bookings-list-tab.tsx
+index 33610f69..a5004d42 100644
+--- a/platform/src/app/dashboard/bookings/bookings-list-tab.tsx
++++ b/platform/src/app/dashboard/bookings/bookings-list-tab.tsx
+@@ -28,7 +28,7 @@ const STATUS_FILTERS: Array<{ key: StatusKey; label: string; dot?: string }> = [
+   { key: 'scheduled', label: 'Scheduled', dot: 'scheduled' },
+   { key: 'in_progress', label: 'In Progress', dot: 'progress' },
+   { key: 'completed', label: 'Completed', dot: 'completed' },
+-  { key: 'cancelled', label: 'Cancelled', dot: 'cancelled' },
++  { key: 'cancelled', label: 'Canceled', dot: 'cancelled' },
+ ]
+ 
+ type SmartKey = 'high_risk' | 'low_margin' | 'late' | 'unassigned' | 'overdue_pay' | 'no_review'
+diff --git a/platform/src/app/dashboard/calendar/CalendarBoard.tsx b/platform/src/app/dashboard/calendar/CalendarBoard.tsx
+index 5037ff76..2c1d226b 100644
+--- a/platform/src/app/dashboard/calendar/CalendarBoard.tsx
++++ b/platform/src/app/dashboard/calendar/CalendarBoard.tsx
+@@ -474,7 +474,7 @@ export default function CalendarBoard() {
+               { key: 'scheduled', label: 'Scheduled', cls: 'text-slate-700' },
+               { key: 'in_progress', label: 'In Progress', cls: 'text-teal-700 font-medium' },
+               { key: 'completed', label: 'Completed', cls: 'text-slate-700' },
+-              { key: 'cancelled', label: 'Cancelled', cls: 'text-slate-700' },
++              { key: 'cancelled', label: 'Canceled', cls: 'text-slate-700' },
+             ].map(s => (
+               <label key={s.key} className="flex items-center gap-2 cursor-pointer">
+                 <input type="checkbox" checked={selectedStatuses.includes(s.key)} onChange={() => toggleStatus(s.key)} className="w-3.5 h-3.5 accent-teal-600" />
+diff --git a/platform/src/app/dashboard/calendar/KanbanView.tsx b/platform/src/app/dashboard/calendar/KanbanView.tsx
+index c5a600b7..16a472c5 100644
+--- a/platform/src/app/dashboard/calendar/KanbanView.tsx
++++ b/platform/src/app/dashboard/calendar/KanbanView.tsx
+@@ -161,7 +161,7 @@ export default function KanbanView() {
+       {(() => {
+         const hidden = bookings.filter((b) => !COLUMNS.some((c) => c.key === b.status)).length
+         return hidden > 0 ? (
+-          <p className="mt-3 text-xs text-slate-400">{hidden} cancelled / other status not shown on the board.</p>
++          <p className="mt-3 text-xs text-slate-400">{hidden} canceled / other status not shown on the board.</p>
+         ) : null
+       })()}
+     </div>
+diff --git a/platform/src/app/dashboard/dashboard-map.tsx b/platform/src/app/dashboard/dashboard-map.tsx
+index bf16e258..a098bbe2 100644
+--- a/platform/src/app/dashboard/dashboard-map.tsx
++++ b/platform/src/app/dashboard/dashboard-map.tsx
+@@ -29,7 +29,7 @@ const statusTabs = [
+   { value: '', label: 'All' },
+   { value: 'scheduled', label: 'Scheduled' },
+   { value: 'completed', label: 'Completed' },
+-  { value: 'cancelled', label: 'Cancelled' },
++  { value: 'cancelled', label: 'Canceled' },
+ ]
+ 
+ const dateRanges = [
+diff --git a/platform/src/app/dashboard/map/page.tsx b/platform/src/app/dashboard/map/page.tsx
+index 5110d212..b0c60f9f 100644
+--- a/platform/src/app/dashboard/map/page.tsx
++++ b/platform/src/app/dashboard/map/page.tsx
+@@ -34,7 +34,7 @@ const statusTabs = [
+   { value: 'in_progress', label: 'In Progress' },
+   { value: 'completed', label: 'Completed' },
+   { value: 'paid', label: 'Paid' },
+-  { value: 'cancelled', label: 'Cancelled' },
++  { value: 'cancelled', label: 'Canceled' },
+ ]
+ 
+ // Date range options
+@@ -364,7 +364,7 @@ export default function MapPage() {
+                 { label: 'In Progress', color: '#eab308' },
+                 { label: 'Completed', color: '#22c55e' },
+                 { label: 'Paid', color: '#10b981' },
+-                { label: 'Cancelled', color: '#ef4444' },
++                { label: 'Canceled', color: '#ef4444' },
+                 { label: 'No Show', color: '#6b7280' },
+               ].map((item) => (
+                 <div key={item.label} className="flex items-center gap-2">
+diff --git a/platform/src/app/dashboard/schedules/[id]/page.tsx b/platform/src/app/dashboard/schedules/[id]/page.tsx
+index 0bc5efd5..14c9d4a7 100644
+--- a/platform/src/app/dashboard/schedules/[id]/page.tsx
++++ b/platform/src/app/dashboard/schedules/[id]/page.tsx
+@@ -73,7 +73,7 @@ export default function ScheduleDetailPage() {
+   }
+ 
+   async function cancelSchedule() {
+-    if (!confirm('Cancel this schedule? Future bookings will also be cancelled.')) return
++    if (!confirm('Cancel this schedule? Future bookings will also be canceled.')) return
+     await fetch(`/api/schedules/${id}`, { method: 'DELETE' })
+     router.push('/dashboard/schedules')
+   }

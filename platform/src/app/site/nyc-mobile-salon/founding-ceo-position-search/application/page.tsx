@@ -74,7 +74,7 @@ export default function FoundingCEOApplicationPage() {
               </a>
             </div>
             <p className="mt-3 text-xs text-white/40">
-              Text anytime
+              Text anytime: 212.202.9075
             </p>
           </div>
         </div>

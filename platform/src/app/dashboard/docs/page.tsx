@@ -1,4 +1,10 @@
+'use client'
+
+import { useTenantSettings } from '@/lib/use-tenant-settings'
+
 export default function DocsPage() {
+  const { tenant } = useTenantSettings()
+  const agentName = (tenant?.agent_name as string) || 'Selena'
   return (
     <div className="max-w-3xl">
       <h2 className="text-2xl font-bold text-slate-900 mb-1">Documentation</h2>
@@ -17,8 +23,8 @@ export default function DocsPage() {
               <li><strong>Add your clients</strong> &mdash; Navigate to Clients to add your existing customers. You can add them one by one or import them later.</li>
               <li><strong>Create bookings</strong> &mdash; Go to Bookings to schedule jobs. Select a client, service, date/time, and team member.</li>
               <li><strong>Add your team</strong> &mdash; Go to Team to add members. Each team member gets a 4-digit PIN for the mobile team portal (see Team Members section below).</li>
-              <li><strong>Turn on Selena AI</strong> &mdash; Visit the Selena page to activate your AI booking agent. Selena handles incoming SMS messages and web chat conversations, so new clients can book 24/7 without you lifting a finger.</li>
-              <li><strong>Set up your web chat</strong> &mdash; Go to Connect to grab the chat widget code for your website. This lets visitors start a conversation with Selena directly from your site.</li>
+              <li><strong>Turn on {agentName} AI</strong> &mdash; Visit the {agentName} page to activate your AI booking agent. {agentName} handles incoming SMS messages and web chat conversations, so new clients can book 24/7 without you lifting a finger.</li>
+              <li><strong>Set up your web chat</strong> &mdash; Go to Connect to grab the chat widget code for your website. This lets visitors start a conversation with {agentName} directly from your site.</li>
               <li><strong>Set up billing info</strong> &mdash; Confirm your payment method in Settings so your account stays active.</li>
             </ol>
           </div>
@@ -46,23 +52,23 @@ export default function DocsPage() {
           </div>
         </section>
 
-        {/* Selena AI */}
+        {/* AI concierge */}
         <section>
-          <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Selena AI</h3>
+          <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">{agentName} AI</h3>
           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
-            <p>Selena is your AI-powered booking agent. She handles incoming SMS messages and web chat conversations automatically, booking new clients and managing requests around the clock.</p>
+            <p>{agentName} is your AI-powered booking agent. She handles incoming SMS messages and web chat conversations automatically, booking new clients and managing requests around the clock.</p>
 
-            <p><strong>How it works:</strong> When someone texts your business number or starts a web chat, Selena takes over the conversation. She introduces herself, collects the information needed to book an appointment, and creates the booking in your system &mdash; all without you needing to respond.</p>
+            <p><strong>How it works:</strong> When someone texts your business number or starts a web chat, {agentName} takes over the conversation. She introduces herself, collects the information needed to book an appointment, and creates the booking in your system &mdash; all without you needing to respond.</p>
 
-            <p><strong>Booking checklist:</strong> Selena walks through a checklist to gather everything she needs: the client&apos;s name, the service they want, their preferred date and time, and their address. She only creates the booking once she has all the details confirmed.</p>
+            <p><strong>Booking checklist:</strong> {agentName} walks through a checklist to gather everything she needs: the client&apos;s name, the service they want, their preferred date and time, and their address. She only creates the booking once she has all the details confirmed.</p>
 
-            <p><strong>Returning client recognition:</strong> When a returning client texts in, Selena recognizes their phone number and greets them by name. She already knows their address and service preferences, so the booking process is faster.</p>
+            <p><strong>Returning client recognition:</strong> When a returning client texts in, {agentName} recognizes their phone number and greets them by name. She already knows their address and service preferences, so the booking process is faster.</p>
 
-            <p><strong>Escalation:</strong> If Selena encounters a question she can&apos;t handle &mdash; like a custom pricing request or a complaint &mdash; she lets the client know that someone from your team will follow up, and sends you a notification so nothing falls through the cracks.</p>
+            <p><strong>Escalation:</strong> If {agentName} encounters a question she can&apos;t handle &mdash; like a custom pricing request or a complaint &mdash; she lets the client know that someone from your team will follow up, and sends you a notification so nothing falls through the cracks.</p>
 
-            <p><strong>Conversation reset:</strong> After a conversation is complete (booking confirmed or escalated), the conversation resets so the next time that person texts, Selena starts fresh and doesn&apos;t get confused by old context.</p>
+            <p><strong>Conversation reset:</strong> After a conversation is complete (booking confirmed or escalated), the conversation resets so the next time that person texts, {agentName} starts fresh and doesn&apos;t get confused by old context.</p>
 
-            <p><strong>Admin dashboard:</strong> Visit the Selena page in your dashboard to see conversation stats, filter by date range, and review recent conversations. You can see how many bookings Selena has handled, how many were escalated, and how your conversion rate is trending.</p>
+            <p><strong>Admin dashboard:</strong> Visit the {agentName} page in your dashboard to see conversation stats, filter by date range, and review recent conversations. You can see how many bookings {agentName} has handled, how many were escalated, and how your conversion rate is trending.</p>
           </div>
         </section>
 
@@ -148,7 +154,7 @@ export default function DocsPage() {
           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
             <p>Full Loop handles client and team communication through SMS and email, all integrated into your dashboard.</p>
 
-            <p><strong>SMS via Telnyx:</strong> Your business gets a dedicated phone number for text messaging. All incoming and outgoing SMS messages are handled through Telnyx and logged in your dashboard. This is the same number Selena uses to handle booking conversations.</p>
+            <p><strong>SMS via Telnyx:</strong> Your business gets a dedicated phone number for text messaging. All incoming and outgoing SMS messages are handled through Telnyx and logged in your dashboard. This is the same number {agentName} uses to handle booking conversations.</p>
 
             <p><strong>Email via Resend:</strong> Transactional emails (booking confirmations, reminders, review requests) are sent through Resend using your connected API key. Configure this in Settings &rarr; Integrations.</p>
 
@@ -177,15 +183,15 @@ export default function DocsPage() {
         <section>
           <h3 className="text-lg font-semibold text-slate-900 mb-3 pb-2 border-b border-slate-200">Web Chat</h3>
           <div className="space-y-3 text-sm text-slate-700 leading-relaxed">
-            <p>The web chat widget lets visitors on your website start a conversation with Selena AI directly from any page. It&apos;s a small chat bubble in the corner that opens into a full conversation window.</p>
+            <p>The web chat widget lets visitors on your website start a conversation with {agentName} AI directly from any page. It&apos;s a small chat bubble in the corner that opens into a full conversation window.</p>
 
             <p><strong>Setup:</strong> Go to Connect in your dashboard to get the embed code. Add it to your website and the chat widget appears automatically. No coding knowledge needed &mdash; just paste the snippet before the closing body tag.</p>
 
-            <p><strong>New client flow:</strong> When a new visitor starts a chat, Selena greets them, asks what service they need, and walks them through booking &mdash; collecting their name, phone number, address, preferred date and time. The booking is created in your system automatically.</p>
+            <p><strong>New client flow:</strong> When a new visitor starts a chat, {agentName} greets them, asks what service they need, and walks them through booking &mdash; collecting their name, phone number, address, preferred date and time. The booking is created in your system automatically.</p>
 
-            <p><strong>Returning client flow:</strong> If a visitor enters a phone number that matches an existing client, Selena recognizes them and greets them by name. She already has their address and history on file, making repeat bookings faster.</p>
+            <p><strong>Returning client flow:</strong> If a visitor enters a phone number that matches an existing client, {agentName} recognizes them and greets them by name. She already has their address and history on file, making repeat bookings faster.</p>
 
-            <p><strong>Quick reply buttons:</strong> During the conversation, Selena offers quick reply buttons (like service options or available time slots) so visitors can tap instead of typing. This speeds up the booking process and reduces drop-off.</p>
+            <p><strong>Quick reply buttons:</strong> During the conversation, {agentName} offers quick reply buttons (like service options or available time slots) so visitors can tap instead of typing. This speeds up the booking process and reduces drop-off.</p>
           </div>
         </section>
 
@@ -197,11 +203,11 @@ export default function DocsPage() {
 
             <p><strong>What you&apos;ll get notified about:</strong></p>
             <ul className="list-disc list-inside space-y-1 pl-1">
-              <li>New bookings created (by you, Selena, or through the client portal)</li>
+              <li>New bookings created (by you, {agentName}, or through the client portal)</li>
               <li>Team member check-ins and check-outs</li>
               <li>15-minute heads up alerts from your team</li>
               <li>Walkthrough videos uploaded (before and after)</li>
-              <li>Selena escalations (conversations she needs your help with)</li>
+              <li>{agentName} escalations (conversations she needs your help with)</li>
               <li>New client sign-ups</li>
               <li>Booking cancellations or changes</li>
               <li>Payment updates</li>
@@ -225,7 +231,7 @@ export default function DocsPage() {
               <li><strong>Services</strong> &mdash; Add, edit, reorder, and toggle your service types. Set pricing, estimated duration, and descriptions for each service. These are what clients see when booking.</li>
               <li><strong>Integrations</strong> &mdash; Connect the tools that power your communications and payments:
                 <ul className="list-disc list-inside space-y-1 pl-4 mt-1">
-                  <li><strong>Telnyx</strong> &mdash; SMS messaging and Selena AI conversations</li>
+                  <li><strong>Telnyx</strong> &mdash; SMS messaging and {agentName} AI conversations</li>
                   <li><strong>Resend</strong> &mdash; Email confirmations, reminders, and campaigns</li>
                   <li><strong>Stripe</strong> &mdash; Online payments and invoicing</li>
                   <li><strong>Google</strong> &mdash; Review requests and Google Business Profile</li>

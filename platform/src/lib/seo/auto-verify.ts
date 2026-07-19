@@ -18,11 +18,7 @@ import { getFileToken, verifyUrlPrefix, addSearchConsoleSite } from './gsc-write
 const MAX_PER_RUN = Number(process.env.AUTOVERIFY_MAX_PER_RUN) || 5
 
 export function autoVerifyEnabled(): boolean {
-  // Confirmed live 2026-07-16: the stored prod value was literally 'true\n' (a
-  // trailing-newline artifact from how it was set), so a strict === 'true'
-  // silently stayed in dry-run for 11 days despite the flag looking "on" in
-  // the dashboard. Trim so this class of bug can't recur.
-  return (process.env.SEOMGR_AUTOVERIFY_ENABLED ?? '').trim() === 'true'
+  return process.env.SEOMGR_AUTOVERIFY_ENABLED === 'true'
 }
 
 export type Eligible = { property: string; domain: string; tenant_id: string | null }

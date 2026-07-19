@@ -1,0 +1,8 @@
+STATS 2032 -- 3% complete (first fully-reconciled baseline just landed, no prior like-for-like number to diff against -- total item count moved 133 to 155 because 21 previously-untracked items got added during reconciliation, not because of scope creep)
+5 / 155 live-verified
+41 / 155 code-complete on branches
+29 gated, 17 open, 63 todo
+Queue: 9 items awaiting your sign-off in JEFF-MORNING-QUEUE.md (separate, coarser-grained count than the 29 punch-list GATE line items)
+Fleet: W1 cross-tenant auth-gate bug on Schedule Issues Resolve button plus a TOCTOU on document consent/decline (bugs 22-23 this session, 23 total on its branch) -- W2 migrated 18 more routes to tenantDb this session (rollout now 23/498), flagged 2 real gaps needing your call (crew_members and booking_assignees have no tenant_id column at all, wrapper cannot close those) -- W3 found and fixed a real gap in the CI isolation-check script itself, it was silently not recognizing tenantDb() as scoped so 21 sites across 10 files were passing the gate without being truly checked -- W4 ran the reconciliation just ordered, now back on broad hunt
+Landed since last heartbeat: reconciliation complete (MASTER-TODO-LIST.md and PUNCH-LIST.md updated in place), 2 more real bugs on W1, 18 tenantDb migrations on W2, 21 new tests plus the CI-gate fix on W3, all file-only
+Flags: nothing new gated beyond what is already in JEFF-MORNING-QUEUE.md. NYC Maid narrow-vs-broad still open. Usage banner 75pct.

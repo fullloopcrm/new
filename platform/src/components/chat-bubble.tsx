@@ -81,6 +81,20 @@ export function ChatBubble({ msg, variant = 'slack' }: { msg: ChatMessage; varia
   )
 }
 
+export function groupMessagesByDate(messages: ChatMessage[]): { date: string; messages: ChatMessage[] }[] {
+  const groups: { date: string; messages: ChatMessage[] }[] = []
+  let currentDate = ''
+  for (const msg of messages) {
+    const d = new Date(msg.created_at).toLocaleDateString([], { weekday: 'long', month: 'long', day: 'numeric' })
+    if (d !== currentDate) {
+      currentDate = d
+      groups.push({ date: d, messages: [] })
+    }
+    groups[groups.length - 1].messages.push(msg)
+  }
+  return groups
+}
+
 export function DateDivider({ date }: { date: string }) {
   return (
     <div className="flex items-center gap-3 my-4">

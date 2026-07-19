@@ -482,7 +482,7 @@ export default function CalendarBoard() {
               { key: 'scheduled', label: 'Scheduled', cls: 'text-slate-700' },
               { key: 'in_progress', label: 'In Progress', cls: 'text-teal-700 font-medium' },
               { key: 'completed', label: 'Completed', cls: 'text-slate-700' },
-              { key: 'cancelled', label: 'Cancelled', cls: 'text-slate-700' },
+              { key: 'cancelled', label: 'Canceled', cls: 'text-slate-700' },
             ].map(s => (
               <label key={s.key} className="flex items-center gap-2 cursor-pointer">
                 <input type="checkbox" checked={selectedStatuses.includes(s.key)} onChange={() => toggleStatus(s.key)} className="w-3.5 h-3.5 accent-teal-600" />

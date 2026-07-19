@@ -1,0 +1,505 @@
+diff --git a/platform/src/app/api/feedback/route.tenant-tagging.test.ts b/platform/src/app/api/feedback/route.tenant-tagging.test.ts
+new file mode 100644
+index 00000000..ab0793e6
+--- /dev/null
++++ b/platform/src/app/api/feedback/route.tenant-tagging.test.ts
+@@ -0,0 +1,101 @@
++import { describe, it, expect, vi, beforeEach } from 'vitest'
++
++/**
++ * POST /api/feedback tenant tagging + admin fan-out.
++ *
++ * Dashboard feedback submissions are authenticated, so each row now gets
++ * tagged with the sending tenant instead of staying anonymous. Public
++ * marketing-site widget submissions carry no session and stay tenant_id:
++ * null, same as before. Either way, admin still gets notified on all three
++ * channels (email, in-app notifications row, Telegram) — best-effort, never
++ * blocking the response.
++ */
++
++const rateLimitDb = vi.fn(async (_bucket: string, _max: number, _windowMs: number) => ({ allowed: true, remaining: 4 }))
++vi.mock('@/lib/rate-limit-db', () => ({ rateLimitDb: (bucket: string, max: number, windowMs: number) => rateLimitDb(bucket, max, windowMs) }))
++
++const sendEmail = vi.fn(async (_input: Record<string, unknown>) => ({ success: true }))
++vi.mock('@/lib/email', () => ({ sendEmail: (input: Record<string, unknown>) => sendEmail(input) }))
++
++vi.mock('@/lib/require-admin', () => ({ requireAdmin: vi.fn(async () => null) }))
++
++const alertOwner = vi.fn(async (_subject: string, _detail?: string) => null)
++vi.mock('@/lib/telegram', () => ({ alertOwner: (subject: string, detail?: string) => alertOwner(subject, detail) }))
++
++const getTenantForRequest = vi.fn()
++vi.mock('@/lib/tenant-query', () => ({ getTenantForRequest: () => getTenantForRequest() }))
++
++const inserts: Array<{ table: string; payload: Record<string, unknown> }> = []
++const supabaseFrom = vi.fn((table: string) => ({
++  insert: async (payload: Record<string, unknown>) => {
++    inserts.push({ table, payload })
++    return { error: null }
++  },
++}))
++vi.mock('@/lib/supabase', () => ({
++  supabaseAdmin: { from: (table: string) => supabaseFrom(table) },
++}))
++
++function fakeRequest(body: Record<string, unknown>) {
++  return {
++    headers: { get: () => '1.2.3.4' },
++    json: async () => body,
++  } as unknown as Request
++}
++
++beforeEach(() => {
++  inserts.length = 0
++  rateLimitDb.mockClear()
++  sendEmail.mockClear()
++  alertOwner.mockClear()
++  supabaseFrom.mockClear()
++  getTenantForRequest.mockReset()
++})
++
++describe('POST /api/feedback — tenant tagging + admin fan-out', () => {
++  it('tags the row with tenant_id and names the tenant when a session is present', async () => {
++    getTenantForRequest.mockResolvedValue({
++      tenantId: 't-1',
++      tenant: { id: 't-1', name: 'Sparkle Cleaning' },
++    })
++    const { POST } = await import('./route')
++    const res = await POST(fakeRequest({ message: 'love the new dashboard', category: 'praise' }))
++
++    expect(res.status).toBe(201)
++    const feedbackInsert = inserts.find((i) => i.table === 'platform_feedback')
++    expect(feedbackInsert?.payload.tenant_id).toBe('t-1')
++
++    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
++      subject: expect.stringContaining('Sparkle Cleaning'),
++    }))
++
++    const notifInsert = inserts.find((i) => i.table === 'notifications')
++    expect(notifInsert?.payload).toMatchObject({
++      tenant_id: 't-1',
++      type: 'platform_feedback',
++      recipient_type: 'admin',
++    })
++
++    expect(alertOwner).toHaveBeenCalledWith(
++      expect.stringContaining('Sparkle Cleaning'),
++      expect.stringContaining('love the new dashboard'),
++    )
++  })
++
++  it('stays anonymous (tenant_id null, no in-app notification) when there is no session', async () => {
++    getTenantForRequest.mockRejectedValue(new Error('Unauthorized'))
++    const { POST } = await import('./route')
++    const res = await POST(fakeRequest({ message: 'anonymous widget feedback', category: 'general' }))
++
++    expect(res.status).toBe(201)
++    const feedbackInsert = inserts.find((i) => i.table === 'platform_feedback')
++    expect(feedbackInsert?.payload.tenant_id).toBeNull()
++
++    expect(sendEmail).toHaveBeenCalledWith(expect.objectContaining({
++      subject: expect.stringContaining('Anonymous'),
++    }))
++
++    expect(inserts.find((i) => i.table === 'notifications')).toBeUndefined()
++    expect(alertOwner).toHaveBeenCalledWith(expect.stringContaining('Anonymous'), expect.any(String))
++  })
++})
+diff --git a/platform/src/app/api/feedback/route.ts b/platform/src/app/api/feedback/route.ts
+index cfb23f0c..e6370113 100644
+--- a/platform/src/app/api/feedback/route.ts
++++ b/platform/src/app/api/feedback/route.ts
+@@ -3,6 +3,8 @@ import { supabaseAdmin } from '@/lib/supabase'
+ import { sendEmail } from '@/lib/email'
+ import { requireAdmin } from '@/lib/require-admin'
+ import { rateLimitDb } from '@/lib/rate-limit-db'
++import { getTenantForRequest } from '@/lib/tenant-query'
++import { alertOwner } from '@/lib/telegram'
+ 
+ // SQL to create table:
+ // CREATE TABLE platform_feedback (
+@@ -11,9 +13,11 @@ import { rateLimitDb } from '@/lib/rate-limit-db'
+ //   message TEXT NOT NULL,
+ //   status TEXT DEFAULT 'unread',
+ //   admin_notes TEXT,
++//   tenant_id UUID REFERENCES tenants(id) ON DELETE SET NULL,
+ //   created_at TIMESTAMPTZ DEFAULT NOW()
+ // );
+ // CREATE INDEX idx_feedback_status ON platform_feedback(status);
++// See migrations/2026_07_18_platform_feedback_tenant_id.sql for the tenant_id backfill.
+ 
+ export async function GET() {
+   // Admin only — used by /admin/feedback. /api/feedback is listed as an
+@@ -60,32 +64,69 @@ export async function POST(request: Request) {
+     const validCategories = ['general', 'bug', 'feature', 'pricing', 'partnership', 'complaint', 'praise', 'other']
+     const cat = validCategories.includes(category) ? category : 'general'
+ 
++    // Best-effort tenant tag — dashboard submissions carry an authenticated
++    // session; public marketing-site widget submissions have none and stay
++    // anonymous, same as before.
++    let tenantId: string | null = null
++    let tenantName: string | null = null
++    try {
++      const ctx = await getTenantForRequest()
++      tenantId = ctx.tenantId
++      tenantName = ctx.tenant.name
++    } catch {
++      // No session — anonymous submission.
++    }
++
+     const { error } = await supabaseAdmin
+       .from('platform_feedback')
+       .insert({
+         message: message.trim(),
+         category: cat,
+         status: 'unread',
++        tenant_id: tenantId,
+       })
+ 
+     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
+ 
+-    // Notify admin
++    const who = tenantName || 'Anonymous'
++    const trimmed = message.trim()
++
++    // Notify admin — email
+     sendEmail({
+       to: process.env.ADMIN_NOTIFICATION_EMAIL || process.env.ADMIN_EMAIL || 'hi@fullloopcrm.com',
+-      subject: `[Feedback] ${cat.charAt(0).toUpperCase() + cat.slice(1)} — Anonymous`,
++      subject: `[Feedback] ${cat.charAt(0).toUpperCase() + cat.slice(1)} — ${who}`,
+       html: `
+         <div style="font-family: -apple-system, sans-serif; max-width: 500px;">
+-          <h2 style="color: #333; margin-bottom: 4px;">New Anonymous Feedback</h2>
++          <h2 style="color: #333; margin-bottom: 4px;">New Feedback — ${who}</h2>
+           <p style="color: #888; font-size: 13px; margin-top: 0;">Category: <strong>${cat}</strong></p>
+           <div style="background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 16px 0;">
+-            <p style="color: #333; white-space: pre-wrap; margin: 0;">${message.trim().replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
++            <p style="color: #333; white-space: pre-wrap; margin: 0;">${trimmed.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</p>
+           </div>
+           <a href="https://homeservicesbusinesscrm.com/admin/feedback" style="display: inline-block; background: #333; color: #fff; padding: 10px 20px; border-radius: 6px; text-decoration: none; font-size: 14px;">View in Admin</a>
+         </div>
+       `,
+     }).catch(() => {})
+ 
++    // Notify admin — in-app notification (only when we know the tenant;
++    // notifications.tenant_id is NOT NULL). Surfaces on /admin/notifications.
++    if (tenantId) {
++      supabaseAdmin
++        .from('notifications')
++        .insert({
++          tenant_id: tenantId,
++          type: 'platform_feedback',
++          title: `New feedback — ${who}`,
++          message: trimmed.slice(0, 200),
++          channel: 'system',
++          recipient_type: 'admin',
++        })
++        .then(() => {}, () => {})
++    }
++
++    // Notify admin — Telegram (Jefe channel, same alerting path as
++    // system-check/comms-monitor platform alerts).
++    alertOwner(`New feedback (${cat}) — ${who}`, trimmed.slice(0, 500)).catch(() => {})
++
+     return NextResponse.json({ success: true }, { status: 201 })
+   } catch {
+     return NextResponse.json({ error: 'Invalid request' }, { status: 400 })
+diff --git a/platform/src/app/dashboard/feedback/page.tsx b/platform/src/app/dashboard/feedback/page.tsx
+index 25a056ae..394db007 100644
+--- a/platform/src/app/dashboard/feedback/page.tsx
++++ b/platform/src/app/dashboard/feedback/page.tsx
+@@ -1,188 +1,106 @@
+ 'use client'
+ 
+-import { useEffect, useState } from 'react'
++import { useState } from 'react'
+ 
+-interface FeedbackItem {
+-  id: string
+-  type: string
+-  title: string
+-  message: string
+-  source: string
+-  created_at: string
+-  read: boolean
+-}
++const categories = [
++  { value: 'general', label: 'General' },
++  { value: 'bug', label: 'Bug Report' },
++  { value: 'feature', label: 'Feature Request' },
++  { value: 'pricing', label: 'Pricing' },
++  { value: 'complaint', label: 'Complaint' },
++  { value: 'praise', label: 'Praise' },
++  { value: 'other', label: 'Other' },
++]
+ 
+ export default function FeedbackPage() {
+-  const [feedback, setFeedback] = useState<FeedbackItem[]>([])
+-  const [totalCount, setTotalCount] = useState(0)
+-  const [unreadCount, setUnreadCount] = useState(0)
+-  const [loading, setLoading] = useState(true)
+-  const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all')
+-  const [deletingId, setDeletingId] = useState<string | null>(null)
+-
+-  useEffect(() => { fetchFeedback() }, [])
++  const [category, setCategory] = useState('general')
++  const [message, setMessage] = useState('')
++  const [sending, setSending] = useState(false)
++  const [submitted, setSubmitted] = useState(false)
++  const [error, setError] = useState('')
+ 
+-  const fetchFeedback = async () => {
+-    setLoading(true)
+-    const res = await fetch('/api/feedback')
+-    if (res.ok) {
+-      const json = await res.json()
+-      setFeedback(json.feedback || [])
+-      setTotalCount(json.totalCount || 0)
+-      setUnreadCount(json.unreadCount || 0)
++  const handleSubmit = async (e: React.FormEvent) => {
++    e.preventDefault()
++    if (!message.trim()) return
++    setSending(true)
++    setError('')
++    try {
++      const res = await fetch('/api/feedback', {
++        method: 'POST',
++        headers: { 'Content-Type': 'application/json' },
++        body: JSON.stringify({ message, category }),
++      })
++      if (!res.ok) {
++        const data = await res.json().catch(() => null)
++        setError(data?.error || 'Failed to submit. Please try again.')
++        return
++      }
++      setSubmitted(true)
++      setMessage('')
++      setCategory('general')
++    } catch {
++      setError('Failed to submit. Please try again.')
++    } finally {
++      setSending(false)
+     }
+-    setLoading(false)
+   }
+ 
+-  const markAsRead = async (id: string) => {
+-    const res = await fetch('/api/feedback', {
+-      method: 'PUT',
+-      headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ id, read: true })
+-    })
+-    if (res.ok) {
+-      setFeedback(prev => prev.map(f => f.id === id ? { ...f, read: true } : f))
+-      setUnreadCount(prev => Math.max(0, prev - 1))
+-    }
+-  }
+-
+-  const deleteFeedback = async (id: string) => {
+-    if (!confirm('Delete this feedback?')) return
+-    setDeletingId(id)
+-    const res = await fetch('/api/feedback', {
+-      method: 'DELETE',
+-      headers: { 'Content-Type': 'application/json' },
+-      body: JSON.stringify({ id })
+-    })
+-    if (res.ok) {
+-      const item = feedback.find(f => f.id === id)
+-      setFeedback(prev => prev.filter(f => f.id !== id))
+-      setTotalCount(prev => prev - 1)
+-      if (item && !item.read) setUnreadCount(prev => Math.max(0, prev - 1))
+-    }
+-    setDeletingId(null)
+-  }
+-
+-  const timeAgo = (dateStr: string) => {
+-    const ts = dateStr.endsWith('Z') || dateStr.includes('+') ? dateStr : dateStr + 'Z'
+-    const diffMs = Date.now() - new Date(ts).getTime()
+-    if (diffMs < 0) return 'just now'
+-    const mins = Math.floor(diffMs / 60000)
+-    const hours = Math.floor(diffMs / 3600000)
+-    const days = Math.floor(diffMs / 86400000)
+-    if (mins < 1) return 'just now'
+-    if (mins < 60) return `${mins}m ago`
+-    if (hours < 24) return `${hours}h ago`
+-    if (days < 7) return `${days}d ago`
+-    return new Date(ts).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+-  }
+-
+-  const getSourceLabel = (source: string) => {
+-    const s = source?.toLowerCase() || ''
+-    if (s.includes('widget')) return 'Widget'
+-    if (s.includes('email')) return 'Email'
+-    if (s.includes('sms')) return 'SMS'
+-    if (s.includes('portal') || s.includes('client')) return 'Client Portal'
+-    if (s.includes('team')) return 'Team Portal'
+-    if (s.includes('book')) return 'Booking Flow'
+-    if (s.includes('web') || s.includes('site')) return 'Website'
+-    return source || 'Unknown'
+-  }
+-
+-  const getSourceColor = (source: string) => {
+-    const s = source?.toLowerCase() || ''
+-    if (s.includes('widget')) return 'bg-purple-100 text-purple-700'
+-    if (s.includes('email')) return 'bg-blue-100 text-blue-700'
+-    if (s.includes('sms')) return 'bg-green-100 text-green-700'
+-    if (s.includes('portal') || s.includes('client')) return 'bg-teal-50 text-teal-700'
+-    if (s.includes('team')) return 'bg-orange-100 text-orange-700'
+-    if (s.includes('book')) return 'bg-yellow-100 text-yellow-700'
+-    return 'bg-slate-100 text-slate-700'
+-  }
+-
+-  const filtered = feedback.filter(f => {
+-    if (filter === 'unread') return !f.read
+-    if (filter === 'read') return f.read
+-    return true
+-  })
+-
+   return (
+-    <div>
+-      <div className="flex justify-between items-start mb-4">
+-        <div>
+-          <h1 className="text-2xl font-heading font-bold text-slate-900">Feedback</h1>
+-          <p className="text-sm text-slate-400 mt-0.5">{totalCount} total &middot; {unreadCount} unread</p>
+-        </div>
+-        <button onClick={fetchFeedback} className="px-4 py-2 bg-teal-600 text-white rounded-lg hover:bg-teal-700 font-medium text-sm transition-colors">
+-          Refresh
+-        </button>
+-      </div>
++    <div className="max-w-xl">
++      <h1 className="text-2xl font-heading font-bold text-slate-900">Feedback / Suggestions</h1>
++      <p className="text-sm text-slate-500 mt-1 mb-6">
++        Tell us what&apos;s working, what&apos;s not, or what you&apos;d like to see. It goes straight to the Full Loop team.
++      </p>
+ 
+-      <div className="grid grid-cols-3 gap-3 mb-6">
+-        <div className="border-l-4 border-l-slate-400 pl-3 py-2">
+-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Total</p>
+-          <p className="text-xl font-bold font-mono text-slate-900">{totalCount}</p>
+-        </div>
+-        <div className="border-l-4 border-l-yellow-500 pl-3 py-2">
+-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Unread</p>
+-          <p className="text-xl font-bold font-mono text-slate-900">{unreadCount}</p>
+-        </div>
+-        <div className="border-l-4 border-l-green-500 pl-3 py-2">
+-          <p className="text-[10px] text-slate-500 uppercase tracking-wide">Read</p>
+-          <p className="text-xl font-bold font-mono text-slate-900">{totalCount - unreadCount}</p>
++      {submitted ? (
++        <div className="border border-teal-200 bg-teal-50 rounded-lg p-6 text-center">
++          <p className="font-semibold text-slate-900">Thanks — got it!</p>
++          <p className="text-sm text-slate-500 mt-1">We read every submission.</p>
++          <button
++            onClick={() => setSubmitted(false)}
++            className="mt-4 px-4 py-2 bg-teal-600 text-white rounded-lg text-sm font-medium hover:bg-teal-700"
++          >
++            Send another
++          </button>
+         </div>
+-      </div>
++      ) : (
++        <form onSubmit={handleSubmit} className="space-y-4">
++          <div>
++            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Category</label>
++            <select
++              value={category}
++              onChange={(e) => setCategory(e.target.value)}
++              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 focus:outline-none focus:border-teal-600"
++            >
++              {categories.map((c) => (
++                <option key={c.value} value={c.value}>{c.label}</option>
++              ))}
++            </select>
++          </div>
+ 
+-      <div className="flex gap-2 mb-5">
+-        {(['all', 'unread', 'read'] as const).map(f => (
+-          <button key={f} onClick={() => setFilter(f)}
+-            className={`px-3 py-1.5 rounded-lg text-xs font-medium capitalize ${filter === f ? 'bg-teal-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200'}`}>
+-            {f} ({f === 'all' ? totalCount : f === 'unread' ? unreadCount : totalCount - unreadCount})
+-          </button>
+-        ))}
+-      </div>
++          <div>
++            <label className="block text-xs font-medium text-slate-500 uppercase tracking-wide mb-1.5">Message</label>
++            <textarea
++              value={message}
++              onChange={(e) => setMessage(e.target.value)}
++              placeholder="Suggestions, bugs, praise, anything helps..."
++              className="w-full px-3 py-2 border border-slate-300 rounded-lg text-sm text-slate-900 resize-none focus:outline-none focus:border-teal-600"
++              rows={6}
++              maxLength={5000}
++              required
++            />
++          </div>
+ 
+-      {loading ? (
+-        <p className="text-center py-8 text-slate-400">Loading...</p>
+-      ) : filtered.length === 0 ? (
+-        <p className="text-center py-8 text-slate-400">
+-          {filter === 'unread' ? 'All caught up!' : 'No feedback yet'}
+-        </p>
+-      ) : (
+-        <div className="space-y-3">
+-          {filtered.map(item => (
+-            <div key={item.id}
+-              className={`border rounded-lg p-4 transition-all ${!item.read ? 'border-l-4 border-l-teal-500 bg-teal-50/30' : 'border-slate-200'}`}>
+-              <div className="flex items-start justify-between gap-3">
+-                <div className="flex-1 min-w-0">
+-                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+-                    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium ${getSourceColor(item.source)}`}>
+-                      {getSourceLabel(item.source)}
+-                    </span>
+-                    {!item.read && <span className="px-2 py-0.5 bg-teal-100 text-teal-700 rounded-full text-[10px] font-semibold">New</span>}
+-                    {item.type && item.type !== 'feedback' && (
+-                      <span className="px-2 py-0.5 bg-slate-100 text-slate-500 rounded-full text-[10px]">{item.type}</span>
+-                    )}
+-                    <span className="text-[10px] text-slate-400 ml-auto">{timeAgo(item.created_at)}</span>
+-                  </div>
+-                  {item.title && <h4 className="font-semibold text-slate-900 text-sm mb-1">{item.title}</h4>}
+-                  <p className="text-sm text-slate-600 whitespace-pre-wrap leading-relaxed">{item.message}</p>
+-                </div>
+-                <div className="flex flex-col gap-1.5 shrink-0">
+-                  {!item.read && (
+-                    <button onClick={() => markAsRead(item.id)} className="px-3 py-1.5 bg-teal-600 text-white rounded-lg text-xs font-medium hover:bg-teal-700">
+-                      Mark Read
+-                    </button>
+-                  )}
+-                  <button onClick={() => deleteFeedback(item.id)} disabled={deletingId === item.id}
+-                    className="px-3 py-1.5 bg-red-50 text-red-600 rounded-lg text-xs font-medium hover:bg-red-100 disabled:opacity-50">
+-                    {deletingId === item.id ? '...' : 'Delete'}
+-                  </button>
+-                </div>
+-              </div>
+-            </div>
+-          ))}
+-        </div>
++          {error && <p className="text-red-600 text-sm">{error}</p>}
++
++          <button
++            type="submit"
++            disabled={sending || !message.trim()}
++            className="px-5 py-2.5 bg-teal-600 text-white rounded-lg text-sm font-semibold hover:bg-teal-700 disabled:bg-slate-300"
++          >
++            {sending ? 'Sending...' : 'Send Feedback'}
++          </button>
++        </form>
+       )}
+     </div>
+   )
+diff --git a/platform/src/lib/migrations/2026_07_18_platform_feedback_tenant_id.sql b/platform/src/lib/migrations/2026_07_18_platform_feedback_tenant_id.sql
+new file mode 100644
+index 00000000..f33c7412
+--- /dev/null
++++ b/platform/src/lib/migrations/2026_07_18_platform_feedback_tenant_id.sql
+@@ -0,0 +1,11 @@
++-- platform_feedback tenant tagging (2026-07-18)
++-- Dashboard feedback submissions are now authenticated (tenant session), so
++-- tag each row with the sending tenant instead of staying fully anonymous.
++-- Public marketing-site widget submissions have no session and keep
++-- tenant_id NULL (still anonymous, unchanged behavior).
++-- Idempotent: safe to re-run.
++
++ALTER TABLE IF EXISTS public.platform_feedback
++  ADD COLUMN IF NOT EXISTS tenant_id uuid REFERENCES public.tenants(id) ON DELETE SET NULL;
++
++CREATE INDEX IF NOT EXISTS idx_platform_feedback_tenant ON public.platform_feedback(tenant_id);

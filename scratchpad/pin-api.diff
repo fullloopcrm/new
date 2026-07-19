@@ -1,0 +1,29 @@
+diff --git a/platform/src/app/api/deals/[id]/route.ts b/platform/src/app/api/deals/[id]/route.ts
+index 05038aa3..80c01ed4 100644
+--- a/platform/src/app/api/deals/[id]/route.ts
++++ b/platform/src/app/api/deals/[id]/route.ts
+@@ -52,7 +52,7 @@ export async function PATCH(request: Request, { params }: Params) {
+       'title', 'value_cents', 'probability',
+       'expected_close_date', 'source', 'notes',
+       'follow_up_at', 'follow_up_note',
+-      'client_id', 'owner_id',
++      'client_id', 'owner_id', 'pinned',
+     ] as const
+     for (const k of assignables) {
+       if (k in body) updates[k] = body[k]
+diff --git a/platform/src/app/api/pipeline/route.ts b/platform/src/app/api/pipeline/route.ts
+index 39429362..b6ed0be1 100644
+--- a/platform/src/app/api/pipeline/route.ts
++++ b/platform/src/app/api/pipeline/route.ts
+@@ -39,6 +39,11 @@ export async function GET(request: Request) {
+         : fallbackStage // normalize unknown stages
+       byStage[key].push(d)
+     }
++    // Pinned deals sort to the top of their column; Array#sort is stable so
++    // the existing stage_changed_at-desc order is preserved within each group.
++    for (const key of Object.keys(byStage)) {
++      byStage[key] = [...byStage[key]].sort((a, b) => (b.pinned ? 1 : 0) - (a.pinned ? 1 : 0))
++    }
+ 
+     const stageTotalsMap = computeStageTotals(deals || [])
+     const stageTotals = PIPELINE_STAGES.map(s => ({

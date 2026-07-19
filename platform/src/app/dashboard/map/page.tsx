@@ -34,7 +34,7 @@ const statusTabs = [
   { value: 'in_progress', label: 'In Progress' },
   { value: 'completed', label: 'Completed' },
   { value: 'paid', label: 'Paid' },
-  { value: 'cancelled', label: 'Cancelled' },
+  { value: 'cancelled', label: 'Canceled' },
 ]
 
 // Date range options
@@ -364,7 +364,7 @@ export default function MapPage() {
                 { label: 'In Progress', color: '#eab308' },
                 { label: 'Completed', color: '#22c55e' },
                 { label: 'Paid', color: '#10b981' },
-                { label: 'Cancelled', color: '#ef4444' },
+                { label: 'Canceled', color: '#ef4444' },
                 { label: 'No Show', color: '#6b7280' },
               ].map((item) => (
                 <div key={item.label} className="flex items-center gap-2">

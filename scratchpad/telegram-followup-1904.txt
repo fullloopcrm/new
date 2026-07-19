@@ -1,0 +1,11 @@
+LEADER session-8: started Option A, hit a real complication worth a quick check-in before I go further.
+
+Telegram itself rejected the raw TELEGRAM_WEBHOOK_SECRET outright - 400 Bad Request, secret token contains unallowed characters, on all 3 scopes plus all 6 tenant bots. Turns out the value stored in Vercel has a real formatting bug: it is 66 characters, not the intended 64 - it has a literal 2-character backslash-n tacked onto the end (not a real newline, two literal characters), which Telegram's secret_token field does not allow. That confirms this env var could never have been registered with Telegram successfully in its current form.
+
+Here is the complication: the deployed code reads that exact env var directly with no cleanup, so if I register Telegram with a cleaned-up 64-character version instead, the code would still be comparing against the malformed 66-character stored value - trading one mismatch for the opposite one. The actual fix needs the stored env var itself corrected, not just the Telegram-side registration.
+
+This is a real, prod env-var change - just fixing a formatting bug in the existing value, not introducing anything new, but it is still the kind of production config write I want your explicit word on before touching, same standard I have held all session.
+
+Proposed minimal fix: update TELEGRAM_WEBHOOK_SECRET in Vercel prod to the clean 64-character value (same secret, just the trailing artifact removed), then register all 3 scopes plus the 6 tenant bots with that corrected value. Want me to proceed with that, or handle it differently?
+
+Not touching the env var yet, standing by.

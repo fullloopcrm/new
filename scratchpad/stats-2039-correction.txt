@@ -1,0 +1,9 @@
+STATS 2039 -- correction to the 2032 line, W4 kept going and landed a more complete reconciliation 4 minutes after the one I reported. Real delta this time:
+3% complete (5/166 live-verified, unchanged in raw count, pct nudges down slightly because the total grew)
+5 / 166 live-verified
+52 / 166 code-complete on branches (was 41/155 -- +11, W4 added Section T, a full class-grouped census of this session security sweep across all 6 lanes: 32 TOCTOU/race fixes, 21 FK-injection, 20 rate-limit fail-open-to-closed, 12 webhook sig/auth bypass, 9 IDOR, 9 auth-gate, 7 constant-time/CSRF/OAuth, 6 mass-assignment, 5 PostgREST-injection, 3 weak-PRNG, 2 path/storage-key injection -- grouped by class not individually itemized given volume, caveat noted in the file)
+29 gated, 17 open, 63 todo (all unchanged)
+Total-addressable (live plus code-complete): 57/166 = 34.3%
+Queue: 9 items in JEFF-MORNING-QUEUE.md, unchanged
+Fleet: all 4 lanes back on broad hunt after W4 finished the reconciliation, MASTER-TODO-LIST.md commit d05d61fa
+Flags: PUNCH-LIST.md still shows the interim 155-total block, MASTER-TODO-LIST.md 166 is now the authoritative total, noted by W4 in-file. NYC Maid still open. Usage 75pct.

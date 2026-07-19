@@ -435,6 +435,11 @@
 .books-footer-value.warn { color: var(--books-warn); }
 
 .books-empty { padding: 32px 16px; text-align: center; color: var(--books-muted); font-size: 13px; }
+
+.books-cleaners-thead, .books-cleaners-row { grid-template-columns: 1.5fr 100px 140px; }
+.books-cleaners-thead .right, .books-cleaners-row .right { text-align: right; }
+.books-cleaners-row { cursor: default; }
+
 .books-coming-soon {
   padding: 60px 16px;
   text-align: center;
