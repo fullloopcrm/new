@@ -9,7 +9,21 @@ import { NYCMAID_TENANT_ID } from '@/lib/nycmaid/tenant'
 import { safeEqual } from '@/lib/secret-compare'
 import { toNaiveET, etYMD } from '@/lib/dates'
 
-// Weekly cron: auto-generate bookings 4 weeks out
+// Widened horizon (see below) means the first run after this deploy backfills
+// every active schedule from a ~4-week buffer up to ~1-2 years of rows in one
+// pass -- needs real headroom, not the default function timeout.
+export const maxDuration = 300
+
+// Weekly cron: auto-generate bookings out to the end of next year, same
+// "never-ending" horizon convention client-facing repeat-until-cancelled
+// scheduling uses. Previously this only kept a rolling ~4-week buffer, which
+// meant the dashboard's later-months numbers looked hollow even for clients
+// with a standing weekly/monthly commitment -- the booking rows simply
+// didn't exist yet. Series-wide mutations (pause, cancel, reassignment)
+// already collapse to exactly ONE client notification regardless of how many
+// bookings are affected, so the notification-spam risk a short buffer used
+// to guard against is handled elsewhere -- safe to widen. Ports nycmaid
+// d307903c.
 export async function GET(request: Request) {
   const authHeader = request.headers.get('authorization')
   if (!process.env.CRON_SECRET || !safeEqual(authHeader, `Bearer ${process.env.CRON_SECRET}`)) {
@@ -23,6 +37,10 @@ export async function GET(request: Request) {
   // ET), resuming schedules a day early during that window.
   const { y: todayY, m: todayM, d: todayD } = etYMD(new Date())
   const todayStr = `${todayY}-${String(todayM).padStart(2, '0')}-${String(todayD).padStart(2, '0')}`
+  // Recurring commitments are booked out through Dec 31 of next year --
+  // recomputed every run, so it keeps rolling forward as the horizon date
+  // is reached rather than needing a fixed target updated over time.
+  const horizon = new Date(todayY + 1, 11, 31)
   const { data: resumable } = await supabaseAdmin
     .from('recurring_schedules')
     .select('id')
@@ -62,13 +80,11 @@ export async function GET(request: Request) {
     // below (see occ.toISOString() further down), so `lastDate`'s digits
     // already line up with ET wall-clock. The no-prior-booking fallback has
     // to match that same encoding instead of a real UTC "now" -- otherwise
-    // it's off by the EST/EDT offset and the fourWeeksOut cutoff below
-    // compares two different reference frames.
+    // it's off by the EST/EDT offset and the horizon cutoff below compares
+    // two different reference frames.
     const lastDate = latest?.[0]?.start_time ? new Date(latest[0].start_time) : new Date(toNaiveET(new Date()))
-    const fourWeeksOut = new Date(toNaiveET(new Date()))
-    fourWeeksOut.setDate(fourWeeksOut.getDate() + 28)
 
-    if (lastDate >= fourWeeksOut) continue // Already generated enough
+    if (lastDate >= horizon) continue // Already generated through the horizon
 
     const startDate = new Date(lastDate)
     startDate.setDate(startDate.getDate() + 1)
@@ -77,12 +93,18 @@ export async function GET(request: Request) {
       startDate.setHours(parseInt(h), parseInt(m), 0, 0)
     }
 
+    // How many iterations generateRecurringDates needs to reach the horizon
+    // from startDate -- the real bound is the `<= horizon` filter below, this
+    // just has to be generous enough not to fall short for any pattern.
+    const daysToHorizon = Math.ceil((horizon.getTime() - startDate.getTime()) / (24 * 60 * 60 * 1000))
+    const weeksToGenerate = Math.max(1, Math.ceil(daysToHorizon / 7) + 1)
+
     const dates = generateRecurringDates({
       recurringType: schedule.recurring_type as RecurringType,
       startDate,
       dayOfWeek: schedule.day_of_week ?? undefined,
-      weeksToGenerate: 4,
-    }).filter((d) => d <= fourWeeksOut)
+      weeksToGenerate,
+    }).filter((d) => d <= horizon)
 
     if (dates.length === 0) continue
 
