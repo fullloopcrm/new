@@ -416,7 +416,7 @@ function BookFormContent() {
               <ul className="list-disc list-inside space-y-1 mb-3">
                 <li><strong>First-time bookings CANNOT be cancelled or rescheduled.</strong> We hold the slot and turn other clients away.</li>
                 <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel.</li>
-                <li>Hourly billing in 30-min increments. 30-min weekday / 60-min weekend arrival window.</li>
+                <li>Hourly billing in 30-min increments. <strong>2-hour arrival window</strong> — we can&apos;t give an exact arrival time, even day-of; cleaners usually arrive within the first 30 minutes, but please plan for the full window.</li>
                 <li>Payment due 30 min before completion via Zelle, Venmo, CashApp, or card (+4%).</li>
               </ul>
               <label className="flex items-start gap-2 mt-3 pt-3 border-t border-red-200 cursor-pointer">
@@ -453,7 +453,7 @@ function BookFormContent() {
               <p className="font-semibold mb-1">By clicking Confirm you agree to:</p>
               <ul className="list-disc list-inside space-y-0.5">
                 <li>Hourly billing in 30-min increments at the rate above (no flat total)</li>
-                <li>30-min weekday / 60-min weekend arrival window</li>
+                <li><strong>2-hour arrival window</strong> — no exact arrival time, even day-of; cleaners usually arrive within the first 30 minutes, but please plan for the full window</li>
                 <li><strong>No-cancellation policy on this first booking</strong></li>
                 <li><strong>Recurring service</strong> requires <strong>7 days notice</strong></li>
                 <li>Payment due 30 min before completion via Zelle, Venmo, CashApp, or card (+4%)</li>

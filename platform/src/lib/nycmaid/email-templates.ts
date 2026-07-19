@@ -2,7 +2,7 @@
 // CLEAN EMAIL TEMPLATES - GOOGLE/APPLE STYLE
 // ============================================
 
-import { clientArrivalWindow } from '../time-window'
+import { clientArrivalWindow, ARRIVAL_WINDOW_NOTE } from '../time-window'
 import { escapeHtml, safeUrl } from '../escape-html'
 
 export const emailWrapper = (content: string) => `
@@ -128,7 +128,7 @@ export function clientBookingReceivedEmail(booking: any) {
 
     <div style="background: #fef9c3; border: 1px solid #fde047; border-radius: 8px; padding: 16px; margin: 24px 0 0 0;">
       <p style="margin: 0; color: #1a1a1a; font-size: 14px; line-height: 1.7;">
-        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (2-hour arrival window) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :)
+        <strong>To recap:</strong> we are scheduling you for ${date} @ ${startTime} (2-hour arrival window) at the rate of $${rate}/hr${booking.max_hours ? ` (max ${booking.max_hours} hours, capped per your request)` : ''} paid via the secure payment link we text you (Apple Pay, card, or Cash App) 30 minutes before service completion. You will receive a text from the system when 30 minutes out from completion. We have a no cancellation policy for the first service so I want to make sure all is correct :) <strong>${ARRIVAL_WINDOW_NOTE}</strong>
       </p>
       <p style="margin: 12px 0 0 0; color: #1a1a1a; font-size: 13px; line-height: 1.7;">
         ${(booking.team_size || 1) > 1
@@ -290,7 +290,7 @@ export function clientConfirmationEmail(booking: any) {
 
     <h2 style="font-size: 18px; font-weight: 600; color: #000; margin: 0 0 16px 0;">What to expect</h2>
     <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 0 0 16px 0;">
-      ${escapeHtml(cleanerFirst)} will arrive within your 2-hour arrival window shown above. Once ${escapeHtml(cleanerFirst)} arrives, they'll provide a thorough, quality service. If you forgot to mention something, just let ${escapeHtml(cleanerFirst)} know — that's the best part about our hourly pricing model.
+      ${escapeHtml(cleanerFirst)} will arrive within your 2-hour arrival window shown above. ${ARRIVAL_WINDOW_NOTE} Once ${escapeHtml(cleanerFirst)} arrives, they'll provide a thorough, quality service. If you forgot to mention something, just let ${escapeHtml(cleanerFirst)} know — that's the best part about our hourly pricing model.
     </p>
 
     ${divider()}
@@ -371,6 +371,8 @@ export function clientReminderEmail(booking: any, daysOut: string) {
       ${infoRow('Arrival window', startTime)}
       ${infoRow('Cleaner', escapeHtml(cleanerName))}
     `)}
+
+    <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 16px 0 0 0;">${ARRIVAL_WINDOW_NOTE}</p>
 
     ${primaryButton('View Details', 'https://www.thenycmaid.com/book')}
 
@@ -1043,6 +1045,8 @@ export function clientRescheduleEmail(booking: any, oldDate: string, oldTime: st
       ${infoRow('Cleaner', escapeHtml(cleanerName))}
       ${infoRow('Service', escapeHtml(booking.service_type))}
     `)}
+
+    <p style="color: #333; font-size: 14px; line-height: 1.7; margin: 16px 0 0 0;">${ARRIVAL_WINDOW_NOTE}</p>
 
     ${primaryButton('View in Portal', 'https://www.thenycmaid.com/book')}
 

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import AddressAutocomplete from '@/components/AddressAutocomplete'
 import { validateEmail } from '@/lib/validate-email'
 import { formatPhone } from '@/lib/format'
+import { ARRIVAL_WINDOW_NOTE } from '@/lib/time-window'
 
 function trackBookingEvent(action: string, sessionId: string, extra: Record<string, unknown> = {}) {
   try {
@@ -457,6 +458,7 @@ function BookFormContent() {
                   )
                 })}
               </select>
+              <p className="text-[11px] text-gray-500 mt-1">{ARRIVAL_WINDOW_NOTE}</p>
               {dayMessage && <p className="text-[11px] text-amber-600 mt-1">{dayMessage}</p>}
               {!dayMessage && daySlots.length > 0 && daySlots.every(s => !s.available) && (
                 <p className="text-[11px] text-amber-600 mt-1">That day is fully booked — pick another date or join the waitlist below.</p>
@@ -716,7 +718,7 @@ function BookFormContent() {
               <li><strong>2 or more cleaners = 4-hour minimum</strong>, no discounts, and <strong>48 hours notice required</strong>. A multi-cleaner booking with under 48 hours notice is billed at emergency pricing (<strong>$89/hr</strong>).</li>
               <li><strong>First-time bookings CANNOT be cancelled or rescheduled.</strong> We hold the slot and turn other clients away.</li>
               <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel.</li>
-              <li>Hourly billing in 30-min increments. 30-min weekday / 60-min weekend arrival window.</li>
+              <li>Hourly billing in 30-min increments. <strong>2-hour arrival window</strong> — we can&apos;t give an exact arrival time, even day-of; cleaners usually arrive within the first 30 minutes, but please plan for the full window.</li>
               <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App).</li>
             </ul>
             <label className="flex items-start gap-2 mt-3 pt-3 border-t border-red-200 cursor-pointer">
@@ -758,6 +760,7 @@ function BookFormContent() {
           <div className="bg-gray-50 border border-gray-100 rounded-lg p-4 mb-4 text-sm space-y-1.5 text-[#1E2A4A]">
             <div><span className="text-gray-500">Service:</span> {form.service_type}</div>
             <div><span className="text-gray-500">When:</span> {form.date} @ {form.time}</div>
+            <div className="text-xs text-gray-500">{ARRIVAL_WINDOW_NOTE}</div>
             <div><span className="text-gray-500">Address:</span> {form.address}{form.unit ? `, ${form.unit}` : ''}</div>
             <div><span className="text-gray-500">Rate:</span> ${hourlyRate}/hr × ~{estimatedHours} hrs{form.team_size > 1 ? ` × ${form.team_size} cleaners` : ''}{form.team_size > 1 ? ' (4-hr minimum)' : ''}</div>
             <div className="pt-1 border-t border-gray-200"><span className="text-gray-500">Estimated total:</span> <span className="font-semibold">~${Math.max(0, estimatedTotal - selfBookingDiscount)}</span> {selfBookingDiscount > 0
@@ -770,7 +773,7 @@ function BookFormContent() {
             <ul className="list-disc list-inside space-y-0.5">
               <li>Hourly billing in 30-min increments at the rate above (no flat total)</li>
               <li><strong>2-hour minimum</strong> (first-time cleanings included); <strong>2+ cleaners = 4-hour minimum</strong>, no discounts, and 48 hours notice required (under 48 hours = $89/hr emergency rate)</li>
-              <li>30-min weekday / 60-min weekend arrival window</li>
+              <li><strong>2-hour arrival window</strong> — no exact arrival time, even day-of; cleaners usually arrive within the first 30 minutes, but please plan for the full window</li>
               <li><strong>No-cancellation policy on this first booking</strong> — first-time bookings can&apos;t be cancelled or rescheduled</li>
               <li><strong>Recurring service</strong> (weekly / biweekly / monthly) requires <strong>7 days notice</strong> to reschedule or cancel</li>
               <li>Payment due 30 min before completion via our secure payment link (Apple Pay, card, or Cash App)</li>

@@ -3,6 +3,7 @@ import { supabaseAdmin } from '@/lib/supabase'
 import { sendSMS } from '@/lib/nycmaid/sms'
 import { smsAdmins } from '@/lib/admin-contacts'
 import { notify } from '@/lib/nycmaid/notify'
+import { clientArrivalWindow } from '@/lib/time-window'
 
 export async function GET(_request: Request, { params }: { params: Promise<{ token: string }> }) {
   const { token } = await params
@@ -62,13 +63,18 @@ export async function POST(_request: Request, { params }: { params: Promise<{ to
   const newNotes = (cur?.notes || '') + '\n[Client accepted terms ' + new Date().toISOString() + ']'
   await supabaseAdmin.from('bookings').update({ notes: newNotes }).eq('id', booking.id)
 
+  // Client sees a 2-hour arrival window; admin messages below keep the exact start time.
   const startTime = new Date(booking.start_time).toLocaleString('en-US', {
     timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit',
   })
+  const startDate = new Date(booking.start_time).toLocaleDateString('en-US', {
+    timeZone: 'America/New_York', weekday: 'short', month: 'short', day: 'numeric',
+  })
+  const arrivalWindow = `${startDate}, arrival window ${clientArrivalWindow(booking.start_time)}`
   const client = booking.clients as unknown as { name?: string; phone?: string } | null
 
   if (client?.phone) {
-    await sendSMS(client.phone, `Got it — terms accepted for ${startTime}. We're assigning your cleaner now and will send your full booking confirmation with cleaner details once locked in.`, {
+    await sendSMS(client.phone, `Got it — terms accepted for ${arrivalWindow}. We're assigning your cleaner now and will send your full booking confirmation with cleaner details once locked in.`, {
       skipConsent: true, smsType: 'terms_accepted', bookingId: booking.id,
     }).catch(() => {})
   }

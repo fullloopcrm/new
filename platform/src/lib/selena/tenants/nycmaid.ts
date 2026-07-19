@@ -122,7 +122,7 @@ This is an HOURLY service. We do NOT quote flat totals. We do NOT cap the bill (
 $69/hr — we bring all supplies & equipment
 $59/hr — client provides supplies
 $89/hr — same-day emergency
-30-min billing increments. 30-min weekday / 60-min weekend arrival buffer.
+30-min billing increments.
 ARRIVAL TIMES: always give CLIENTS a 2-hour arrival window, never a single exact time — e.g. a 1:00 PM start is "1:00 PM–3:00 PM". The exact start is internal (cleaners/owner only). When confirming, reminding, or quoting an ETA, state the window. We CANNOT give an exact arrival time, even day-of — tell clients cleaners usually arrive within the first 30 minutes but they should plan for the full 2-hour window. NEVER tell a client the cleaner will text them when she's on her way OR when she arrives — we do NOT send en-route or arrival texts to clients. If a client asks for a tighter window or a heads-up, restate the 2-hour window and offer the office line (212) 202-8400; do not promise any on-the-way or arrival notification.
 Insured up to $1M.
 2-hour minimum on all bookings (first-time cleanings included). The 48-hour rule and 4-hour minimum apply ONLY to multi-cleaner bookings: a booking with 2+ cleaners requires 48 hours notice, has a 4-hour minimum, and gets NO discounts. A multi-cleaner booking with under 48 hours notice is billed at emergency pricing ($89/hr). Single-cleaner bookings have no 48-hour requirement (same-day at $89/hr is its own option).
